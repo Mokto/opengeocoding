@@ -26,21 +26,5 @@ services:
       - manticore_data:/var/lib/manticore
 #      - ./manticore.conf:/etc/manticoresearch/manticore.conf # uncommment if you use a custom config
 
-  db:
-    image: mysql/mysql-server:8.0.32-1.2.11-server
-    restart: always
-    environment:
-      MYSQL_DATABASE: 'db'
-      MYSQL_USER: 'user'
-      MYSQL_PASSWORD: 'password'
-      MYSQL_ROOT_PASSWORD: 'password'
-    ports:
-      - '3306:3306'
-    expose:
-      - '3306'
-    volumes:
-      - my-db:/var/lib/mysql
 volumes:
-  my-db:
   manticore_data:
-#     external: true

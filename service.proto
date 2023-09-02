@@ -1,0 +1,29 @@
+syntax = "proto3";
+package libpostal;
+option go_package = "opengeocoding";
+
+service OpenGeocoding {
+    rpc Forward(ForwardRequest) returns (ForwardResponse) {}
+}
+
+message ForwardRequest {
+    string address = 1;
+}
+
+message ForwardResponse {
+    Location location = 1;
+}
+
+message Location {
+    optional int64 id = 1;
+    optional string street = 2;
+    optional string number = 3;
+    optional string unit = 4;
+    optional string city = 5;
+    optional string district = 6;
+    optional string region = 7;
+    optional string postcode = 8;
+    optional float lat = 9;
+    optional float long = 10;
+    optional string country_code = 11;
+}
