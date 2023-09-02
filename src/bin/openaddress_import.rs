@@ -1,6 +1,5 @@
-pub mod openaddresses;
-
-use openaddresses::extract_openaddresses;
+extern crate opengeocoding;
+use opengeocoding::openaddresses::extract_openaddresses;
 // use storage::run_clickhouse;
 
 #[tokio::main]
