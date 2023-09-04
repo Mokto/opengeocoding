@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -119,9 +120,13 @@ func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.Forwar
 }
 
 func main() {
+	manticoresearch_endpoint := os.Getenv("MANTICORESEARCH_ENDPOINT")
+	if manticoresearch_endpoint == "" {
+		manticoresearch_endpoint = "localhost"
+	}
 
 	fmt.Println("Connecting to database")
-	database, err := sql.Open("mysql", "tcp(localhost:9306)/")
+	database, err := sql.Open("mysql", "tcp("+manticoresearch_endpoint+":9306)/")
 	if err != nil {
 		panic(err)
 	}
