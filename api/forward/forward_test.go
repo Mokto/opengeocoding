@@ -17,6 +17,8 @@ func TestForward(t *testing.T) {
 		"Geislersgade 14, 4 2300 Copenhagen",
 		"Geislersgade 14, 3 mf 2300 Copenhagen S",
 		"461 W Main St, Cheshire, 06410",
+		"The Book Club 100-106 Leonard St Shoreditch London EC2A 4RH, United Kingdom",
+		"781 Franklin Ave Crown Heights Brooklyn NYC NY 11216 USA",
 	}
 
 	for _, query := range queries {

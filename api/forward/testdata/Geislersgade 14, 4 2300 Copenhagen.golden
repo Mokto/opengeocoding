@@ -1,12 +1,12 @@
 {
   "street": "Geislersgade",
-  "number": "16A",
+  "number": "4C",
   "unit": "",
   "city": "København S",
   "district": "",
   "region": "Region Hovedstaden",
   "postcode": "2300",
-  "lat": 55.663967,
-  "long": 12.605572,
+  "lat": 55.66449,
+  "long": 12.605487,
   "country_code": "dk"
 }
