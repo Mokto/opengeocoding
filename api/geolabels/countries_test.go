@@ -1,4 +1,4 @@
-package countries
+package geolabels
 
 import (
 	"testing"

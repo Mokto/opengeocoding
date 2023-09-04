@@ -1,5 +1,11 @@
 # Open geocoding
 
+Based on 3 sub-projects:
+
+- api: golang based tool that start a GRPC & HTTP server to server forward geocoding requests
+- importers: rust based fast importers of open source data (for now just openaddresses)
+- generators: useful to generate necessary mapping for the API. For example a JSON file that mapping a city name to all its language variations
+
 ## Dev Dependencies
 
 - Gow for reload the golang server when changing any file (go install github.com/mitranim/gow@latest)

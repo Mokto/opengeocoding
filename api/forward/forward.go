@@ -3,7 +3,7 @@ package forward
 import (
 	"database/sql"
 	"fmt"
-	"geocoding/countries"
+	"geocoding/geolabels"
 	"geocoding/parser"
 	"geocoding/proto"
 	"log"
@@ -26,25 +26,29 @@ func Forward(database *sql.DB, address string) (*proto.Location, error) {
 		match += "@street " + escape_sql(parsed.Road) + " "
 	}
 	if parsed.City != "" {
-		match += "@city \"" + escape_sql(parsed.City) + " CPH Cobanhavan Copenaga Copenaghen Copenaguen Copenhaga Copenhagen Copenhague Copenhaguen Copenhaguen Kobenhavn Copenhaguen København Cóbanhávan Hafnia Kapehngagen Kaupmannahoefn Kaupmannahöfn Keypmannahavn Kjobenhavn Kjopenhamn Kjøpenhamn Kobenhamman Kobenhaven Kobenhavn Kodan Kodaň Koebenhavn Koeoepenhamina Koepenhamn Kopenage Kopenchage Kopengagen Kopenhaagen Kopenhag Kopenhaga Kopenhage Kopenhagen Kopenhagena Kopenhago Kopenhāgena Kopenkhagen Koppenhaga Koppenhága Kòpenhaga Köbenhavn Köpenhamn Kööpenhamina København Københámman\"/1 "
+		cities := []string{}
+		for _, city := range geolabels.ExpandCityLabel(parsed.City) {
+			cities = append(cities, escape_sql(city))
+		}
+		match += "@city \"" + strings.Join(cities, " ") + " \"/1 "
 	}
 	if parsed.Postcode != "" || parsed.Unit != "" || parsed.HouseNumber != "" {
 		match += " MAYBE ("
 		submatch := []string{}
 		if parsed.Postcode != "" {
-			submatch = append(submatch, " @(postcode,unit) "+escape_sql(parsed.Postcode)+" ")
+			submatch = append(submatch, "@(postcode,unit) "+escape_sql(parsed.Postcode)+" ")
 		}
 		if parsed.Unit != "" {
-			submatch = append(submatch, " @unit "+escape_sql(parsed.Unit)+" ")
+			submatch = append(submatch, "@unit \""+escape_sql(parsed.Unit)+"\"/1 ")
 		}
 		if parsed.HouseNumber != "" {
-			submatch = append(submatch, " @number "+escape_sql(parsed.HouseNumber)+" ")
+			submatch = append(submatch, "@number \""+escape_sql(parsed.HouseNumber)+"\"/1 ")
 		}
 		match += strings.Join(submatch, " | ")
 		match += ")"
 	}
 	if parsed.Country != "" {
-		countryCode := countries.GetCountryCodeFromLabel(parsed.Country)
+		countryCode := geolabels.GetCountryCodeFromLabel(parsed.Country)
 		if countryCode != "" {
 			additionalQuery += " AND country_code = '" + countryCode + "'"
 		}
