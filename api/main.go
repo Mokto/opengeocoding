@@ -9,11 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"libpostal/proto"
+	"geocoding/countries"
+	"geocoding/proto"
 
 	_ "github.com/go-sql-driver/mysql"
 
 	expand "github.com/openvenues/gopostal/expand"
+
+	"geocoding/parser"
 
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -24,17 +27,57 @@ type opengeocodingServer struct {
 	proto.UnimplementedOpenGeocodingServer
 }
 
-func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.ForwardRequest) (*proto.ForwardResponse, error) {
-	options := expand.GetDefaultExpansionOptions()
-	options.Languages = []string{"en"}
-	allAddresses := expand.ExpandAddressOptions(request.Address, options)
+// Make the string SQL safe
+func escape_sql(s string) string {
+	return strings.ReplaceAll(s, "'", "\\'")
+}
 
-	matches := []string{}
-	for _, address := range allAddresses {
-		matches = append(matches, fmt.Sprintf(`"%s"/0.6`, address))
+func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.ForwardRequest) (*proto.ForwardResponse, error) {
+
+	parsed := parser.ParseAddress(request.Address)
+
+	match := ""
+	additionalQuery := ""
+	if parsed.Road != "" {
+		match += "@street " + escape_sql(parsed.Road) + " "
+	}
+	if parsed.City != "" {
+		match += "@city \"" + escape_sql(parsed.City) + " CPH Cobanhavan Copenaga Copenaghen Copenaguen Copenhaga Copenhagen Copenhague Copenhaguen Copenhaguen Kobenhavn Copenhaguen København Cóbanhávan Hafnia Kapehngagen Kaupmannahoefn Kaupmannahöfn Keypmannahavn Kjobenhavn Kjopenhamn Kjøpenhamn Kobenhamman Kobenhaven Kobenhavn Kodan Kodaň Koebenhavn Koeoepenhamina Koepenhamn Kopenage Kopenchage Kopengagen Kopenhaagen Kopenhag Kopenhaga Kopenhage Kopenhagen Kopenhagena Kopenhago Kopenhāgena Kopenkhagen Koppenhaga Koppenhága Kòpenhaga Köbenhavn Köpenhamn Kööpenhamina København Københámman\"/1 "
+	}
+	if parsed.Postcode != "" {
+		match += "| @(postcode,unit) " + escape_sql(parsed.Postcode) + " "
+	}
+	if parsed.Unit != "" {
+		match += "| @unit " + escape_sql(parsed.Unit) + " "
+	}
+	if parsed.HouseNumber != "" {
+		match += "| @number " + escape_sql(parsed.HouseNumber) + " "
+	}
+	// need to add country to the table
+	if parsed.Country != "" {
+		fmt.Println(parsed.Country)
+		countryCode := countries.GetCountryCodeFromLabel(parsed.Country)
+		fmt.Println(countryCode)
+		if countryCode != "" {
+			additionalQuery += " AND country_code = '" + countryCode + "'"
+		}
 	}
 
-	rows, err := s.database.Query(`SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM openaddresses WHERE MATCH('` + strings.Join(matches, "|") + `') limit 1`)
+	options := expand.GetDefaultExpansionOptions()
+	options.Languages = []string{"en"}
+	// allAddresses := expand.ExpandAddressOptions(request.Address, options)
+
+	// matches := []string{}
+	// for _, address := range allAddresses {
+	// 	matches = append(matches, fmt.Sprintf(`"%s"/0.6`, address))
+	// }
+
+	// query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM openaddresses WHERE MATCH('@(street,number,unit,city,district,region,postcode) ` + strings.Join(matches, "|") + `') LIMIT 1 OPTION ranker=sph04, field_weights=(street=10,number=2,unit=2,city=4,district=6,region=6,postcode=8)`
+	query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM openaddresses WHERE MATCH('` + match + `') ` + additionalQuery + ` LIMIT 1`
+
+	fmt.Println(query)
+
+	rows, err := s.database.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +113,6 @@ func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.Forwar
 				CountryCode: &country_code,
 			},
 		}, nil
-		// log.Printf("id %d street is %s\n", id, street)
 	}
 
 	return &proto.ForwardResponse{}, nil

@@ -1,4 +1,4 @@
-module libpostal
+module geocoding
 
 go 1.20
 
