@@ -28,14 +28,20 @@ func Forward(database *sql.DB, address string) (*proto.Location, error) {
 	if parsed.City != "" {
 		match += "@city \"" + escape_sql(parsed.City) + " CPH Cobanhavan Copenaga Copenaghen Copenaguen Copenhaga Copenhagen Copenhague Copenhaguen Copenhaguen Kobenhavn Copenhaguen København Cóbanhávan Hafnia Kapehngagen Kaupmannahoefn Kaupmannahöfn Keypmannahavn Kjobenhavn Kjopenhamn Kjøpenhamn Kobenhamman Kobenhaven Kobenhavn Kodan Kodaň Koebenhavn Koeoepenhamina Koepenhamn Kopenage Kopenchage Kopengagen Kopenhaagen Kopenhag Kopenhaga Kopenhage Kopenhagen Kopenhagena Kopenhago Kopenhāgena Kopenkhagen Koppenhaga Koppenhága Kòpenhaga Köbenhavn Köpenhamn Kööpenhamina København Københámman\"/1 "
 	}
-	if parsed.Postcode != "" {
-		match += "| @(postcode,unit) " + escape_sql(parsed.Postcode) + " "
-	}
-	if parsed.Unit != "" {
-		match += "| @unit " + escape_sql(parsed.Unit) + " "
-	}
-	if parsed.HouseNumber != "" {
-		match += "| @number " + escape_sql(parsed.HouseNumber) + " "
+	if parsed.Postcode != "" || parsed.Unit != "" || parsed.HouseNumber != "" {
+		match += " MAYBE ("
+		submatch := []string{}
+		if parsed.Postcode != "" {
+			submatch = append(submatch, " @(postcode,unit) "+escape_sql(parsed.Postcode)+" ")
+		}
+		if parsed.Unit != "" {
+			submatch = append(submatch, " @unit "+escape_sql(parsed.Unit)+" ")
+		}
+		if parsed.HouseNumber != "" {
+			submatch = append(submatch, " @number "+escape_sql(parsed.HouseNumber)+" ")
+		}
+		match += strings.Join(submatch, " | ")
+		match += ")"
 	}
 	if parsed.Country != "" {
 		countryCode := countries.GetCountryCodeFromLabel(parsed.Country)
@@ -54,7 +60,7 @@ func Forward(database *sql.DB, address string) (*proto.Location, error) {
 	// }
 
 	// query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM openaddresses WHERE MATCH('@(street,number,unit,city,district,region,postcode) ` + strings.Join(matches, "|") + `') LIMIT 1 OPTION ranker=sph04, field_weights=(street=10,number=2,unit=2,city=4,district=6,region=6,postcode=8)`
-	query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM openaddresses WHERE MATCH('` + match + `') ` + additionalQuery + ` LIMIT 1`
+	query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM openaddresses WHERE MATCH('` + match + `') ` + additionalQuery + ` LIMIT 1 OPTION field_weights=(street=10,number=2,unit=2,city=4,district=6,region=6,postcode=8)`
 
 	fmt.Println(query)
 

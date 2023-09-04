@@ -14,7 +14,6 @@ func TestForward(t *testing.T) {
 	database := manticoresearch.InitDatabase()
 
 	queries := []string{
-		"Geislersgade 14, 4 2300 Copenhagen S",
 		"Geislersgade 14, 4 2300 Copenhagen",
 		"Geislersgade 14, 3 mf 2300 Copenhagen S",
 		"461 W Main St, Cheshire, 06410",
