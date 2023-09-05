@@ -1,9 +1,6 @@
 package parser
 
 import (
-	"encoding/json"
-	"fmt"
-
 	parser "github.com/openvenues/gopostal/parser"
 )
 
@@ -84,8 +81,8 @@ func ParseAddress(address string) ParsedAddress {
 		}
 	}
 
-	res, _ := json.Marshal(result)
-	fmt.Println(string(res))
+	// res, _ := json.Marshal(result)
+	// fmt.Println(string(res))
 
 	return result
 }

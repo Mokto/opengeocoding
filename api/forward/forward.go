@@ -2,14 +2,11 @@ package forward
 
 import (
 	"database/sql"
-	"fmt"
 	"geocoding/geolabels"
 	"geocoding/parser"
 	"geocoding/proto"
 	"log"
 	"strings"
-
-	expand "github.com/openvenues/gopostal/expand"
 )
 
 // Make the string SQL safe
@@ -54,19 +51,8 @@ func Forward(database *sql.DB, address string) (*proto.Location, error) {
 		}
 	}
 
-	options := expand.GetDefaultExpansionOptions()
-	options.Languages = []string{"en"}
-	// allAddresses := expand.ExpandAddressOptions(request.Address, options)
-
-	// matches := []string{}
-	// for _, address := range allAddresses {
-	// 	matches = append(matches, fmt.Sprintf(`"%s"/0.6`, address))
-	// }
-
 	// query := `OPTION ranker=sph04, field_weights=(street=10,number=2,unit=2,city=4,district=6,region=6,postcode=8)`
 	query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM openaddresses WHERE MATCH('` + match + `') ` + additionalQuery + ` LIMIT 1 OPTION field_weights=(street=10,number=4,unit=2,city=9,district=6,region=6,postcode=8)`
-
-	fmt.Println(query)
 
 	rows, err := database.Query(query)
 	if err != nil {

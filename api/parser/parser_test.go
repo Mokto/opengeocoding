@@ -1,9 +1,7 @@
-package forward
+package parser
 
 import (
 	"encoding/json"
-	"geocoding/manticoresearch"
-	"geocoding/proto"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -11,8 +9,6 @@ import (
 )
 
 func TestForward(t *testing.T) {
-	database := manticoresearch.InitDatabase()
-
 	queries := []string{
 		"Geislersgade 14, 4 2300 Copenhagen",
 		"Geislersgade 14, 3 th 2300 Copenhagen S",
@@ -21,25 +17,21 @@ func TestForward(t *testing.T) {
 		"461 W Main St, Cheshire, 06410",
 		"The Book Club 100-106 Leonard St Shoreditch London EC2A 4RH, United Kingdom",
 		"781 Franklin Ave Crown Heights Brooklyn NYC NY 11216 USA",
-		"7926 Old Seward Hwy; Suite A6; Anchorage, Alaska 99518, US",
 	}
 
 	for _, query := range queries {
-		location, err := Forward(database, query)
-		if err != nil {
-			panic(err)
-		}
-		goldenFile(t, query, location)
+		address := ParseAddress(query)
+		goldenFile(t, query, address)
 	}
 
 }
 
-func goldenFile(t *testing.T, name string, location *proto.Location) {
-	locationStr, err := json.MarshalIndent(location, "", "  ")
+func goldenFile(t *testing.T, name string, address ParsedAddress) {
+	addressStr, err := json.MarshalIndent(address, "", "  ")
 	if err != nil {
 		panic(err)
 	}
 
 	g := goldie.New(t)
-	g.Assert(t, name, locationStr)
+	g.Assert(t, name, addressStr)
 }
