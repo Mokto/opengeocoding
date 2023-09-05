@@ -21,6 +21,8 @@ func Forward(database *sql.DB, address string) (*proto.Location, error) {
 	additionalQuery := ""
 	if parsed.Road != "" {
 		match += "@street " + escape_sql(parsed.Road) + " "
+	} else {
+		return nil, nil
 	}
 	if parsed.City != "" {
 		cities := []string{}

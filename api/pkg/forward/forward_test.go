@@ -22,6 +22,15 @@ func TestForward(t *testing.T) {
 		"The Book Club 100-106 Leonard St Shoreditch London EC2A 4RH, United Kingdom",
 		"781 Franklin Ave Crown Heights Brooklyn NYC NY 11216 USA",
 		"7926 Old Seward Hwy; Suite A6; Anchorage, Alaska 99518, US",
+		"Lawrence, Kansas, United States",
+		"Tunggak Jati Regency Blok C1 No. 26 Tunggak Jati, Kec. Karawang Barat; Karawang, Jawa Barat 41351, ID, India",
+		"146 Valero Street; The Pearlbank Centre; Makati, National Capital Region 1227, PH, Philippines",
+		"Prospect House; Colliery Close; Chesterfield, Derbyshire S43 3QE, GB, United Kingdom",
+		"Vicenza, Veneto, Italy",
+		"Suite 4420, 17B Farnham Street; Parnell, Auckland 1052, NZ, New Zealand",
+		"Rathsfelder Straße 6b; Nordhausen, Thuringia 99734, DE",
+		"Roma, Rm, Italy",
+		"Herne Bay, United Kingdom",
 	}
 
 	for _, query := range queries {
