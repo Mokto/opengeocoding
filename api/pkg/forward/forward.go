@@ -2,6 +2,7 @@ package forward
 
 import (
 	"database/sql"
+	"fmt"
 	"geocoding/pkg/geolabels"
 	"geocoding/pkg/parser"
 	"geocoding/pkg/proto"
@@ -16,6 +17,51 @@ func escape_sql(s string) string {
 
 func Forward(database *sql.DB, address string) (*proto.Location, error) {
 	parsed := parser.ParseAddress(address)
+
+	if parsed.Road == "" {
+		if parsed.City == "" || parsed.Country == "" {
+			return nil, nil
+		}
+
+		countryCode := geolabels.GetCountryCodeFromLabel(parsed.Country)
+		if countryCode == "" {
+			return nil, nil
+		}
+		cities := []string{}
+		cities_exact := []string{}
+		for _, city := range geolabels.ExpandCityLabel(parsed.City) {
+			cities = append(cities, escape_sql(city))
+			cities_exact = append(cities_exact, "^"+escape_sql(city)+"$")
+		}
+		query := `SELECT city, region, lat, long, country_code FROM geonames_cities WHERE MATCH('@city "` + strings.Join(cities, " ") + `"/1 | ` + strings.Join(cities_exact, ` | `) + `') AND country_code = '` + countryCode + `' ORDER BY weight() DESC, population DESC LIMIT 1 OPTION ranker=wordcount`
+		fmt.Println(query)
+
+		rows, err := database.Query(query)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var (
+				city         string
+				region       string
+				lat          float32
+				long         float32
+				country_code string
+			)
+			if err := rows.Scan(&city, &region, &lat, &long, &country_code); err != nil {
+				log.Fatal(err)
+			}
+			return &proto.Location{
+				City:        &city,
+				Region:      &region,
+				Lat:         &lat,
+				Long:        &long,
+				CountryCode: &country_code,
+			}, nil
+		}
+	}
 
 	match := ""
 	additionalQuery := ""

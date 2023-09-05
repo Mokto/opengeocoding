@@ -21,6 +21,7 @@ pub async fn extract_cities() {
         let longitude = record.get(5).unwrap();
         let feature_class = record.get(6).unwrap();
         let country_code = record.get(8).unwrap().to_lowercase();
+        let population = record.get(14).unwrap();
 
         if feature_class != "P" {
             return None;
@@ -34,6 +35,7 @@ pub async fn extract_cities() {
             region: "".to_string(),
             lat: latitude.parse().unwrap(),
             long: longitude.parse().unwrap(),
+            population: population.parse().unwrap(),
         });
     });
 
@@ -53,18 +55,19 @@ pub async fn extract_cities() {
             continue;
         }
         let query = format!(
-            "REPLACE INTO geoname_cities(id,city,region,lat,long,country_code) VALUES {};",
+            "REPLACE INTO geonames_cities(id,city,region,lat,long,country_code,population) VALUES {};",
             documents
                 .map(|doc| {
                     let doc = doc.as_ref().unwrap();
                     return format!(
-                        r"({},'{}','{}',{},{},'{}')",
+                        r"({},'{}','{}',{},{},'{}', {})",
                         doc.id,
                         clean_string(&doc.city),
                         clean_string(&doc.region),
-                        &doc.lat,
-                        &doc.long,
-                        doc.country_code
+                        doc.lat,
+                        doc.long,
+                        doc.country_code,
+                        doc.population,
                     );
                 })
                 .join(", ")

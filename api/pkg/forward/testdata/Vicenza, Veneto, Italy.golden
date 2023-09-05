@@ -1,1 +1,7 @@
-null
+{
+  "city": "Vicenza",
+  "region": "",
+  "lat": 45.54672,
+  "long": 11.5475,
+  "country_code": "it"
+}

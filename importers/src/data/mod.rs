@@ -11,6 +11,7 @@ pub struct CityDocument {
     // pub postcode: String,
     pub lat: f64,
     pub long: f64,
+    pub population: u32,
 }
 
 #[derive(Serialize, Deserialize)]

@@ -30,6 +30,6 @@ CREATE TABLE IF NOT EXISTS openaddresses(street text, number text, unit text, ci
 ALTER CLUSTER manticore_cluster ADD openaddresses
 
 
-CREATE TABLE IF NOT EXISTS geoname_cities(city text, region text, lat float, long float, country_code string)  rt_mem_limit = '1G'
+CREATE TABLE IF NOT EXISTS geonames_cities(city text, region text, lat float, long float, country_code string, population int)  rt_mem_limit = '1G'
 
-ALTER CLUSTER manticore_cluster ADD geoname_cities
+ALTER CLUSTER manticore_cluster ADD geonames_cities
