@@ -1,9 +1,7 @@
 extern crate opengeocoding;
-use opengeocoding::openaddresses::extract_openaddresses;
-// use storage::run_clickhouse;
+use opengeocoding::openaddresses::import_addresses;
 
 #[tokio::main]
 async fn main() {
-    // storage::run_clickhouse().await.unwrap();
-    extract_openaddresses().await;
+    import_addresses().await;
 }

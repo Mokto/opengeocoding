@@ -11,6 +11,10 @@ path = "src/bin/openaddress_import.rs"
 name = "openstreetmap_import"
 path = "src/bin/openstreetmap_import.rs"
 
+[[bin]]
+name = "geonames_import"
+path = "src/bin/geonames_import.rs"
+
 [dependencies]
 tokio = { version = "1.32.0", features = ["full"] }
 serde_json = "1.0"
@@ -18,3 +22,4 @@ serde = { version = "1.0", features = ["derive"] }
 itertools = "0.11.0"
 zip = "0.6"
 mysql = { version = "24.0.0", features = ["default"]}
+csv = "1.2.2"

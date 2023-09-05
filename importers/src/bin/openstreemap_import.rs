@@ -1,9 +1,8 @@
 extern crate opengeocoding;
 
-use std::io::prelude::*;
-use std::{fs, vec};
-
-use crate::data::{calculate_hash, Document, GeoPoint};
+use crate::opengeocoding::openstreetmap::extract_all;
 
 #[tokio::main]
-async fn main() {}
+async fn main() {
+    extract_all().await;
+}

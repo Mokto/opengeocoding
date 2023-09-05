@@ -4,16 +4,16 @@ use mysql::*;
 use std::io::prelude::*;
 use std::{fs, vec};
 
-use crate::data::{calculate_hash, Document, GeoPoint};
+use crate::data::{calculate_hash, AddressDocument, GeoPoint};
 
-pub async fn extract_openaddresses() {
+pub async fn import_addresses() {
     let fname = std::path::Path::new("data/collection-global.zip");
     let file = fs::File::open(fname).unwrap();
 
     let mut archive = zip::ZipArchive::new(file).unwrap();
 
-    // let start_from: Option<&str> = None;
-    let start_from = Some("us/oh/ross-addresses-county.geojson");
+    let start_from: Option<&str> = None;
+    // let start_from = Some("us/oh/ross-addresses-county.geojson");
 
     let exclude_files: Vec<String> = vec![];
 
@@ -87,7 +87,7 @@ async fn string_to_db(content: String, country_code: String, file_name: String) 
         if geometry.r#type != "Point" {
             return None;
         }
-        return Some(Document {
+        return Some(AddressDocument {
             id: calculate_hash(&p.properties),
             street: p.properties.street.unwrap_or("".to_string()),
             number: p.properties.number.unwrap_or("".to_string()),

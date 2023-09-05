@@ -1,5 +1,6 @@
 /importers/target
-/data
+
 .DS_Store
 kreya-config
-generators/data
+/generators/data
+/importers/data
