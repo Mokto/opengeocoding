@@ -27,7 +27,7 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
-          username: OceanIoBot
+          username: Mokto
           password: ${{ secrets.GITHUB_PACKAGES_PAT }}
 
       - name: Docker meta
