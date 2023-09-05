@@ -44,9 +44,11 @@ jobs:
           platforms: linux/amd64
           # ,linux/arm/v6,linux/arm/v7,linux/arm64
           tags: |
-            ghcr.io/oceaniobot/opengeocoding-api:latest
-            ghcr.io/oceaniobot/opengeocoding-api:${{github.ref_name}}
+            ghcr.io/mokto/opengeocoding-api:latest
+            ghcr.io/mokto/opengeocoding-api:${{github.ref_name}}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
