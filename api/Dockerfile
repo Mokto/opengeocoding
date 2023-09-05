@@ -26,17 +26,17 @@ RUN go build -o main
 
 FROM golang:1.21.0-bookworm
 
-# WORKDIR /libpostal
-# RUN git clone --depth 1 https://github.com/openvenues/libpostal /libpostal && \
-#     apt-get update && apt-get install -y  curl autoconf automake libtool pkg-config && \
-#     ./bootstrap.sh && \
-#     ./configure --datadir=/tmp/libpostal_data && \
-#     make -j4 && \
-#     make install
+WORKDIR /libpostal
+RUN git clone --depth 1 https://github.com/openvenues/libpostal /libpostal && \
+    apt-get update && apt-get install -y  curl autoconf automake libtool pkg-config && \
+    ./bootstrap.sh && \
+    ./configure --datadir=/tmp/libpostal_data && \
+    make -j4 && \
+    make install
 
 WORKDIR /app
 # COPY --from=build /usr/local/lib/libpostal* /usr/local/lib
-COPY --from=build /usr/local/lib/libpostal.so.1 /usr/local/lib
+# COPY --from=build /usr/local/lib/libpostal.so.1 /usr/local/lib
 COPY --from=build /src/main /app/
 
 CMD /app/main
