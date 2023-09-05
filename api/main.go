@@ -7,9 +7,9 @@ import (
 	"log"
 	"net"
 
-	"geocoding/forward"
-	"geocoding/manticoresearch"
-	"geocoding/proto"
+	"geocoding/pkg/forward"
+	"geocoding/pkg/manticoresearch"
+	"geocoding/pkg/proto"
 
 	_ "github.com/go-sql-driver/mysql"
 	grpc "google.golang.org/grpc"

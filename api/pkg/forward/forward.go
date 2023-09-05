@@ -2,9 +2,9 @@ package forward
 
 import (
 	"database/sql"
-	"geocoding/geolabels"
-	"geocoding/parser"
-	"geocoding/proto"
+	"geocoding/pkg/geolabels"
+	"geocoding/pkg/parser"
+	"geocoding/pkg/proto"
 	"log"
 	"strings"
 )

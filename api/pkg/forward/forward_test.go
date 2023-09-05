@@ -2,8 +2,8 @@ package forward
 
 import (
 	"encoding/json"
-	"geocoding/manticoresearch"
-	"geocoding/proto"
+	"geocoding/pkg/manticoresearch"
+	"geocoding/pkg/proto"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"

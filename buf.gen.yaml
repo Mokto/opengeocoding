@@ -5,9 +5,9 @@ managed:
     default: ocean/common/proto
 plugins:
   - plugin: buf.build/grpc/go:v1.3.0
-    out: ./api/proto
+    out: ./api/pkg/proto
     opt:
       - paths=source_relative
   - plugin: buf.build/protocolbuffers/go:v1.30.0
-    out: ./api/proto
+    out: ./api/pkg/proto
     opt: paths=source_relative
