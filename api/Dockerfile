@@ -32,7 +32,7 @@ RUN git clone --depth 1 https://github.com/openvenues/libpostal /libpostal && \
     ./bootstrap.sh && \
     ./configure --datadir=/tmp/libpostal_data && \
     make -j4 && \
-    make install \
+    make install && \
     rm -rf /tmp/libpostal_data
 
 WORKDIR /app
