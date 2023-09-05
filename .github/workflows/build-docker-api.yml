@@ -28,7 +28,7 @@ jobs:
         with:
           registry: ghcr.io
           username: Mokto
-          password: ${{ secrets.GITHUB_PACKAGES_PAT }}
+          password: ${{ secrets.PACKAGES_PAT }}
 
       - name: Docker meta
         id: meta
