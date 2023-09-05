@@ -1,4 +1,4 @@
-name: docker
+name: Docker build of the API
 
 on: push
 # on:
