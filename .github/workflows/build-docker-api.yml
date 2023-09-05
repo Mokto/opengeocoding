@@ -1,11 +1,12 @@
 name: Docker build of the API
 
-on:
-  push:
-    tags:        
-        - '*'
-#     # paths:
-#     #   - ./api/**/*
+on: push
+# on:
+#   push:
+#     tags:        
+#         - '*'
+# #     # paths:
+# #     #   - ./api/**/*
 
 jobs:
   docker-build:
