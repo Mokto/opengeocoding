@@ -13,6 +13,8 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -44,6 +46,7 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
+	grpc_health_v1.RegisterHealthServer(grpcServer, health.NewServer())
 	proto.RegisterOpenGeocodingServer(grpcServer, &opengeocodingServer{
 		database: database,
 	})
