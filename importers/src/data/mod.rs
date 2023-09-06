@@ -28,28 +28,6 @@ pub struct AddressDocument {
     pub long: f64,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct GeoPointGeometry {
-    pub r#type: String,
-    pub coordinates: Vec<f64>,
-}
-#[derive(Serialize, Deserialize, Hash)]
-pub struct GeoPointProperties {
-    pub street: Option<String>,
-    pub number: Option<String>,
-    pub unit: Option<String>,
-    pub city: Option<String>,
-    pub district: Option<String>,
-    pub region: Option<String>,
-    pub postcode: Option<String>,
-}
-#[derive(Serialize, Deserialize)]
-pub struct GeoPoint {
-    pub r#type: String,
-    pub properties: GeoPointProperties,
-    pub geometry: Option<GeoPointGeometry>,
-}
-
 pub fn calculate_hash<T: Hash>(t: &T) -> u64 {
     let mut s = DefaultHasher::new();
     t.hash(&mut s);

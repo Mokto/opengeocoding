@@ -1,12 +1,61 @@
 use itertools::Itertools;
 use mysql::prelude::*;
 use mysql::*;
+use serde::{Deserialize, Serialize};
 use std::io::prelude::*;
-use std::{fs, vec};
+use std::{env, fs, vec};
 
-use crate::data::{calculate_hash, AddressDocument, GeoPoint};
+use crate::data::{calculate_hash, AddressDocument};
+
+#[derive(Serialize, Deserialize)]
+pub struct GeoPointGeometry {
+    pub r#type: String,
+    pub coordinates: Vec<f64>,
+}
+#[derive(Serialize, Deserialize, Hash)]
+pub struct GeoPointProperties {
+    pub street: Option<String>,
+    pub number: Option<String>,
+    pub unit: Option<String>,
+    pub city: Option<String>,
+    pub district: Option<String>,
+    pub region: Option<String>,
+    pub postcode: Option<String>,
+}
+#[derive(Serialize, Deserialize)]
+pub struct GeoPoint {
+    pub r#type: String,
+    pub properties: GeoPointProperties,
+    pub geometry: Option<GeoPointGeometry>,
+}
 
 pub async fn import_addresses() {
+    let table_name = "openaddresses";
+    let cluster_name = "opengeocoding_cluster";
+    let url = format!(
+        "mysql://root:password@{}:9306/default",
+        env::var("MANTICORESEARCH_ENDPOINT").unwrap_or("localhost".to_string())
+    );
+    println!("Creating table...");
+    let pool = Pool::new(Opts::from_url(url.as_str()).unwrap()).unwrap();
+    let mut conn: PooledConn = pool.get_conn().unwrap();
+
+    let query_result = conn.query_drop(format!("CREATE TABLE IF NOT EXISTS {}(street text, number text, unit text, city text, district text, region text, postcode text, lat float, long float, country_code string)  rt_mem_limit = '1G'", table_name));
+    match query_result {
+        Ok(_) => {}
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    let query_result =
+        conn.query_drop(format!("ALTER CLUSTER {} ADD {}", cluster_name, table_name));
+    match query_result {
+        Ok(_) => {}
+        Err(e) => {
+            println!("{}", e);
+        }
+    };
+
     let fname = std::path::Path::new("data/collection-global.zip");
     let file = fs::File::open(fname).unwrap();
 
@@ -71,12 +120,19 @@ pub async fn import_addresses() {
 
             let country_code = file_name.split("/").next().unwrap().to_string();
 
-            string_to_db(contents, country_code, file_name).await;
+            string_to_db(contents, country_code, file_name, &mut conn).await;
         };
     }
 }
 
-async fn string_to_db(content: String, country_code: String, file_name: String) {
+async fn string_to_db(
+    content: String,
+    country_code: String,
+    file_name: String,
+    conn: &mut PooledConn,
+) {
+    let table_name = "openaddresses";
+    let cluster_name = "opengeocoding_cluster";
     let documents = content.lines().map(|line| {
         let p: GeoPoint = serde_json::from_str(line).unwrap();
 
@@ -103,11 +159,6 @@ async fn string_to_db(content: String, country_code: String, file_name: String) 
 
     let page_size = 20000;
 
-    let url = "mysql://root:password@localhost:9306/default";
-
-    let pool = Pool::new(url).unwrap();
-    let mut conn = pool.get_conn().unwrap();
-
     for (index, chunk) in documents.chunks(page_size).into_iter().enumerate() {
         if index != 0 && index * page_size % 100000 == 0 {
             println!("Done with {} documents", index * page_size);
@@ -116,7 +167,7 @@ async fn string_to_db(content: String, country_code: String, file_name: String) 
         if !documents.peek().is_some() {
             continue;
         }
-        let query = format!("REPLACE INTO manticore_cluster:openaddresses(id,street,number,unit,city,district,region,postcode,lat,long,country_code) VALUES {};", documents.map(|doc|
+        let query = format!("REPLACE INTO {}:{}(id,street,number,unit,city,district,region,postcode,lat,long,country_code) VALUES {};", cluster_name, table_name, documents.map(|doc|
             {
                 let doc = doc.as_ref().unwrap();
                 return format!(r"({},'{}','{}','{}','{}','{}','{}','{}',{},{}, '{}')", doc.id, clean_string(&doc.street), clean_string(&doc.number), clean_string(&doc.unit), clean_string(&doc.city), clean_string(&doc.district), clean_string(&doc.region), clean_string(&doc.postcode), doc.lat, doc.long, country_code)
