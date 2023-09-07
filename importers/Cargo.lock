@@ -352,6 +352,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "collecting-hashmap"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46341f0b4913928a5393f4250eb277c04fd0ba16864e340a31dbf8fbccc08ea9"
+
+[[package]]
 name = "constant_time_eq"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1335,6 +1341,7 @@ name = "opengeocoding"
 version = "0.1.0"
 dependencies = [
  "bzip2-rs",
+ "collecting-hashmap",
  "csv",
  "geo",
  "geo-types",

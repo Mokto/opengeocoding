@@ -4,7 +4,6 @@ use csv::ReaderBuilder;
 use itertools::Itertools;
 use mysql::prelude::*;
 use mysql::*;
-use quick_csv::Csv;
 use rayon::prelude::*;
 use std::{env, fs};
 
@@ -38,7 +37,7 @@ pub async fn extract_cities() {
     println!("Done creating tables.");
 
     let region_detector = RegionDetector::new();
-    region_detector.debug();
+    // region_detector.debug();
 
     let fname = std::path::Path::new("./data/allCountries.zip");
     let file = fs::File::open(fname).unwrap();
@@ -50,8 +49,6 @@ pub async fn extract_cities() {
 
     println!("Preparing documents...");
 
-    // let documents = rdr.records().map(|result| result.unwrap().to);
-
     let documents = rdr.records().map(|result| {
         let record = result.unwrap();
         let name = record.get(1).unwrap();
@@ -60,7 +57,6 @@ pub async fn extract_cities() {
         let feature_class = record.get(6).unwrap();
         let country_code = record.get(8).unwrap().to_lowercase();
         let population = record.get(14).unwrap();
-        // let region = region_detector.detect(country_code.clone(), latitude, longitude);
 
         if feature_class != "P" {
             return None;
@@ -80,10 +76,8 @@ pub async fn extract_cities() {
 
     let page_size = 20000;
 
-    // documents.par_bridge().par(page_size).for_each(|chunk| {});
-
     for (index, chunk) in documents.chunks(page_size).into_iter().enumerate() {
-        // println!("Batch {}.", index);
+        // let now = Instant::now();
         if index != 0 && index * page_size % 100000 == 0 {
             println!("Done with {} documents", index * page_size);
         }
@@ -97,15 +91,14 @@ pub async fn extract_cities() {
             .par_iter()
             .map(|doc| {
                 let doc = doc.as_ref().unwrap();
+                let region = &region_detector
+                    .detect(doc.country_code.clone(), doc.lat, doc.long)
+                    .unwrap_or("".to_string());
                 format!(
                     r"({},'{}','{}',{},{},'{}', {})",
                     doc.id,
                     clean_string(&doc.city),
-                    clean_string(
-                        &region_detector
-                            .detect(doc.country_code.clone(), doc.lat, doc.long)
-                            .unwrap_or("".to_string())
-                    ),
+                    clean_string(region),
                     doc.lat,
                     doc.long,
                     doc.country_code,
@@ -113,22 +106,15 @@ pub async fn extract_cities() {
                 )
             })
             .collect();
-        // .map(|doc| {
-        //     let d = doc.as_ref().unwrap();
-        //     return CityDocument {
-        //         city: d.city.clone(),
-        //         region: region_detector
-        //             .detect(d.country_code, d.lat, d.long)
-        //             .unwrap_or("".to_string()),
-        //         country_code: d.country_code.clone(),
-        //         lat: d.lat,
-        //         long: d.long,
-        //         population: d.population,
-        //         id: d.id,
-        //     };
-        // })
-        // .collect();
-
+        // println!("Elapsed: {:.2?}", now.elapsed());
+        // if now.elapsed().as_millis() > 1000 {
+        //     let mut countries_result: HashMap<String, u32> = HashMap::new();
+        //     for document in documents {
+        //         let count = countries_result.get(&document);
+        //         countries_result.insert(document, count.unwrap_or(&0) + 1);
+        //     }
+        //     println!("{:?}", countries_result);
+        // }
         let query = format!(
             "REPLACE INTO {}:{}(id,city,region,lat,long,country_code,population) VALUES {};",
             cluster_name,
