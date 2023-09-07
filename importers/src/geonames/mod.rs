@@ -4,6 +4,8 @@ use csv::ReaderBuilder;
 use itertools::Itertools;
 use mysql::prelude::*;
 use mysql::*;
+use quick_csv::Csv;
+use rayon::prelude::*;
 use std::{env, fs};
 
 pub async fn extract_cities() {
@@ -48,6 +50,8 @@ pub async fn extract_cities() {
 
     println!("Preparing documents...");
 
+    // let documents = rdr.records().map(|result| result.unwrap().to);
+
     let documents = rdr.records().map(|result| {
         let record = result.unwrap();
         let name = record.get(1).unwrap();
@@ -56,7 +60,7 @@ pub async fn extract_cities() {
         let feature_class = record.get(6).unwrap();
         let country_code = record.get(8).unwrap().to_lowercase();
         let population = record.get(14).unwrap();
-        let region = region_detector.detect(country_code.clone(), latitude, longitude);
+        // let region = region_detector.detect(country_code.clone(), latitude, longitude);
 
         if feature_class != "P" {
             return None;
@@ -67,17 +71,19 @@ pub async fn extract_cities() {
             id: calculate_hash(&hash_base),
             city: name.to_string(),
             country_code: country_code.to_lowercase().to_string(),
-            region: region.unwrap_or("".to_string()),
+            region: "".to_string(), // will be calculated later
             lat: latitude,
             long: longitude,
             population: population.parse().unwrap(),
         });
     });
 
-    let page_size = 2000;
+    let page_size = 20000;
+
+    // documents.par_bridge().par(page_size).for_each(|chunk| {});
 
     for (index, chunk) in documents.chunks(page_size).into_iter().enumerate() {
-        println!("Batch {}.", index);
+        // println!("Batch {}.", index);
         if index != 0 && index * page_size % 100000 == 0 {
             println!("Done with {} documents", index * page_size);
         }
@@ -85,25 +91,49 @@ pub async fn extract_cities() {
         if !documents.peek().is_some() {
             continue;
         }
+        let documents: Vec<String> = documents
+            .into_iter()
+            .collect::<Vec<Option<CityDocument>>>()
+            .par_iter()
+            .map(|doc| {
+                let doc = doc.as_ref().unwrap();
+                format!(
+                    r"({},'{}','{}',{},{},'{}', {})",
+                    doc.id,
+                    clean_string(&doc.city),
+                    clean_string(
+                        &region_detector
+                            .detect(doc.country_code.clone(), doc.lat, doc.long)
+                            .unwrap_or("".to_string())
+                    ),
+                    doc.lat,
+                    doc.long,
+                    doc.country_code,
+                    doc.population,
+                )
+            })
+            .collect();
+        // .map(|doc| {
+        //     let d = doc.as_ref().unwrap();
+        //     return CityDocument {
+        //         city: d.city.clone(),
+        //         region: region_detector
+        //             .detect(d.country_code, d.lat, d.long)
+        //             .unwrap_or("".to_string()),
+        //         country_code: d.country_code.clone(),
+        //         lat: d.lat,
+        //         long: d.long,
+        //         population: d.population,
+        //         id: d.id,
+        //     };
+        // })
+        // .collect();
+
         let query = format!(
             "REPLACE INTO {}:{}(id,city,region,lat,long,country_code,population) VALUES {};",
             cluster_name,
             table_name,
-            documents
-                .map(|doc| {
-                    let doc = doc.as_ref().unwrap();
-                    return format!(
-                        r"({},'{}','{}',{},{},'{}', {})",
-                        doc.id,
-                        clean_string(&doc.city),
-                        clean_string(&doc.region),
-                        doc.lat,
-                        doc.long,
-                        doc.country_code,
-                        doc.population,
-                    );
-                })
-                .join(", ")
+            documents.join(", ")
         );
 
         let query_result = conn.query_drop(&query);

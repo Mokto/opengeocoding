@@ -1,40 +1,21 @@
 use bzip2_rs::DecoderReader;
 use csv::ReaderBuilder;
-use geo::algorithm::contains::Contains;
-use geo_types::geometry::Point;
-use geo_types::{Geometry, LineString, MultiPolygon, Polygon};
+use geo::Contains;
+use geo_types::{Geometry, MultiPolygon, Point, Polygon};
 use geozero::geojson::{GeoJson, GeoJsonReader};
+use geozero::ToGeo;
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{stdout, Write};
 use std::path::Path;
+use std::time::Instant;
 use tar::Archive;
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(tag = "type")]
-pub enum GeoPointGeometry {
-    MultiPolygon {
-        coordinates: Vec<Vec<Vec<Vec<f64>>>>,
-    },
-    Polygon {
-        coordinates: Vec<Vec<Vec<f64>>>,
-    },
-    Point {
-        coordinates: Vec<f64>,
-    },
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct GeoPoint {
-    pub r#type: String,
-    pub geometry: GeoPointGeometry,
-}
 
 pub struct RegionData {
     pub name: String,
-    pub geometry: GeoLibGeometry,
+    pub geometry: geo::Geometry,
 }
 
 pub enum GeoLibGeometry {
@@ -49,12 +30,14 @@ pub struct RegionDetector {
 impl RegionDetector {
     pub fn debug(&self) {
         for (country_code, regions) in &self.regions {
-            use std::time::Instant;
             let now = Instant::now();
             {
-                for _ in 0..50 {
+                (0..100).into_par_iter().for_each(|x| {
                     self.detect(country_code.to_string(), 0.0, 0.0);
-                }
+                });
+                // for _ in 0..50 {
+                //     self.detect(country_code.to_string(), 0.0, 0.0);
+                // }
             }
             let elapsed = now.elapsed();
             if now.elapsed() > std::time::Duration::from_secs(1) {
@@ -76,20 +59,8 @@ impl RegionDetector {
         let point = Point::new(long, lat);
 
         for region in regions {
-            match &region.geometry {
-                GeoLibGeometry::MultiPolygon(polygon) => {
-                    if Contains::contains(polygon, &point) {
-                        return Some(region.name.clone());
-                    }
-                }
-                GeoLibGeometry::Polygon(polygon) => {
-                    if Contains::contains(polygon, &point) {
-                        return Some(region.name.clone());
-                    }
-                }
-                GeoLibGeometry::Point => {
-                    return None;
-                }
+            if region.geometry.contains(&point) {
+                return Some(region.name.clone());
             }
         }
 
@@ -114,6 +85,7 @@ impl RegionDetector {
         }
 
         println!("Loading regions...");
+        let now = Instant::now();
 
         let mut hashmap_result = HashMap::new();
 
@@ -136,72 +108,40 @@ impl RegionDetector {
             // optimize that code later
             let country_code_temp = country_code.clone();
 
-            let file = fs::File::open(regions_folder.to_owned() + "/data/" + path);
-            // let geojson = GeoJsonReader(file.unwrap());
-            // let geojson = geojson.into().unwrap();
-            // if let Ok(Geometry::Polygon(poly)) = geojson.to_geo() {
-            //     assert_eq!(poly.centroid().unwrap(), Point::new(5.0, 3.0));
-            // }
-            // geojson
-            let geopoint: GeoPoint = serde_json::from_reader(file.unwrap()).unwrap();
+            let path = regions_folder.to_owned() + "/data/" + path;
 
-            if hashmap_result.get(&country_code).is_none() {
-                hashmap_result.insert(country_code, Vec::new());
+            let file_data = fs::read_to_string(path).unwrap();
+            let geojson = GeoJson(file_data.as_str());
+            if let Ok(Geometry::Point(_poly)) = geojson.to_geo() {
+                continue;
             }
+            match geojson.to_geo() {
+                Ok(data) => {
+                    if hashmap_result.get(&country_code).is_none() {
+                        hashmap_result.insert(country_code, Vec::new());
+                    }
 
-            hashmap_result
-                .get_mut(country_code_temp.as_str())
-                .unwrap()
-                .push(RegionData {
-                    geometry: RegionDetector::geometry_to_geolib_geometry(geopoint.geometry),
-                    name: name.to_string(),
-                });
+                    hashmap_result
+                        .get_mut(country_code_temp.as_str())
+                        .unwrap()
+                        .push(RegionData {
+                            geometry: data,
+                            name: name.to_string(),
+                        });
+                }
+                Err(_) => {
+                    continue;
+                }
+            }
         }
-        stdout.write(format!("\nDone.\n\n").as_bytes()).unwrap();
 
-        // no, ie, tz~, us, za, pl, gb, it, ru, ca
+        let elapsed = now.elapsed();
+        stdout
+            .write(format!("\nDone.\nTook {:.2?}\n", elapsed).as_bytes())
+            .unwrap();
+
         Self {
             regions: hashmap_result,
         }
-    }
-
-    fn geometry_to_geolib_geometry(geometry: GeoPointGeometry) -> GeoLibGeometry {
-        match &geometry {
-            GeoPointGeometry::MultiPolygon { coordinates } => {
-                let polygons = coordinates.into_iter().map(|polygon| {
-                    return RegionDetector::get_polygon(polygon);
-                });
-                return GeoLibGeometry::MultiPolygon(MultiPolygon::new(polygons.collect()));
-            }
-            GeoPointGeometry::Polygon { coordinates } => {
-                let polygon: Polygon = RegionDetector::get_polygon(coordinates);
-                return GeoLibGeometry::Polygon(polygon);
-            }
-            GeoPointGeometry::Point { coordinates: _ } => {
-                return GeoLibGeometry::Point;
-            }
-        }
-    }
-
-    fn get_line_string(line: &Vec<Vec<f64>>) -> LineString<f64> {
-        let line_string: Vec<(f64, f64)> = line
-            .par_iter()
-            .map(|point| {
-                return (point[0], point[1]);
-            })
-            .collect();
-        return LineString::from(line_string);
-    }
-    fn get_polygon(polygon_data: &Vec<Vec<Vec<f64>>>) -> Polygon {
-        let mut interiors = vec![];
-        for n in 1..(polygon_data.len()) {
-            interiors.push(RegionDetector::get_line_string(
-                polygon_data.get(n).unwrap(),
-            ))
-        }
-        return Polygon::new(
-            RegionDetector::get_line_string(polygon_data.get(0).unwrap()),
-            interiors,
-        );
     }
 }
