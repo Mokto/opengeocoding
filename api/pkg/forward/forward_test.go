@@ -2,12 +2,13 @@ package forward
 
 import (
 	"encoding/json"
+	"fmt"
 	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/proto"
 	"testing"
 
+	"github.com/bradleyjkemp/cupaloy"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/sebdah/goldie/v2"
 )
 
 func TestForward(t *testing.T) {
@@ -31,6 +32,7 @@ func TestForward(t *testing.T) {
 		"Rathsfelder Straße 6b; Nordhausen, Thuringia 99734, DE",
 		"Roma, Rm, Italy",
 		"Herne Bay, United Kingdom",
+		"Kansas City, Missouri, united states",
 	}
 
 	for _, query := range queries {
@@ -38,6 +40,7 @@ func TestForward(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
+		fmt.Println(location)
 		goldenFile(t, query, location)
 	}
 
@@ -49,6 +52,7 @@ func goldenFile(t *testing.T, name string, location *proto.Location) {
 		panic(err)
 	}
 
-	g := goldie.New(t)
-	g.Assert(t, name, locationStr)
+	t.Run(name, func(t *testing.T) {
+		cupaloy.SnapshotT(t, locationStr)
+	})
 }
