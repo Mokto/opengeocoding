@@ -44,9 +44,11 @@ func GenerateCountriesLabels() {
 			data += "\n"
 		}
 	}
+	data += `"usa": "us",`
+	data += "\n"
 	data += "}"
 
-	err := write.FormatAndWrite("../api/geolabels/countryLabelToCode.go", data)
+	err := write.FormatAndWrite("../api/pkg/geolabels/countryLabelToCode.go", data)
 	if err != nil {
 		panic(err)
 	}

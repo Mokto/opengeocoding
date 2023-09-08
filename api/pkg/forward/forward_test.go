@@ -2,7 +2,6 @@ package forward
 
 import (
 	"encoding/json"
-	"fmt"
 	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/proto"
 	"testing"
@@ -40,7 +39,6 @@ func TestForward(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(location)
 		goldenFile(t, query, location)
 	}
 

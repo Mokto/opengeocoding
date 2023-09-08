@@ -1,8 +1,13 @@
 package main
 
-import "generators/scripts"
+import (
+	"fmt"
+	"generators/scripts"
+)
 
 func main() {
+	fmt.Println("Generating countries...")
 	scripts.GenerateCountriesLabels()
+	fmt.Println("Generating cities...")
 	scripts.GenerateCitiesLabels()
 }

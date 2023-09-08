@@ -49,7 +49,7 @@ func GenerateCitiesLabels() {
 
 		for _, record := range allRecords {
 			if (record[1] == geonameId) && slices.Contains(languages, record[2]) {
-				if !slices.Contains(cities, record[3]) {
+				if !slices.Contains(cities, strings.ToLower(record[3])) {
 					cities = append(cities, strings.ToLower(record[3]))
 				}
 			}
@@ -70,7 +70,7 @@ func GenerateCitiesLabels() {
 
 	fmt.Println(data)
 
-	err = write.FormatAndWrite("../api/geolabels/citiesLabelGroups.go", data)
+	err = write.FormatAndWrite("../api/pkg/geolabels/citiesLabelGroups.go", data)
 	if err != nil {
 		panic(err)
 	}
