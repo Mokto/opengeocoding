@@ -1,7 +1,10 @@
 package parser
 
 import (
+	"geocoding/pkg/geolabels"
+
 	parser "github.com/openvenues/gopostal/parser"
+	"golang.org/x/exp/slices"
 )
 
 type ParsedAddress struct {
@@ -29,10 +32,50 @@ type ParsedAddress struct {
 }
 
 func ParseAddress(address string) ParsedAddress {
-	parsed := parser.ParseAddress(address)
+	components := parser.ParseAddress(address)
+
+	result := buildAddress(components)
+
+	if result.Country != "" && result.State != "" && result.City != "" {
+		countryCode := geolabels.GetCountryCodeFromLabel(result.Country)
+		if countryCode == "" {
+			countryCode = result.Country
+		}
+		state := geolabels.GetCountryCodeFromLabel(result.State)
+		if state == "" {
+			state = result.State
+		}
+		city := geolabels.GetCountryCodeFromLabel(result.City)
+		if city == "" {
+			city = result.City
+		}
+		if state == countryCode {
+			result = removeComponentAndRebuildAddress(components, "state", result.State)
+		}
+		if city == countryCode {
+			result = removeComponentAndRebuildAddress(components, "city", result.City)
+		}
+	}
+
+	return result
+}
+
+func removeComponentAndRebuildAddress(components []parser.ParsedComponent, componentToRemove string, value string) ParsedAddress {
+	components = slices.DeleteFunc(components, func(c parser.ParsedComponent) bool {
+		return c.Label == componentToRemove && c.Value == value
+	})
+	address := ""
+	for _, component := range components {
+		address += component.Value + " "
+	}
+	components = parser.ParseAddress(address)
+	return buildAddress(components)
+}
+
+func buildAddress(components []parser.ParsedComponent) ParsedAddress {
 
 	result := ParsedAddress{}
-	for _, component := range parsed {
+	for _, component := range components {
 		switch component.Label {
 		case "house":
 			result.House = component.Value
@@ -80,9 +123,5 @@ func ParseAddress(address string) ParsedAddress {
 			panic("Unknown component " + component.Label)
 		}
 	}
-
-	// res, _ := json.Marshal(result)
-	// fmt.Println(string(res))
-
 	return result
 }

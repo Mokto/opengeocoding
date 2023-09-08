@@ -24,6 +24,7 @@ func TestParser(t *testing.T) {
 		"178 Columbus Avenue; #231573; New York, NY 10023, United States",
 		"Shangjiangcheng Industrial Zone; Dongguan 523000, China",
 		"CDMX, CDMX, MX, Mexico",
+		"Wellington, Florida 33614, US, United States",
 	}
 
 	for _, query := range queries {

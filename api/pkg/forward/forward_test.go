@@ -43,6 +43,7 @@ func TestForward(t *testing.T) {
 		"22 Rue du Docteur Jean Michel; VUILLECIN, FR, France",
 		"Shangjiangcheng Industrial Zone; Dongguan 523000, China",
 		"CDMX, CDMX, MX, Mexico",
+		"Wellington, Florida 33614, US, United States",
 	}
 
 	for _, query := range queries {
