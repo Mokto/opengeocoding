@@ -1,0 +1,22 @@
+{
+  "House": "",
+  "Category": "",
+  "Near": "",
+  "HouseNumber": "",
+  "Road": "",
+  "Unit": "",
+  "Level": "",
+  "Staircase": "",
+  "Entrance": "",
+  "PoBox": "",
+  "Postcode": "",
+  "Suburb": "",
+  "CityDistrict": "",
+  "City": "cdmx",
+  "Island": "",
+  "StateDistrict": "",
+  "State": "cdmx mx",
+  "CountryRegion": "",
+  "Country": "mexico",
+  "WorldRegion": ""
+}

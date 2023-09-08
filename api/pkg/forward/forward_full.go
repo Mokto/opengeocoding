@@ -17,7 +17,7 @@ func forwardFull(database *sql.DB, parsed parser.ParsedAddress) (*proto.ForwardR
 	if parsed.Road != "" {
 		match += "@street " + escape_sql(parsed.Road) + " "
 	} else {
-		return nil, nil
+		return &proto.ForwardResult{}, nil
 	}
 	if parsed.City != "" {
 		cities := []string{}

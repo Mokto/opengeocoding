@@ -1,0 +1,14 @@
+{
+  "location": {
+    "street": "Rue du Docteur Jean Michel",
+    "number": "22",
+    "unit": "",
+    "city": "Vuillecin",
+    "district": "",
+    "region": "",
+    "postcode": "25300",
+    "lat": 46.93475,
+    "long": 6.332001,
+    "country_code": "fr"
+  }
+}

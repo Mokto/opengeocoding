@@ -39,6 +39,10 @@ func TestForward(t *testing.T) {
 		"178 Columbus Avenue; #231573; New York, NY 10023, United States",
 		"5840 Autoport Mall; San Diego, California 92121, us",
 		"Arnhem, NL, Netherlands",
+		"Calle Montes Urales Norte; Lomas de Chapultepec, Distrito Federal 11000, Mexico",
+		"22 Rue du Docteur Jean Michel; VUILLECIN, FR, France",
+		"Shangjiangcheng Industrial Zone; Dongguan 523000, China",
+		"CDMX, CDMX, MX, Mexico",
 	}
 
 	for _, query := range queries {
