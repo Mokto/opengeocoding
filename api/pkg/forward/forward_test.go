@@ -37,6 +37,8 @@ func TestForward(t *testing.T) {
 		"London",
 		"178 Columbus Avenue; #231573; New York, NY 10023, US, United States",
 		"178 Columbus Avenue; #231573; New York, NY 10023, United States",
+		"5840 Autoport Mall; San Diego, California 92121, us",
+		"Arnhem, NL, Netherlands",
 	}
 
 	for _, query := range queries {

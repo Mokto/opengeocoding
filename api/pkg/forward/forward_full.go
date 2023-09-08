@@ -76,6 +76,8 @@ func forwardFull(database *sql.DB, parsed parser.ParsedAddress) (*proto.ForwardR
 		}
 		if parsed.HouseNumber == "" {
 			number = ""
+		} else {
+			number = parsed.HouseNumber
 		}
 		if parsed.Unit == "" {
 			unit = ""
