@@ -19,6 +19,7 @@ func main() {
 	}
 
 	apis.StartGrpc(gracefulManager, database)
+	apis.StartHttp(gracefulManager, database)
 
 	gracefulManager.Wait()
 }
