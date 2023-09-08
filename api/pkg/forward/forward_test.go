@@ -32,6 +32,7 @@ func TestForward(t *testing.T) {
 		"Roma, Rm, Italy",
 		"Herne Bay, United Kingdom",
 		"Kansas City, Missouri, united states",
+		"Hillerodgade",
 	}
 
 	for _, query := range queries {

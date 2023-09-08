@@ -74,6 +74,13 @@ func forwardFull(database *sql.DB, parsed parser.ParsedAddress) (*proto.Location
 		if err := rows.Scan(&street, &number, &unit, &city, &district, &region, &postcode, &lat, &long, &country_code); err != nil {
 			log.Fatal(err)
 		}
+		if parsed.HouseNumber == "" {
+			number = ""
+		}
+		if parsed.Unit == "" {
+			unit = ""
+		}
+
 		return &proto.Location{
 			Street:      &street,
 			Number:      &number,
