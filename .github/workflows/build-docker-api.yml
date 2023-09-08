@@ -52,3 +52,10 @@ jobs:
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
+
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.PACKAGES_PAT }}"
+          prerelease: false
+          files: |
+            LICENSE
