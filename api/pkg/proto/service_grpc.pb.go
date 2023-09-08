@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	OpenGeocoding_Forward_FullMethodName = "/libpostal.OpenGeocoding/Forward"
+	OpenGeocoding_Forward_FullMethodName = "/opengeocoding.OpenGeocoding/Forward"
 )
 
 // OpenGeocodingClient is the client API for OpenGeocoding service.
@@ -96,12 +96,102 @@ func _OpenGeocoding_Forward_Handler(srv interface{}, ctx context.Context, dec fu
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var OpenGeocoding_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "libpostal.OpenGeocoding",
+	ServiceName: "opengeocoding.OpenGeocoding",
 	HandlerType: (*OpenGeocodingServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Forward",
 			Handler:    _OpenGeocoding_Forward_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "service.proto",
+}
+
+const (
+	OpenGeocodingInternal_RunQuery_FullMethodName = "/opengeocoding.OpenGeocodingInternal/RunQuery"
+)
+
+// OpenGeocodingInternalClient is the client API for OpenGeocodingInternal service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type OpenGeocodingInternalClient interface {
+	RunQuery(ctx context.Context, in *RunQueryRequest, opts ...grpc.CallOption) (*RunQueryResponse, error)
+}
+
+type openGeocodingInternalClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewOpenGeocodingInternalClient(cc grpc.ClientConnInterface) OpenGeocodingInternalClient {
+	return &openGeocodingInternalClient{cc}
+}
+
+func (c *openGeocodingInternalClient) RunQuery(ctx context.Context, in *RunQueryRequest, opts ...grpc.CallOption) (*RunQueryResponse, error) {
+	out := new(RunQueryResponse)
+	err := c.cc.Invoke(ctx, OpenGeocodingInternal_RunQuery_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// OpenGeocodingInternalServer is the server API for OpenGeocodingInternal service.
+// All implementations must embed UnimplementedOpenGeocodingInternalServer
+// for forward compatibility
+type OpenGeocodingInternalServer interface {
+	RunQuery(context.Context, *RunQueryRequest) (*RunQueryResponse, error)
+	mustEmbedUnimplementedOpenGeocodingInternalServer()
+}
+
+// UnimplementedOpenGeocodingInternalServer must be embedded to have forward compatible implementations.
+type UnimplementedOpenGeocodingInternalServer struct {
+}
+
+func (UnimplementedOpenGeocodingInternalServer) RunQuery(context.Context, *RunQueryRequest) (*RunQueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunQuery not implemented")
+}
+func (UnimplementedOpenGeocodingInternalServer) mustEmbedUnimplementedOpenGeocodingInternalServer() {}
+
+// UnsafeOpenGeocodingInternalServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to OpenGeocodingInternalServer will
+// result in compilation errors.
+type UnsafeOpenGeocodingInternalServer interface {
+	mustEmbedUnimplementedOpenGeocodingInternalServer()
+}
+
+func RegisterOpenGeocodingInternalServer(s grpc.ServiceRegistrar, srv OpenGeocodingInternalServer) {
+	s.RegisterService(&OpenGeocodingInternal_ServiceDesc, srv)
+}
+
+func _OpenGeocodingInternal_RunQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunQueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OpenGeocodingInternalServer).RunQuery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OpenGeocodingInternal_RunQuery_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OpenGeocodingInternalServer).RunQuery(ctx, req.(*RunQueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// OpenGeocodingInternal_ServiceDesc is the grpc.ServiceDesc for OpenGeocodingInternal service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var OpenGeocodingInternal_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "opengeocoding.OpenGeocodingInternal",
+	HandlerType: (*OpenGeocodingInternalServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "RunQuery",
+			Handler:    _OpenGeocodingInternal_RunQuery_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -1,9 +1,13 @@
 syntax = "proto3";
-package libpostal;
+package opengeocoding;
 option go_package = "opengeocoding";
 
 service OpenGeocoding {
     rpc Forward(ForwardRequest) returns (ForwardResponse) {}
+}
+
+service OpenGeocodingInternal {
+    rpc RunQuery(RunQueryRequest) returns (RunQueryResponse) {}
 }
 
 message ForwardRequest {
@@ -26,4 +30,12 @@ message Location {
     optional float lat = 9;
     optional float long = 10;
     optional string country_code = 11;
+}
+
+message RunQueryRequest {
+    string query = 1;
+}
+
+message RunQueryResponse {
+    string result = 1;
 }

@@ -12,19 +12,16 @@ services:
     ports:
       - 127.0.0.1:9306:9306
       - 127.0.0.1:9308:9308
-    # ulimits:
-    #   nproc: 65535
-    #   nofile:
-    #      soft: 65535
-    #      hard: 65535
-    #   memlock:
-    #     soft: -1
-    #   hard: -1
-# environment:	
-#   - EXTRA=1
-    volumes:
-      - manticore_data:/var/lib/manticore
-#      - ./manticore.conf:/etc/manticoresearch/manticore.conf # uncommment if you use a custom config
+
+  rabbitmq:
+      image: rabbitmq:3.12.4-management-alpine
+      container_name: "rabbitmq"
+      ports:
+          - 5672:5672
+          - 15672:15672
+      environment:
+          - RABBITMQ_NODENAME=node@rabbitmq
+
 
 volumes:
   manticore_data:

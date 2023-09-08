@@ -61,8 +61,8 @@ pub async fn import_addresses() {
 
     let mut archive = zip::ZipArchive::new(file).unwrap();
 
-    let start_from: Option<&str> = None;
-    // let start_from = Some("us/oh/ross-addresses-county.geojson");
+    // let start_from: Option<&str> = None;
+    let start_from = Some("za/countrywide-addresses-country.geojson");
 
     let exclude_files: Vec<String> = vec![];
 
@@ -179,10 +179,17 @@ async fn string_to_db(
         match query_result {
             Ok(_) => {}
             Err(e) => {
-                println!("Query: {}", query);
-                println!("Error: {}", e);
-                println!("File name: {}", file_name);
-                panic!("Error running SQL");
+                let query_result = conn.query_drop(&query);
+
+                match query_result {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("Query: {}", query);
+                        println!("Error: {}", e);
+                        println!("File name: {}", file_name);
+                        panic!("Error running SQL");
+                    }
+                };
             }
         };
     }

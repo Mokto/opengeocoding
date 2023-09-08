@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/bradleyjkemp/cupaloy"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/sebdah/goldie/v2"
 )
 
-func TestForward(t *testing.T) {
+func TestParser(t *testing.T) {
 	queries := []string{
 		"Geislersgade 14, 4 2300 Copenhagen",
 		"Geislersgade 14, 3 th 2300 Copenhagen S",
@@ -17,6 +17,9 @@ func TestForward(t *testing.T) {
 		"461 W Main St, Cheshire, 06410",
 		"The Book Club 100-106 Leonard St Shoreditch London EC2A 4RH, United Kingdom",
 		"781 Franklin Ave Crown Heights Brooklyn NYC NY 11216 USA",
+		"781 Franklin Ave Crown Heights Brooklyn NYC NY 11216 USA",
+		"Lawrence, Kansas, United States",
+		"Metz, Lorraine, France",
 	}
 
 	for _, query := range queries {
@@ -32,6 +35,7 @@ func goldenFile(t *testing.T, name string, address ParsedAddress) {
 		panic(err)
 	}
 
-	g := goldie.New(t)
-	g.Assert(t, name, addressStr)
+	t.Run(name, func(t *testing.T) {
+		cupaloy.SnapshotT(t, addressStr)
+	})
 }

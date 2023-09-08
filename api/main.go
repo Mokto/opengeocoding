@@ -33,6 +33,34 @@ func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.Forwar
 	}, nil
 }
 
+type opengeocodingServerInternal struct {
+	database *sql.DB
+	proto.UnimplementedOpenGeocodingInternalServer
+}
+
+func (s *opengeocodingServerInternal) RunQuery(ctx context.Context, request *proto.RunQueryRequest) (*proto.RunQueryResponse, error) {
+	// rows, err := s.database.Exec(request.Query)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// rows.
+
+	// defer rows.Close()
+
+	// for rows.Next() {
+	// 	var name interface{}
+	// 	if err := rows.Scan(&name); err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	fmt.Println("COUCOU")
+	// }
+
+	return &proto.RunQueryResponse{
+		// Result: fmt.Sprintln(res),
+	}, nil
+}
+
 func main() {
 	database := manticoresearch.InitDatabase()
 	err := database.Ping()
@@ -48,6 +76,9 @@ func main() {
 	grpcServer := grpc.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcServer, health.NewServer())
 	proto.RegisterOpenGeocodingServer(grpcServer, &opengeocodingServer{
+		database: database,
+	})
+	proto.RegisterOpenGeocodingInternalServer(grpcServer, &opengeocodingServerInternal{
 		database: database,
 	})
 	reflection.Register(grpcServer)
