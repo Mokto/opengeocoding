@@ -30,3 +30,7 @@ geo = "0.26.0"
 rayon = "1.7.0"
 geozero = "0.11.0"
 collecting-hashmap = "0.2.0"
+tonic = "0.9"
+
+[build-dependencies]
+tonic-build = "0.9"

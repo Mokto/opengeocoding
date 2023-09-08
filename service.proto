@@ -8,6 +8,7 @@ service OpenGeocoding {
 
 service OpenGeocodingInternal {
     rpc RunQuery(RunQueryRequest) returns (RunQueryResponse) {}
+    rpc RunBackgroundQuery(RunBackgroundQueryRequest) returns (RunBackgroundQueryResponse) {}
 }
 
 message ForwardRequest {
@@ -39,4 +40,11 @@ message RunQueryRequest {
 
 message RunQueryResponse {
     string result = 1;
+}
+
+message RunBackgroundQueryRequest {
+    string query = 1;
+}
+
+message RunBackgroundQueryResponse {
 }

@@ -57,6 +57,15 @@ func (s *opengeocodingServerInternal) RunQuery(ctx context.Context, request *pro
 	}, nil
 }
 
+func (s *opengeocodingServerInternal) RunBackgroundQuery(ctx context.Context, request *proto.RunBackgroundQueryRequest) (*proto.RunBackgroundQueryResponse, error) {
+	_, err := s.database.Exec(request.Query)
+	if err != nil {
+		return nil, err
+	}
+
+	return &proto.RunBackgroundQueryResponse{}, nil
+}
+
 func StartGrpc(gracefulManager *graceful.Manager, database *sql.DB) {
 
 	port := 8091
