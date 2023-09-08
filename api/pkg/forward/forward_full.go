@@ -22,9 +22,9 @@ func forwardFull(database *sql.DB, parsed parser.ParsedAddress) (*proto.ForwardR
 	if parsed.City != "" {
 		cities := []string{}
 		for _, city := range geolabels.ExpandCityLabel(parsed.City) {
-			cities = append(cities, escape_sql(city))
+			cities = append(cities, "@city "+escape_sql(city))
 		}
-		match += "@city \"" + strings.Join(cities, " ") + " \"/1 "
+		match += "(" + strings.Join(cities, " | ") + " ) "
 	}
 	if parsed.Postcode != "" || parsed.Unit != "" || parsed.HouseNumber != "" {
 		match += " MAYBE ("
