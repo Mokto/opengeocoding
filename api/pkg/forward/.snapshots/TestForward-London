@@ -1,0 +1,39 @@
+{
+  "location": {
+    "city": "London",
+    "region": "Greater London",
+    "lat": 51.50853,
+    "long": -0.12574,
+    "country_code": "gb"
+  },
+  "otherPotentialLocations": [
+    {
+      "city": "London",
+      "region": "Ontario",
+      "lat": 42.98339,
+      "long": -81.23304,
+      "country_code": "ca"
+    },
+    {
+      "city": "London",
+      "region": "Miranda",
+      "lat": 10.36093,
+      "long": -66.73159,
+      "country_code": "ve"
+    },
+    {
+      "city": "London",
+      "region": "Oregon",
+      "lat": 43.63457,
+      "long": -123.09285,
+      "country_code": "us"
+    },
+    {
+      "city": "London",
+      "region": "Eastern",
+      "lat": 8.60002,
+      "long": -10.84547,
+      "country_code": "sl"
+    }
+  ]
+}

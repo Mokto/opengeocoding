@@ -21,14 +21,12 @@ type opengeocodingServer struct {
 	proto.UnimplementedOpenGeocodingServer
 }
 
-func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.ForwardRequest) (*proto.ForwardResponse, error) {
-	location, err := forward.Forward(s.database, request.Address)
+func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.ForwardRequest) (*proto.ForwardResult, error) {
+	forwardResult, err := forward.Forward(s.database, request.Address)
 	if err != nil {
 		return nil, err
 	}
-	return &proto.ForwardResponse{
-		Location: location,
-	}, nil
+	return forwardResult, nil
 }
 
 type opengeocodingServerInternal struct {

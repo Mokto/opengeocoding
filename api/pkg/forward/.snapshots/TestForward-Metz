@@ -1,0 +1,39 @@
+{
+  "location": {
+    "city": "Metz",
+    "region": "Moselle",
+    "lat": 49.11911,
+    "long": 6.17269,
+    "country_code": "fr"
+  },
+  "otherPotentialLocations": [
+    {
+      "city": "Metz",
+      "region": "New South Wales",
+      "lat": -30.57847,
+      "long": 151.87346,
+      "country_code": "au"
+    },
+    {
+      "city": "Metz",
+      "region": "Texas",
+      "lat": 31.70346,
+      "long": -102.65709,
+      "country_code": "us"
+    },
+    {
+      "city": "Metz",
+      "region": "Limpopo",
+      "lat": -24.23333,
+      "long": 30.48333,
+      "country_code": "za"
+    },
+    {
+      "city": "Metz",
+      "region": "Ontario",
+      "lat": 43.80917,
+      "long": -80.44333,
+      "country_code": "ca"
+    }
+  ]
+}

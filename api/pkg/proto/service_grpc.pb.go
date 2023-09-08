@@ -26,7 +26,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OpenGeocodingClient interface {
-	Forward(ctx context.Context, in *ForwardRequest, opts ...grpc.CallOption) (*ForwardResponse, error)
+	Forward(ctx context.Context, in *ForwardRequest, opts ...grpc.CallOption) (*ForwardResult, error)
 }
 
 type openGeocodingClient struct {
@@ -37,8 +37,8 @@ func NewOpenGeocodingClient(cc grpc.ClientConnInterface) OpenGeocodingClient {
 	return &openGeocodingClient{cc}
 }
 
-func (c *openGeocodingClient) Forward(ctx context.Context, in *ForwardRequest, opts ...grpc.CallOption) (*ForwardResponse, error) {
-	out := new(ForwardResponse)
+func (c *openGeocodingClient) Forward(ctx context.Context, in *ForwardRequest, opts ...grpc.CallOption) (*ForwardResult, error) {
+	out := new(ForwardResult)
 	err := c.cc.Invoke(ctx, OpenGeocoding_Forward_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func (c *openGeocodingClient) Forward(ctx context.Context, in *ForwardRequest, o
 // All implementations must embed UnimplementedOpenGeocodingServer
 // for forward compatibility
 type OpenGeocodingServer interface {
-	Forward(context.Context, *ForwardRequest) (*ForwardResponse, error)
+	Forward(context.Context, *ForwardRequest) (*ForwardResult, error)
 	mustEmbedUnimplementedOpenGeocodingServer()
 }
 
@@ -58,7 +58,7 @@ type OpenGeocodingServer interface {
 type UnimplementedOpenGeocodingServer struct {
 }
 
-func (UnimplementedOpenGeocodingServer) Forward(context.Context, *ForwardRequest) (*ForwardResponse, error) {
+func (UnimplementedOpenGeocodingServer) Forward(context.Context, *ForwardRequest) (*ForwardResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Forward not implemented")
 }
 func (UnimplementedOpenGeocodingServer) mustEmbedUnimplementedOpenGeocodingServer() {}

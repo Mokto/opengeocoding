@@ -12,11 +12,11 @@ func escape_sql(s string) string {
 	return strings.ReplaceAll(s, "'", "\\'")
 }
 
-func Forward(database *sql.DB, address string) (*proto.Location, error) {
+func Forward(database *sql.DB, address string) (*proto.ForwardResult, error) {
 	parsed := parser.ParseAddress(address)
 
 	if parsed.Road == "" {
-		if parsed.City == "" || parsed.Country == "" {
+		if parsed.City == "" && parsed.Country == "" {
 			return nil, nil
 		}
 		return forwardCity(database, parsed)

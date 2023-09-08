@@ -2,18 +2,26 @@ package forward
 
 import (
 	"database/sql"
+	"fmt"
 	"geocoding/pkg/geolabels"
 	"geocoding/pkg/parser"
 	"geocoding/pkg/proto"
 	"log"
+	"strconv"
 	"strings"
 )
 
-func forwardCity(database *sql.DB, parsed parser.ParsedAddress) (*proto.Location, error) {
+func forwardCity(database *sql.DB, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
+
+	showOtherPotentialCities := false
 
 	countryCode := geolabels.GetCountryCodeFromLabel(parsed.Country)
+	country_query := ""
 	if countryCode == "" {
-		return nil, nil
+		showOtherPotentialCities = true
+		// return nil, nil
+	} else {
+		country_query = " AND country_code = '" + countryCode + "'"
 	}
 	cities := []string{}
 	cities_exact := []string{}
@@ -26,7 +34,12 @@ func forwardCity(database *sql.DB, parsed parser.ParsedAddress) (*proto.Location
 		additionalQuery = " @region " + escape_sql(parsed.State)
 	}
 
-	query := `SELECT city, region, lat, long, country_code FROM geonames_cities WHERE MATCH('@city "` + strings.Join(cities, " ") + `"/1 | ` + strings.Join(cities_exact, ` | `) + additionalQuery + `') AND country_code = '` + countryCode + `' ORDER BY weight() DESC, population DESC LIMIT 1 OPTION ranker=wordcount`
+	limit := 1
+	if showOtherPotentialCities {
+		limit = 5
+	}
+	query := `SELECT city, region, lat, long, country_code FROM geonames_cities WHERE MATCH('@city "` + strings.Join(cities, " ") + `"/1 | ` + strings.Join(cities_exact, ` | `) + additionalQuery + `') ` + country_query + ` ORDER BY weight() DESC, population DESC LIMIT ` + strconv.Itoa(limit) + ` OPTION ranker=wordcount`
+	fmt.Println(query)
 
 	rows, err := database.Query(query)
 	if err != nil {
@@ -34,6 +47,8 @@ func forwardCity(database *sql.DB, parsed parser.ParsedAddress) (*proto.Location
 	}
 	defer rows.Close()
 
+	result := &proto.ForwardResult{}
+	index := 0
 	for rows.Next() {
 		var (
 			city         string
@@ -45,14 +60,24 @@ func forwardCity(database *sql.DB, parsed parser.ParsedAddress) (*proto.Location
 		if err := rows.Scan(&city, &region, &lat, &long, &country_code); err != nil {
 			log.Fatal(err)
 		}
-		return &proto.Location{
+
+		location := &proto.Location{
 			City:        &city,
 			Region:      &region,
 			Lat:         &lat,
 			Long:        &long,
 			CountryCode: &country_code,
-		}, nil
+		}
+
+		if index == 0 {
+
+			result.Location = location
+		} else {
+			result.OtherPotentialLocations = append(result.OtherPotentialLocations, location)
+		}
+
+		index++
 	}
 
-	return nil, nil
+	return result, nil
 }

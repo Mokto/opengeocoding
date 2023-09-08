@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func forwardFull(database *sql.DB, parsed parser.ParsedAddress) (*proto.Location, error) {
+func forwardFull(database *sql.DB, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
 
 	match := ""
 	additionalQuery := ""
@@ -81,17 +81,19 @@ func forwardFull(database *sql.DB, parsed parser.ParsedAddress) (*proto.Location
 			unit = ""
 		}
 
-		return &proto.Location{
-			Street:      &street,
-			Number:      &number,
-			Unit:        &unit,
-			City:        &city,
-			District:    &district,
-			Region:      &region,
-			Postcode:    &postcode,
-			Lat:         &lat,
-			Long:        &long,
-			CountryCode: &country_code,
+		return &proto.ForwardResult{
+			Location: &proto.Location{
+				Street:      &street,
+				Number:      &number,
+				Unit:        &unit,
+				City:        &city,
+				District:    &district,
+				Region:      &region,
+				Postcode:    &postcode,
+				Lat:         &lat,
+				Long:        &long,
+				CountryCode: &country_code,
+			},
 		}, nil
 	}
 

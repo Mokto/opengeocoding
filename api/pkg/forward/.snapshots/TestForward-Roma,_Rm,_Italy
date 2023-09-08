@@ -1,7 +1,9 @@
 {
-  "city": "Rome",
-  "region": "Rome",
-  "lat": 41.89193,
-  "long": 12.51133,
-  "country_code": "it"
+  "location": {
+    "city": "Rome",
+    "region": "Rome",
+    "lat": 41.89193,
+    "long": 12.51133,
+    "country_code": "it"
+  }
 }

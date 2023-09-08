@@ -33,6 +33,8 @@ func TestForward(t *testing.T) {
 		"Herne Bay, United Kingdom",
 		"Kansas City, Missouri, united states",
 		"Hillerodgade",
+		"Metz",
+		"London",
 	}
 
 	for _, query := range queries {
@@ -45,7 +47,7 @@ func TestForward(t *testing.T) {
 
 }
 
-func goldenFile(t *testing.T, name string, location *proto.Location) {
+func goldenFile(t *testing.T, name string, location *proto.ForwardResult) {
 	locationStr, err := json.MarshalIndent(location, "", "  ")
 	if err != nil {
 		panic(err)

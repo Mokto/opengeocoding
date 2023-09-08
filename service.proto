@@ -3,7 +3,7 @@ package opengeocoding;
 option go_package = "opengeocoding";
 
 service OpenGeocoding {
-    rpc Forward(ForwardRequest) returns (ForwardResponse) {}
+    rpc Forward(ForwardRequest) returns (ForwardResult) {}
 }
 
 service OpenGeocodingInternal {
@@ -14,8 +14,9 @@ message ForwardRequest {
     string address = 1;
 }
 
-message ForwardResponse {
+message ForwardResult {
     Location location = 1;
+    repeated Location otherPotentialLocations = 2;
 }
 
 message Location {
