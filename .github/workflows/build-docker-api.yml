@@ -5,8 +5,7 @@ on:
   push:
     tags:        
         - '*'
-#     # paths:
-#     #   - ./api/**/*
+    tags-ignore: latest
 
 jobs:
   docker-build:
