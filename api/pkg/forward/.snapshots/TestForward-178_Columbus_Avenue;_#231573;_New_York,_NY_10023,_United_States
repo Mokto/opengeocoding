@@ -1,0 +1,14 @@
+{
+  "location": {
+    "street": "South Columbus Avenue",
+    "number": "910",
+    "unit": "",
+    "city": "City of Marshfield",
+    "district": "",
+    "region": "WI",
+    "postcode": "54449",
+    "lat": 44.661304,
+    "long": -90.1931,
+    "country_code": "us"
+  }
+}

@@ -17,7 +17,7 @@ func Forward(database *sql.DB, address string) (*proto.ForwardResult, error) {
 
 	if parsed.Road == "" {
 		if parsed.City == "" && parsed.Country == "" {
-			return nil, nil
+			return &proto.ForwardResult{}, nil
 		}
 		return forwardCity(database, parsed)
 	}

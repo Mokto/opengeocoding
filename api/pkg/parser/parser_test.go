@@ -20,6 +20,8 @@ func TestParser(t *testing.T) {
 		"781 Franklin Ave Crown Heights Brooklyn NYC NY 11216 USA",
 		"Lawrence, Kansas, United States",
 		"Metz, Lorraine, France",
+		"178 Columbus Avenue; #231573; New York, NY 10023, US, United States",
+		"178 Columbus Avenue; #231573; New York, NY 10023, United States",
 	}
 
 	for _, query := range queries {
