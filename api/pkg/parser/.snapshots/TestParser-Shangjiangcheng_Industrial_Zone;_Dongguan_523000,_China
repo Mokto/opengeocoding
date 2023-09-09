@@ -3,7 +3,7 @@
   "Category": "",
   "Near": "",
   "HouseNumber": "",
-  "Road": "",
+  "Road": null,
   "Unit": "",
   "Level": "",
   "Staircase": "",
@@ -12,7 +12,9 @@
   "Postcode": "523000",
   "Suburb": "",
   "CityDistrict": "",
-  "City": "dongguan",
+  "City": [
+    "dongguan"
+  ],
   "Island": "",
   "StateDistrict": "",
   "State": "",

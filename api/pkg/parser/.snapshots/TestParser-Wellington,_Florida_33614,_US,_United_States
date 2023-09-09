@@ -3,7 +3,7 @@
   "Category": "",
   "Near": "",
   "HouseNumber": "",
-  "Road": "",
+  "Road": null,
   "Unit": "",
   "Level": "",
   "Staircase": "",
@@ -12,7 +12,10 @@
   "Postcode": "33614",
   "Suburb": "",
   "CityDistrict": "",
-  "City": "wellington",
+  "City": [
+    "wellington",
+    "us"
+  ],
   "Island": "",
   "StateDistrict": "",
   "State": "florida",

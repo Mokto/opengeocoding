@@ -3,7 +3,9 @@
   "Category": "",
   "Near": "",
   "HouseNumber": "14 3th",
-  "Road": "geislersgade",
+  "Road": [
+    "geislersgade"
+  ],
   "Unit": "",
   "Level": "",
   "Staircase": "",
@@ -12,7 +14,9 @@
   "Postcode": "2300",
   "Suburb": "",
   "CityDistrict": "",
-  "City": "copenhagen",
+  "City": [
+    "copenhagen"
+  ],
   "Island": "",
   "StateDistrict": "",
   "State": "",

@@ -14,15 +14,21 @@ func forwardFull(database *sql.DB, parsed parser.ParsedAddress) (*proto.ForwardR
 
 	match := ""
 	additionalQuery := ""
-	if parsed.Road != "" {
-		match += "@street " + escape_sql(parsed.Road) + " "
+	if parsed.Road != nil {
+		roads := []string{}
+		for _, road := range parsed.Road {
+			roads = append(roads, escape_sql(road))
+		}
+		match += "@street " + strings.Join(roads, " | ") + " "
 	} else {
 		return &proto.ForwardResult{}, nil
 	}
-	if parsed.City != "" {
+	if parsed.City != nil {
 		cities := []string{}
-		for _, city := range geolabels.ExpandCityLabel(parsed.City) {
-			cities = append(cities, "@city "+escape_sql(city))
+		for _, city := range parsed.City {
+			for _, city := range geolabels.ExpandCityLabel(city) {
+				cities = append(cities, "@city "+escape_sql(city))
+			}
 		}
 		match += "(" + strings.Join(cities, " | ") + " ) "
 	}

@@ -1,14 +1,14 @@
 {
   "location": {
-    "street": "AUTOPORT MALL",
+    "street": "Autoport Mall",
     "number": "5840",
     "unit": "",
     "city": "San Diego",
     "district": "",
     "region": "CA",
     "postcode": "92121",
-    "lat": 32.878544,
-    "long": -117.1853,
+    "lat": 32.878185,
+    "long": -117.18637,
     "country_code": "us"
   }
 }

@@ -3,7 +3,9 @@
   "Category": "",
   "Near": "",
   "HouseNumber": "178",
-  "Road": "columbus avenue",
+  "Road": [
+    "columbus avenue"
+  ],
   "Unit": "#231573",
   "Level": "",
   "Staircase": "",
@@ -12,7 +14,9 @@
   "Postcode": "10023",
   "Suburb": "",
   "CityDistrict": "",
-  "City": "new york",
+  "City": [
+    "new york"
+  ],
   "Island": "",
   "StateDistrict": "",
   "State": "ny",

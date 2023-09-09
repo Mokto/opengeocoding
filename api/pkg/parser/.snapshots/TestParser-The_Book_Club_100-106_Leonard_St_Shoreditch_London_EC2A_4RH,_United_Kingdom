@@ -3,7 +3,9 @@
   "Category": "",
   "Near": "",
   "HouseNumber": "100-106",
-  "Road": "leonard st",
+  "Road": [
+    "leonard st"
+  ],
   "Unit": "",
   "Level": "",
   "Staircase": "",
@@ -12,7 +14,9 @@
   "Postcode": "ec2a 4rh",
   "Suburb": "shoreditch",
   "CityDistrict": "",
-  "City": "london",
+  "City": [
+    "london"
+  ],
   "Island": "",
   "StateDistrict": "",
   "State": "",

@@ -3,7 +3,9 @@
   "Category": "",
   "Near": "",
   "HouseNumber": "461",
-  "Road": "w main st",
+  "Road": [
+    "w main st"
+  ],
   "Unit": "",
   "Level": "",
   "Staircase": "",
@@ -12,7 +14,9 @@
   "Postcode": "06410",
   "Suburb": "",
   "CityDistrict": "",
-  "City": "cheshire",
+  "City": [
+    "cheshire"
+  ],
   "Island": "",
   "StateDistrict": "",
   "State": "",

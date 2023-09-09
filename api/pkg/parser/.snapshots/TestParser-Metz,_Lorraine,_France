@@ -3,7 +3,7 @@
   "Category": "",
   "Near": "",
   "HouseNumber": "",
-  "Road": "",
+  "Road": null,
   "Unit": "",
   "Level": "",
   "Staircase": "",
@@ -12,7 +12,9 @@
   "Postcode": "",
   "Suburb": "",
   "CityDistrict": "",
-  "City": "metz",
+  "City": [
+    "metz"
+  ],
   "Island": "",
   "StateDistrict": "",
   "State": "lorraine",

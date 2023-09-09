@@ -25,9 +25,11 @@ func forwardCity(database *sql.DB, parsed parser.ParsedAddress) (*proto.ForwardR
 	}
 	cities := []string{}
 	cities_exact := []string{}
-	for _, city := range geolabels.ExpandCityLabel(parsed.City) {
-		cities = append(cities, escape_sql(city))
-		cities_exact = append(cities_exact, "^"+escape_sql(city)+"$")
+	for _, city := range parsed.City {
+		for _, city := range geolabels.ExpandCityLabel(city) {
+			cities = append(cities, escape_sql(city))
+			cities_exact = append(cities_exact, "^"+escape_sql(city)+"$")
+		}
 	}
 	additionalQuery := ""
 	if parsed.State != "" {

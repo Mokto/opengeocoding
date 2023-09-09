@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"geocoding/pkg/geolabels"
-
 	parser "github.com/openvenues/gopostal/parser"
 	"golang.org/x/exp/slices"
 )
@@ -12,7 +10,7 @@ type ParsedAddress struct {
 	Category      string // Not taken into account
 	Near          string // Not taken into account
 	HouseNumber   string
-	Road          string
+	Road          []string
 	Unit          string
 	Level         string // Not taken into account
 	Staircase     string // Not taken into account
@@ -21,7 +19,7 @@ type ParsedAddress struct {
 	Postcode      string
 	Suburb        string // Not taken into account
 	CityDistrict  string // Not taken into account
-	City          string
+	City          []string
 	Island        string // Not taken into account
 	StateDistrict string // Not taken into account
 	State         string // Not taken into account
@@ -36,26 +34,26 @@ func ParseAddress(address string) ParsedAddress {
 
 	result := buildAddress(components)
 
-	if result.Country != "" && result.State != "" && result.City != "" {
-		countryCode := geolabels.GetCountryCodeFromLabel(result.Country)
-		if countryCode == "" {
-			countryCode = result.Country
-		}
-		state := geolabels.GetCountryCodeFromLabel(result.State)
-		if state == "" {
-			state = result.State
-		}
-		city := geolabels.GetCountryCodeFromLabel(result.City)
-		if city == "" {
-			city = result.City
-		}
-		if state == countryCode {
-			result = removeComponentAndRebuildAddress(components, "state", result.State)
-		}
-		if city == countryCode {
-			result = removeComponentAndRebuildAddress(components, "city", result.City)
-		}
-	}
+	// if result.Country != "" && result.State != "" && result.City != "" {
+	// 	countryCode := geolabels.GetCountryCodeFromLabel(result.Country)
+	// 	if countryCode == "" {
+	// 		countryCode = result.Country
+	// 	}
+	// 	state := geolabels.GetCountryCodeFromLabel(result.State)
+	// 	if state == "" {
+	// 		state = result.State
+	// 	}
+	// 	city := geolabels.GetCountryCodeFromLabel(result.City)
+	// 	if city == "" {
+	// 		city = result.City
+	// 	}
+	// 	if state == countryCode {
+	// 		result = removeComponentAndRebuildAddress(components, "state", result.State)
+	// 	}
+	// 	if city == countryCode {
+	// 		result = removeComponentAndRebuildAddress(components, "city", result.City)
+	// 	}
+	// }
 
 	return result
 }
@@ -86,9 +84,10 @@ func buildAddress(components []parser.ParsedComponent) ParsedAddress {
 		case "house_number":
 			result.HouseNumber = component.Value
 		case "road":
-			if result.Road == "" {
-				result.Road = component.Value
+			if result.Road == nil {
+				result.Road = []string{}
 			}
+			result.Road = append(result.Road, component.Value)
 		case "unit":
 			result.Unit = component.Value
 		case "level":
@@ -106,7 +105,10 @@ func buildAddress(components []parser.ParsedComponent) ParsedAddress {
 		case "city_district":
 			result.CityDistrict = component.Value
 		case "city":
-			result.City = component.Value
+			if result.City == nil {
+				result.City = []string{}
+			}
+			result.City = append(result.City, component.Value)
 		case "island":
 			result.Island = component.Value
 		case "state_district":

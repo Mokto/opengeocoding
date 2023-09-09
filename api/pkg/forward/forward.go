@@ -15,8 +15,8 @@ func escape_sql(s string) string {
 func Forward(database *sql.DB, address string) (*proto.ForwardResult, error) {
 	parsed := parser.ParseAddress(address)
 
-	if parsed.Road == "" && parsed.House == "" {
-		if parsed.City == "" && parsed.Country == "" {
+	if parsed.Road == nil && parsed.House == "" {
+		if parsed.City == nil && parsed.Country == "" {
 			return &proto.ForwardResult{}, nil
 		}
 		return forwardCity(database, parsed)

@@ -3,7 +3,9 @@
   "Category": "",
   "Near": "",
   "HouseNumber": "781",
-  "Road": "franklin ave",
+  "Road": [
+    "franklin ave"
+  ],
   "Unit": "",
   "Level": "",
   "Staircase": "",
@@ -12,7 +14,9 @@
   "Postcode": "11216",
   "Suburb": "crown heights",
   "CityDistrict": "brooklyn",
-  "City": "nyc",
+  "City": [
+    "nyc"
+  ],
   "Island": "",
   "StateDistrict": "",
   "State": "ny",

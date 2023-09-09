@@ -3,7 +3,7 @@
   "Category": "",
   "Near": "",
   "HouseNumber": "",
-  "Road": "",
+  "Road": null,
   "Unit": "",
   "Level": "",
   "Staircase": "",
@@ -12,7 +12,9 @@
   "Postcode": "",
   "Suburb": "",
   "CityDistrict": "",
-  "City": "lawrence",
+  "City": [
+    "lawrence"
+  ],
   "Island": "",
   "StateDistrict": "",
   "State": "kansas",
