@@ -1,6 +1,7 @@
 use crate::client::OpenGeocodingApiClient;
 use crate::config::Config;
-use itertools::Itertools;
+use rayon::prelude::*;
+use rayon::str::ParallelString;
 use serde::{Deserialize, Serialize};
 use std::io::prelude::*;
 use std::{fs, vec};
@@ -62,8 +63,8 @@ pub async fn import_addresses() {
 
     let mut archive = zip::ZipArchive::new(file).unwrap();
 
-    // let start_from: Option<&str> = None;
-    let start_from = Some("za/countrywide-addresses-country.geojson");
+    let start_from: Option<&str> = None;
+    // let start_from = Some("za/countrywide-addresses-country.geojson");
 
     let exclude_files: Vec<String> = vec![];
 
@@ -132,46 +133,59 @@ async fn string_to_db(
     country_code: String,
     client: &mut OpenGeocodingApiClient,
 ) {
-    let documents = content.lines().map(|line| {
-        let p: GeoPoint = serde_json::from_str(line).unwrap();
+    let documents = content
+        .par_lines()
+        .map(|line| {
+            let p: GeoPoint = serde_json::from_str(line).unwrap();
 
-        if p.geometry.is_none() {
-            return None;
-        }
-        let geometry = p.geometry.unwrap();
-        if geometry.r#type != "Point" {
-            return None;
-        }
-        return Some(AddressDocument {
-            id: calculate_hash(&p.properties),
-            street: p.properties.street.unwrap_or("".to_string()),
-            number: p.properties.number.unwrap_or("".to_string()),
-            unit: p.properties.unit.unwrap_or("".to_string()),
-            city: p.properties.city.unwrap_or("".to_string()),
-            district: p.properties.district.unwrap_or("".to_string()),
-            region: p.properties.region.unwrap_or("".to_string()),
-            postcode: p.properties.postcode.unwrap_or("".to_string()),
-            lat: geometry.coordinates[1],
-            long: geometry.coordinates[0],
-        });
-    });
+            if p.geometry.is_none() {
+                return None;
+            }
+            let geometry = p.geometry.unwrap();
+            if geometry.r#type != "Point" {
+                return None;
+            }
+            return Some(AddressDocument {
+                id: calculate_hash(&p.properties),
+                street: p.properties.street.unwrap_or("".to_string()),
+                number: p.properties.number.unwrap_or("".to_string()),
+                unit: p.properties.unit.unwrap_or("".to_string()),
+                city: p.properties.city.unwrap_or("".to_string()),
+                district: p.properties.district.unwrap_or("".to_string()),
+                region: p.properties.region.unwrap_or("".to_string()),
+                postcode: p.properties.postcode.unwrap_or("".to_string()),
+                lat: geometry.coordinates[1],
+                long: geometry.coordinates[0],
+            });
+        })
+        .flatten()
+        .collect::<Vec<_>>();
 
     let page_size = 20000;
-
-    for (index, chunk) in documents.chunks(page_size).into_iter().enumerate() {
+    for (index, chunk) in documents.chunks(page_size).enumerate() {
         if index != 0 && index * page_size % 100000 == 0 {
             println!("Done with {} documents", index * page_size);
         }
-        let mut documents = chunk.filter(|doc| doc.is_some()).peekable();
-        if !documents.peek().is_some() {
-            continue;
-        }
-        let query = format!("REPLACE INTO {}(id,street,number,unit,city,district,region,postcode,lat,long,country_code) VALUES {};", full_table_name, documents.map(|doc|
-            {
-                let doc = doc.as_ref().unwrap();
-                return format!(r"({},'{}','{}','{}','{}','{}','{}','{}',{},{}, '{}')", doc.id, clean_string(&doc.street), clean_string(&doc.number), clean_string(&doc.unit), clean_string(&doc.city), clean_string(&doc.district), clean_string(&doc.region), clean_string(&doc.postcode), doc.lat, doc.long, country_code)
-            }
-        ).join(", "));
+        let values = chunk
+            .par_iter()
+            .map(|doc| {
+                return format!(
+                    r"({},'{}','{}','{}','{}','{}','{}','{}',{},{}, '{}')",
+                    doc.id,
+                    clean_string(&doc.street),
+                    clean_string(&doc.number),
+                    clean_string(&doc.unit),
+                    clean_string(&doc.city),
+                    clean_string(&doc.district),
+                    clean_string(&doc.region),
+                    clean_string(&doc.postcode),
+                    doc.lat,
+                    doc.long,
+                    country_code
+                );
+            })
+            .collect::<Vec<String>>();
+        let query = format!("REPLACE INTO {}(id,street,number,unit,city,district,region,postcode,lat,long,country_code) VALUES {};", full_table_name, values.join(","));
 
         client.run_background_query(query).await.unwrap();
     }
