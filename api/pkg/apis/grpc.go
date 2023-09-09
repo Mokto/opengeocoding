@@ -30,34 +30,31 @@ func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.Forwar
 }
 
 type opengeocodingServerInternal struct {
-	database *sql.DB
+	database  *sql.DB
+	publisher *RmqPublisher
 	proto.UnimplementedOpenGeocodingInternalServer
 }
 
 func (s *opengeocodingServerInternal) RunQuery(ctx context.Context, request *proto.RunQueryRequest) (*proto.RunQueryResponse, error) {
-	// rows, err := s.database.Exec(request.Query)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	_, err := s.database.Exec(request.Query)
+	if err != nil {
+		return nil, err
+	}
 
-	// rows.
-
-	// defer rows.Close()
-
-	// for rows.Next() {
-	// 	var name interface{}
-	// 	if err := rows.Scan(&name); err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	fmt.Println("COUCOU")
-	// }
-
-	return &proto.RunQueryResponse{
-		// Result: fmt.Sprintln(res),
-	}, nil
+	return &proto.RunQueryResponse{}, nil
 }
 
-func StartGrpc(gracefulManager *graceful.Manager, database *sql.DB) {
+func (s *opengeocodingServerInternal) RunBackgroundQuery(ctx context.Context, request *proto.RunBackgroundQueryRequest) (*proto.RunBackgroundQueryResponse, error) {
+	err := s.publisher.Publish("main:::backgroundSave", request.Query)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	return &proto.RunBackgroundQueryResponse{}, nil
+}
+
+func StartGrpc(gracefulManager *graceful.Manager, database *sql.DB, publisher *RmqPublisher) {
 
 	port := 8091
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
@@ -71,7 +68,8 @@ func StartGrpc(gracefulManager *graceful.Manager, database *sql.DB) {
 		database: database,
 	})
 	proto.RegisterOpenGeocodingInternalServer(grpcServer, &opengeocodingServerInternal{
-		database: database,
+		database:  database,
+		publisher: publisher,
 	})
 	reflection.Register(grpcServer)
 

@@ -1,9 +1,9 @@
+use crate::client::OpenGeocodingApiClient;
+use crate::config::Config;
 use itertools::Itertools;
-use mysql::prelude::*;
-use mysql::*;
 use serde::{Deserialize, Serialize};
 use std::io::prelude::*;
-use std::{env, fs, vec};
+use std::{fs, vec};
 
 use crate::data::{calculate_hash, AddressDocument};
 
@@ -30,31 +30,32 @@ pub struct GeoPoint {
 }
 
 pub async fn import_addresses() {
+    let config = Config::new();
     let table_name = "openaddresses";
-    let cluster_name = "opengeocoding_cluster";
-    let url = format!(
-        "mysql://root:password@{}:9306/default",
-        env::var("MANTICORESEARCH_ENDPOINT").unwrap_or("localhost".to_string())
-    );
-    println!("Creating table...");
-    let pool = Pool::new(Opts::from_url(url.as_str()).unwrap()).unwrap();
-    let mut conn: PooledConn = pool.get_conn().unwrap();
+    let full_table_name = config.get_table_name(table_name.to_string());
 
-    let query_result = conn.query_drop(format!("CREATE TABLE IF NOT EXISTS {}(street text, number text, unit text, city text, district text, region text, postcode text, lat float, long float, country_code string)  rt_mem_limit = '1G'", table_name));
+    let mut client = OpenGeocodingApiClient::new().await.unwrap();
+
+    println!("Creating table...");
+    let query_result = client.run_query(format!("CREATE TABLE IF NOT EXISTS {}(street text, number text, unit text, city text, district text, region text, postcode text, lat float, long float, country_code string)  rt_mem_limit = '1G'", full_table_name)).await;
     match query_result {
         Ok(_) => {}
         Err(e) => {
             panic!("{}", e);
         }
     };
-    let query_result =
-        conn.query_drop(format!("ALTER CLUSTER {} ADD {}", cluster_name, table_name));
-    match query_result {
-        Ok(_) => {}
-        Err(e) => {
-            println!("{}", e);
-        }
-    };
+
+    // if config.manticore_is_cluster {
+    //     let query_result = client
+    //         .run_query(format!("ALTER CLUSTER {} ADD {}", cluster_name, table_name).as_str())
+    //         .await;
+    //     match query_result {
+    //         Ok(_) => {}
+    //         Err(e) => {
+    //             println!("{}", e);
+    //         }
+    //     };
+    // }
 
     let fname = std::path::Path::new("data/collection-global.zip");
     let file = fs::File::open(fname).unwrap();
@@ -120,19 +121,17 @@ pub async fn import_addresses() {
 
             let country_code = file_name.split("/").next().unwrap().to_string();
 
-            string_to_db(contents, country_code, file_name, &mut conn).await;
+            string_to_db(full_table_name.clone(), contents, country_code, &mut client).await;
         };
     }
 }
 
 async fn string_to_db(
+    full_table_name: String,
     content: String,
     country_code: String,
-    file_name: String,
-    conn: &mut PooledConn,
+    client: &mut OpenGeocodingApiClient,
 ) {
-    let table_name = "openaddresses";
-    let cluster_name = "opengeocoding_cluster";
     let documents = content.lines().map(|line| {
         let p: GeoPoint = serde_json::from_str(line).unwrap();
 
@@ -167,31 +166,14 @@ async fn string_to_db(
         if !documents.peek().is_some() {
             continue;
         }
-        let query = format!("REPLACE INTO {}:{}(id,street,number,unit,city,district,region,postcode,lat,long,country_code) VALUES {};", cluster_name, table_name, documents.map(|doc|
+        let query = format!("REPLACE INTO {}(id,street,number,unit,city,district,region,postcode,lat,long,country_code) VALUES {};", full_table_name, documents.map(|doc|
             {
                 let doc = doc.as_ref().unwrap();
                 return format!(r"({},'{}','{}','{}','{}','{}','{}','{}',{},{}, '{}')", doc.id, clean_string(&doc.street), clean_string(&doc.number), clean_string(&doc.unit), clean_string(&doc.city), clean_string(&doc.district), clean_string(&doc.region), clean_string(&doc.postcode), doc.lat, doc.long, country_code)
             }
         ).join(", "));
 
-        let query_result = conn.query_drop(&query);
-
-        match query_result {
-            Ok(_) => {}
-            Err(e) => {
-                let query_result = conn.query_drop(&query);
-
-                match query_result {
-                    Ok(_) => {}
-                    Err(e) => {
-                        println!("Query: {}", query);
-                        println!("Error: {}", e);
-                        println!("File name: {}", file_name);
-                        panic!("Error running SQL");
-                    }
-                };
-            }
-        };
+        client.run_background_query(query).await.unwrap();
     }
     println!("Done with batch");
 }
