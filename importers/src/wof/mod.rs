@@ -29,19 +29,6 @@ struct DataFile {
 }
 
 impl RegionDetector {
-    pub fn debug(&self) {
-        let country_code = "at";
-        let now = Instant::now();
-        (0..100).into_par_iter().for_each(|_| {
-            self.detect(country_code.to_string(), 48.2082, 16.3738);
-        });
-        println!(
-            "Count of regions for {}: {}",
-            country_code,
-            self.regions.get_all(country_code).unwrap().len()
-        );
-        println!("Elapsed: {:.2?}", now.elapsed());
-    }
     pub fn detect(&self, country_code: String, lat: f64, long: f64) -> Option<String> {
         let country_code = country_code.to_lowercase();
 

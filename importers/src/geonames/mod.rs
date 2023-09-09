@@ -1,43 +1,43 @@
+use crate::client::OpenGeocodingApiClient;
+use crate::config::Config;
 use crate::data::{calculate_hash, CityDocument};
 use crate::wof::RegionDetector;
 use csv::ReaderBuilder;
 use itertools::Itertools;
-use mysql::prelude::*;
-use mysql::*;
 use rayon::prelude::*;
-use std::{env, fs};
+use std::fs;
 
 pub async fn extract_cities() {
+    let config = Config::new();
     let table_name = "geonames_cities";
-    let cluster_name = "opengeocoding_cluster";
-    let url = format!(
-        "mysql://root:password@{}:9306/default",
-        env::var("MANTICORESEARCH_ENDPOINT").unwrap_or("localhost".to_string())
-    );
-    println!("Creating table...");
-    let pool = Pool::new(Opts::from_url(url.as_str()).unwrap()).unwrap();
-    let mut conn = pool.get_conn().unwrap();
+    let full_table_name = config.get_table_name(table_name.to_string());
 
-    let query_result = conn.query_drop(format!("CREATE TABLE IF NOT EXISTS {}(city text, region text, lat float, long float, country_code string, population int)  rt_mem_limit = '1G'", table_name));
+    let mut client = OpenGeocodingApiClient::new().await.unwrap();
+    println!("Creating table...");
+
+    let query_result = client.run_query(format!("CREATE TABLE IF NOT EXISTS {}(city text, region text, lat float, long float, country_code string, population int)  rt_mem_limit = '1G'", config.get_table_name(table_name.to_string()))).await;
     match query_result {
         Ok(_) => {}
         Err(e) => {
             panic!("{}", e);
         }
     };
-    let query_result =
-        conn.query_drop(format!("ALTER CLUSTER {} ADD {}", cluster_name, table_name));
-    match query_result {
-        Ok(_) => {}
-        Err(e) => {
-            println!("{}", e);
-        }
-    };
+
+    // if config.manticore_is_cluster {
+    //     let query_result = client
+    //         .run_query(format!("ALTER CLUSTER {} ADD {}", cluster_name, table_name).as_str())
+    //         .await;
+    //     match query_result {
+    //         Ok(_) => {}
+    //         Err(e) => {
+    //             println!("{}", e);
+    //         }
+    //     };
+    // }
 
     println!("Done creating tables.");
 
     let region_detector = RegionDetector::new();
-    // region_detector.debug();
 
     let fname = std::path::Path::new("./data/allCountries.zip");
     let file = fs::File::open(fname).unwrap();
@@ -116,18 +116,16 @@ pub async fn extract_cities() {
         //     println!("{:?}", countries_result);
         // }
         let query = format!(
-            "REPLACE INTO {}:{}(id,city,region,lat,long,country_code,population) VALUES {};",
-            cluster_name,
-            table_name,
+            "REPLACE INTO {}(id,city,region,lat,long,country_code,population) VALUES {};",
+            full_table_name,
             documents.join(", ")
         );
 
-        let query_result = conn.query_drop(&query);
+        let query_result = client.run_background_query(query).await;
 
         match query_result {
             Ok(_) => {}
             Err(e) => {
-                println!("Query: {}", query);
                 println!("Error: {}", e);
                 panic!("Error running SQL");
             }
