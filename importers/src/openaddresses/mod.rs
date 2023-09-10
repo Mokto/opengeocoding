@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::io::prelude::*;
 use std::{fs, vec};
 
-use crate::data::{calculate_hash, AddressDocument};
+use crate::data::{calculate_hash, insert_address_documents, AddressDocument};
 
 #[derive(Serialize, Deserialize)]
 pub struct GeoPointGeometry {
@@ -161,37 +161,8 @@ async fn string_to_db(
         .flatten()
         .collect::<Vec<_>>();
 
-    let page_size = 20000;
-    for (index, chunk) in documents.chunks(page_size).enumerate() {
-        if index != 0 && index * page_size % 100000 == 0 {
-            println!("Done with {} documents", index * page_size);
-        }
-        let values = chunk
-            .par_iter()
-            .map(|doc| {
-                return format!(
-                    r"({},'{}','{}','{}','{}','{}','{}','{}',{},{}, '{}')",
-                    doc.id,
-                    clean_string(&doc.street),
-                    clean_string(&doc.number),
-                    clean_string(&doc.unit),
-                    clean_string(&doc.city),
-                    clean_string(&doc.district),
-                    clean_string(&doc.region),
-                    clean_string(&doc.postcode),
-                    doc.lat,
-                    doc.long,
-                    country_code
-                );
-            })
-            .collect::<Vec<String>>();
-        let query = format!("REPLACE INTO {}(id,street,number,unit,city,district,region,postcode,lat,long,country_code) VALUES {};", full_table_name, values.join(","));
-
-        client.run_background_query(query).await.unwrap();
-    }
+    insert_address_documents(client, full_table_name, documents, country_code)
+        .await
+        .unwrap();
     println!("Done with batch");
-}
-
-fn clean_string(s: &str) -> String {
-    return s.replace(r"\", r"\\").replace("'", r"\'");
 }

@@ -21,7 +21,12 @@ services:
           - 15672:15672
       environment:
           - RABBITMQ_NODENAME=node@rabbitmq
+      volumes:
+          - rabbitmq_data:/var/lib/rabbitmq/
+          - rabbitmq_logs:/var/log/rabbitmq
 
 
 volumes:
   manticore_data:
+  rabbitmq_data:
+  rabbitmq_logs:
