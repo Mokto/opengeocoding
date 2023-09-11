@@ -154,6 +154,7 @@ async fn string_to_db(
                 district: p.properties.district.unwrap_or("".to_string()),
                 region: p.properties.region.unwrap_or("".to_string()),
                 postcode: p.properties.postcode.unwrap_or("".to_string()),
+                country_code: None,
                 lat: geometry.coordinates[1],
                 long: geometry.coordinates[0],
             });
@@ -161,7 +162,7 @@ async fn string_to_db(
         .flatten()
         .collect::<Vec<_>>();
 
-    insert_address_documents(client, full_table_name, documents, country_code)
+    insert_address_documents(client, full_table_name, documents, Some(country_code))
         .await
         .unwrap();
     println!("Done with batch");

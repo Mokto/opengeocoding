@@ -28,6 +28,7 @@ pub struct AddressDocument {
     pub district: String,
     pub region: String,
     pub postcode: String,
+    pub country_code: Option<String>,
     pub lat: f64,
     pub long: f64,
 }
@@ -42,7 +43,7 @@ pub async fn insert_address_documents(
     client: &mut OpenGeocodingApiClient,
     full_table_name: String,
     documents: Vec<AddressDocument>,
-    country_code: String,
+    country_code: Option<String>,
 ) -> Result<(), Box<dyn Error>> {
     let page_size = 20000;
     for (index, chunk) in documents.chunks(page_size).enumerate() {
@@ -64,7 +65,9 @@ pub async fn insert_address_documents(
                     clean_string(&doc.postcode),
                     doc.lat,
                     doc.long,
-                    country_code
+                    doc.country_code
+                        .clone()
+                        .unwrap_or(country_code.clone().unwrap_or("".to_string()))
                 );
             })
             .collect::<Vec<String>>();

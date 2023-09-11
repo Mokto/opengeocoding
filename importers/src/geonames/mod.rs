@@ -1,7 +1,7 @@
 use crate::client::OpenGeocodingApiClient;
 use crate::config::Config;
 use crate::data::{calculate_hash, CityDocument};
-use crate::wof::RegionDetector;
+use crate::wof::region_detector::RegionDetector;
 use csv::ReaderBuilder;
 use itertools::Itertools;
 use rayon::prelude::*;
