@@ -97,13 +97,19 @@ pub async fn extract_all() {
                 }
             }
 
-            // if obj.is_way() {
-            //     let tags = obj.tags();
+            if obj.is_way() {
+                let tags = obj.tags();
+                let way = obj.way().unwrap();
+                for node in &way.nodes {
+                    println!("{:?}", obj.tags());
+                    println!("{:?}", node);
+                    panic!("dsa")
+                }
 
-            //     if tags.contains_key("addr:interpolation") {
-            //         println!("{:?}", tags.get("addr:interpolation").unwrap());
-            //     }
-            // }
+                if tags.contains_key("addr:interpolation") {
+                    println!("{:?}", tags.get("addr:interpolation").unwrap());
+                }
+            }
         }
 
         println!(
