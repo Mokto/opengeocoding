@@ -2,6 +2,7 @@ package main
 
 import (
 	"geocoding/pkg/apis"
+	"geocoding/pkg/config"
 	"geocoding/pkg/graceful"
 	"geocoding/pkg/manticoresearch"
 	"log"
@@ -19,8 +20,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	protocol := "amqp"
+	if config.GetEnvAsBool("RABBITMQ_SSL", false) {
+		protocol = "amqps"
+	}
 	rmqConnection, err := rabbitmq.NewConn(
-		"amqp://guest:guest@localhost",
+		protocol+"://"+config.GetEnv("RABBITMQ_USER", "guest")+":"+config.GetEnv("RABBITMQ_PASSWORD", "guest")+"@"+config.GetEnv("RABBITMQ_HOST", "localhost")+":"+config.GetEnv("RABBITMQ_PORT", "5672"),
 		rabbitmq.WithConnectionOptionsLogging,
 	)
 	if err != nil {

@@ -15,7 +15,6 @@ func StartRmqConsumer(gracefulManager *graceful.Manager, database *sql.DB, rmqCo
 		rmqConnection,
 		func(d rabbitmq.Delivery) rabbitmq.Action {
 			_, err := database.Exec(string(d.Body))
-			fmt.Println(string(d.Body))
 			if err != nil {
 				fmt.Println(err)
 				if !d.Redelivered {
