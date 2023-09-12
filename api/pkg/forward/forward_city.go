@@ -1,9 +1,9 @@
 package forward
 
 import (
-	"database/sql"
 	"fmt"
 	"geocoding/pkg/geolabels"
+	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/parser"
 	"geocoding/pkg/proto"
 	"log"
@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func forwardCity(database *sql.DB, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
+func forwardCity(database *manticoresearch.ManticoreSearch, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
 
 	showOtherPotentialCities := false
 
@@ -43,7 +43,7 @@ func forwardCity(database *sql.DB, parsed parser.ParsedAddress) (*proto.ForwardR
 	query := `SELECT city, region, lat, long, country_code FROM geonames_cities WHERE MATCH('@city "` + strings.Join(cities, " ") + `"/1 | ` + strings.Join(cities_exact, ` | `) + additionalQuery + `') ` + country_query + ` ORDER BY weight() DESC, population DESC LIMIT ` + strconv.Itoa(limit) + ` OPTION ranker=wordcount`
 	fmt.Println(query)
 
-	rows, err := database.Query(query)
+	rows, err := database.Balancer.Query(query)
 	if err != nil {
 		return nil, err
 	}

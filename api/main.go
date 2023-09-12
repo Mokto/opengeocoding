@@ -15,11 +15,8 @@ func main() {
 
 	gracefulManager := graceful.Start()
 
-	database := manticoresearch.InitDatabase()
-	err := database.Ping()
-	if err != nil {
-		panic(err)
-	}
+	database := manticoresearch.InitDatabase(true)
+
 	protocol := "amqp"
 	if config.GetEnvAsBool("RABBITMQ_SSL", false) {
 		protocol = "amqps"

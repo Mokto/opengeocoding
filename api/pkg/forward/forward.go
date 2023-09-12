@@ -1,7 +1,7 @@
 package forward
 
 import (
-	"database/sql"
+	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/parser"
 	"geocoding/pkg/proto"
 	"strings"
@@ -12,7 +12,7 @@ func escape_sql(s string) string {
 	return strings.ReplaceAll(s, "'", "\\'")
 }
 
-func Forward(database *sql.DB, address string) (*proto.ForwardResult, error) {
+func Forward(database *manticoresearch.ManticoreSearch, address string) (*proto.ForwardResult, error) {
 	parsed := parser.ParseAddress(address)
 
 	if parsed.Road == nil && parsed.House == "" {

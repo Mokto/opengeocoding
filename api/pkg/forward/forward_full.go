@@ -1,16 +1,16 @@
 package forward
 
 import (
-	"database/sql"
 	"fmt"
 	"geocoding/pkg/geolabels"
+	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/parser"
 	"geocoding/pkg/proto"
 	"log"
 	"strings"
 )
 
-func forwardFull(database *sql.DB, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
+func forwardFull(database *manticoresearch.ManticoreSearch, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
 
 	match := ""
 	additionalQuery := ""
@@ -58,7 +58,7 @@ func forwardFull(database *sql.DB, parsed parser.ParsedAddress) (*proto.ForwardR
 	query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM openaddresses WHERE MATCH('` + match + `') ` + additionalQuery + ` LIMIT 1 OPTION field_weights=(street=10,number=4,unit=2,city=9,district=6,region=6,postcode=8)`
 
 	fmt.Println(query)
-	rows, err := database.Query(query)
+	rows, err := database.Balancer.Query(query)
 	if err != nil {
 		return nil, err
 	}

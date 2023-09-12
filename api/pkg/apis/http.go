@@ -2,10 +2,10 @@ package apis
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"geocoding/pkg/forward"
 	"geocoding/pkg/graceful"
+	"geocoding/pkg/manticoresearch"
 	"log"
 	"net/http"
 	"time"
@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func StartHttp(gracefulManager *graceful.Manager, database *sql.DB) {
+func StartHttp(gracefulManager *graceful.Manager, database *manticoresearch.ManticoreSearch) {
 
 	port := 8090
 	server := echo.New()

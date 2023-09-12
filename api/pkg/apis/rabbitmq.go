@@ -1,20 +1,20 @@
 package apis
 
 import (
-	"database/sql"
 	"fmt"
 	"geocoding/pkg/graceful"
+	"geocoding/pkg/manticoresearch"
 	"log"
 
 	"github.com/wagslane/go-rabbitmq"
 )
 
-func StartRmqConsumer(gracefulManager *graceful.Manager, database *sql.DB, rmqConnection *rabbitmq.Conn) {
+func StartRmqConsumer(gracefulManager *graceful.Manager, database *manticoresearch.ManticoreSearch, rmqConnection *rabbitmq.Conn) {
 
 	consumer, err := rabbitmq.NewConsumer(
 		rmqConnection,
 		func(d rabbitmq.Delivery) rabbitmq.Action {
-			_, err := database.Exec(string(d.Body))
+			_, err := database.Worker.Exec(string(d.Body))
 			if err != nil {
 				fmt.Println(err)
 				if !d.Redelivered {

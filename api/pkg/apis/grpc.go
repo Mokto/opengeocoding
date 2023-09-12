@@ -2,10 +2,10 @@ package apis
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"geocoding/pkg/forward"
 	"geocoding/pkg/graceful"
+	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/proto"
 	"log"
 	"net"
@@ -17,7 +17,7 @@ import (
 )
 
 type opengeocodingServer struct {
-	database *sql.DB
+	database *manticoresearch.ManticoreSearch
 	proto.UnimplementedOpenGeocodingServer
 }
 
@@ -30,13 +30,14 @@ func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.Forwar
 }
 
 type opengeocodingServerInternal struct {
-	database  *sql.DB
+	database  *manticoresearch.ManticoreSearch
 	publisher *RmqPublisher
 	proto.UnimplementedOpenGeocodingInternalServer
 }
 
 func (s *opengeocodingServerInternal) RunQuery(ctx context.Context, request *proto.RunQueryRequest) (*proto.RunQueryResponse, error) {
-	_, err := s.database.Exec(request.Query)
+	_, err := s.database.Worker.Exec(request.Query)
+	fmt.Println(request.Query, err)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +55,7 @@ func (s *opengeocodingServerInternal) RunBackgroundQuery(ctx context.Context, re
 	return &proto.RunBackgroundQueryResponse{}, nil
 }
 
-func StartGrpc(gracefulManager *graceful.Manager, database *sql.DB, publisher *RmqPublisher) {
+func StartGrpc(gracefulManager *graceful.Manager, database *manticoresearch.ManticoreSearch, publisher *RmqPublisher) {
 
 	port := 8091
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
