@@ -16,7 +16,6 @@ use rayon::prelude::*;
 use std::{
     collections::HashMap,
     fs::{self},
-    hash,
     path::Path,
 };
 
@@ -48,12 +47,13 @@ pub async fn extract_all() {
     let config = Config::new();
     let table_name_addresses = "openstreetmap_addresses";
     let full_table_name_addresses = config.get_table_name(table_name_addresses.to_string());
-    let table_name_streets = "openstreetmap_streets";
+    let table_name_streets = "openstreetmap_streets_v2";
     let full_table_name_streets = config.get_table_name(table_name_streets.to_string());
     println!("{}", full_table_name_streets);
 
-    let region_detector = ZoneDetector::new();
-    let country_detector = CountryDetector::new();
+    let region_detector = ZoneDetector::new("region").await;
+    let locality_detector = ZoneDetector::new("locality").await;
+    let country_detector = CountryDetector::new().await;
     let mut client = OpenGeocodingApiClient::new().await.unwrap();
 
     println!("Creating tables...");
@@ -231,19 +231,24 @@ pub async fn extract_all() {
                     .unwrap_or("".to_string())
                     .to_string();
                 let mut region = "".to_string();
+                let mut locality = "".to_string();
                 if country_code != "" {
                     region = region_detector
                         .detect(country_code.to_string(), centroid.y(), centroid.x())
                         .unwrap_or("".to_string());
+                    locality = locality_detector
+                        .detect(country_code.to_string(), centroid.y(), centroid.x())
+                        .unwrap_or("".to_string());
                 }
 
-                let hash_base = format!("{}-{}-{}", street.street, country_code, region);
+                let hash_base =
+                    format!("{}-{}-{}-{}", street.street, country_code, region, locality);
 
                 StreetDocument {
                     id: calculate_hash(&hash_base),
                     street: street.street.to_string(),
                     country_code: Some(country_code),
-                    city: "".to_string(),
+                    city: locality,
                     region: region,
                     lat: centroid.y(),
                     long: centroid.x(),

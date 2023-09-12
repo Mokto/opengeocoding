@@ -228,16 +228,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bzip2-rs"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "beeb59e7e4c811ab37cc73680c798c7a5da77fc9989c62b09138e31ee740f735"
-dependencies = [
- "crc32fast",
- "tinyvec",
-]
-
-[[package]]
 name = "bzip2-sys"
 version = "0.1.11+1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1171,7 +1161,7 @@ checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 name = "opengeocoding"
 version = "0.1.0"
 dependencies = [
- "bzip2-rs",
+ "bzip2",
  "collecting-hashmap",
  "csv",
  "futures-util",

@@ -119,7 +119,7 @@ pub async fn insert_street_documents(
                     .join("],[");
 
                 format!(
-                    r"({},'{}','{}',{},{},'{}',{})",
+                    r"({},'{}','{}',{},{},'{}',{}, '{}')",
                     doc.id,
                     clean_string(&doc.street),
                     doc.country_code
@@ -127,13 +127,14 @@ pub async fn insert_street_documents(
                         .unwrap_or(country_code.clone().unwrap_or("".to_string())),
                     doc.lat,
                     doc.long,
-                    doc.region,
-                    "'[[".to_string() + points.as_str() + "]]'"
+                    clean_string(&doc.region),
+                    "'[[".to_string() + points.as_str() + "]]'",
+                    clean_string(&doc.city),
                 )
             })
             .collect::<Vec<String>>();
         let query = format!(
-            "REPLACE INTO {}(id,street,country_code,lat,long,region,points) VALUES {};",
+            "REPLACE INTO {}(id,street,country_code,lat,long,region,points,city) VALUES {};",
             full_table_name,
             values.join(",")
         );

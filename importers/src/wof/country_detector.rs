@@ -1,4 +1,3 @@
-use bzip2_rs::DecoderReader;
 use csv::ReaderBuilder;
 use geo::{Centroid, Contains, VincentyDistance};
 use geo_types::{point, Geometry, Point};
@@ -7,9 +6,9 @@ use geozero::ToGeo;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
 use std::time::Instant;
-use tar::Archive;
+
+use crate::extractor::tar_bz2::download_and_extract;
 
 #[derive(Debug)]
 struct CountryData {
@@ -54,29 +53,22 @@ impl CountryDetector {
         None
     }
 
-    pub fn new() -> Self {
-        let regions_folder = "./data/whosonfirst-data-country-latest";
+    pub async fn new() -> Self {
+        let countries_folder = "./data/whosonfirst-data-country-latest".to_string();
 
-        let folder_exists: bool = Path::new(regions_folder).is_dir();
-
-        if !folder_exists {
-            let file = fs::File::open(std::path::Path::new(
-                "data/whosonfirst-data-country-latest.tar.bz2",
-            ))
-            .unwrap();
-
-            let reader = DecoderReader::new(file);
-
-            println!("Unpacking file...");
-            let mut archive = Archive::new(reader);
-            archive.unpack(regions_folder).unwrap();
-        }
+        download_and_extract(
+            "https://data.geocode.earth/wof/dist/legacy/whosonfirst-data-country-latest.tar.bz2",
+            "data/whosonfirst-country-latest.tar.bz2",
+            &countries_folder,
+        )
+        .await
+        .unwrap();
 
         println!("Loading countries...");
         let now = Instant::now();
 
         let file =
-            fs::File::open(regions_folder.to_owned() + "/meta/whosonfirst-data-country-latest.csv")
+            fs::File::open(countries_folder.clone() + "/meta/whosonfirst-data-country-latest.csv")
                 .unwrap();
         let mut rdr = ReaderBuilder::new().from_reader(file);
 
@@ -87,7 +79,7 @@ impl CountryDetector {
             let path = record.get(19).unwrap();
             let country_code = record.get(25).unwrap().to_lowercase();
 
-            let path = regions_folder.to_owned() + "/data/" + path;
+            let path = countries_folder.clone() + "/data/" + path;
             records.push(DataFile {
                 country: country_code,
                 file_path: path.clone(),

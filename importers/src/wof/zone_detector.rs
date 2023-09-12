@@ -1,4 +1,3 @@
-use bzip2_rs::DecoderReader;
 use collecting_hashmap::CollectingHashMap;
 use csv::ReaderBuilder;
 use geo::{Centroid, Contains, VincentyDistance};
@@ -8,9 +7,9 @@ use geozero::ToGeo;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
 use std::time::Instant;
-use tar::Archive;
+
+use crate::extractor::tar_bz2::download_and_extract;
 
 struct ZoneData {
     name: String,
@@ -19,8 +18,8 @@ struct ZoneData {
 }
 
 pub struct ZoneDetector {
-    regions: HashMap<String, ZoneData>,
-    regions_names: CollectingHashMap<String, String>,
+    zones: HashMap<String, ZoneData>,
+    zones_names: CollectingHashMap<String, String>,
 }
 
 struct DataFile {
@@ -33,64 +32,63 @@ impl ZoneDetector {
     pub fn detect(&self, country_code: String, lat: f64, long: f64) -> Option<String> {
         let country_code = country_code.to_lowercase();
 
-        let regions_names = self.regions_names.get_all(&country_code);
-        if regions_names.is_none() {
+        let zones_names = self.zones_names.get_all(&country_code);
+        if zones_names.is_none() {
             return None;
         }
 
-        let regions_names = regions_names.unwrap();
+        let zones_names = zones_names.unwrap();
 
         let point = point! {x: long, y: lat};
 
-        // sort regions by distance from point to centroid. Will probably find the matching region first.
-        let mut regions_names = regions_names.to_vec();
-        regions_names.sort_by_cached_key(|region_name| {
+        // sort zones by distance from point to centroid. Will probably find the matching region first.
+        let mut zones_names = zones_names.to_vec();
+        zones_names.sort_by_cached_key(|zone_name| {
             let centroid = &self
-                .regions
-                .get((country_code.clone() + region_name.as_str()).as_str())
+                .zones
+                .get((country_code.clone() + zone_name.as_str()).as_str())
                 .unwrap()
                 .centroid;
             (centroid.vincenty_distance(&point)).unwrap_or(f64::MAX) as u32
         });
 
-        for region_name in regions_names {
+        for zone_name in zones_names {
             if self
-                .regions
-                .get((country_code.clone() + region_name.as_str()).as_str())
+                .zones
+                .get((country_code.clone() + zone_name.as_str()).as_str())
                 .unwrap()
                 .geometry
                 .contains(&point)
             {
-                return Some(region_name);
+                return Some(zone_name);
             }
         }
 
         None
     }
-    pub fn new() -> Self {
-        let regions_folder = "./data/whosonfirst-data-region-latest";
+    pub async fn new(zone_type: &str) -> Self {
+        let zones_folder = format!("./data/whosonfirst-data-{}-latest", zone_type);
 
-        let folder_exists: bool = Path::new(regions_folder).is_dir();
+        download_and_extract(
+            format!(
+                "https://data.geocode.earth/wof/dist/legacy/whosonfirst-data-{}-latest.tar.bz2",
+                &zone_type
+            )
+            .as_str(),
+            format!("data/whosonfirst-{}-latest.tar.bz2", zone_type).as_str(),
+            &zones_folder,
+        )
+        .await
+        .unwrap();
 
-        if !folder_exists {
-            let file = fs::File::open(std::path::Path::new(
-                "data/whosonfirst-data-region-latest.tar.bz2",
-            ))
-            .unwrap();
-
-            let reader = DecoderReader::new(file);
-
-            println!("Unpacking file...");
-            let mut archive = Archive::new(reader);
-            archive.unpack(regions_folder).unwrap();
-        }
-
-        println!("Loading regions...");
+        println!("Loading zones...");
         let now = Instant::now();
 
-        let file =
-            fs::File::open(regions_folder.to_owned() + "/meta/whosonfirst-data-region-latest.csv")
-                .unwrap();
+        let file = fs::File::open(format!(
+            "{}/meta/whosonfirst-data-{}-latest.csv",
+            zones_folder, zone_type
+        ))
+        .unwrap();
         let mut rdr = ReaderBuilder::new().from_reader(file);
 
         let mut records = vec![];
@@ -101,16 +99,16 @@ impl ZoneDetector {
             let path = record.get(19).unwrap();
             let country_code = record.get(25).unwrap().to_lowercase();
 
-            let path = regions_folder.to_owned() + "/data/" + path;
+            let path = zones_folder.clone() + "/data/" + path;
             records.push(DataFile {
                 country_code: country_code.clone(),
                 zone: name.to_string(),
                 file_path: path.clone(),
             });
         }
-        println!("Found {} regions to load.", records.len());
+        println!("Found {} zones to load.", records.len());
 
-        let regions_iter = records
+        let zones_iter = records
             .par_iter()
             .map(|record| {
                 let file_data = fs::read_to_string(&record.file_path).unwrap();
@@ -136,14 +134,14 @@ impl ZoneDetector {
             .into_par_iter()
             .flatten();
 
-        let hashmap_result = regions_iter
+        let hashmap_result = zones_iter
             .clone()
             .map(|region| (region.0.to_string() + region.1.name.as_str(), region.1))
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<HashMap<_, _>>();
 
-        let regions_names = regions_iter
+        let zones_names = zones_iter
             // .map(|d| => (d.0.clone(), d.1.name.clone()))
             .map(|region| (region.0.clone(), region.1.name.clone()))
             .collect::<Vec<_>>()
@@ -154,8 +152,8 @@ impl ZoneDetector {
         println!("Took {:.2?}\n", elapsed);
 
         Self {
-            regions: hashmap_result,
-            regions_names: regions_names,
+            zones: hashmap_result,
+            zones_names: zones_names,
         }
     }
 }

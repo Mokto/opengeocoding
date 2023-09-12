@@ -37,7 +37,7 @@ pub async fn extract_cities() {
 
     println!("Done creating tables.");
 
-    let region_detector = ZoneDetector::new();
+    let region_detector = ZoneDetector::new("region").await;
 
     let fname = std::path::Path::new("./data/allCountries.zip");
     let file = fs::File::open(fname).unwrap();
