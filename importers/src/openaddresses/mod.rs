@@ -38,7 +38,7 @@ pub async fn import_addresses() {
     let mut client = OpenGeocodingApiClient::new().await.unwrap();
 
     println!("Creating table...");
-    let query_result = client.run_query(format!("CREATE TABLE IF NOT EXISTS {}(street text, number text, unit text, city text, district text, region text, postcode text, lat float, long float, country_code string)  rt_mem_limit = '1G'", full_table_name)).await;
+    let query_result = client.run_query(format!("CREATE TABLE IF NOT EXISTS {}(street text, number text, unit text, city text, district text, region text, postcode text, lat float, long float, country_code string)  rt_mem_limit = '1G'", table_name)).await;
     match query_result {
         Ok(_) => {}
         Err(e) => {
@@ -46,17 +46,20 @@ pub async fn import_addresses() {
         }
     };
 
-    // if config.manticore_is_cluster {
-    //     let query_result = client
-    //         .run_query(format!("ALTER CLUSTER {} ADD {}", cluster_name, table_name).as_str())
-    //         .await;
-    //     match query_result {
-    //         Ok(_) => {}
-    //         Err(e) => {
-    //             println!("{}", e);
-    //         }
-    //     };
-    // }
+    if config.manticore_is_cluster {
+        let query_result = client
+            .run_query(format!(
+                "ALTER CLUSTER {} ADD {}",
+                config.manticore_cluster_name, table_name
+            ))
+            .await;
+        match query_result {
+            Ok(_) => {}
+            Err(e) => {
+                println!("{}", e);
+            }
+        };
+    }
 
     let fname = std::path::Path::new("data/collection-global.zip");
     let file = fs::File::open(fname).unwrap();

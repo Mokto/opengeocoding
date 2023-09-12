@@ -1,7 +1,7 @@
 use crate::client::OpenGeocodingApiClient;
 use crate::config::Config;
 use crate::data::{calculate_hash, CityDocument};
-use crate::wof::region_detector::RegionDetector;
+use crate::wof::zone_detector::ZoneDetector;
 use csv::ReaderBuilder;
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -37,7 +37,7 @@ pub async fn extract_cities() {
 
     println!("Done creating tables.");
 
-    let region_detector = RegionDetector::new();
+    let region_detector = ZoneDetector::new();
 
     let fname = std::path::Path::new("./data/allCountries.zip");
     let file = fs::File::open(fname).unwrap();

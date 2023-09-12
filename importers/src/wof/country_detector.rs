@@ -5,12 +5,13 @@ use geo_types::{point, Geometry, Point};
 use geozero::geojson::GeoJson;
 use geozero::ToGeo;
 use rayon::prelude::*;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::time::Instant;
 use tar::Archive;
 
-#[derive(Clone)]
+#[derive(Debug)]
 struct CountryData {
     name: String,
     geometry: Geometry,
@@ -18,7 +19,8 @@ struct CountryData {
 }
 
 pub struct CountryDetector {
-    countries: Vec<CountryData>,
+    country_codes: Vec<String>,
+    countries: HashMap<String, CountryData>,
 }
 
 struct DataFile {
@@ -30,21 +32,28 @@ impl CountryDetector {
     pub fn detect(&self, lat: f64, long: f64) -> Option<String> {
         let point = point! {x: long, y: lat};
 
-        // sort regions by distance from point to centroid. Will probably find the matching region first.
-        let mut regions = self.countries.clone();
-        regions.sort_by_cached_key(|region| {
-            let centroid = region.centroid;
+        // sort countries by distance from point to centroid. Will probably find the matching region first.
+        let mut country_codes = self.country_codes.clone();
+        country_codes.sort_by_cached_key(|country_code| {
+            let centroid = self.countries.get(country_code).unwrap().centroid;
             (centroid.vincenty_distance(&point)).unwrap_or(f64::MAX) as u32
         });
 
-        for region in regions {
-            if region.geometry.contains(&point) {
-                return Some(region.name);
+        for country_code in country_codes {
+            if self
+                .countries
+                .get(&country_code)
+                .unwrap()
+                .geometry
+                .contains(&point)
+            {
+                return Some(country_code);
             }
         }
 
         None
     }
+
     pub fn new() -> Self {
         let regions_folder = "./data/whosonfirst-data-country-latest";
 
@@ -107,14 +116,21 @@ impl CountryDetector {
                 }
             })
             .into_par_iter()
-            .flatten()
+            .flatten();
+
+        let country_codes = vec_result
+            .clone()
+            .map(|country| country.name.clone())
             .collect::<Vec<_>>();
 
         let elapsed = now.elapsed();
         println!("Took {:.2?}\n", elapsed);
 
         Self {
-            countries: vec_result,
+            countries: vec_result
+                .map(|c| (c.name.clone(), c))
+                .collect::<HashMap<_, _>>(),
+            country_codes: country_codes,
         }
     }
 }

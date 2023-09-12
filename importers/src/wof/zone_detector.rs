@@ -6,50 +6,62 @@ use geo_types::{point, Geometry, Point};
 use geozero::geojson::GeoJson;
 use geozero::ToGeo;
 use rayon::prelude::*;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::time::Instant;
 use tar::Archive;
 
-#[derive(Clone)]
-struct RegionData {
+struct ZoneData {
     name: String,
     geometry: Geometry,
     centroid: Point,
 }
 
-pub struct RegionDetector {
-    regions: CollectingHashMap<String, RegionData>,
+pub struct ZoneDetector {
+    regions: HashMap<String, ZoneData>,
+    regions_names: CollectingHashMap<String, String>,
 }
 
 struct DataFile {
     country_code: String,
-    region: String,
+    zone: String,
     file_path: String,
 }
 
-impl RegionDetector {
+impl ZoneDetector {
     pub fn detect(&self, country_code: String, lat: f64, long: f64) -> Option<String> {
         let country_code = country_code.to_lowercase();
 
-        let regions = self.regions.get_all(&country_code);
-
-        if regions.is_none() {
+        let regions_names = self.regions_names.get_all(&country_code);
+        if regions_names.is_none() {
             return None;
         }
+
+        let regions_names = regions_names.unwrap();
 
         let point = point! {x: long, y: lat};
 
         // sort regions by distance from point to centroid. Will probably find the matching region first.
-        let mut regions = regions.unwrap().to_vec();
-        regions.sort_by_cached_key(|region| {
-            let centroid = region.centroid;
+        let mut regions_names = regions_names.to_vec();
+        regions_names.sort_by_cached_key(|region_name| {
+            let centroid = &self
+                .regions
+                .get((country_code.clone() + region_name.as_str()).as_str())
+                .unwrap()
+                .centroid;
             (centroid.vincenty_distance(&point)).unwrap_or(f64::MAX) as u32
         });
 
-        for region in regions {
-            if region.geometry.contains(&point) {
-                return Some(region.name);
+        for region_name in regions_names {
+            if self
+                .regions
+                .get((country_code.clone() + region_name.as_str()).as_str())
+                .unwrap()
+                .geometry
+                .contains(&point)
+            {
+                return Some(region_name);
             }
         }
 
@@ -92,13 +104,13 @@ impl RegionDetector {
             let path = regions_folder.to_owned() + "/data/" + path;
             records.push(DataFile {
                 country_code: country_code.clone(),
-                region: name.to_string(),
+                zone: name.to_string(),
                 file_path: path.clone(),
             });
         }
         println!("Found {} regions to load.", records.len());
 
-        let hashmap_result = records
+        let regions_iter = records
             .par_iter()
             .map(|record| {
                 let file_data = fs::read_to_string(&record.file_path).unwrap();
@@ -111,9 +123,9 @@ impl RegionDetector {
                     Ok(data) => {
                         return Some((
                             record.country_code.clone(),
-                            RegionData {
+                            ZoneData {
                                 geometry: data.clone(),
-                                name: record.region.clone(),
+                                name: record.zone.clone(),
                                 centroid: data.centroid().unwrap(),
                             },
                         ));
@@ -122,7 +134,18 @@ impl RegionDetector {
                 }
             })
             .into_par_iter()
-            .flatten()
+            .flatten();
+
+        let hashmap_result = regions_iter
+            .clone()
+            .map(|region| (region.0.to_string() + region.1.name.as_str(), region.1))
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<HashMap<_, _>>();
+
+        let regions_names = regions_iter
+            // .map(|d| => (d.0.clone(), d.1.name.clone()))
+            .map(|region| (region.0.clone(), region.1.name.clone()))
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<CollectingHashMap<_, _>>();
@@ -132,6 +155,7 @@ impl RegionDetector {
 
         Self {
             regions: hashmap_result,
+            regions_names: regions_names,
         }
     }
 }
