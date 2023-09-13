@@ -15,7 +15,7 @@ pub async fn extract_cities() {
     let mut client = OpenGeocodingApiClient::new().await.unwrap();
     println!("Creating table...");
 
-    let query_result = client.run_query(format!("CREATE TABLE IF NOT EXISTS {}(city text, region text, lat float, long float, country_code string, population int)  rt_mem_limit = '1G'", config.get_table_name(table_name.to_string()))).await;
+    let query_result = client.run_query(format!("CREATE TABLE IF NOT EXISTS {}(city text, region text, lat float, long float, country_code string, population int) rt_mem_limit = '1G'", table_name)).await;
     match query_result {
         Ok(_) => {}
         Err(e) => {
@@ -23,21 +23,24 @@ pub async fn extract_cities() {
         }
     };
 
-    // if config.manticore_is_cluster {
-    //     let query_result = client
-    //         .run_query(format!("ALTER CLUSTER {} ADD {}", cluster_name, table_name).as_str())
-    //         .await;
-    //     match query_result {
-    //         Ok(_) => {}
-    //         Err(e) => {
-    //             println!("{}", e);
-    //         }
-    //     };
-    // }
+    if config.manticore_is_cluster {
+        let query_result = client
+            .run_query(format!(
+                "ALTER CLUSTER {} ADD {}",
+                config.manticore_cluster_name, table_name
+            ))
+            .await;
+        match query_result {
+            Ok(_) => {}
+            Err(e) => {
+                println!("{}", e);
+            }
+        };
+    }
 
     println!("Done creating tables.");
 
-    let region_detector = ZoneDetector::new("region").await;
+    let region_detector = ZoneDetector::new_region_detector().await;
 
     let fname = std::path::Path::new("./data/allCountries.zip");
     let file = fs::File::open(fname).unwrap();
@@ -51,6 +54,7 @@ pub async fn extract_cities() {
 
     let documents = rdr.records().map(|result| {
         let record = result.unwrap();
+        let id = record.get(0).unwrap();
         let name = record.get(1).unwrap();
         let latitude: f64 = record.get(4).unwrap().parse().unwrap();
         let longitude: f64 = record.get(5).unwrap().parse().unwrap();
@@ -62,9 +66,8 @@ pub async fn extract_cities() {
             return None;
         }
 
-        let hash_base = format!("{}-{}", name, country_code);
         return Some(CityDocument {
-            id: calculate_hash(&hash_base),
+            id: calculate_hash(&id),
             city: name.to_string(),
             country_code: country_code.to_lowercase().to_string(),
             region: "".to_string(), // will be calculated later
