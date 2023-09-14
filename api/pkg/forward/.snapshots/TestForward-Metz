@@ -16,24 +16,24 @@
     },
     {
       "city": "Metz",
-      "region": "Texas",
-      "lat": 31.70346,
-      "long": -102.65709,
+      "region": "Missouri",
+      "lat": 37.99753,
+      "long": -94.44329,
       "country_code": "us"
     },
     {
       "city": "Metz",
-      "region": "Limpopo",
-      "lat": -24.23333,
-      "long": 30.48333,
-      "country_code": "za"
+      "region": "Indiana",
+      "lat": 41.61616,
+      "long": -84.8394,
+      "country_code": "us"
     },
     {
       "city": "Metz",
-      "region": "Ontario",
-      "lat": 43.80917,
-      "long": -80.44333,
-      "country_code": "ca"
+      "region": "Texas",
+      "lat": 31.70346,
+      "long": -102.65709,
+      "country_code": "us"
     }
   ]
 }

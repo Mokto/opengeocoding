@@ -1,1 +1,9 @@
-{}
+{
+  "location": {
+    "city": "Lawrence",
+    "region": "Kansas",
+    "lat": 38.97167,
+    "long": -95.23525,
+    "country_code": "us"
+  }
+}
