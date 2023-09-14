@@ -13,7 +13,7 @@ pub struct GeoPointGeometry {
     pub r#type: String,
     pub coordinates: Vec<f64>,
 }
-#[derive(Serialize, Deserialize, Hash)]
+#[derive(Serialize, Deserialize)]
 pub struct GeoPointProperties {
     pub hash: String,
     pub street: Option<String>,
