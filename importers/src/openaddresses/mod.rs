@@ -15,6 +15,7 @@ pub struct GeoPointGeometry {
 }
 #[derive(Serialize, Deserialize, Hash)]
 pub struct GeoPointProperties {
+    pub hash: String,
     pub street: Option<String>,
     pub number: Option<String>,
     pub unit: Option<String>,
@@ -149,7 +150,7 @@ async fn string_to_db(
                 return None;
             }
             return Some(AddressDocument {
-                id: calculate_hash(&p.properties),
+                id: calculate_hash(&p.properties.hash),
                 street: p.properties.street.unwrap_or("".to_string()),
                 number: p.properties.number.unwrap_or("".to_string()),
                 unit: p.properties.unit.unwrap_or("".to_string()),
