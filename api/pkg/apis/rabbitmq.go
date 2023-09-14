@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"geocoding/pkg/graceful"
 	"geocoding/pkg/manticoresearch"
+	"geocoding/pkg/messaging"
 	"log"
 
 	"github.com/wagslane/go-rabbitmq"
 )
 
-func StartRmqConsumer(gracefulManager *graceful.Manager, database *manticoresearch.ManticoreSearch, rmqConnection *rabbitmq.Conn) {
+func StartRmqConsumer(gracefulManager *graceful.Manager, database *manticoresearch.ManticoreSearch, messaging *messaging.Messaging) {
 
 	consumer, err := rabbitmq.NewConsumer(
-		rmqConnection,
+		messaging.Connection,
 		func(d rabbitmq.Delivery) rabbitmq.Action {
 			_, err := database.Worker.Exec(string(d.Body))
 			if err != nil {
@@ -25,10 +26,13 @@ func StartRmqConsumer(gracefulManager *graceful.Manager, database *manticoresear
 			}
 			return rabbitmq.Ack
 		},
-		"main:::backgroundSave",
+		"main:::opengeocoding:backgroundSave",
 		rabbitmq.WithConsumerOptionsConcurrency(1),
 		rabbitmq.WithConsumerOptionsQueueQuorum,
 		rabbitmq.WithConsumerOptionsQueueDurable,
+		rabbitmq.WithConsumerOptionsQueueArgs(rabbitmq.Table{
+			"x-dead-letter-exchange": "dlx:::opengeocoding:backgroundSave",
+		}),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -37,35 +41,4 @@ func StartRmqConsumer(gracefulManager *graceful.Manager, database *manticoresear
 	gracefulManager.OnShutdown(func() {
 		consumer.Close()
 	})
-}
-
-type RmqPublisher struct {
-	publisher *rabbitmq.Publisher
-}
-
-func (publisher *RmqPublisher) Publish(queueName string, message string) error {
-	err := publisher.publisher.Publish([]byte(message), []string{queueName}) // rabbitmq.WithPublishOptionsExchange("events"),
-
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func StartRmqPublisher(gracefulManager *graceful.Manager, rmqConnection *rabbitmq.Conn) *RmqPublisher {
-
-	publisher, err := rabbitmq.NewPublisher(
-		rmqConnection,
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	gracefulManager.OnShutdown(func() {
-		defer publisher.Close()
-	})
-
-	return &RmqPublisher{
-		publisher: publisher,
-	}
 }
