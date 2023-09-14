@@ -29,11 +29,11 @@ func StartRmqConsumer(gracefulManager *graceful.Manager, database *manticoresear
 		"main:::opengeocoding:backgroundSave",
 		rabbitmq.WithConsumerOptionsConcurrency(10),
 		rabbitmq.WithConsumerOptionsQOSPrefetch(5),
-		rabbitmq.WithConsumerOptionsQueueQuorum,
 		rabbitmq.WithConsumerOptionsQueueDurable,
 		rabbitmq.WithConsumerOptionsQueueArgs(rabbitmq.Table{
 			"x-dead-letter-exchange": "dlx:::opengeocoding:backgroundSave",
 		}),
+		rabbitmq.WithConsumerOptionsQueueQuorum,
 	)
 	if err != nil {
 		log.Fatal(err)
