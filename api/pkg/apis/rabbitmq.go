@@ -27,7 +27,8 @@ func StartRmqConsumer(gracefulManager *graceful.Manager, database *manticoresear
 			return rabbitmq.Ack
 		},
 		"main:::opengeocoding:backgroundSave",
-		rabbitmq.WithConsumerOptionsConcurrency(1),
+		rabbitmq.WithConsumerOptionsConcurrency(10),
+		rabbitmq.WithConsumerOptionsQOSPrefetch(5),
 		rabbitmq.WithConsumerOptionsQueueQuorum,
 		rabbitmq.WithConsumerOptionsQueueDurable,
 		rabbitmq.WithConsumerOptionsQueueArgs(rabbitmq.Table{
