@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::error::Error;
 use std::hash::{Hash, Hasher};
+use std::time::Duration;
+use tokio::time::sleep;
 
 use crate::client::OpenGeocodingApiClient;
 
@@ -91,7 +93,12 @@ pub async fn insert_address_documents(
             .collect::<Vec<String>>();
         let query = format!("REPLACE INTO {}(id,street,number,unit,city,district,region,postcode,lat,long,country_code) VALUES {};", full_table_name, values.join(","));
 
-        client.run_background_query(query).await?;
+        let result = client.run_background_query(query.clone()).await;
+        if result.is_err() {
+            println!("Error: {:?}. Retrying...", result);
+            sleep(Duration::from_millis(2000)).await;
+            client.run_background_query(query).await?;
+        }
     }
 
     Ok(())
