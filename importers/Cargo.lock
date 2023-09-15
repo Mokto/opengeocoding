@@ -1164,6 +1164,7 @@ dependencies = [
  "bzip2",
  "collecting-hashmap",
  "csv",
+ "flate2",
  "futures-util",
  "geo",
  "geo-types",

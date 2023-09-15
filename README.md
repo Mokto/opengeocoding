@@ -3,9 +3,9 @@
 Based on 3 sub-projects:
 
 - API: golang based tool that start a GRPC & HTTP to serve forward geocoding requests
-- Importers: rust based fast importers of open source data (openaddresses)
+- Importers: super fast Rust based importers of open source data
     - Openaddresses for ... addresses
-    - Openstreetmaps to get addresses and ways
+    - [Openstreetdata](https://openstreetdata.org/) to get addresses & streets
     - Geonames for cities
     - Who's on first to attribute locations to regions & countries
 - Generators: useful to generate necessary mapping for the API. For example a JSON file that mapping a city name to all its language variations
@@ -33,7 +33,7 @@ $ gow run main.go # watch mode
 
 
 ```
-$ cargo run --bin openstreetmap_import
+$ cargo run --bin openstreetdata_import
 
 $ cargo run --bin openaddress_import
 

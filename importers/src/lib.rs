@@ -5,5 +5,6 @@ pub mod download;
 pub mod extractor;
 pub mod geonames;
 pub mod openaddresses;
+pub mod openstreetdata;
 pub mod openstreetmap;
 pub mod wof;
