@@ -1,6 +1,7 @@
 package forward
 
 import (
+	"fmt"
 	"geocoding/pkg/geolabels"
 	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/parser"
@@ -11,6 +12,7 @@ import (
 
 func forwardFull(database *manticoresearch.ManticoreSearch, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
 	query := getAddressForwardQuery(parsed, "openaddresses")
+	fmt.Println(query)
 	if query == "" {
 		return &proto.ForwardResult{}, nil
 	}
@@ -56,7 +58,7 @@ func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) strin
 		cities := []string{}
 		for _, city := range parsed.City {
 			for _, city := range geolabels.ExpandCityLabel(city) {
-				cities = append(cities, "@city "+escape_sql(city))
+				cities = append(cities, `@city "`+escape_sql(city)+`"`)
 			}
 		}
 		match += "(" + strings.Join(cities, " | ") + " ) "

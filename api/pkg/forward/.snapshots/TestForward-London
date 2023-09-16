@@ -1,44 +1,44 @@
 {
-  "location":  {
-    "city":  "London",
-    "region":  "City of Westminster",
-    "lat":  51.50853,
-    "long":  -0.12574,
-    "countryCode":  "gb",
-    "source":  "Geonames"
+  "location": {
+    "city": "London",
+    "region": "City of Westminster",
+    "lat": 51.50853,
+    "long": -0.12574,
+    "countryCode": "gb",
+    "source": "Geonames"
   },
-  "otherPotentialLocations":  [
+  "otherPotentialLocations": [
     {
-      "city":  "London",
-      "region":  "Ontario",
-      "lat":  42.98339,
-      "long":  -81.23304,
-      "countryCode":  "ca",
-      "source":  "Geonames"
+      "city": "London",
+      "region": "Ontario",
+      "lat": 42.98339,
+      "long": -81.23304,
+      "countryCode": "ca",
+      "source": "Geonames"
     },
     {
-      "city":  "London",
-      "region":  "Ohio",
-      "lat":  39.88645,
-      "long":  -83.44825,
-      "countryCode":  "us",
-      "source":  "Geonames"
+      "city": "London",
+      "region": "Ohio",
+      "lat": 39.88645,
+      "long": -83.44825,
+      "countryCode": "us",
+      "source": "Geonames"
     },
     {
-      "city":  "London",
-      "region":  "Kentucky",
-      "lat":  37.12898,
-      "long":  -84.08326,
-      "countryCode":  "us",
-      "source":  "Geonames"
+      "city": "London",
+      "region": "Kentucky",
+      "lat": 37.12898,
+      "long": -84.08326,
+      "countryCode": "us",
+      "source": "Geonames"
     },
     {
-      "city":  "London",
-      "region":  "California",
-      "lat":  36.47606,
-      "long":  -119.44318,
-      "countryCode":  "us",
-      "source":  "Geonames"
+      "city": "London",
+      "region": "California",
+      "lat": 36.47606,
+      "long": -119.44318,
+      "countryCode": "us",
+      "source": "Geonames"
     }
   ]
 }

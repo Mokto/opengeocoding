@@ -1,1 +1,15 @@
-{}
+{
+  "location": {
+    "street": "Columbus Avenue",
+    "number": "178",
+    "unit": "",
+    "city": "City of New York",
+    "district": "",
+    "region": "New York",
+    "postcode": "10023",
+    "lat": 40.77481,
+    "long": -73.980934,
+    "countryCode": "us",
+    "source": "OpenStreetData"
+  }
+}

@@ -1,10 +1,10 @@
 {
-  "location":  {
-    "city":  "Kansas City",
-    "region":  "Missouri",
-    "lat":  39.09973,
-    "long":  -94.57857,
-    "countryCode":  "us",
-    "source":  "Geonames"
+  "location": {
+    "city": "Kansas City",
+    "region": "Missouri",
+    "lat": 39.09973,
+    "long": -94.57857,
+    "countryCode": "us",
+    "source": "Geonames"
   }
 }

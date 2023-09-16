@@ -1,15 +1,15 @@
 {
-  "location":  {
-    "street":  "St. Leonard's Avenue",
-    "number":  "100-106",
-    "unit":  "",
-    "city":  "London Borough of Waltham Forest",
-    "district":  "",
-    "region":  "Waltham Forest",
-    "postcode":  "",
-    "lat":  51.609512,
-    "long":  0.00561845,
-    "countryCode":  "gb",
-    "source":  "OpenStreetData"
+  "location": {
+    "street": "St. Leonard's Avenue",
+    "number": "100-106",
+    "unit": "",
+    "city": "London Borough of Waltham Forest",
+    "district": "",
+    "region": "Waltham Forest",
+    "postcode": "",
+    "lat": 51.609512,
+    "long": 0.00561845,
+    "countryCode": "gb",
+    "source": "OpenStreetData"
   }
 }
