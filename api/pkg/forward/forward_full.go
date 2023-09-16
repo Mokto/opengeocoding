@@ -48,12 +48,12 @@ func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) strin
 	if parsed.Road != nil {
 		roads := []string{}
 		for _, road := range parsed.Road {
-			roads = append(roads, escape_sql(road))
-			// for _, road := range parser.ExpandAddress(road) {
-			// 	roads = append(roads, escape_sql(road))
-			// }
+			roads = append(roads, `@street "`+escape_sql(road)+`"`)
+			for _, road := range parser.ExpandAddress(road) {
+				roads = append(roads, `@street "`+escape_sql(road)+`"`)
+			}
 		}
-		match += "@street " + strings.Join(roads, " | ") + " "
+		match += "(" + strings.Join(roads, " | ") + ") "
 	} else {
 		return ""
 	}
