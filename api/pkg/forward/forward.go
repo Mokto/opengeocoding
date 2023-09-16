@@ -9,7 +9,11 @@ import (
 
 // Make the string SQL safe
 func escape_sql(s string) string {
-	return strings.ReplaceAll(s, "'", "\\'")
+	characters := []string{"'", "/", "!", "\"", "$", "(", ")", "-", "<", "@", "\\", "^", "|", "~"}
+	for _, character := range characters {
+		s = strings.ReplaceAll(s, character, "\\"+character)
+	}
+	return s
 }
 
 func Forward(database *manticoresearch.ManticoreSearch, address string) (*proto.ForwardResult, error) {

@@ -1,7 +1,6 @@
 package forward
 
 import (
-	"fmt"
 	"geocoding/pkg/geolabels"
 	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/parser"
@@ -11,6 +10,34 @@ import (
 )
 
 func forwardFull(database *manticoresearch.ManticoreSearch, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
+	query := getAddressForwardQuery(parsed, "openaddresses")
+	if query == "" {
+		return &proto.ForwardResult{}, nil
+	}
+
+	result, err := runQuery(database, parsed, query)
+	if err != nil {
+		return nil, err
+	}
+
+	if result == nil {
+		query := getAddressForwardQuery(parsed, "openstreetdata_houses")
+		result, err := runQuery(database, parsed, query)
+		if err != nil {
+			return nil, err
+		}
+
+		if result == nil {
+			return &proto.ForwardResult{}, nil
+		}
+
+		return result, nil
+	}
+
+	return result, nil
+}
+
+func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) string {
 
 	match := ""
 	additionalQuery := ""
@@ -21,7 +48,7 @@ func forwardFull(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 		}
 		match += "@street " + strings.Join(roads, " | ") + " "
 	} else {
-		return &proto.ForwardResult{}, nil
+		return ""
 	}
 	if parsed.City != nil {
 		cities := []string{}
@@ -55,11 +82,17 @@ func forwardFull(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 	}
 
 	// query := `OPTION ranker=sph04, field_weights=(street=10,number=2,unit=2,city=4,district=6,region=6,postcode=8)`
-	query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM openaddresses WHERE MATCH('` + match + `') ` + additionalQuery + ` LIMIT 1 OPTION field_weights=(street=10,number=4,unit=2,city=9,district=6,region=6,postcode=8)`
+	query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM ` + tableName + ` WHERE MATCH('` + match + `') ` + additionalQuery + ` LIMIT 1 OPTION field_weights=(street=10,number=4,unit=2,city=9,district=6,region=6,postcode=8)`
 
-	fmt.Println(query)
+	// fmt.Println(query)
+
+	return query
+}
+
+func runQuery(database *manticoresearch.ManticoreSearch, parsed parser.ParsedAddress, query string) (*proto.ForwardResult, error) {
 	rows, err := database.Balancer.Query(query)
 	if err != nil {
+		log.Println(err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -105,5 +138,5 @@ func forwardFull(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 		}, nil
 	}
 
-	return &proto.ForwardResult{}, nil
+	return nil, nil
 }
