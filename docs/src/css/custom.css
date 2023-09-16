@@ -1,0 +1,23 @@
+/* For a more brown color palette */
+:root {
+  --ifm-color-primary: #8B4513; /* Brown */
+  --ifm-color-primary-dark: #764c3a; /* Darker brown */
+  --ifm-color-primary-darker: #63422c; /* Even darker brown */
+  --ifm-color-primary-darkest: #4b3622; /* Darkest brown */
+  --ifm-color-primary-light: #a75b25; /* Light brown */
+  --ifm-color-primary-lighter: #c06630; /* Lighter brown */
+  --ifm-color-primary-lightest: #d4733c; /* Lightest brown */
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+/* For readability concerns in dark mode, you can adjust the brown shades accordingly. */
+[data-theme='dark'] {
+  --ifm-color-primary: #8B4513; /* Brown */
+  --ifm-color-primary-dark: #764c3a; /* Darker brown */
+  --ifm-color-primary-darker: #63422c; /* Even darker brown */
+  --ifm-color-primary-darkest: #4b3622; /* Darkest brown */
+  --ifm-color-primary-light: #a75b25; /* Light brown */
+  --ifm-color-primary-lighter: #c06630; /* Lighter brown */
+  --ifm-color-primary-lightest: #d4733c; /* Lightest brown */
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}

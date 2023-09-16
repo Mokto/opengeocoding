@@ -38,7 +38,18 @@ pub async fn extract_houses() {
         };
     }
 
+    let start_from: Option<&str> = None;
+    // let start_from = Some("de");
+    let mut has_started = false;
     for country_file in countries_files {
+        if start_from.is_some() && !has_started {
+            if country_file.country_code == start_from.unwrap() {
+                has_started = true;
+            } else {
+                continue;
+            }
+        }
+
         match country_file.houses {
             Some(house_file) => {
                 extract_file(
