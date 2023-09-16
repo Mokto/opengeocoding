@@ -1,0 +1,15 @@
+{
+  "location":  {
+    "street":  "Geislersgade",
+    "number":  "14 4",
+    "unit":  "",
+    "city":  "København S",
+    "district":  "",
+    "region":  "Region Hovedstaden",
+    "postcode":  "2300",
+    "lat":  55.66422,
+    "long":  12.605803,
+    "countryCode":  "dk",
+    "source":  "OpenAddresses"
+  }
+}

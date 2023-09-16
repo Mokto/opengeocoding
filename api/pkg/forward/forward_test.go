@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func TestForward(t *testing.T) {
+func TestForwardFull(t *testing.T) {
 	database := manticoresearch.InitDatabase()
 
 	queries := []string{
@@ -22,32 +22,48 @@ func TestForward(t *testing.T) {
 		"The Book Club 100-106 Leonard St Shoreditch London EC2A 4RH, United Kingdom",
 		"781 Franklin Ave Crown Heights Brooklyn NYC NY 11216 USA",
 		"7926 Old Seward Hwy; Suite A6; Anchorage, Alaska 99518, US",
-		"Lawrence, Kansas, United States",
 		"Tunggak Jati Regency Blok C1 No. 26 Tunggak Jati, Kec. Karawang Barat; Karawang, Jawa Barat 41351, ID, India",
 		"146 Valero Street; The Pearlbank Centre; Makati, National Capital Region 1227, PH, Philippines",
 		"Prospect House; Colliery Close; Chesterfield, Derbyshire S43 3QE, GB, United Kingdom",
-		"Vicenza, Veneto, Italy",
 		"Suite 4420, 17B Farnham Street; Parnell, Auckland 1052, NZ, New Zealand",
 		"Rathsfelder Straße 6b; Nordhausen, Thuringia 99734, DE",
-		"Roma, Rm, Italy",
-		"Herne Bay, United Kingdom",
-		"Kansas City, Missouri, united states",
 		"Hillerodgade",
-		"Metz",
-		"London",
 		"178 Columbus Avenue; #231573; New York, NY 10023, US, United States",
 		"178 Columbus Avenue; #231573; New York, NY 10023, United States",
 		"5840 Autoport Mall; San Diego, California 92121, us",
-		"Arnhem, NL, Netherlands",
 		"Calle Montes Urales Norte; Lomas de Chapultepec, Distrito Federal 11000, Mexico",
 		"22 Rue du Docteur Jean Michel; VUILLECIN, FR, France",
 		"Shangjiangcheng Industrial Zone; Dongguan 523000, China",
-		"CDMX, CDMX, MX, Mexico",
-		"Wellington, Florida 33614, US, United States",
 		"Stevensville, Michigan, United States",
 		"Delstrup; Münster, de",
 		"Kryssarvägen 4; Täby, SE",
 		"485 Madison Avenue; 10th Floor; New York, NY 10022, US",
+	}
+
+	for _, query := range queries {
+		location, err := Forward(database, query)
+		if err != nil {
+			panic(err)
+		}
+		goldenFile(t, query, location)
+	}
+
+}
+func TestForwardCities(t *testing.T) {
+	database := manticoresearch.InitDatabase()
+
+	queries := []string{
+		"Lawrence, Kansas, United States",
+		"Vicenza, Veneto, Italy",
+		"Roma, Rm, Italy",
+		"Herne Bay, United Kingdom",
+		"Kansas City, Missouri, united states",
+		"Metz",
+		"London",
+		"Arnhem, NL, Netherlands",
+		"CDMX, CDMX, MX, Mexico",
+		"Wellington, Florida 33614, US, United States",
+		"Stevensville, Michigan, United States",
 	}
 
 	for _, query := range queries {
