@@ -28,12 +28,12 @@ func forwardCity(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 	for _, city := range parsed.City {
 		for _, city := range geolabels.ExpandCityLabel(city) {
 			cities = append(cities, escape_sql(city))
-			cities_exact = append(cities_exact, "^"+escape_sql(city)+"$")
+			cities_exact = append(cities_exact, `"^`+escape_sql(city)+`$"`)
 		}
 	}
 	additionalQuery := ""
 	if parsed.State != "" {
-		additionalQuery = "MAYBE @region " + escape_sql(parsed.State)
+		additionalQuery = " MAYBE @region " + escape_sql(parsed.State)
 	}
 
 	limit := 1

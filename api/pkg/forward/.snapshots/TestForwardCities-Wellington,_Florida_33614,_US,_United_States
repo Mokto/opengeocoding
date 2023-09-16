@@ -1,1 +1,10 @@
-{}
+{
+ "location": {
+  "city": "Wellington",
+  "region": "Florida",
+  "lat": 26.65868,
+  "long": -80.24144,
+  "countryCode": "us",
+  "source": "Geonames"
+ }
+}

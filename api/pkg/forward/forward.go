@@ -9,7 +9,7 @@ import (
 
 // Make the string SQL safe
 func escape_sql(s string) string {
-	characters := []string{"'", "/", "!", "\"", "$", "(", ")", "-", "<", "@", "\\", "^", "|", "~"}
+	characters := []string{"\\", "'", "/", "!", `"`, "$", "(", ")", "-", "<", "@", "^", "|", "~"}
 	for _, character := range characters {
 		s = strings.ReplaceAll(s, character, "\\"+character)
 	}

@@ -1,10 +1,10 @@
 {
-  "location":  {
-    "city":  "Stevensville",
-    "region":  "Michigan",
-    "lat":  42.01449,
-    "long":  -86.51947,
-    "countryCode":  "us",
-    "source":  "Geonames"
-  }
+ "location": {
+  "city": "Stevensville",
+  "region": "Michigan",
+  "lat": 42.01449,
+  "long": -86.51947,
+  "countryCode": "us",
+  "source": "Geonames"
+ }
 }

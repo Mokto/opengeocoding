@@ -1,15 +1,15 @@
 {
-  "location":  {
-    "street":  "Madison Avenue",
-    "number":  "485",
-    "unit":  "",
-    "city":  "City of New York",
-    "district":  "",
-    "region":  "New York",
-    "postcode":  "10022",
-    "lat":  40.758793,
-    "long":  -73.9745,
-    "countryCode":  "us",
-    "source":  "OpenStreetData"
-  }
+ "location": {
+  "street": "Madison Avenue",
+  "number": "485",
+  "unit": "",
+  "city": "City of New York",
+  "district": "",
+  "region": "New York",
+  "postcode": "10022",
+  "lat": 40.758793,
+  "long": -73.9745,
+  "countryCode": "us",
+  "source": "OpenStreetData"
+ }
 }
