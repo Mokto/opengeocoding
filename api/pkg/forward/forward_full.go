@@ -31,9 +31,11 @@ func forwardFull(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 			return &proto.ForwardResult{}, nil
 		}
 
+		result.Location.Source = proto.Source_OpenStreetData
 		return result, nil
 	}
 
+	result.Location.Source = proto.Source_OpenAddresses
 	return result, nil
 }
 

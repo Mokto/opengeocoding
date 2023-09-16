@@ -32,6 +32,7 @@ message Location {
     optional float lat = 9;
     optional float long = 10;
     optional string country_code = 11;
+    Source source = 12;
 }
 
 message RunQueryRequest {
@@ -47,4 +48,11 @@ message RunBackgroundQueryRequest {
 }
 
 message RunBackgroundQueryResponse {
+}
+
+enum Source {
+    Unknown = 0;
+    Geonames = 1;
+    OpenAddresses = 2;
+    OpenStreetData = 3;
 }

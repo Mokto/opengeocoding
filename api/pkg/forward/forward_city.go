@@ -69,6 +69,7 @@ func forwardCity(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 			Lat:         &lat,
 			Long:        &long,
 			CountryCode: &country_code,
+			Source:      proto.Source_Geonames,
 		}
 
 		if index == 0 {

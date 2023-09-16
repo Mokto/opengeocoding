@@ -1,13 +1,13 @@
 package forward
 
 import (
-	"encoding/json"
 	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/proto"
 	"testing"
 
 	"github.com/bradleyjkemp/cupaloy"
 	_ "github.com/go-sql-driver/mysql"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func TestForward(t *testing.T) {
@@ -61,7 +61,8 @@ func TestForward(t *testing.T) {
 }
 
 func goldenFile(t *testing.T, name string, location *proto.ForwardResult) {
-	locationStr, err := json.MarshalIndent(location, "", "  ")
+	m := protojson.MarshalOptions{Multiline: true}
+	locationStr, err := m.Marshal(location)
 	if err != nil {
 		panic(err)
 	}
