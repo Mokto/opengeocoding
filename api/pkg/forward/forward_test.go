@@ -61,7 +61,7 @@ func TestForward(t *testing.T) {
 }
 
 func goldenFile(t *testing.T, name string, location *proto.ForwardResult) {
-	m := protojson.MarshalOptions{Multiline: true}
+	m := protojson.MarshalOptions{Multiline: true, Indent: "  "}
 	locationStr, err := m.Marshal(location)
 	if err != nil {
 		panic(err)
