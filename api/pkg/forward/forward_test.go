@@ -1,6 +1,8 @@
 package forward
 
 import (
+	"bytes"
+	"encoding/json"
 	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/proto"
 	"testing"
@@ -77,13 +79,16 @@ func TestForwardCities(t *testing.T) {
 }
 
 func goldenFile(t *testing.T, name string, location *proto.ForwardResult) {
-	m := protojson.MarshalOptions{Multiline: true, Indent: " "}
-	locationStr, err := m.Marshal(location)
+	locationStr, err := protojson.Marshal(location)
 	if err != nil {
 		panic(err)
 	}
 
 	t.Run(name, func(t *testing.T) {
-		cupaloy.SnapshotT(t, locationStr)
+		var prettyJSON bytes.Buffer
+		if err := json.Indent(&prettyJSON, []byte(locationStr), "", "    "); err != nil {
+			panic(err)
+		}
+		cupaloy.SnapshotT(t, prettyJSON.String())
 	})
 }

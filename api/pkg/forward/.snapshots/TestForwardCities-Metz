@@ -1,44 +1,44 @@
 {
- "location": {
-  "city": "Metz",
-  "region": "Moselle",
-  "lat": 49.11911,
-  "long": 6.17269,
-  "countryCode": "fr",
-  "source": "Geonames"
- },
- "otherPotentialLocations": [
-  {
-   "city": "Metz",
-   "region": "New South Wales",
-   "lat": -30.57847,
-   "long": 151.87346,
-   "countryCode": "au",
-   "source": "Geonames"
-  },
-  {
-   "city": "Metz",
-   "region": "Missouri",
-   "lat": 37.99753,
-   "long": -94.44329,
-   "countryCode": "us",
-   "source": "Geonames"
-  },
-  {
-   "city": "Metz",
-   "region": "Indiana",
-   "lat": 41.61616,
-   "long": -84.8394,
-   "countryCode": "us",
-   "source": "Geonames"
-  },
-  {
-   "city": "Metz",
-   "region": "Texas",
-   "lat": 31.70346,
-   "long": -102.65709,
-   "countryCode": "us",
-   "source": "Geonames"
-  }
- ]
+    "location": {
+        "city": "Metz",
+        "region": "Moselle",
+        "lat": 49.11911,
+        "long": 6.17269,
+        "countryCode": "fr",
+        "source": "Geonames"
+    },
+    "otherPotentialLocations": [
+        {
+            "city": "Metz",
+            "region": "New South Wales",
+            "lat": -30.57847,
+            "long": 151.87346,
+            "countryCode": "au",
+            "source": "Geonames"
+        },
+        {
+            "city": "Metz",
+            "region": "Missouri",
+            "lat": 37.99753,
+            "long": -94.44329,
+            "countryCode": "us",
+            "source": "Geonames"
+        },
+        {
+            "city": "Metz",
+            "region": "Indiana",
+            "lat": 41.61616,
+            "long": -84.8394,
+            "countryCode": "us",
+            "source": "Geonames"
+        },
+        {
+            "city": "Metz",
+            "region": "Texas",
+            "lat": 31.70346,
+            "long": -102.65709,
+            "countryCode": "us",
+            "source": "Geonames"
+        }
+    ]
 }

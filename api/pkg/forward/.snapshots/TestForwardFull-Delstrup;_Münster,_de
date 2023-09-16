@@ -1,15 +1,15 @@
 {
- "location": {
-  "street": "Delstrup",
-  "number": "",
-  "unit": "",
-  "city": "Münster",
-  "district": "",
-  "region": "North Rhine-Westphalia",
-  "postcode": "48167",
-  "lat": 51.933506,
-  "long": 7.6733594,
-  "countryCode": "de",
-  "source": "OpenStreetData"
- }
+    "location": {
+        "street": "Delstrup",
+        "number": "",
+        "unit": "",
+        "city": "Münster",
+        "district": "",
+        "region": "North Rhine-Westphalia",
+        "postcode": "48167",
+        "lat": 51.933506,
+        "long": 7.6733594,
+        "countryCode": "de",
+        "source": "OpenStreetData"
+    }
 }

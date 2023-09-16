@@ -1,10 +1,10 @@
 {
- "location": {
-  "city": "Rome",
-  "region": "Rome",
-  "lat": 41.89193,
-  "long": 12.51133,
-  "countryCode": "it",
-  "source": "Geonames"
- }
+    "location": {
+        "city": "Rome",
+        "region": "Rome",
+        "lat": 41.89193,
+        "long": 12.51133,
+        "countryCode": "it",
+        "source": "Geonames"
+    }
 }

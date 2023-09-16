@@ -1,15 +1,15 @@
 {
- "location": {
-  "street": "Rathsfelder Straße",
-  "number": "6b",
-  "unit": "",
-  "city": "Nordhausen",
-  "district": "",
-  "region": "",
-  "postcode": "",
-  "lat": 51.4926,
-  "long": 10.80873,
-  "countryCode": "de",
-  "source": "OpenAddresses"
- }
+    "location": {
+        "street": "Rathsfelder Straße",
+        "number": "6b",
+        "unit": "",
+        "city": "Nordhausen",
+        "district": "",
+        "region": "",
+        "postcode": "",
+        "lat": 51.4926,
+        "long": 10.80873,
+        "countryCode": "de",
+        "source": "OpenAddresses"
+    }
 }
