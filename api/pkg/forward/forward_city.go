@@ -33,7 +33,7 @@ func forwardCity(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 	}
 	additionalQuery := ""
 	if parsed.State != "" {
-		additionalQuery = " @region " + escape_sql(parsed.State)
+		additionalQuery = "MAYBE @region " + escape_sql(parsed.State)
 	}
 
 	limit := 1

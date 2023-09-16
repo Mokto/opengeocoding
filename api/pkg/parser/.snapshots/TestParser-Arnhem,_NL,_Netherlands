@@ -1,0 +1,24 @@
+{
+  "House": "",
+  "Category": "",
+  "Near": "",
+  "HouseNumber": "",
+  "Road": null,
+  "Unit": "",
+  "Level": "",
+  "Staircase": "",
+  "Entrance": "",
+  "PoBox": "",
+  "Postcode": "",
+  "Suburb": "",
+  "CityDistrict": "",
+  "City": [
+    "arnhem"
+  ],
+  "Island": "",
+  "StateDistrict": "",
+  "State": "nl",
+  "CountryRegion": "",
+  "Country": "netherlands",
+  "WorldRegion": ""
+}

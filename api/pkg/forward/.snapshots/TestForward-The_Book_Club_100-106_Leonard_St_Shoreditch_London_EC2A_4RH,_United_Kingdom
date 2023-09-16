@@ -1,14 +1,14 @@
 {
   "location": {
-    "street": "St. Leonard's Avenue",
+    "street": "St Leonard's Street",
     "number": "100-106",
     "unit": "",
-    "city": "London Borough of Waltham Forest",
+    "city": "London Borough of Tower Hamlets",
     "district": "",
-    "region": "Waltham Forest",
-    "postcode": "",
-    "lat": 51.609512,
-    "long": 0.00561845,
+    "region": "Tower Hamlets",
+    "postcode": "E3 3BS",
+    "lat": 51.527718,
+    "long": -0.0132036,
     "country_code": "gb"
   }
 }
