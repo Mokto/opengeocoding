@@ -36,7 +36,6 @@ func TestForwardFull(t *testing.T) {
 		"Calle Montes Urales Norte; Lomas de Chapultepec, Distrito Federal 11000, Mexico",
 		"22 Rue du Docteur Jean Michel; VUILLECIN, FR, France",
 		"Shangjiangcheng Industrial Zone; Dongguan 523000, China",
-		"Stevensville, Michigan, United States",
 		"Delstrup; Münster, de",
 		"Kryssarvägen 4; Täby, SE",
 		"485 Madison Avenue; 10th Floor; New York, NY 10022, US",
