@@ -1,8 +1,9 @@
 use crate::{
     client::OpenGeocodingApiClient,
     data::{
-        calculate_hash, insert_address_documents, insert_street_documents, AddressDocument,
-        StreetDocument, StreetPoint,
+        address::{insert_address_documents, AddressDocument},
+        calculate_hash,
+        street::{insert_street_documents, StreetDocument, StreetPoint},
     },
     download::download_file,
     wof::{country_detector::CountryDetector, detect_zones, zone_detector::ZoneDetector},

@@ -3,8 +3,8 @@ use std::{fs, path::Path};
 use crate::{
     client::OpenGeocodingApiClient,
     data::{
-        address::{insert_address_documents, AddressDocument},
         calculate_hash,
+        street_v2::{insert_street_documents_v2, StreetDocumentV2},
     },
     download::download_file,
     wof::zone_detector::ZoneDetector,
@@ -18,6 +18,7 @@ pub async fn extract_file(
     file_url: &str,
     region_detector: Option<&ZoneDetector>,
     full_table_name: &str,
+    country_code: &str,
 ) {
     let time = std::time::Instant::now();
 
@@ -43,31 +44,36 @@ pub async fn extract_file(
         let postal_code = record.get(0).unwrap();
         let city = record.get(1).unwrap();
         let street = record.get(2).unwrap();
-        let house_number = record.get(3).unwrap();
-        let longitude = record.get(4).unwrap().parse::<f64>().unwrap();
-        let latitude = record.get(5).unwrap().parse::<f64>().unwrap();
-        let country_code = record.get(6).unwrap().to_lowercase();
+        let long_min = record.get(3).unwrap().parse::<f64>().unwrap();
+        let long_max = record.get(4).unwrap().parse::<f64>().unwrap();
+        let lat_min = record.get(5).unwrap().parse::<f64>().unwrap();
+        let lat_max = record.get(6).unwrap().parse::<f64>().unwrap();
+        let house_min = record.get(7).unwrap();
+        let house_max = record.get(8).unwrap();
+        let house_odd = record.get(9).unwrap() == "True";
+        let house_even = record.get(10).unwrap() == "True";
 
         let hash_base = format!(
-            "{}{}{}{}{}",
-            postal_code, city, street, house_number, country_code
+            "{}{}{}{}{}{}",
+            postal_code, city, street, house_min, house_max, country_code
         );
-
-        records.push(AddressDocument {
-            postcode: postal_code.to_string(),
+        records.push(StreetDocumentV2 {
+            postal_code: postal_code.to_string(),
             city: city.to_string(),
             street: street.to_string(),
-            number: house_number.to_string(),
-            long: longitude,
-            lat: latitude,
             country_code: Some(country_code.to_string()),
             region: "".to_string(),
-            district: "".to_string(),
-            unit: "".to_string(),
             id: calculate_hash(&hash_base),
+            lat_min,
+            long_min,
+            lat_max,
+            long_max,
+            house_min: house_min.to_string(),
+            house_max: house_max.to_string(),
+            house_odd,
+            house_even,
         });
     }
-
     println!("Calculating regions for {} elements...", records.len());
     let documents = records
         .par_iter()
@@ -76,28 +82,31 @@ pub async fn extract_file(
                 .unwrap()
                 .detect(
                     record.country_code.clone().unwrap().clone(),
-                    record.lat,
-                    record.long,
+                    record.lat_min,
+                    record.long_max,
                 )
                 .unwrap_or("".to_string());
 
-            AddressDocument {
+            StreetDocumentV2 {
                 region: region,
                 city: record.city.clone(),
-                postcode: record.postcode.clone(),
                 street: record.street.clone(),
-                number: record.number.clone(),
-                long: record.long,
-                lat: record.lat,
                 country_code: record.country_code.clone(),
-                district: record.district.clone(),
-                unit: record.unit.clone(),
                 id: record.id.clone(),
+                postal_code: record.postal_code.clone(),
+                lat_min: record.lat_min,
+                long_min: record.long_min,
+                lat_max: record.lat_max,
+                long_max: record.long_max,
+                house_min: record.house_min.clone(),
+                house_max: record.house_max.clone(),
+                house_odd: record.house_odd,
+                house_even: record.house_even,
             }
         })
         .collect::<Vec<_>>();
 
-    insert_address_documents(
+    insert_street_documents_v2(
         opengeocoding_client,
         full_table_name.to_string(),
         documents,

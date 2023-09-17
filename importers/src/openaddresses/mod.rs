@@ -1,12 +1,13 @@
 use crate::client::OpenGeocodingApiClient;
 use crate::config::Config;
+use crate::data::address::{insert_address_documents, AddressDocument};
 use rayon::prelude::*;
 use rayon::str::ParallelString;
 use serde::{Deserialize, Serialize};
 use std::io::prelude::*;
 use std::{fs, vec};
 
-use crate::data::{calculate_hash, insert_address_documents, AddressDocument};
+use crate::data::calculate_hash;
 
 #[derive(Serialize, Deserialize)]
 pub struct GeoPointGeometry {
