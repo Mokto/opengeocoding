@@ -27,20 +27,20 @@ func forwardCity(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 	cities_exact := []string{}
 	for _, city := range parsed.City {
 		for _, city := range geolabels.ExpandCityLabel(city) {
-			cities = append(cities, escape_sql(city))
+			cities = append(cities, `@city "`+escape_sql(city)+`"`)
 			cities_exact = append(cities_exact, `"^`+escape_sql(city)+`$"`)
 		}
 	}
 	additionalQuery := ""
 	if parsed.State != "" {
-		additionalQuery = " MAYBE @region " + escape_sql(parsed.State)
+		additionalQuery = ` MAYBE @region "` + escape_sql(parsed.State) + `"/1`
 	}
 
 	limit := 1
 	if showOtherPotentialCities {
 		limit = 5
 	}
-	query := `SELECT city, region, lat, long, country_code FROM geonames_cities WHERE MATCH('@city "` + strings.Join(cities, " ") + `"/1 | ` + strings.Join(cities_exact, ` | `) + additionalQuery + `') ` + country_query + ` ORDER BY weight() DESC, population DESC LIMIT ` + strconv.Itoa(limit) + ` OPTION ranker=wordcount`
+	query := `SELECT (weight() + population / 1000) as score, city, region, lat, long, country_code FROM geonames_cities WHERE MATCH('(` + strings.Join(cities, " | ") + `) | ` + strings.Join(cities_exact, ` | `) + additionalQuery + `') ` + country_query + ` ORDER BY score DESC LIMIT ` + strconv.Itoa(limit) + ``
 	fmt.Println(query)
 
 	rows, err := database.Balancer.Query(query)
@@ -53,13 +53,14 @@ func forwardCity(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 	index := 0
 	for rows.Next() {
 		var (
+			score        float32
 			city         string
 			region       string
 			lat          float32
 			long         float32
 			country_code string
 		)
-		if err := rows.Scan(&city, &region, &lat, &long, &country_code); err != nil {
+		if err := rows.Scan(&score, &city, &region, &lat, &long, &country_code); err != nil {
 			log.Fatal(err)
 		}
 

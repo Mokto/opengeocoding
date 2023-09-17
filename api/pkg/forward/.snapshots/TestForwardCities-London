@@ -9,6 +9,14 @@
     },
     "otherPotentialLocations": [
         {
+            "city": "East London",
+            "region": "Eastern Cape",
+            "lat": -33.01529,
+            "long": 27.91162,
+            "countryCode": "za",
+            "source": "Geonames"
+        },
+        {
             "city": "London",
             "region": "Ontario",
             "lat": 42.98339,
@@ -17,27 +25,19 @@
             "source": "Geonames"
         },
         {
-            "city": "London",
-            "region": "Ohio",
-            "lat": 39.88645,
-            "long": -83.44825,
-            "countryCode": "us",
+            "city": "City of London",
+            "region": "City and County of the City of London",
+            "lat": 51.51279,
+            "long": -0.09184,
+            "countryCode": "gb",
             "source": "Geonames"
         },
         {
-            "city": "London",
-            "region": "Kentucky",
-            "lat": 37.12898,
-            "long": -84.08326,
-            "countryCode": "us",
-            "source": "Geonames"
-        },
-        {
-            "city": "London",
-            "region": "California",
-            "lat": 36.47606,
-            "long": -119.44318,
-            "countryCode": "us",
+            "city": "Diocese of London",
+            "region": "City and County of the City of London",
+            "lat": 51.51373,
+            "long": -0.09838,
+            "countryCode": "gb",
             "source": "Geonames"
         }
     ]

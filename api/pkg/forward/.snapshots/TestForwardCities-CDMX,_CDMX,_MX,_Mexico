@@ -1,1 +1,10 @@
-{}
+{
+    "location": {
+        "city": "Mexico City",
+        "region": "Ciudad de México",
+        "lat": 19.42847,
+        "long": -99.12766,
+        "countryCode": "mx",
+        "source": "Geonames"
+    }
+}

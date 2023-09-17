@@ -9,11 +9,19 @@
     },
     "otherPotentialLocations": [
         {
-            "city": "Metz",
-            "region": "New South Wales",
-            "lat": -30.57847,
-            "long": 151.87346,
-            "countryCode": "au",
+            "city": "Montigny-lès-Metz",
+            "region": "Moselle",
+            "lat": 49.0956,
+            "long": 6.15271,
+            "countryCode": "fr",
+            "source": "Geonames"
+        },
+        {
+            "city": "Maizières-lès-Metz",
+            "region": "Moselle",
+            "lat": 49.21335,
+            "long": 6.15956,
+            "countryCode": "fr",
             "source": "Geonames"
         },
         {
@@ -29,14 +37,6 @@
             "region": "Indiana",
             "lat": 41.61616,
             "long": -84.8394,
-            "countryCode": "us",
-            "source": "Geonames"
-        },
-        {
-            "city": "Metz",
-            "region": "Texas",
-            "lat": 31.70346,
-            "long": -102.65709,
             "countryCode": "us",
             "source": "Geonames"
         }

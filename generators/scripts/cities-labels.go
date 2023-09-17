@@ -66,6 +66,8 @@ func GenerateCitiesLabels() {
 		data += `{"` + strings.Join(cities, `","`) + `"}`
 		data += ",\n"
 	}
+	data += `{"nyc", "new york city", "new york", "the big apple", "manhattan"}`
+	data += `{"mexico city", "ciudad de méxico", "méxico distrito federal", "ciudad de méjico", "méxico", "valle de méxico", "cdmx"},`
 	data += "}"
 
 	fmt.Println(data)
