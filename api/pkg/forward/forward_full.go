@@ -89,7 +89,7 @@ func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) strin
 	}
 
 	// query := `OPTION ranker=sph04, field_weights=(street=10,number=2,unit=2,city=4,district=6,region=6,postcode=8)`
-	query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM ` + tableName + ` WHERE MATCH('` + match + `') ` + additionalQuery + ` LIMIT 1 OPTION field_weights=(street=10,number=4,unit=2,city=9,district=6,region=6,postcode=8)`
+	query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM ` + tableName + ` WHERE MATCH('` + match + `') ` + additionalQuery + ` LIMIT 1 OPTION field_weights=(street=10,number=4,unit=2,city=9,district=6,region=6,postcode=8), max_predicted_time=10000, max_matches=1`
 
 	// fmt.Println(query)
 

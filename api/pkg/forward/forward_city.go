@@ -40,7 +40,7 @@ func forwardCity(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 	if showOtherPotentialCities {
 		limit = 5
 	}
-	query := `SELECT (weight() + population / 1000) as score, city, region, lat, long, country_code FROM geonames_cities WHERE MATCH('(` + strings.Join(cities, " | ") + `) | ` + strings.Join(cities_exact, ` | `) + additionalQuery + `') ` + country_query + ` ORDER BY score DESC LIMIT ` + strconv.Itoa(limit) + ``
+	query := `SELECT (weight() + population / 1000) as score, city, region, lat, long, country_code FROM geonames_cities WHERE MATCH('(` + strings.Join(cities, " | ") + `) | ` + strings.Join(cities_exact, ` | `) + additionalQuery + `') ` + country_query + ` ORDER BY score DESC LIMIT ` + strconv.Itoa(limit) + ` OPTION max_predicted_time=10000, max_matches=` + strconv.Itoa(limit)
 	fmt.Println(query)
 
 	rows, err := database.Balancer.Query(query)
