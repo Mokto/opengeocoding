@@ -1,0 +1,15 @@
+{
+    "location": {
+        "street": "Kalvebod Brygge",
+        "number": "1-3",
+        "unit": "",
+        "city": "København V",
+        "district": "",
+        "region": "Region Hovedstaden",
+        "postcode": "1560",
+        "lat": 55.66956,
+        "long": 12.57548,
+        "countryCode": "dk",
+        "source": "OpenAddresses"
+    }
+}

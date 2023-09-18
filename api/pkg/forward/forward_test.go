@@ -39,6 +39,7 @@ func TestForwardFull(t *testing.T) {
 		"Delstrup; Münster, de",
 		"Kryssarvägen 4; Täby, SE",
 		"485 Madison Avenue; 10th Floor; New York, NY 10022, US",
+		"Kalvebod Brygge 1-3; København Denmark",
 	}
 
 	for _, query := range queries {
