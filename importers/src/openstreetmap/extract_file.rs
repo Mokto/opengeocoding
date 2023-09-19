@@ -8,8 +8,7 @@ use crate::{
     download::download_file,
     wof::{country_detector::CountryDetector, detect_zones, zone_detector::ZoneDetector},
 };
-use geo::Centroid;
-use geo_types::MultiPoint;
+use geo::{Centroid, MultiPoint};
 use osmpbfreader::OsmPbfReader;
 use rayon::prelude::*;
 use std::{
@@ -38,6 +37,7 @@ struct Node {
 }
 
 struct Way {
+    id: i64,
     name: String,
     node_ids: Vec<i64>,
 }
@@ -70,15 +70,14 @@ pub async fn extract_file(
     let file = fs::File::open(&existing_file).unwrap();
     let mut pbf = OsmPbfReader::new(file);
 
-    let mut objects = vec![];
+    let mut addresses = vec![];
     let mut all_nodes = HashMap::new();
     let mut ways = vec![];
 
     for obj in pbf.par_iter() {
         let obj: osmpbfreader::OsmObj = obj.unwrap();
         // if obj.is_relation() {
-        //     let relation = obj.relation().unwrap();
-        //     relation.
+
         // }
         if obj.is_node() {
             let node = obj.node().unwrap();
@@ -101,7 +100,7 @@ pub async fn extract_file(
                 let city = tags.get("addr:city").unwrap();
                 let postcode = tags.get("addr:postcode");
 
-                objects.push(OsmData {
+                addresses.push(OsmData {
                     lat: node.lat(),
                     long: node.lon(),
                     properties: OsmProperties {
@@ -120,13 +119,15 @@ pub async fn extract_file(
         if obj.is_way() {
             let tags = obj.tags();
             let way = obj.way().unwrap();
+            let nodes: Vec<i64> = way.nodes.iter().map(|node| node.0).collect();
 
             if tags.contains_key("name") && tags.contains("highway", "residential") {
                 let name = tags.get("name").unwrap();
 
                 ways.push(Way {
+                    id: obj.id().inner_id(),
                     name: name.to_string(),
-                    node_ids: way.nodes.iter().map(|node| node.0).collect(),
+                    node_ids: nodes,
                 });
             }
         }
@@ -135,7 +136,7 @@ pub async fn extract_file(
     let street_points = ways
         .par_iter()
         .map(|way| StreetDocument {
-            id: 0,
+            id: (way.id as u64).wrapping_add(u64::MAX / 2 + 1), // converts i64 to u64
             street: way.name.to_string(),
             country_code: None,
             city: "".to_string(),
@@ -159,11 +160,11 @@ pub async fn extract_file(
     println!(
         "Done loading data for {}. Found {} addresses & {} streets to compute...",
         &country_file.url,
-        objects.len(),
+        addresses.len(),
         street_points.len(),
     );
     println!("Computing street points...");
-    let street_points = street_points
+    let street_documents = street_points
         .par_iter()
         .map(|street| {
             let points: MultiPoint<_> = street
@@ -181,10 +182,8 @@ pub async fn extract_file(
                 locality_detector,
             );
 
-            let hash_base = format!("{}-{}-{}-{}", street.street, country_code, region, locality);
-
             StreetDocument {
-                id: calculate_hash(&hash_base),
+                id: street.id,
                 street: street.street.to_string(),
                 country_code: Some(country_code),
                 city: locality,
@@ -195,7 +194,9 @@ pub async fn extract_file(
             }
         })
         .collect::<Vec<_>>();
-    let documents = objects
+
+    println!("Computing addresses...");
+    let addresses_documents = addresses
         .par_iter()
         .map(|obj| {
             let (country_code, region, _) =
@@ -217,21 +218,21 @@ pub async fn extract_file(
         })
         .collect::<Vec<_>>();
 
-    return;
-
+    println!("Sending addresses...");
     insert_address_documents(
         opengeocoding_client,
         full_table_name_addresses.to_string(),
-        documents,
+        addresses_documents,
         None,
     )
     .await
     .unwrap();
 
+    println!("Sending streets...");
     insert_street_documents(
         opengeocoding_client,
         full_table_name_streets.to_string(),
-        street_points,
+        street_documents,
         None,
     )
     .await

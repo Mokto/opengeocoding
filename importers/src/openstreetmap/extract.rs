@@ -1,7 +1,12 @@
+use geo::{point, Contains, Point};
+use geozero::geojson::GeoJsonWriter;
+use shapefile::dbase::FieldValue;
+
 use crate::{
     client::OpenGeocodingApiClient,
     config::Config,
     openstreetmap::{extract_file, file_list},
+    wof::{country_detector::CountryDetector, zone_detector::ZoneDetector},
 };
 
 pub async fn extract_all() {
@@ -11,8 +16,8 @@ pub async fn extract_all() {
     let table_name_streets = "openstreetmap_streets";
     let full_table_name_streets = config.get_table_name(table_name_streets.to_string());
 
-    // let country_detector = CountryDetector::new().await;
-    // let region_detector = ZoneDetector::new_region_detector().await;
+    let country_detector = CountryDetector::new().await;
+    return;
     // let locality_detector = ZoneDetector::new_locality_detector().await;
 
     let mut client = OpenGeocodingApiClient::new().await.unwrap();
@@ -71,6 +76,9 @@ pub async fn extract_all() {
             None,
             None,
             None,
+            // country_detector,
+            // region_detector,
+            // locality_detector,
             &full_table_name_addresses,
             &full_table_name_streets,
         )

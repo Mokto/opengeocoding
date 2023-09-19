@@ -1,7 +1,6 @@
 use collecting_hashmap::CollectingHashMap;
 use csv::ReaderBuilder;
-use geo::{Centroid, Contains, VincentyDistance};
-use geo_types::{point, Geometry, Point};
+use geo::{point, Centroid, Contains, Geometry, Point, VincentyDistance};
 use geozero::geojson::GeoJson;
 use geozero::ToGeo;
 use rayon::prelude::*;
@@ -65,6 +64,7 @@ impl ZoneDetector {
         Self::new("region", 14).await
     }
     pub async fn new_locality_detector() -> Self {
+        // shape_to_list();
         unimplemented!("Locality detector not implemented yet. It's supposed to work but apparently always returns None.");
         // Self::new("locality", 8).await
     }

@@ -1,4 +1,5 @@
 pub mod country_detector;
+mod shapefile;
 pub mod zone_detector;
 
 pub fn detect_zones(
