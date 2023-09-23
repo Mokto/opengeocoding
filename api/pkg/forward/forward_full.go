@@ -8,6 +8,8 @@ import (
 	"geocoding/pkg/proto"
 	"log"
 	"strings"
+
+	"golang.org/x/exp/slices"
 )
 
 func forwardFull(container *container.Container, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
@@ -48,7 +50,11 @@ func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) strin
 	if parsed.Road != nil {
 		roads := []string{}
 		for _, road := range parsed.Road {
-			for _, road := range parser.ExpandAddress(road) {
+			expandedRoads := parser.ExpandAddress(road)
+			if !slices.Contains(expandedRoads, road) {
+				expandedRoads = append(expandedRoads, road)
+			}
+			for _, road := range expandedRoads {
 				roads = append(roads, `@street "`+escape_sql(road)+`"`)
 			}
 		}
