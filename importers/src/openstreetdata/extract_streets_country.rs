@@ -2,10 +2,7 @@ use std::{fs, path::Path};
 
 use crate::{
     client::OpenGeocodingApiClient,
-    data::{
-        calculate_hash,
-        street_v2::{insert_street_documents_v2, StreetDocumentV2},
-    },
+    data::street_v2::{insert_street_documents_v2, StreetDocumentV2},
     download::download_file,
     wof::zone_detector::ZoneDetector,
 };
@@ -17,7 +14,6 @@ pub async fn extract_file(
     opengeocoding_client: &mut OpenGeocodingApiClient,
     file_url: &str,
     region_detector: Option<&ZoneDetector>,
-    full_table_name: &str,
     country_code: &str,
 ) {
     let time = std::time::Instant::now();
@@ -63,7 +59,7 @@ pub async fn extract_file(
             street: street.to_string(),
             country_code: Some(country_code.to_string()),
             region: "".to_string(),
-            id: calculate_hash(&hash_base),
+            id: hash_base,
             lat_min,
             long_min,
             lat_max,
@@ -106,14 +102,14 @@ pub async fn extract_file(
         })
         .collect::<Vec<_>>();
 
-    insert_street_documents_v2(
-        opengeocoding_client,
-        full_table_name.to_string(),
-        documents,
-        None,
-    )
-    .await
-    .unwrap();
+    // insert_street_documents_v2(
+    //     opengeocoding_client,
+    //     full_table_name.to_string(),
+    //     documents,
+    //     None,
+    // )
+    // .await
+    // .unwrap();
 
     fs::remove_file(&existing_file).unwrap();
     println!("Done in {:?}s", time.elapsed().as_secs());

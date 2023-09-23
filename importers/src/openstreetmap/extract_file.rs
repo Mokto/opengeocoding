@@ -2,16 +2,18 @@ use crate::{
     client::OpenGeocodingApiClient,
     data::{
         address::{insert_address_documents, AddressDocument},
-        calculate_hash,
         street::{insert_street_documents, StreetDocument, StreetPoint},
     },
     download::download_file,
     wof::{country_detector::CountryDetector, detect_zones, zone_detector::ZoneDetector},
 };
+
 use geo::Centroid;
 use geo_types::MultiPoint;
 use osmpbfreader::OsmPbfReader;
 use rayon::prelude::*;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::{
     collections::HashMap,
     fs::{self},
@@ -135,7 +137,7 @@ pub async fn extract_file(
     let street_points = ways
         .par_iter()
         .map(|way| StreetDocument {
-            id: 0,
+            id: "".to_string(),
             street: way.name.to_string(),
             country_code: None,
             city: "".to_string(),
@@ -239,4 +241,11 @@ pub async fn extract_file(
     // fs::remove_file(&existing_file).unwrap();
     println!("Done in {:?}s", time.elapsed().as_secs());
     // return;
+}
+
+fn calculate_hash<T: Hash>(t: &T) -> String {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    let val = s.finish();
+    val.to_string()
 }

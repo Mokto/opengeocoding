@@ -25,18 +25,18 @@
             "source": "Geonames"
         },
         {
-            "city": "City of London",
+            "city": "(former) Roman catholic diocese of London",
             "region": "City and County of the City of London",
-            "lat": 51.51279,
-            "long": -0.09184,
+            "lat": 51.51381,
+            "long": -0.0987,
             "countryCode": "gb",
             "source": "Geonames"
         },
         {
-            "city": "Diocese of London",
+            "city": "City of London",
             "region": "City and County of the City of London",
-            "lat": 51.51373,
-            "long": -0.09838,
+            "lat": 51.51279,
+            "long": -0.09184,
             "countryCode": "gb",
             "source": "Geonames"
         }

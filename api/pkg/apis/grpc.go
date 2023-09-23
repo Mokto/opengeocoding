@@ -3,27 +3,29 @@ package apis
 import (
 	"context"
 	"fmt"
+	"geocoding/pkg/container"
 	"geocoding/pkg/forward"
-	"geocoding/pkg/graceful"
-	"geocoding/pkg/manticoresearch"
-	"geocoding/pkg/messaging"
+	"os"
+
 	"geocoding/pkg/proto"
 	"log"
 	"net"
 
+	"github.com/jedib0t/go-pretty/table"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
+	goproto "google.golang.org/protobuf/proto"
 )
 
 type opengeocodingServer struct {
-	database *manticoresearch.ManticoreSearch
+	container *container.Container
 	proto.UnimplementedOpenGeocodingServer
 }
 
 func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.ForwardRequest) (*proto.ForwardResult, error) {
-	forwardResult, err := forward.Forward(s.database, request.Address)
+	forwardResult, err := forward.Forward(s.container, request.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -31,23 +33,53 @@ func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.Forwar
 }
 
 type opengeocodingServerInternal struct {
-	database  *manticoresearch.ManticoreSearch
-	messaging *messaging.Messaging
+	container *container.Container
 	proto.UnimplementedOpenGeocodingInternalServer
 }
 
 func (s *opengeocodingServerInternal) RunQuery(ctx context.Context, request *proto.RunQueryRequest) (*proto.RunQueryResponse, error) {
-	_, err := s.database.Worker.Exec(request.Query)
-	fmt.Println(request.Query, err)
+	rows, err := s.container.Database.Worker.Query(request.Query)
 	if err != nil {
 		return nil, err
 	}
+
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleColoredBright)
+
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	var row table.Row
+	for _, element := range cols {
+		row = append(row, element)
+	}
+	t.AppendHeader(row)
+
+	for rows.Next() {
+		columns := make([]string, len(cols))
+		columnPointers := make([]interface{}, len(cols))
+		for i := range columns {
+			columnPointers[i] = &columns[i]
+		}
+
+		rows.Scan(columnPointers...)
+
+		var row table.Row
+		for i := range cols {
+			row = append(row, columns[i])
+		}
+		t.AppendRow(row)
+	}
+	t.Render()
 
 	return &proto.RunQueryResponse{}, nil
 }
 
 func (s *opengeocodingServerInternal) RunBackgroundQuery(ctx context.Context, request *proto.RunBackgroundQueryRequest) (*proto.RunBackgroundQueryResponse, error) {
-	err := s.messaging.Publish("main:::opengeocoding:backgroundSave", request.Query)
+	err := s.container.Messaging.Publish("main:::opengeocoding:backgroundSave", request.Query)
 	if err != nil {
 		log.Println(err)
 		return nil, err
@@ -56,7 +88,25 @@ func (s *opengeocodingServerInternal) RunBackgroundQuery(ctx context.Context, re
 	return &proto.RunBackgroundQueryResponse{}, nil
 }
 
-func StartGrpc(gracefulManager *graceful.Manager, database *manticoresearch.ManticoreSearch, messaging *messaging.Messaging) {
+func (s *opengeocodingServerInternal) InsertLocations(ctx context.Context, request *proto.InsertLocationsRequest) (*proto.InsertLocationsResponse, error) {
+	if len(request.Locations) == 0 {
+		return &proto.InsertLocationsResponse{}, nil
+	}
+
+	data, err := goproto.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("cannot marshal proto message to binary: %w", err)
+	}
+
+	err = s.container.Messaging.PublishBytes("main:::opengeocoding:insertDocuments", data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &proto.InsertLocationsResponse{}, nil
+}
+
+func StartGrpc(container *container.Container) {
 
 	port := 8091
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
@@ -67,15 +117,14 @@ func StartGrpc(gracefulManager *graceful.Manager, database *manticoresearch.Mant
 	grpcServer := grpc.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcServer, health.NewServer())
 	proto.RegisterOpenGeocodingServer(grpcServer, &opengeocodingServer{
-		database: database,
+		container: container,
 	})
 	proto.RegisterOpenGeocodingInternalServer(grpcServer, &opengeocodingServerInternal{
-		database:  database,
-		messaging: messaging,
+		container: container,
 	})
 	reflection.Register(grpcServer)
 
-	gracefulManager.OnShutdown(func() {
+	container.GracefulManager.OnShutdown(func() {
 		grpcServer.GracefulStop()
 	})
 

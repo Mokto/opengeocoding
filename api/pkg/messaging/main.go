@@ -66,5 +66,17 @@ func declareDlx(rabbitmqUrl string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	err = channel.ExchangeDeclare("dlx:::opengeocoding:insertDocuments", "fanout", true, false, false, false, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = channel.QueueDeclare("dlx:::opengeocoding:insertDocuments", true, false, false, false, amqp.Table{"x-queue-type": "quorum"})
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = channel.QueueBind("dlx:::opengeocoding:insertDocuments", "dlx:::opengeocoding:insertDocuments", "dlx:::opengeocoding:insertDocuments", false, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 	channel.Close()
 }

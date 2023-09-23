@@ -1,0 +1,26 @@
+{
+  "House": "",
+  "Category": "",
+  "Near": "",
+  "HouseNumber": "485",
+  "Road": [
+    "madison avenue"
+  ],
+  "Unit": "",
+  "Level": "10th floor",
+  "Staircase": "",
+  "Entrance": "",
+  "PoBox": "",
+  "Postcode": "10022",
+  "Suburb": "",
+  "CityDistrict": "",
+  "City": [
+    "new york"
+  ],
+  "Island": "",
+  "StateDistrict": "",
+  "State": "ny",
+  "CountryRegion": "",
+  "Country": "us",
+  "WorldRegion": ""
+}

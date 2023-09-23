@@ -1,6 +1,5 @@
+use crate::client::opengeocoding::{self, open_geocoding_client};
 use crate::client::OpenGeocodingApiClient;
-use crate::config::Config;
-use crate::data::calculate_hash;
 use crate::data::city::CityDocument;
 use crate::wof::zone_detector::ZoneDetector;
 use csv::ReaderBuilder;
@@ -9,37 +8,7 @@ use rayon::prelude::*;
 use std::fs;
 
 pub async fn extract_cities() {
-    let config = Config::new();
-    let table_name = "geonames_cities";
-    let full_table_name = config.get_table_name(table_name.to_string());
-
     let mut client = OpenGeocodingApiClient::new().await.unwrap();
-    println!("Creating table...");
-
-    let query_result = client.run_query(format!("CREATE TABLE IF NOT EXISTS {}(city text, region text, lat float, long float, country_code string, population int) rt_mem_limit = '1G'", table_name)).await;
-    match query_result {
-        Ok(_) => {}
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
-
-    if config.manticore_is_cluster {
-        let query_result = client
-            .run_query(format!(
-                "ALTER CLUSTER {} ADD {}",
-                config.manticore_cluster_name, table_name
-            ))
-            .await;
-        match query_result {
-            Ok(_) => {}
-            Err(e) => {
-                println!("{}", e);
-            }
-        };
-    }
-
-    println!("Done creating tables.");
 
     let region_detector = ZoneDetector::new_region_detector().await;
 
@@ -61,20 +30,20 @@ pub async fn extract_cities() {
         let longitude: f64 = record.get(5).unwrap().parse().unwrap();
         let feature_class = record.get(6).unwrap();
         let country_code = record.get(8).unwrap().to_lowercase();
-        let population = record.get(14).unwrap();
+        let population: u32 = record.get(14).unwrap().parse().unwrap_or(0);
 
         if feature_class != "P" {
             return None;
         }
 
         return Some(CityDocument {
-            id: calculate_hash(&id),
+            id: id.to_string(),
             city: name.to_string(),
             country_code: country_code.to_lowercase().to_string(),
             region: "".to_string(), // will be calculated later
             lat: latitude,
             long: longitude,
-            population: population.parse().unwrap(),
+            population: population,
         });
     });
 
@@ -89,7 +58,7 @@ pub async fn extract_cities() {
         if !documents.peek().is_some() {
             continue;
         }
-        let documents: Vec<String> = documents
+        let locations: Vec<opengeocoding::Location> = documents
             .into_iter()
             .collect::<Vec<Option<CityDocument>>>()
             .par_iter()
@@ -98,34 +67,25 @@ pub async fn extract_cities() {
                 let region = &region_detector
                     .detect(doc.country_code.clone(), doc.lat, doc.long)
                     .unwrap_or("".to_string());
-                format!(
-                    r"({},'{}','{}',{},{},'{}', {})",
-                    doc.id,
-                    clean_string(&doc.city),
-                    clean_string(region),
-                    doc.lat,
-                    doc.long,
-                    doc.country_code,
-                    doc.population,
-                )
+                opengeocoding::Location {
+                    id: Some(doc.id.clone()),
+                    city: Some(doc.city.clone()),
+                    street: None,
+                    country_code: Some(doc.country_code.clone()),
+                    region: Some(region.to_owned()),
+                    district: None,
+                    lat: doc.lat as f32,
+                    long: doc.long as f32,
+                    population: Some(doc.population),
+                    number: None,
+                    unit: None,
+                    postcode: None,
+                    source: opengeocoding::Source::Geonames.into(),
+                }
             })
             .collect();
-        // println!("Elapsed: {:.2?}", now.elapsed());
-        // if now.elapsed().as_millis() > 1000 {
-        //     let mut countries_result: HashMap<String, u32> = HashMap::new();
-        //     for document in documents {
-        //         let count = countries_result.get(&document);
-        //         countries_result.insert(document, count.unwrap_or(&0) + 1);
-        //     }
-        //     println!("{:?}", countries_result);
-        // }
-        let query = format!(
-            "REPLACE INTO {}(id,city,region,lat,long,country_code,population) VALUES {};",
-            full_table_name,
-            documents.join(", ")
-        );
 
-        let query_result = client.run_background_query(query).await;
+        let query_result = client.insert_locations(locations).await;
 
         match query_result {
             Ok(_) => {}
@@ -136,8 +96,4 @@ pub async fn extract_cities() {
         };
     }
     println!("Done.");
-}
-
-fn clean_string(s: &str) -> String {
-    return s.replace(r"\", r"\\").replace("'", r"\'");
 }

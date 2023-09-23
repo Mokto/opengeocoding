@@ -3,9 +3,8 @@ package apis
 import (
 	"context"
 	"fmt"
+	"geocoding/pkg/container"
 	"geocoding/pkg/forward"
-	"geocoding/pkg/graceful"
-	"geocoding/pkg/manticoresearch"
 	"log"
 	"net/http"
 	"time"
@@ -13,7 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func StartHttp(gracefulManager *graceful.Manager, database *manticoresearch.ManticoreSearch) {
+func StartHttp(container *container.Container) {
 
 	port := 8090
 	server := echo.New()
@@ -27,14 +26,14 @@ func StartHttp(gracefulManager *graceful.Manager, database *manticoresearch.Mant
 		if address == "" {
 			return c.NoContent(http.StatusBadRequest)
 		}
-		res, err := forward.Forward(database, c.QueryParam("address"))
+		res, err := forward.Forward(container, c.QueryParam("address"))
 		if err != nil {
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
 		return c.JSON(http.StatusOK, res)
 	})
 
-	gracefulManager.OnShutdown(func() {
+	container.GracefulManager.OnShutdown(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 		if err := server.Shutdown(ctx); err != nil {

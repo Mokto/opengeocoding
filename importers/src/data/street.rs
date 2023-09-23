@@ -12,7 +12,7 @@ pub struct StreetPoint {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct StreetDocument {
-    pub id: u64,
+    pub id: String,
     pub street: String,
     pub points: Vec<StreetPoint>,
     pub country_code: Option<String>,

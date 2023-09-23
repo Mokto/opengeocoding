@@ -8,8 +8,8 @@
         "region": "North Rhine-Westphalia",
         "postcode": "48167",
         "lat": 51.933506,
-        "long": 7.6733594,
+        "long": 7.673359,
         "countryCode": "de",
-        "source": "OpenStreetData"
+        "source": "OpenStreetDataAddress"
     }
 }

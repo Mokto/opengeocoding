@@ -1,13 +1,9 @@
-use crate::client::OpenGeocodingApiClient;
-use crate::config::Config;
-use crate::data::address::{insert_address_documents, AddressDocument};
+use crate::client::{opengeocoding, OpenGeocodingApiClient};
 use rayon::prelude::*;
 use rayon::str::ParallelString;
 use serde::{Deserialize, Serialize};
 use std::io::prelude::*;
 use std::{fs, vec};
-
-use crate::data::calculate_hash;
 
 #[derive(Serialize, Deserialize)]
 pub struct GeoPointGeometry {
@@ -33,35 +29,7 @@ pub struct GeoPoint {
 }
 
 pub async fn import_addresses() {
-    let config = Config::new();
-    let table_name = "openaddresses";
-    let full_table_name = config.get_table_name(table_name.to_string());
-
     let mut client = OpenGeocodingApiClient::new().await.unwrap();
-
-    println!("Creating table...");
-    let query_result = client.run_query(format!("CREATE TABLE IF NOT EXISTS {}(street text, number text, unit text, city text, district text, region text, postcode text, lat float, long float, country_code string)  rt_mem_limit = '1G'", table_name)).await;
-    match query_result {
-        Ok(_) => {}
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
-
-    if config.manticore_is_cluster {
-        let query_result = client
-            .run_query(format!(
-                "ALTER CLUSTER {} ADD {}",
-                config.manticore_cluster_name, table_name
-            ))
-            .await;
-        match query_result {
-            Ok(_) => {}
-            Err(e) => {
-                println!("{}", e);
-            }
-        };
-    }
 
     let fname = std::path::Path::new("data/collection-global.zip");
     let file = fs::File::open(fname).unwrap();
@@ -127,18 +95,13 @@ pub async fn import_addresses() {
 
             let country_code = file_name.split("/").next().unwrap().to_string();
 
-            string_to_db(full_table_name.clone(), contents, country_code, &mut client).await;
+            run_file(contents, country_code, &mut client).await;
         };
     }
 }
 
-async fn string_to_db(
-    full_table_name: String,
-    content: String,
-    country_code: String,
-    client: &mut OpenGeocodingApiClient,
-) {
-    let documents = content
+async fn run_file(content: String, country_code: String, client: &mut OpenGeocodingApiClient) {
+    let locations = content
         .par_lines()
         .map(|line| {
             let p: GeoPoint = serde_json::from_str(line).unwrap();
@@ -150,25 +113,32 @@ async fn string_to_db(
             if geometry.r#type != "Point" {
                 return None;
             }
-            return Some(AddressDocument {
-                id: calculate_hash(&p.properties.hash),
-                street: p.properties.street.unwrap_or("".to_string()),
-                number: p.properties.number.unwrap_or("".to_string()),
-                unit: p.properties.unit.unwrap_or("".to_string()),
-                city: p.properties.city.unwrap_or("".to_string()),
-                district: p.properties.district.unwrap_or("".to_string()),
-                region: p.properties.region.unwrap_or("".to_string()),
-                postcode: p.properties.postcode.unwrap_or("".to_string()),
-                country_code: None,
-                lat: geometry.coordinates[1],
-                long: geometry.coordinates[0],
+            return Some(opengeocoding::Location {
+                id: Some(p.properties.hash),
+                city: Some(p.properties.city.unwrap_or("".to_string())),
+                street: Some(p.properties.street.unwrap_or("".to_string())),
+                country_code: Some(country_code.clone()),
+                region: Some(p.properties.region.unwrap_or("".to_string())),
+                district: Some(p.properties.district.unwrap_or("".to_string())),
+                lat: geometry.coordinates[1] as f32,
+                long: geometry.coordinates[0] as f32,
+                population: None,
+                number: Some(p.properties.number.unwrap_or("".to_string())),
+                unit: Some(p.properties.unit.unwrap_or("".to_string())),
+                postcode: Some(p.properties.postcode.unwrap_or("".to_string())),
+                source: opengeocoding::Source::OpenAddresses.into(),
             });
         })
         .flatten()
         .collect::<Vec<_>>();
 
-    insert_address_documents(client, full_table_name, documents, Some(country_code))
-        .await
-        .unwrap();
-    println!("Done with batch");
+    let query_result = client.insert_locations(locations).await;
+
+    match query_result {
+        Ok(_) => {}
+        Err(e) => {
+            println!("Error: {}", e);
+            panic!("Error running SQL");
+        }
+    };
 }

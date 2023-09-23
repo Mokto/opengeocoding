@@ -10,6 +10,6 @@
         "lat": 40.77481,
         "long": -73.980934,
         "countryCode": "us",
-        "source": "OpenStreetData"
+        "source": "OpenStreetDataAddress"
     }
 }

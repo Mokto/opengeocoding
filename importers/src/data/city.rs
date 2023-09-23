@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct CityDocument {
-    pub id: u64,
+    pub id: String,
     pub city: String,
     pub region: String,
     pub country_code: String,

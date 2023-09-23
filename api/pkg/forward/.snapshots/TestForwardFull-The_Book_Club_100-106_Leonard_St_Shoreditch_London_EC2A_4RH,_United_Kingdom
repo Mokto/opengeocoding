@@ -8,8 +8,8 @@
         "region": "Hackney",
         "postcode": "EC2A 4RH",
         "lat": 51.52456,
-        "long": -0.08152286,
+        "long": -0.081523,
         "countryCode": "gb",
-        "source": "OpenStreetData"
+        "source": "OpenStreetDataAddress"
     }
 }

@@ -9,6 +9,14 @@ service OpenGeocoding {
 service OpenGeocodingInternal {
     rpc RunQuery(RunQueryRequest) returns (RunQueryResponse) {}
     rpc RunBackgroundQuery(RunBackgroundQueryRequest) returns (RunBackgroundQueryResponse) {}
+    rpc InsertLocations(InsertLocationsRequest) returns (InsertLocationsResponse) {}
+}
+
+message InsertLocationsRequest {
+    repeated Location locations = 1;
+}
+
+message InsertLocationsResponse {
 }
 
 message ForwardRequest {
@@ -21,7 +29,7 @@ message ForwardResult {
 }
 
 message Location {
-    optional int64 id = 1;
+    optional string id = 1;
     optional string street = 2;
     optional string number = 3;
     optional string unit = 4;
@@ -29,10 +37,11 @@ message Location {
     optional string district = 6;
     optional string region = 7;
     optional string postcode = 8;
-    optional float lat = 9;
-    optional float long = 10;
+    float lat = 9;
+    float long = 10;
     optional string country_code = 11;
     Source source = 12;
+    optional uint32 population = 13;
 }
 
 message RunQueryRequest {
@@ -54,5 +63,6 @@ enum Source {
     Unknown = 0;
     Geonames = 1;
     OpenAddresses = 2;
-    OpenStreetData = 3;
+    OpenStreetDataAddress = 3;
+    OpenStreetDataStreet = 4;
 }

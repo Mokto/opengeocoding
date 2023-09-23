@@ -3,7 +3,7 @@ package forward
 import (
 	"bytes"
 	"encoding/json"
-	"geocoding/pkg/manticoresearch"
+	"geocoding/pkg/container"
 	"geocoding/pkg/proto"
 	"testing"
 
@@ -13,7 +13,7 @@ import (
 )
 
 func TestForwardFull(t *testing.T) {
-	database := manticoresearch.InitDatabase()
+	container := container.Init()
 
 	queries := []string{
 		"Geislersgade 14, 4 2300 Copenhagen",
@@ -43,7 +43,7 @@ func TestForwardFull(t *testing.T) {
 	}
 
 	for _, query := range queries {
-		location, err := Forward(database, query)
+		location, err := Forward(container, query)
 		if err != nil {
 			panic(err)
 		}
@@ -52,7 +52,7 @@ func TestForwardFull(t *testing.T) {
 
 }
 func TestForwardCities(t *testing.T) {
-	database := manticoresearch.InitDatabase()
+	container := container.Init()
 
 	queries := []string{
 		"Lawrence, Kansas, United States",
@@ -69,7 +69,7 @@ func TestForwardCities(t *testing.T) {
 	}
 
 	for _, query := range queries {
-		location, err := Forward(database, query)
+		location, err := Forward(container, query)
 		if err != nil {
 			panic(err)
 		}

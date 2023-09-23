@@ -7655,6 +7655,6 @@ var citiesLabelGroups = [][]string{
 	{"zvishavane", "shabani"},
 	{"karoi", "karoyi"},
 	{"chipinge", "chipinga"},
-	{"nyc", "new york city", "new york", "the big apple", "manhattan"},
+	{"nyc", "new york city", "new york", "the big apple"},
 	{"mexico city", "ciudad de méxico", "méxico distrito federal", "ciudad de méjico", "méxico", "valle de méxico", "cdmx"},
 }

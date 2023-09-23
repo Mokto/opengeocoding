@@ -34,4 +34,20 @@ impl OpenGeocodingApiClient {
 
         Ok(())
     }
+
+    pub async fn insert_locations(
+        &mut self,
+        locations: Vec<opengeocoding::Location>,
+    ) -> Result<(), tonic::Status> {
+        for chunk in locations.chunks(10000) {
+            let request = tonic::Request::new(opengeocoding::InsertLocationsRequest {
+                locations: chunk.to_vec(),
+            });
+            let response = self.client.insert_locations(request);
+
+            response.await?;
+        }
+
+        Ok(())
+    }
 }

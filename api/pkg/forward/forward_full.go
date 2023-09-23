@@ -2,29 +2,29 @@ package forward
 
 import (
 	"fmt"
+	"geocoding/pkg/container"
 	"geocoding/pkg/geolabels"
-	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/parser"
 	"geocoding/pkg/proto"
 	"log"
 	"strings"
 )
 
-func forwardFull(database *manticoresearch.ManticoreSearch, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
+func forwardFull(container *container.Container, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
 	query := getAddressForwardQuery(parsed, "openaddresses")
 	fmt.Println(query)
 	if query == "" {
 		return &proto.ForwardResult{}, nil
 	}
 
-	result, err := runQuery(database, parsed, query)
+	result, err := runQuery(container, parsed, query)
 	if err != nil {
 		return nil, err
 	}
 
 	if result == nil {
-		query := getAddressForwardQuery(parsed, "openstreetdata_houses")
-		result, err := runQuery(database, parsed, query)
+		query := getAddressForwardQuery(parsed, "openstreetdata_addresses")
+		result, err := runQuery(container, parsed, query)
 		if err != nil {
 			return nil, err
 		}
@@ -33,7 +33,7 @@ func forwardFull(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 			return &proto.ForwardResult{}, nil
 		}
 
-		result.Location.Source = proto.Source_OpenStreetData
+		result.Location.Source = proto.Source_OpenStreetDataAddress
 		return result, nil
 	}
 
@@ -48,7 +48,6 @@ func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) strin
 	if parsed.Road != nil {
 		roads := []string{}
 		for _, road := range parsed.Road {
-			roads = append(roads, `@street "`+escape_sql(road)+`"`)
 			for _, road := range parser.ExpandAddress(road) {
 				roads = append(roads, `@street "`+escape_sql(road)+`"`)
 			}
@@ -66,7 +65,7 @@ func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) strin
 		}
 		match += "(" + strings.Join(cities, " | ") + " ) "
 	}
-	if parsed.Postcode != "" || parsed.Unit != "" || parsed.HouseNumber != "" {
+	if parsed.Postcode != "" || parsed.Unit != "" || parsed.HouseNumber != "" || parsed.State != "" {
 		match += " MAYBE ("
 		submatch := []string{}
 		if parsed.Postcode != "" {
@@ -77,6 +76,9 @@ func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) strin
 		}
 		if parsed.HouseNumber != "" {
 			submatch = append(submatch, "@number \""+escape_sql(parsed.HouseNumber)+"\"/1 ")
+		}
+		if parsed.State != "" {
+			submatch = append(submatch, `@region "`+escape_sql(parsed.State)+`" `)
 		}
 		match += strings.Join(submatch, " | ")
 		match += ")"
@@ -96,8 +98,8 @@ func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) strin
 	return query
 }
 
-func runQuery(database *manticoresearch.ManticoreSearch, parsed parser.ParsedAddress, query string) (*proto.ForwardResult, error) {
-	rows, err := database.Balancer.Query(query)
+func runQuery(container *container.Container, parsed parser.ParsedAddress, query string) (*proto.ForwardResult, error) {
+	rows, err := container.Database.Balancer.Query(query)
 	if err != nil {
 		log.Println(err)
 		return nil, err
@@ -138,8 +140,8 @@ func runQuery(database *manticoresearch.ManticoreSearch, parsed parser.ParsedAdd
 				District:    &district,
 				Region:      &region,
 				Postcode:    &postcode,
-				Lat:         &lat,
-				Long:        &long,
+				Lat:         lat,
+				Long:        long,
 				CountryCode: &country_code,
 			},
 		}, nil

@@ -10,7 +10,7 @@ use super::helper::clean_string;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AddressDocument {
-    pub id: u64,
+    pub id: String,
     pub street: String,
     pub number: String,
     pub unit: String,

@@ -9,7 +9,7 @@ use crate::{
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct StreetDocumentV2 {
-    pub id: u64,
+    pub id: String,
     pub street: String,
     pub country_code: Option<String>,
     pub region: String,

@@ -1,11 +1,8 @@
 use std::{fs, path::Path};
 
 use crate::{
-    client::OpenGeocodingApiClient,
-    data::{
-        address::{insert_address_documents, AddressDocument},
-        calculate_hash,
-    },
+    client::{opengeocoding, OpenGeocodingApiClient},
+    data::address::AddressDocument,
     download::download_file,
     wof::zone_detector::ZoneDetector,
 };
@@ -17,7 +14,6 @@ pub async fn extract_file(
     opengeocoding_client: &mut OpenGeocodingApiClient,
     file_url: &str,
     region_detector: Option<&ZoneDetector>,
-    full_table_name: &str,
 ) {
     let time = std::time::Instant::now();
 
@@ -64,12 +60,12 @@ pub async fn extract_file(
             region: "".to_string(),
             district: "".to_string(),
             unit: "".to_string(),
-            id: calculate_hash(&hash_base),
+            id: hash_base,
         });
     }
 
     println!("Calculating regions for {} elements...", records.len());
-    let documents = records
+    let locations = records
         .par_iter()
         .map(|record| {
             let region = region_detector
@@ -80,31 +76,28 @@ pub async fn extract_file(
                     record.long,
                 )
                 .unwrap_or("".to_string());
-
-            AddressDocument {
-                region: region,
-                city: record.city.clone(),
-                postcode: record.postcode.clone(),
-                street: record.street.clone(),
-                number: record.number.clone(),
-                long: record.long,
-                lat: record.lat,
-                country_code: record.country_code.clone(),
-                district: record.district.clone(),
-                unit: record.unit.clone(),
-                id: record.id.clone(),
+            opengeocoding::Location {
+                id: Some(record.id.clone()),
+                city: Some(record.city.clone()),
+                street: Some(record.street.clone()),
+                country_code: Some(record.country_code.clone().unwrap_or("".to_string())),
+                region: Some(region),
+                district: Some(record.district.clone()),
+                lat: record.lat as f32,
+                long: record.long as f32,
+                population: None,
+                number: Some(record.number.clone()),
+                unit: Some(record.unit.clone()),
+                postcode: Some(record.postcode.clone()),
+                source: opengeocoding::Source::OpenStreetDataAddress.into(),
             }
         })
         .collect::<Vec<_>>();
 
-    insert_address_documents(
-        opengeocoding_client,
-        full_table_name.to_string(),
-        documents,
-        None,
-    )
-    .await
-    .unwrap();
+    opengeocoding_client
+        .insert_locations(locations)
+        .await
+        .unwrap();
 
     fs::remove_file(&existing_file).unwrap();
     println!("Done in {:?}s", time.elapsed().as_secs());

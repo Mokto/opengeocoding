@@ -2,8 +2,8 @@ package forward
 
 import (
 	"fmt"
+	"geocoding/pkg/container"
 	"geocoding/pkg/geolabels"
-	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/parser"
 	"geocoding/pkg/proto"
 	"log"
@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func forwardCity(database *manticoresearch.ManticoreSearch, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
+func forwardCity(container *container.Container, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
 
 	showOtherPotentialCities := false
 
@@ -43,7 +43,7 @@ func forwardCity(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 	query := `SELECT (weight() + population / 1000) as score, city, region, lat, long, country_code FROM geonames_cities WHERE MATCH('(` + strings.Join(cities, " | ") + `) | ` + strings.Join(cities_exact, ` | `) + additionalQuery + `') ` + country_query + ` ORDER BY score DESC LIMIT ` + strconv.Itoa(limit) + ` OPTION max_predicted_time=10000, max_matches=` + strconv.Itoa(limit)
 	fmt.Println(query)
 
-	rows, err := database.Balancer.Query(query)
+	rows, err := container.Database.Balancer.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +67,8 @@ func forwardCity(database *manticoresearch.ManticoreSearch, parsed parser.Parsed
 		location := &proto.Location{
 			City:        &city,
 			Region:      &region,
-			Lat:         &lat,
-			Long:        &long,
+			Lat:         lat,
+			Long:        long,
 			CountryCode: &country_code,
 			Source:      proto.Source_Geonames,
 		}
