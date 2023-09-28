@@ -10,6 +10,7 @@
         "lat": 55.66422,
         "long": 12.605803,
         "countryCode": "dk",
-        "source": "OpenAddresses"
+        "source": "OpenAddresses",
+        "fullStreetAddress": "Geislersgade 14 4"
     }
 }

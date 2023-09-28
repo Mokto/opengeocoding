@@ -1,15 +1,16 @@
 {
     "location": {
-        "street": "Old Seward Highway",
+        "street": "OLD SEWARD HWY",
         "number": "7926",
-        "unit": "",
+        "unit": "STE A6",
         "city": "Anchorage",
         "district": "",
-        "region": "Alaska",
+        "region": "AK",
         "postcode": "99518",
-        "lat": 61.172672,
-        "long": -149.86887,
+        "lat": 61.14863,
+        "long": -149.86443,
         "countryCode": "us",
-        "source": "OpenStreetDataAddress"
+        "source": "OpenAddresses",
+        "fullStreetAddress": "7926 OLD SEWARD HWY STE A6"
     }
 }

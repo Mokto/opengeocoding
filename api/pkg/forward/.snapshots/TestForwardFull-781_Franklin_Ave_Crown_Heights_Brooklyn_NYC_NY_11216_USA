@@ -10,6 +10,7 @@
         "lat": 40.672066,
         "long": -73.9572,
         "countryCode": "us",
-        "source": "OpenStreetDataAddress"
+        "source": "OpenStreetDataAddress",
+        "fullStreetAddress": "781 Franklin Avenue"
     }
 }

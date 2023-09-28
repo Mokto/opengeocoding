@@ -10,6 +10,7 @@
         "lat": 51.933506,
         "long": 7.673359,
         "countryCode": "de",
-        "source": "OpenStreetDataAddress"
+        "source": "OpenStreetDataAddress",
+        "fullStreetAddress": "Delstrup"
     }
 }

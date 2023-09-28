@@ -10,6 +10,7 @@
         "lat": 55.66956,
         "long": 12.57548,
         "countryCode": "dk",
-        "source": "OpenAddresses"
+        "source": "OpenAddresses",
+        "fullStreetAddress": "Kalvebod Brygge 1-3"
     }
 }

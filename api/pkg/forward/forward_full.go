@@ -35,12 +35,34 @@ func forwardFull(container *container.Container, parsed parser.ParsedAddress) (*
 			return &proto.ForwardResult{}, nil
 		}
 
+		appendFullStreetAddres(result)
 		result.Location.Source = proto.Source_OpenStreetDataAddress
 		return result, nil
 	}
 
+	appendFullStreetAddres(result)
 	result.Location.Source = proto.Source_OpenAddresses
+
 	return result, nil
+}
+
+func appendFullStreetAddres(result *proto.ForwardResult) {
+	if result.Location.Number == nil || *result.Location.Number == "" {
+		result.Location.FullStreetAddress = result.Location.Street
+		return
+	}
+
+	if result.Location.CountryCode != nil && (slices.Contains(geolabels.GetCountryLanguages(*result.Location.CountryCode), "en") || slices.Contains(geolabels.GetCountryLanguages(*result.Location.CountryCode), "fr")) {
+		address := *result.Location.Number + " " + *result.Location.Street
+		result.Location.FullStreetAddress = &address
+	} else {
+		address := *result.Location.Street + " " + *result.Location.Number
+		result.Location.FullStreetAddress = &address
+	}
+	if result.Location.Unit != nil && *result.Location.Unit != "" {
+		address := *result.Location.FullStreetAddress + " " + *result.Location.Unit
+		result.Location.FullStreetAddress = &address
+	}
 }
 
 func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) string {

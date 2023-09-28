@@ -10,6 +10,7 @@
         "lat": 55.69666,
         "long": 12.528343,
         "countryCode": "dk",
-        "source": "OpenAddresses"
+        "source": "OpenAddresses",
+        "fullStreetAddress": "Hillerødgade"
     }
 }

@@ -10,6 +10,7 @@
         "lat": 51.52456,
         "long": -0.081523,
         "countryCode": "gb",
-        "source": "OpenStreetDataAddress"
+        "source": "OpenStreetDataAddress",
+        "fullStreetAddress": "100-106 Leonard Street"
     }
 }

@@ -10,6 +10,7 @@
         "lat": 46.93475,
         "long": 6.332001,
         "countryCode": "fr",
-        "source": "OpenAddresses"
+        "source": "OpenAddresses",
+        "fullStreetAddress": "22 Rue du Docteur Jean Michel"
     }
 }
