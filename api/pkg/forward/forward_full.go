@@ -52,7 +52,7 @@ func appendFullStreetAddres(result *proto.ForwardResult) {
 		return
 	}
 
-	if result.Location.CountryCode != nil && (slices.Contains(geolabels.GetCountryLanguages(*result.Location.CountryCode), "en") || slices.Contains(geolabels.GetCountryLanguages(*result.Location.CountryCode), "fr")) {
+	if result.Location.CountryCode != nil && (*result.Location.CountryCode == "be" || slices.Contains(geolabels.GetCountryLanguages(*result.Location.CountryCode), "en") || slices.Contains(geolabels.GetCountryLanguages(*result.Location.CountryCode), "fr")) {
 		address := *result.Location.Number + " " + *result.Location.Street
 		result.Location.FullStreetAddress = &address
 	} else {
