@@ -1,12 +1,14 @@
 package geolabels
 
-import "strings"
+import (
+	"strings"
+)
 
 var cityLabels map[string][]string
 
 func ExpandCityLabel(cityLabel string) []string {
 	if cityLabels == nil {
-		buildCityLabels()
+		panic("cityLabels not initialized. Please call geolabels.BuildCityLabels()")
 	}
 	result := cityLabels[strings.ToLower(cityLabel)]
 	if result == nil {
@@ -16,7 +18,7 @@ func ExpandCityLabel(cityLabel string) []string {
 	return result
 }
 
-func buildCityLabels() {
+func BuildCityLabels() {
 	cityLabels = map[string][]string{}
 	for _, group := range citiesLabelGroups {
 		for _, city := range group {
