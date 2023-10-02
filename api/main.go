@@ -10,7 +10,7 @@ import (
 
 func main() {
 
-	geolabels.BuildCityLabels()
+	geolabels.Load()
 
 	container := container.Init()
 

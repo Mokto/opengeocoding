@@ -69,10 +69,20 @@ func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) strin
 
 	match := ""
 	additionalQuery := ""
+	countryCode := ""
+	languages := []string{}
+	if parsed.Country != "" {
+		countryCode = geolabels.GetCountryCodeFromLabel(parsed.Country)
+		if countryCode != "" {
+			additionalQuery += " AND country_code = '" + countryCode + "'"
+		}
+		languages = geolabels.GetCountryLanguages(countryCode)
+	}
+
 	if parsed.Road != nil {
 		roads := []string{}
 		for _, road := range parsed.Road {
-			expandedRoads := parser.ExpandAddress(road)
+			expandedRoads := parser.ExpandAddress(road, languages)
 			if !slices.Contains(expandedRoads, road) {
 				expandedRoads = append(expandedRoads, road)
 			}
@@ -110,12 +120,6 @@ func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) strin
 		}
 		match += strings.Join(submatch, " | ")
 		match += ")"
-	}
-	if parsed.Country != "" {
-		countryCode := geolabels.GetCountryCodeFromLabel(parsed.Country)
-		if countryCode != "" {
-			additionalQuery += " AND country_code = '" + countryCode + "'"
-		}
 	}
 
 	// query := `OPTION ranker=sph04, field_weights=(street=10,number=2,unit=2,city=4,district=6,region=6,postcode=8)`

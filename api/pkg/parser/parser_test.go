@@ -28,6 +28,7 @@ func TestParser(t *testing.T) {
 		"Arnhem, NL, Netherlands",
 		"485 Madison Avenue; 10th Floor; New York, NY 10022, US",
 		"3080, Olcott St, Ste B220; Santa Clara, CA 95054, US",
+		"新橋 ４丁目 ５－４ ＪＲＡ新橋分館２Ｆ; 港区, 東京都 1050004, jp",
 	}
 
 	for _, query := range queries {
