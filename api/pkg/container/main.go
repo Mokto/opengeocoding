@@ -2,6 +2,7 @@ package container
 
 import (
 	"geocoding/pkg/datastorage"
+	"geocoding/pkg/geolabels"
 	"geocoding/pkg/graceful"
 	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/messaging"
@@ -15,6 +16,7 @@ type Container struct {
 }
 
 func Init() *Container {
+	geolabels.Load()
 	gracefulManager := graceful.Start()
 
 	database := manticoresearch.InitDatabase(true)
