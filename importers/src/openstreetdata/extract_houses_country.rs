@@ -90,6 +90,7 @@ pub async fn extract_file(
                 unit: Some(record.unit.clone()),
                 postcode: Some(record.postcode.clone()),
                 source: opengeocoding::Source::OpenStreetDataAddress.into(),
+                full_street_address: None,
             }
         })
         .collect::<Vec<_>>();

@@ -7,8 +7,8 @@
         "district": "",
         "region": "Hackney",
         "postcode": "EC2A 4RH",
-        "lat": 51.52456,
-        "long": -0.081523,
+        "lat": 51.52,
+        "long": -0.09,
         "countryCode": "gb",
         "source": "OpenStreetDataAddress",
         "fullStreetAddress": "100-106 Leonard Street"

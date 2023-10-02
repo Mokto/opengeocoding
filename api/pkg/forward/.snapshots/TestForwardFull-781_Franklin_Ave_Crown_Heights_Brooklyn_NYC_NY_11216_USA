@@ -7,8 +7,8 @@
         "district": "",
         "region": "New York",
         "postcode": "11216",
-        "lat": 40.672066,
-        "long": -73.9572,
+        "lat": 40.67,
+        "long": -73.96,
         "countryCode": "us",
         "source": "OpenStreetDataAddress",
         "fullStreetAddress": "781 Franklin Avenue"

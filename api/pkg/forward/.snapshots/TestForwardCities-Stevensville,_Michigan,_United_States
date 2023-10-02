@@ -2,8 +2,8 @@
     "location": {
         "city": "Stevensville",
         "region": "Michigan",
-        "lat": 42.01449,
-        "long": -86.51947,
+        "lat": 42.01,
+        "long": -86.52,
         "countryCode": "us",
         "source": "Geonames"
     }

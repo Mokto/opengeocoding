@@ -7,8 +7,8 @@
         "district": "",
         "region": "Region Hovedstaden",
         "postcode": "2200",
-        "lat": 55.69666,
-        "long": 12.528343,
+        "lat": 55.69,
+        "long": 12.53,
         "countryCode": "dk",
         "source": "OpenAddresses",
         "fullStreetAddress": "Hillerødgade"

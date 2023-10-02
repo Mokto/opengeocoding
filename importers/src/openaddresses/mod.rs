@@ -127,6 +127,7 @@ async fn run_file(content: String, country_code: String, client: &mut OpenGeocod
                 unit: Some(p.properties.unit.unwrap_or("".to_string())),
                 postcode: Some(p.properties.postcode.unwrap_or("".to_string())),
                 source: opengeocoding::Source::OpenAddresses.into(),
+                full_street_address: None,
             });
         })
         .flatten()

@@ -7,8 +7,8 @@
         "district": "",
         "region": "",
         "postcode": "25300",
-        "lat": 46.93475,
-        "long": 6.332001,
+        "lat": 46.93,
+        "long": 6.33,
         "countryCode": "fr",
         "source": "OpenAddresses",
         "fullStreetAddress": "22 Rue du Docteur Jean Michel"

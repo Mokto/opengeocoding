@@ -7,8 +7,8 @@
         "district": "",
         "region": "New York",
         "postcode": "10022",
-        "lat": 40.758793,
-        "long": -73.9745,
+        "lat": 40.75,
+        "long": -73.98,
         "countryCode": "us",
         "source": "OpenStreetDataAddress",
         "fullStreetAddress": "485 Madison Avenue"

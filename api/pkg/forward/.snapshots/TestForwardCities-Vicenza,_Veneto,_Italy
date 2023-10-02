@@ -2,8 +2,8 @@
     "location": {
         "city": "Vicenza",
         "region": "Vicenza",
-        "lat": 45.54672,
-        "long": 11.5475,
+        "lat": 45.54,
+        "long": 11.54,
         "countryCode": "it",
         "source": "Geonames"
     }

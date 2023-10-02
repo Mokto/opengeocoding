@@ -2,8 +2,8 @@
     "location": {
         "city": "Arnhem",
         "region": "Gelderland",
-        "lat": 51.98,
-        "long": 5.91111,
+        "lat": 51.97,
+        "long": 5.91,
         "countryCode": "nl",
         "source": "Geonames"
     }

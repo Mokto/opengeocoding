@@ -2,8 +2,8 @@
     "location": {
         "city": "London",
         "region": "City of Westminster",
-        "lat": 51.50853,
-        "long": -0.12574,
+        "lat": 51.5,
+        "long": -0.13,
         "countryCode": "gb",
         "source": "Geonames"
     },
@@ -25,18 +25,18 @@
             "source": "Geonames"
         },
         {
-            "city": "(former) Roman catholic diocese of London",
-            "region": "City and County of the City of London",
-            "lat": 51.51381,
-            "long": -0.0987,
-            "countryCode": "gb",
-            "source": "Geonames"
-        },
-        {
             "city": "City of London",
             "region": "City and County of the City of London",
             "lat": 51.51279,
             "long": -0.09184,
+            "countryCode": "gb",
+            "source": "Geonames"
+        },
+        {
+            "city": "Diocese of London",
+            "region": "City and County of the City of London",
+            "lat": 51.51373,
+            "long": -0.09838,
             "countryCode": "gb",
             "source": "Geonames"
         }

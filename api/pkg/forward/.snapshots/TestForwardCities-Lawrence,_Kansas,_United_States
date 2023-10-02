@@ -2,8 +2,8 @@
     "location": {
         "city": "Lawrence",
         "region": "Kansas",
-        "lat": 38.97167,
-        "long": -95.23525,
+        "lat": 38.97,
+        "long": -95.24,
         "countryCode": "us",
         "source": "Geonames"
     }

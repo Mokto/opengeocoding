@@ -81,6 +81,7 @@ pub async fn extract_cities() {
                     unit: None,
                     postcode: None,
                     source: opengeocoding::Source::Geonames.into(),
+                    full_street_address: None,
                 }
             })
             .collect();

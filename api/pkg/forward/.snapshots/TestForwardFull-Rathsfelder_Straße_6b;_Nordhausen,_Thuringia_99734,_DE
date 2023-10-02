@@ -7,8 +7,8 @@
         "district": "",
         "region": "",
         "postcode": "",
-        "lat": 51.4926,
-        "long": 10.80873,
+        "lat": 51.49,
+        "long": 10.8,
         "countryCode": "de",
         "source": "OpenAddresses",
         "fullStreetAddress": "Rathsfelder Straße 6b"

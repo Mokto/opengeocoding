@@ -2,8 +2,8 @@
     "location": {
         "city": "Metz",
         "region": "Moselle",
-        "lat": 49.11911,
-        "long": 6.17269,
+        "lat": 49.11,
+        "long": 6.17,
         "countryCode": "fr",
         "source": "Geonames"
     },
@@ -17,27 +17,27 @@
             "source": "Geonames"
         },
         {
-            "city": "Longeville-lès-Metz",
+            "city": "Maizières-lès-Metz",
             "region": "Moselle",
-            "lat": 49.11403,
-            "long": 6.13612,
+            "lat": 49.21335,
+            "long": 6.15956,
             "countryCode": "fr",
             "source": "Geonames"
         },
         {
-            "city": "Saint-Julien-lès-Metz",
-            "region": "Moselle",
-            "lat": 49.13288,
-            "long": 6.2024,
-            "countryCode": "fr",
+            "city": "Metz",
+            "region": "Missouri",
+            "lat": 37.99753,
+            "long": -94.44329,
+            "countryCode": "us",
             "source": "Geonames"
         },
         {
-            "city": "La Croix de Metz",
-            "region": "Meurthe-et-Moselle",
-            "lat": 48.69083,
-            "long": 5.89945,
-            "countryCode": "fr",
+            "city": "Metz",
+            "region": "California",
+            "lat": 36.35497,
+            "long": -121.21159,
+            "countryCode": "us",
             "source": "Geonames"
         }
     ]

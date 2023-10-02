@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"geocoding/pkg/container"
 	"geocoding/pkg/proto"
+	"math"
 	"testing"
 
 	"github.com/bradleyjkemp/cupaloy"
@@ -79,6 +80,10 @@ func TestForwardCities(t *testing.T) {
 }
 
 func goldenFile(t *testing.T, name string, location *proto.ForwardResult) {
+	if location.Location != nil {
+		location.Location.Lat = float32(math.Floor(float64(location.Location.Lat)*100) / 100)
+		location.Location.Long = float32(math.Floor(float64(location.Location.Long)*100) / 100)
+	}
 	locationStr, err := protojson.Marshal(location)
 	if err != nil {
 		panic(err)

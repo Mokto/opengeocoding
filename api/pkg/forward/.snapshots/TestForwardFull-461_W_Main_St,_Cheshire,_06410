@@ -7,8 +7,8 @@
         "district": "",
         "region": "",
         "postcode": "06410",
-        "lat": 41.507027,
-        "long": -72.91203,
+        "lat": 41.5,
+        "long": -72.92,
         "countryCode": "us",
         "source": "OpenAddresses",
         "fullStreetAddress": "461 W Main St"
