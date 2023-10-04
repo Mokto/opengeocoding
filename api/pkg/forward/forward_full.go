@@ -1,183 +1,187 @@
 package forward
 
 import (
-	"fmt"
+	"context"
 	"geocoding/pkg/container"
+	"geocoding/pkg/elasticsearch"
+	"geocoding/pkg/errors"
 	"geocoding/pkg/geolabels"
 	"geocoding/pkg/parser"
 	"geocoding/pkg/proto"
-	"log"
-	"strings"
 
+	"github.com/tidwall/gjson"
 	"golang.org/x/exp/slices"
 )
 
 func forwardFull(container *container.Container, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
-	query := getAddressForwardQuery(parsed, "openaddresses")
-	fmt.Println(query)
-	if query == "" {
+	query := getAddressForwardQuery(parsed)
+	if query == nil {
 		return &proto.ForwardResult{}, nil
 	}
 
-	result, err := runQuery(container, parsed, query)
+	result, err := runQuery(container, parsed, query, "openaddresses")
 	if err != nil {
 		return nil, err
 	}
 
 	if result == nil {
-		query := getAddressForwardQuery(parsed, "openstreetdata_addresses")
-		result, err := runQuery(container, parsed, query)
-		if err != nil {
-			return nil, err
-		}
+		return &proto.ForwardResult{}, nil
+		// result, err := runQuery(container, parsed, query, "openstreetdata_addresses")
+		// if err != nil {
+		// 	return nil, err
+		// }
 
-		if result == nil {
-			return &proto.ForwardResult{}, nil
-		}
+		// if result == nil {
+		// 	return &proto.ForwardResult{}, nil
+		// }
 
-		appendFullStreetAddres(result)
-		result.Location.Source = proto.Source_OpenStreetDataAddress
-		return result, nil
+		// result.Location.Source = proto.Source_OpenStreetDataAddress
+		// return result, nil
 	}
 
-	appendFullStreetAddres(result)
 	result.Location.Source = proto.Source_OpenAddresses
 
 	return result, nil
 }
 
-func appendFullStreetAddres(result *proto.ForwardResult) {
-	if result.Location.Number == nil || *result.Location.Number == "" {
-		result.Location.FullStreetAddress = result.Location.Street
-		return
-	}
+func getAddressForwardQuery(parsed parser.ParsedAddress) *elasticsearch.SearchBody {
 
-	if result.Location.CountryCode != nil && *result.Location.CountryCode != "be" && (slices.Contains(geolabels.GetCountryLanguages(*result.Location.CountryCode), "en") || slices.Contains(geolabels.GetCountryLanguages(*result.Location.CountryCode), "fr")) {
-		address := *result.Location.Number + " " + *result.Location.Street
-		result.Location.FullStreetAddress = &address
-	} else {
-		address := *result.Location.Street + " " + *result.Location.Number
-		result.Location.FullStreetAddress = &address
-	}
-	if result.Location.Unit != nil && *result.Location.Unit != "" {
-		address := *result.Location.FullStreetAddress + " " + *result.Location.Unit
-		result.Location.FullStreetAddress = &address
-	}
-}
+	searchBody := elasticsearch.NewSearchBody()
 
-func getAddressForwardQuery(parsed parser.ParsedAddress, tableName string) string {
-
-	match := ""
-	additionalQuery := ""
 	countryCode := ""
 	languages := []string{}
 	if parsed.Country != "" {
 		countryCode = geolabels.GetCountryCodeFromLabel(parsed.Country)
-		if countryCode != "" {
-			additionalQuery += " AND country_code = '" + countryCode + "'"
-		}
+		searchBody.FilterTerm("country_code", countryCode)
 		languages = geolabels.GetCountryLanguages(countryCode)
 	}
 
 	if parsed.Road != nil {
-		roads := []string{}
+		roadsSearchBody := elasticsearch.NewSearchBody()
 		for _, road := range parsed.Road {
 			expandedRoads := parser.ExpandAddress(road, languages)
 			if !slices.Contains(expandedRoads, road) {
 				expandedRoads = append(expandedRoads, road)
 			}
 			for _, road := range expandedRoads {
-				roads = append(roads, `@street "`+escape_sql(road)+`"`)
+				roadsSearchBody.ShouldMatch("street", road)
 			}
 		}
-		match += "(" + strings.Join(roads, " | ") + ") "
+		roadsSearchBody.MinimumShouldMatch(1)
+		searchBody.ShouldCustom(roadsSearchBody)
 	} else {
-		return ""
+		return nil
 	}
 	if parsed.City != nil {
-		cities := []string{}
+		citiesSearchBody := elasticsearch.NewSearchBody()
 		for _, city := range parsed.City {
 			for _, city := range geolabels.ExpandCityLabel(city) {
-				cities = append(cities, `@city "`+escape_sql(city)+`"`)
+				citiesSearchBody.ShouldMatch("city", city)
 			}
 		}
-		match += "(" + strings.Join(cities, " | ") + " ) "
+		citiesSearchBody.MinimumShouldMatch(1)
+		searchBody.ShouldCustom(citiesSearchBody)
 	}
 	if parsed.Postcode != "" || parsed.Unit != "" || parsed.HouseNumber != "" || parsed.State != "" {
-		match += " MAYBE ("
-		submatch := []string{}
+		additionalSearchBody := elasticsearch.NewSearchBody()
 		if parsed.Postcode != "" {
-			submatch = append(submatch, "@(postcode,unit) "+escape_sql(parsed.Postcode)+" ")
+			additionalSearchBody.ShouldMatch("postcode", parsed.Postcode)
+			additionalSearchBody.ShouldMatch("unit", parsed.Postcode)
 		}
 		if parsed.Unit != "" {
-			submatch = append(submatch, "@unit \""+escape_sql(parsed.Unit)+"\"/1 ")
+			additionalSearchBody.ShouldMatch("unit", parsed.Unit)
 		}
 		if parsed.HouseNumber != "" {
-			submatch = append(submatch, "@number \""+escape_sql(parsed.HouseNumber)+"\"/1 ")
+			additionalSearchBody.ShouldMatch("number", parsed.HouseNumber)
 		}
 		if parsed.State != "" {
-			submatch = append(submatch, `@region "`+escape_sql(parsed.State)+`" `)
+			additionalSearchBody.ShouldMatch("region", parsed.State)
 		}
-		match += strings.Join(submatch, " | ")
-		match += ")"
+		additionalSearchBody.MinimumShouldMatch(0)
 	}
 
-	// query := `OPTION ranker=sph04, field_weights=(street=10,number=2,unit=2,city=4,district=6,region=6,postcode=8)`
-	query := `SELECT street, number, unit, city, district, region, postcode, lat, long, country_code FROM ` + tableName + ` WHERE MATCH('` + match + `') ` + additionalQuery + ` LIMIT 1 OPTION field_weights=(street=10,number=4,unit=2,city=9,district=6,region=6,postcode=8), max_predicted_time=10000, max_matches=1`
+	searchBody.MinimumShouldMatch("100%")
 
-	// fmt.Println(query)
-
-	return query
+	searchBody.Debug()
+	return searchBody
 }
 
-func runQuery(container *container.Container, parsed parser.ParsedAddress, query string) (*proto.ForwardResult, error) {
-	rows, err := container.Database.Balancer.Query(query)
+func runQuery(container *container.Container, parsed parser.ParsedAddress, searchBody *elasticsearch.SearchBody, tableName string) (*proto.ForwardResult, error) {
+
+	result, err := container.Elasticsearch.SearchOne(context.Background(), tableName, elasticsearch.SearchParams{
+		Body: searchBody.Body(),
+		Size: 1,
+	})
 	if err != nil {
-		log.Println(err)
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var (
-			street       string
-			number       string
-			unit         string
-			city         string
-			district     string
-			region       string
-			postcode     string
-			lat          float32
-			long         float32
-			country_code string
-		)
-		if err := rows.Scan(&street, &number, &unit, &city, &district, &region, &postcode, &lat, &long, &country_code); err != nil {
-			log.Fatal(err)
-		}
-		if parsed.HouseNumber == "" {
-			number = ""
-		} else {
-			number = parsed.HouseNumber
-		}
-		if parsed.Unit == "" {
-			unit = ""
-		}
-
-		return &proto.ForwardResult{
-			Location: &proto.Location{
-				Street:      &street,
-				Number:      &number,
-				Unit:        &unit,
-				City:        &city,
-				District:    &district,
-				Region:      &region,
-				Postcode:    &postcode,
-				Lat:         lat,
-				Long:        long,
-				CountryCode: &country_code,
-			},
-		}, nil
+	if result == "" {
+		return nil, nil
 	}
 
-	return nil, nil
+	location := formatAddressResultToLocation(result, parsed)
+
+	return &proto.ForwardResult{
+		Location: location,
+	}, nil
+
+}
+
+func formatAddressResultToLocation(result string, parsed parser.ParsedAddress) *proto.Location {
+	city := gjson.Get(result, "_source.city").String()
+	region := gjson.Get(result, "_source.region").String()
+	lat := gjson.Get(result, "_source.location.lat").Float()
+	long := gjson.Get(result, "_source.location.lon").Float()
+	country_code := gjson.Get(result, "_source.country_code").String()
+	street := gjson.Get(result, "_source.street").String()
+	number := gjson.Get(result, "_source.number").String()
+	unit := gjson.Get(result, "_source.unit").String()
+	postcode := gjson.Get(result, "_source.postcode").String()
+	district := gjson.Get(result, "_source.district").String()
+	location := &proto.Location{
+		City:        &city,
+		Region:      &region,
+		Lat:         float32(lat),
+		Long:        float32(long),
+		CountryCode: &country_code,
+		Source:      proto.Source_Geonames,
+		Street:      &street,
+		Number:      &number,
+		Unit:        &unit,
+		Postcode:    &postcode,
+		District:    &district,
+	}
+	emptyString := ""
+
+	if parsed.HouseNumber == "" {
+		location.Number = &emptyString
+	} else {
+		location.Number = &parsed.HouseNumber
+	}
+	if parsed.Unit == "" {
+		location.Unit = &emptyString
+	}
+	computeFullStreetAddress(location)
+
+	return location
+}
+
+func computeFullStreetAddress(location *proto.Location) {
+	if location.Number == nil || *location.Number == "" {
+		location.FullStreetAddress = location.Street
+		return
+	}
+
+	if location.CountryCode != nil && *location.CountryCode != "be" && (slices.Contains(geolabels.GetCountryLanguages(*location.CountryCode), "en") || slices.Contains(geolabels.GetCountryLanguages(*location.CountryCode), "fr")) {
+		address := *location.Number + " " + *location.Street
+		location.FullStreetAddress = &address
+	} else {
+		address := *location.Street + " " + *location.Number
+		location.FullStreetAddress = &address
+	}
+	if location.Unit != nil && *location.Unit != "" {
+		address := *location.FullStreetAddress + " " + *location.Unit
+		location.FullStreetAddress = &address
+	}
+
 }

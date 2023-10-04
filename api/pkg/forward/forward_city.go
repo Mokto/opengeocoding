@@ -57,9 +57,9 @@ func forwardCity(container *container.Container, parsed parser.ParsedAddress) (*
 
 	for index, result := range results {
 		if index == 0 {
-			forwardResult.Location = formatResultToLocation(result)
+			forwardResult.Location = formatCityResultToLocation(result)
 		} else {
-			forwardResult.OtherPotentialLocations = append(forwardResult.OtherPotentialLocations, formatResultToLocation(result))
+			forwardResult.OtherPotentialLocations = append(forwardResult.OtherPotentialLocations, formatCityResultToLocation(result))
 		}
 
 	}
@@ -67,7 +67,7 @@ func forwardCity(container *container.Container, parsed parser.ParsedAddress) (*
 	return forwardResult, nil
 }
 
-func formatResultToLocation(result string) *proto.Location {
+func formatCityResultToLocation(result string) *proto.Location {
 	city := gjson.Get(result, "_source.city").String()
 	region := gjson.Get(result, "_source.region").String()
 	lat := gjson.Get(result, "_source.location.lat").Float()

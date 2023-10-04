@@ -1,10 +1,11 @@
 package datastorage
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
-	"geocoding/pkg/manticoresearch"
+	"geocoding/pkg/errors"
 	"geocoding/pkg/proto"
-	"strings"
 )
 
 var openaddressesTableName = "openaddresses"
@@ -19,16 +20,78 @@ func (datastorage *Datastorage) initOpenstreetdataAddresses() {
 }
 
 func (datastorage *Datastorage) initAddressesTable(tableName string) {
-	_, err := datastorage.database.Worker.Exec("CREATE TABLE IF NOT EXISTS " + tableName + "(street text, number text, unit text, city text, district text, region text, postcode text, lat float, long float, country_code string)  rt_mem_limit = '1G'")
+
+	err := datastorage.elasticsearch.CreateIndexIfNotExists(openaddressesTableName, `{
+		"settings": {
+		  "number_of_shards": 2,
+		  "number_of_replicas": 2,
+		  "index.refresh_interval": "30s",
+		  "analysis": {
+			"analyzer": {
+			  "standard_asciifolding": {
+				"tokenizer": "standard",
+				"filter": [ "asciifolding" ]
+			  }
+			}
+		  }
+		},
+		"mappings": {
+		  "dynamic": "strict",
+		  "properties": {
+			"street": {
+			  "type": "text",
+			  "analyzer": "standard_asciifolding"
+			},
+			"city": {
+			  "type": "text",
+			  "analyzer": "standard_asciifolding"
+			},
+			"region": {
+			  "type": "text",
+			  "analyzer": "standard_asciifolding"
+			},
+			"number": {
+			  "type": "text",
+			  "analyzer": "standard_asciifolding"
+			},
+			"unit": {
+			  "type": "text",
+			  "analyzer": "standard_asciifolding"
+			},
+			"district": {
+			  "type": "text",
+			  "analyzer": "standard_asciifolding"
+			},
+			"postcode": {
+			  "type": "text",
+			  "analyzer": "standard_asciifolding"
+			},
+			"location": {
+			  "type": "geo_point"
+			},
+			"country_code":{
+			  "type": "keyword"
+			}
+		  }
+		}
+	  }
+	  `)
 	if err != nil {
 		panic(err)
 	}
 
-	datastorage.database.Worker.Exec("ALTER CLUSTER opengeocoding_cluster ADD " + tableName)
-	// _, err = datastorage.database.Worker.Exec("ALTER CLUSTER opengeocoding_cluster ADD " + openaddressesTableName)
-	// if err != nil {
-	// 	panic(err)
-	// }
+}
+
+type Address struct {
+	City        string    `json:"city,omitempty"`
+	Region      string    `json:"region,omitempty"`
+	Location    *Location `json:"location,omitempty"`
+	CountryCode string    `json:"country_code,omitempty"`
+	Street      string    `json:"street,omitempty"`
+	Number      string    `json:"number,omitempty"`
+	Unit        string    `json:"unit,omitempty"`
+	District    string    `json:"district,omitempty"`
+	Postcode    string    `json:"postcode,omitempty"`
 }
 
 func (datastorage *Datastorage) InsertAddresses(locations []*proto.Location, source proto.Source) error {
@@ -41,31 +104,33 @@ func (datastorage *Datastorage) InsertAddresses(locations []*proto.Location, sou
 		return fmt.Errorf("source not supported for addresses %s", source)
 	}
 
-	values := []string{}
+	values := map[string]string{}
 
 	for _, location := range locations {
-		values = append(values, fmt.Sprintf(
-			"(%d,'%s','%s','%s','%s','%s','%s','%s',%f,%f, '%s')",
-			manticoresearch.HashString(*location.Id),
-			manticoresearch.CleanString(*location.Street),
-			manticoresearch.CleanString(*location.Number),
-			manticoresearch.CleanString(*location.Unit),
-			manticoresearch.CleanString(*location.City),
-			manticoresearch.CleanString(*location.District),
-			manticoresearch.CleanString(*location.Region),
-			manticoresearch.CleanString(*location.Postcode),
-			location.Lat,
-			location.Long,
-			*location.CountryCode,
-		))
+		address := &Address{
+			City:        *location.City,
+			Region:      *location.Region,
+			Location:    &Location{Latitude: location.Lat, Longitude: location.Long},
+			CountryCode: *location.CountryCode,
+			Street:      *location.Street,
+			Number:      *location.Number,
+			Unit:        *location.Unit,
+			District:    *location.District,
+			Postcode:    *location.Postcode,
+		}
+		element, err := json.Marshal(address)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+		values[*location.Id] = string(element)
 	}
 
-	query := "REPLACE INTO opengeocoding_cluster:" + tableName + "(id,street,number,unit,city,district,region,postcode,lat,long,country_code) VALUES " + strings.Join(values, ",")
+	err := datastorage.elasticsearch.BulkInsertDocuments(context.Background(), tableName, values)
 
-	_, err := datastorage.database.Worker.Exec(query)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
+
 	return nil
 
 }

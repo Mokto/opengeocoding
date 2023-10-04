@@ -21,10 +21,7 @@ func Init() *Container {
 	geolabels.Load()
 	gracefulManager := graceful.Start()
 
-	elasticsearch, err := elasticsearch.New(elasticsearch.Config{})
-	if err != nil {
-		panic(err)
-	}
+	elasticsearch := elasticsearch.InitDatabase()
 
 	database := manticoresearch.InitDatabase(true)
 

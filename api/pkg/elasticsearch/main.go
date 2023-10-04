@@ -3,6 +3,7 @@ package elasticsearch
 import (
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -15,27 +16,38 @@ import (
 
 // Elasticsearch contains everything to access elasticsearch
 type Elasticsearch struct {
-	client      *elasticsearch.Client
-	maxReplicas int
-	maxShards   int
+	client *elasticsearch.Client
 }
 
-// Config Elasticsearch
 type Config struct {
-	// Logger   elastictransport.Logger
 	Password string
 	URL      string
 	User     string
-	// BatchCount    int
-	// BatchTimeout  int
-	// MaxReplicas   int
-	// MaxShards     int
-	// Ephemeral     bool
-	// NoInitialPing bool
+}
+
+func InitDatabase() *Elasticsearch {
+
+	elasticsearch_endpoint := os.Getenv("ELASTICSEARCH_ENDPOINT")
+	elasticsearch_user := os.Getenv("ELASTICSEARCH_USER")
+	elasticsearch_password := os.Getenv("ELASTICSEARCH_PASSWORD")
+	if elasticsearch_endpoint == "" {
+		elasticsearch_endpoint = "http://localhost:9200"
+	}
+
+	elasticsearch, err := newConnection(Config{
+		Password: elasticsearch_password,
+		URL:      elasticsearch_endpoint,
+		User:     elasticsearch_user,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return elasticsearch
 }
 
 // New initializes a new elasticsearch connection
-func New(config Config, transports ...http.RoundTripper) (*Elasticsearch, error) {
+func newConnection(config Config, transports ...http.RoundTripper) (*Elasticsearch, error) {
 
 	var customTransport http.RoundTripper
 	if len(transports) == 1 {
