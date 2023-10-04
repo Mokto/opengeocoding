@@ -1,16 +1,1 @@
-{
-    "location": {
-        "street": "Hillerødgade",
-        "number": "",
-        "unit": "",
-        "city": "København N",
-        "district": "",
-        "region": "Region Hovedstaden",
-        "postcode": "2200",
-        "lat": 55.69,
-        "long": 12.53,
-        "countryCode": "dk",
-        "source": "OpenAddresses",
-        "fullStreetAddress": "Hillerødgade"
-    }
-}
+{}

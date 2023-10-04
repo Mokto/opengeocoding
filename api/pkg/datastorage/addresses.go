@@ -30,7 +30,7 @@ func (datastorage *Datastorage) initAddressesTable(tableName string) {
 			"analyzer": {
 			  "standard_asciifolding": {
 				"tokenizer": "standard",
-				"filter": [ "asciifolding" ]
+				"filter": [ "asciifolding", "lowercase" ]
 			  }
 			}
 		  }

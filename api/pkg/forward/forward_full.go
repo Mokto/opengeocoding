@@ -64,7 +64,7 @@ func getAddressForwardQuery(parsed parser.ParsedAddress) *elasticsearch.SearchBo
 				expandedRoads = append(expandedRoads, road)
 			}
 			for _, road := range expandedRoads {
-				roadsSearchBody.ShouldMatch("street", road)
+				roadsSearchBody.ShouldMatchPhrase("street", road)
 			}
 		}
 		roadsSearchBody.MinimumShouldMatch(1)
@@ -76,7 +76,7 @@ func getAddressForwardQuery(parsed parser.ParsedAddress) *elasticsearch.SearchBo
 		citiesSearchBody := elasticsearch.NewSearchBody()
 		for _, city := range parsed.City {
 			for _, city := range geolabels.ExpandCityLabel(city) {
-				citiesSearchBody.ShouldMatch("city", city)
+				citiesSearchBody.ShouldMatchPhrase("city", city)
 			}
 		}
 		citiesSearchBody.MinimumShouldMatch(1)

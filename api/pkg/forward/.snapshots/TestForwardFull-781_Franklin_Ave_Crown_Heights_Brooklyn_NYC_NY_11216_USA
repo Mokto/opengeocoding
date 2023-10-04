@@ -1,16 +1,1 @@
-{
-    "location": {
-        "street": "Franklin Avenue",
-        "number": "781",
-        "unit": "",
-        "city": "City of New York",
-        "district": "",
-        "region": "New York",
-        "postcode": "11216",
-        "lat": 40.67,
-        "long": -73.96,
-        "countryCode": "us",
-        "source": "OpenStreetDataAddress",
-        "fullStreetAddress": "781 Franklin Avenue"
-    }
-}
+{}
