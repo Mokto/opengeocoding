@@ -69,7 +69,7 @@ func getAddressForwardQuery(parsed parser.ParsedAddress) *elasticsearch.SearchBo
 			}
 		}
 		roadsSearchBody.MinimumShouldMatch(1)
-		searchBody.ShouldCustom(roadsSearchBody)
+		searchBody.FilterCustom(roadsSearchBody)
 	} else {
 		return nil
 	}
@@ -81,7 +81,7 @@ func getAddressForwardQuery(parsed parser.ParsedAddress) *elasticsearch.SearchBo
 			}
 		}
 		citiesSearchBody.MinimumShouldMatch(1)
-		searchBody.ShouldCustom(citiesSearchBody)
+		searchBody.FilterCustom(citiesSearchBody)
 	}
 	if parsed.Postcode != "" || parsed.Unit != "" || parsed.HouseNumber != "" || parsed.State != "" {
 		additionalSearchBody := elasticsearch.NewSearchBody()
@@ -102,7 +102,7 @@ func getAddressForwardQuery(parsed parser.ParsedAddress) *elasticsearch.SearchBo
 		searchBody.ShouldCustom(additionalSearchBody)
 	}
 
-	searchBody.MinimumShouldMatch("100%")
+	searchBody.MinimumShouldMatch("0")
 
 	searchBody.Debug()
 	return searchBody

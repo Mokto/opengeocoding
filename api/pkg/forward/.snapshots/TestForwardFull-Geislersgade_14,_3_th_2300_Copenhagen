@@ -2,7 +2,7 @@
     "location": {
         "street": "Geislersgade",
         "number": "14",
-        "unit": "",
+        "unit": "3 th",
         "city": "København S",
         "district": "",
         "region": "Region Hovedstaden",
@@ -11,6 +11,6 @@
         "long": 12.6,
         "countryCode": "dk",
         "source": "OpenAddresses",
-        "fullStreetAddress": "Geislersgade 14"
+        "fullStreetAddress": "Geislersgade 14 3 th"
     }
 }

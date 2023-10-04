@@ -2,15 +2,15 @@
     "location": {
         "street": "OLD SEWARD HWY",
         "number": "7926",
-        "unit": "APT 12",
+        "unit": "STE A6",
         "city": "Anchorage",
         "district": "",
         "region": "AK",
         "postcode": "99518",
-        "lat": 61.17,
+        "lat": 61.14,
         "long": -149.87,
         "countryCode": "us",
         "source": "OpenAddresses",
-        "fullStreetAddress": "7926 OLD SEWARD HWY APT 12"
+        "fullStreetAddress": "7926 OLD SEWARD HWY STE A6"
     }
 }
