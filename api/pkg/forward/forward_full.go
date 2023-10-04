@@ -2,6 +2,7 @@ package forward
 
 import (
 	"context"
+	"fmt"
 	"geocoding/pkg/container"
 	"geocoding/pkg/elasticsearch"
 	"geocoding/pkg/errors"
@@ -98,6 +99,7 @@ func getAddressForwardQuery(parsed parser.ParsedAddress) *elasticsearch.SearchBo
 			additionalSearchBody.ShouldMatch("region", parsed.State)
 		}
 		additionalSearchBody.MinimumShouldMatch(0)
+		searchBody.ShouldCustom(additionalSearchBody)
 	}
 
 	searchBody.MinimumShouldMatch("100%")
@@ -152,6 +154,9 @@ func formatAddressResultToLocation(result string, parsed parser.ParsedAddress) *
 		District:    &district,
 	}
 	emptyString := ""
+
+	fmt.Println(parsed.HouseNumber)
+	fmt.Println(parsed.Unit)
 
 	if parsed.HouseNumber == "" {
 		location.Number = &emptyString
