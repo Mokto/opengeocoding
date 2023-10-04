@@ -5,6 +5,7 @@
         "lat": 19.42,
         "long": -99.13,
         "countryCode": "mx",
-        "source": "Geonames"
+        "source": "Geonames",
+        "population": 12294193
     }
 }

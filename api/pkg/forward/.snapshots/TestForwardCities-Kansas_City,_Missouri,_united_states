@@ -5,6 +5,7 @@
         "lat": 39.09,
         "long": -94.58,
         "countryCode": "us",
-        "source": "Geonames"
+        "source": "Geonames",
+        "population": 475378
     }
 }

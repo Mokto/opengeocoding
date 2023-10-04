@@ -20,6 +20,7 @@ type SearchBody struct {
 	collapse        string
 	searchAfter     string
 	collapseSources []string
+	minScore        float32
 }
 
 // NewSearchBody allows to generate an ES body easily
@@ -38,6 +39,13 @@ func (searchBody *SearchBody) Body() string {
 			sort = ", "
 		}
 		sort = sort + `"sort":` + searchBody.sort
+	}
+	minScore := ""
+	if searchBody.minScore != 0 {
+		if searchBody.body != "{}" {
+			minScore = ", "
+		}
+		minScore = minScore + fmt.Sprintf(`"min_score":%f`, searchBody.minScore)
 	}
 	collapse := ""
 	if searchBody.collapse != "" {
@@ -60,7 +68,12 @@ func (searchBody *SearchBody) Body() string {
 	if searchBody.body == "{}" {
 		return "{" + sort + collapse + searchAfter + "}"
 	}
-	return `{"query":` + searchBody.body + sort + collapse + searchAfter + `}`
+	return `{"query":` + searchBody.body + sort + collapse + searchAfter + minScore + `}`
+}
+
+func (searchBody *SearchBody) MinScore(score float32) *SearchBody {
+	searchBody.minScore = score
+	return searchBody
 }
 
 // WithParentID search for documents with a specific parent id
@@ -188,6 +201,13 @@ func (searchBody *SearchBody) FilterMatch(termKey string, value interface{}) *Se
 	return searchBody
 }
 
+func (searchBody *SearchBody) FilterMatchPhrase(termKey string, value interface{}) *SearchBody {
+	termKey = strings.ReplaceAll(termKey, ".", "\\.")
+	val, _ := sjson.Set(searchBody.body, "bool.filter.-1.match_phrase."+termKey, value)
+	searchBody.body = val
+	return searchBody
+}
+
 // ShouldCustom add should with a custom sjson key
 func (searchBody *SearchBody) ShouldCustom(body *SearchBody) *SearchBody {
 	val, _ := sjson.SetRaw(searchBody.body, "bool.should.-1", body.body)
@@ -274,6 +294,13 @@ func (searchBody *SearchBody) MustNotTerm(key string, value interface{}) *Search
 func (searchBody *SearchBody) ShouldMatch(key string, value interface{}) *SearchBody {
 	key = strings.ReplaceAll(key, ".", "\\.")
 	val, _ := sjson.Set(searchBody.body, "bool.should.-1.match."+key, value)
+	searchBody.body = val
+	return searchBody
+}
+
+func (searchBody *SearchBody) ShouldMatchPhrase(key string, value interface{}) *SearchBody {
+	key = strings.ReplaceAll(key, ".", "\\.")
+	val, _ := sjson.Set(searchBody.body, "bool.should.-1.match_phrase."+key, value)
 	searchBody.body = val
 	return searchBody
 }

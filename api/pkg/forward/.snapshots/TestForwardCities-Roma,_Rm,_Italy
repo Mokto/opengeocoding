@@ -5,6 +5,7 @@
         "lat": 41.89,
         "long": 12.51,
         "countryCode": "it",
-        "source": "Geonames"
+        "source": "Geonames",
+        "population": 2318895
     }
 }

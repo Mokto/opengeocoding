@@ -5,7 +5,8 @@
         "lat": 49.11,
         "long": 6.17,
         "countryCode": "fr",
-        "source": "Geonames"
+        "source": "Geonames",
+        "population": 123914
     },
     "otherPotentialLocations": [
         {
@@ -14,7 +15,8 @@
             "lat": 49.0956,
             "long": 6.15271,
             "countryCode": "fr",
-            "source": "Geonames"
+            "source": "Geonames",
+            "population": 26369
         },
         {
             "city": "Maizières-lès-Metz",
@@ -22,23 +24,26 @@
             "lat": 49.21335,
             "long": 6.15956,
             "countryCode": "fr",
-            "source": "Geonames"
+            "source": "Geonames",
+            "population": 9845
         },
         {
-            "city": "Metz",
-            "region": "Missouri",
-            "lat": 37.99753,
-            "long": -94.44329,
-            "countryCode": "us",
-            "source": "Geonames"
+            "city": "Moulins-lès-Metz",
+            "region": "Moselle",
+            "lat": 49.10434,
+            "long": 6.10832,
+            "countryCode": "fr",
+            "source": "Geonames",
+            "population": 4786
         },
         {
-            "city": "Metz",
-            "region": "California",
-            "lat": 36.35497,
-            "long": -121.21159,
-            "countryCode": "us",
-            "source": "Geonames"
+            "city": "Longeville-lès-Metz",
+            "region": "Moselle",
+            "lat": 49.11403,
+            "long": 6.13612,
+            "countryCode": "fr",
+            "source": "Geonames",
+            "population": 3970
         }
     ]
 }

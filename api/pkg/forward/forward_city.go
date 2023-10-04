@@ -28,12 +28,12 @@ func forwardCity(container *container.Container, parsed parser.ParsedAddress) (*
 	citiesSearchBody := elasticsearch.NewSearchBody()
 	for _, city := range parsed.City {
 		for _, city := range geolabels.ExpandCityLabel(city) {
-			citiesSearchBody.ShouldMatch("city", city)
+			citiesSearchBody.ShouldMatchPhrase("city", city)
 		}
 	}
 	citiesSearchBody.MinimumShouldMatch(1)
 
-	searchBody.ShouldCustom(citiesSearchBody)
+	searchBody.FilterCustom(citiesSearchBody)
 
 	if parsed.State != "" {
 		searchBody.ShouldMatch("region", parsed.State)
