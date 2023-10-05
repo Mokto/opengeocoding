@@ -7,8 +7,6 @@ service OpenGeocoding {
 }
 
 service OpenGeocodingInternal {
-    rpc RunQuery(RunQueryRequest) returns (RunQueryResponse) {}
-    rpc RunBackgroundQuery(RunBackgroundQueryRequest) returns (RunBackgroundQueryResponse) {}
     rpc InsertLocations(InsertLocationsRequest) returns (InsertLocationsResponse) {}
 }
 
@@ -43,21 +41,6 @@ message Location {
     Source source = 12;
     optional uint32 population = 13;
     optional string full_street_address = 14;
-}
-
-message RunQueryRequest {
-    string query = 1;
-}
-
-message RunQueryResponse {
-    string result = 1;
-}
-
-message RunBackgroundQueryRequest {
-    string query = 1;
-}
-
-message RunBackgroundQueryResponse {
 }
 
 enum Source {

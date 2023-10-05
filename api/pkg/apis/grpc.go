@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"geocoding/pkg/container"
 	"geocoding/pkg/forward"
-	"os"
 
 	"geocoding/pkg/proto"
 	"log"
 	"net"
 
-	"github.com/jedib0t/go-pretty/table"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -35,57 +33,6 @@ func (s *opengeocodingServer) Forward(ctx context.Context, request *proto.Forwar
 type opengeocodingServerInternal struct {
 	container *container.Container
 	proto.UnimplementedOpenGeocodingInternalServer
-}
-
-func (s *opengeocodingServerInternal) RunQuery(ctx context.Context, request *proto.RunQueryRequest) (*proto.RunQueryResponse, error) {
-	rows, err := s.container.Database.Worker.Query(request.Query)
-	if err != nil {
-		return nil, err
-	}
-
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.SetStyle(table.StyleColoredBright)
-
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-
-	var row table.Row
-	for _, element := range cols {
-		row = append(row, element)
-	}
-	t.AppendHeader(row)
-
-	for rows.Next() {
-		columns := make([]string, len(cols))
-		columnPointers := make([]interface{}, len(cols))
-		for i := range columns {
-			columnPointers[i] = &columns[i]
-		}
-
-		rows.Scan(columnPointers...)
-
-		var row table.Row
-		for i := range cols {
-			row = append(row, columns[i])
-		}
-		t.AppendRow(row)
-	}
-	t.Render()
-
-	return &proto.RunQueryResponse{}, nil
-}
-
-func (s *opengeocodingServerInternal) RunBackgroundQuery(ctx context.Context, request *proto.RunBackgroundQueryRequest) (*proto.RunBackgroundQueryResponse, error) {
-	err := s.container.Messaging.Publish("main:::opengeocoding:backgroundSave", request.Query)
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-
-	return &proto.RunBackgroundQueryResponse{}, nil
 }
 
 func (s *opengeocodingServerInternal) InsertLocations(ctx context.Context, request *proto.InsertLocationsRequest) (*proto.InsertLocationsResponse, error) {

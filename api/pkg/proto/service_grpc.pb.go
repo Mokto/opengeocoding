@@ -109,17 +109,13 @@ var OpenGeocoding_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	OpenGeocodingInternal_RunQuery_FullMethodName           = "/opengeocoding.OpenGeocodingInternal/RunQuery"
-	OpenGeocodingInternal_RunBackgroundQuery_FullMethodName = "/opengeocoding.OpenGeocodingInternal/RunBackgroundQuery"
-	OpenGeocodingInternal_InsertLocations_FullMethodName    = "/opengeocoding.OpenGeocodingInternal/InsertLocations"
+	OpenGeocodingInternal_InsertLocations_FullMethodName = "/opengeocoding.OpenGeocodingInternal/InsertLocations"
 )
 
 // OpenGeocodingInternalClient is the client API for OpenGeocodingInternal service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type OpenGeocodingInternalClient interface {
-	RunQuery(ctx context.Context, in *RunQueryRequest, opts ...grpc.CallOption) (*RunQueryResponse, error)
-	RunBackgroundQuery(ctx context.Context, in *RunBackgroundQueryRequest, opts ...grpc.CallOption) (*RunBackgroundQueryResponse, error)
 	InsertLocations(ctx context.Context, in *InsertLocationsRequest, opts ...grpc.CallOption) (*InsertLocationsResponse, error)
 }
 
@@ -129,24 +125,6 @@ type openGeocodingInternalClient struct {
 
 func NewOpenGeocodingInternalClient(cc grpc.ClientConnInterface) OpenGeocodingInternalClient {
 	return &openGeocodingInternalClient{cc}
-}
-
-func (c *openGeocodingInternalClient) RunQuery(ctx context.Context, in *RunQueryRequest, opts ...grpc.CallOption) (*RunQueryResponse, error) {
-	out := new(RunQueryResponse)
-	err := c.cc.Invoke(ctx, OpenGeocodingInternal_RunQuery_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *openGeocodingInternalClient) RunBackgroundQuery(ctx context.Context, in *RunBackgroundQueryRequest, opts ...grpc.CallOption) (*RunBackgroundQueryResponse, error) {
-	out := new(RunBackgroundQueryResponse)
-	err := c.cc.Invoke(ctx, OpenGeocodingInternal_RunBackgroundQuery_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *openGeocodingInternalClient) InsertLocations(ctx context.Context, in *InsertLocationsRequest, opts ...grpc.CallOption) (*InsertLocationsResponse, error) {
@@ -162,8 +140,6 @@ func (c *openGeocodingInternalClient) InsertLocations(ctx context.Context, in *I
 // All implementations must embed UnimplementedOpenGeocodingInternalServer
 // for forward compatibility
 type OpenGeocodingInternalServer interface {
-	RunQuery(context.Context, *RunQueryRequest) (*RunQueryResponse, error)
-	RunBackgroundQuery(context.Context, *RunBackgroundQueryRequest) (*RunBackgroundQueryResponse, error)
 	InsertLocations(context.Context, *InsertLocationsRequest) (*InsertLocationsResponse, error)
 	mustEmbedUnimplementedOpenGeocodingInternalServer()
 }
@@ -172,12 +148,6 @@ type OpenGeocodingInternalServer interface {
 type UnimplementedOpenGeocodingInternalServer struct {
 }
 
-func (UnimplementedOpenGeocodingInternalServer) RunQuery(context.Context, *RunQueryRequest) (*RunQueryResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RunQuery not implemented")
-}
-func (UnimplementedOpenGeocodingInternalServer) RunBackgroundQuery(context.Context, *RunBackgroundQueryRequest) (*RunBackgroundQueryResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RunBackgroundQuery not implemented")
-}
 func (UnimplementedOpenGeocodingInternalServer) InsertLocations(context.Context, *InsertLocationsRequest) (*InsertLocationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InsertLocations not implemented")
 }
@@ -192,42 +162,6 @@ type UnsafeOpenGeocodingInternalServer interface {
 
 func RegisterOpenGeocodingInternalServer(s grpc.ServiceRegistrar, srv OpenGeocodingInternalServer) {
 	s.RegisterService(&OpenGeocodingInternal_ServiceDesc, srv)
-}
-
-func _OpenGeocodingInternal_RunQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RunQueryRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(OpenGeocodingInternalServer).RunQuery(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: OpenGeocodingInternal_RunQuery_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OpenGeocodingInternalServer).RunQuery(ctx, req.(*RunQueryRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _OpenGeocodingInternal_RunBackgroundQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RunBackgroundQueryRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(OpenGeocodingInternalServer).RunBackgroundQuery(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: OpenGeocodingInternal_RunBackgroundQuery_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(OpenGeocodingInternalServer).RunBackgroundQuery(ctx, req.(*RunBackgroundQueryRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _OpenGeocodingInternal_InsertLocations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -255,14 +189,6 @@ var OpenGeocodingInternal_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "opengeocoding.OpenGeocodingInternal",
 	HandlerType: (*OpenGeocodingInternalServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "RunQuery",
-			Handler:    _OpenGeocodingInternal_RunQuery_Handler,
-		},
-		{
-			MethodName: "RunBackgroundQuery",
-			Handler:    _OpenGeocodingInternal_RunBackgroundQuery_Handler,
-		},
 		{
 			MethodName: "InsertLocations",
 			Handler:    _OpenGeocodingInternal_InsertLocations_Handler,

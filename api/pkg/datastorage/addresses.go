@@ -21,7 +21,7 @@ func (datastorage *Datastorage) initOpenstreetdataAddresses() {
 
 func (datastorage *Datastorage) initAddressesTable(tableName string) {
 
-	err := datastorage.elasticsearch.CreateIndexIfNotExists(openaddressesTableName, `{
+	err := datastorage.elasticsearch.CreateIndexIfNotExists(tableName, `{
 		"settings": {
 		  "number_of_shards": 2,
 		  "number_of_replicas": 2,
@@ -79,7 +79,6 @@ func (datastorage *Datastorage) initAddressesTable(tableName string) {
 	if err != nil {
 		panic(err)
 	}
-
 }
 
 type Address struct {
@@ -107,6 +106,10 @@ func (datastorage *Datastorage) InsertAddresses(locations []*proto.Location, sou
 	values := map[string]string{}
 
 	for _, location := range locations {
+		if location.Lat > 90 || location.Lat < -90 || location.Long > 180 || location.Long < -180 {
+			// fmt.Println("not valid", location)
+			continue
+		}
 		address := &Address{
 			City:        *location.City,
 			Region:      *location.Region,
