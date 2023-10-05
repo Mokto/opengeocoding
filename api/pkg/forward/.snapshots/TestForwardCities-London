@@ -5,7 +5,8 @@
         "lat": 51.5,
         "long": -0.13,
         "countryCode": "gb",
-        "source": "Geonames"
+        "source": "Geonames",
+        "population": 8961989
     },
     "otherPotentialLocations": [
         {
@@ -14,7 +15,8 @@
             "lat": -33.01529,
             "long": 27.91162,
             "countryCode": "za",
-            "source": "Geonames"
+            "source": "Geonames",
+            "population": 478676
         },
         {
             "city": "London",
@@ -22,23 +24,26 @@
             "lat": 42.98339,
             "long": -81.23304,
             "countryCode": "ca",
-            "source": "Geonames"
+            "source": "Geonames",
+            "population": 346765
         },
         {
-            "city": "City of London",
-            "region": "City and County of the City of London",
-            "lat": 51.51279,
-            "long": -0.09184,
-            "countryCode": "gb",
-            "source": "Geonames"
+            "city": "New London",
+            "region": "Connecticut",
+            "lat": 41.35565,
+            "long": -72.09952,
+            "countryCode": "us",
+            "source": "Geonames",
+            "population": 27179
         },
         {
-            "city": "Diocese of London",
-            "region": "City and County of the City of London",
-            "lat": 51.51373,
-            "long": -0.09838,
+            "city": "West End of London",
+            "region": "City of Westminster",
+            "lat": 51.51414,
+            "long": -0.1551,
             "countryCode": "gb",
-            "source": "Geonames"
+            "source": "Geonames",
+            "population": 10575
         }
     ]
 }

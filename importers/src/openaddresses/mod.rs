@@ -37,7 +37,7 @@ pub async fn import_addresses() {
     let mut archive = zip::ZipArchive::new(file).unwrap();
 
     let start_from: Option<&str> = None;
-    // let start_from = Some("za/countrywide-addresses-country.geojson");
+    // let start_from = Some("ca/on/city_of_vaughan-addresses-city.geojson");
 
     let exclude_files: Vec<String> = vec![];
 

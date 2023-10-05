@@ -1,17 +1,17 @@
 package datastorage
 
 import (
-	"geocoding/pkg/manticoresearch"
+	"geocoding/pkg/elasticsearch"
 )
 
 type Datastorage struct {
-	database *manticoresearch.ManticoreSearch
+	elasticsearch *elasticsearch.Elasticsearch
 }
 
-func InitDatastorage(database *manticoresearch.ManticoreSearch) *Datastorage {
+func InitDatastorage(elasticsearch *elasticsearch.Elasticsearch) *Datastorage {
 
 	datastorage := &Datastorage{
-		database: database,
+		elasticsearch: elasticsearch,
 	}
 
 	datastorage.initCities()

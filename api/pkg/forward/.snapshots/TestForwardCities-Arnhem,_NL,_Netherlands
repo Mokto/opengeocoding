@@ -5,6 +5,7 @@
         "lat": 51.97,
         "long": 5.91,
         "countryCode": "nl",
-        "source": "Geonames"
+        "source": "Geonames",
+        "population": 141674
     }
 }

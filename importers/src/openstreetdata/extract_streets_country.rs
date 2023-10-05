@@ -1,9 +1,7 @@
 use std::{fs, path::Path};
 
 use crate::{
-    client::OpenGeocodingApiClient,
-    data::street_v2::{insert_street_documents_v2, StreetDocumentV2},
-    download::download_file,
+    client::OpenGeocodingApiClient, data::street_v2::StreetDocumentV2, download::download_file,
     wof::zone_detector::ZoneDetector,
 };
 use csv::ReaderBuilder;

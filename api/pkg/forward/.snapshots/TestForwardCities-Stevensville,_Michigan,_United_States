@@ -1,10 +1,11 @@
 {
     "location": {
         "city": "Stevensville",
-        "region": "Michigan",
-        "lat": 42.01,
-        "long": -86.52,
+        "region": "Maryland",
+        "lat": 38.98,
+        "long": -76.32,
         "countryCode": "us",
-        "source": "Geonames"
+        "source": "Geonames",
+        "population": 6803
     }
 }

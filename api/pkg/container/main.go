@@ -2,33 +2,33 @@ package container
 
 import (
 	"geocoding/pkg/datastorage"
+	"geocoding/pkg/elasticsearch"
 	"geocoding/pkg/geolabels"
 	"geocoding/pkg/graceful"
-	"geocoding/pkg/manticoresearch"
 	"geocoding/pkg/messaging"
 )
 
 type Container struct {
 	GracefulManager *graceful.Manager
-	Database        *manticoresearch.ManticoreSearch
 	Messaging       *messaging.Messaging
 	Datastorage     *datastorage.Datastorage
+	Elasticsearch   *elasticsearch.Elasticsearch
 }
 
 func Init() *Container {
 	geolabels.Load()
 	gracefulManager := graceful.Start()
 
-	database := manticoresearch.InitDatabase(true)
+	elasticsearch := elasticsearch.InitDatabase()
 
 	messaging := messaging.New(gracefulManager)
 
-	datastorage := datastorage.InitDatastorage(database)
+	datastorage := datastorage.InitDatastorage(elasticsearch)
 
 	return &Container{
 		GracefulManager: gracefulManager,
-		Database:        database,
 		Messaging:       messaging,
 		Datastorage:     datastorage,
+		Elasticsearch:   elasticsearch,
 	}
 }

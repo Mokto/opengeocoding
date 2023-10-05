@@ -1,9 +1,10 @@
-package forward
+package forward_test
 
 import (
 	"bytes"
 	"encoding/json"
 	"geocoding/pkg/container"
+	"geocoding/pkg/forward"
 	"geocoding/pkg/proto"
 	"math"
 	"testing"
@@ -44,7 +45,7 @@ func TestForwardFull(t *testing.T) {
 	}
 
 	for _, query := range queries {
-		location, err := Forward(container, query)
+		location, err := forward.Forward(container, query)
 		if err != nil {
 			panic(err)
 		}
@@ -70,7 +71,7 @@ func TestForwardCities(t *testing.T) {
 	}
 
 	for _, query := range queries {
-		location, err := Forward(container, query)
+		location, err := forward.Forward(container, query)
 		if err != nil {
 			panic(err)
 		}

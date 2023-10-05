@@ -1,8 +1,8 @@
 use crate::{
     client::OpenGeocodingApiClient,
     data::{
-        address::{insert_address_documents, AddressDocument},
-        street::{insert_street_documents, StreetDocument, StreetPoint},
+        address::AddressDocument,
+        street::{StreetDocument, StreetPoint},
     },
     download::download_file,
     wof::{country_detector::CountryDetector, detect_zones, zone_detector::ZoneDetector},
@@ -221,23 +221,23 @@ pub async fn extract_file(
 
     return;
 
-    insert_address_documents(
-        opengeocoding_client,
-        full_table_name_addresses.to_string(),
-        documents,
-        None,
-    )
-    .await
-    .unwrap();
+    // insert_address_documents(
+    //     opengeocoding_client,
+    //     full_table_name_addresses.to_string(),
+    //     documents,
+    //     None,
+    // )
+    // .await
+    // .unwrap();
 
-    insert_street_documents(
-        opengeocoding_client,
-        full_table_name_streets.to_string(),
-        street_points,
-        None,
-    )
-    .await
-    .unwrap();
+    // insert_street_documents(
+    //     opengeocoding_client,
+    //     full_table_name_streets.to_string(),
+    //     street_points,
+    //     None,
+    // )
+    // .await
+    // .unwrap();
     // fs::remove_file(&existing_file).unwrap();
     println!("Done in {:?}s", time.elapsed().as_secs());
     // return;

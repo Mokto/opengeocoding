@@ -17,24 +17,6 @@ impl OpenGeocodingApiClient {
         Ok(OpenGeocodingApiClient { client })
     }
 
-    pub async fn run_query(&mut self, query: String) -> Result<String, tonic::Status> {
-        let request: tonic::Request<opengeocoding::RunQueryRequest> =
-            tonic::Request::new(opengeocoding::RunQueryRequest { query: query });
-        let response = self.client.run_query(request);
-
-        return Ok(response.await?.into_inner().result);
-    }
-
-    pub async fn run_background_query(&mut self, query: String) -> Result<(), tonic::Status> {
-        let request =
-            tonic::Request::new(opengeocoding::RunBackgroundQueryRequest { query: query });
-        let response = self.client.run_background_query(request);
-
-        response.await?;
-
-        Ok(())
-    }
-
     pub async fn insert_locations(
         &mut self,
         locations: Vec<opengeocoding::Location>,

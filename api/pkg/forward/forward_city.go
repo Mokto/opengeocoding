@@ -1,87 +1,86 @@
 package forward
 
 import (
-	"fmt"
+	"context"
 	"geocoding/pkg/container"
+	"geocoding/pkg/elasticsearch"
+	"geocoding/pkg/errors"
 	"geocoding/pkg/geolabels"
 	"geocoding/pkg/parser"
 	"geocoding/pkg/proto"
-	"log"
-	"strconv"
-	"strings"
+
+	"github.com/tidwall/gjson"
 )
 
 func forwardCity(container *container.Container, parsed parser.ParsedAddress) (*proto.ForwardResult, error) {
 
+	searchBody := elasticsearch.NewSearchBody()
+
 	showOtherPotentialCities := false
 
 	countryCode := geolabels.GetCountryCodeFromLabel(parsed.Country)
-	country_query := ""
 	if countryCode == "" {
 		showOtherPotentialCities = true
-		// return nil, nil
 	} else {
-		country_query = " AND country_code = '" + countryCode + "'"
+		searchBody.FilterTerm("country_code", countryCode)
 	}
-	cities := []string{}
-	cities_exact := []string{}
+
+	citiesSearchBody := elasticsearch.NewSearchBody()
 	for _, city := range parsed.City {
 		for _, city := range geolabels.ExpandCityLabel(city) {
-			cities = append(cities, `@city "`+escape_sql(city)+`"`)
-			cities_exact = append(cities_exact, `"^`+escape_sql(city)+`$"`)
+			citiesSearchBody.ShouldMatchPhrase("city", city)
 		}
 	}
-	additionalQuery := ""
+	citiesSearchBody.MinimumShouldMatch(1)
+
+	searchBody.FilterCustom(citiesSearchBody)
+
 	if parsed.State != "" {
-		additionalQuery = ` MAYBE @region "` + escape_sql(parsed.State) + `"/1`
+		searchBody.ShouldMatch("region", parsed.State)
 	}
+
+	forwardResult := &proto.ForwardResult{}
 
 	limit := 1
 	if showOtherPotentialCities {
 		limit = 5
 	}
-	query := `SELECT (weight() + population / 1000) as score, city, region, lat, long, country_code FROM geonames_cities WHERE MATCH('(` + strings.Join(cities, " | ") + `) | ` + strings.Join(cities_exact, ` | `) + additionalQuery + `') ` + country_query + ` ORDER BY score DESC LIMIT ` + strconv.Itoa(limit) + ` OPTION max_predicted_time=10000, max_matches=` + strconv.Itoa(limit)
-	fmt.Println(query)
 
-	rows, err := container.Database.Balancer.Query(query)
+	results, _, err := container.Elasticsearch.SearchMany(context.Background(), "geonames_cities", elasticsearch.SearchParams{
+		Body: searchBody.Body(),
+		Size: limit,
+		Sort: []string{"population:desc"},
+	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
-	defer rows.Close()
 
-	result := &proto.ForwardResult{}
-	index := 0
-	for rows.Next() {
-		var (
-			score        float32
-			city         string
-			region       string
-			lat          float32
-			long         float32
-			country_code string
-		)
-		if err := rows.Scan(&score, &city, &region, &lat, &long, &country_code); err != nil {
-			log.Fatal(err)
-		}
-
-		location := &proto.Location{
-			City:        &city,
-			Region:      &region,
-			Lat:         lat,
-			Long:        long,
-			CountryCode: &country_code,
-			Source:      proto.Source_Geonames,
-		}
-
+	for index, result := range results {
 		if index == 0 {
-
-			result.Location = location
+			forwardResult.Location = formatCityResultToLocation(result)
 		} else {
-			result.OtherPotentialLocations = append(result.OtherPotentialLocations, location)
+			forwardResult.OtherPotentialLocations = append(forwardResult.OtherPotentialLocations, formatCityResultToLocation(result))
 		}
 
-		index++
 	}
 
-	return result, nil
+	return forwardResult, nil
+}
+
+func formatCityResultToLocation(result string) *proto.Location {
+	city := gjson.Get(result, "_source.city").String()
+	region := gjson.Get(result, "_source.region").String()
+	lat := gjson.Get(result, "_source.location.lat").Float()
+	long := gjson.Get(result, "_source.location.lon").Float()
+	country_code := gjson.Get(result, "_source.country_code").String()
+	population := uint32(gjson.Get(result, "_source.population").Int())
+	return &proto.Location{
+		City:        &city,
+		Region:      &region,
+		Lat:         float32(lat),
+		Long:        float32(long),
+		CountryCode: &country_code,
+		Source:      proto.Source_Geonames,
+		Population:  &population,
+	}
 }
