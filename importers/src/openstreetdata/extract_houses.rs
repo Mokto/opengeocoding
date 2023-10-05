@@ -1,6 +1,6 @@
 use crate::{
-    client::OpenGeocodingApiClient, config::Config,
-    openstreetdata::extract_houses_country::extract_file, wof::zone_detector::ZoneDetector,
+    client::OpenGeocodingApiClient, openstreetdata::extract_houses_country::extract_file,
+    wof::zone_detector::ZoneDetector,
 };
 
 use super::files_list;

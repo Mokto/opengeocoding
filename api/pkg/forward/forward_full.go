@@ -26,18 +26,17 @@ func forwardFull(container *container.Container, parsed parser.ParsedAddress) (*
 	}
 
 	if result == nil {
-		return &proto.ForwardResult{}, nil
-		// result, err := runQuery(container, parsed, query, "openstreetdata_addresses")
-		// if err != nil {
-		// 	return nil, err
-		// }
+		result, err := runQuery(container, parsed, query, "openstreetdata_addresses")
+		if err != nil {
+			return nil, err
+		}
 
-		// if result == nil {
-		// 	return &proto.ForwardResult{}, nil
-		// }
+		if result == nil {
+			return &proto.ForwardResult{}, nil
+		}
 
-		// result.Location.Source = proto.Source_OpenStreetDataAddress
-		// return result, nil
+		result.Location.Source = proto.Source_OpenStreetDataAddress
+		return result, nil
 	}
 
 	result.Location.Source = proto.Source_OpenAddresses

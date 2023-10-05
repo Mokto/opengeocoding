@@ -1,1 +1,16 @@
-{}
+{
+    "location": {
+        "street": "Leonard Street",
+        "number": "100-106",
+        "unit": "",
+        "city": "London Borough of Hackney",
+        "district": "",
+        "region": "Hackney",
+        "postcode": "EC2A 4RH",
+        "lat": 51.52,
+        "long": -0.09,
+        "countryCode": "gb",
+        "source": "OpenStreetDataAddress",
+        "fullStreetAddress": "100-106 Leonard Street"
+    }
+}

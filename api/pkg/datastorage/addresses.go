@@ -2,6 +2,7 @@ package datastorage
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"geocoding/pkg/errors"
@@ -125,7 +126,9 @@ func (datastorage *Datastorage) InsertAddresses(locations []*proto.Location, sou
 		if err != nil {
 			return errors.Wrap(err)
 		}
-		values[*location.Id] = string(element)
+		h := sha256.New()
+		h.Write([]byte(*location.Id))
+		values[fmt.Sprintf("%x", h.Sum(nil))] = string(element)
 	}
 
 	err := datastorage.elasticsearch.BulkInsertDocuments(context.Background(), tableName, values)
