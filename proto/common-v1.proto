@@ -1,0 +1,5 @@
+syntax = "proto3";
+package common;
+option go_package = "github.com/Mokto/geolocation/gen/common";
+message EmptyRequest {}
+message EmptyResponse {}

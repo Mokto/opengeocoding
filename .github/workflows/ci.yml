@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Check formatting, lint and regression tests
+        run: docker build --target checks -t geolocation-checks .
+      - name: Build and inspect the non-root runtime
+        run: |
+          docker build --target runtime -t geolocation .
+          docker run --rm --entrypoint sh geolocation -ec '
+            test "$(id -u)" = 1000
+            test -w /app/regions.json
+            test ! -e /usr/local/bin/python
+            ! ldd /usr/local/bin/geolocation | grep "not found"
+          '
