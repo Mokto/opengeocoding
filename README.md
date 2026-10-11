@@ -138,6 +138,6 @@ Transliteration uses BSD-3-Clause `deunicode`, **not Python Unidecode**. Outputs
 
 ## License
 
-Project source: **Apache-2.0**. See `LICENSE`, `NOTICE` and `LICENSES/` for third-party software and reference-data terms.
+Project source: **PolyForm Shield 1.0.0**. Commercial use is allowed, including running the service inside your own products; providing a product that competes with this project is not. This is source-available, not OSI open source. See `LICENSE`, `NOTICE` and `LICENSES/` for third-party software and reference-data terms.
 
 libpostal and rustpostal are MIT-licensed; deunicode is BSD-3-Clause. CLDR data is Unicode-3.0; GeoNames data is CC-BY-4.0. Model files are not bundled; their source-data licensing and attribution obligations are separate.

@@ -2,7 +2,7 @@
 name = "geolocation"
 version = "0.1.0"
 edition = "2024"
-license = "Apache-2.0"
+license = "PolyForm-Shield-1.0.0"
 description = "Address resolution with libpostal, Nominatim, ClickHouse, Connect and gRPC"
 repository = "https://github.com/Mokto/geolocation"
 rust-version = "1.99"
