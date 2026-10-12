@@ -149,6 +149,25 @@ The default matrix covers 1/10/100 candidates, local-language corroboration, pos
 
 Use at least one complete rotation of all service names. Keep timed batches below the servers' per-connection request limits. Compare release builds on the same machine. Results include the mock, client, HTTP transport, native parsing and RPC framework; they are not production throughput or accuracy guarantees.
 
+## Experimental Overture address index
+
+`build_index` builds a Tantivy index and house-number tables from a local [Overture Maps](https://docs.overturemaps.org/) release, without Nominatim. The service does not use it yet; it exists to evaluate replacing Nominatim lookups.
+
+Download the `division` and `division_area` (divisions theme), `segment` (transportation) and `address` (addresses) parquet files of one release into same-named directories, about 100 GB in total, for example:
+
+```sh
+aws s3 sync --no-sign-request \
+  s3://overturemaps-us-west-2/release/2026-09-23.1/theme=addresses/type=address/ overture/address/
+cargo build --locked --release --bin build_index
+target/release/build_index overture out/ --geonames-postal allCountries.txt
+```
+
+The optional GeoNames postal file (`download.geonames.org/export/zip/allCountries.zip`, CC-BY-4.0) adds postcodes for countries without Overture addresses. The output holds places, streets (one per normalized name per place, merging road names with address streets) and postcodes in Tantivy, plus house numbers with coordinates in sharded FSTs.
+
+Streets and addresses are assigned to the containing locality polygon, else a locality point within 5 km, else the local admin area or county. One world release took about 3 minutes on an 18-core laptop with a 39 GB memory peak; that is a single measurement, not a guarantee.
+
+Known limitations: only the countries in Overture's address theme have house numbers; abbreviated and expanded street names (`AVE`/`Avenue`) are not merged; accuracy has not been evaluated. Overture's divisions and transportation themes are ODbL and address licenses vary by source; review them before distributing an index.
+
 ## Geographic evaluation
 
 The `evaluate` binary (`src/bin/evaluate`) measures geographic correctness against a real Nominatim backend through this service's RPCs. It is for backend, data and consumer changes; it does not measure throughput. Build it with the service:
