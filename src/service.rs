@@ -1,11 +1,5 @@
 use crate::{
-    matching::search_override,
-    metrics::METRICS,
-    proto::{
-        common::{EmptyRequest, EmptyResponse},
-        nominatim_geolocation::*,
-    },
-    regions::Regions,
+    matching::search_override, metrics::METRICS, proto::geolocation::*, regions::Regions,
     resolver::Resolver,
 };
 use anyhow::Result;
@@ -23,7 +17,7 @@ impl Service {
         method: &str,
         operation: impl Future<Output = Result<T>>,
     ) -> ServiceResult<T> {
-        let service = "nominatim_geolocation.NominatimGeolocation";
+        let service = "geolocation.Geolocation";
         let organization = ctx
             .headers()
             .get("x-organization-id")
@@ -66,7 +60,7 @@ impl Service {
     }
 }
 
-impl NominatimGeolocation for Service {
+impl Geolocation for Service {
     async fn search_address<'a>(
         &'a self,
         ctx: RequestContext,

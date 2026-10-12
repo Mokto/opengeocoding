@@ -1,16 +1,18 @@
 syntax = "proto3";
-package nominatim_geolocation;
+package geolocation;
 
-import "common-v1.proto";
+option go_package = "github.com/Mokto/geolocation/gen/geolocation";
 
-option go_package = "github.com/Mokto/geolocation/gen/nominatim_geolocation";
-
-service NominatimGeolocation {
+service Geolocation {
   rpc SearchAddress(SearchAddressTask) returns (FullAddress) {}
   rpc ResolveRegion(GeoCoordinates) returns (RegionsResponse) {}
-  rpc RefreshRegionMap(common.EmptyRequest) returns (common.EmptyResponse) {}
-  rpc GetRegionMap(common.EmptyRequest) returns (RegionMap) {}
+  rpc RefreshRegionMap(EmptyRequest) returns (EmptyResponse) {}
+  rpc GetRegionMap(EmptyRequest) returns (RegionMap) {}
 }
+
+message EmptyRequest {}
+
+message EmptyResponse {}
 
 message SearchAddressTask {
   string address_string = 1;

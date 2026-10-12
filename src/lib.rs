@@ -1,3 +1,4 @@
+pub mod eval;
 pub mod matching;
 pub mod metrics;
 pub mod regions;

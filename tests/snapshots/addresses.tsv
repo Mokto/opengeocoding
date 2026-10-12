@@ -1,0 +1,1001 @@
+id	class	error	country	level	lat	lon	good_match	house_number	road	postcode	locality	region_codes	regions	query
+addr-address-00933e5cf0d9	unscored		fi	house	60.209	24.979	1	12	Arabiankatu	00560	Helsinki	FI-18	FI-18:4	Arabiankatu 12, 00560, Helsinki, Uusimaa, Finland
+addr-address-00b4121b01e2	unscored			none			0							#22, St. 51 & 154, Sangkat Phsar Thmei III, Khan Daun Penh, 855, Phnom Penh, Phnom Penh, Cambodia
+addr-address-0123b92c96b8	unscored		tw	locality	25.038	121.564	0				Taipei	TW-TPE	TW-TPE:4	13F-6, No.2, Ln.150, Sec.5, XinYi Rd, Taipei, Taiwan
+addr-address-018c3e273016	unscored			none			0							3-4 Sky Business Park, Eversley Way, Egham, Surrey, TW20 8RF
+addr-address-01e3d118f6df	unscored		gb	street	50.809	-0.540	1		High Street	BN17 5AH	Arun	GB-ENG,GB-WSX	GB-ENG:4,GB-WSX:6	77 High Street, Bn17 5Ag, Littlehampton
+addr-address-0215de1cb1d6	unscored			none			0							60 RUE DES ACIERIES, 42000, ST ETIENNE
+addr-address-02a2062716c9	unscored		it	street	46.116	11.098	1		Via Linz	38121	Trento	IT-32,IT-TN	IT-32:4,IT-TN:6	via Linz 2, 38121, Spini di Gardolo - Trento, Trentino-Alto Adige, Italy
+addr-address-030d4afa5402	unscored		pl	postcode	51.074	17.057	0			50-508	Wrocław	PL-02	PL-02:4	Prosta 36/5, 50-508, Wrocław, Dolnośląskie, Poland
+addr-address-03c6e9010ec3	unscored		ch	house	46.543	6.655	0	4	Chemin du Petit Vennes	1066	Épalinges	CH-VD	CH-VD:4	Chemin Du Petit-vennes, 4, Mydisplay Sàrl, 1066, Epalinges, Switzerland
+addr-address-05a16394dc15	unscored		ca	postcode	49.802	-97.158	0			R3T 2H4	Winnipeg	CA-MB	CA-MB:4	2385 Pembina Hwy, 305A, R3T 2H4, Winnipeg, Manitoba, Canada
+addr-address-05d37d5e2177	unscored		gb	postcode	51.611	-0.425	0			HA6 2XY	Greater London	GB-ENG,GB-HIL	GB-ENG:4,GB-HIL:8	27a Maxwell Rd, HA6 2XY, Northwood, United Kingdom
+addr-address-064fbc35eecd	unscored		us	street	36.100	-95.851	1		South Garnett Road East	74146		US-OK	US-OK:4	22 N Garnett Road, 74146, Tulsa, Oklahoma, United States
+addr-address-06bab710045b	unscored			none			0							Kistagången 12, 164 94, Kista, Stockholm County, Sweden
+addr-address-07043ce92548	unscored		be	postcode	50.861	4.353	0			1000	Brussels	BE-BRU	BE-BRU:4	Rue Montoyer 39, 5th floor, 1000, Brussels, Brussels Region, Belgium
+addr-address-07a64da45ebb	unscored		in	postcode	26.480	80.386	0			209861		IN-UP	IN-UP:4	X- 2/1, Sector 16, Ganga Hi Tech City, 209861, Unnao, Uttar Pradesh, India
+addr-address-07e1642022f3	unscored		pk	street	34.007	71.534	0		University Road	25000	Peshawar City Tehsil	PK-KP	PK-KP:4	Office#07, Second Floor, Awan Tower Near Mercy Hospital, University Road, 25000, Peshawar, Khyber Pakhtunkhwa, Pakistan
+addr-address-0831b3a96026	unscored		es	street	28.959	-13.589	0		Calle Los Corralitos	35509	San Bartolomé	ES-CN,ES-GC	ES-CN:4,ES-GC:6	Calle Los Corralitos 2-4, 35509, Playa Honda, San Bartolomé - Lanzarote
+addr-address-08928238910c	unscored			none			0							beverly hills, 9601 s. santa monica boulevard, beverly hills, ca 90210
+addr-address-096570a98fe1	unscored		us	house	40.887	-73.904	1	4513	Manhattan College Parkway	10471	New York	US-NY	US-NY:4	4513 Manhattan College Parkway, Bronx, New York, United States
+addr-address-0aa6921d1218	unscored		us	postcode	38.445	-122.703	0			95404	Santa Rosa	US-CA	US-CA:4	200 Montgomery Dr, F, 95404, Santa Rosa, California, United States
+addr-address-0baab4646b67	unscored		uy	postcode	-34.905	-56.193	1			11100	Montevideo	UY-MO	UY-MO:4	11100, Montevideo, Montevideo, Uruguay
+addr-address-0bae8aa3b366	unscored			none			0							Sharaf DG Metro Station Exit 3, Bur Dubai,, Office no. 403 Al Yousuf Building, Near York International Hotel, Dubai UAE, United Arab Emirates
+addr-address-0c12036bcdb7	unscored		no	street	59.934	10.882	0		Jerikoveien	1069	Oslo	NO-03	NO-03:4	kiwi 510 jerikoveien
+addr-address-0ddc3ed40edd	unscored		nz	house	-36.908	174.678	1	5	Rata Street	0600	Whau	NZ-AUK	NZ-AUK:4	5 Rata Street, New Lynn, 0600, Auckland, New Zealand
+addr-address-0e13d8269089	unscored		us	street	37.712	-85.873	0		Memorial Court	42701	Elizabethtown	US-KY	US-KY:4	blended hardin - 908 memorial court. elizabethtown, ky
+addr-address-0ff145617113	unscored		us	street	32.904	-79.919	1		Jessen Lane	29492	Charleston	US-SC	US-SC:4	499 jessen ln
+addr-address-107e89d2ec65	unscored		ch	house	47.505	8.256	0	9	Mattenstrasse	5417	Untersiggenthal	CH-AG	CH-AG:4	Mattenstrasse, 9, Swisscalinet K.mohler, 5417, Untersiggenthal, Switzerland
+addr-address-11a835e7ee2d	unscored		us	postcode	33.796	-84.387	0			30309	Atlanta	US-GA	US-GA:4	2221 Peachtree Rd Q, Atlanta, GA 30309
+addr-address-11e73fc8748b	unscored		se	house	58.412	15.621	1	43	Ågatan	582 22	Linköping	SE-E	SE-E:4	Ågatan 43, 582 22, Linköping, Sweden
+addr-address-11e9f3c9bed7	unscored		cz	house	49.205	16.612	1	3	Vrchlického sad	602 00	Brno	CZ-64,CZ-642	CZ-642:5,CZ-64:4	Vrchlickeho sad 3, 60200, Brno, Czechia
+addr-address-1314e023698a	unscored		it	house	45.073	7.658	1	41	Via Avigliana	10138	Turin	IT-21,IT-TO	IT-21:4,IT-TO:6	Via Avigliana, 41, 10138, TORINO, TO, Italy
+addr-address-16a29e4284f5	unscored		nz	postcode	-36.797	174.776	0			0622	Devonport-Takapuna	NZ-AUK	NZ-AUK:4	30 Williamson Avenue, Belmont, 0622, Auckland, New Zealand
+addr-address-17ed26095efb	unscored		de	house	53.862	9.532	1	4	West	25578	Neuenbrook	DE-SH	DE-SH:4	4 west
+addr-address-18d1c2ddd21f	unscored		bg	postcode	43.222	27.885	0			9009	Varna	BG-03	BG-03:4	bulevard Slivnitsa 166a, 9009, Varna, Bulgaria
+addr-address-19efd13d7093	unscored		id	street	-5.127	119.510	0		Jalan Raya Telkomas	90241	Makassar	ID-SL,ID-SN	ID-SL:3,ID-SN:4	Jl. Telkom 1/51 Telkomas, 90241, Makassar, South Sulawesi, Indonesia
+addr-address-1a29332f8bb4	unscored		br	postcode	-8.018	-34.942	0			52071-440	Recife	BR-PE	BR-PE:4	Av. Dois Irmãos, 523, Apipucos, 52071-440 Recife, PE
+addr-address-1b4130883258	unscored			none			0							272 - northwest arkansas ar
+addr-address-1b8ddc8783da	unscored		au	house	-27.536	153.078	0	1398	Logan Road	4122	City of Brisbane	AU-QLD	AU-QLD:4	Mt Gravatt Škoda, 1398 Logan Rd, Mount Gravatt, QLD, 4122
+addr-address-1ba71c05b42d	unscored		be	street	51.320	4.929	1		de Merodelei	2300	Turnhout	BE-VAN,BE-VLG	BE-VAN:6,BE-VLG:4	De Merodelei 192b, 2300, Turnhout, Flemish Region, Belgium
+addr-address-1bf31fef366a	unscored			none			0							52 Bareket st., 61231, Kfar Yona, Israel, Israel
+addr-address-1c9361e6b449	unscored		bn	street	4.893	114.938	0		Jalan Istana Darussalam	BS8511	Bandar Seri Begawan	BN-BM	BN-BM:4	Unit 6, First Floor, Jalan Gadong, BE3519, Bandar Seri Begawan, Brunei-Muara, Brunei Darussalam
+addr-address-1ca09fd97002	unscored		it	house	45.531	11.494	1	39	Via Pasubio	36051	Creazzo	IT-34,IT-VI	IT-34:4,IT-VI:6	Via Pasubio,39 - Creazzo (VI)
+addr-address-1db6933e7daa	unscored		co	house	6.189	-75.577	1	16A Sur - 38	Carrera 43A	050022	Medellín	CO-ANT	CO-ANT:4	Carrera 43A #16, El Poblado, Medellín, Antioquia, Colombia
+addr-address-1df70b87912b	unscored		us	postcode	34.062	-118.404	0			90212	Beverly Hills	US-CA	US-CA:4	9876 Design Blvd, Suite 543, Beverly Hills, CA 90212
+addr-address-1e5caeee9a0c	unscored		za	postcode	-26.152	28.415	0			1520	Ekurhuleni Ward 71	ZA-GP	ZA-GP:4	7540 Mangosuthu Street, Daveyton, 1520, Ekurhuleni, Gauteng, South Africa
+addr-address-204629d2a0d5	unscored		dk	house	55.269	11.874	1	28	Ravnstrupvej	4684	Næstved	DK-85	DK-85:4	Ravnstrupvej 28, 4684, Holmegaard, Denmark
+addr-address-213a94d0c628	unscored			none			0							3781 Presidential Pkwy, Unit FP-15, 30340, Atlanta, Georgia, United States
+addr-address-222e0a468df2	unscored		ng	street	8.486	4.566	1		Sulu Gambari road	240212	Ilorin	NG-KW	NG-KW:4	No 16, Sulu Gambari Road, Ilorin, Kwara State, Nigeria
+addr-address-238831a5dccd	unscored		it	house	45.531	11.494	1	39	Via Pasubio	36051	Creazzo	IT-34,IT-VI	IT-34:4,IT-VI:6	VIA PASUBIO 39, 36051, CREAZZO, Vi, Italy
+addr-address-239a56afe0cb	unscored			none			0							Москва г, Ямского Поля 1-я ул, 17, 1, Russian Federation
+addr-address-23a77579ccf6	unscored		us	street	32.876	-79.900	1		Island Park Drive	29492	Charleston	US-SC	US-SC:4	891 Island Park Dr, 29492, Charleston, South Carolina, United States
+addr-address-23b64ea6ed9e	unscored			none			0							rua agostinho maschio , 136, jd guanabara, Santa Fé do Sul/SP
+addr-address-23dc67e6f21b	unscored		us	street	43.685	-71.089	1		White Mountain Highway	03864	Ossipee	US-NH	US-NH:4	700 White Mountain Hwy, 03864, Ossipee, United States
+addr-address-23e883872d23	unscored		ar	postcode	-34.562	-58.457	0			1428	Buenos Aires	AR-C	AR-C:4	Olazabal 1515, 1428, Buenos Aires City, Buenos Aires Autonomous City, Argentina
+addr-address-25d54f7a380c	unscored		gb	street	54.902	-1.558	1		Phoenix Road	NE38 0AD	Sunderland	GB-ENG,GB-SND	GB-ENG:4,GB-SND:8	8 Phoenix Road, Crowther Industrial Estate, Washington, Tyne and Wear, NE38 0AD
+addr-address-26803aab2be5	unscored		us	house	21.281	-157.835	0	2055	Kalia Road	96815	Honolulu	US-HI	US-HI:4	Hale Koa Hotel 2055 Kalia Road Honolulu, Hawaii 96815
+addr-address-286604d599fd	unscored		th	country	13.039	100.803	0							28/2 THANON NIMITMAI, Thailand
+addr-address-29ffd2e0846e	unscored			none			0							7 Bell Yard, 7 Bell Yard, Wc2A 2Jr, London
+addr-address-2a15e5bf4ab2	unscored		us	street	40.781	-73.953	0		East 89th Street	10128	New York	US-NY	US-NY:4	146 E 89th St, 3, 10128, New York, NY, United States
+addr-address-2a2a1c0b2869	unscored		no	house	68.930	16.638	1	55	Fenesveien	9420	Harstad	NO-55	NO-55:4	harstad, 55
+addr-address-2a7bee9fe0aa	unscored			none			0							1648 montreal road, ottawa, ontario
+addr-address-2ae64f931c48	unscored		us	street	45.898	-123.961	1		North Hemlock Street	97110	Cannon Beach	US-OR	US-OR:4	224 N HEMLOCK ST, 97110, Cannon Beach, Oregon, United States
+addr-address-2b20d4d806db	unscored			none			0							store: 0307 johnson creek prem outlets, wi
+addr-address-2b36032aec7f	unscored		mx	street	20.980	-89.621	0		Calle 60	97000	Mérida	MX-YUC	MX-YUC:4	C. 60 417A, Parque Santa Ana, Centro, 97000 Mérida, Yuc., México
+addr-address-2b806307cdc4	unscored		gb	locality	51.803	-0.207	0			AL8 6TP	Welwyn Hatfield	GB-ENG,GB-HRT	GB-ENG:4,GB-HRT:6	32 Great North Road, Al8 7Tj, Welwyn Garden City
+addr-address-2bffe88d6f84	unscored		de	house	49.569	10.900	1	10	Anna-Herrmann-Straße	91074	Herzogenaurach	DE-BY	DE-BY:4	Anna-Herrmann-Straße 10, 91074, Herzogenaurach, Bayern, Germany
+addr-address-2c790f000633	unscored		vn	locality	21.390	105.980	0				Hoang Van	VN-56	VN-56:4	my hung tower, 08 hoang van
+addr-address-2d2f95f64fb2	unscored		fr	house	48.853	2.263	1	45	Boulevard de Montmorency	75016	Paris	FR-75C,FR-IDF	FR-75C:6,FR-IDF:4	45 BOULEVARD DE MONTMORENCY, 75016, PARIS
+addr-address-2db9c40fe47b	unscored		us	house	27.925	-82.317	0	828	Providence Road	33569	Brandon	US-FL	US-FL:4	lc10120 - 828 providence rd - brandon
+addr-address-2e379962c467	unscored		us	house	38.057	-78.481	1	100	Warren Lane	22901	Charlottesville	US-VA	US-VA:4	100 WARREN LN, 22901, CHARLOTTESVILLE
+addr-address-2ef66c82dad8	unscored		sg	house	1.320	103.932	0	204		469333	Singapore			47 Kallang Pudding Road #06-02, Crescent @ Kallang, 349318, Singapore, Singapore, Singapore
+addr-address-30224af912ce	unscored			none			0							11683 easton town center, oh-anf
+addr-address-3325348b9460	unscored		de	house	53.077	8.226	1	28	Eichlerweg	26203	Wardenburg	DE-NI	DE-NI:4	Eichlerweg 28, Wardenburg, Germany
+addr-address-35bd236f0dbb	unscored		us	street	40.790	-74.348	0		Eisenhower Parkway	07039	Livingston	US-NJ	US-NJ:4	livingston, 280 eisenhower parkway, suite 105, livingston, nj 07039
+addr-address-35f3ab796091	unscored		us	postcode	38.256	-85.649	0			40207	Louisville	US-KY	US-KY:4	SMI Automotive Service 280 N Hubbards Lane Louisville, KY 40207
+addr-address-3635f6c37a12	unscored		fr	house	43.647	3.973	1	305	Avenue de la Marjolaine	34130	Saint-Aunès	FR-34,FR-OCC	FR-34:6,FR-OCC:4	305 AVENUE DE LA MARJOLAINE, 34130, ST AUNES, France
+addr-address-3664d8910b5b	unscored		mx	postcode	20.006	-102.285	0			59616		MX-MIC	MX-MIC:4	Paseo de los Cedros 18, La Floresta, B, 59616, Zamora, Michoacán, Mexico
+addr-address-36c1a43d1f00	unscored		us	street	46.857	-100.927	1		34th Street Northwest	58554	Mandan	US-ND	US-ND:4	2719 34th St NW, Mandan, ND 58554-7175
+addr-address-36e1bb972fa8	unscored			none			0							20 ASHFORD RD, 08527, JACKSON, New Jersey, United States
+addr-address-386186ae65d6	unscored		us	house	32.273	-95.310	1	7003	South Broadway Avenue	75703	Tyler	US-TX	US-TX:4	7003 s broadway ave, tyler,tx 75703-4737
+addr-address-38bac930a931	unscored			none			0							R Nicaragua, 90, Apt: 501;, 30320-050, Belo Horizonte, Mg, Brazil
+addr-address-3901037301ad	unscored		gb	postcode	51.604	-3.095	0			NP11 6AN	Risca West	GB-CAY,GB-WLS	GB-CAY:6,GB-WLS:4	1 Commercial Court, 8 Commercial Lane, NP11 6AN, Risca, Gwent, United Kingdom
+addr-address-3a5986e3e8da	unscored		tn	region	34.722	10.454	1					TN-61	TN-61:4	bfs #0044
+addr-address-3a8ec95f702e	unscored			none			0							store: 0836 la gran plaza ft. worth, tx
+addr-address-3e017464cd14	unscored		ir	locality	29.606	52.538	0				Shiraz	IR-07	IR-07:4	Fars, Shiraz, District 4, Fallahi, Iran, Shiraz, Iran
+addr-address-3e7d09260a4f	unscored		gb	house	52.560	-1.817	1	37	Royal Road	B72 1SP	Birmingham	GB-BIR,GB-ENG	GB-BIR:8,GB-ENG:4	37 Royal Road, B72 1Sp, Sutton Coldfield
+addr-address-3e97d56ce6cc	unscored		de	house	50.499	12.131	1	24	Weststraße	08523	Plauen	DE-SN	DE-SN:4	Weststraße 24, 08523, Plauen, Sachsen, DE
+addr-address-3f76dd0ab955	unscored		dk	house	55.429	11.789	1	1	Bragesvej	4100	Ringsted	DK-85	DK-85:4	Bragesvej 1, 4100, Ringsted, Denmark
+addr-address-3f8519f2a138	unscored			none			0							23 Man Lok Street, Hung Hom, Units A & B, 16/F, Gemstar Tower, Kowloon, Hong Kong
+addr-address-40976d404513	unscored		us	postcode	40.782	-73.951	0			10128	New York	US-NY	US-NY:4	575 5th Avenue East , New York, New York 10128, United States
+addr-address-40d0367fa20a	unscored			none			0							31-90 steinway street, astoria, new york
+addr-address-40e989a99184	unscored			none			0							4463 kimball, tn - aspen
+addr-address-427e06717cd6	unscored		it	house	42.226	14.403	1	1	Via per Treglio	66034	Lanciano	IT-65,IT-CH	IT-65:4,IT-CH:6	Via per treglio 1, Lanciano (CH)
+addr-address-42a77075a3e2	unscored		us	house	38.039	-78.497	1	406	14th Street Northwest	22903	Charlottesville	US-VA	US-VA:4	406 14th St NW, 22903, Charlottesville, Virginia, United States
+addr-address-43b5ab22f28e	unscored		in	postcode	21.169	72.790	0			395007		IN-GJ	IN-GJ:4	No. 169 Muktanand Society Bapa Jalaram Tample Vesu, 395007, Surat, Gujarat, India
+addr-address-43bcb951b990	unscored		us	house	37.404	-121.979	0	2901	West Tasman Drive	95054	Santa Clara	US-CA	US-CA:4	2901 Tasman Drive, Suite 205, Santa Clara, California, United States
+addr-address-4416ffda9af8	unscored		nl	house	52.107	5.124	1	6	Schimmelpennincklaan	3571 BH	Utrecht	NL-UT	NL-UT:4	Schimmelpennincklaan 6, 3571BH, Utrecht, Netherlands
+addr-address-44a99355bb2f	unscored		us	house	38.264	-85.525	1	1301	Hagen Road	40223	Louisville	US-KY	US-KY:4	1301 HAGEN RD., 40223, LOUISVILLE, United States
+addr-address-48070d2272f7	unscored		fr	house	49.226	2.909	1	2	Rue Gustave Eiffel	60800	Crépy-en-Valois	FR-60,FR-HDF	FR-60:6,FR-HDF:4	2 rue Gustave Eiffel, 60800, Crépy en Valois, Picardie, France
+addr-address-48e383eb7350	unscored			none			0							4Th Floor, Nova South 160 Victoria Street, Westminster, Sw1E 5Lb, London
+addr-address-48f0fb0f9974	unscored		dk	house	55.613	12.453	0	2	Kanalholmen	2650	Hvidovre Municipality	DK-84	DK-84:4	Kanalholmen 2, 1. th., 2650, Hvidovre, Denmark
+addr-address-4bbc4412b405	unscored		us	street	40.917	-74.162	1		Carroll Street	07501	Paterson	US-NJ	US-NJ:4	67 Carroll Street, Paterson, New Jersey
+addr-address-4cf4debf3bdd	unscored		us	postcode	38.208	-84.245	0			40361	Paris	US-KY	US-KY:4	919 Kennedy Ct., 40361, Paris, Ky, United States
+addr-address-4ed7366a05a2	unscored		us	house	39.549	-83.427	1	1430	Columbus Avenue	43160	Washington Court House	US-OH	US-OH:4	1430 Columbus Ave., Washington Court House, OH 43160
+addr-address-4f2f97cf4867	unscored		in	postcode	29.527	75.484	0			125050		IN-HR	IN-HR:4	83/3 , Thakur Basti, 125050, Fatehabad, Haryana, India
+addr-address-50775c7b6da8	unscored		fi	postcode	62.229	25.663	0			40640	Jyväskylä	FI-08	FI-08:4	Seula 1, 40640, Jyväskylä, West and Inner Finland, Finland
+addr-address-50a4112c0327	unscored		nl	house	52.380	4.847	1	6-2	Gulden Winckelstraat	1055 JM	Amsterdam	NL-NH	NL-NH:4	Gulden Winckelstraat 6, 1055, Amsterdam, Noord-Holland, Netherlands
+addr-address-50b1807b1308	unscored		gb	street	51.638	-3.945	0		Llangyfelach Road	SA5 9LD	Swansea	GB-SWA,GB-WLS	GB-SWA:6,GB-WLS:4	352 Llangyfelach Road, Brynhyfryd, SA5 9LQ, Swansea, Swansea, United Kingdom
+addr-address-50e2db23c0ba	unscored		us	house	41.811	-87.661	1	1400	West 46th Street	60609	Chicago	US-IL	US-IL:4	1400 W 46th St, Chicago, Illinois, United States
+addr-address-51259a504e6c	unscored		us	street	41.253	-95.897	1		10th Avenue	51501	Council Bluffs	US-IA	US-IA:4	1230 10th Ave., 51501, Council Bluffs, United States
+addr-address-51488ac92f0a	unscored		us	postcode	32.342	-88.653	0			39301	Meridian	US-MS	US-MS:4	910 23rd Ave, 39301, Meridian, Massachusetts, United States
+addr-address-51a7eaec2724	unscored			none			0							Tűzoltó street 2., 6728, Szeged, Csongrád- Csanád, Hungary
+addr-address-51b405597c94	unscored		br	locality	-3.793	-38.600	0				Fortaleza	BR-CE	BR-CE:4	Endereço, Av. Urucutuba, 2001, Bom Jardim, Fortaleza, CE
+addr-address-520aee722fcd	unscored		ch	postcode	47.502	8.727	0			8400	Winterthur	CH-ZH	CH-ZH:4	neuwiesenstrasse 15, 8400 winterthur
+addr-address-536c61a7df73	unscored			none			0							Lidosta "rīga", Dzirnieku Iela 15, 1053, Mārupes Nov., Latvia
+addr-address-53a7c11e4b12	unscored			none			0							12 Coolamber Court, Knocklyon, Dublin, Ireland
+addr-address-5443d6193da2	unscored			none			0							Žirmūnų g. 139, LT-09120, Vilnius, Lithuania
+addr-address-5455341cdb1e	unscored		au	street	-33.396	115.715	1		Gavins Gully Court	6236	Shire Of Dardanup	AU-WA	AU-WA:4	40 Gavins Gully Ct, 6236, Dardanup West, Australia
+addr-address-55175f211b5a	unscored			none			0							164 main streetproperty
+addr-address-551bce3a091e	unscored		us	locality	41.141	-73.358	0			06880	Westport	US-CT	US-CT:4	P.O. BOX 2153, 06880, WESTPORT, United States
+addr-address-560e7a306aab	unscored		es	postcode	41.589	-0.940	0			50410	Cuarte de Huerva	ES-AR,ES-Z	ES-AR:4,ES-Z:6	C/ Constitución nº18, local 1, 50410, Cuarte de Huerva, Zaragoza. España
+addr-address-57014110abbc	unscored		us	postcode	43.590	-116.193	0			83706	Boise			917 S. Lusk Street, Suite 200, Boise Idaho, 83706, USA
+addr-address-57249a349a0c	unscored		dk	locality	55.719	12.396	0			2740	Ballerup	DK-84	DK-84:4	Tonsbakken 16-18, DK - 2740, Skovlunde, Denmark
+addr-address-57a00c55a2dd	unscored			none			0							PACIFIC OCEAN COMPUTER CHENGYI QISANLOU DIGITAL WORLD NO.322, GUANGZHOU, GU, 518000, Guangzhou, China
+addr-address-57c7178a4452	unscored			none			0							3Rd Floor, 207 Regent Street, W1B 3Hh, London
+addr-address-58b80b2968fa	unscored		us	house	47.709	-122.301	1	11000	Lake City Way Northeast	98125	Seattle	US-WA	US-WA:4	11000 lake city way ne, seattle, wa 98125
+addr-address-5a7d5f88bbd5	unscored		au	house	-38.038	145.114	1	42-54	Edithvale Road	3196	Melbourne	AU-VIC	AU-VIC:4	42-54 Edithvale Rd, 3196, Edithvale, Australia
+addr-address-5a91f6a0cd07	unscored		us	street	38.843	-104.825	0		North Cascade Avenue	80903	Colorado Springs	US-CO	US-CO:4	801 N Cascade Ave Ste 38, 80903-3250, Colorado Springs, Colorado, United States
+addr-address-5bb5d9b5a470	unscored		fr	street	48.793	2.071	1		Rue Francisco Ferrer	78210	Saint-Cyr-l'École	FR-78,FR-IDF	FR-78:6,FR-IDF:4	2 B RUE FRANCISCO FERRER, 78210, ST CYR L ECOLE
+addr-address-5c565ed30bb7	unscored		us	postcode	42.516	-71.199	0			01803	Burlington	US-MA	US-MA:4	70 Blanchard Rd, Suite 101, 01803, Burlington, Massachusetts, United States
+addr-address-5d2cdaced3ea	unscored		ca	house	43.647	-79.379	0	181	Bay Street	M5J 2T3	Toronto	CA-ON	CA-ON:4	181 Bay Street, Suite 2810, M5J 2T3, Toronto, Canada
+addr-address-5e17c312a42a	unscored		id	locality	-6.372	106.965	1			16829	Bogor	ID-JB,ID-JW	ID-JB:4,ID-JW:3	05482 - ontario ii
+addr-address-5e3e2a0e98b2	unscored		us	street	43.878	-91.267	1		Airport Road	54603	La Crosse	US-WI	US-WI:4	2908 Airport Road,, 54603, La Crosse, Wisconsin, United States
+addr-address-5e60d0c3acc1	unscored			none			0							Carrer dels Escalls 19, 3B, AD700, Escaldes-Engordany, Engordany, Andorra
+addr-address-5e849192789c	unscored		gb	street	51.512	-0.087	1		Clements Lane	EC4N 7AE	City of London	GB-ENG,GB-LND	GB-ENG:4,GB-LND:6	 St Clements House, 27-28 Clements Lane, EC4N 7AE, London, UK, United Kingdom
+addr-address-5f17f8254c15	unscored		be	house	51.364	4.845	1	76	Vaartstraat	2330	Merksplas	BE-VAN,BE-VLG	BE-VAN:6,BE-VLG:4	Vaartstraat 76, 2330, Merksplas, Flemish Region, Belgium
+addr-address-6024da7183aa	unscored		de	locality	48.502	13.149	0			94542	Haarbach	DE-BY	DE-BY:4	Max-Wimmer-Ring 8, Haarbach, Germany
+addr-address-61122d033844	unscored		uy	postcode	-34.910	-56.153	0			11300	Montevideo	UY-MO	UY-MO:4	1248 Avenida Luis Alberto de Herrera, WTC Tower IV, 11300, Montevideo, Uruguay
+addr-address-6113410e6132	unscored		de	house	51.210	6.785	1	14	Hildebrandtstraße	40215	Dusseldorf	DE-NW	DE-NW:4	Hildebrandtstraße 14, Düsseldorf, Germany
+addr-address-619dc086559e	unscored		us	postcode	44.182	-88.485	0			54956	Town of Neenah	US-WI	US-WI:4	618 S Green Bay Rd 3, 54956, Neenah, Wisconsin, United States
+addr-address-635180f459f2	unscored		gt	locality	14.642	-90.513	0				Guatemala City	GT-01	GT-01:4	33 Calle 27-01, Zona 12, Bodega No. 2, Guatemala City, Guatemala
+addr-address-635562b578ab	unscored		us	postcode	41.260	-96.112	0			68154	Omaha	US-NE	US-NE:4	omaha, nebraska, united states, omaha ne (1010 south 120th st. - 37005), 68154
+addr-address-63e9613e641f	unscored			none			0							Advocate John Mani V & Associates, CC 42/1558D1, 2nd Floor, KK Building, Mathai Manjooran Road, Near High Court of Kerala, Kochi, 682018, Kochi, kerala, India
+addr-address-63fd769942b7	unscored		us	house	38.909	-77.032	1	1400	14th Street Northwest	20005	Washington	US-DC	US-DC:4	logan circle, 1400 14th street nw, washington, dc 20005
+addr-address-6405a6318d8a	unscored		us	house	40.770	-73.228	1	400	Broadway	11717	Brentwood	US-NY	US-NY:4	400 broadway
+addr-address-6440b01c4053	unscored			none			0							Trg Svetog Petra 7, 20289, Ubli, Lastovo Croatia
+addr-address-64649a5f463b	unscored		lu	house	49.961	5.935	1	8	Gruberbeerig	9538	Wiltz	LU-WI	LU-WI:6	8 Gruberbeerig, 9538, Wiltz, Luxembourg
+addr-address-64fb99c50d8d	unscored			none			0							31733 oakbrook, il-hco.
+addr-address-6929b15bdec3	unscored		se	postcode	57.507	12.072	0			434 37	Kungsbacka kommun	SE-N	SE-N:4	17 K Energigatan, 43437, Kungsbacka, Hallands Lan, Sweden
+addr-address-693f22ff0ad7	unscored		fr	street	45.905	6.422	1		Chemin du Pré de Foire	74220	La Clusaz	FR-74,FR-ARA	FR-74:6,FR-ARA:4	37 CHEMIN DU PRE DE FOIRE, 74220, LA CLUSAZ
+addr-address-6b0ff502ee15	unscored		fr	house	48.892	2.340	1	15	Rue du Ruisseau	75018	Paris	FR-75C,FR-IDF	FR-75C:6,FR-IDF:4	15, Rue du Ruisseau, 75018, Paris, Île-de-France, France
+addr-address-6b5ad3cb776e	unscored		ro	street	44.926	25.452	0		Strada Ienăchiță Văcărescu	130092	Târgoviște	RO-DB	RO-DB:4	Camera 2, Bucureşti Sectorul 4, Str. Ienachita Vacarescu Nr. 38, Parter, Romania
+addr-address-6b9e5f993bac	unscored		us	house	41.162	-73.337	1	134	North Avenue	06880	Westport	US-CT	US-CT:4	134 NORTH AVENUE, 06880, WESTPORT, United States
+addr-address-6bcc1f09448d	unscored		us	locality	40.441	-80.003	0				Pittsburgh	US-PA	US-PA:4	11 stanwix street (br), pittsburgh, pa
+addr-address-6ca468de35b1	unscored			none			0							Belgrano 264, X5800CNA, Río Cuarto, Córdoba, Argentina
+addr-address-6e0291c55dff	unscored		us	street	42.515	-93.416	1		State Highway 941	50006	Alden	US-IA	US-IA:4	15481 Highway D20, 50006, Alden, Iowa, United States
+addr-address-6e3552d26571	unscored		de	locality	51.049	13.738	0				Dresden	DE-SN	DE-SN:4	A 4, Abfahrt 81a, Dresden Hellerau
+addr-address-6e47c1eaa270	unscored		au	street	-34.902	138.542	0		Crittenden Road	5023	Adelaide	AU-SA	AU-SA:4	loc7074 :1/24 crittenden road , findon sa 5023
+addr-address-6f6f4186129e	unscored		de	house	50.968	7.015	1	36	Schanzenstraße	51063	Cologne	DE-NW	DE-NW:4	Schanzenstr. 36, Cologne, Germany
+addr-address-6fae74e8c266	unscored			none			0							Jl. BSD Raya Utama No.12 Blok A2, Kabupaten Tangerang, Banten 15331
+addr-address-706961431a82	unscored		my	street	5.431	100.385	0		Jalan Raja Uda	12300	Butterworth	MY-07	MY-07:4	52B, 2nd Floor, Pusat Perniagaan Raja Uda, Jalan Raja Uda, 12300 Butterworth, Pulau Pinang, Malaysia
+addr-address-71407d45292a	unscored		us	street	41.773	-87.975	1		South Cass Avenue	60559	Westmont	US-IL	US-IL:4	30 S. Cass Ave. Westmont, IL 60559
+addr-address-7156a7552ea4	unscored		ch	locality	47.047	9.419	0			8887	Mels	CH-SG	CH-SG:4	Ringstrasse 54, Mels, Switzerland
+addr-address-7288fa45dbb7	unscored		es	street	40.266	-3.847	1		Polígono Mora	28950	Moraleja de Enmedio	ES-MD	ES-MD:4	Polígono Mora, 1, 28950, Moraleja de Enmedio, Comunidad de Madrid, Spain
+addr-address-72b47e02fe82	unscored		de	house	51.529	7.030	1	1d	Am Bugapark	45899	Gelsenkirchen	DE-NW	DE-NW:4	Am Bugapark 1d, 45899, Gelsenkirchen, Nordrhein-Westfalen, Germany
+addr-address-72d9dc9a6272	unscored		gb	house	51.527	-0.089	1	152-160	City Road	EC1V 2NX	Greater London	GB-ENG,GB-ISL	GB-ENG:4,GB-ISL:8	160 Kemp House, City Road, Ec1V 2Nx, London
+addr-address-748b015618e7	unscored			none			0							1 Sapir st., 46733, Hertzliya, Hertzliya, Israel
+addr-address-74a7473da65d	unscored			none			0							Est Nelson Silva, 433, Ponto De Referencia, 25715-310, Petropolis, Rio De Janeiro, Brazil
+addr-address-74ca344c5289	unscored		nl	house	51.878	4.947	1	3	Dorpsweg	4223 NA	Hoornaar	NL-ZH	NL-ZH:4	Dorpsweg 3, 4223NA, Hoornaar, Netherlands
+addr-address-75048d06211c	unscored		ca	street	45.452	-73.437	1		Boulevard Lapinière	J4Z 0G2	Brossard	CA-QC	CA-QC:4	brossard - 5025 boul lapinière - 35h
+addr-address-752e2125239d	unscored		in	postcode	28.371	77.015	0			122015	Gurgaon	IN-HR	IN-HR:4	190 Phase 4, Sector 18, Udyog Vihar, 122015, Gurgaon, Haryana, India
+addr-address-75eb528dfa82	unscored		fr	house	43.540	1.459	1	66	Rue Rosa Parks	31520	Ramonville-Saint-Agne	FR-31,FR-OCC	FR-31:6,FR-OCC:4	66 parks
+addr-address-766d8dfdf419	unscored		de	house	47.677	9.169	1	3	Bücklestraße	78467	Constance	DE-BW	DE-BW:4	Bücklestraße 3, 78467, Constance, Baden-Württemberg, Germany
+addr-address-78123548684f	unscored		nz	house	-36.789	174.772	0	501-505	Lake Road	0622	Devonport-Takapuna	NZ-AUK	NZ-AUK:4	Level 1, 505 Lake Road, Takapuna, 0622, Auckland, New Zealand
+addr-address-79d6851c03e8	unscored		gb	postcode	53.799	-2.691	0			PR2 9LF	Preston	GB-ENG,GB-LAN	GB-ENG:4,GB-LAN:6	1A Fairways Office Park, Fulwood, PR2 9LF, Preston, Lancashire, United Kingdom
+addr-address-79e02eb90597	unscored		fr	house	44.732	-0.463	1	21		33880	Cambes	FR-33,FR-NAQ	FR-33:6,FR-NAQ:4	21 PLACE SADI CARNOT, 33880, CAMBES
+addr-address-7aaa3728f339	unscored		cz	house	49.764	13.364	1	573/3	Boženy Němcové	323 00	Pilsen	CZ-32,CZ-323	CZ-323:5,CZ-32:4	Boženy Němcové 3, 323 00, Severní Předměstí, Plzeň Region, Czechia
+addr-address-7bd77094dc3a	unscored			none			0							Rua Sete, 69 - Portal da Mantiqueira, 12040-821, Taubaté, São Paulo, Brazil
+addr-address-7d3e15c51cd4	unscored		us	house	37.794	-122.399	0	220;230	California Street	94111	San Francisco	US-CA	US-CA:4	230 California Street, Suite 601, 94111, San Francisco, California, United States
+addr-address-7e6bfea65b28	unscored		us	street	44.883	-71.508	1		US Route 3	03576	Colebrook	US-NH	US-NH:4	232 Route 3, 03576, Colebrook, United States
+addr-address-7eb99e081623	unscored		jp	locality	33.882	130.982	0			800-0112	Kitakyushu	JP-40	JP-40:4	今津377, 福岡県
+addr-address-7f9d965619b4	unscored		in	postcode	26.967	75.772	0			302039	Jaipur Municipal Corporation	IN-RJ	IN-RJ:4	94/8 , Vidyadhar Nagar, 302039, Jaipur, Rajasthan, India
+addr-address-811a392ec42d	unscored		us	postcode	44.519	-89.572	0			54481	Stevens Point	US-WI	US-WI:4	1547 Strongs Ave; Ste D Stevens Point, WI 54481
+addr-address-844e0743e9e7	unscored			none			0							ŞEKERCİLER VE KURUYEMİŞCİLER SİTESİ 3 BLOK NO: 29 GAZİANTEP, 29, 27110, GAZİANTEP, GATEM, Türkiye
+addr-address-85583fe2fc3c	unscored		au	street	-42.887	147.318	0		Bathurst Street	7000	Hobart	AU-TAS	AU-TAS:4	GPO Box 224, Hobart Tas 7001, 1st Floor, 116 Bathurst Street, Hobart Tas 7000
+addr-address-86620db6d0e0	unscored			none			0							8490 goodyear, az - aspen
+addr-address-87bc59d53905	unscored		gb	street	51.512	-0.087	1		Clements Lane	EC4N 7AE	City of London	GB-ENG,GB-LND	GB-ENG:4,GB-LND:6	27-28 Clements Lane, EC4N 7AE, London, Greater London, United Kingdom
+addr-address-893e0eb449fe	unscored			none			0							Combarbala No. 0159 La Granja Santiago, 1890000, Santiago, Región Metropolitana, Chile
+addr-address-8978df9ce25b	unscored		es	street	40.286	-3.752	1		Avenida de Europa	28905	Getafe	ES-MD	ES-MD:4	Avenida de Europa, 50, 28905, Getafe, Community of Madrid, Spain
+addr-address-8b47e9dee953	unscored		it	locality	41.259	14.039	1			81057	Teano	IT-72,IT-CE	IT-72:4,IT-CE:6	Loma Plata, Avenida Central Nro. 952 casi Uruguay, Loma Plata, Boquerón
+addr-address-8b8a13810430	unscored		vn	postcode	10.848	106.697	0			70000	Ho Chi Minh City	VN-SG	VN-SG:4	22/24 TTH15, Tan Thoi Hiep Ward, District 12, 70000, Ho Chi Minh, Ho Chi Minh, Vietnam
+addr-address-8bbce653089e	unscored		si	postcode	46.062	14.508	0			1000	Ljubljana	SI-061	SI-061:8	Cesta V Kleče 015, 1000, Ljubljana, Slovenia
+addr-address-8c0674a7b2f7	unscored		fr	locality	48.895	2.256	0			92400	Courbevoie	FR-92,FR-IDF	FR-92:6,FR-IDF:4	290 Maryam Springs 260, Courbevoie, Paris, France
+addr-address-8c1ae138da46	unscored			none			0							9 place saint Geraud, Aurillac, 15000
+addr-address-8d11eac5e940	unscored		gb	postcode	53.746	-1.620	0			LS27 0JG	Leeds	GB-ENG,GB-LDS	GB-ENG:4,GB-LDS:8	3A Antler Complex Bruntcliffe Way, Morley, Ls27 0Jg, Leeds
+addr-address-8e69b0b7884d	unscored		ie	street	53.334	-6.257	0		Hatch Street Lower	D02 T380	Dublin	IE-D,IE-L	IE-D:6,IE-L:5	Suite 3, One Earlsfort Centre, Lower Hatch Street, Dublin, Ireland
+addr-address-90e849e22a05	unscored		us	street	33.551	-101.936	1		Englewood Avenue	79414	Lubbock	US-TX	US-TX:4	4512 Englewood Ave, 79414, Lubbock, Texas, United States
+addr-address-9116c8ba9842	unscored		us	postcode	42.314	-71.212	0			02158	Newton	US-MA	US-MA:4	343 WASHINGTON STREET, 02158, NEWTON, United States
+addr-address-919d022ca561	unscored		ca	postcode	43.832	-79.330	0			L3R 9Z3	Markham	CA-ON	CA-ON:4	500 Hood Rd, 405, L3R 9Z3, Markham, Ontario, Canada
+addr-address-92240fab5c56	unscored		nz	house	-41.224	174.875	1	85	Jackson Street	5012	Lower Hutt	NZ-WGN	NZ-WGN:4	85 Jackson Street, Petone, Lower Hutt 5012, Wellington
+addr-address-939603eded60	unscored		us	street	42.874	-72.281	1		Old Homestead Highway	03446	Swanzey	US-NH	US-NH:4	217 OLD HOMESTEAD HWY, 03446, Swanzey, New Hampshire, United States
+addr-address-9421f41333cb	unscored		no	house	58.895	5.730	1	12	Ulsberghagen	4034	Stavanger	NO-11	NO-11:4	Ulsberghagen 12, 4034, Stavanger, Norway
+addr-address-95815bd25bde	unscored		za	street	-33.925	18.417	1		Keerom Street	8001	Cape Town	ZA-WC	ZA-WC:4	30 Keerom St, Cape Town, Western Cape, South Africa
+addr-address-9584d9bbfda8	unscored		cz	house	50.130	14.475	1	1345/16	Střekovská	182 00	Prague	CZ-10	CZ-10:4	Střekovská 1345/16, Kobylisy, Praha, 182 00, Czechia
+addr-address-95d2fb0d20f6	unscored			none			0							4, Jalan Jasmin 1, Bandar Botanik, 41200 Klang, Selangor
+addr-address-96b0fb98582c	unscored		it	street	41.931	12.517	1		Via Collalto Sabino	00199	Rome	IT-62,IT-RM	IT-62:4,IT-RM:6	Via Collalto Sabino, 128, 00199, Roma, Lazio, Italy
+addr-address-96f60039db8c	unscored			none			0							5-6 Nampeidai-cho, 150-8511, Tokyo, Japan
+addr-address-96f9a5baecdf	unscored		gb	street	51.426	-0.148	1		Gracedale Road	SW16 6SW	Greater London	GB-ENG,GB-WND	GB-ENG:4,GB-WND:8	14 Gracedale Road, Sw16 6Sw, London
+addr-address-975f56b7a5a1	unscored			none			0							Lầu 6, số 231-233 Lê Thánh Tôn, Phường Bến Thành, Quận 1, Hồ Chí Minh, Vietnam
+addr-address-97f60362c095	unscored		de	house	52.499	13.351	1	10	Motzstraße	10777	Berlin	DE-BE	DE-BE:4	Motzstraße 10, 10777, Berlin, Berlin, Germany
+addr-address-98b5da0af6ff	unscored		au	postcode	-19.290	146.782	0			4812	Townsville City	AU-QLD	AU-QLD:4	PO Box 189, Hyde Park, 4812, Townsville, Qld, Australia
+addr-address-98f8b42c9826	unscored			none			0							Rampura Dabri, 202/3, Sikar Rd, Rampura Dabri, Akeda Chaud, Rajasthan 303704
+addr-address-9940ba19a57e	unscored		no	street	59.915	10.847	1		Tvetenveien	0671	Oslo	NO-03	NO-03:4	Tvetenveien 152b, 0671, Oslo, Norway
+addr-address-9ae191903bed	unscored		ca	street	49.520	-96.674	1		Main Street	R5G 1Z5	Steinbach	CA-MB	CA-MB:4	288 main st:steinbach
+addr-address-9bac205e7a75	unscored		pe	house	-12.114	-77.044	0	662	Mariscal La Mar Avenue	15074	Miraflores	PE-LIM,PE-LMA	PE-LIM:4,PE-LMA:6	Av. Mariscal La Mar 662, Oficina 301, 15074, Miraflores, Lima, Peru
+addr-address-9c42723d1085	unscored		ca	locality	43.475	-80.413	0			N0B 1M0	Woolwich	CA-ON	CA-ON:4	5431 Woolwich Guelph Townline, N0B 1M0, Breslau, ON, Canada
+addr-address-9cbf7df9d23f	unscored			none			0							Intershore Chambers, PO Box 4342, Road Town, Tortola, VG1110 British Virgin Islands, 4342, Tortola, Virgin Islands, British
+addr-address-9cf7f7f4b7ac	unscored		fr	street	45.208	5.782	0		Chemin du Pré Carré	38240	Meylan	FR-38,FR-ARA	FR-38:6,FR-ARA:4	1bisA et 2A Chemin du Pré Carré, 38240, Meylan, Isère, France
+addr-address-9dc3a65bca3d	unscored		us	house	34.155	-118.470	0	15445	Ventura Boulevard	91403	Los Angeles	US-CA	US-CA:4	15445 Ventura Blvd # 60, 91403, Sherman Oaks, California, United States
+addr-address-9e20fd9d0854	unscored		gb	street	52.963	-1.156	1		Arboretum Street	NG1 4JB	Nottingham	GB-ENG,GB-NGM	GB-ENG:4,GB-NGM:6	29 Arboretum Street, Ng1 4Ja, Nottingham
+addr-address-9e3f483f60d1	unscored		fr	street	48.452	-2.487	0		Rue des Frères Montgolfier	22400	Noyal	FR-22,FR-BRE	FR-22:6,FR-BRE:4	PA de la Tourelle n°2 - 6 rue des frères Montgolfier, 22400, NOYAL, Bretagne, France
+addr-address-9efe68f461ba	unscored		ch	house	47.413	8.538	1	160	Birchstrasse	8050	Zurich	CH-ZH	CH-ZH:4	zürich - birchstrasse 160
+addr-address-9f9d464ba6d1	unscored		nz	house	-43.900	171.739	1	7	Smallbone Drive	7700	Ashburton	NZ-CAN	NZ-CAN:4	7 Smallbone Drive, 7700, Ashburton, New Zealand
+addr-address-9fba05730fcb	unscored		jp	house	35.662	139.760	1	2		105-0021	Minato	JP-13	JP-13:4	1-9-2 Higashi-Shinbashi Minato-Ku, 105-0021, Tokyo, Japan
+addr-address-9fce9d9c29ce	unscored		us	house	42.934	-78.719	1	4513	Genesee Street	14225	Buffalo	US-NY	US-NY:4	usa - buffalo - 4513 genesee st
+addr-address-9fe67556d85f	unscored		in	postcode	28.431	77.073	1			122003	Gurgaon	IN-HR	IN-HR:4	Gurgaon, LGF, 128, Sector, 52, Gurgaon, Haryana, 122003
+addr-address-a0b55224ec49	unscored		nz	postcode	-36.800	174.708	0			0626	Kaipātiki	NZ-AUK	NZ-AUK:4	10a Wernham Place, Northcote, 0626, Auckland, New Zealand
+addr-address-a10cce60c142	unscored		gb	postcode	52.894	-0.970	0			NG12 3FB	Rushcliffe	GB-ENG,GB-NTT	GB-ENG:4,GB-NTT:6	4 The Mews, Hall Lane, Colston Bassett, Nottinghamshire NG12 3FB
+addr-address-a120903b47ab	unscored		au	street	-34.929	138.599	1		Victoria Square Arcade	5000	Adelaide	AU-SA	AU-SA:4	4a Victoria Square Arcade, 5000, Adelaide, South Australia, Australia
+addr-address-a259e02b826a	unscored		de	house	51.903	7.624	1	54	Meesenstiege	48165	Münster	DE-NW	DE-NW:4	meesenstiege 54, 48165 münster - hiltrup, deutschland
+addr-address-a2b600af0a69	unscored		ar	postcode	-32.951	-60.644	0			2000	Rosario	AR-S	AR-S:4	2000, 2000, Rosario, Santa Fe, Argentina
+addr-address-a3959cd2d9dd	unscored		id	locality	-3.319	114.593	0				Banjarmasin	ID-KA,ID-KS	ID-KA:3,ID-KS:4	Jl. A. Yani Km 7.400, Banjarmasin, Kalimantan Selatan, Indonesia
+addr-address-a48fac61fdea	unscored		gb	house	51.493	-0.138	1	100	Rochester Row	SW1P 1JP	City of Westminster	GB-ENG,GB-WSM	GB-ENG:4,GB-WSM:8	100 Rochester Row, SW1P 1JP, London, Greater London, United Kingdom
+addr-address-a6d5c381f08c	unscored		gb	house	51.518	-0.066	1	8-10	Greatorex Street	E1 5NF	Greater London	GB-ENG,GB-TWH	GB-ENG:4,GB-TWH:8	8-10 Greatorex Street, E1 5Nf, London
+addr-address-a6ffc9763ae1	unscored		gb	locality	50.746	-1.899	0			BH10 4JA	Bournemouth	GB-BCP,GB-ENG	GB-BCP:6,GB-ENG:4	0232 london talbot village
+addr-address-a7e221af65c5	unscored		us	street	46.458	-101.235	0		6th Avenue West	58535	Flasher	US-ND	US-ND:4	202 6TH AVE W PO BOX 297, 58535-0297, FLASHER, United States
+addr-address-a8c18e473d51	unscored			none			0							PUNTO VENDITA MARENE, Via Marconi, 131, 12030 Marene, (CN)
+addr-address-a98708e02bcc	unscored		us	street	40.239	-111.680	1		North 1220 West	84601	Provo			447 N 1220 W, 84601-2440, Provo, Utah, United States
+addr-address-a9df3776146c	unscored		us	postcode	40.157	-87.625	0			61834	Danville	US-IL	US-IL:4	3165 E Main St, 61834-9380, Danville, Illinois, United States
+addr-address-a9ebcf4d1eb7	unscored			none			0							Paseo de los Cedros #18 B, La Floresta, C.P. 59616, Zamora, Michoacán, México
+addr-address-ac3ce20bb1ef	unscored		de	house	51.221	6.780	1	86	Königsallee	40212	Dusseldorf	DE-NW	DE-NW:4	Königsallee 86, Düsseldorf, Germany
+addr-address-aceff7f26297	unscored			none			0							31 Bretton Street, WF12 9BJ, Dewsbury, 31 Bretton Street, United Kingdom
+addr-address-adc7a36d10c9	unscored		fr	house	45.803	4.779	1	6B	Rue des Aulnes	69410	Champagne-au-Mont-d'Or	FR-69M,FR-ARA	FR-69M:6,FR-ARA:4	6 RUE DES AULNES, 69410, CHAMPAGNE AU MONT D OR
+addr-address-ae986372d836	unscored		us	locality	26.976	-81.127	1			33741	Lakeport	US-FL	US-FL:4	00871 - lakeport
+addr-address-aea001e49907	unscored		us	street	40.079	-82.922	1		Corporate Drive	43231	Columbus	US-OH	US-OH:4	3699 Corporate Dr, 43231, Columbus, Ohio, United States
+addr-address-af7897571ff3	unscored		de	house	50.718	7.152	1	2	Am Bonner Bogen	53227	Bonn	DE-NW	DE-NW:4	Am Bonner Bogen 2, 53227, Bonn, North Rhine-Westphalia, Germany
+addr-address-af78f7487dc6	unscored		us	street	30.730	-86.566	1		Brookmeade Drive	32539	Crestview	US-FL	US-FL:4	910 BROOKMEADE DRIVE, 32539, CRESTVIEW, FL, United States
+addr-address-b063fc945c48	unscored		ca	street	52.144	-106.588	1		115 Street East	S7N 2X9	Saskatoon	CA-SK	CA-SK:4	8-415 115 St E, S7N 2X9, Saskatoon, Saskatchewan, Canada
+addr-address-b06af7da36d9	unscored		gb	street	53.900	-1.338	1		Grove Crescent South	LS23 6AY	Leeds	GB-ENG,GB-LDS	GB-ENG:4,GB-LDS:8	8 Grove Crescent South, Ls23 6Ay, Boston Spa
+addr-address-b29e1d0bd2be	unscored		fr	house	45.886	6.112	0	26	Rue de Sansy	74000	Annecy	FR-74,FR-ARA	FR-74:6,FR-ARA:4	fra - seynod - 26 rue de sansy
+addr-address-b2dc6122c91a	unscored		nz	house	-36.849	174.743	1	1	Cowan Street	1011	Auckland	NZ-AUK	NZ-AUK:4	1 Cowan St, Ponsonby Auckland
+addr-address-b2dd0af08c2b	unscored		cn	street	36.793	117.186	0		创展路	250100	Licheng District	CN-SD	CN-SD:4	南京市江宁区创展路299号
+addr-address-b34d36941473	unscored			none			0							11218 la plaza, tx-anf
+addr-address-b3526f156a4a	unscored			none			0							39, Sejongdaero, Jung-gu, Level 2 The Korea Chamber of Commerce & Industry Building, 04513, Seoul, South Korea
+addr-address-b421c6bbc78c	unscored		us	house	42.332	-83.048	1	1001	Woodward Avenue	48226	Detroit	US-MI	US-MI:4	detroit - 1001 woodward
+addr-address-b595a9e4aa1c	unscored			none			0							5 worthington avenue, brampton, ontario
+addr-address-b6243ef77113	unscored		us	house	43.610	-116.286	1	633	North Milwaukee Street	83704	Boise			633 n milwaukee st, boise,id 83704-9139
+addr-address-b74c6d799f95	unscored			none			0							Calle Valparaíso no 2, 2a, oficina 5 C 28945, Fuenlabrada, MADRID
+addr-address-b7b53e951d5e	unscored			none			0							5243 pa blue bell south
+addr-address-b7e9865bf43f	unscored		us	house	42.195	-73.361	1	271	Main Street	01230	Great Barrington	US-MA	US-MA:4	271 main street, great barrington, massachusetts
+addr-address-b81798261dbe	unscored		us	locality	39.113	-100.359	0			67751	Park	US-KS	US-KS:4	08698 - highland park cvs, l.l.c.
+addr-address-b8c2cd89e7e4	unscored		us	postcode	36.142	-80.317	1			27106	Winston-Salem	US-NC	US-NC:4	5000 University Pkwy, 27106, Winston-Salem, Germany
+addr-address-b9d214a4cab9	unscored		ca	postcode	51.047	-114.050	0			T2G 1S2	Calgary	CA-AB	CA-AB:4	2001-615 6 Ave SE, Calgary, AB T2G 1S2
+addr-address-ba6a40263160	unscored		de	house	53.546	10.022	1	5	Sachsenkamp	20097	Hamburg	DE-HH	DE-HH:4	germany > hamburg : sachsenkamp 5
+addr-address-bb184a45eee4	unscored		ke	street	-1.291	36.824	0		Haile Selassie Avenue	00200	Nairobi	KE-30	KE-30:4	53231, 00200, Nairobi, Nairobi, Kenya
+addr-address-bb9b09f21181	unscored		ca	house	47.559	-52.714	0	100	New Gower Street	A1C 1J3	St. John's	CA-NL	CA-NL:4	P.o. Box 5038, Suite 1100 Cabot Place, 100 New Gower Street, A1C 6K3, St. John's, Canada
+addr-address-bbca0d57ec10	unscored		hu	postcode	47.498	19.060	0			1075	Budapest	HU-BU	HU-BU:6	Kazinczy street 11., 1075, Budapest, Budapest, Hungary
+addr-address-bc1be6ea511c	unscored		us	street	33.531	-84.360	0		North Avenue	30238	Jonesboro	US-GA	US-GA:4	681 north avenue, jonesboro, ga - horis a. ward - tara chapel
+addr-address-bcb88eab948c	unscored			none			0							54646 832nd Road, Madison, NE 68748
+addr-address-bd13fef0b63e	unscored		us	postcode	44.937	-93.254	0			55407	Minneapolis	US-MN	US-MN:4	3936 13Th Ave S null, 55407, Minneapolis, Minnesota, United States
+addr-address-bd6ca407c638	unscored		br	postcode	-18.065	-39.675	0			45930-000	Mucuri	BR-BA	BR-BA:4	Av. Beira Mar, 275, Mucuri, 45930-000, Mucuri, Ba, Brazil
+addr-address-bd70bdbb8066	unscored			none			0							S. Statale Romea, 57 44022 San Giuseppe di Comacchio (FE)
+addr-address-be82e8581d1c	unscored		nz	house	-36.927	174.900	0	320	Ti Rakau Drive	2013	Howick	NZ-AUK	NZ-AUK:4	Level 1, 320 Ti Rakau Drive, East Tamaki, 2013, Auckland, New Zealand
+addr-address-bee957d0a8ee	unscored		us	postcode	29.624	-95.622	0			77478	Sugar Land	US-TX	US-TX:4	1111 HWY 6 South, Suite 150, 77478, Sugar Land, Texas, United States
+addr-address-c2792667710d	unscored		es	locality	42.813	0.712	0			25540	Les	ES-CT,ES-L	ES-CT:4,ES-L:6	662, chemin de labastide , Les Barthes
+addr-address-c4106967ed52	unscored		it	street	45.728	9.507	1		Via Val di Gerra	24030	Pontida	IT-25,IT-BG	IT-25:4,IT-BG:6	Via Bergamo, 1775, 24030, Pontida, Lombardia, Italy
+addr-address-c51a616b1763	unscored		de	house	48.136	11.544	1	23	Parkstraße	80339	Munich	DE-BY	DE-BY:4	23 Parkstraße\nMünchen, BY, 80339\nGermany
+addr-address-c52a43f4f86d	unscored		tw	house	25.054	121.535	0	104	Yitong Street	104	Taipei	TW-TPE	TW-TPE:4	臺北市大同區承德路1段35號9樓之2, 104, 台北市, Taiwan
+addr-address-c5d0cc491e40	unscored		gr	postcode	37.971	23.731	0			105 58	Municipality of Athens	GR-I	GR-I:5	44, Leoforos Vasilisis Amalias, Ground Floor, 105 58, Athens, Attica, Greece
+addr-address-c6bc91b1e8ca	unscored		br	street	-19.930	-43.944	1		Rua Curitiba	30170-122	Belo Horizonte	BR-MG	BR-MG:4	R Curitiba, 1786, 30170-122, Belo Horizonte, Minas Gerais, Brazil
+addr-address-c6e584c0e8a6	unscored		my	postcode	3.107	101.626	0			46300	Petaling Jaya	MY-10	MY-10:4	2 Jalan 19/16, 46300, Petaling Jaya, Selangor, Malaysia
+addr-address-c85e529572d1	unscored		es	street	42.339	-3.926	1		Calle San Román	09230	Hornillos del Camino	ES-BU,ES-CL	ES-BU:6,ES-CL:4	Calle San Roman, 5, 09230 Hornillos del Camino, Burgos
+addr-address-c96cd399e588	unscored		zm	locality	-15.416	28.282	0			10101	Lusaka	ZM-09	ZM-09:4	Plot 7817 Kansokomona Road, 10101, Lusdaka, Lusaka, Zambia
+addr-address-cad4fb5935de	unscored		dk	house	55.778	12.503	1	10	Slotsvænget	2800	Kongens Lyngby	DK-84	DK-84:4	Slotsvænget 10, 2800, Kgs. Lyngby, Denmark
+addr-address-cd70532af58a	unscored			none			0							123 Buckingham Palace Road, SW1W 9SR, London, England, United Kingdom
+addr-address-ce1a898517a7	unscored		it	house	43.788	11.230	1	93/2	Via Claudio Monteverdi	50144	Florence	IT-52,IT-FI	IT-52:4,IT-FI:6	Via Claudio Monteverdi, 2, 50144, Firenze, Toscana, Italy
+addr-address-ce32665d05ac	unscored		tn	region	34.722	10.454	1					TN-61	TN-61:4	bfs #0075
+addr-address-cf8d6e5c2b94	unscored			none			0							werkbank 32
+addr-address-d151a97da63d	unscored		de	street	51.802	11.732	1		Breite Straße	06406	Bernburg	DE-ST	DE-ST:4	Breite Straße 8, 06406, Bernburg (Saale), Saxony-Anhalt, Germany
+addr-address-d19f511f9188	unscored		us	house	40.506	-80.107	1	3111	Grand Avenue	15225	Pittsburgh	US-PA	US-PA:4	3111 GRAND AVENUE, 15225, PITTSBURGH, United States
+addr-address-d1f6ef160fe2	unscored		us	house	44.901	-123.015	0	3723	Fairview Industrial Drive Southeast	97302	Salem	US-OR	US-OR:4	3723 FAIRVIEW INDUSTRIAL DR SE STE 270, 97302, SALEM, Oregon, United States
+addr-address-d287ac5f3f0f	unscored		us	street	37.672	-97.442	1		West Kellogg Drive	67209	Wichita	US-KS	US-KS:4	10817 West Kellogg, Wichita, KS 67209
+addr-address-d3a4573635c0	unscored		fr	street	48.753	2.287	1		Rue de Nicosie	92160	Antony	FR-92,FR-IDF	FR-92:6,FR-IDF:4	9 RUE DE NICOSIE, 92160, ANTONY, France
+addr-address-d4cc1875e942	unscored		ar	locality	-34.610	-58.389	0				Buenos Aires	AR-C	AR-C:4	AV CORRIENTES 1584 4° PISO, 1042, Buenos Aires, Argentina
+addr-address-d56fe6f022a2	unscored		cn	postcode	31.233	121.442	0			200040	Jing'an District	CN-SH	CN-SH:4	1228 Yan’an Road Middle, Unit C21, 22F, Tower 3, Jing An Kerry Centre, 200040, Shanghai, China
+addr-address-d7d2884cae0f	unscored			none			0							広島県廿日市市大東6-17
+addr-address-d86433b86060	unscored		it	house	44.035	12.611	1	42	Via Augusto Righi	47924	Rimini	IT-45,IT-RN	IT-45:4,IT-RN:6	Via Righi 42, 47924, Rimini, Italy, Italy
+addr-address-d99d99843dfb	unscored		dk	house	55.725	12.433	1	90	Herlev Bygade	2730	Herlev	DK-84	DK-84:4	Herlev Bygade 90, 2730, Herlev, Denmark
+addr-address-dba38992e074	unscored		us	postcode	43.694	-71.132	0			03864	Ossipee	US-NH	US-NH:4	PO Box 559, 03864, Ossipee, United States
+addr-address-dcb9afa875f3	unscored			none			0							Unit 1 Chalfont Court, Lower Earley, Rg6 5Sy, Reading
+addr-address-dcfcb538a679	unscored		es	street	43.381	-3.220	1		Calle de La Ronda	39700	Castro-Urdiales	ES-CB,ES-S	ES-CB:4,ES-S:6	Calle de la Ronda, 54 1C 39700, Castro Urdiales, Cantabria, España
+addr-address-dcfd193f2821	unscored		sg	street	1.328	103.632	0		Tuas West Drive	638413	Singapore			sgp - singapore - singapore (70 tuas west dr)
+addr-address-dd350d8ae6ba	unscored		us	locality	38.656	-121.074	0			95762	El Dorado Hills	US-CA	US-CA:4	P. O. Box 467, 95762, El Dorado Hills, California, United States
+addr-address-dd9b6a200569	unscored			none			0							41 Carrowhubbock Village, F26PR53, Enniscrone, Sligo, Ireland
+addr-address-ddf7b9bbe14c	unscored		br	street	-23.546	-46.245	1		Rua Equador	08750-267	Mogi das Cruzes	BR-SP	BR-SP:4	Rua Equador,454 Jundiapeba, Mogi das Cruzes, São Paulo, Brasil
+addr-address-df1d19114836	unscored		us	postcode	34.069	-84.294	0			30009	Alpharetta	US-GA	US-GA:4	2325 Lakeview Parkaway Suite 175, 30009, Alpharetta, Georgia, United States
+addr-address-dfa96b03b96f	unscored		us	street	41.284	-73.487	1		Prospect Street	06877	Ridgefield	US-CT	US-CT:4	ct - ridgefield - 4 prospect st
+addr-address-e1529fd02450	unscored		it	postcode	45.419	10.949	0			37137	Verona	IT-34,IT-VR	IT-34:4,IT-VR:6	Via Sommacampagna 63D/E Centro Agroalimentare di Verona, 37137, Verona, Verona, Italy
+addr-address-e1c193160359	unscored		id	street	-5.139	119.448	0		Jalan Universitas Muslim Indonesia	90231	Makassar	ID-SL,ID-SN	ID-SL:3,ID-SN:4	Jl. Boulevard Raya No.88, Komplek Ruko Panakkukang Square Blok E5-E7, RT.01/RW.02, Pandang, Kec. Panakkukang, 90231, Kota Makassar, Sulawesi Selatan, Indonesia
+addr-address-e1e665fe7dd1	unscored		at	house	46.595	14.273	1	14	Dr.-Schroll-Straße	9073	Klagenfurt	AT-2	AT-2:4	Dr. Schrollstraße 14, 9073 Klagenfurt/Viktring - Kärnten / Austria
+addr-address-e2358fc8132d	unscored		nl	house	52.309	4.635	1	3	Oosterschelde	2134 WL	Hoofddorp	NL-NH	NL-NH:4	oosterschelde 3
+addr-address-e2eac3579dc5	unscored		es	postcode	42.234	-8.707	0			36206	Vigo	ES-GA,ES-PO	ES-GA:4,ES-PO:6	Vigo, Rúa Vía Nte. 48 36206 Vigo, Pontevedra
+addr-address-e32815e1433a	unscored		id	postcode	-5.152	119.419	0			90131	Makassar	ID-SL,ID-SN	ID-SL:3,ID-SN:4	Anuang Street No.142, Workshop, 90131, Maricaya Selatan, South Sulawesi, Indonesia
+addr-address-e360eb5ec5cd	unscored		gb	street	54.902	-1.558	1		Phoenix Road	NE38 0AD	Sunderland	GB-ENG,GB-SND	GB-ENG:4,GB-SND:8	8 Phoenix Road, Ne38 0Ad, Washington
+addr-address-e4a0074785b6	unscored		ch	house	47.415	8.536	0	5	Brown-Boveri-Strasse	8052	Zurich	CH-ZH	CH-ZH:4	(he)remote_zurich-oerlikon, brown-boveri-strasse 5
+addr-address-e591e0c0e85a	unscored		au	street	-33.877	151.243	1		Knox Lane	2028	Sydney	AU-NSW	AU-NSW:4	2 Knox Lane, 2028, Double Bay, NSW, Australia
+addr-address-e6265273c544	unscored		es	postcode	43.168	-2.634	0			48200	Durango	ES-BI,ES-PV	ES-BI:6,ES-PV:4	Calle Juan de Iciar, 2, 48200, Durango, Bizkaia, Spain
+addr-address-e66b054ff208	unscored		at	house	47.067	15.457	1	12	Krenngasse	8010	Graz	AT-6	AT-6:4	Krenngasse 12, 8010, Graz, Styria, Austria
+addr-address-e69a7deb6c83	unscored			none			0							boutique vca - mexico city periferico sur, jardines del p 1f (mxme0046)
+addr-address-e6d71bfc3508	unscored			none			0							9507 OLYMPIC BLVD, BEVERLY HILLS CA 90212, 90212, BEVERLY HILLS, United States
+addr-address-e6de879547b5	unscored		nz	house	-36.849	174.743	1	1	Cowan Street	1011	Auckland	NZ-AUK	NZ-AUK:4	1 Cowan Street, Ponsonby Auckland
+addr-address-e7e1927b4235	unscored		br	house	-23.554	-46.658	1	155	Rua Fernando de Albuquerque	01309-030	São Paulo	BR-SP	BR-SP:4	Rua Fernando de Albuquerque 155, 01309-030, São Paulo, Sao Paulo, Brazil
+addr-address-e8f9ce3f69d4	unscored		us	house	38.820	-90.854	1	1023	Main Plaza Drive	63385	Wentzville	US-MO	US-MO:4	1023 MAIN PLAZA DRIVE, 63385, WENTZVILLE, MO, United States
+addr-address-e96c0a567329	unscored			none			0							P.O.Box:15418 Riyadh 11444, Riyadh, Riyadh, Saudi Arabia
+addr-address-ea0ac25003a4	unscored		us	street	39.149	-75.526	0		Dover Street	19901	Dover	US-DE	US-DE:4	8 The Green #24491 Dover, 19901, Dover, Delaware, United States
+addr-address-ea157cf3a43e	unscored		in	locality	28.633	77.220	0				Delhi	IN-DL	IN-DL:4	23/663, 2nd Floor, Madangir, South Delhi,, Delhi, Delhi, India
+addr-address-ead53f8b90e8	unscored		ca	house	49.694	-112.896	1	409	Highlands Boulevard W	T1J 4X0	Lethbridge	CA-AB	CA-AB:4	409 highlands boulevard, lethbridge, alberta
+addr-address-eb5b9a8592e0	unscored		us	street	29.576	-98.322	0		Agora Parkway	78148	Selma	US-TX	US-TX:4	store: 1279 forum @ olympia pkwy selma, tx
+addr-address-ebde90081c2b	unscored		in	postcode	23.050	72.590	0			380004		IN-GJ	IN-GJ:4	1, Dr Ambedkar Rd, Jain Colony, Shahibag, Ahmedabad, Gujarat 380004, India
+addr-address-ec3ee5c40bd5	unscored			none			0							145-157 St John St, EC1V 4PW, London, London, United Kingdom
+addr-address-ec925e4f3bc7	unscored		br	street	-23.037	-45.594	1		Avenida Francisco Alves Monteiro	12040-650	Taubaté	BR-SP	BR-SP:4	Av. Francisco Alves Monteiro, 500, 12040-650, Taubaté, São Paulo, Brazil
+addr-address-ecd70e579328	unscored		ca	house	43.001	-81.277	0	1137	Western Road	N6G 5K8	London	CA-ON	CA-ON:4	1137 Western Road, London, Ontario, Canada N6G 1G7
+addr-address-ecff61824c27	unscored		id	postcode	3.533	98.686	0			20146	City of Medan	ID-SM,ID-SU	ID-SM:3,ID-SU:4	Jln Sangir Talaud I KIM IV Pematang Johar, Labuhan Deli Sumatera Utara 20373 - Indonesia, 20146, Medan, Sumatra Utara, Indonesia
+addr-address-ed85ea1c9aff	unscored		cn	postcode	31.251	121.432	0			200061	Putuo District	CN-SH	CN-SH:4	7F-8F Building 1,No.1006,JinShaJiang Road, 200061, Shanghai, Shanghai, China
+addr-address-efef35a8fe1b	unscored		us	street	40.686	-73.881	1		Jamaica Avenue	11208	New York	US-NY	US-NY:4	940 Jamaica Ave, 11208-1505, Brooklyn, New York, United States
+addr-address-f29c2355fc99	unscored		gb	house	51.360	-0.198	0	55	Cheam Road	SM1 2AX	Greater London	GB-ENG,GB-STN	GB-ENG:4,GB-STN:8	55 Cheam Road, SM1 2AX, Sutton, Surrey, United Kingdom
+addr-address-f2ac89560db1	unscored		ar	locality	-31.625	-58.505	1			3218	San Salvador	AR-E	AR-E:4	Local Comercial A-29 Metro Sur, Local Comercial A-29 Metro Sur  Edificio Zona 2-A, San Salvador, El Salvador
+addr-address-f30ea4c83e41	unscored		gb	street	51.521	-0.162	1		Marylebone Road	NW1 5PU	City of Westminster	GB-ENG,GB-WSM	GB-ENG:4,GB-WSM:8	119 Marylebone Road, NW1 5PU, London, England, United Kingdom
+addr-address-f3fc2c5355b9	unscored		am	locality	40.178	44.513	0				Yerevan	AM-ER	AM-ER:4	yerevan - vagharshyan str 12
+addr-address-f47a4a18f1c7	unscored		us	house	37.323	-120.485	1	3280	R Street	95348	Merced	US-CA	US-CA:4	3280 r st, merced,ca 95348-1954
+addr-address-f5d24e4c0428	unscored			none			0							304 cross iron mills
+addr-address-f6820826d941	unscored		nl	house	52.791	6.111	1	9	Meester Zigher ter Steghestraat	8331 KG	Steenwijk	NL-OV	NL-OV:4	Mr Zigher ter Steghestr 9, 8331 KG, Steenwijk, Overijssel, The Netherlands
+addr-address-f7a7d82bf317	unscored		us	street	38.923	-76.950	1		Commodore Joshua Barney Drive Northeast	20018	Washington	US-DC	US-DC:4	3622 Commodore Joshua Barney Drive NE Washington, DC 20018
+addr-address-f7b3a7c9836e	unscored		us	house	34.173	-84.189	0	5456	Bethelview Road	30040	Cumming	US-GA	US-GA:4	5456 Bethelview Road, Suite 103, Cumming, Georgia 30040
+addr-address-f7c78a82ce0d	unscored		cl	locality	-33.050	-71.442	0				Quilpué	CL-VS	CL-VS:4	2663 Avenida Cuatro Pinos, Quilpué, Chile
+addr-address-f8804ce78fde	unscored		us	house	47.573	-122.371	0	3400	Harbor Avenue Southwest	98126	Seattle	US-WA	US-WA:4	3400 Harbor Ave SW Ste 314, 98126, Seattle, Washington, United States
+addr-address-fa4fc704f815	unscored		us	house	42.598	-72.599	1	27	Pierce Street	01301	Greenfield	US-MA	US-MA:4	27 PIERCE ST., 01301, GREENFIELD, United States
+addr-address-fa8916e63b46	unscored			none			0							Am Keuschenend 143, 50170, Kerpen, Kerpen Rheinl, Germany
+addr-address-fb1bfa43c5a9	unscored		us	locality	39.342	-78.756	0			26757	Romney	US-WV	US-WV:4	HC 64 Box 132, 26757, Romney, West Virginia, United States
+addr-address-fc12bcaad9ed	unscored		pe	street	-12.120	-76.986	1		Calle Los Cabildos	15039	Santiago de Surco	PE-LIM,PE-LMA	PE-LIM:4,PE-LMA:6	Los Cabildos 17515038, Santiago De Surco, Lima, Lima, Perú
+addr-address-fc37db5c6098	unscored		es	house	39.575	2.650	0	3	Carrer del Cardenal Pou	07003	Palma de Mallorca	ES-IB,ES-PM	ES-IB:4,ES-PM:6	C/Cardenal Pou, 3, Entresuelo Dcha., 07003 Palma, Islas Baleares, España
+addr-address-fcf39d85de4d	unscored		ge	house	41.695	44.800	1	2/4	Shota Rustaveli Avenue	0801	Tbilisi	GE-TB	GE-TB:4	2/4 Shota Rustaveli Avenue, Tbilisi, Tbilisi, Georgia
+addr-address-feb3d60eab3a	unscored			none			0							farm 33 farrowing 85331 aulander nc
+addr-address-fee9139ef537	unscored		fi	postcode	60.209	24.973	0			00560	Helsinki	FI-18	FI-18:4	Arabiankatu 12, 00560, Helsinki, Southern Finland, Finland
+addr-address-ffb21c860e58	unscored			none			0							Davidson 903 Northeast Dr, Ste 201, Davidson, NC 28036
+addr-address-ffda69483f62	unscored		nz	house	-36.857	174.764	1	3	City Road	1010	Auckland	NZ-AUK	NZ-AUK:4	3 City Road, Grafton, 1010, Auckland, New Zealand
+addr-city-008f3cb9b501	unscored		co	locality	7.143	-73.131	0			680001	Bucaramanga	CO-SAN	CO-SAN:4	Bucaramanga, Colombia, Bucaramanga, Colombia
+addr-city-032b27cc0b7a	unscored		ph	locality	10.607	123.040	1			6129	Murcia	PH-NEC	PH-NEC:4	Murcia, Spain, Spain
+addr-city-03c9361e544b	unscored			none			0							Paraguay, Paraguay
+addr-city-03f4ec09586a	unscored		at	locality	47.125	13.790	0			5580	Tamsweg	AT-5	AT-5:4	judendorf, styria, austria
+addr-city-047da2fb9ac4	unscored		cu	locality	21.527	-78.226	1				Florida	CU-09	CU-09:4	Global, Florida, South Africa, Global, Florida, South Africa
+addr-city-049f23e228e5	unscored		cl	street	-53.149	-70.901	1		Santiago	6212814	Punta Arenas	CL-MA	CL-MA:4	Santiago, a, Chile, Chile
+addr-city-04e37325e5c8	unscored		au	locality	-34.928	138.600	1				Adelaide	AU-SA	AU-SA:4	Adelaide, South Australia, Australia, Australia
+addr-city-054c7f274266	unscored		fr	locality	47.760	7.298	1			68120	Pfastatt	FR-68,FR-6AE,FR-GES	FR-68:6,FR-6AE:5,FR-GES:4	Pfastatt, Haut-Rhin, France, Pfastatt, Haut-Rhin, France
+addr-city-065005bce5ae	unscored			none			0							Lovnic, Braşov, Romania, Romania
+addr-city-069cd8cd6f87	unscored		cz	locality	50.609	15.506	1				Jilemnice	CZ-51,CZ-514	CZ-514:5,CZ-51:4	Jilemnice, Liberecký, Czech Republic, Czechia
+addr-city-070358ed39f2	unscored		fr	locality	48.585	7.751	1				Strasbourg	FR-67,FR-6AE,FR-GES	FR-67:6,FR-6AE:5,FR-GES:4	Strasbourg, Bas-Rhin, France, Strasbourg, Bas-Rhin, France
+addr-city-07a7a47837e0	unscored		fr	locality	48.754	2.296	1			92160	Antony	FR-92,FR-IDF	FR-92:6,FR-IDF:4	Antony, Hauts-de-Seine, France, Antony, Hauts-de-Seine, France
+addr-city-0a31f5255f12	unscored		ie	locality	53.805	-9.131	1				Balla	IE-C,IE-MO	IE-C:5,IE-MO:6	balla, county mayo, ireland
+addr-city-0abea48d8207	unscored			none			0							Рівне, Rivne, Ukraine, Ukraine
+addr-city-0b237b924d12	unscored		fi	locality	60.254	24.587	1				Espoo	FI-18	FI-18:4	Espoo, Finland, Espoo, Finland
+addr-city-0d8dff299eca	unscored		ie	locality	53.330	-8.221	1				Ballinasloe	IE-C,IE-G	IE-C:5,IE-G:6	ballinasloe, county galway, ireland
+addr-city-0ffd0c2b5deb	unscored		ch	locality	47.270	8.722	0			8618	Oetwil am See	CH-ZH	CH-ZH:4	Oetwil am See, Zurich, Switzerland, Oetwil am See, Zurich, Switzerland
+addr-city-10656c91f5fc	unscored		us	locality	37.191	-87.453	1				Nortonville	US-KY	US-KY:4	nortonville, ky
+addr-city-118ef44ff768	unscored		us	locality	35.099	-78.788	0				Eastover	US-NC	US-NC:4	Eastover, North Carolina, United States, Eastover, North Carolina, United States
+addr-city-11f2dd7a1ab1	unscored		ro	locality	44.436	26.103	0				Bucharest	RO-B	RO-B:4	Bucharest, Romania, Bucharest, Romania
+addr-city-12e88843c4a4	unscored		cu	locality	22.680	-80.146	1				Santo Domingo	CU-05	CU-05:4	amaro, italy
+addr-city-145319e5e711	unscored			none			0							Cebu, Philippines, Philippines
+addr-city-1546a912ecb2	unscored		ma	street	33.571	-7.700	0		Rond Point Morocco Mall	20202	Casablanca	MA-06,MA-CAS	MA-06:4,MA-CAS:5	Casablanca, Casablanca-Settat, Morocco, Morocco
+addr-city-162638154e31	unscored		co	locality	10.427	-75.544	0				Cartagena	CO-BOL	CO-BOL:4	Cartagena, Colombia, Cartagena, Colombia
+addr-city-1644e3c05cd0	unscored		no	locality	59.972	10.776	0				Oslo	NO-03	NO-03:4	Oslo, Norway, Oslo, Norway
+addr-city-16cba396e452	unscored		no	locality	59.468	5.083	0				Haugesund	NO-11	NO-11:4	Haugesund, Norway, Haugesund, Norway
+addr-city-171c98effecf	unscored			none			0							Northwood Civil Parish, Isle of Wight, United Kingdom, Northwood Civil Parish, Isle of Wight, United Kingdom
+addr-city-184691e86f48	unscored		pt	locality	38.547	-8.820	0				Setúbal	PT-15	PT-15:6	Setúbal, Setúbal, Portugal, Portugal
+addr-city-18e8423c644c	unscored		gb	locality	55.702	-3.651	0			ML11 8RT	West End	GB-SCT,GB-SLK	GB-SCT:4,GB-SLK:6	West End, United Kingdom, West End, United Kingdom
+addr-city-1a11cb473347	unscored			none			0							Mandaue City, Mandaue, Philippines, Philippines
+addr-city-1a8ec392173b	unscored		es	locality	43.263	-2.935	0				Bilbao	ES-BI,ES-PV	ES-BI:6,ES-PV:4	Bilbao, Biscay, Spain, Bilbao, Biscay, Spain
+addr-city-1a9ffae70d86	unscored		gb	locality	51.735	0.473	1				Chelmsford	GB-ENG,GB-ESS	GB-ENG:4,GB-ESS:6	Chelmsford, Essex, United Kingdom, United Kingdom
+addr-city-1ace53b75032	unscored		cr	locality	9.974	-84.140	1			40104	Ulloa	CR-H	CR-H:4	barreal, heredia, costa rica
+addr-city-1b1629978ff4	unscored		it	locality	45.529	9.042	1			20017	Rho	IT-25,IT-MI	IT-25:4,IT-MI:6	Rho, Milano, Italy, Italy
+addr-city-1ba568da96c1	unscored		gb	locality	55.773	-4.334	1			G77 6EY	Newton Mearns	GB-ERW,GB-SCT	GB-ERW:6,GB-SCT:4	newton mearns, scotland, united kingdom
+addr-city-1d4a7c3396c8	unscored			none			0							Uganda, Uganda
+addr-city-1d624a133988	unscored		gb	locality	51.304	-1.833	0				Charlton	GB-ENG,GB-WIL	GB-ENG:4,GB-WIL:6	Charlton, Wiltshire, United Kingdom, Charlton, Wiltshire, United Kingdom
+addr-city-1e20881e381c	unscored		no	locality	65.821	13.179	1				Vefsn	NO-18	NO-18:4	vefsn, nordland, norway
+addr-city-208852b7f859	unscored		be	locality	50.678	5.320	0			4350	Remicourt	BE-WAL,BE-WLG	BE-WAL:4,BE-WLG:6	Remicourt, Liege, Belgium, Remicourt, Liege, Belgium
+addr-city-20cbff64b9a8	unscored		it	locality	45.794	12.170	1			31040	Giavera del Montello	IT-34,IT-TV	IT-34:4,IT-TV:6	giavera del montello, veneto, italy
+addr-city-21d42dcba65a	unscored			none			0							Nouméa, Sud, New Caledonia, New Caledonia
+addr-city-228809a3eccf	unscored			none			0							longsheng various nationalities autonomous county, guangxi zhuang, china
+addr-city-22bcbbdfc853	unscored			none			0							Hanoi, Ha Tay, Vietnam, Viet Nam
+addr-city-248362d749a2	unscored		de	locality	51.093	6.842	1				Dormagen	DE-NW	DE-NW:4	dormagen, north rhine-westphalia, germany
+addr-city-24fea3e9204d	unscored		ie	locality	53.822	-6.748	1				Nobber	IE-L,IE-MH	IE-L:5,IE-MH:6	nobber, county meath, ireland
+addr-city-25c4180c244c	unscored		bo	locality	-14.858	-66.747	1				San Borja	BO-B	BO-B:4	store: 0696 san borja, per
+addr-city-2673ca5ff487	unscored			none			0							San Cristóbal de las Casas, Chiapas, Mexico, Mexico
+addr-city-276f5457bcb1	unscored			none			0							Gabon, Gabon
+addr-city-2c602e89c1e4	unscored		ca	locality	46.417	-60.475	0				North Shore	CA-NS	CA-NS:4	north shore, il
+addr-city-2e34f1554e98	unscored		us	locality	41.259	-95.938	0				Omaha	US-NE	US-NE:4	overland park, ks, omaha, ne
+addr-city-2e74b1e58e2f	unscored			none			0							Bucureşti, Romania, Romania
+addr-city-2ea1abe18b70	unscored		at	locality	48.432	14.300	1			4202	Hellmonsödt	AT-4	AT-4:4	hellmonsödt, upper austria, austria
+addr-city-2eda31e6cdb1	unscored		sa	locality	24.639	46.716	0			12613	Riyadh	SA-01	SA-01:4	Riyadh, Saudi Arabia, Riyadh, Saudi Arabia
+addr-city-30c21c1ad591	unscored		ar	locality	-31.449	-60.930	1				Esperanza	AR-S	AR-S:4	esperanza, santa fe, argentina
+addr-city-30e40fa9b76e	unscored		ch	locality	47.497	8.953	0				Wängi	CH-TG	CH-TG:4	Wängi, Thurgau, Switzerland, Wängi, Thurgau, Switzerland
+addr-city-30fe6af683d0	unscored			none			0							Edinburgh, United Kingdom, Edinburgh, Edinburgh, United Kingdom
+addr-city-3112aac80619	unscored		us	locality	31.549	-97.147	0				Waco	US-TX	US-TX:4	Waco, Texas, United States, Waco, Texas, United States
+addr-city-327380204e2f	unscored		za	locality	-25.995	27.537	1			2805	Mogale City Local Municipality	ZA-GP	ZA-GP:4	Mogale City, Gauteng, South Africa, South Africa
+addr-city-3294bcb42a4a	unscored		fr	locality	49.479	2.883	1			60150	Thourotte	FR-60,FR-HDF	FR-60:6,FR-HDF:4	thourotte, hauts-de-france, france
+addr-city-334a9ba6b380	unscored		us	locality	40.587	-105.077	0				Fort Collins	US-CO	US-CO:4	Fort Collins, Colorado, United States, Fort Collins, Colorado, United States
+addr-city-338291bd22b4	unscored		pl	locality	49.956	18.905	1			43-241	Łąka	PL-24	PL-24:4	łąka, śląskie, poland
+addr-city-33d4fc0bb005	unscored		in	locality	28.614	77.209	0				New Delhi	IN-DL	IN-DL:4	New Delhi, India, New Delhi, India
+addr-city-344a7761db62	unscored		uy	locality	-34.906	-56.191	1				Montevideo	UY-MO	UY-MO:4	Montevideo, Uruguay, Uruguay
+addr-city-35acad9d76c3	unscored		lt	locality	54.687	25.283	0				Vilnius	LT-57,LT-VL	LT-57:5,LT-VL:4	Vilnius, Lithuania, Vilnius, Vilnius, Lithuania
+addr-city-36490abe6db5	unscored		ke	locality	-0.135	34.029	1				West Yimbo ward	KE-38	KE-38:4	sika canada
+addr-city-37388411199a	unscored		fr	locality	45.852	-0.301	1			17160	Matha	FR-17,FR-NAQ	FR-17:6,FR-NAQ:4	Matha, Charente-Maritime, France, Matha, Charente-Maritime, France
+addr-city-3753a218e39b	unscored		fr	locality	48.859	2.320	1				Paris	FR-75C,FR-IDF	FR-75C:6,FR-IDF:4	Paris, France, Paris, Paris, France
+addr-city-377c3653710d	unscored		pl	locality	49.730	19.140	0				Łodygowice	PL-24	PL-24:4	Łodygowice, Śląskie, Poland, Łodygowice, Śląskie, Poland
+addr-city-38756fed7678	unscored		be	locality	51.028	4.480	1				Mechelen	BE-VAN,BE-VLG	BE-VAN:6,BE-VLG:4	Mechelen, Antwerpen, Belgium, Belgium
+addr-city-38cae7923dd2	unscored		es	locality	41.383	2.177	0				Barcelona	ES-B,ES-CT	ES-B:6,ES-CT:4	Barcelona, Spain, Barcelona, Spain
+addr-city-392ebc4dd539	unscored		am	locality	40.178	44.513	0				Yerevan	AM-ER	AM-ER:4	Yerevan, Armenia, Yerevan, Armenia
+addr-city-3b7456c48ba4	unscored		fr	locality	43.579	1.503	0				Toulouse	FR-31,FR-OCC	FR-31:6,FR-OCC:4	montpellier, toulouse, aix-en-provence
+addr-city-3bce3d4abe0d	unscored		ch	locality	46.192	9.021	1				Bellinzona	CH-TI	CH-TI:4	Bellinzona, Ticino, Switzerland, Switzerland
+addr-city-3c48a0bfb70f	unscored		co	locality	6.244	-75.574	0			0500	Medellín	CO-ANT	CO-ANT:4	Medellin, Colombia, Medellin, Colombia
+addr-city-3c74e2a0c403	unscored			none			0							Kiev City, Kiev, Ukraine, Kiev City, Kiev, Ukraine
+addr-city-3cc7c83bf24c	unscored		in	locality	12.234	79.076	1				Tiruvannamalai	IN-TN	IN-TN:4	Tiruvannamalai, Tamil Nadu, India, India
+addr-city-3d1a87fe7443	unscored			none			0							ormáiztegui, basque country, spain
+addr-city-3eda0a72edf9	unscored		us	locality	33.415	-111.831	0				Mesa	US-AZ	US-AZ:4	Mesa, Arizona, United States, Mesa, Arizona, United States
+addr-city-3ede62b056bd	unscored		ca	locality	51.923	-107.135	1			S0L 0P0	Delisle	CA-SK	CA-SK:4	delisle, saskatchewan, canada
+addr-city-40b4f7249894	unscored			none			0							Boise, Idaho, United States, United States
+addr-city-42aeca9ae988	unscored		ca	locality	44.730	-63.658	0				Bedford	CA-NS	CA-NS:4	Bedford, Nova Scotia, Canada, Bedford, Nova Scotia, Canada
+addr-city-44d07b4394a0	unscored		fr	locality	48.668	6.210	1			54140	Jarville-la-Malgrange	FR-54,FR-GES	FR-54:6,FR-GES:4	Jarville-la-Malgrange, Meurthe-et-Moselle, France, Jarville-la-Malgrange, Meurthe-et-Moselle, France
+addr-city-450f221848a5	unscored		de	locality	51.061	13.703	0			01067	Dresden	DE-SN	DE-SN:4	Dresden, Saxony, Germany, Germany
+addr-city-456d5e4c3af5	unscored		us	locality	35.507	-97.763	1				Yukon	US-OK	US-OK:4	Yukon, Oklahoma, United States, United States
+addr-city-46007c21847e	unscored			none			0							Copenhagen, Capital, Denmark, Copenhagen, Capital, Denmark
+addr-city-46301b95e766	unscored		it	locality	37.851	15.283	0			98039	Taormina	IT-82,IT-ME	IT-82:4,IT-ME:6	Taormina, Messina, Italy, Taormina, Messina, Italy
+addr-city-466358279bce	unscored		zw	locality	-17.832	31.046	0				Harare	ZW-HA	ZW-HA:4	Harare, Zimbabwe, Harare, Harare, Zimbabwe
+addr-city-48ea929501d3	unscored		ca	locality	46.913	-53.574	1			A0B 3B0	St. Mary's	CA-NL	CA-NL:4	st mary's
+addr-city-49a49d8d7d6c	unscored		gb	locality	54.596	-5.930	1				Belfast	GB-BFS,GB-NIR	GB-BFS:6,GB-NIR:4	Belfast, Belfast, United Kingdom, United Kingdom
+addr-city-4a8bd65a92fd	unscored		de	locality	51.333	6.562	1				Krefeld	DE-NW	DE-NW:4	Krefeld, Germany
+addr-city-4aa22ae42f17	unscored		br	locality	-7.225	-35.877	1				Campina Grande	BR-PB	BR-PB:4	Campina Grande, Paraiba, Brazil, Brazil
+addr-city-4aea22cdf5e3	unscored		my	locality	5.408	100.370	1				Butterworth	MY-07	MY-07:4	butterworth
+addr-city-4d23cfb5f073	unscored		fr	locality	49.007	2.827	0			77122	Monthyon	FR-77,FR-IDF	FR-77:6,FR-IDF:4	Monthyon, Seine-et-Marne, France, Monthyon, Seine-et-Marne, France
+addr-city-4f6bf838ab81	unscored		at	locality	48.306	14.286	1				Linz	AT-4	AT-4:4	Linz, Oberösterreich, Austria, Austria
+addr-city-50cb913dcfaa	unscored		ca	locality	44.034	-81.547	1				Huron-Kinloss	CA-ON	CA-ON:4	huron-kinloss, ontario, canada
+addr-city-50d49b490884	unscored		bo	locality	-17.394	-66.157	0				Cochabamba	BO-C	BO-C:4	Cochabamba, Cercado, Bolivia, Cochabamba, Cercado, Bolivia
+addr-city-50df62aa0324	unscored		es	locality	40.417	-3.704	0				Madrid	ES-MD	ES-MD:4	Torrejón de Ardoz, Madrid, Spain, Torrejón de Ardoz, Madrid, Spain
+addr-city-514f42d9b807	unscored		fr	locality	48.157	-1.814	0				Rennes	FR-35,FR-BRE	FR-35:6,FR-BRE:4	rennes lannion
+addr-city-5174cbd1eedd	unscored		my	locality	2.308	102.430	1			77000	Jasin	MY-04	MY-04:4	jasin, malacca, malaysia
+addr-city-5223d14df663	unscored		de	locality	49.992	8.562	1			64546	Mörfelden-Walldorf	DE-HE	DE-HE:4	mörfelden-walldorf, hesse, germany
+addr-city-5293d441c158	unscored		ca	locality	48.595	-123.421	0				Central Saanich	CA-BC	CA-BC:4	Central Saanich, British Columbia, Canada, Central Saanich, British Columbia, Canada
+addr-city-5311592c5ca8	unscored		us	locality	43.344	-96.002	0				George	US-IA	US-IA:4	George, Iowa, United States, George, Iowa, United States
+addr-city-53147d4c253f	unscored		it	locality	45.532	11.479	0			36051	Creazzo	IT-34,IT-VI	IT-34:4,IT-VI:6	Creazzo, Vicenza, Italy, Creazzo, Vicenza, Italy
+addr-city-5367c206cf3b	unscored		au	region	-32.835	146.574	0					AU-NSW	AU-NSW:4	Lindfield, New South Wales, Australia, Lindfield, New South Wales, Australia
+addr-city-53b09337198b	unscored		in	locality	21.471	83.976	1			768001	Sambalpur	IN-OD	IN-OD:4	sambalpur, odisha, india
+addr-city-53fdea955ca3	unscored		co	locality	3.452	-76.533	0				Cali	CO-VAC	CO-VAC:4	Cali, Valle del cauca, Colombia, Cali, Valle del cauca, Colombia
+addr-city-549d1ec010ad	unscored			none			0							malpais, puntarenas, costa rica
+addr-city-56aacb70b5b4	unscored		pk	locality	33.610	72.975	0			45210	Islamabad	PK-IS	PK-IS:4	Islamabad, Pakistan, Pakistan
+addr-city-57fb8d54a71d	unscored			none			0							Netvořice, Středočeský, Czechia, Netvořice, Středočeský, Czechia
+addr-city-5867bbbe4322	unscored		ye	locality	15.951	43.419	1				Ad Dawhah	YE-HJ	YE-HJ:4	Doha, Ad Dawhah, Qatar, Qatar
+addr-city-58cadc31919f	unscored			none			0							knutwil, lucerne, switzerland
+addr-city-5a5f26438d8d	unscored			none			0							Jakarta Pusat, Jakarta Raya, Indonesia, Jakarta Pusat, Jakarta Raya, Indonesia
+addr-city-5a81e7684d76	unscored			none			0							Arica, De Tarapaca, Chile, Arica, De Tarapaca, Chile
+addr-city-5aa3074ed128	unscored		no	locality	59.972	10.776	0				Oslo	NO-03	NO-03:4	Oslo, Norway, Oslo, Oslo, Norway
+addr-city-5bef70e63833	unscored		so	locality	3.120	43.644	1				Baidoa	SO-BY	SO-BY:5	baidoa, baidoa
+addr-city-5bfdda315e07	unscored		be	locality	51.231	5.308	0			3920	Lommel	BE-VLG,BE-VLI	BE-VLG:4,BE-VLI:6	Lommel, Limburg, Belgium, Lommel, Limburg, Belgium
+addr-city-5cca9cd87df8	unscored			none			0							Kyiv, Ukraine, Kyiv, Kyiv, Ukraine
+addr-city-5ce7fa6c4a4c	unscored		ca	locality	45.266	-63.214	1			B0N 1C0	Brookfield	CA-NS	CA-NS:4	brookfield, nova scotia, ca
+addr-city-5de6127033bb	unscored		jp	house	35.719	139.341	0	4		196-0003	Akishima	JP-13	JP-13:4	Tokyo, Japan, Tokyo, Tokyo, Japan
+addr-city-5e15da7844da	unscored		ua	locality	50.450	30.524	0				Kyiv	UA-30	UA-30:4	Kyiv, Ukraine, Kyiv, Ukraine
+addr-city-5eae9878d4bd	unscored			none			0							Paris, France, Paris, France, France
+addr-city-5f85c494c9fb	unscored		zw	locality	-17.832	31.046	0				Harare	ZW-HA	ZW-HA:4	Harare, Zimbabwe, Harare, Zimbabwe
+addr-city-5f8a88142cea	unscored		us	locality	31.846	-102.368	1				Odessa	US-TX	US-TX:4	odessa, ukraine
+addr-city-5fd1a8198e35	unscored			none			0							Pskov, Pskov, Russia, Russian Federation
+addr-city-6079f4b1c396	unscored		cm	locality	4.043	9.706	1				Douala	CM-LT	CM-LT:4	Douala, Littoral, Cameroon, Cameroon
+addr-city-611b61d5a352	unscored		in	locality	29.510	75.454	0			125050	Fatehabad	IN-HR	IN-HR:4	Fatehabad, Haryana, India, Fatehabad, Haryana, India
+addr-city-6148362ddc0f	unscored		ie	locality	51.852	-8.036	1			P25 V599	Shanagarry	IE-CO,IE-M	IE-CO:6,IE-M:5	shanagarry, county cork, ireland
+addr-city-617b5b994f91	unscored		au	region	-19.438	142.773	0					AU-QLD	AU-QLD:4	Toowong, Queensland, Australia, Toowong, Queensland, Australia
+addr-city-6193cc4792ac	unscored		fr	locality	42.713	9.432	1			20200	Ville-di-Pietrabugno	FR-20R,FR-2B	FR-20R:4,FR-2B:6	ville-di-pietrabugno, corsica, france
+addr-city-61ef22251399	unscored		us	locality	33.567	-84.581	0			30213	Fairburn	US-GA	US-GA:4	Fairburn, Georgia, United States, Fairburn, Georgia, United States
+addr-city-633d7993cdde	unscored			none			0							Mendoza, Argentina, Argentina
+addr-city-64343b11b9fc	unscored		us	locality	32.364	-88.704	0				Meridian	US-MS	US-MS:4	Meridian, Mississippi, United States, Meridian, Mississippi, United States
+addr-city-654226196ce8	unscored		fr	locality	48.242	6.082	1			88500	Rozerotte	FR-88,FR-GES	FR-88:6,FR-GES:4	rozerotte, grand est, france
+addr-city-657f2654b6b5	unscored		gb	locality	52.356	-3.013	0				Stowe	GB-ENG,GB-SHR	GB-ENG:4,GB-SHR:6	Stowe, Buckinghamshire, United Kingdom, Stowe, Buckinghamshire, United Kingdom
+addr-city-65b3d79698a5	unscored			none			0							mcfadden, wy
+addr-city-65dd3b0be531	unscored			none			0							Évreux, Eure, France, France
+addr-city-6626872e1569	unscored		us	locality	39.267	-76.798	0			21043	Ellicott City	US-MD	US-MD:4	Ellicott City, Maryland, United States, Ellicott City, Maryland, United States
+addr-city-664b1c1d9155	unscored		tr	locality	37.783	29.097	1			20175	Denizli	TR-20	TR-20:4	Denizli, Denizli, Turkey, Türkiye
+addr-city-672e31f63d10	unscored		cd	locality	-4.872	12.879	1				Tshela	CD-BC	CD-BC:4	mbanza congo
+addr-city-67531a15cbbf	unscored			none			0							Higuerote, Miranda, Venezuela, Venezuela, Bolivarian Republic of
+addr-city-6798d2b824d9	unscored			none			0							San Martín de Los Andes, Neuquén, Argentina, San Martín de Los Andes, Neuquén, Argentina
+addr-city-67cdf839870c	unscored			none			0							gaia, castelo branco, portugal
+addr-city-68c203c2a5ba	unscored		fi	locality	65.012	25.470	1				Oulu	FI-14	FI-14:4	Oulu, Northern Ostrobothnia, Finland, Finland
+addr-city-68d85a889439	unscored		gb	locality	53.047	-2.994	1			LL11 1AP	Wrexham	GB-WLS,GB-WRX	GB-WLS:4,GB-WRX:6	Wrexham, Denbighshire, United Kingdom, United Kingdom
+addr-city-699b43fc5392	unscored		us	locality	38.792	-90.323	1			63031	Florissant	US-MO	US-MO:4	florissant, mo, us
+addr-city-6a7ed811b3de	unscored		br	locality	-20.660	-43.786	0				Conselheiro Lafaiete	BR-MG	BR-MG:4	Conselheiro Lafaiete, Minas Gerais, Brazil, Conselheiro Lafaiete, Minas Gerais, Brazil
+addr-city-6b1debcb97a2	unscored		us	locality	33.651	-91.010	0				Benoit	US-MS	US-MS:4	benoit, wi
+addr-city-6b37aac068e2	unscored			none			0							Lymington and Pennington Civil Parish, Hampshire, United Kingdom, United Kingdom
+addr-city-6ccfda86dd2d	unscored		gb	locality	52.629	1.292	0				Norwich	GB-ENG,GB-NFK	GB-ENG:4,GB-NFK:6	Norwich, Norfolk, United Kingdom, Norwich, Norfolk, United Kingdom
+addr-city-6d7a11802813	unscored		si	street	46.345	15.434	1		Obvoznica Slovenske Konjice-Oplotnica	3210	Slovenske Konjice	SI-114	SI-114:8	slovenske konjice, slovenske konjice, slovenia
+addr-city-6da09531b620	unscored		ba	country	43.916	17.954	0							Banja Luka, Republic of Srpska, Bosnia and Herzegovina, Banja Luka, Republic of Srpska, Bosnia and Herzegovina
+addr-city-6dc37bb692b5	unscored		nl	locality	52.339	4.784	1				Badhoevedorp	NL-NH	NL-NH:4	badhoevedorp, north holland, netherlands
+addr-city-6e5b524f7200	unscored		us	locality	44.543	-93.576	0			56071	New Prague	US-MN	US-MN:4	New Prague, Minnesota, United States, New Prague, Minnesota, United States
+addr-city-6f46b4f3617b	unscored		bg	locality	43.864	25.986	1			7003	Ruse	BG-18	BG-18:4	traction
+addr-city-6fa1c207b379	unscored		us	locality	38.919	-77.026	0				Washington	US-DC	US-DC:4	Washington DC, United States, Washington DC, United States
+addr-city-7137fd01ee75	unscored			none			0							hung nhan commune, hai phong city, vietnam
+addr-city-724d73774a71	unscored			none			0							fraser valley c, british columbia, canada
+addr-city-7307ab4b96be	unscored		tn	locality	36.799	10.172	1			2008	Tunis	TN-11	TN-11:4	Tunis, Tunis, Tunisia, Tunisia
+addr-city-730be0d16081	unscored		in	locality	28.016	73.317	1			334001	Bikaner	IN-RJ	IN-RJ:4	Bikaner, Rajasthan, India, India
+addr-city-735094a8f3b9	unscored		in	locality	25.691	85.209	0			844101	Hajipur	IN-BR	IN-BR:4	Hajipur, Bihar, India, Hajipur, Bihar, India
+addr-city-746884d319c1	unscored		it	locality	41.893	12.483	0				Rome	IT-62,IT-RM	IT-62:4,IT-RM:6	Roma, Italy, Roma, Italy
+addr-city-749a74aa3af4	unscored		gb	region	52.795	-0.540	0					GB-ENG	GB-ENG:4	Durham, England, United Kingdom, Durham, England, United Kingdom
+addr-city-75d078067fe8	unscored			none			0							Global, South Africa, Global, South Africa
+addr-city-75ecf4ef15d4	unscored		de	locality	49.409	8.695	0				Heidelberg	DE-BW	DE-BW:4	Heidelberg, Germany, Heidelberg, Germany
+addr-city-764fd70a06ce	unscored			none			0							New York City, New York, United States, New York City, New York, United States
+addr-city-774e528477ab	unscored			none			0							Mérida, Mérida, Venezuela, Venezuela, Bolivarian Republic of
+addr-city-7ada13616315	unscored		it	locality	44.407	8.934	0				Genoa	IT-42,IT-GE	IT-42:4,IT-GE:6	Genova, Italy, Genova, Genova, Italy
+addr-city-7bf11619fda0	unscored		us	locality	32.671	-115.493	0			92231	Calexico	US-CA	US-CA:4	store: 0421 gran plaza outlets calexico,ca
+addr-city-7c14e9de5803	unscored		nz	locality	-39.642	176.843	1			4122	Hastings	NZ-HKB	NZ-HKB:4	hastings, hawke's bay, new zealand
+addr-city-7ec7e5ed3b8e	unscored			none			0							Abingdon on Thames Civil Parish, Oxfordshire, United Kingdom, United Kingdom
+addr-city-7fa31565952b	unscored		jp	locality	34.666	135.432	0				Osaka	JP-27	JP-27:4	Ōsaka, Osaka, Japan, Japan
+addr-city-8076daaad332	unscored		ug	locality	0.361	32.746	0				Mukono	UG-108,UG-C	UG-108:4,UG-C:3	Mukono, Uganda, Mukono, Mukono, Uganda
+addr-city-809251749f21	unscored			none			0							Örnsköldsvik, Vasternorrland, Sweden, Sweden
+addr-city-80edbcc2b7d0	unscored		pl	locality	50.062	19.937	1				Krakow	PL-12	PL-12:4	Kraków, Małopolskie, Poland, Poland
+addr-city-8100aea8c222	unscored		gb	locality	51.381	-2.360	0				Bath	GB-BAS,GB-ENG	GB-BAS:6,GB-ENG:4	Bath, Somerset, United Kingdom, Bath, Somerset, United Kingdom
+addr-city-822ab1a88248	unscored		tr	locality	39.921	32.854	1			06420	Ankara	TR-06	TR-06:4	Ankara, Ankara, Turkey, Türkiye
+addr-city-8257c62ea034	unscored			none			0							qatif, eastern, saudi arabia
+addr-city-83371a32100b	unscored		fr	locality	47.638	-0.661	0			49220	Thorigné-d'Anjou	FR-49,FR-PDL	FR-49:6,FR-PDL:4	Thorigné-d'Anjou, Maine-et-Loire, France, Thorigné-d'Anjou, Maine-et-Loire, France
+addr-city-83b368f870e7	unscored		us	locality	33.352	-93.296	1				Waldo	US-AR	US-AR:4	waldo, ar
+addr-city-869af55f5c1c	unscored		it	locality	39.007	9.002	1			09050	Pula	IT-88,IT-CA	IT-88:4,IT-CA:6	Pula, Istarska, Croatia, Croatia
+addr-city-872f28c3c518	unscored		fr	locality	46.881	-0.017	1			86330	Moncontour	FR-86,FR-NAQ	FR-86:6,FR-NAQ:4	moncontour, nouvelle-aquitaine, france
+addr-city-88b2813d9113	unscored		bd	locality	23.870	90.000	0			1800	Manikganj	BD-33,BD-C	BD-33:5,BD-C:4	Manikganj, Bangladesh, Manikganj, Bangladesh
+addr-city-8ad3be998a38	unscored			none			0							harku, harjumaa, estonia
+addr-city-8b4ea830ea2c	unscored		br	locality	-25.422	-52.838	1				Espigão Alto do Iguaçu	BR-PR	BR-PR:4	espigão alto do iguaçu, paraná, brazil
+addr-city-8b8ecc3f77b0	unscored		us	locality	43.097	-93.802	1				Britt	US-IA	US-IA:4	britt, iowa
+addr-city-8de7ba565112	unscored			none			0							Dardanup West, Western Australia, Australia, Dardanup West, Western Australia, Australia
+addr-city-8e0ff620fe4f	unscored			none			0							Malta, Malta
+addr-city-8e15d29db632	unscored			none			0							durah, queensland, australia
+addr-city-8ea33d2e2994	unscored		nl	locality	52.335	4.984	1				Diemen	NL-NH	NL-NH:4	Diemen, North Holland, Netherlands, Diemen, North Holland, Netherlands
+addr-city-915e1bf8ac7c	unscored		in	street	13.204	80.321	1		Chennai - Ennore Expressway Road	600057	Chennai	IN-TN	IN-TN:4	Chennai, India, Chennai, India
+addr-city-92450bb7695f	unscored		co	locality	4.580	-75.095	1				Anzoátegui	CO-TOL	CO-TOL:4	Lisboa, Lisboa, Portugal, Portugal
+addr-city-92a2cce26b72	unscored		my	street	4.761	115.006	1		Lorong Kedai 1 Malaysia	98708	Kampung Pemukat	MY-13	MY-13:4	Sarawak, Malaysia, Sarawak, Malaysia
+addr-city-92bf0802263a	unscored		dk	locality	55.687	12.570	1			1357	Copenhagen	DK-84	DK-84:4	Copenhagen, Capital, Denmark, Denmark
+addr-city-930afd3b8a8f	unscored			none			0							Palma de Mallorca, Balearic Islands, Spain, Palma de Mallorca, Balearic Islands, Spain
+addr-city-93374626568a	unscored			none			0							Santiago, Metropolitana, Chile, Santiago, Metropolitana, Chile
+addr-city-937afe62f570	unscored		fr	locality	43.701	7.268	1				Nice	FR-06,FR-PAC	FR-06:6,FR-PAC:4	Nice, Alpes-Maritimes, France, Nice, Alpes-Maritimes, France
+addr-city-93d15ff876bf	unscored			none			0							Mels, Saint Gallen, Switzerland, Mels, Saint Gallen, Switzerland
+addr-city-9643dcc10897	unscored		au	locality	-34.853	138.521	1			5013	City of Port Adelaide Enfield	AU-SA	AU-SA:4	rosewater, south australia, australia
+addr-city-96883038534d	unscored		it	locality	45.540	10.220	1			25121-25136	Brescia	IT-25,IT-BS	IT-25:4,IT-BS:6	Brescia, Italy, Italy
+addr-city-96aee8cc46e2	unscored		ro	locality	46.627	25.683	0			537356	Izvoru Mureșului	RO-HR	RO-HR:4	Izvoru Muresului, Romania, Izvoru Muresului, Romania
+addr-city-97e4fb458049	unscored			none			0							České Budějovice, Jihočeský, Czech Republic, Czechia
+addr-city-995fd0462ade	unscored			none			0							Guatemala, Guatemala
+addr-city-99c72fa8e974	unscored		gb	locality	52.953	-1.150	0				Nottingham	GB-ENG,GB-NTT	GB-ENG:4,GB-NTT:6	Nottingham, United Kingdom, Nottingham, United Kingdom
+addr-city-9aea1b04771c	unscored		us	locality	41.993	-70.050	1				Truro	US-MA	US-MA:4	Truro, Cornwall, United Kingdom, United Kingdom
+addr-city-9af80baa61ab	unscored		in	locality	26.869	80.788	1			226101	Kakori	IN-UP	IN-UP:4	Kakori, Uttar Pradesh, India, India
+addr-city-9b071c2537e8	unscored			none			0							ولاية سطيف, Sétif, Algeria, Algeria
+addr-city-9b13cde0d436	unscored		pe	locality	-12.046	-77.031	1				Lima	PE-LIM,PE-LMA	PE-LIM:4,PE-LMA:6	Lima, Lima, Peru, Peru
+addr-city-9b498b5e0510	unscored		us	locality	42.443	-91.006	0			52046	Farley	US-IA	US-IA:4	farley, ky
+addr-city-9c048d787cc8	unscored		pl	locality	51.747	18.080	1			62-800	Kalisz	PL-30	PL-30:4	Kalisz, Wielkopolskie, Poland, Kalisz, Wielkopolskie, Poland
+addr-city-9ce1dee3a713	unscored		fi	locality	62.791	22.840	0				Seinäjoki	FI-03	FI-03:4	jyväskylä, oulu, seinäjoki
+addr-city-9e2f7253fbc5	unscored		jp	locality	32.265	130.657	1			869-6401	Kuma	JP-43	JP-43:4	kuma, kumamoto, japan
+addr-city-9f3e896fe725	unscored			none			0							ambala city, haryana, india
+addr-city-9f4f17e1515c	unscored		in	locality	9.969	76.248	0				Kochi	IN-KL	IN-KL:4	Kochi, Kerala, India, India
+addr-city-9f5691d610d9	unscored		at	locality	48.208	16.372	1				Vienna	AT-9	AT-9:4	Vienna, Austria
+addr-city-a02ecce68eda	unscored			none			0							singapore river, central singapore community development council, singapore
+addr-city-a0bd96277c23	unscored		us	locality	25.774	-80.194	0				Miami	US-FL	US-FL:4	Miami, United States, Miami, United States
+addr-city-a10ded568233	unscored			none			0							Wemmel, Vlaams-Brabant, Belgium, Wemmel, Vlaams-Brabant, Belgium
+addr-city-a127b6bb2983	unscored		ca	locality	47.513	-79.676	0				Temiskaming Shores	CA-ON	CA-ON:4	Temiskaming Shores, Ontario, Canada, Temiskaming Shores, Ontario, Canada
+addr-city-a17a52819708	unscored		us	locality	42.667	-71.705	0				Townsend	US-MA	US-MA:4	townsend, ga
+addr-city-a256fb16896e	unscored		ca	locality	45.421	-75.690	0				Ottawa	CA-ON	CA-ON:4	Ottawa, Canada, Ottawa, Canada
+addr-city-a286e47c13f1	unscored			none			0							parchim, mecklenburg-west pomerania, germany
+addr-city-a310a2d4efb1	unscored		it	locality	42.231	14.391	0			66034	Lanciano	IT-65,IT-CH	IT-65:4,IT-CH:6	Lanciano, Chieti, Italy, Lanciano, Chieti, Italy
+addr-city-a4a21a18982b	unscored		us	locality	40.762	-73.329	1			11729	Deer Park	US-NY	US-NY:4	Deer Park, New York, United States, United States
+addr-city-a5091b4a5a73	unscored		cn	locality	29.309	120.070	0				Yiwu	CN-ZJ	CN-ZJ:4	Yiwu, Zhejiang, China, Yiwu, Zhejiang, China
+addr-city-a82a05be0757	unscored		de	locality	48.627	9.337	0			72622	Nürtingen	DE-BW	DE-BW:4	Nürtingen, Baden-Württemberg, Germany, Nürtingen, Baden-Württemberg, Germany
+addr-city-a8a916cc0f39	unscored		co	locality	4.536	-75.672	0				Armenia	CO-QUI	CO-QUI:4	Armenia, Colombia, Armenia, Colombia
+addr-city-a94b0b90c634	unscored		kr	locality	35.871	128.602	1				Daegu	KR-27	KR-27:4	daegu
+addr-city-a9e0c506bd97	unscored		ch	locality	46.216	6.033	0			1242	Satigny	CH-GE	CH-GE:4	Satigny, Geneva, Switzerland, Satigny, Geneva, Switzerland
+addr-city-aa056182794e	unscored			none			0							Uruguay, Entre Rios, Argentina, Argentina
+addr-city-aa92cff6c007	unscored		se	locality	59.611	16.546	1			721 01	Västerås	SE-U	SE-U:4	Västerås, Sweden
+addr-city-ac2480fe25d3	unscored		es	locality	42.212	-2.235	0			26589	Arnedillo	ES-RI	ES-RI:4	Arnedillo, La Rioja, Spain, Arnedillo, La Rioja, Spain
+addr-city-adb25d47c601	unscored		id	locality	-3.992	122.518	0				Kendari	ID-SG,ID-SL	ID-SG:4,ID-SL:3	kendari, south east sulawesi, indonesia
+addr-city-addfc45db23d	unscored			none			0							New Taipei City, Taiwan, Taiwan, Province of China
+addr-city-af07c741b376	unscored		ie	locality	53.349	-6.261	0				Dublin	IE-D,IE-L	IE-D:6,IE-L:5	Dublin, Ireland, Dublin, Dublin, Ireland
+addr-city-afb20e508a0b	unscored		br	locality	-27.597	-48.550	1				Florianópolis	BR-SC	BR-SC:4	Florianópolis, Santa Catarina, Brazil, Brazil
+addr-city-b134fb84f54b	unscored		us	locality	44.801	-122.795	0			97383	Stayton	US-OR	US-OR:4	Stayton, Oregon, United States, Stayton, Oregon, United States
+addr-city-b159ff7cdb28	unscored		lu	locality	49.479	6.085	0				Dudelange	LU-ES	LU-ES:6	luxembourg city, esch-sur-alzette, dudelange
+addr-city-b1c3e8f2a68c	unscored		de	house	52.457	13.579	0	4-14	Parrisiusstraße	12555	Berlin	DE-BE	DE-BE:4	Berlin, Germany, Berlin, Berlin, Germany
+addr-city-b2da0ac43ee8	unscored		bo	locality	-10.997	-66.075	1				Riberalta	BO-B	BO-B:4	riberalta, beni, bolivia
+addr-city-b50ec067d126	unscored		gb	locality	51.507	-0.128	1				Greater London	GB-ENG	GB-ENG:4	Bromley,  London, United Kingdom, United Kingdom
+addr-city-b51a2fd1996f	unscored		co	locality	4.135	-73.620	0				Villavicencio	CO-MET	CO-MET:4	Villavicencio, Colombia, Villavicencio, Colombia
+addr-city-b52fff6906b9	unscored		de	locality	50.877	12.083	0				Gera	DE-TH	DE-TH:4	Gera, Thuringia, Germany, Gera, Thuringia, Germany
+addr-city-b5e60b624ee1	unscored		us	locality	39.643	-84.287	1			45342	Miamisburg	US-OH	US-OH:4	Miamisburg, Ohio, United States, United States
+addr-city-b689f2ded888	unscored		ch	locality	46.948	7.452	1				Bern	CH-BE	CH-BE:4	 bern,  bern
+addr-city-b735453f71d8	unscored		it	locality	41.032	16.988	1			70016	Noicattaro	IT-75,IT-BA	IT-75:4,IT-BA:6	noicattaro, apulia, italy
+addr-city-b7e925bb6435	unscored			none			0							sana'a governorate, yemen
+addr-city-b8793f73dd23	unscored		tz	locality	-8.952	33.244	1				Songwe	TZ-14	TZ-14:4	songwe
+addr-city-b90dec639fdc	unscored		fr	locality	43.762	7.218	0			06670	Colomars	FR-06,FR-PAC	FR-06:6,FR-PAC:4	petit forestier location nice colomars
+addr-city-b95cb7013de4	unscored		sa	locality	26.437	50.104	1			32242	Dammam	SA-04	SA-04:4	Dammam, Eastern Province, Saudi Arabia, Saudi Arabia
+addr-city-b974f18e5cee	unscored		br	locality	-25.530	-54.583	0				Foz do Iguaçu	BR-PR	BR-PR:4	Foz do Iguaçu, Parana, Brazil, Foz do Iguaçu, Parana, Brazil
+addr-city-b9df6c227c79	unscored		in	locality	23.793	87.167	1			731125	Barra	IN-WB	IN-WB:4	Barra, West Bengal, India, India
+addr-city-ba4e16b3e5ea	unscored		in	locality	18.024	77.310	0			585413	Ahmadabad	IN-KA	IN-KA:4	Ahmadabad, India, Ahmadabad, India
+addr-city-badc9ff89b8a	unscored		br	locality	-8.121	-35.294	1				Vitória de Santo Antão	BR-PE	BR-PE:4	Vitória de Santo Antão, Pernambuco, Brazil, Brazil
+addr-city-bbcf45837f98	unscored			none			0							Fort Lee, Virginia, United States, United States
+addr-city-bc063c92d955	unscored		lv	locality	56.948	24.108	0				Riga	LV-RIX	LV-RIX:5	Rīga, Riga, Latvia, Rīga, Riga, Latvia
+addr-city-be6bfbfb212a	unscored			none			0							Bangor, Newry, Mourne and Down, United Kingdom, Bangor, Newry, Mourne and Down, United Kingdom
+addr-city-beaa7d60ec8c	unscored		ca	locality	44.807	-63.683	1				Beaver Bank	CA-NS	CA-NS:4	Beaver Bank, Nova Scotia, Canada, Canada
+addr-city-bee39fb4aa70	unscored		co	street	4.806	-75.822	1		Vía Pereira Cerritos	660007	AMCO, Area Metropolitana Centro Occidente	CO-RIS	CO-RIS:4	Pereira, Colombia, Pereira, Colombia
+addr-city-bf5d311925f8	unscored		it	locality	43.493	13.082	0			60031	Castelplanio	IT-57,IT-AN	IT-57:4,IT-AN:6	Castelplanio, Ancona, Italy, Castelplanio, Ancona, Italy
+addr-city-bfb1a5c0bfb0	unscored		us	locality	33.754	-84.390	0				Atlanta	US-GA	US-GA:4	Atlanta, GA, United States, Atlanta, GA, United States
+addr-city-bff41d18d3df	unscored			none			0							Bucharest, Bucureşti, Romania, Bucharest, Bucureşti, Romania
+addr-city-c0843d43d21f	unscored		nl	locality	52.592	6.096	0				Hasselt	NL-OV	NL-OV:4	hasselt, limburg, netherlands
+addr-city-c274269ef2fd	unscored		fr	locality	48.607	-0.308	1			61600	Beauvain	FR-61,FR-NOR	FR-61:6,FR-NOR:4	beauvain, normandy, france
+addr-city-c2a98af3481d	unscored		us	locality	39.342	-78.756	0			26757	Romney	US-WV	US-WV:4	Romney, West Virginia, United States, Romney, West Virginia, United States
+addr-city-c3445051ee68	unscored		cn	locality	22.279	114.163	1				Hong Kong	CN-HK	CN-HK:3	uk, hong kong, australia, ireland
+addr-city-c35d0195db53	unscored		es	house	40.406	-3.577	0	16		28052	Madrid	ES-MD	ES-MD:4	Madrid, Spain, Spain
+addr-city-c4c4c03e8ed2	unscored		bo	locality	-16.755	-63.551	0				Municipio San Pedro	BO-S	BO-S:4	La Paz, Bolivia, Murillo, La Paz, Bolivia, Murillo, Bolivia
+addr-city-c4edfddf692e	unscored			none			0							Kinshasa, Kinshasa City, Democratic Republic of the Congo, Congo, The Democratic Republic of the
+addr-city-c5ae91504e09	unscored		do	locality	18.471	-69.892	1			03201	Santo Domingo	DO-01	DO-01:4	Santo Domingo, Distrito Nacional, Dominican Republic, Dominican Republic
+addr-city-c60878ae4cfe	unscored		ca	locality	43.952	-77.349	1			K0K 3L0	Wellington	CA-ON	CA-ON:4	wellington, prince edward county
+addr-city-c7e0684b81c3	unscored		us	locality	36.073	-79.792	1				Greensboro	US-NC	US-NC:4	Greensboro, North Carolina, United States, United States
+addr-city-c84841fe46a8	unscored		co	locality	4.653	-74.084	0				Bogota	CO-DC	CO-DC:4	Bogotá, Colombia, Bogotá, Colombia
+addr-city-c8ddcdab4c35	unscored		de	locality	49.558	9.719	1			97922	Lauda-Königshofen	DE-BW	DE-BW:4	lauda-königshofen, baden-württemberg
+addr-city-ca088eae7d63	unscored		in	locality	23.022	72.580	0			380001	Ahmedabad	IN-GJ	IN-GJ:4	home town, ahmedabad, gujarat
+addr-city-cb2e955427a0	unscored		se	locality	59.325	18.071	0			111 29	Stockholm	SE-AB	SE-AB:4	Stockholm, Sweden, Stockholm, Sweden
+addr-city-cd5a40955c58	unscored		us	locality	40.234	-111.659	0				Provo			Provo, Utah, United States, Provo, Utah, United States
+addr-city-cfa9af409a92	unscored			none			0							Leeds, Kirklees, United Kingdom, Leeds, Kirklees, United Kingdom
+addr-city-d160c034f760	unscored		al	locality	41.113	20.082	1				Elbasan	AL-03	AL-03:6	Elbasan, Elbasan, Albania, Albania
+addr-city-d3e059cae6fd	unscored		it	locality	43.486	13.482	0				Osimo	IT-57,IT-AN	IT-57:4,IT-AN:6	Osimo, Ancona, Italy, Italy
+addr-city-d45f6bea4164	unscored		es	locality	39.570	2.650	0				Palma de Mallorca	ES-IB,ES-PM	ES-IB:4,ES-PM:6	Palma de Mallorca, Spain, Palma de Mallorca, Spain
+addr-city-d4ed3b638589	unscored			none			0							Amman, Jordan, Amman, Amman, Jordan
+addr-city-d504a339ed56	unscored		au	locality	-34.913	149.432	1			2581	Collector	AU-NSW	AU-NSW:4	collector, new south wales, australia
+addr-city-d529f2d4dae1	unscored		nl	locality	52.091	5.122	1				Utrecht	NL-UT	NL-UT:4	Utrecht, Netherlands, Utrecht, Utrecht, Netherlands
+addr-city-d54d8bc63ceb	unscored			none			0							brazil, mexico, colombia, argentina
+addr-city-d6e843bb08ae	unscored		br	locality	-10.916	-37.077	0				Aracaju	BR-SE	BR-SE:4	Aracaju, Sergipe, Brazil, Aracaju, Sergipe, Brazil
+addr-city-d95fd287c84f	unscored		pk	locality	34.144	73.213	1			22010	Abbottabad	PK-KP	PK-KP:4	Abbottabad, Khyber Pakhtunkhwa, Pakistan, Pakistan
+addr-city-dc4eabdb3661	unscored		ph	locality	14.839	120.284	1			2200	Olongapo	PH-03	PH-03:3	Olongapo, Philippines, Philippines
+addr-city-dc584a75d5ca	unscored		ir	locality	29.606	52.538	0				Shiraz	IR-07	IR-07:4	Shiraz, Fars, Iran, Shiraz, Fars, Iran
+addr-city-dce953604e46	unscored		es	locality	40.417	-3.704	0				Madrid	ES-MD	ES-MD:4	Madrid, Spain, Madrid, Spain
+addr-city-ddd154e59b35	unscored		in	locality	22.006	81.233	1			491995	Kawardha	IN-CG	IN-CG:4	kawardha, chhattisgarh, india
+addr-city-df727f7bf6ca	unscored			none			0							Tarija, Bolivia, Cercado, Tarija, Bolivia, Cercado, Bolivia
+addr-city-dfb44f334255	unscored			none			0							TST, Hong Kong, TST, Hong Kong
+addr-city-e28a91f00f40	unscored			none			0							Antananarivo, Analamanga, Madagascar, Madagascar
+addr-city-e2b86602ec49	unscored		mx	locality	29.095	-110.969	0			83140	Hermosillo	MX-SON	MX-SON:4	Hermosillo, Sonora, Mexico, Mexico
+addr-city-e34ed87facf3	unscored		vn	locality	21.480	107.020	1				Thái Bình	VN-09	VN-09:4	Thái Bình, Vietnam, Viet Nam
+addr-city-e38f62316679	unscored		us	locality	33.521	-86.802	1				Birmingham	US-AL	US-AL:4	Birmingham, Birmingham, United Kingdom, United Kingdom
+addr-city-e3cea9cb9e63	unscored		us	locality	42.881	-88.207	0			53103	Big Bend	US-WI	US-WI:4	big bend, co
+addr-city-e59ef7d1920f	unscored		ca	locality	53.801	-113.651	1				Morinville	CA-AB	CA-AB:4	morinville , ab
+addr-city-e5be57c36b2a	unscored			none			0							Medina, Al Madinah, Saudi Arabia, Saudi Arabia
+addr-city-e622fdf3930f	unscored		us	locality	33.327	-84.636	1			30289	Turin	US-GA	US-GA:4	Turin, Italy, Italy
+addr-city-e72da1eed305	unscored			none			0							Northampton, West Northamptonshire, United Kingdom, Northampton, West Northamptonshire, United Kingdom
+addr-city-e7547c702a23	unscored			none			0							Bangalore, Karnataka, India, India
+addr-city-e8acf09a7b97	unscored		in	locality	26.607	76.728	0				CITY	IN-RJ	IN-RJ:4	city, mo
+addr-city-e8dc8ac0e0e5	unscored		us	locality	42.319	-85.182	1				Battle Creek	US-MI	US-MI:4	battle creek,michigan
+addr-city-e95c356d8f7a	unscored		pt	locality	38.165	-7.893	1				Cuba	PT-02	PT-02:6	Havana, Ciudad De La Habana, Cuba, Cuba
+addr-city-ea391fa01e88	unscored		in	locality	25.876	86.593	1			852200	Saharsa	IN-BR	IN-BR:4	saharsa, bihar
+addr-city-ecbee139884d	unscored		tr	locality	38.419	27.128	0			35250	İzmir	TR-35	TR-35:4	İzmir, Izmir, Türkiye, İzmir, Izmir, Türkiye
+addr-city-ecd64e8448ec	unscored		bj	locality	6.730	2.035	0				Bopa	BJ-MO	BJ-MO:4	cote d' ivoire, ghana, togo, benin
+addr-city-ecef6e3fea87	unscored			none			0							Phra Nakhon Si Ayutthaya, Phra Nakhon Si Ayutthaya, Thailand, Thailand
+addr-city-ed38fc702c24	unscored		br	locality	-22.911	-43.209	0				Rio de Janeiro	BR-RJ	BR-RJ:4	Rio de Janeiro, Rio De Janeiro, Brazil, Rio de Janeiro, Rio De Janeiro, Brazil
+addr-city-edfbdf04aca7	unscored		au	locality	-35.336	149.149	1			2604	Narrabundah	AU-ACT	AU-ACT:4	narrabundah, australian capital territory, australia
+addr-city-ee766c318dc0	unscored		fr	locality	46.783	4.853	1			71100	Chalon-sur-Saône	FR-71,FR-BFC	FR-71:6,FR-BFC:4	Chalon-sur-Saône, Saône-et-Loire, France, Chalon-sur-Saône, Saône-et-Loire, France
+addr-city-ef3782f822c0	unscored		jp	locality	34.341	136.820	1				Shima	JP-24	JP-24:4	shima, mie, japan
+addr-city-ef7cffded570	unscored		ke	locality	-0.713	37.036	1			10202	Karuri	KE-29	KE-29:4	Karuri, Central, Kenya, Kenya
+addr-city-ef90571fb9c9	unscored		us	locality	30.189	-82.639	1			32056	Lake City	US-FL	US-FL:4	Amsterdam & Salt Lake City, Netherlands, Amsterdam & Salt Lake City, Netherlands
+addr-city-f1748b03bd8d	unscored		it	locality	37.502	15.087	0				Catania	IT-82,IT-CT	IT-82:4,IT-CT:6	Catania, Italy, Italy
+addr-city-f1cd5b5e827e	unscored		us	locality	36.020	-86.578	0				La Vergne	US-TN	US-TN:4	iti la vergne tn
+addr-city-f1ed2d4c7147	unscored		pl	locality	50.119	19.855	0				Modlniczka	PL-12	PL-12:4	Modlniczka, Małopolskie, Poland, Modlniczka, Małopolskie, Poland
+addr-city-f2b2fff44973	unscored			none			0							la eliana, valencian community, spain
+addr-city-f37dac5c246c	unscored		gb	locality	51.639	-0.472	0			WD3 1QZ	Three Rivers	GB-ENG,GB-HRT	GB-ENG:4,GB-HRT:6	Rickmansworth, United Kingdom, Rickmansworth, United Kingdom
+addr-city-f489dd1984bf	unscored			none			0							Spain, Spain
+addr-city-f4bd719fbb5a	unscored		nl	locality	53.201	5.792	1				Leeuwarden	NL-FR	NL-FR:4	Leeuwarden, Netherlands, Leeuwarden, Netherlands
+addr-city-f669219516e8	unscored		tr	locality	38.955	30.347	1				Afyonkarahisar	TR-03	TR-03:4	Anitkaya, Afyonkarahisar, Turkey, Türkiye
+addr-city-f757f29d516a	unscored		in	locality	22.305	70.803	1			360001	Rajkot	IN-GJ	IN-GJ:4	Rajkot, Gujarat, India, India
+addr-city-f8b5b23444d9	unscored		gb	locality	50.821	-0.140	0			BN1 1HH	Brighton	GB-BNH,GB-ENG	GB-BNH:6,GB-ENG:4	brighton, east sussex, uk
+addr-city-f9f20e93c2d0	unscored		cn	locality	22.253	114.191	1			999077	Hong Kong			Hong Kong, HK, Hong Kong, HK, Hong Kong
+addr-city-fad0304d5263	unscored		fr	locality	48.935	2.426	0			93350	Le Bourget	FR-93,FR-IDF	FR-93:6,FR-IDF:4	france le bourget aml
+addr-city-fb0e536969d9	unscored		co	street	11.017	-74.853	1		Vía al Mar	081007	Barranquilla	CO-ATL	CO-ATL:4	Barranquilla, Colombia, Barranquilla, Colombia
+addr-city-fe4cea827b23	unscored			none			0							Corrientes, Argentina, Argentina
+addr-city-ff489ddaa813	unscored		co	country	4.217	-72.771	0							Business Related, Colombia, Business Related, Colombia
+addr-country-0b1001a02c97	unscored		au	country	-26.711	133.351	1							澳大利亚
+addr-country-143301433db0	unscored		in	country	21.776	79.070	1							indien
+addr-country-14a51d9b4395	unscored		sn	country	14.466	-14.758	1							Senegal, Senegal
+addr-country-19c8691aa787	unscored		sa	country	24.218	44.322	1							Saudi Arabia, Saudi Arabia
+addr-country-19e89519adee	unscored		zm	country	-13.175	25.455	1							zambie
+addr-country-1b599ec0dec9	unscored		be	country	50.524	4.855	1							Belgium, Belgium
+addr-country-262a33c9243e	unscored		dz	country	28.142	0.606	1							Algeria, Algeria
+addr-country-3f9e22b7156c	unscored		ae	country	24.378	53.635	1							United Arab Emirates, United Arab Emirates
+addr-country-438b72b78a78	unscored		kr	country	35.772	127.797	0							South Korea, Korea, Republic of
+addr-country-48e0ca36763e	unscored		ru	country	61.331	93.208	1							Russia, Russian Federation
+addr-country-4e6ccc537bd2	unscored		si	country	46.149	14.626	1							Slovenia, Slovenia
+addr-country-51ac985635f8	unscored		za	country	-28.579	24.087	1							South Africa, South Africa
+addr-country-5d2446aafbf8	unscored		fi	country	64.770	26.990	1							Finland, Finland
+addr-country-5eb0d6680cd3	unscored		nl	country	52.248	5.541	1							Netherlands, Netherlands
+addr-country-62414696e3ce	unscored			none			0							adtaxi mng
+addr-country-63e7bc784676	unscored		ba	country	43.916	17.954	1							Bosnia and Herzegovina, Bosnia and Herzegovina
+addr-country-79e1293cb7be	unscored		se	country	62.107	15.189	1							Sweden, Sweden
+addr-country-86607077a197	unscored		ph	country	13.348	122.340	1							Philippines, Philippines
+addr-country-8850d3f026ae	unscored		fr	country	46.819	1.875	1							frankreich
+addr-country-8a07b97c1ea2	unscored		mz	country	-18.623	34.814	1							Mozambique, Mozambique
+addr-country-a1c1a1859a96	unscored		lv	country	56.880	24.186	1							Latvia, Latvia
+addr-country-a30e7d3ebca5	unscored		hr	country	44.366	15.135	1							Croatia, Croatia
+addr-country-a841e32bb43b	unscored		lk	country	7.878	80.704	1							Sri Lanka, Sri Lanka
+addr-country-ac8c3ef666c9	unscored		jp	country	43.434	142.952	1							Japan, Japan
+addr-country-adb5078cced2	unscored		np	country	28.396	83.096	1							Nepal, Nepal
+addr-country-bf04adf69f84	unscored		tr	street	37.843	32.484	1		Kazakistan Caddesi	42040	Meram	TR-42	TR-42:4	türkiye, kazakistan
+addr-country-ccdae8456de1	unscored		zm	country	-13.175	25.455	1							Zambia, Zambia
+addr-country-d15872658e3b	unscored		iq	country	33.220	42.514	1							Iraq, Iraq
+addr-country-d1b579aa2fe8	unscored		sr	country	4.023	-56.180	1							Suriname, Suriname
+addr-country-d32c3ffb22ed	unscored		de	country	51.185	10.591	1							Germany, Germany
+addr-country-d408cf2698f4	unscored		sk	country	48.673	19.636	1							Slovakia, Slovakia
+addr-country-dda663e18f3b	unscored		tr	country	39.052	35.453	1							Turkey, Türkiye
+addr-country-e4937327bc76	unscored		mw	country	-13.247	33.776	1							Malawi, Malawi
+addr-country-e4bec22b1efd	unscored		cm	country	7.367	13.628	1							Cameroon, Cameroon
+addr-country-e5e94ccf6fa4	unscored		uz	country	41.386	63.389	1							Uzbekistan, Uzbekistan
+addr-country-ea319ebfaeaa	unscored		au	street	-26.605	152.991	1		Upper NZ	4560	Sunshine Coast Regional	AU-QLD	AU-QLD:4	nz, australia
+addr-country-f63e6f17aeea	unscored		do	country	19.281	-70.036	1							Dominican Republic, Dominican Republic
+addr-country-f904ab031163	unscored		kg	country	41.225	74.984	1							Kyrgyzstan, Kyrgyzstan
+addr-country-fb665e54f48b	unscored		th	country	13.039	100.803	1							Thailand, Thailand
+addr-country-fdcdb32047b2	unscored		ua	country	48.282	34.003	1							Ukraine, Ukraine
+addr-postcode-005f7eaf0a96	unscored		us	postcode	31.221	-85.467	0			36305	Dothan	US-AL	US-AL:4	dothan, al 36305
+addr-postcode-00f8975378b5	unscored		pk	postcode	24.930	67.071	1			75950	Karachi Division	PK-SD	PK-SD:4	75950, Karachi, Sindh, Pakistan
+addr-postcode-053da98740ba	unscored		in	postcode	12.733	77.850	1			635109		IN-TN	IN-TN:4	635109, Hosur, IN-TN, India
+addr-postcode-09db4630f29c	unscored		ua	postcode	45.400	34.909	1			97212	Некрасовское сельское поселение			97212
+addr-postcode-0a62728844d1	unscored		au	postcode	-33.850	151.031	1			2144	Cumberland City Council	AU-NSW	AU-NSW:4	2144, Australia
+addr-postcode-0ec0ce9e7d4c	unscored		us	postcode	30.463	-90.104	0			70433	Covington	US-LA	US-LA:4	covington, la, united states 70433
+addr-postcode-1d2e19f1db87	unscored		us	postcode	45.075	-83.460	1			49707	Alpena	US-MI	US-MI:4	49707, Alpena, Michigan, United States
+addr-postcode-1f348f4e1ff1	unscored		es	postcode	38.171	-0.965	0			03315	Orihuela	ES-A,ES-VC	ES-A:6,ES-VC:4	03315 - macon county dialysis
+addr-postcode-203f22b86624	unscored		au	postcode	-34.991	138.534	1			5044	City of Marion	AU-SA	AU-SA:4	5044, Australia
+addr-postcode-2180d97367f0	unscored		us	postcode	47.674	-122.344	1			98103	Seattle	US-WA	US-WA:4	98103, United States
+addr-postcode-21988ba5ffe3	unscored		ch	postcode	47.549	9.297	0			8580	Amriswil	CH-TG	CH-TG:4	Blumen Iseli, 8580, Amriswil, Switzerland
+addr-postcode-29daa66cf8e9	unscored		au	postcode	-37.678	145.006	1			3074	City of Whittlesea	AU-VIC	AU-VIC:4	3074, Thomastown, Australia
+addr-postcode-3066254ed3ac	unscored		de	postcode	50.840	12.058	1			07549	Gera	DE-TH	DE-TH:4	07549, Gera, Germany
+addr-postcode-39eca1fc360c	unscored		be	postcode	51.217	5.290	1			3920	Lommel	BE-VLG,BE-VLI	BE-VLG:4,BE-VLI:6	3920, Lommel, Belgium
+addr-postcode-3a272a7e8290	unscored		us	postcode	43.588	-116.228	0			83705	Boise			83705, Boise, ID, United States
+addr-postcode-3b46f345fe5e	unscored		fr	postcode	42.747	2.220	0			11140	Sainte-Colombe-sur-Guette	FR-11,FR-OCC	FR-11:6,FR-OCC:4	11140 lincoln park women's, il-anf
+addr-postcode-3cef808886ae	unscored		es	postcode	40.474	-3.722	1			28035	Madrid	ES-MD	ES-MD:4	28035, Madrid, Madrid, Spain
+addr-postcode-3db816c250c9	unscored		us	postcode	34.320	-118.462	1			91342	Los Angeles	US-CA	US-CA:4	91342
+addr-postcode-3e50a8914d50	unscored		au	postcode	-33.752	150.892	1			2148	Blacktown City Council	AU-NSW	AU-NSW:4	2148, Australia
+addr-postcode-45cbf8bf9223	unscored		cr	postcode	9.983	-83.980	0			11102	San Rafael	CR-SJ	CR-SJ:4	11102 galleria at roseville, ca-anf
+addr-postcode-4dd2ffd03022	unscored		no	postcode	61.837	4.987	1			6727	Bremanger	NO-46	NO-46:4	6727, Bremanger, Vestland, Norway
+addr-postcode-4e0586789902	unscored		au	postcode	-26.400	153.094	1			4567	Noosa Shire	AU-QLD	AU-QLD:4	4567, Australia
+addr-postcode-5b3554b2f173	unscored		au	postcode	-33.909	151.199	1			2015	Council of the City of Sydney	AU-NSW	AU-NSW:4	2015, Australia
+addr-postcode-625f07d0bb3c	unscored		us	postcode	42.642	-82.948	0			48044	Macomb Township	US-MI	US-MI:4	macomb township, mi 48044
+addr-postcode-6968c272ffc4	unscored			none			0							4339, Verulam, Durban, South Africa
+addr-postcode-6eccbbd5ab83	unscored		sd	postcode	12.281	23.049	0			00097		SD-DC	SD-DC:4	00097 brickyard healthcare - golden rule
+addr-postcode-6f42b579dd05	unscored		in	postcode	12.977	77.627	1			560008	Bengaluru	IN-KA	IN-KA:4	560008, Bengaluru, Karnataka, India
+addr-postcode-748c3854ca11	unscored		ar	postcode	-38.046	-57.558	1			B7600	Mar del Plata	AR-B	AR-B:4	B7600, Mar del Plata, Buenos Aires, Argentina
+addr-postcode-7566402ae737	unscored		au	postcode	-33.764	150.623	1			2773	Glenbrook	AU-NSW	AU-NSW:4	2773, Australia
+addr-postcode-7626a2a8c03f	unscored		co	postcode	5.532	-73.361	1			150001		CO-BOY	CO-BOY:4	150001, TUNJA, Colombia
+addr-postcode-7e0937c5e7d9	unscored		us	postcode	26.120	-80.139	1			33301	Fort Lauderdale	US-FL	US-FL:4	33301, Fort Lauderdale, FL, United States
+addr-postcode-7e71d4531aa6	unscored		us	postcode	40.702	-73.943	1			11206	New York	US-NY	US-NY:4	11206, Brooklyn, New York, United States
+addr-postcode-80b461ba0064	unscored		gb	postcode	52.422	-1.856	1			B28 0BX	Birmingham	GB-BIR,GB-ENG	GB-BIR:8,GB-ENG:4	B28 0BX, BIRMINGHAM, United Kingdom
+addr-postcode-831bc30939a5	unscored		us	postcode	33.358	-86.818	1			35244	Hoover	US-AL	US-AL:4	35244, Hoover, AL, United States
+addr-postcode-8b40143644c3	unscored			none			0							A92 HX34, Drogheda, Leinster, Ireland
+addr-postcode-8c68adbab122	unscored		au	postcode	-32.684	151.387	1			2334	Cessnock City Council	AU-NSW	AU-NSW:4	2334, Australia
+addr-postcode-8db81d6ab60e	unscored		hr	postcode	44.098	16.217	1			22301	Grad Knin	HR-15	HR-15:4	22301
+addr-postcode-9131581df409	unscored			none			0							686691, Kuttampuzha, India
+addr-postcode-983a8bb52ba7	unscored		gb	postcode	53.759	-1.620	0			LS27 7TS	Leeds	GB-ENG,GB-LDS	GB-ENG:4,GB-LDS:8	ls27 7ts, leeds, west yorkshire, england, ls27 7ts, leeds, west yorkshire, england
+addr-postcode-a87eab0311be	unscored		au	postcode	-35.124	138.515	1			5162	Morphett Vale	AU-SA	AU-SA:4	5162, Australia
+addr-postcode-a98f79f58973	unscored		lt	postcode	55.063	25.188	1			19142	Juodiškiai	LT-47,LT-VL	LT-47:5,LT-VL:4	19142
+addr-postcode-ab362ca49758	unscored		us	locality	38.777	-77.275	1			22015	Burke	US-VA	US-VA:4	22015, Burke, Virginia, United States
+addr-postcode-abd698225110	unscored		za	locality	-26.096	28.234	1			1619	Kempton Park	ZA-GP	ZA-GP:4	1619, Kempton Park, Gauteng, South Africa
+addr-postcode-ac00a8c7befd	unscored			none			0							43123, Columbus, Ohio, United States
+addr-postcode-adf6ea97d950	unscored		es	postcode	42.210	-2.241	1			26589	Arnedillo	ES-RI	ES-RI:4	26589, Arnedillo, Spain
+addr-postcode-aeecbb0f1399	unscored		au	postcode	-34.844	138.502	1			5015	City of Port Adelaide Enfield	AU-SA	AU-SA:4	5015, Australia
+addr-postcode-b2090879f813	unscored		us	postcode	40.691	-73.928	1			11221	New York	US-NY	US-NY:4	11221, Brooklyn, NY, United States
+addr-postcode-b401c3bd477a	unscored		us	postcode	45.325	-94.305	1			55353	Kimball	US-MN	US-MN:4	55353, Kimball, Minnesota, United States
+addr-postcode-b4d94ba6cf7d	unscored		nz	postcode	-41.274	173.284	0			7010	Nelson	NZ-NSN	NZ-NSN:4	7010, NELSON, Nelson Region, New Zealand
+addr-postcode-b522d80b2bfd	unscored		us	postcode	42.014	-88.094	1			60193	Schaumburg	US-IL	US-IL:4	60193, Schaumburg, Illinois, United States
+addr-postcode-bc7b546b510a	unscored		fi	postcode	59.899	23.238	0			10820	Hanko	FI-18	FI-18:4	10820 - dumas store
+addr-postcode-c3d3b2cfbc6e	unscored			none			0							50522, Burt, United States
+addr-postcode-c5c48449fc04	unscored		au	postcode	-27.964	153.407	1			4215	Gold Coast City	AU-QLD	AU-QLD:4	4215, Australia
+addr-postcode-d0aa6cb7c046	unscored		au	postcode	-31.832	115.809	1			6024	City of Joondalup	AU-WA	AU-WA:4	6024, Australia
+addr-postcode-d52d858a95b4	unscored		au	postcode	-34.951	117.228	1			6333	Shire Of Denmark	AU-WA	AU-WA:4	6333, Australia
+addr-postcode-e2aab935a599	unscored		us	postcode	32.760	-97.484	1			76108	Fort Worth	US-TX	US-TX:4	76108, Fort Worth, Texas, United States
+addr-postcode-ef721646dcc5	unscored		au	postcode	-38.097	145.260	1			3977	City of Casey	AU-VIC	AU-VIC:4	3977, Australia
+addr-postcode-f071a2e0aba1	unscored		ee	postcode	59.448	24.689	0			10315	Tallinn	EE-37,EE-784	EE-37:6,EE-784:7	10315 - ingleside store
+addr-postcode-f154a5a07b85	unscored		de	postcode	48.144	11.581	1			80539	Munich	DE-BY	DE-BY:4	80539 münchen
+addr-postcode-f6285917de43	unscored			none			0							520013, vijayawada, andhrapradesh, India
+addr-region-00440907b2f8	unscored		hr	locality	45.834	16.047	0				City of Zagreb	HR-21	HR-21:4	Grad Zagreb, Croatia, Croatia
+addr-region-08119dd8e054	unscored		fr	region	44.815	4.399	1					FR-07,FR-ARA	FR-07:6,FR-ARA:4	ardèche
+addr-region-083c4cd5ba76	unscored		pt	locality	41.181	-8.682	1				Matosinhos	PT-13	PT-13:6	mts
+addr-region-0a96d00b1936	unscored		fr	region	45.086	3.834	1					FR-43,FR-ARA	FR-43:6,FR-ARA:4	haute loire
+addr-region-112726800ca9	unscored		gb	country	55.367	-3.961	0							Essex, United Kingdom, Essex, United Kingdom
+addr-region-130c0e31fa5a	unscored		ve	country	6.504	-65.456	0							Distrito Capital, Venezuela, Venezuela, Bolivarian Republic of
+addr-region-198005331bad	unscored		cn	locality	26.306	105.324	1				Liupanshui	CN-GZ	CN-GZ:4	liuzhi special district, guizhou, china
+addr-region-1b3ab0e3c226	unscored		ph	locality	10.360	125.576	1				Loreto	PH-13,PH-DIN	PH-13:3,PH-DIN:4	san juan islands
+addr-region-1bde65a52878	unscored		gb	locality	50.372	-3.816	1				South Hams	GB-DEV,GB-ENG	GB-DEV:6,GB-ENG:4	south hams
+addr-region-1c5547e4a882	unscored		cn	country	35.759	98.862	0							Taiwan, Taiwan, Province of China
+addr-region-1e2f6648b360	unscored		cd	country	-4.033	22.457	0							Orientale, Democratic Republic of the Congo, Congo, The Democratic Republic of the
+addr-region-238042f0d321	unscored		gb	region	52.667	1.000	1					GB-ENG,GB-NFK	GB-ENG:4,GB-NFK:6	norfolk, england
+addr-region-23c9aad8e4af	unscored		pt	locality	38.708	-9.137	0				Lisbon	PT-11	PT-11:6	Lisboa, Portugal, Lisboa, Portugal
+addr-region-2665c7707295	unscored		gb	country	55.367	-3.961	1							United Kingdom, United Kingdom
+addr-region-2bdf46be9edc	unscored		fr	region	47.660	1.297	1					FR-41,FR-CVL	FR-41:6,FR-CVL:4	loir et cher
+addr-region-2e0e14d13fcb	unscored		so	locality	2.041	45.335	0				Mogadishu	SO-BN	SO-BN:5	Banaadir, Somalia, Somalia
+addr-region-2f7b1104251c	unscored		au	region	-32.056	136.560	0					AU-SA	AU-SA:4	aus work-at-home south australia
+addr-region-34319356b939	unscored		gb	locality	51.620	-3.946	0			SA1 3BP	Swansea	GB-SWA,GB-WLS	GB-SWA:6,GB-WLS:4	Swansea, United Kingdom, Swansea, United Kingdom
+addr-region-35b395ec6f79	unscored			none			0							Forli'-Cesena, Italy, Forli'-Cesena, Italy
+addr-region-3751840c896e	unscored		nz	country	-40.959	174.157	0							Hawke's Bay , New Zealand, New Zealand
+addr-region-3a529010c880	unscored		ir	street	35.687	51.439	1		Iran Street	11577-34909	Tehran	IR-23	IR-23:4	Tehran, Iran, Tehran, Iran
+addr-region-3a8fa8ac753a	unscored		tw	country	23.695	120.528	0							ren'ai district, taiwan, taiwan
+addr-region-3d4c665eac54	unscored		ph	country	13.348	122.340	0							Benguet, Philippines, Philippines
+addr-region-3dbaa682768a	unscored		tr	region	36.918	28.257	1					TR-48	TR-48:4	Mugla, Turkey, Türkiye
+addr-region-3e8293c3e39d	unscored		in	region	24.415	83.064	1					IN-UP	IN-UP:4	sonbhadra
+addr-region-415d2cef04bb	unscored		tn	street	36.856	10.188	1		شارع الحبيب بورقيبة	2080	Ariana	TN-12	TN-12:4	Ariana, Tunisia, Tunisia
+addr-region-423caa40f1fa	unscored		us	locality	32.184	-96.885	1			76651	Italy	US-TX	US-TX:4	Genova, Italy, Genova, Italy
+addr-region-43ffbee24334	unscored		au	country	-26.711	133.351	1							Australia, Australia
+addr-region-4445a8dca1dc	unscored		mx	region	19.156	-101.668	1					MX-MIC	MX-MIC:4	michoacán, mexico
+addr-region-48c2691f87dc	unscored		ua	street	44.840	34.299	1		Юго-восточный обход Симферополя	297578	Добровское сельское поселение			симферополя
+addr-region-4ba5f47421aa	unscored		mm	region	20.803	94.542	1					MM-03	MM-03:4	Magway, Myanmar, Myanmar
+addr-region-4c183b9be925	unscored		in	street	20.498	77.879	1		Nh 6	444707	Ner	IN-MH	IN-MH:4	Maharashtra, India, India
+addr-region-4cd58a5ad4cf	unscored		fr	street	44.013	3.131	1		Impasse des Hauts de France	12230	La Cavalerie	FR-12,FR-OCC	FR-12:6,FR-OCC:4	hauts de france, occitanie
+addr-region-4dc56312cc1a	unscored		sa	country	24.218	44.322	0							Eastern Province, Saudi Arabia, Saudi Arabia
+addr-region-4e34d79f3e98	unscored		ch	region	46.562	6.517	1					CH-VD	CH-VD:4	Vaud, Switzerland, Switzerland
+addr-region-50c948cdd428	unscored		in	region	24.533	87.593	1					IN-JH	IN-JH:4	pakur, jharkhand
+addr-region-52b1c58bdfc3	unscored		fr	region	48.774	2.454	1					FR-94,FR-IDF	FR-94:6,FR-IDF:4	ile-de-france, val de marne
+addr-region-54aa603093b8	unscored		bd	region	22.510	90.007	1					BD-50,BD-A	BD-50:5,BD-A:4	pirojpur district
+addr-region-569b96c4f396	unscored		tr	region	39.719	32.496	1					TR-06	TR-06:4	ankara
+addr-region-5935d51786bb	unscored		gb	country	55.367	-3.961	0							Lancashire, United Kingdom, Lancashire, United Kingdom
+addr-region-5dc97e9928d1	unscored		fr	region	45.754	4.045	1					FR-42,FR-ARA	FR-42:6,FR-ARA:4	loire, auvergne-rhône-alpes, france
+addr-region-5e1ccebb819b	unscored		be	region	50.839	4.375	1					BE-BRU	BE-BRU:4	région bruxelles-capitale
+addr-region-5e505ae22465	unscored		my	country	4.319	101.751	1							Malaysia, Malaysia
+addr-region-614907020f4f	unscored		be	country	50.839	4.375	0					BE-BRU	BE-BRU:4	Brussels-Capital Region, Belgium, Brussels-Capital Region, Belgium
+addr-region-61953e63bc15	unscored		kh	locality	11.568	104.922	0				Phnom Penh	KH-12	KH-12:4	Phnom Penh, Cambodia, Phnom Penh, Cambodia
+addr-region-61f5850ecc58	unscored		br	region	-15.775	-47.779	1					BR-DF	BR-DF:4	Federal District, Brazil, Brazil
+addr-region-627031039adf	unscored		dk	locality	55.302	10.787	0				Nyborg	DK-83	DK-83:4	Southern, Denmark, Denmark
+addr-region-6d2153775282	unscored		fr	country	-20.454	164.557	1					FR-NC	FR-NC:3	New Caledonia, New Caledonia
+addr-region-6d977423894f	unscored		de	region	50.527	9.019	0					DE-HE	DE-HE:4	Hesse, Germany, Hesse, Germany
+addr-region-705080de16d3	unscored		gr	region	37.679	21.837	0							návplion, peloponnese, greece
+addr-region-7057e20355ef	unscored		ar	locality	-34.610	-58.389	0				Buenos Aires	AR-C	AR-C:4	Buenos Aires, Argentina, Buenos Aires, Argentina
+addr-region-7577d470e53f	unscored		cu	country	21.555	-80.116	1							Cuba, Cuba
+addr-region-7820d2dc82b2	unscored		se	locality	55.717	13.242	1				Lund	SE-M	SE-M:4	rügen
+addr-region-78ac2418f993	unscored		pe	country	-10.139	-76.272	0							nb, nl, ns, pe
+addr-region-78eea1b80d9d	unscored		hn	locality	14.445	-88.675	1				San Manuel Colohete	HN-LE	HN-LE:4	san manuel colohete, lempira, honduras
+addr-region-7b0a9edb3ab1	unscored		mx	region	19.804	-96.876	1					MX-VER	MX-VER:4	veracruz, mexico
+addr-region-8216acf4bf39	unscored		tr	locality	39.921	32.854	0			06420	Ankara	TR-06	TR-06:4	Ankara, Turkey, Ankara, Turkey
+addr-region-82a9c92045a4	unscored		in	region	24.415	88.084	0					IN-WB	IN-WB:4	West Bengal, India, West Bengal, India
+addr-region-85070e17f55f	unscored		ch	locality	47.374	8.541	0				Zurich	CH-ZH	CH-ZH:4	Zurich, Switzerland, Zurich, Switzerland
+addr-region-878540b268a6	unscored		my	street	1.703	103.890	1		Kota Tinggi Bypass		Kota Tinggi	MY-01	MY-01:4	Johor, Malaysia, Malaysia
+addr-region-87ad4bc696a4	unscored		ph	region	14.937	121.061	1					PH-03,PH-BUL	PH-03:3,PH-BUL:4	bulacan
+addr-region-88dc825076e3	unscored		ma	region	32.412	-6.294	1					MA-05	MA-05:4	Béni Mellal-Khénifra, Morocco, Morocco
+addr-region-89044d7c1baa	unscored		au	street	-35.274	149.273	1		Western Break	2620	Queanbeyan-Palerang Regional Council	AU-ACT	AU-ACT:4	western australia, new south wales
+addr-region-8b51441c4fa0	unscored		ch	region	47.560	7.591	1					CH-BS	CH-BS:4	basel (city)
+addr-region-8bf5100166be	unscored		in	locality	17.969	83.160	0				Kottapalem	IN-AP	IN-AP:4	Andhra Pradesh, India, India
+addr-region-8d55b91cc056	unscored		es	locality	37.173	-3.600	0				Granada	ES-AN,ES-GR	ES-AN:4,ES-GR:6	Granada, Spain, Granada, Spain
+addr-region-8d9aa446e62b	unscored		mu	country	-20.176	57.606	1							Mauritius, Mauritius
+addr-region-8e64b26d2574	unscored		tn	street	36.808	10.128	1		نهج صفاقس	2017	Tunis	TN-11	TN-11:4	Sfax, Tunisia, Tunisia
+addr-region-90077ed86d0b	unscored		ca	region	53.445	-61.103	0					CA-NL	CA-NL:4	division 7, subdivision e, newfoundland and labrador, canada
+addr-region-94e595ff0ad5	unscored		tr	region	38.745	28.095	1					TR-45	TR-45:4	Manisa, Turkey, Türkiye
+addr-region-987cda6d1008	unscored		ma	region	34.286	-5.938	1					MA-04,MA-SIL	MA-04:4,MA-SIL:5	cercle de sidi slimane, rabat-salé-kénitra, morocco
+addr-region-99a563fc8256	unscored		ng	region	8.964	7.363	1					NG-FC	NG-FC:4	Federal Capital Territory, Nigeria, Nigeria
+addr-region-9c062bc7fb2a	unscored		in	locality	19.838	83.727	0				Kotagarh Orissa India	IN-OD	IN-OD:4	Odisha, India, India
+addr-region-9d141ab492fe	unscored		do	country	19.281	-70.036	0							Distrito Nacional, Dominican Republic, Dominican Republic
+addr-region-a2256c6737d4	unscored		au	locality	-32.896	151.777	1			2304	Newcastle	AU-NSW	AU-NSW:4	new south wales, nsw, australia
+addr-region-a22b3c2a21b6	unscored		gb	country	55.367	-3.961	0							Greater London, United Kingdom, Greater London, United Kingdom
+addr-region-a5a5e0f91ad3	unscored		kz	locality	53.285	69.381	1				Kokshetau	KZ-11	KZ-11:4	кокшетау г.а., akmola , kazakhstan
+addr-region-a89e0b546ff3	unscored		th	locality	14.996	103.108	1				Buri Ram Province	TH-31	TH-31:4	buriram, thailand
+addr-region-aa02c880d815	unscored		br	street	-28.637	-49.387	0		Rua Armédio Brazil Naspolini	88817-140	Criciúma	BR-SC	BR-SC:4	Santa Catarina, Brazil, Brazil
+addr-region-ac15b9cf8f2f	unscored		gb	region	52.795	-0.540	1					GB-ENG	GB-ENG:4	belgië, duitsland, denemarken, frankrijk, engeland, hongarije, polen
+addr-region-aecab6016d87	unscored		do	region	19.718	-71.445	1					DO-15	DO-15:4	monte cristi, dominican republic
+addr-region-b19ad0023783	unscored		in	locality	28.393	76.955	0				Gurgaon	IN-HR	IN-HR:4	Haryana, India, India
+addr-region-b4ee393a1021	unscored		au	locality	-35.187	138.582	1				City of Onkaparinga	AU-SA	AU-SA:4	onkaparinga, south australia, australia
+addr-region-b8f1b3940ff5	unscored		my	region	4.801	100.986	1					MY-08	MY-08:4	Perak, Malaysia, Malaysia
+addr-region-b941d6755719	unscored		in	locality	12.989	77.768	0			560067	Bengaluru	IN-KA	IN-KA:4	Karnataka, India, India
+addr-region-bb0f00985850	unscored			none			0							va, co, al
+addr-region-bb26406c44ca	unscored		de	country	51.185	10.591	0							Rhineland-Palatinate, Germany, Rhineland-Palatinate, Germany
+addr-region-bf2459b5c874	unscored		au	house	-33.847	151.073	1	9-11	Australia Avenue	2127	Sydney	AU-NSW	AU-NSW:4	New South Wales, Australia, Australia
+addr-region-c8fadcb1a5ab	unscored		ar	region	-30.508	-68.810	1					AR-J	AR-J:4	sj
+addr-region-c946f03ea843	unscored		no	country	78.512	16.606	1							Norway, Norway
+addr-region-cb365d266c17	unscored		gb	region	55.575	-3.833	1			ML11 0RJ		GB-SCT	GB-SCT:4	lanarkshire, scotland
+addr-region-cb39492bc211	unscored			none			0							Delhi, India, India
+addr-region-cca1219925e9	unscored		gb	country	55.367	-3.961	0							Worcestershire, United Kingdom, United Kingdom
+addr-region-cf0796da576a	unscored		au	region	-19.438	142.773	0					AU-QLD	AU-QLD:4	central support office qld
+addr-region-d6d26aaa83bd	unscored		co	region	10.681	-74.984	1					CO-ATL	CO-ATL:4	atlántico, colombia
+addr-region-d83f01934515	unscored		cm	locality	6.216	10.696	1				Kumbo	CM-NW	CM-NW:4	Centre, Cameroon, Cameroon
+addr-region-d8c982c3ed8d	unscored		tw	region	22.683	120.488	1					TW-PIF	TW-PIF:4	pingtung county
+addr-region-d8dda227ed80	unscored		au	locality	-35.432	149.081	1			2905	District of Tuggeranong	AU-ACT	AU-ACT:4	Northern Territory, Australia, Australia
+addr-region-d96f35850194	unscored		gb	street	51.476	-0.399	1		Travellers Way	TW4 7QB	Greater London	GB-ENG	GB-ENG:4	south west uk
+addr-region-da0b6d18ad7b	unscored		mx	locality	19.433	-99.133	1				Mexico City	MX-CMX	MX-CMX:4	Ciudad de México, Mexico, Ciudad de México, Mexico
+addr-region-dad481e45b24	unscored		ph	region	15.654	120.988	1					PH-03,PH-NUE	PH-03:3,PH-NUE:4	nueva ecija, central luzon, philippines
+addr-region-dbffe96333ba	unscored		tr	region	38.514	37.844	1					TR-44	TR-44:4	Malatya, Turkey, Türkiye
+addr-region-e002e67ec94d	unscored		jp	region	35.677	139.764	0					JP-13	JP-13:4	Tokyo, Japan, Tokyo, Japan
+addr-region-ea0435518d2e	unscored		af	region	35.221	70.378	1					AF-NUR	AF-NUR:4	du ab, nuristan province, afghanistan
+addr-region-eb345a332245	unscored		au	locality	-12.555	130.861	1			0822	Channel Island	AU-NT	AU-NT:4	channel island
+addr-region-ee24b4380e81	unscored		pl	locality	50.704	23.168	1				gmina Zamość	PL-06	PL-06:4	gmina zamość, lubelskie, poland
+addr-region-f22dd3da7b06	unscored		my	locality	3.119	101.542	0			40150	Shah Alam	MY-10	MY-10:4	Selangor, Malaysia, Malaysia
+addr-region-f3cc7e5df3ca	unscored		gb	country	55.367	-3.961	0							Cambridgeshire, United Kingdom, United Kingdom
+addr-region-f4de8dd8ba4b	unscored		us	locality	25.955	-97.529	1				Brownsville	US-TX	US-TX:4	santander us
+addr-region-f4e2cac18354	unscored		ph	country	13.348	122.340	0							Apayao, Philippines, Philippines
+addr-region-f60a8405f7d1	unscored		in	region	10.544	76.428	1					IN-KL	IN-KL:4	kerala, india
+addr-region-f881dee633db	unscored		om	country	20.751	57.183	1							Oman, Oman
+addr-region-fa59a92e38e9	unscored		ae	locality	24.454	54.377	0				Abu Dhabi	AE-AZ	AE-AZ:4	Abu Dhabi, United Arab Emirates, Abu Dhabi, United Arab Emirates
+addr-region-ff25f10bfb91	unscored		vn	locality	16.068	108.212	0				Đà Nẵng	VN-DN	VN-DN:4	Đà Nẵng, Vietnam, Đà Nẵng, Vietnam
+addr-street-02a962a020dc	unscored		ie	locality	53.441	-6.387	1				Donaghmore ED	IE-L,IE-MH	IE-L:5,IE-MH:6	ct/ ny
+addr-street-03663cbaaaa8	unscored		in	postcode	12.996	77.648	0			560033	Bengaluru	IN-KA	IN-KA:4	Sangolirayanna Main Road, 560033, Bengaluru, Karnataka, India
+addr-street-08e9030bf122	unscored		sg	locality	1.290	103.852	0				Singapore			SE Asia Base, SINGAPORE, SINGAPORE, Singapore
+addr-street-0ea4d9fdac1a	unscored			none			0							Deshbandu Nagar Road, Tebhaga apartment, 700059, Baguiati, West Bengal, India
+addr-street-0f144d07fbde	unscored		fr	locality	50.383	1.623	0			62600	Groffliers	FR-62,FR-HDF	FR-62:6,FR-HDF:4	Chemin de la Fernaye, 62600, Groffliers, Hauts-de-France, France
+addr-street-1786c0a7f410	unscored		us	street	41.557	-71.437	1		Earle Drive	02852	North Kingstown	US-RI	US-RI:4	Earle DR., North Kingstown, RI 02852
+addr-street-1bb084a9e565	unscored		in	house	25.692	85.211	0	India Post Head Office(H.O.)	Gudri Road	844101	Hajipur	IN-BR	IN-BR:4	Dr H N Roy Lane,Umesh Cinema Rd, 844101, Hajipur, Bihar, India
+addr-street-1de3992ef558	unscored			none			0							Calle San Martín, 54477, Nicolás Romero, Mexico
+addr-street-1e046a94206b	unscored		ae	locality	25.230	55.290	0				Dubai	AE-DU	AE-DU:4,AE-DU:4	Jumeirah Lakes Towers, Dubai, United Arab Emirates
+addr-street-25de62f86a27	unscored		gb	street	51.393	-2.381	0		Weston Park East	BA1 2XA	Bath	GB-BAS,GB-ENG	GB-BAS:6,GB-ENG:4	Cranwell House, Weston Park East, BA1 2UZ, Bath, BANES, United Kingdom
+addr-street-4b01840f0693	unscored			none			0							Jakande Crescent, Oniru, Victoria Island, Lagos, Nigeria
+addr-street-4c640217e4d8	unscored		eg	street	29.934	30.920	0		Makram Ebeid Street	12563	6th of October	EG-GZ	EG-GZ:4	makram ebeid, nasr city
+addr-street-4f5eb526d8a2	unscored		us	locality	32.963	-117.036	0			92064	Poway	US-CA	US-CA:4	escondido, san marcos, poway, rancho bernardo
+addr-street-555a74419a8f	unscored		it	street	44.412	8.929	1		Vico a destra di San Pancrazio	16124	Genoa	IT-42,IT-GE	IT-42:4,IT-GE:6	Vico San Pancrazio, 16124, Genoa, Liguria, Italy
+addr-street-55df1d519117	unscored		gb	street	51.573	-2.986	0		Usk Way	NP20 2JR	Newport	GB-NWP,GB-WLS	GB-NWP:6,GB-WLS:4	Penmaen Wharf, Usk Way, NP20 2BY, Newport, Gwent, United Kingdom
+addr-street-586832e5fcd6	unscored		id	locality	-6.176	106.638	0				Tangerang	ID-BT,ID-JW	ID-BT:4,ID-JW:3	center blok A2 no. 12, Jl. BSD Raya Utama, Tangerang, Banten
+addr-street-59864d233e14	unscored		gb	street	50.826	-0.152	1		Montpelier Road	BN1 3BB	Brighton	GB-BNH,GB-ENG	GB-BNH:6,GB-ENG:4	Montpelier Road, Brighton, England, United Kingdom
+addr-street-5a7a76ad5a2f	unscored		us	locality	32.759	-97.797	1			76086	Weatherford	US-TX	US-TX:4	4146_weatherford tx
+addr-street-5cf38d19dd34	unscored			none			0							Devan Plaza, Chiromo Rd, Nairobi, Kenya, 90100, Nairobi, Nairobi, Kenya
+addr-street-5d3100fed4eb	unscored		zm	street	-15.421	28.283	0		Cairo Road	10101	Lusaka	ZM-09	ZM-09:4	Off Chilumbulu Rd, Kabwata S&S, Plot 773/8536, 10101, Lusaka, Lusaka, Zambia
+addr-street-601a23d0d171	unscored		cu	locality	20.984	-77.425	1				Colombia	CU-10	CU-10:4	Bogota, Colombia, Colombia
+addr-street-6245e5a9d13b	unscored		fr	locality	49.518	1.022	0				Rouen	FR-76,FR-NOR	FR-76:6,FR-NOR:4	hyatt place rouen
+addr-street-62aac73bd692	unscored		gr	locality	39.369	20.303	1			460 30	Πέρδικα	GR-D	GR-D:5	πέρδικα θεσπρωτίασ
+addr-street-6486636878dd	unscored		us	locality	40.647	-75.416	0				Bethlehem	US-PA	US-PA:4	east bethlehem, pa
+addr-street-6bf65ac63fe1	unscored		in	house	19.277	72.871	0	Mira Green View CHS, Opp. New India Bank, Vijay Park	Jangid Complex Road	401107	Mira-Bhayander	IN-MH	IN-MH:4	Ganesh Mandir Road, 12/13, Mira Saphalya CHSL, 401107, Mira Road, Maharashtra, India
+addr-street-6d9edc07ceaa	unscored		es	street	40.580	-4.014	1		Calle de La Pedriza	28260	Galapagar	ES-MD	ES-MD:4	Calle de la Pedriza, 28260, Galapagar, Comunidad de Madrid, Spain
+addr-street-7310e233cc31	unscored		ro	country	45.942	24.303	0							Județ Mureş, Sat Livezeni, Comuna Livezeni, Str.livezeni Nr. 303, Romania
+addr-street-76a26e69e545	unscored		us	locality	46.266	-96.609	0				Wahpeton	US-ND	US-ND:4	britton sd, sisseton sd, wheaton mn, browns valley mn, hankinson nd, gwinner nd, lisbon nd, wyndmere nd, lidgerwood nd, wahpeton nd
+addr-street-7f5f519d0be3	unscored		us	locality	40.299	-83.068	0			43015	Delaware	US-OH	US-OH:4	maryland, delaware, rhode island, kentucky
+addr-street-8388c2e553ec	unscored		in	postcode	23.022	72.528	0			380015		IN-GJ	IN-GJ:4	Prahlad Nagar Road, Sidhivinayak Business Tower, 380015, Ahmedabad, Gujarat, India
+addr-street-874d615e1f4a	unscored			none			0							Harbour Road, Wanchai, Hong Kong
+addr-street-8a7ec0a53dcf	unscored		us	locality	44.527	-70.464	1			04290	Peru	US-ME	US-ME:4	Arequipa, Peru, Peru
+addr-street-964c950e2882	unscored		br	postcode	-3.866	-42.317	0			64180-000	Esperantina	BR-PI	BR-PI:4	Av. Min. Petrônio Portela, 64180-000, Esperantina, Brazil
+addr-street-999dbbbaa9d4	unscored		gb	locality	51.507	-0.128	0				Greater London	GB-ENG	GB-ENG:4	Soho Square, W1D UK, London, England, United Kingdom
+addr-street-9c2b08c24939	unscored		my	street	3.084	101.626	1		Old Klang Road	46050	Petaling Jaya	MY-10	MY-10:4	old klang road
+addr-street-9c56f874f7ba	unscored		us	street	26.119	-80.143	1		East Las Olas Boulevard	33301	Fort Lauderdale	US-FL	US-FL:4	E Las Olas Blvd, Fort Lauderdale, Florida, United States
+addr-street-a36675d46aa6	unscored		mk	country	41.613	21.750	1							North Macedonia, North Macedonia
+addr-street-ac9ea51a29b4	unscored		gb	street	51.339	-0.504	0		Lavender Park Road	KT14 6ND	Woking	GB-ENG,GB-SRY	GB-ENG:4,GB-SRY:6	York House Dental Practice, Lavender Park Road, KT14 6ND, WEST BYFLEET, Surrey, United Kingdom
+addr-street-b2bd87203f2d	unscored		mw	street	-13.769	34.434	1		Local Road		Salima	MW-C,MW-SA	MW-C:3,MW-SA:4	local, al, central
+addr-street-b6ad771108a2	unscored		us	locality	37.678	-97.398	1				Wichita	US-KS	US-KS:4	Wichita Kansas, Wichita, Kansas, United States
+addr-street-ba966a70fc0f	unscored			none			0							Lysaker torg, 1366, Oslo, Norway
+addr-street-babecc60cc24	unscored		us	locality	43.971	-70.804	1			04022	Denmark	US-ME	US-ME:4	Central Jutland, Denmark, Denmark
+addr-street-bfeb9352c105	unscored		mx	house	19.424	-99.159	0	218	Avenida Chapultepec	06700	Mexico City	MX-CMX	MX-CMX:4	Avenida Chapultepec, 218, 06700, Roma Norta, Mexico City, Mexico
+addr-street-c0665dcf85f2	unscored		id	locality	-7.611	111.321	0			63261	Wide	ID-JI,ID-JW	ID-JI:4,ID-JW:3	state wide, vt
+addr-street-c414c3a9754b	unscored		ch	postcode	46.578	6.537	0			1302	Vufflens-la-Ville	CH-VD	CH-VD:4	Route De La Venoge, Espace Arbres Monod Sa, 1302, Vufflens-la-ville, Switzerland
+addr-street-c41beff3a176	unscored			none			0							Central Bosnia, Bosnia and Herzegovina, Bosnia and Herzegovina
+addr-street-c55c22860880	unscored		gb	street	51.422	-0.211	0		Mansel Road	SW19 4AA	Greater London	GB-ENG,GB-MRT	GB-ENG:4,GB-MRT:8	Wimbledon High School \n, Mansel Road, SW19 4AB, London, England, United Kingdom
+addr-street-cb7e2ac6bf9c	unscored		mx	postcode	19.597	-99.193	0			54769		MX-MEX	MX-MEX:4	Av. Tejocotes s/n, Bodega 5B, 54769, Cuautitlán Izcalli, Estado de México, Mexico
+addr-street-cbeae9aad758	unscored		us	locality	44.527	-70.464	1			04290	Peru	US-ME	US-ME:4	Cajamarca, Peru, Peru
+addr-street-d3adf19540ca	unscored		do	locality	18.471	-69.892	0			03201	Santo Domingo	DO-01	DO-01:4	Calle el Recodo, Edificio Monte Mirador, primer piso LOCAL 101 B, Bella Vista, Santo Domingo, Dominican Republic
+addr-street-dc11dfc6870e	unscored		pk	locality	31.566	74.314	0			54500	Lahore	PK-PB	PK-PB:4	Zahra Medicare | Best Eye Clinic in Lahore, H/102 Main Market, Near MCB Bank, 2nd Round About, Samanabad, Lahore, Lahore, Punjab, Pakistan
+addr-street-de096e84a0f1	unscored		ch	postcode	47.171	8.515	0			6300	Zug	CH-ZG	CH-ZG:4	General-Guisan Strasse, 6300, Zug, ZG, Switzerland
+addr-street-df27187ee808	unscored		pk	locality	33.203	72.794	1				Karachi	PK-PB	PK-PB:4	-, Karachi, Pakistan
+addr-street-e07c90747556	unscored		at	street	48.215	16.353	1		Alser Straße	1090	Vienna	AT-9	AT-9:4	Alserstraße, 32/20, 1090, Wien, Wien, Austria
+addr-street-e8ecd6dfa76b	unscored			none			0							Guvåg, 8475, Straumsjøen, Norway
+addr-street-edd34885bede	unscored		nl	locality	52.790	6.121	0				Steenwijk	NL-OV	NL-OV:4	Bestuursbureau, Mr. Zigher ter Steghestraat 9, 8331 KG, Steenwijk, Netherlands
+addr-street-ef65915513cb	unscored		us	locality	32.132	-81.299	0			31302	Bloomingdale	US-GA	US-GA:4	savannah, richmond hill, pooler, guyton, rincon, bloomingdale, ga
+addr-street-fa3a09eb41ec	unscored		us	locality	40.946	-87.453	1				Morocco	US-IN	US-IN:4	Marrakesh-Safi, Morocco, Morocco
+addr-street-fbc853860f26	unscored		gb	street	52.067	-0.815	0		Dickens Road	MK12 5QQ	Milton Keynes	GB-ENG,GB-MIK	GB-ENG:4,GB-MIK:6	suez, dickens road, wolverton, milton keynes,
+addr-street-fe4654378a49	unscored		no	locality	61.840	4.989	0			6727	Bremanger	NO-46	NO-46:4	V/birger Grotle, 6727, Bremanger, Norway
+addr-unparsed-08bf11640187	unscored		de	street	50.106	8.664	1		Am Hauptbahnhof	60329	Frankfurt	DE-HE	DE-HE:4	frankfurt hauptbahnhof
+addr-unparsed-0bae96580cfd	unscored		ph	house	16.415	120.564	1	109		2600	Baguio	PH-15	PH-15:3	district 109
+addr-unparsed-25b65fb12044	unscored		cn	region	25.184	101.267	0					CN-YN	CN-YN:4	Yunnan, China, China
+addr-unparsed-27f24073ca25	unscored		cn	locality	23.648	113.503	1				Guangzhou City	CN-GD	CN-GD:4	Guangdong, China, China
+addr-unparsed-29abdf52703b	unscored		cz	country	49.804	15.528	1							Czechia, Czechia
+addr-unparsed-2b407b450e5f	unscored		cn	country	35.759	98.862	1							China, China
+addr-unparsed-2fb0e03cefad	unscored		cn	region	29.114	120.343	0					CN-ZJ	CN-ZJ:4	Zhejiang, China, China
+addr-unparsed-3b9bc395f6e0	unscored			none			0							Portuguesa, Venezuela, Venezuela, Bolivarian Republic of
+addr-unparsed-3ffa1c0cd50a	unscored		es	locality	42.723	-2.450	1			01120	Arraia-Maeztu	ES-PV,ES-VI	ES-PV:4,ES-VI:6	maeztu
+addr-unparsed-43ae41443e98	unscored		zw	locality	-17.378	30.194	1				Service Industry	ZW-MW	ZW-MW:4	service industry
+addr-unparsed-4965df6d1486	unscored		sg	locality	1.446	103.818	1				Sembawang			sembawang central, sembawang
+addr-unparsed-5ad3a1c8c066	unscored		gr	street	38.892	22.481	1		Athens - Thessaloniki - Evzonoi	351 31	Municipal Unit of Lamia	GR-H	GR-H:5	agia paraskevi, athens
+addr-unparsed-60d69fa46870	unscored		je	locality	49.170	-2.068	1				St Clement			beach gardens
+addr-unparsed-639f8bd24f72	unscored		ec	street	-0.211	-78.510	1		New York	170402	Quito	EC-P	EC-P:4	new york | san francisco
+addr-unparsed-80b004ecef17	unscored		cn	region	36.489	118.761	0					CN-SD	CN-SD:4	Shandong, China, China
+addr-unparsed-824902e701c7	unscored		cn	locality	29.566	106.548	0			400014	Chongqing	CN-CQ	CN-CQ:4	Chongqing, China, China
+addr-unparsed-82b0eb67b60b	unscored		bh	country	26.124	50.601	1							Bahrain, Bahrain
+addr-unparsed-85a27e629aec	unscored		pl	locality	49.575	21.700	1			38-451	Cergowa	PL-18	PL-18:4	popard
+addr-unparsed-85e6d1c0bbec	unscored		ve	country	6.504	-65.456	0							Venezuela, Venezuela, Bolivarian Republic of
+addr-unparsed-88cf2f3d4dc7	unscored		cn	locality	39.084	117.196	0				Tianjin	CN-TJ	CN-TJ:4	Tianjin, China, China
+addr-unparsed-944ce12cfc86	unscored		bo	country	-16.282	-64.130	0							Bolivia, Bolivia, Plurinational State of
+addr-unparsed-9ac39ebf5c1e	unscored		fr	locality	43.334	3.234	1			34500	Béziers	FR-34,FR-OCC	FR-34:6,FR-OCC:4	habitat jeunes
+addr-unparsed-a0882cb9af18	unscored		gd	region	12.050	-61.733	1					GD-03	GD-03:6	st.george
+addr-unparsed-a1dc2720c833	unscored		at	house	48.211	16.367	1	6a	Am Hof	1010	Vienna	AT-9	AT-9:4	verbund
+addr-unparsed-aa496e67f5bf	unscored		tj	locality	40.167	69.503	1			735820	Mekhrabad (Proletarsk)	TJ-SU	TJ-SU:4	open space
+addr-unparsed-b9ab01686893	unscored		cn	street	23.020	113.293	1		Shanxi Road	511400	Panyu District	CN-GD	CN-GD:4	Shanxi, China, China
+addr-unparsed-ba56ee6686dd	unscored		lu	locality	49.890	6.134	1			9379	Diekirch	LU-DI	LU-DI:6	fridhaff
+addr-unparsed-baeaa38b031c	unscored		ve	locality	10.143	-67.946	1			2003	Parroquia Rafael Urdaneta	VE-G	VE-G:4	fundación rafael
+addr-unparsed-bb0fa8c61f17	unscored		my	street	3.053	101.689	1		Maju Expressway	57000	Kuala Lumpur	MY-14	MY-14:4	t-mex park
+addr-unparsed-bcb6cf45c36f	unscored		cn	locality	23.583	107.433	0				Baise	CN-GX	CN-GX:4	Jilin, China, China
+addr-unparsed-bfc8122bd68f	unscored		cn	locality	39.906	116.391	0				Beijing	CN-BJ	CN-BJ:4	Beijing, China, China
+addr-unparsed-c2329198e19e	unscored		gm	locality	13.548	-14.899	1				Sap	GM-M	GM-M:4	sap qm
+addr-unparsed-c3064b3d315b	unscored		ir	country	32.309	54.174	0							Iran, Iran, Islamic Republic of
+addr-unparsed-c6d4ee416074	unscored		is	country	64.939	-18.818	1							Iceland, Iceland
+addr-unparsed-d425a39e985c	unscored		cl	street	-32.121	-71.503	1		Chile		Los Vilos	CL-CO	CL-CO:4	a, Chile, Chile
+addr-unparsed-d46e3a52b1e4	unscored		ve	country	6.504	-65.456	0							Miranda, Venezuela, Venezuela, Bolivarian Republic of
+addr-unparsed-de8c759a08a2	unscored		ve	country	6.504	-65.456	0							Táchira, Venezuela, Venezuela, Bolivarian Republic of
+addr-unparsed-e35fad674130	unscored		dk	house	55.617	12.572	1	84	Robert Jacobsens Vej	2300	Copenhagen	DK-84	DK-84:4	copenhagen, 84
+addr-unparsed-f2ffda8918ba	unscored		cg	country	-0.718	16.024	1							republic of congo
+addr-unparsed-f99800c468eb	unscored		cn	region	27.284	115.513	0					CN-JX	CN-JX:4	Jiangxi, China, China

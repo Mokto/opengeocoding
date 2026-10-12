@@ -1,10 +1,34 @@
 use anyhow::{Context, Result};
-use axum::{Router, routing::get};
+use axum::{Router, extract::Request, http::Uri, middleware::map_request, routing::get};
 use connectrpc::{Limits, Router as ConnectRouter};
 use connectrpc_reflection::{Reflector, install};
 use geolocation::{metrics::METRICS, regions::Regions, resolver::Resolver, service::Service};
 use std::{borrow::Cow, sync::Arc, time::Duration};
 use tokio::sync::watch;
+
+/// Clients generated before the package and service rename call `/nominatim_geolocation.NominatimGeolocation/*`.
+/// Messages and field numbers are unchanged, so those paths are served by the renamed one.
+async fn legacy_package(mut request: Request) -> Request {
+    if let Some(rest) = request
+        .uri()
+        .path()
+        .strip_prefix("/nominatim_geolocation.NominatimGeolocation/")
+    {
+        let query = request
+            .uri()
+            .query()
+            .map(|q| format!("?{q}"))
+            .unwrap_or_default();
+        if let Ok(path) = format!("/geolocation.Geolocation/{rest}{query}").parse() {
+            let mut parts = request.uri().clone().into_parts();
+            parts.path_and_query = Some(path);
+            if let Ok(uri) = Uri::from_parts(parts) {
+                *request.uri_mut() = uri;
+            }
+        }
+    }
+    request
+}
 
 async fn shutdown(mut receiver: watch::Receiver<bool>) {
     if !*receiver.borrow() {
@@ -57,7 +81,7 @@ async fn main() -> Result<()> {
         "/reflection.bin"
     )))?
     .with_services([
-        "nominatim_geolocation.NominatimGeolocation",
+        "geolocation.Geolocation",
         "grpc.reflection.v1.ServerReflection",
         "grpc.reflection.v1alpha.ServerReflection",
     ]);
@@ -72,13 +96,14 @@ async fn main() -> Result<()> {
         "GetRegionMap",
     ] {
         connect = connect.with_route_limits(
-            &format!("nominatim_geolocation.NominatimGeolocation/{method}"),
+            &format!("geolocation.Geolocation/{method}"),
             Limits::unlimited(),
         );
     }
     let app = Router::new()
         .route("/healthz", get(|| async { "OK" }))
-        .fallback_service(connect.into_axum_service());
+        .fallback_service(connect.into_axum_service())
+        .layer(map_request(legacy_package));
     let rpc_port = std::env::var("RPC_PORT")
         .unwrap_or_else(|_| "11121".into())
         .parse::<u16>()?;

@@ -1,0 +1,48 @@
+{
+  "backend": {
+    "endpoint_sha256": "a48c99d622e16a20",
+    "label": "mediagis/nominatim:5.3.2@sha256:7923a8e6, OSM data 2026-01-26, address import style",
+    "status": {
+      "data_updated": "2026-01-26T01:00:02+00:00",
+      "database_version": "5.3.2-0",
+      "message": "OK",
+      "software_version": "5.3.2",
+      "status": 0
+    }
+  },
+  "backend_requests": 6019,
+  "budget": 20000,
+  "cases": 1000,
+  "consumer": {
+    "binary_sha256": "cd33ed46f7b0e08fde4281df5fe6ce2f148714a58253f4ef9caca58bab5de8ed",
+    "dirty": true,
+    "git": "b2c5c12a27556463325f7835a76972e69ee2b443",
+    "libpostal_models_sha256": "65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7",
+    "region_cache": "fresh empty ClickHouse database and region map"
+  },
+  "corpus": "tests/addresses.tsv",
+  "corpus_sha256": "ab14a9ff26926f5c0013fa6ca5e8a808e76fe3a0205ea6462c4e5c5b09d67c0e",
+  "evaluator": "0.1.0",
+  "finished_at": "2026-10-12T08:35:55Z",
+  "max_rps": 20.0,
+  "reference_data_sha256": "b9159c31bf40591e733a7646e413bd260846ae1d4edb4616f1ec4a66e3ed2874",
+  "resumed": false,
+  "started_at": "2026-10-12T08:28:24Z",
+  "stopped": null,
+  "suite": "addresses",
+  "transport": {
+    "connect_proto_matches_json": {
+      "checked": 5,
+      "mismatches": [],
+      "ok": true
+    },
+    "grpcurl_search_address": {
+      "known_failure": true,
+      "ok": false
+    },
+    "region_map_refresh_and_read": {
+      "countries": 91,
+      "ok": true
+    }
+  }
+}

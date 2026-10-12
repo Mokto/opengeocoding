@@ -1,0 +1,757 @@
+//! Builds `tests/gold.jsonl` from `tests/gold.seeds.jsonl`. Expected answers come only from
+//! licensed authoritative sources — Wikidata (CC0), Base Adresse Nationale (Licence Ouverte 2.0),
+//! PDOK/BAG (CC0), the US Census geocoder (public domain) and postcodes.io/ONSPD (OGL v3) —
+//! never from Nominatim or this service. Requires network access; review the diff as a data update.
+
+use crate::{report::sorted, run::utc_now};
+use anyhow::{Context, Result, bail, ensure};
+use geolocation::eval::{holdout, sha256_hex};
+use indexmap::IndexMap;
+use regex::Regex;
+use reqwest::Client;
+use serde::{Deserialize, Deserializer};
+use serde_json::{Value, json};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+    sync::LazyLock,
+    time::Duration,
+};
+
+const UA: &str =
+    "geolocation-eval/0.1 (https://github.com/Mokto/geolocation; test corpus curation)";
+static NON_LATIN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[^\x00-\x{024f}\s]").unwrap());
+static NUMBERS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"-?[\d.]+").unwrap());
+
+fn present<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
+}
+
+/// One curated line of `tests/gold.seeds.jsonl`; `queries` share every other field.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Seed {
+    kind: String,
+    #[serde(default)]
+    cohort: Option<String>,
+    #[serde(default)]
+    qid: Option<String>,
+    queries: Vec<String>,
+    #[serde(default)]
+    radius_km: Option<f64>,
+    #[serde(default)]
+    level: Option<String>,
+    #[serde(default)]
+    max_level: Option<String>,
+    #[serde(default)]
+    must_pass: bool,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(default)]
+    known_failure: Option<String>,
+    #[serde(default)]
+    country: Option<Vec<String>>,
+    #[serde(default)]
+    extra_regions: Vec<String>,
+    /// Absent means true; null means either is acceptable.
+    #[serde(default, deserialize_with = "present")]
+    good_match: Option<Value>,
+    #[serde(default)]
+    admin_level: Option<u64>,
+    #[serde(default)]
+    house_number: Option<String>,
+    #[serde(default)]
+    postcode: Option<String>,
+    #[serde(default)]
+    source: Option<String>,
+    #[serde(default, rename = "ref")]
+    reference: Option<String>,
+    #[serde(default)]
+    city: Option<String>,
+    #[serde(default)]
+    label: Option<String>,
+    #[serde(default)]
+    location: Option<String>,
+    #[serde(default)]
+    error: Option<String>,
+    #[serde(default)]
+    any_of: Option<Vec<Value>>,
+}
+
+#[derive(Default)]
+struct Item {
+    point: Option<[f64; 2]>,
+    iso: BTreeSet<String>,
+    codes: BTreeSet<String>,
+    label: String,
+    subdivision: bool,
+}
+
+struct Found {
+    point: [f64; 2],
+    components: IndexMap<&'static str, String>,
+    radius_floor_km: f64,
+}
+
+fn license(source: &str) -> &'static str {
+    match source {
+        "ban" => "etalab-2.0",
+        "census" => "US-Government-Public-Domain",
+        "postcodes.io" => "OGL-UK-3.0",
+        _ => "CC0-1.0",
+    }
+}
+
+fn source_url(source: &str, reference: &str) -> String {
+    match source {
+        "wikidata" => format!("https://www.wikidata.org/wiki/{reference}"),
+        "ban" => format!("https://adresse.data.gouv.fr/base-adresse-nationale/{reference}"),
+        "pdok" => {
+            format!("https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id={reference}")
+        }
+        "census" => format!("https://geocoding.geo.census.gov/ (TIGER line {reference})"),
+        "postcodes.io" => format!("https://api.postcodes.io/postcodes/{reference}"),
+        _ => String::new(),
+    }
+}
+
+pub fn slug(text: &str) -> String {
+    static NON_ALNUM: LazyLock<Regex> = LazyLock::new(|| Regex::new("[^a-z0-9]+").unwrap());
+    let slug: String = NON_ALNUM
+        .replace_all(&text.to_lowercase(), "-")
+        .trim_matches('-')
+        .chars()
+        .take(48)
+        .collect();
+    if slug.is_empty() {
+        "blank".into()
+    } else {
+        slug
+    }
+}
+
+fn round6(value: f64) -> f64 {
+    crate::score::round(value, 6)
+}
+
+struct Sources {
+    client: Client,
+}
+
+impl Sources {
+    async fn get(&self, url: &str, params: &[(&str, &str)]) -> Result<Value> {
+        let mut last = None;
+        // Public reference APIs occasionally time out; this is curation, not the evaluated service.
+        for attempt in 0..3 {
+            if attempt > 0 {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+            }
+            match self
+                .client
+                .get(url)
+                .query(params)
+                .send()
+                .await
+                .and_then(|r| r.error_for_status())
+            {
+                Ok(response) => return Ok(response.json().await?),
+                Err(error) => last = Some(error),
+            }
+        }
+        Err(last.expect("attempted").into())
+    }
+
+    async fn sparql(&self, query: &str) -> Result<Vec<Value>> {
+        let result = self
+            .get(
+                "https://query.wikidata.org/sparql",
+                &[("format", "json"), ("query", query)],
+            )
+            .await?;
+        Ok(result["results"]["bindings"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default())
+    }
+
+    /// Coordinates, country and every ISO 3166-2 subdivision on the located-in (P131) chain.
+    async fn wikidata(&self, qids: &BTreeSet<String>) -> Result<BTreeMap<String, Item>> {
+        let mut found: BTreeMap<String, Item> = BTreeMap::new();
+        let ordered: Vec<_> = qids.iter().collect();
+        for batch in ordered.chunks(20) {
+            let values = batch
+                .iter()
+                .map(|q| format!("wd:{q}"))
+                .collect::<Vec<_>>()
+                .join(" ");
+            let qid = |row: &Value| {
+                row["item"]["value"]
+                    .as_str()
+                    .unwrap_or("")
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or("")
+                    .to_string()
+            };
+            for row in self
+                .sparql(&format!(
+                    r#"SELECT ?item ?coord ?iso ?label ?own WHERE {{ VALUES ?item {{ {values} }}
+                    OPTIONAL {{ ?item wdt:P625 ?coord }} OPTIONAL {{ ?item wdt:P17/wdt:P297 ?iso }} OPTIONAL {{ ?item wdt:P300 ?own }}
+                    OPTIONAL {{ ?item rdfs:label ?label FILTER(lang(?label) = "en") }} }}"#
+                ))
+                .await?
+            {
+                let item = found.entry(qid(&row)).or_default();
+                if let Some(coord) = row["coord"]["value"].as_str()
+                    && item.point.is_none()
+                {
+                    let numbers: Vec<f64> = NUMBERS.find_iter(coord).filter_map(|m| m.as_str().parse().ok()).collect();
+                    ensure!(numbers.len() == 2, "coordinate {coord}");
+                    item.point = Some([round6(numbers[1]), round6(numbers[0])]);
+                }
+                if let Some(iso) = row["iso"]["value"].as_str() {
+                    item.iso.insert(iso.to_lowercase());
+                }
+                item.label = row["label"]["value"].as_str().unwrap_or("").into();
+                item.subdivision |= row.get("own").is_some();
+            }
+            for row in self
+                .sparql(&format!(
+                    "SELECT ?item ?code WHERE {{ VALUES ?item {{ {values} }}
+                    ?item wdt:P131* ?area . ?area wdt:P300 ?code FILTER NOT EXISTS {{ ?area wdt:P297 ?country }} }}"
+                ))
+                .await?
+            {
+                let code = row["code"]["value"].as_str().unwrap_or("").to_uppercase();
+                found.entry(qid(&row)).or_default().codes.insert(code);
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+        let missing: Vec<_> = qids.iter().filter(|q| !found.contains_key(*q)).collect();
+        ensure!(missing.is_empty(), "Wikidata items not found: {missing:?}");
+        for item in found.values_mut() {
+            // Dutch places sit in the Kingdom of the Netherlands, which has no ISO alpha-2 code.
+            if item.iso.is_empty() {
+                item.iso = item.codes.iter().map(|c| c[..2].to_lowercase()).collect();
+            }
+        }
+        Ok(found)
+    }
+
+    async fn lookup(&self, source: &str, query: &str) -> Result<(Found, String)> {
+        let first = |re: &str, text: &str| -> Result<String> {
+            Ok(Regex::new(re)?
+                .find(text)
+                .with_context(|| format!("{re} in {text:?}"))?
+                .as_str()
+                .to_string())
+        };
+        let found = |point, components: &[(&'static str, String)]| Found {
+            point,
+            components: components.iter().cloned().collect(),
+            radius_floor_km: 0.,
+        };
+        match source {
+            "ban" => {
+                if let Some(code) = query.strip_prefix("municipality:") {
+                    let result = self
+                        .get(
+                            "https://api-adresse.data.gouv.fr/search/",
+                            &[("q", code), ("type", "municipality"), ("limit", "1")],
+                        )
+                        .await?;
+                    let feature = &result["features"][0];
+                    let city = feature["properties"]["citycode"].as_str().unwrap_or("");
+                    ensure!(
+                        city.ends_with(&code[code.len() - 2..]),
+                        "BAN municipality {feature}"
+                    );
+                    let [lon, lat] = [0, 1].map(|i| {
+                        feature["geometry"]["coordinates"][i]
+                            .as_f64()
+                            .unwrap_or(f64::NAN)
+                    });
+                    let id = feature["properties"]["id"]
+                        .as_str()
+                        .unwrap_or("")
+                        .to_string();
+                    return Ok((found([lat, lon], &[("postcode", code.into())]), id));
+                }
+                let result = self
+                    .get(
+                        "https://api-adresse.data.gouv.fr/search/",
+                        &[("q", query), ("limit", "1")],
+                    )
+                    .await?;
+                let feature = &result["features"][0];
+                let props = &feature["properties"];
+                let house = query.split_whitespace().next().unwrap_or("").to_string();
+                let postcode = first(r"\b\d{5}\b", query)?;
+                ensure!(
+                    props["type"] == "housenumber" && props["score"].as_f64().unwrap_or(0.) > 0.8,
+                    "BAN match {props}"
+                );
+                ensure!(
+                    props["housenumber"] == house.as_str()
+                        && props["postcode"] == postcode.as_str(),
+                    "BAN components {props}"
+                );
+                let [lon, lat] = [0, 1].map(|i| {
+                    feature["geometry"]["coordinates"][i]
+                        .as_f64()
+                        .unwrap_or(f64::NAN)
+                });
+                let road = props["street"].as_str().unwrap_or("").to_string();
+                let id = props["id"].as_str().unwrap_or("").to_string();
+                Ok((
+                    found(
+                        [lat, lon],
+                        &[
+                            ("house_number", house),
+                            ("road", road),
+                            ("postcode", postcode),
+                        ],
+                    ),
+                    id,
+                ))
+            }
+            "pdok" => {
+                let (kind, text) = query
+                    .split_once(':')
+                    .filter(|(k, _)| *k == "postcode")
+                    .unwrap_or(("adres", query));
+                let result = self
+                    .get(
+                        "https://api.pdok.nl/bzk/locatieserver/search/v3_1/free",
+                        &[("q", text), ("fq", &format!("type:{kind}")), ("rows", "1")],
+                    )
+                    .await?;
+                let doc = &result["response"]["docs"][0];
+                let numbers: Vec<f64> = NUMBERS
+                    .find_iter(doc["centroide_ll"].as_str().unwrap_or(""))
+                    .filter_map(|m| m.as_str().parse().ok())
+                    .collect();
+                ensure!(numbers.len() == 2, "PDOK centroid {doc}");
+                let postcode = first(r"\b\d{4}[A-Z]{2}\b", text)?;
+                ensure!(doc["postcode"] == postcode.as_str(), "PDOK postcode {doc}");
+                let mut components = vec![("postcode", postcode)];
+                if kind == "adres" {
+                    let house = Regex::new(r" (\d+\w*) \d{4}")?
+                        .captures(text)
+                        .context("PDOK house number")?[1]
+                        .to_string();
+                    let number: u64 = first(r"\d+", &house)?.parse()?;
+                    ensure!(
+                        doc["huisnummer"].as_u64() == Some(number),
+                        "PDOK house {doc}"
+                    );
+                    components.push(("house_number", house));
+                    components.push(("road", doc["straatnaam"].as_str().unwrap_or("").into()));
+                }
+                let id = doc["id"].as_str().unwrap_or("").to_string();
+                Ok((found([numbers[1], numbers[0]], &components), id))
+            }
+            "census" => {
+                let result = self
+                    .get(
+                        "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress",
+                        &[
+                            ("address", query),
+                            ("benchmark", "Public_AR_Current"),
+                            ("format", "json"),
+                        ],
+                    )
+                    .await?;
+                let matches = result["result"]["addressMatches"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default();
+                ensure!(matches.len() == 1, "Census matches {matches:?}");
+                let matched = &matches[0];
+                let house = query.split_whitespace().next().unwrap_or("").to_string();
+                let postcode = first(r"\b\d{5}\b", query)?;
+                let address = matched["matchedAddress"].as_str().unwrap_or("");
+                ensure!(
+                    address.starts_with(&format!("{house} ")) && address.contains(&postcode),
+                    "Census match {matched}"
+                );
+                let point = ["y", "x"]
+                    .map(|axis| round6(matched["coordinates"][axis].as_f64().unwrap_or(f64::NAN)));
+                let mut result = found(point, &[("house_number", house), ("postcode", postcode)]);
+                // Census coordinates are interpolated along TIGER street ranges, not rooftop points.
+                result.radius_floor_km = 0.3;
+                let id = match &matched["tigerLine"]["tigerLineId"] {
+                    Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                };
+                Ok((result, id))
+            }
+            "postcodes.io" => {
+                if let Some(code) = query.strip_prefix("outcode:") {
+                    let result = self
+                        .get(&format!("https://api.postcodes.io/outcodes/{code}"), &[])
+                        .await?;
+                    let r = &result["result"];
+                    let point = [
+                        r["latitude"].as_f64().unwrap_or(f64::NAN),
+                        r["longitude"].as_f64().unwrap_or(f64::NAN),
+                    ];
+                    return Ok((found(point, &[("postcode", code.into())]), code.into()));
+                }
+                let result = self
+                    .get(&format!("https://api.postcodes.io/postcodes/{query}"), &[])
+                    .await?;
+                let r = &result["result"];
+                let point = [
+                    r["latitude"].as_f64().unwrap_or(f64::NAN),
+                    r["longitude"].as_f64().unwrap_or(f64::NAN),
+                ];
+                let postcode = r["postcode"].as_str().unwrap_or("").to_string();
+                Ok((found(point, &[("postcode", postcode.clone())]), postcode))
+            }
+            other => bail!("unknown source {other}"),
+        }
+    }
+}
+
+pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
+    let seeds: Vec<Seed> = crate::model::load_jsonl::<Value>(seeds_path)?
+        .into_iter()
+        .enumerate()
+        .map(|(n, v)| {
+            serde_json::from_value(v).with_context(|| format!("{}:{}", seeds_path.display(), n + 1))
+        })
+        .collect::<Result<_>>()?;
+    let today = utc_now()[..10].to_string();
+    let sources = Sources {
+        client: Client::builder()
+            .user_agent(UA)
+            .timeout(Duration::from_secs(90))
+            .build()?,
+    };
+    let mut qids = BTreeSet::new();
+    for seed in &seeds {
+        qids.extend(seed.qid.clone());
+        qids.extend(seed.city.clone());
+        if seed.source.as_deref() == Some("wikidata") {
+            qids.extend(seed.reference.clone());
+        }
+        for alt in seed.any_of.iter().flatten() {
+            qids.extend(alt["qid"].as_str().map(String::from));
+        }
+    }
+    let wd = sources.wikidata(&qids).await?;
+    // Any listed code is acceptable: OSM tags different levels per country (FR-IDF and FR-75C, IE-L and IE-D).
+    let region = |qid: Option<&str>, extra: &[String]| -> Vec<String> {
+        let mut codes: BTreeSet<String> = qid.map(|q| wd[q].codes.clone()).unwrap_or_default();
+        codes.extend(extra.iter().cloned());
+        codes.into_iter().collect()
+    };
+    let iso = |qid: &str| -> Vec<String> { wd[qid].iso.iter().cloned().collect() };
+    let source = |name: &str, reference: &str| json!({ "name": name, "ref": reference, "url": source_url(name, reference), "license": license(name), "retrieved": today });
+    let constructed = json!({ "name": "constructed", "license": "CC0-1.0", "retrieved": today });
+    let mut cases: Vec<Value> = vec![];
+    for seed in &seeds {
+        let good_match = seed.good_match.clone().unwrap_or(json!(true));
+        let item = seed.qid.as_deref().map(|q| &wd[q]);
+        let mut found = None;
+        if matches!(seed.kind.as_str(), "address" | "postcode")
+            && seed.source.as_deref() != Some("wikidata")
+        {
+            let reference = seed
+                .reference
+                .as_deref()
+                .context("address seeds need a ref")?;
+            found = Some(
+                sources
+                    .lookup(seed.source.as_deref().unwrap_or(""), reference)
+                    .await?,
+            );
+            tokio::time::sleep(Duration::from_millis(300)).await;
+        }
+        for query in &seed.queries {
+            let cohort = seed.cohort.clone().unwrap_or_else(|| seed.kind.clone());
+            let (expect, location, label, case_source) = match seed.kind.as_str() {
+                "place" => {
+                    let qid = seed.qid.as_deref().context("place seeds need a qid")?;
+                    let item = item.context("qid")?;
+                    // Cities that are themselves ISO 3166-2 subdivisions (Tokyo, Budapest, Berlin) are correctly
+                    // answered by that subdivision; the region-code check still rejects a different one.
+                    let level = seed.level.clone().unwrap_or_else(|| {
+                        if item.subdivision {
+                            "region"
+                        } else {
+                            "locality"
+                        }
+                        .into()
+                    });
+                    let expect = json!({
+                        "country": seed.country.clone().unwrap_or_else(|| iso(qid)),
+                        "level": level,
+                        "max_level": seed.max_level.as_deref().unwrap_or("house"),
+                        "point": item.point.with_context(|| format!("{qid} has no coordinates"))?,
+                        "radius_km": seed.radius_km.unwrap_or(15.),
+                        "region": region(Some(qid), &seed.extra_regions),
+                        "good_match": good_match,
+                    });
+                    let case_source = match (&seed.source, &seed.reference) {
+                        (Some(name), Some(reference)) => source(name, reference),
+                        _ => source("wikidata", qid),
+                    };
+                    let location = seed
+                        .location
+                        .clone()
+                        .unwrap_or_else(|| format!("wikidata:{qid}"));
+                    (
+                        expect,
+                        location,
+                        seed.label.clone().unwrap_or_else(|| item.label.clone()),
+                        case_source,
+                    )
+                }
+                "region" => {
+                    let qid = seed.qid.as_deref().context("region seeds need a qid")?;
+                    let item = item.context("qid")?;
+                    let expect = json!({
+                        "country": iso(qid), "level": "region", "max_level": "region", "area": "region",
+                        "point": item.point, "radius_km": 400.0, "region": region(Some(qid), &[]),
+                        "admin_level": seed.admin_level.context("region seeds need admin_level")?, "good_match": true,
+                    });
+                    (
+                        expect,
+                        format!("wikidata:{qid}"),
+                        item.label.clone(),
+                        source("wikidata", qid),
+                    )
+                }
+                "country" => {
+                    let qid = seed.qid.as_deref().context("country seeds need a qid")?;
+                    let expect = json!({
+                        "country": seed.country.clone().context("country seeds need country")?,
+                        "level": "country", "max_level": seed.max_level.as_deref().unwrap_or("country"), "good_match": true,
+                    });
+                    (
+                        expect,
+                        format!("wikidata:{qid}"),
+                        wd[qid].label.clone(),
+                        source("wikidata", qid),
+                    )
+                }
+                "landmark" => {
+                    let qid = seed.qid.as_deref().context("landmark seeds need a qid")?;
+                    let item = item.context("qid")?;
+                    let mut components = serde_json::Map::new();
+                    if let Some(house) = &seed.house_number {
+                        components.insert("house_number".into(), json!(house));
+                    }
+                    if let Some(postcode) = &seed.postcode {
+                        components.insert("postcode".into(), json!(postcode));
+                    }
+                    let expect = json!({
+                        "country": iso(qid), "level": seed.level.as_deref().unwrap_or("house"), "max_level": "house",
+                        "point": item.point, "radius_km": seed.radius_km.unwrap_or(0.25), "region": region(Some(qid), &[]),
+                        "components": components, "good_match": good_match,
+                    });
+                    (
+                        expect,
+                        format!("wikidata:{qid}"),
+                        item.label.clone(),
+                        source("wikidata", qid),
+                    )
+                }
+                "address" | "postcode" => {
+                    let name = seed
+                        .source
+                        .as_deref()
+                        .context("address seeds need a source")?;
+                    let reference = seed
+                        .reference
+                        .as_deref()
+                        .context("address seeds need a ref")?;
+                    let (point, components, floor, country, regions, id) = match &found {
+                        None => {
+                            let postcode =
+                                seed.queries[0].split(',').next().unwrap_or("").to_string();
+                            let point = wd[reference].point.context("coordinates")?;
+                            (
+                                point,
+                                json!({ "postcode": postcode }),
+                                0.,
+                                iso(reference),
+                                region(Some(reference), &[]),
+                                reference.to_string(),
+                            )
+                        }
+                        Some((found, id)) => {
+                            let country = match name {
+                                "ban" => "fr",
+                                "pdok" => "nl",
+                                "census" => "us",
+                                _ => "gb",
+                            };
+                            (
+                                found.point,
+                                json!(found.components),
+                                found.radius_floor_km,
+                                vec![country.to_string()],
+                                region(seed.city.as_deref(), &[]),
+                                id.clone(),
+                            )
+                        }
+                    };
+                    let house = seed.kind == "address";
+                    let expect = json!({
+                        "country": country,
+                        "level": if house { "house" } else { "postcode" },
+                        "max_level": if house { "house" } else { "postcode" },
+                        "point": point,
+                        "radius_km": seed.radius_km.unwrap_or(0.15).max(floor),
+                        "region": regions,
+                        "components": components,
+                        "good_match": true,
+                    });
+                    (
+                        expect,
+                        format!("{name}:{id}"),
+                        reference.to_string(),
+                        source(name, &id),
+                    )
+                }
+                "none" => (
+                    json!({ "level": "none" }),
+                    format!("none:{}", slug(query)),
+                    "no geographic referent".into(),
+                    constructed.clone(),
+                ),
+                "error" => (
+                    json!({ "error": seed.error.clone().context("error seeds need error")? }),
+                    seed.location
+                        .clone()
+                        .unwrap_or_else(|| format!("none:{}", slug(query))),
+                    seed.label.clone().unwrap_or_default(),
+                    constructed.clone(),
+                ),
+                "any_of" => {
+                    let mut qids = vec![];
+                    let alternatives = seed
+                        .any_of
+                        .clone()
+                        .context("any_of seeds need alternatives")?
+                        .into_iter()
+                        .map(|mut alt| {
+                            if let Some(qid) = alt.as_object_mut().and_then(|o| o.remove("qid")) {
+                                let qid = qid.as_str().unwrap_or("").to_string();
+                                alt["country"] = json!(iso(&qid));
+                                alt["point"] = json!(wd[&qid].point);
+                                alt["region"] = json!(region(Some(&qid), &[]));
+                                qids.push(qid);
+                            }
+                            alt
+                        })
+                        .collect::<Vec<_>>();
+                    let case_source = if seed.source.as_deref() == Some("constructed") {
+                        constructed.clone()
+                    } else {
+                        source(
+                            "wikidata",
+                            seed.reference.as_deref().unwrap_or(&qids.join(",")),
+                        )
+                    };
+                    let location = seed
+                        .location
+                        .clone()
+                        .unwrap_or_else(|| format!("{cohort}:{}", slug(query)));
+                    (
+                        json!({ "any_of": alternatives }),
+                        location,
+                        seed.label.clone().unwrap_or_default(),
+                        case_source,
+                    )
+                }
+                "unscored" => (
+                    Value::Null,
+                    format!("{cohort}:{}", slug(query)),
+                    seed.label.clone().unwrap_or_default(),
+                    constructed.clone(),
+                ),
+                other => bail!("unknown seed kind {other}"),
+            };
+            let mut tags = seed.tags.clone();
+            let non_latin = NON_LATIN.is_match(query);
+            if non_latin {
+                tags.push("non_latin".into());
+            }
+            let mut base = format!("{cohort}-{}", slug(query));
+            if non_latin || base.ends_with("-blank") {
+                // Non-Latin and blank queries slug poorly; name them by place plus a stable query hash.
+                base = format!(
+                    "{cohort}-{}-{}",
+                    slug(&label),
+                    &sha256_hex(query.as_bytes())[..6]
+                );
+            }
+            let mut id = base.clone();
+            let mut n = 2;
+            while cases.iter().any(|c| c["id"] == id.as_str()) {
+                id = format!("{base}-{n}");
+                n += 1;
+            }
+            let mut case = json!({
+                "id": id, "query": query, "cohort": cohort, "location": location, "label": label,
+                "expect": expect, "must_pass": seed.must_pass, "tags": tags, "source": case_source,
+                "holdout": holdout(&location),
+                "review": { "status": "source-verified",
+                            "note": "Expectation copied from the cited source by `evaluate build-gold`; human review pending." },
+            });
+            if let Some(known) = &seed.known_failure {
+                case["known_failure"] = json!(known);
+            }
+            cases.push(case);
+        }
+    }
+    let lines: Vec<_> = cases
+        .into_iter()
+        .map(|c| serde_json::to_string(&sorted(c)))
+        .collect::<Result<_, _>>()?;
+    std::fs::write(out, lines.join("\n") + "\n")?;
+    let locations: BTreeSet<_> = lines
+        .iter()
+        .filter_map(|l| {
+            serde_json::from_str::<Value>(l).ok()?["location"]
+                .as_str()
+                .map(String::from)
+        })
+        .collect();
+    eprintln!(
+        "{} cases, {} locations -> {}",
+        lines.len(),
+        locations.len(),
+        out.display()
+    );
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slugs_match_the_existing_ids() {
+        assert_eq!(
+            slug("Rådhuspladsen 999, 1550 København V, Denmark"),
+            "r-dhuspladsen-999-1550-k-benhavn-v-denmark"
+        );
+        assert_eq!(slug("   "), "blank");
+        assert!(NON_LATIN.is_match("京都, Japan") && !NON_LATIN.is_match("Łódź, Poland"));
+    }
+
+    #[test]
+    fn seeds_parse() {
+        let seeds =
+            crate::model::load_jsonl::<Value>(&crate::model::root().join("tests/gold.seeds.jsonl"))
+                .unwrap();
+        for seed in seeds {
+            serde_json::from_value::<Seed>(seed.clone()).unwrap_or_else(|e| panic!("{seed}: {e}"));
+        }
+    }
+}

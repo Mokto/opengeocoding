@@ -1,5 +1,5 @@
 use crate::{
-    proto::nominatim_geolocation::{ISO3166_2, Region},
+    proto::geolocation::{ISO3166_2, Region},
     resolver::Resolver,
 };
 use anyhow::{Context, Result, ensure};

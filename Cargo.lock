@@ -545,6 +545,7 @@ dependencies = [
  "prometheus",
  "regex",
  "reqwest",
+ "ring",
  "rustpostal",
  "sentry",
  "serde",
