@@ -2,10 +2,13 @@ use rstar::{RTree, primitives::GeomWithData, primitives::Rectangle};
 
 /// Polygon (all rings of all parts, even-odd rule) with edges bucketed into horizontal slabs,
 /// so a containment test only looks at the few edges crossing the point's slab.
+/// Vertices are stored as 1e-7 degree integers (about 1 cm), half the size of f64 pairs.
+const FIXED: f64 = 1e7;
+
 pub struct Poly {
     place: u32,
     kind: u8,
-    xy: Vec<[f64; 2]>,
+    xy: Vec<[i32; 2]>,
     ymin: f64,
     inv_h: f64,
     offsets: Vec<u32>,
@@ -52,6 +55,10 @@ impl Poly {
                 fill[s] += 1;
             }
         }
+        let xy = xy
+            .iter()
+            .map(|p| [(p[0] * FIXED).round() as i32, (p[1] * FIXED).round() as i32])
+            .collect();
         Some(Poly {
             place,
             kind,
@@ -69,8 +76,8 @@ impl Poly {
         let s = (((y - self.ymin) * self.inv_h).max(0.0) as usize).min(k - 1);
         let mut inside = false;
         for &e in &self.edges[self.offsets[s] as usize..self.offsets[s + 1] as usize] {
-            let [xa, ya] = self.xy[e as usize];
-            let [xb, yb] = self.xy[e as usize + 1];
+            let [xa, ya] = self.xy[e as usize].map(|v| v as f64 / FIXED);
+            let [xb, yb] = self.xy[e as usize + 1].map(|v| v as f64 / FIXED);
             if (ya > y) != (yb > y) && x < xa + (y - ya) * (xb - xa) / (yb - ya) {
                 inside = !inside;
             }

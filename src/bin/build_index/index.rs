@@ -90,8 +90,6 @@ pub fn schema() -> (Schema, Fields) {
 }
 
 pub fn create(out: &str) -> (Index, IndexWriter<TantivyDocument>, Fields) {
-    let _ = fs::remove_dir_all(out);
-    fs::create_dir_all(out).unwrap();
     let (schema, f) = schema();
     let index = Index::create_in_dir(out, schema).unwrap();
     index.tokenizers().register("fold", analyzer());
@@ -101,7 +99,7 @@ pub fn create(out: &str) -> (Index, IndexWriter<TantivyDocument>, Fields) {
     (index, writer, f)
 }
 
-pub const INLINE: usize = 12;
+pub const INLINE: usize = 8;
 
 /// One house number. Numbers up to INLINE bytes are stored inline, zero-padded, which sorts the
 /// same as the bytes themselves because numbers never contain NUL.
@@ -139,32 +137,25 @@ impl Num {
     }
 }
 
-/// FST shards over contiguous sid ranges, built in parallel.
-/// Key = sid (u32 BE) ++ number; value = x and y as f32 bits. Duplicate keys keep the first.
-pub fn numbers(
-    out: &str,
-    short: &[Vec<Num>],
-    long: &[Vec<LongNum>],
-    max_sid: u32,
-    shards: usize,
-) -> u64 {
-    let starts: Vec<u64> = (0..shards as u64)
-        .map(|s| s * (max_sid as u64 + 1) / shards as u64)
-        .collect();
-    let counts: Vec<u64> = (0..shards)
+#[derive(Default)]
+pub struct Bucket {
+    pub short: Vec<Num>,
+    pub long: Vec<LongNum>,
+}
+
+/// One FST per bucket, holding the sids with sid % buckets.len() == bucket index, sorted in place
+/// and built in parallel. Key = sid (u32 BE) ++ number; value = x and y as f32 bits. Duplicate
+/// keys keep the first.
+pub fn numbers(out: &str, buckets: Vec<Bucket>) -> u64 {
+    let shards = buckets.len();
+    let n = buckets
         .into_par_iter()
-        .map(|s| {
-            let (lo, hi) = (starts[s], starts.get(s + 1).copied().unwrap_or(u64::MAX));
-            let inside = |sid: u32| (lo..hi).contains(&(sid as u64));
-            let mut a: Vec<Num> = short
-                .iter()
-                .flatten()
-                .filter(|n| inside(n.sid))
-                .copied()
-                .collect();
-            a.sort_unstable_by_key(|p| (p.sid, p.num));
-            let mut b: Vec<&LongNum> = long.iter().flatten().filter(|n| inside(n.sid)).collect();
-            b.sort_unstable_by(|p, q| (p.sid, p.num.as_bytes()).cmp(&(q.sid, q.num.as_bytes())));
+        .enumerate()
+        .map(|(s, mut b)| {
+            b.short.sort_unstable_by_key(|p| (p.sid, p.num));
+            b.long
+                .sort_unstable_by(|p, q| (p.sid, p.num.as_bytes()).cmp(&(q.sid, q.num.as_bytes())));
+            let (a, b) = (b.short, b.long);
             let w = BufWriter::with_capacity(
                 1 << 22,
                 fs::File::create(format!("{out}/numbers-{s:02}.fst")).unwrap(),
@@ -202,17 +193,9 @@ pub fn numbers(
             fst.finish().unwrap();
             n
         })
-        .collect();
-    fs::write(
-        format!("{out}/numbers.starts"),
-        starts
-            .iter()
-            .map(u64::to_string)
-            .collect::<Vec<_>>()
-            .join("\n"),
-    )
-    .unwrap();
-    counts.iter().sum()
+        .sum();
+    fs::write(format!("{out}/numbers.shards"), shards.to_string()).unwrap();
+    n
 }
 
 #[cfg(test)]
@@ -223,33 +206,29 @@ mod tests {
     fn numbers_merge_inline_and_long_in_byte_order() {
         let dir = std::env::temp_dir().join(format!("numbers-test-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
-        let mut short = vec![];
-        let mut long = vec![];
+        let mut buckets: Vec<Bucket> = (0..2).map(|_| Bucket::default()).collect();
         for (sid, num) in [
             (7, "12"),
             (7, "1"),
             (7, "12"),
             (7, "1a"),
-            (3, "9"),
+            (2, "9"),
             (7, "1-very-long-number"),
         ] {
+            let b = &mut buckets[sid as usize % 2];
             match Num::new(sid, num, sid as f32, num.len() as f32) {
-                Ok(n) => short.push(n),
-                Err(l) => long.push(l),
+                Ok(n) => b.short.push(n),
+                Err(l) => b.long.push(l),
             }
         }
         let out = dir.to_str().unwrap();
-        assert_eq!(
-            numbers(out, &[short], &[long], 7, 2),
-            5,
-            "duplicate (7, 12) dropped"
-        );
+        assert_eq!(numbers(out, buckets), 5, "duplicate (7, 12) dropped");
         let shard = |s: usize| {
             tantivy_fst::Map::from_bytes(fs::read(format!("{out}/numbers-{s:02}.fst")).unwrap())
                 .unwrap()
         };
         let key = |sid: u32, n: &str| [&sid.to_be_bytes()[..], n.as_bytes()].concat();
-        assert!(shard(0).get(key(3, "9")).is_some());
+        assert!(shard(0).get(key(2, "9")).is_some());
         let s1 = shard(1);
         for n in ["1", "1-very-long-number", "1a", "12"] {
             assert!(s1.get(key(7, n)).is_some(), "{n}");
