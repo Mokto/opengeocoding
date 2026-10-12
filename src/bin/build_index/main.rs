@@ -1,6 +1,7 @@
 //! Builds the address index from a local Overture release directory (division, division_area,
 //! segment and address parquet), plus optional OSM extracts, OpenAddresses exports and GeoNames
 //! postcodes, without Nominatim. Only house numbers are spilled to disk.
+mod canon;
 mod geo;
 mod index;
 mod mem;

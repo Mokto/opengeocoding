@@ -57,6 +57,8 @@ struct Geometry {
     coordinates: serde_json::Value,
 }
 
+const OA_BLOCK: usize = 4 << 20;
+
 /// `*.geojson.gz` files as published by OpenAddresses batch jobs, one Feature per line, named
 /// `<cc>_<rest of the source path>-<layer name>.geojson.gz`; the country comes from the name.
 /// Returns the number of files read.
@@ -70,46 +72,68 @@ pub fn openaddresses(dir: &Path, shared: &Shared) -> usize {
             eprintln!("  skipping {name}: no country prefix");
             return;
         }
-        let mut sink = Sink::new(shared);
-        let reader = BufReader::with_capacity(
-            1 << 20,
-            flate2::read::MultiGzDecoder::new(File::open(path).unwrap()),
-        );
-        for line in reader.lines() {
-            let line = match line {
-                Ok(l) => l,
-                Err(e) => {
-                    eprintln!("  {name}: stopped reading: {e}");
-                    bad.fetch_add(1, Relaxed);
-                    break;
+        // One thread decompresses into blocks of whole lines; workers parse blocks in parallel,
+        // so one large file doesn't leave the other cores idle.
+        let (tx, rx) = std::sync::mpsc::sync_channel::<String>(32);
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                let file = File::open(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+                let mut r =
+                    BufReader::with_capacity(1 << 20, flate2::read::MultiGzDecoder::new(file));
+                loop {
+                    let mut block = String::with_capacity(OA_BLOCK + 4096);
+                    while block.len() < OA_BLOCK {
+                        match r.read_line(&mut block) {
+                            Ok(0) => break,
+                            Ok(_) => {}
+                            Err(e) => {
+                                eprintln!("  {name}: stopped reading: {e}");
+                                bad.fetch_add(1, Relaxed);
+                                break;
+                            }
+                        }
+                    }
+                    if block.is_empty() || tx.send(block).is_err() {
+                        break;
+                    }
                 }
-            };
-            let Ok(f) = serde_json::from_str::<Feature>(&line) else {
-                bad.fetch_add(1, Relaxed);
-                continue;
-            };
-            let Some(g) = f.geometry.filter(|g| g.kind == "Point") else {
-                continue;
-            };
-            let (Some(x), Some(y)) = (g.coordinates[0].as_f64(), g.coordinates[1].as_f64()) else {
-                continue;
-            };
-            let p = &f.properties;
-            let city = p
-                .city
-                .as_deref()
-                .filter(|c| !c.trim().is_empty())
-                .or(p.district.as_deref());
-            sink.add(
-                Some(cc),
-                x,
-                y,
-                p.street.as_deref(),
-                p.number.as_deref(),
-                p.postcode.as_deref(),
-                city,
+                drop(tx);
+            });
+            rx.into_iter().par_bridge().for_each_init(
+                || Sink::new(shared),
+                |sink, block| {
+                    for line in block.lines() {
+                        let Ok(f) = serde_json::from_str::<Feature>(line) else {
+                            bad.fetch_add(1, Relaxed);
+                            continue;
+                        };
+                        let Some(g) = f.geometry.filter(|g| g.kind == "Point") else {
+                            continue;
+                        };
+                        let (Some(x), Some(y)) =
+                            (g.coordinates[0].as_f64(), g.coordinates[1].as_f64())
+                        else {
+                            continue;
+                        };
+                        let p = &f.properties;
+                        let city = p
+                            .city
+                            .as_deref()
+                            .filter(|c| !c.trim().is_empty())
+                            .or(p.district.as_deref());
+                        sink.add(
+                            Some(cc),
+                            x,
+                            y,
+                            p.street.as_deref(),
+                            p.number.as_deref(),
+                            p.postcode.as_deref(),
+                            city,
+                        );
+                    }
+                },
             );
-        }
+        });
     });
     let bad = bad.into_inner();
     if bad > 0 {

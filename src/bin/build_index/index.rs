@@ -1,3 +1,4 @@
+use crate::canon::Canon;
 use rayon::prelude::*;
 use std::{
     fs,
@@ -19,6 +20,7 @@ pub fn analyzer() -> TextAnalyzer {
         .filter(RemoveLongFilter::limit(40))
         .filter(LowerCaser)
         .filter(AsciiFoldingFilter)
+        .filter(Canon)
         .build()
 }
 
@@ -311,6 +313,28 @@ fn shard(out: &str, s: usize, dir: &std::path::Path, long: Vec<LongNum>) -> u64 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fold_canonicalizes_street_abbreviations() {
+        for (a, b) in [
+            ("S VERMONT AVE", "South Vermont Avenue"),
+            ("Av. Paulista", "Avenida Paulista"),
+            ("R. Dr. João Pessoa", "Rua Doutor João Pessoa"),
+            ("Hauptstr. 5", "Hauptstraße 5"),
+            ("Berliner Str.", "Berliner Straße"),
+            ("Kerkstraat", "Kerkstr"),
+            ("Cl 10 # 5-20", "Calle 10 # 5-20"),
+            ("C/ Mayor 3", "Calle Mayor 3"),
+            ("Cra 7", "Carrera 7"),
+            ("Atatürk Cad.", "Atatürk Caddesi"),
+            ("ул. Ленина", "улица Ленина"),
+            ("St Mary's Rd", "Saint Mary's Road"),
+        ] {
+            assert_eq!(fold(a), fold(b), "{a} / {b}");
+        }
+        assert_eq!(fold("Via Roma"), "via roma");
+        assert_eq!(fold("Strasse"), "str");
+    }
 
     #[test]
     fn numbers_merge_inline_and_long_in_byte_order() {
