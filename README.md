@@ -26,7 +26,7 @@ docker pull ghcr.io/mokto/geolocation:latest
 docker tag ghcr.io/mokto/geolocation:latest geolocation
 ```
 
-`latest` is published from `main`. Before the initial import is merged, use the branch tag `ghcr.io/mokto/geolocation:feat-initial-geolocation` instead. Models are not included in either image.
+`latest` is published from `main`. Models are not included in the image.
 
 Download libpostal models explicitly into a writable directory. Downloads are large; nothing downloads automatically at import or startup:
 
@@ -201,7 +201,7 @@ GitHub-hosted runners cannot reach an IP-restricted backend and do not download 
 
 ## GHCR publishing
 
-`.github/workflows/docker.yml` runs on repository branch pushes, `v*` tag pushes and manual dispatch. It runs the existing checks first, then uses Docker's pinned reusable workflow to build on native amd64/arm64 runners, push to `ghcr.io/mokto/geolocation`, and assemble and verify the multi-platform manifest. Pull requests do not publish images.
+`.github/workflows/docker.yml` runs on pushes to `main`, `v*` tag pushes and manual dispatch. It runs the existing checks first, then uses Docker's pinned reusable workflow to build on native amd64/arm64 runners, push to `ghcr.io/mokto/geolocation`, and assemble and verify the multi-platform manifest. Pull requests do not publish images.
 
 Tags include the sanitized branch name and `sha-<full-commit-SHA>`. A `v1.2.3` Git tag produces `1.2.3`; only `main` updates `latest`. Publishing uses the workflow's `GITHUB_TOKEN` with `packages: write`, so no personal access token secret is required. OCI labels link the package to this repository. Crates and GitHub releases are not published.
 
