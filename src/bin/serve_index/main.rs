@@ -48,6 +48,9 @@ struct Place {
     names: Box<str>,
     /// Sorted `name_key` hashes of all names, so exact-name checks don't re-fold them.
     keys: Box<[u64]>,
+    /// A county that is a city in all but name: Overture has Birmingham only as a county with
+    /// a same-named neighbourhood inside, and no locality.
+    city_like: bool,
 }
 
 impl Place {
@@ -78,6 +81,7 @@ impl Place {
         match &*self.subtype {
             "country" | "dependency" => "country",
             "region" => "state",
+            "county" if self.city_like => "city",
             "county" => "county",
             "localadmin" => "municipality",
             "locality" => match &*self.class {
@@ -125,6 +129,7 @@ fn load_places(path: &str) -> Vec<Place> {
                 primary: f(13).into(),
                 names: f(14).into(),
                 keys: Box::default(),
+                city_like: false,
             }
         })
         .collect()
@@ -208,6 +213,8 @@ struct App {
     places: Vec<Place>,
     /// Folded country names and ISO codes -> lowercase country code.
     countries: HashMap<String, String>,
+    /// Lowercase country code -> its country place.
+    country_places: HashMap<String, u32>,
     /// ISO 3166-2 code -> its region place.
     regions: HashMap<String, u32>,
     postal: Mutex<rustpostal::LibModules>,
@@ -377,10 +384,32 @@ impl App {
                 keys.dedup();
                 p.keys = keys.into();
             });
+            // counties containing a same-named neighbourhood, minus those with such a locality
+            let mut hood_named: std::collections::HashSet<u32> = Default::default();
+            let mut town_named: std::collections::HashSet<u32> = Default::default();
+            for p in &places {
+                let parent = p.parent;
+                if parent == NONE || places[parent as usize].subtype.as_ref() != "county" {
+                    continue;
+                }
+                let same = name_key(&p.primary) == name_key(&places[parent as usize].primary);
+                match &*p.subtype {
+                    "neighborhood" | "macrohood" if same => hood_named.insert(parent),
+                    "locality" | "localadmin" if same => town_named.insert(parent),
+                    _ => false,
+                };
+            }
+            for c in hood_named.difference(&town_named) {
+                places[*c as usize].city_like = true;
+            }
         }
         let mut countries = HashMap::new();
         let mut regions: HashMap<String, u32> = HashMap::new();
+        let mut country_places: HashMap<String, u32> = HashMap::new();
         for (i, p) in places.iter().enumerate() {
+            if p.subtype.as_ref() == "country" && !p.cc.is_empty() {
+                country_places.entry(p.cc.to_string()).or_insert(i as u32);
+            }
             if matches!(&*p.subtype, "country" | "dependency") && !p.cc.is_empty() {
                 for n in p.all_names() {
                     countries.entry(fold(n)).or_insert_with(|| p.cc.to_string());
@@ -424,6 +453,7 @@ impl App {
             numbers,
             places,
             countries,
+            country_places,
             regions,
             postal: Mutex::new(postal),
             release,
@@ -488,7 +518,19 @@ impl App {
     }
 
     fn country(&self, text: &str) -> Option<String> {
-        self.countries.get(&fold(text)).cloned()
+        let folded = fold(text);
+        if folded.is_empty() {
+            return None;
+        }
+        if let Some(c) = self.countries.get(&folded) {
+            return Some(c.clone());
+        }
+        // "india india": a repeated field the parser joined
+        let words: Vec<&str> = folded.split(' ').collect();
+        let half = words.len() / 2;
+        (half > 0 && words.len().is_multiple_of(2) && words[..half] == words[half..])
+            .then(|| self.countries.get(&words[..half].join(" ")).cloned())
+            .flatten()
     }
 
     fn chain(&self, mut p: u32) -> Vec<u32> {
@@ -509,9 +551,20 @@ impl App {
         within: Option<&str>,
         ok: &dyn Fn(&Place) -> bool,
     ) -> Vec<Hit> {
+        self.places_exact(text, cc, within, ok).0
+    }
+
+    /// `places`, and whether the first one is named exactly `text`.
+    fn places_exact(
+        &self,
+        text: &str,
+        cc: Option<&str>,
+        within: Option<&str>,
+        ok: &dyn Fn(&Place) -> bool,
+    ) -> (Vec<Hit>, bool) {
         let mut cl = self.musts(self.f.names, text);
         if cl.is_empty() {
-            return vec![];
+            return (vec![], false);
         }
         cl.push(must(term(self.f.kind, "p")));
         if let Some(cc) = cc {
@@ -540,11 +593,15 @@ impl App {
             })
             .collect();
         found.sort();
-        found
-            .into_iter()
-            .take(10)
-            .map(|(.., id)| Hit::Place(id))
-            .collect()
+        let exact = found.first().is_some_and(|f| !f.0);
+        (
+            found
+                .into_iter()
+                .take(10)
+                .map(|(.., id)| Hit::Place(id))
+                .collect(),
+            exact,
+        )
     }
 
     fn streets(
@@ -575,11 +632,27 @@ impl App {
                 .into_iter()
                 .filter_map(|h| {
                     if let Hit::Place(id) = h {
-                        Some((Occur::Should, term(self.f.ids, &id.to_string())))
+                        Some(id)
                     } else {
                         None
                     }
                 })
+                // A neighbourhood's streets belong to the town around it (Seynod is now part of
+                // Annecy): scope to that town too.
+                .flat_map(|id| {
+                    let town = matches!(
+                        &*self.places[id as usize].subtype,
+                        "macrohood" | "neighborhood" | "microhood"
+                    )
+                    .then(|| {
+                        self.chain(id).into_iter().skip(1).find(|&p| {
+                            matches!(&*self.places[p as usize].subtype, "locality" | "localadmin")
+                        })
+                    })
+                    .flatten();
+                    std::iter::once(id).chain(town)
+                })
+                .map(|id| (Occur::Should, term(self.f.ids, &id.to_string())))
                 .collect();
             let postal = self.musts(self.f.city, city);
             if !postal.is_empty() {
@@ -608,6 +681,7 @@ impl App {
         };
         let number = number.map(|n| {
             n.trim()
+                .trim_end_matches('号')
                 .chars()
                 .flat_map(char::to_lowercase)
                 .collect::<String>()
@@ -693,6 +767,40 @@ impl App {
                     city,
                 }
             };
+            let lookup = |a: DocAddress, n: &str| {
+                let sid = self.fast(a, "id") as u32;
+                let mut key = sid.to_be_bytes().to_vec();
+                key.extend_from_slice(n.as_bytes());
+                self.numbers[sid as usize % self.numbers.len()].get(&key)
+            };
+            if city.is_none() && postcode.is_none() && cc.is_none() {
+                // Nothing places the street: answer only when few same-named streets (with the
+                // number) exist, all in one country ("oosterschelde 3", not "66 parks").
+                let n = number.as_deref().filter(|n| !n.is_empty());
+                let fits: Vec<DocAddress> = top
+                    .iter()
+                    .copied()
+                    .filter(|&a| n.is_none_or(|n| lookup(a, n).is_some()))
+                    .collect();
+                let countries: std::collections::HashSet<&str> = fits
+                    .iter()
+                    .map(|&a| self.fast(a, "place") as u32)
+                    .map(|p| {
+                        if p == NONE {
+                            ""
+                        } else {
+                            &*self.places[p as usize].cc
+                        }
+                    })
+                    .collect();
+                if fits.is_empty()
+                    || fits.len() > 3
+                    || countries.len() != 1
+                    || countries.contains("")
+                {
+                    return vec![];
+                }
+            }
             if let Some(n) = number.as_deref().filter(|n| !n.is_empty()) {
                 let mut key = vec![];
                 for &a in &top {
@@ -754,6 +862,30 @@ impl App {
             Some(&a) => stored(&self.searcher.doc(a).unwrap(), self.f.name),
             None => norm.to_string(),
         }
+    }
+
+    /// `text`, or its most specific part, if it names a place: words dropped from the front
+    /// ("fra seynod" -> "seynod"), or for CJK the administrative parts ("南京市江宁区" ->
+    /// "江宁区", "南京市").
+    fn resolve_place(&self, text: &str, cc: Option<&str>) -> Option<String> {
+        let local = |p: &Place| !matches!(&*p.subtype, "country" | "dependency");
+        let mut tries: Vec<String> = vec![text.to_string()];
+        let words: Vec<&str> = text.split_whitespace().collect();
+        tries.extend((1..words.len()).map(|i| words[i..].join(" ")));
+        let mut part = String::new();
+        let mut parts = vec![];
+        for c in text.chars() {
+            part.push(c);
+            if "市区县省都道府県町村".contains(c) {
+                parts.push(std::mem::take(&mut part));
+            }
+        }
+        if parts.len() > 1 {
+            tries.extend(parts.into_iter().rev());
+        }
+        tries
+            .into_iter()
+            .find(|t| !self.places(t, cc, None, &local).is_empty())
     }
 
     fn postcode_exists(&self, pc: &str, cc: Option<&str>) -> bool {
@@ -866,38 +998,137 @@ impl App {
             .or(get("state_district"))
             .or(get("country_region"));
         let local = |p: &Place| !matches!(&*p.subtype, "country" | "dependency");
+        // A query that only names a country ("Malta", "North Macedonia") means the country.
+        if let Some(c) = self.country(q)
+            && let Some(&p) = self.country_places.get(&c)
+        {
+            return vec![self.json(&Hit::Place(p), en)];
+        }
         let mut hits = vec![];
-        if let Some(road) = get("road") {
-            hits = self.streets(road, get("house_number"), city, get("postcode"), cc);
-        } else {
-            if let Some(pc) = get("postcode")
-                && (get("house").is_none() || city.is_some() || cc.is_some())
-            {
-                hits = self.postcodes(pc, cc);
-            }
-            if let Some(city) = city
-                && !(cc.is_some() && self.country(city).as_deref() == cc)
-            {
-                let places = self.places(city, cc, state, &local);
-                if places.is_empty() {
-                    // Like Nominatim, every stated part has to match.
-                    return vec![];
+        let roads: Vec<&str> = parsed
+            .iter()
+            .filter(|(l, _)| l == "road")
+            .map(|(_, v)| v.as_str())
+            .collect();
+        if let Some(&road) = roads.last() {
+            // libpostal often puts the town in another part: "zürich - birchstrasse 160" gives
+            // house "zürich", "fra - seynod - 26 rue de sansy" a first road "fra seynod". The
+            // street is the last road; the town, if none is labelled, the first other part that
+            // names a place.
+            let resolved_city = match city {
+                Some(c) => Some(self.resolve_place(c, cc).unwrap_or_else(|| c.to_string())),
+                None => get("house")
+                    .into_iter()
+                    .chain(roads[..roads.len() - 1].iter().copied())
+                    .find_map(|t| self.resolve_place(t, cc)),
+            };
+            hits = self.streets(
+                road,
+                get("house_number"),
+                resolved_city.as_deref(),
+                get("postcode"),
+                cc,
+            );
+        }
+        // "Santiago, Metropolitana, Chile" parses "santiago" as a road: without a house number,
+        // an unmatched road is tried as a place name too.
+        let road_as_place = hits.is_empty() && get("house_number").is_none();
+        if get("road").is_none() || road_as_place {
+            // libpostal's labels for place-only text are unreliable ("Doha, Ad Dawhah, Qatar"
+            // gives house "doha", city "ad dawhah"): try each place-like part in turn.
+            const PLACE_LABELS: [&str; 8] = [
+                "city",
+                "city_district",
+                "suburb",
+                "island",
+                "house",
+                "state_district",
+                "state",
+                "country_region",
+            ];
+            // in the order written: the first part is usually the most specific
+            let texts: Vec<&str> = parsed
+                .iter()
+                .filter(|(l, _)| {
+                    PLACE_LABELS.contains(&l.as_str()) || (road_as_place && l == "road")
+                })
+                .map(|(_, v)| v.as_str())
+                .filter(|t| !(cc.is_some() && self.country(t).as_deref() == cc))
+                .collect();
+            if let Some(pc) = get("postcode") {
+                let found = self.postcodes(pc, cc);
+                let countries: std::collections::HashSet<&str> = found
+                    .iter()
+                    .filter_map(|h| match h {
+                        Hit::Postcode { place, .. } if *place != NONE => {
+                            Some(&*self.places[*place as usize].cc)
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                // A bare postcode that several countries use is a guess without a country.
+                if cc.is_some() || !texts.is_empty() || countries.len() <= 1 {
+                    hits = found;
                 }
+            }
+            let mut matched = false;
+            // all parts together first: "région bruxelles-capitale" is one name, and "région"
+            // alone matches every region
+            let joined = texts.join(" ");
+            let tries = (texts.len() > 1)
+                .then_some(joined.as_str())
+                .into_iter()
+                .chain(texts.iter().copied());
+            // the first exact match, else the first match
+            let mut best: Option<Vec<Hit>> = None;
+            for text in tries {
+                let within = state.filter(|s| *s != text);
+                let (places, exact) = self.places_exact(text, cc, within, &local);
+                if exact {
+                    best = Some(places);
+                    break;
+                }
+                // Without a country, a partial name ("beach gardens" in Palm Beach Gardens) is a
+                // guess anywhere in the world.
+                if best.is_none() && !places.is_empty() && cc.is_some() {
+                    best = Some(places);
+                }
+            }
+            if let Some(places) = best {
+                // a postcode elsewhere ("00871" is Warsaw's; Lakeport is American) doesn't
+                // belong to this place
+                let place_cc = |h: &Hit| match h {
+                    Hit::Place(p) | Hit::Postcode { place: p, .. } if *p != NONE => {
+                        Some(self.places[*p as usize].cc.clone())
+                    }
+                    _ => None,
+                };
+                let found: std::collections::HashSet<_> =
+                    places.iter().filter_map(place_cc).collect();
+                hits.retain(|h| place_cc(h).is_some_and(|c| found.contains(&c)));
                 hits.extend(places);
-            } else if let Some(state) = state {
-                hits.extend(self.places(state, cc, None, &|p| {
-                    matches!(&*p.subtype, "region" | "county" | "localadmin" | "locality")
-                }));
-            } else if hits.is_empty()
+                matched = true;
+            }
+            if texts.is_empty()
+                && hits.is_empty()
                 && let Some(text) = country_text
             {
                 hits.extend(self.places(text, None, None, &|p| {
                     matches!(&*p.subtype, "country" | "dependency")
                 }));
             }
-            if hits.is_empty() && get("house_number").is_none() && get("postcode").is_none() {
-                // Unlabelled or POI-only text ("Dubai, UAE" parses as one "house"): the first
-                // comma part as a place, in the last part's country if it names one.
+            if !matched && !texts.is_empty() {
+                // Like Nominatim, every stated part has to match: "Qwertyuiop 12345" is not
+                // postcode 12345.
+                hits.clear();
+            }
+            if !matched
+                && !texts.is_empty()
+                && get("house_number").is_none()
+                && get("postcode").is_none()
+            {
+                // "Dubai, UAE" parses as one "house": the first comma part as a place, in the
+                // last part's country if it names one.
                 let parts: Vec<&str> = q
                     .split(',')
                     .map(str::trim)
@@ -906,16 +1137,9 @@ impl App {
                 let last_cc = (parts.len() > 1)
                     .then(|| self.country(parts[parts.len() - 1]))
                     .flatten();
-                let text = match (&last_cc, parts.first()) {
-                    (Some(_), Some(first)) => first.to_string(),
-                    _ => parsed
-                        .iter()
-                        .filter(|(l, _)| l != "country")
-                        .map(|(_, v)| v.as_str())
-                        .collect::<Vec<_>>()
-                        .join(" "),
-                };
-                hits = self.places(&text, last_cc.as_deref().or(cc), None, &local);
+                if let (Some(c), Some(first)) = (&last_cc, parts.first()) {
+                    hits = self.places(first, Some(c), None, &local);
+                }
             }
         }
         hits.iter().take(10).map(|h| self.json(h, en)).collect()
