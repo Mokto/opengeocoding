@@ -119,6 +119,7 @@ impl Resolver {
                     ("q", query.into()),
                     ("format", "json".into()),
                     ("addressdetails", "true".into()),
+                    ("namedetails", "true".into()),
                 ],
                 language,
             )
@@ -136,7 +137,20 @@ impl Resolver {
         country: &str,
         postcode: &str,
         tier: &str,
+        other_names: bool,
     ) -> Result<Option<FullAddress>> {
+        // A lone name the parser labels a state (California, 京都) still has to name the result.
+        let lone_state = part(address, "city").is_empty()
+            && !part(address, "state").is_empty()
+            && address.keys().all(|key| key == "state" || key == "country");
+        let mut named;
+        let address = if lone_state {
+            named = address.clone();
+            named.insert("city".into(), part(address, "state").into());
+            &named
+        } else {
+            address
+        };
         let candidates = {
             let _timer = METRICS.search.with_label_values(&[tier]).start_timer();
             self.candidates(query, Some("en")).await?
@@ -165,7 +179,41 @@ impl Resolver {
                 }
             }
         }
-        let viable: Vec<_> = judged
+        let city = part(address, "city");
+        // Only a bare place name ("Budapest, Hungary") may be a same-named region; in a street
+        // address a same-named county or province is a different place.
+        let bare = address.keys().all(|key| {
+            matches!(
+                key.as_str(),
+                "city" | "state" | "state_district" | "country_region" | "country"
+            )
+        });
+        if other_names && !city.is_empty() {
+            for (index, candidate) in candidates.iter().enumerate() {
+                let eligible = match candidate["addresstype"].as_str() {
+                    Some("city" | "town" | "village" | "municipality" | "hamlet") => true,
+                    Some(
+                        "region" | "state" | "province" | "state_district" | "county" | "country",
+                    ) => bare,
+                    _ => false,
+                };
+                if !eligible
+                    || !matches!(candidate["class"].as_str(), Some("place" | "boundary"))
+                    || city_agrees(address, judged[index].address_details.as_option())
+                {
+                    continue;
+                }
+                // A place's own names in every language (name:*, alt_name, short_name) corroborate
+                // queries written in another language or script than the English response.
+                if let Some(name) = own_name(candidate, city) {
+                    let details = judged.to_mut()[index]
+                        .address_details
+                        .get_or_insert_default();
+                    details.city = name.into();
+                }
+            }
+        }
+        let mut viable: Vec<_> = judged
             .iter()
             .enumerate()
             .filter(|(_, f)| {
@@ -176,6 +224,21 @@ impl Resolver {
                         || same_postcode_country(country, postcode, details))
             })
             .collect();
+        if !lone_state
+            && !city.is_empty()
+            && ["road", "house_number", "postcode"]
+                .iter()
+                .all(|key| part(address, key).is_empty())
+        {
+            // A bare place name means the settlement, not a same-named quarter, county or region
+            // that Nominatim may rank higher.
+            viable.sort_by_key(|(i, _)| match candidates[*i]["addresstype"].as_str() {
+                Some("city" | "town") => 0,
+                Some("municipality") => 1,
+                Some("village") => 2,
+                _ => 3,
+            });
+        }
         let values: Vec<_> = viable.iter().map(|(_, f)| (*f).clone()).collect();
         let Some((index, matched)) = choose_candidate(address, country, postcode, &values) else {
             if !candidates.is_empty() {
@@ -198,6 +261,11 @@ impl Resolver {
         if query.is_empty() || query.chars().count() > 256 {
             return Ok(FullAddress::default());
         }
+        // Tabs and ASCII record separators between fields read as spaces to both parsers.
+        let query = &query.replace(|ch: char| whitespace(ch) && ch != ' ', " ");
+        if PLACEHOLDERS.contains(&query.trim_matches(whitespace).to_lowercase().as_str()) {
+            return Ok(FullAddress::default());
+        }
         let mut address = self.parse(query).await?;
         if part(&address, "country").is_empty() {
             let parts: Vec<_> = query
@@ -217,6 +285,14 @@ impl Resolver {
                 }
             }
         }
+        // Repeated fields ("Karnataka, India, India") reach the parser as one "india india".
+        if let Some(stated) = address.get_mut("country") {
+            let words: Vec<_> = stated.split(' ').collect();
+            let half = words.len() / 2;
+            if half > 0 && words.len() % 2 == 0 && words[..half] == words[half..] {
+                *stated = words[..half].join(" ");
+            }
+        }
         let country = expected_country(&address);
         let postcode = if part(&address, "postcode").is_empty() {
             eircode(query)
@@ -224,18 +300,21 @@ impl Resolver {
             part(&address, "postcode").into()
         };
         if let Some(found) = self
-            .first_acceptable(query, &address, &country, &postcode, "raw")
+            .first_acceptable(query, &address, &country, &postcode, "raw", true)
             .await?
         {
-            return Ok(accept(found, &postcode, "raw", true));
+            return Ok(accept(found, &address, &postcode, "raw", true));
         }
         for (tier, order) in ORDERS {
             let structured = create_query(&address, order);
+            if !useful_query(&structured, &postcode, &country) {
+                continue;
+            }
             if let Some(found) = self
-                .first_acceptable(&structured, &address, &country, &postcode, tier)
+                .first_acceptable(&structured, &address, &country, &postcode, tier, true)
                 .await?
             {
-                return Ok(accept(found, &postcode, tier, false));
+                return Ok(accept(found, &address, &postcode, tier, false));
             }
         }
         let stripped = without_country(query, &address);
@@ -247,22 +326,41 @@ impl Resolver {
                     &country,
                     &postcode,
                     "without_stated_country",
+                    country.is_empty(),
                 )
                 .await?
         {
-            return Ok(accept(found, &postcode, "without_stated_country", true));
+            return Ok(accept(
+                found,
+                &address,
+                &postcode,
+                "without_stated_country",
+                true,
+            ));
         }
+        // Overriding a recognized stated country needs the place's primary fields to agree;
+        // alternative names alone matched same-named regions abroad.
         if !part(&address, "country").is_empty() {
             let mut without = address.clone();
             without.shift_remove("country");
             for (tier, order) in ORDERS {
                 let tier = format!("{tier}_without_stated_country");
                 let structured = create_query(&without, order);
+                if !useful_query(&structured, &postcode, "") {
+                    continue;
+                }
                 if let Some(found) = self
-                    .first_acceptable(&structured, &without, "", &postcode, &tier)
+                    .first_acceptable(
+                        &structured,
+                        &without,
+                        "",
+                        &postcode,
+                        &tier,
+                        country.is_empty(),
+                    )
                     .await?
                 {
-                    return Ok(accept(found, &postcode, &tier, true));
+                    return Ok(accept(found, &address, &postcode, &tier, true));
                 }
             }
         }
@@ -331,14 +429,47 @@ impl Resolver {
     }
 }
 
-fn accept(mut found: FullAddress, postcode: &str, tier: &str, good: bool) -> FullAddress {
+fn own_name<'a>(candidate: &'a Value, city: &str) -> Option<&'a str> {
+    let names = candidate["namedetails"].as_object().into_iter().flatten();
+    names
+        .filter_map(|(_, v)| v.as_str())
+        .flat_map(|v| v.split(';'))
+        .chain(string(&candidate["display_name"]).split(',').next())
+        .find(|name| names_agree(city, name))
+}
+
+/// Missing-data placeholders that Nominatim would otherwise match to places named "n/a".
+const PLACEHOLDERS: &[&str] = &[
+    "n/a", "n.a.", "na", "none", "null", "nil", "unknown", "-", "?",
+];
+
+/// A structured query of one character, or of a bare postcode with no country to place it in,
+/// matches arbitrary places worldwide.
+fn useful_query(query: &str, postcode: &str, country: &str) -> bool {
+    query.chars().filter(|ch| ch.is_alphanumeric()).count() > 1
+        && (!country.is_empty() || normalize_postcode(query) != normalize_postcode(postcode))
+}
+
+fn accept(
+    mut found: FullAddress,
+    address: &ParsedAddress,
+    postcode: &str,
+    tier: &str,
+    good: bool,
+) -> FullAddress {
+    // A street without the requested house number is a fallback, not a match.
+    let house_found = part(address, "house_number").is_empty()
+        || found
+            .address_details
+            .as_option()
+            .is_some_and(|d| !d.house_number.is_empty());
     if !postcode.is_empty() {
         let details = found.address_details.get_or_insert_default();
         if details.postcode.is_empty() {
             details.postcode = postcode.into();
         }
     }
-    found.good_match = good;
+    found.good_match = good && house_found;
     METRICS.tiers.with_label_values(&[tier]).inc();
     found
 }

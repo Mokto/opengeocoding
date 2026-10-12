@@ -199,3 +199,42 @@ fn region_hierarchy_and_python_representation() {
         "{'key': 'line\\n\\x1c'}"
     );
 }
+
+#[test]
+fn place_names_agree_across_qualifiers_spelling_and_script() {
+    for (expected, actual, agree) in [
+        ("Valga", "Valga city", true),
+        ("Jakarta", "Special Capital Region of Jakarta", true),
+        ("Hyderabad", "Hyderabad City Taluka", true),
+        ("Cambridge", "Town of Cambridge", true),
+        ("Århus", "Aarhus", true),
+        ("Hanoi", "Hà Nội", true),
+        ("Baarle-Nassau", "Baarle Nassau", true),
+        ("大阪", "大阪市", true),
+        ("京都", "京都府", true),
+        ("上海", "上海市", true),
+        ("大阪", "大坂", false),
+        ("上海", "Shanghai", false),
+        ("Capital Region", "Region", false),
+        ("Paris", "Parish", false),
+        ("Kansas", "Arkansas", false),
+    ] {
+        assert_eq!(
+            names_agree(expected, actual),
+            agree,
+            "{expected} vs {actual}"
+        );
+    }
+}
+
+#[test]
+fn province_corroborates_region() {
+    let address = parsed(&[("state", "Ontario"), ("city", "London")]);
+    let details = AddressDetails {
+        city: "London".into(),
+        province: "Ontario".into(),
+        country_code: "ca".into(),
+        ..Default::default()
+    };
+    assert!(region_agrees(&address, Some(&details)));
+}

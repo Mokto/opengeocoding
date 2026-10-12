@@ -10,24 +10,24 @@
       "status": 0
     }
   },
-  "backend_requests": 6019,
+  "backend_requests": 5414,
   "budget": 20000,
   "cases": 1000,
   "consumer": {
-    "binary_sha256": "cd33ed46f7b0e08fde4281df5fe6ce2f148714a58253f4ef9caca58bab5de8ed",
+    "binary_sha256": "8409acfd1efcdd3803811fdcabbf53397dc09b385de2fa3ed2fa3592d8ea05fa",
     "dirty": true,
-    "git": "b2c5c12a27556463325f7835a76972e69ee2b443",
+    "git": "19fd3310b08210dd1ed7e387194e8ea474c0f645",
     "libpostal_models_sha256": "65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7",
     "region_cache": "fresh empty ClickHouse database and region map"
   },
   "corpus": "tests/addresses.tsv",
   "corpus_sha256": "ab14a9ff26926f5c0013fa6ca5e8a808e76fe3a0205ea6462c4e5c5b09d67c0e",
   "evaluator": "0.1.0",
-  "finished_at": "2026-10-12T08:35:55Z",
+  "finished_at": "2026-10-12T11:22:15Z",
   "max_rps": 20.0,
   "reference_data_sha256": "b9159c31bf40591e733a7646e413bd260846ae1d4edb4616f1ec4a66e3ed2874",
   "resumed": false,
-  "started_at": "2026-10-12T08:28:24Z",
+  "started_at": "2026-10-12T11:14:35Z",
   "stopped": null,
   "suite": "addresses",
   "transport": {
