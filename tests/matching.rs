@@ -1,6 +1,6 @@
 use geolocation::{
     matching::*,
-    proto::nominatim_geolocation::*,
+    proto::geolocation::*,
     regions::{format_regions, python_repr},
     resolver::format_response,
 };

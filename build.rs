@@ -54,7 +54,7 @@ fn main() {
     assert!(status.success(), "compile protobuf descriptors");
     connectrpc_build::Config::new()
         .descriptor_set(&descriptor)
-        .files(&["nominatim_geolocation-v1.proto", "common-v1.proto"])
+        .files(&["geolocation-v1.proto"])
         .include_file("_connectrpc.rs")
         .compile()
         .expect("generate Connect contract");

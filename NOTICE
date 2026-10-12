@@ -22,3 +22,20 @@ See https://github.com/openvenues/libpostal and https://github.com/kodemartin/ru
 The native libpostal notice is included in the runtime image.
 libpostal model files are not bundled. Their source-data licensing and
 attribution obligations are separate from this project's source license.
+
+The evaluation corpus tests/gold.jsonl (not part of the runtime image) contains
+coordinates, administrative codes and addresses derived from:
+- Wikidata (CC0-1.0) and the Dutch BAG via PDOK (CC0-1.0);
+- Base Adresse Nationale, licensed under Licence Ouverte / Open Licence 2.0
+  (https://www.etalab.gouv.fr/licence-ouverte-open-licence/);
+- the US Census Bureau geocoder (US Government work, public domain);
+- the ONS Postcode Directory via postcodes.io, licensed under the Open
+  Government Licence v3.0 (https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
+  Contains OS data © Crown copyright and database right. Contains Royal Mail
+  data © Royal Mail copyright and database right. Source: Office for National Statistics.
+Per-case sources and retrieval dates are recorded in the corpus; `evaluate build-gold` regenerates it
+from tests/gold.seeds.jsonl.
+
+tests/snapshots/addresses.tsv contains geocoding results derived from OpenStreetMap
+data via Nominatim. Data © OpenStreetMap contributors, available under the Open
+Database License (ODbL) 1.0: https://www.openstreetmap.org/copyright

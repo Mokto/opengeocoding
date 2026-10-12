@@ -1,0 +1,1001 @@
+id	target	parser_target	country	state	script	holdout	location	query
+addr-address-00933e5cf0d9	address	address	fi	uusimaa	latin	0	place:1bcf5edfa3768b28	Arabiankatu 12, 00560, Helsinki, Uusimaa, Finland
+addr-address-00b4121b01e2	address	address	kh	phnom penh	latin	1	place:5b4e3a6d5b3723cf	#22, St. 51 & 154, Sangkat Phsar Thmei III, Khan Daun Penh, 855, Phnom Penh, Phnom Penh, Cambodia
+addr-address-0123b92c96b8	address	address	tw		latin	0	place:6b45df89ef91771f	13F-6, No.2, Ln.150, Sec.5, XinYi Rd, Taipei, Taiwan
+addr-address-018c3e273016	address	address		surrey	latin	1	place:f2396cd9a6fa6afe	3-4 Sky Business Park, Eversley Way, Egham, Surrey, TW20 8RF
+addr-address-01e3d118f6df	address	address			latin	0	place:ea4791a81a237f65	77 High Street, Bn17 5Ag, Littlehampton
+addr-address-0215de1cb1d6	address	address			latin	0	place:1dd70cce110ef6a1	60 RUE DES ACIERIES, 42000, ST ETIENNE
+addr-address-02a2062716c9	address	address	it	trentino alto adige	latin	0	place:3612742b031272c9	via Linz 2, 38121, Spini di Gardolo - Trento, Trentino-Alto Adige, Italy
+addr-address-030d4afa5402	address	address	pl	dolnośląskie	latin	1	place:c0de6e9208da6b09	Prosta 36/5, 50-508, Wrocław, Dolnośląskie, Poland
+addr-address-03c6e9010ec3	address	address	ch		latin	0	place:13c5257b9b07c7c6	Chemin Du Petit-vennes, 4, Mydisplay Sàrl, 1066, Epalinges, Switzerland
+addr-address-05a16394dc15	address	address	ca	manitoba	latin	0	place:e1bb425e1a7e664b	2385 Pembina Hwy, 305A, R3T 2H4, Winnipeg, Manitoba, Canada
+addr-address-05d37d5e2177	address	address	gb		latin	0	place:bc1c3ac780a1d5cc	27a Maxwell Rd, HA6 2XY, Northwood, United Kingdom
+addr-address-064fbc35eecd	address	address	us	oklahoma	latin	0	place:dbc3bcc1b8531273	22 N Garnett Road, 74146, Tulsa, Oklahoma, United States
+addr-address-06bab710045b	address	address	se	stockholm county	latin	1	place:ae68d8932d1206b6	Kistagången 12, 164 94, Kista, Stockholm County, Sweden
+addr-address-07043ce92548	address	address	be	brussels region	latin	0	place:0fe2285c4596515f	Rue Montoyer 39, 5th floor, 1000, Brussels, Brussels Region, Belgium
+addr-address-07a64da45ebb	address	address	in	uttar pradesh	latin	0	place:5f7adb86f68eb606	X- 2/1, Sector 16, Ganga Hi Tech City, 209861, Unnao, Uttar Pradesh, India
+addr-address-07e1642022f3	address	street	pk	khyber pakhtunkhwa	latin	1	place:ee1d067400e05e7c	Office#07, Second Floor, Awan Tower Near Mercy Hospital, University Road, 25000, Peshawar, Khyber Pakhtunkhwa, Pakistan
+addr-address-0831b3a96026	address	address		lanzarote	latin	0	place:c633a1b38172d865	Calle Los Corralitos 2-4, 35509, Playa Honda, San Bartolomé - Lanzarote
+addr-address-08928238910c	address	address		ca	latin	0	place:68c31f37937d5bf6	beverly hills, 9601 s. santa monica boulevard, beverly hills, ca 90210
+addr-address-096570a98fe1	address	address		new york	latin	0	place:b23b784c280a5799	4513 Manhattan College Parkway, Bronx, New York, United States
+addr-address-0aa6921d1218	address	address	us	california	latin	0	place:2cb96860858dd9ea	200 Montgomery Dr, F, 95404, Santa Rosa, California, United States
+addr-address-0baab4646b67	address	postcode	uy	montevideo	latin	0	place:430c13f0b73f6c20	11100, Montevideo, Montevideo, Uruguay
+addr-address-0bae8aa3b366	address	postcode	ae		latin	0	place:41c3e1fb5bb91b39	Sharaf DG Metro Station Exit 3, Bur Dubai,, Office no. 403 Al Yousuf Building, Near York International Hotel, Dubai UAE, United Arab Emirates
+addr-address-0c12036bcdb7	address	address	no		latin	0	place:5f664a43eeab0039	kiwi 510 jerikoveien
+addr-address-0ddc3ed40edd	address	address	nz		latin	1	place:29198ed04fe83687	5 Rata Street, New Lynn, 0600, Auckland, New Zealand
+addr-address-0e13d8269089	address	address	us	ky	latin	1	place:38a2d2b702bacd1c	blended hardin - 908 memorial court. elizabethtown, ky
+addr-address-0ff145617113	address	address	us		latin	0	place:84d55d976df90a48	499 jessen ln
+addr-address-107e89d2ec65	address	address	ch		latin	0	place:722972e8ac7e0f46	Mattenstrasse, 9, Swisscalinet K.mohler, 5417, Untersiggenthal, Switzerland
+addr-address-11a835e7ee2d	address	address		ga	latin	0	place:a693dc0878627c57	2221 Peachtree Rd Q, Atlanta, GA 30309
+addr-address-11e73fc8748b	address	address	se		latin	0	place:15e4572549736398	Ågatan 43, 582 22, Linköping, Sweden
+addr-address-11e9f3c9bed7	address	address	cz		latin	0	place:e85ef0ad7734114d	Vrchlickeho sad 3, 60200, Brno, Czechia
+addr-address-1314e023698a	address	address	it	to	latin	0	place:e7f75bcd7d789531	Via Avigliana, 41, 10138, TORINO, TO, Italy
+addr-address-16a29e4284f5	address	address	nz		latin	1	place:d2de49dddb7a123b	30 Williamson Avenue, Belmont, 0622, Auckland, New Zealand
+addr-address-17ed26095efb	address	address	de		latin	0	place:799a8f16c0c4c3dc	4 west
+addr-address-18d1c2ddd21f	address	address	bg		latin	0	place:bb6ba00466dbcf0c	bulevard Slivnitsa 166a, 9009, Varna, Bulgaria
+addr-address-19efd13d7093	address	address	id	south sulawesi	latin	1	place:44b91e3605461bef	Jl. Telkom 1/51 Telkomas, 90241, Makassar, South Sulawesi, Indonesia
+addr-address-1a29332f8bb4	address	address		pe	latin	0	place:e209017fef1c7fc3	Av. Dois Irmãos, 523, Apipucos, 52071-440 Recife, PE
+addr-address-1b4130883258	address	address		ar	latin	0	place:8e60ba5d129475d1	272 - northwest arkansas ar
+addr-address-1b8ddc8783da	address	address		qld	latin	0	place:78f098ad165bc644	Mt Gravatt Škoda, 1398 Logan Rd, Mount Gravatt, QLD, 4122
+addr-address-1ba71c05b42d	address	address	be	flemish region	latin	0	place:cb7cd3ca087033ec	De Merodelei 192b, 2300, Turnhout, Flemish Region, Belgium
+addr-address-1bf31fef366a	address	address	il	israel	latin	0	place:e4587552efbb0ace	52 Bareket st., 61231, Kfar Yona, Israel, Israel
+addr-address-1c9361e6b449	address	address	bn	brunei muara	latin	0	place:d72004a4f739b5fe	Unit 6, First Floor, Jalan Gadong, BE3519, Bandar Seri Begawan, Brunei-Muara, Brunei Darussalam
+addr-address-1ca09fd97002	address	address		vi	latin	0	place:4300ca744176066c	Via Pasubio,39 - Creazzo (VI)
+addr-address-1db6933e7daa	address	address		antioquia	latin	0	place:9237d1fd41cea50c	Carrera 43A #16, El Poblado, Medellín, Antioquia, Colombia
+addr-address-1df70b87912b	address	address		ca	latin	1	place:fa7dcaa143b0674d	9876 Design Blvd, Suite 543, Beverly Hills, CA 90212
+addr-address-1e5caeee9a0c	address	address	za	gauteng	latin	0	place:5263a022725a46d6	7540 Mangosuthu Street, Daveyton, 1520, Ekurhuleni, Gauteng, South Africa
+addr-address-204629d2a0d5	address	address	dk		latin	0	place:7ea10071e02474ec	Ravnstrupvej 28, 4684, Holmegaard, Denmark
+addr-address-213a94d0c628	address	address	us	georgia	latin	0	place:b0c3eb76ce352b13	3781 Presidential Pkwy, Unit FP-15, 30340, Atlanta, Georgia, United States
+addr-address-222e0a468df2	address	address		kwara state	latin	0	place:18778c3dd0bec1f7	No 16, Sulu Gambari Road, Ilorin, Kwara State, Nigeria
+addr-address-238831a5dccd	address	address	it	vi	latin	0	place:b219ba1429b24b3b	VIA PASUBIO 39, 36051, CREAZZO, Vi, Italy
+addr-address-239a56afe0cb	address	address	ru		non_latin	0	place:a9e3f5bd5014c722	Москва г, Ямского Поля 1-я ул, 17, 1, Russian Federation
+addr-address-23a77579ccf6	address	address	us	south carolina	latin	1	place:008e8ab8f9ef6870	891 Island Park Dr, 29492, Charleston, South Carolina, United States
+addr-address-23b64ea6ed9e	address	address		sp	latin	0	place:de40c44b48fe6c9b	rua agostinho maschio , 136, jd guanabara, Santa Fé do Sul/SP
+addr-address-23dc67e6f21b	address	address	us		latin	0	place:4aaed6cb2e198f23	700 White Mountain Hwy, 03864, Ossipee, United States
+addr-address-23e883872d23	address	address	ar	buenos aires autonomous city	latin	0	place:f37374397859d2c8	Olazabal 1515, 1428, Buenos Aires City, Buenos Aires Autonomous City, Argentina
+addr-address-25d54f7a380c	address	address		tyne and wear	latin	1	place:0c9de33c9f8b288f	8 Phoenix Road, Crowther Industrial Estate, Washington, Tyne and Wear, NE38 0AD
+addr-address-26803aab2be5	address	address		hawaii	latin	0	place:fcb7ef012eae4540	Hale Koa Hotel 2055 Kalia Road Honolulu, Hawaii 96815
+addr-address-286604d599fd	address	address	th		latin	0	place:1ab16e99e99c6ba1	28/2 THANON NIMITMAI, Thailand
+addr-address-29ffd2e0846e	address	address			latin	0	place:1efa5cdb94e71ecb	7 Bell Yard, 7 Bell Yard, Wc2A 2Jr, London
+addr-address-2a15e5bf4ab2	address	address	us	ny	latin	0	place:8f731aefdd46b5c7	146 E 89th St, 3, 10128, New York, NY, United States
+addr-address-2a2a1c0b2869	address	address	no		latin	0	place:9e6c4064a61f64c3	harstad, 55
+addr-address-2a7bee9fe0aa	address	address	ca	ontario	latin	0	place:2430a4d49cf57709	1648 montreal road, ottawa, ontario
+addr-address-2ae64f931c48	address	address	us	oregon	latin	1	place:51d7201de068c0c0	224 N HEMLOCK ST, 97110, Cannon Beach, Oregon, United States
+addr-address-2b20d4d806db	address	address		wi	latin	0	place:16a13dfffd2a475c	store: 0307 johnson creek prem outlets, wi
+addr-address-2b36032aec7f	address	address		yuc	latin	0	place:6c535611b23b32fc	C. 60 417A, Parque Santa Ana, Centro, 97000 Mérida, Yuc., México
+addr-address-2b806307cdc4	address	address			latin	0	place:934cc7a14af27bdf	32 Great North Road, Al8 7Tj, Welwyn Garden City
+addr-address-2bffe88d6f84	address	address	de	bayern	latin	0	place:66fefab5196e002f	Anna-Herrmann-Straße 10, 91074, Herzogenaurach, Bayern, Germany
+addr-address-2c790f000633	address	address	vn		latin	1	place:f8725ca972192b61	my hung tower, 08 hoang van
+addr-address-2d2f95f64fb2	address	address			latin	0	place:d04d61a58267946f	45 BOULEVARD DE MONTMORENCY, 75016, PARIS
+addr-address-2db9c40fe47b	address	address	us		latin	0	place:f4b7763245194d0a	lc10120 - 828 providence rd - brandon
+addr-address-2e379962c467	address	address			latin	0	place:e03fde7ce4d6c586	100 WARREN LN, 22901, CHARLOTTESVILLE
+addr-address-2ef66c82dad8	address	address	sg	singapore	latin	0	place:4238451fd6b07566	47 Kallang Pudding Road #06-02, Crescent @ Kallang, 349318, Singapore, Singapore, Singapore
+addr-address-30224af912ce	address	address			latin	0	place:f998a0efd13b0f9a	11683 easton town center, oh-anf
+addr-address-3325348b9460	address	address	de		latin	1	place:5fc5e8ec3deda626	Eichlerweg 28, Wardenburg, Germany
+addr-address-35bd236f0dbb	address	address	us	nj	latin	0	place:070385d790026341	livingston, 280 eisenhower parkway, suite 105, livingston, nj 07039
+addr-address-35f3ab796091	address	address		ky	latin	0	place:900af76a4b59211f	SMI Automotive Service 280 N Hubbards Lane Louisville, KY 40207
+addr-address-3635f6c37a12	address	address	fr		latin	0	place:8bd47c62879b355f	305 AVENUE DE LA MARJOLAINE, 34130, ST AUNES, France
+addr-address-3664d8910b5b	address	street	mx	michoacán	latin	0	place:54b813684db39f72	Paseo de los Cedros 18, La Floresta, B, 59616, Zamora, Michoacán, Mexico
+addr-address-36c1a43d1f00	address	address		nd	latin	0	place:0772cf415bfe9a46	2719 34th St NW, Mandan, ND 58554-7175
+addr-address-36e1bb972fa8	address	address	us	new jersey	latin	1	place:de68b07e1a3a4d90	20 ASHFORD RD, 08527, JACKSON, New Jersey, United States
+addr-address-386186ae65d6	address	address	us	tx	latin	1	place:254720ccc682d899	7003 s broadway ave, tyler,tx 75703-4737
+addr-address-38bac930a931	address	address	br	mg	latin	0	place:6fa96c3fef9f932c	R Nicaragua, 90, Apt: 501;, 30320-050, Belo Horizonte, Mg, Brazil
+addr-address-3901037301ad	address	address	gb	gwent	latin	0	place:c4889f3296c592fd	1 Commercial Court, 8 Commercial Lane, NP11 6AN, Risca, Gwent, United Kingdom
+addr-address-3a5986e3e8da	address	address	tn		latin	0	place:042eed178731601e	bfs #0044
+addr-address-3a8ec95f702e	address	address		tx	latin	0	place:69760f57b40b3494	store: 0836 la gran plaza ft. worth, tx
+addr-address-3e017464cd14	address	city	ir		latin	0	place:adedd76c3bff0766	Fars, Shiraz, District 4, Fallahi, Iran, Shiraz, Iran
+addr-address-3e7d09260a4f	address	address			latin	1	place:65dc774951475ef4	37 Royal Road, B72 1Sp, Sutton Coldfield
+addr-address-3e97d56ce6cc	address	address		sachsen	latin	0	place:8d27a52438b0ba8f	Weststraße 24, 08523, Plauen, Sachsen, DE
+addr-address-3f76dd0ab955	address	address	dk		latin	0	place:25526eced555f15f	Bragesvej 1, 4100, Ringsted, Denmark
+addr-address-3f8519f2a138	address	address	hk		latin	0	place:7bc14f007a2c6ebe	23 Man Lok Street, Hung Hom, Units A & B, 16/F, Gemstar Tower, Kowloon, Hong Kong
+addr-address-40976d404513	address	address		new york	latin	0	place:2d7576e4f1597dde	575 5th Avenue East , New York, New York 10128, United States
+addr-address-40d0367fa20a	address	address		new york	latin	0	place:fb16ef66c8e5b256	31-90 steinway street, astoria, new york
+addr-address-40e989a99184	address	address			latin	0	place:434bb8d2f8c03ce5	4463 kimball, tn - aspen
+addr-address-427e06717cd6	address	address		ch	latin	0	place:b99095576aea2f74	Via per treglio 1, Lanciano (CH)
+addr-address-42a77075a3e2	address	address	us	virginia	latin	0	place:19f7be4a87264d96	406 14th St NW, 22903, Charlottesville, Virginia, United States
+addr-address-43b5ab22f28e	address	postcode	in	gujarat	latin	0	place:d335089dded4e1c6	No. 169 Muktanand Society Bapa Jalaram Tample Vesu, 395007, Surat, Gujarat, India
+addr-address-43bcb951b990	address	address		california	latin	0	place:d1c187580a5f23df	2901 Tasman Drive, Suite 205, Santa Clara, California, United States
+addr-address-4416ffda9af8	address	address	nl		latin	0	place:af101b4d689f92a1	Schimmelpennincklaan 6, 3571BH, Utrecht, Netherlands
+addr-address-44a99355bb2f	address	address	us		latin	0	place:a2ab4cc681b764a0	1301 HAGEN RD., 40223, LOUISVILLE, United States
+addr-address-48070d2272f7	address	address	fr	picardie	latin	0	place:2248ef3bb1a35d29	2 rue Gustave Eiffel, 60800, Crépy en Valois, Picardie, France
+addr-address-48e383eb7350	address	street			latin	0	place:111645d1d3be89e6	4Th Floor, Nova South 160 Victoria Street, Westminster, Sw1E 5Lb, London
+addr-address-48f0fb0f9974	address	address	dk		latin	1	place:ef87406e9b6216a0	Kanalholmen 2, 1. th., 2650, Hvidovre, Denmark
+addr-address-4bbc4412b405	address	address		new jersey	latin	0	place:0ab918603c7960f8	67 Carroll Street, Paterson, New Jersey
+addr-address-4cf4debf3bdd	address	address	us	ky	latin	0	place:0b7a7a88a3aa0741	919 Kennedy Ct., 40361, Paris, Ky, United States
+addr-address-4ed7366a05a2	address	address		oh	latin	0	place:0ee7c17ce06d7aef	1430 Columbus Ave., Washington Court House, OH 43160
+addr-address-4f2f97cf4867	address	address	in	haryana	latin	0	place:84aff3dda7d43871	83/3 , Thakur Basti, 125050, Fatehabad, Haryana, India
+addr-address-50775c7b6da8	address	address	fi	west and inner finland	latin	0	place:c2d9a63911b93f6e	Seula 1, 40640, Jyväskylä, West and Inner Finland, Finland
+addr-address-50a4112c0327	address	address	nl	noord holland	latin	0	place:88754b6b12808268	Gulden Winckelstraat 6, 1055, Amsterdam, Noord-Holland, Netherlands
+addr-address-50b1807b1308	address	address		swansea	latin	0	place:c9e1bacb1a78b659	352 Llangyfelach Road, Brynhyfryd, SA5 9LQ, Swansea, Swansea, United Kingdom
+addr-address-50e2db23c0ba	address	address	us	illinois	latin	0	place:808dfc4f3b67e2a0	1400 W 46th St, Chicago, Illinois, United States
+addr-address-51259a504e6c	address	address	us		latin	0	place:33df7b3bc5934e9a	1230 10th Ave., 51501, Council Bluffs, United States
+addr-address-51488ac92f0a	address	address	us	massachusetts	latin	0	place:6990531f061decc1	910 23rd Ave, 39301, Meridian, Massachusetts, United States
+addr-address-51a7eaec2724	address	address	hu	csongrád csanád	latin	0	place:f1bbcb2e16f7997a	Tűzoltó street 2., 6728, Szeged, Csongrád- Csanád, Hungary
+addr-address-51b405597c94	address	address		ce	latin	0	place:2a73aacd6624d143	Endereço, Av. Urucutuba, 2001, Bom Jardim, Fortaleza, CE
+addr-address-520aee722fcd	address	address	ch		latin	0	place:2ea73243012d16b8	neuwiesenstrasse 15, 8400 winterthur
+addr-address-536c61a7df73	address	address	lv		latin	0	place:687d795a7e243e37	Lidosta "rīga", Dzirnieku Iela 15, 1053, Mārupes Nov., Latvia
+addr-address-53a7c11e4b12	address	address	ie	dublin	latin	0	place:623e6fb828427de7	12 Coolamber Court, Knocklyon, Dublin, Ireland
+addr-address-5443d6193da2	address	address	lt		latin	0	place:29a18b3835dffa72	Žirmūnų g. 139, LT-09120, Vilnius, Lithuania
+addr-address-5455341cdb1e	address	address	au		latin	0	place:5a14e57258453abc	40 Gavins Gully Ct, 6236, Dardanup West, Australia
+addr-address-55175f211b5a	address	address			latin	0	place:83f1acadb0c1ce9f	164 main streetproperty
+addr-address-551bce3a091e	address	postcode	us		latin	0	place:e71811dc5ba7ba2c	P.O. BOX 2153, 06880, WESTPORT, United States
+addr-address-560e7a306aab	address	address		zaragoza	latin	0	place:5ef46620ad1e84a7	C/ Constitución nº18, local 1, 50410, Cuarte de Huerva, Zaragoza. España
+addr-address-57014110abbc	address	address		idaho	latin	0	place:3b1433120c484576	917 S. Lusk Street, Suite 200, Boise Idaho, 83706, USA
+addr-address-57249a349a0c	address	address	dk		latin	0	place:28f2af7728394734	Tonsbakken 16-18, DK - 2740, Skovlunde, Denmark
+addr-address-57a00c55a2dd	address	postcode	cn		latin	1	place:6e74142048597896	PACIFIC OCEAN COMPUTER CHENGYI QISANLOU DIGITAL WORLD NO.322, GUANGZHOU, GU, 518000, Guangzhou, China
+addr-address-57c7178a4452	address	address			latin	1	place:a4052241f8652446	3Rd Floor, 207 Regent Street, W1B 3Hh, London
+addr-address-58b80b2968fa	address	address	us	wa	latin	0	place:19028e18571b859f	11000 lake city way ne, seattle, wa 98125
+addr-address-5a7d5f88bbd5	address	address	au	edithvale	latin	0	place:afe3f4f2c58700a7	42-54 Edithvale Rd, 3196, Edithvale, Australia
+addr-address-5a91f6a0cd07	address	address	us	colorado	latin	0	place:ab85e91d8cf4506e	801 N Cascade Ave Ste 38, 80903-3250, Colorado Springs, Colorado, United States
+addr-address-5bb5d9b5a470	address	address			latin	0	place:1c090711b9396150	2 B RUE FRANCISCO FERRER, 78210, ST CYR L ECOLE
+addr-address-5c565ed30bb7	address	address		massachusetts	latin	0	place:18629de5844950eb	70 Blanchard Rd, Suite 101, 01803, Burlington, Massachusetts, United States
+addr-address-5d2cdaced3ea	address	address	ca		latin	0	place:d22875bf8ca71d32	181 Bay Street, Suite 2810, M5J 2T3, Toronto, Canada
+addr-address-5e17c312a42a	address	address	id		latin	0	place:cb2f38dbff601a81	05482 - ontario ii
+addr-address-5e3e2a0e98b2	address	address		wisconsin	latin	0	place:be2bd237b0e6c616	2908 Airport Road,, 54603, La Crosse, Wisconsin, United States
+addr-address-5e60d0c3acc1	address	address	ad	engordany	latin	0	place:162990dfe2c62675	Carrer dels Escalls 19, 3B, AD700, Escaldes-Engordany, Engordany, Andorra
+addr-address-5e849192789c	address	address		uk	latin	0	place:70b2a544081d3973	 St Clements House, 27-28 Clements Lane, EC4N 7AE, London, UK, United Kingdom
+addr-address-5f17f8254c15	address	address	be	flemish region	latin	0	place:73e87c6260685596	Vaartstraat 76, 2330, Merksplas, Flemish Region, Belgium
+addr-address-6024da7183aa	address	address	de		latin	0	place:fa620e9b6d57adae	Max-Wimmer-Ring 8, Haarbach, Germany
+addr-address-61122d033844	address	address	uy		latin	0	place:f07b7062f7f3a4d0	1248 Avenida Luis Alberto de Herrera, WTC Tower IV, 11300, Montevideo, Uruguay
+addr-address-6113410e6132	address	address	de		latin	0	place:b63955238096babe	Hildebrandtstraße 14, Düsseldorf, Germany
+addr-address-619dc086559e	address	address	us	wisconsin	latin	0	place:f3527c5d953ae26c	618 S Green Bay Rd 3, 54956, Neenah, Wisconsin, United States
+addr-address-635180f459f2	address	address	gt		latin	0	place:7c0b7c4c279a67a3	33 Calle 27-01, Zona 12, Bodega No. 2, Guatemala City, Guatemala
+addr-address-635562b578ab	address	address	us	nebraska	latin	1	place:4ccdec696f1b95f4	omaha, nebraska, united states, omaha ne (1010 south 120th st. - 37005), 68154
+addr-address-63e9613e641f	address	street	in	kerala	latin	1	place:6a7c1c563b0e30ef	Advocate John Mani V & Associates, CC 42/1558D1, 2nd Floor, KK Building, Mathai Manjooran Road, Near High Court of Kerala, Kochi, 682018, Kochi, kerala, India
+addr-address-63fd769942b7	address	address	us	dc	latin	1	place:682a8f9b7917b040	logan circle, 1400 14th street nw, washington, dc 20005
+addr-address-6405a6318d8a	address	address	us		latin	0	place:589a00c5b64bd67a	400 broadway
+addr-address-6440b01c4053	address	address		lastovo	latin	0	place:d1a42ed84f4c0481	Trg Svetog Petra 7, 20289, Ubli, Lastovo Croatia
+addr-address-64649a5f463b	address	address	lu		latin	0	place:72b5c59c35c74cd1	8 Gruberbeerig, 9538, Wiltz, Luxembourg
+addr-address-64fb99c50d8d	address	address			latin	0	place:ab5342be1ba4f922	31733 oakbrook, il-hco.
+addr-address-6929b15bdec3	address	address		hallands lan	latin	0	place:167b595d2851e867	17 K Energigatan, 43437, Kungsbacka, Hallands Lan, Sweden
+addr-address-693f22ff0ad7	address	address			latin	0	place:bdd1f6f8a7244f5b	37 CHEMIN DU PRE DE FOIRE, 74220, LA CLUSAZ
+addr-address-6b0ff502ee15	address	address	fr	île de france	latin	1	place:69cb9cfae3f572a7	15, Rue du Ruisseau, 75018, Paris, Île-de-France, France
+addr-address-6b5ad3cb776e	address	address	ro		latin	0	place:31cd04850577b584	Camera 2, Bucureşti Sectorul 4, Str. Ienachita Vacarescu Nr. 38, Parter, Romania
+addr-address-6b9e5f993bac	address	address	us		latin	1	place:a867381a21e56106	134 NORTH AVENUE, 06880, WESTPORT, United States
+addr-address-6bcc1f09448d	address	address	us	pa	latin	0	place:6c71462f49efb6b6	11 stanwix street (br), pittsburgh, pa
+addr-address-6ca468de35b1	address	address	ar	córdoba	latin	0	place:bad24d49576c719f	Belgrano 264, X5800CNA, Río Cuarto, Córdoba, Argentina
+addr-address-6e0291c55dff	address	address	us	iowa	latin	1	place:cc883b56264df7e9	15481 Highway D20, 50006, Alden, Iowa, United States
+addr-address-6e3552d26571	address	address		hellerau	latin	0	place:e3fb6464fabe8cf3	A 4, Abfahrt 81a, Dresden Hellerau
+addr-address-6e47c1eaa270	address	address	au	sa	latin	0	place:ddb163c990befe57	loc7074 :1/24 crittenden road , findon sa 5023
+addr-address-6f6f4186129e	address	address	de		latin	0	place:bc5d3ed60df8b5ae	Schanzenstr. 36, Cologne, Germany
+addr-address-6fae74e8c266	address	address		banten	latin	0	place:24ee1e1449be2433	Jl. BSD Raya Utama No.12 Blok A2, Kabupaten Tangerang, Banten 15331
+addr-address-706961431a82	address	address		pulau pinang	latin	0	place:245beda00d8ea4dc	52B, 2nd Floor, Pusat Perniagaan Raja Uda, Jalan Raja Uda, 12300 Butterworth, Pulau Pinang, Malaysia
+addr-address-71407d45292a	address	address		il	latin	0	place:adb185832ff752b2	30 S. Cass Ave. Westmont, IL 60559
+addr-address-7156a7552ea4	address	address	ch		latin	0	place:edc37041f76d16a3	Ringstrasse 54, Mels, Switzerland
+addr-address-7288fa45dbb7	address	address	es	comunidad de madrid	latin	0	place:60a59d01bdbb593e	Polígono Mora, 1, 28950, Moraleja de Enmedio, Comunidad de Madrid, Spain
+addr-address-72b47e02fe82	address	address	de	nordrhein westfalen	latin	1	place:50f6e5213a4285de	Am Bugapark 1d, 45899, Gelsenkirchen, Nordrhein-Westfalen, Germany
+addr-address-72d9dc9a6272	address	address			latin	1	place:f5d1a305aef87155	160 Kemp House, City Road, Ec1V 2Nx, London
+addr-address-748b015618e7	address	address	il	hertzliya	latin	0	place:01fe6b7e62cf74f5	1 Sapir st., 46733, Hertzliya, Hertzliya, Israel
+addr-address-74a7473da65d	address	address	br	rio de janeiro	latin	0	place:76b95e082cdba59c	Est Nelson Silva, 433, Ponto De Referencia, 25715-310, Petropolis, Rio De Janeiro, Brazil
+addr-address-74ca344c5289	address	address	nl		latin	0	place:5423f6809e02c335	Dorpsweg 3, 4223NA, Hoornaar, Netherlands
+addr-address-75048d06211c	address	address	ca		latin	0	place:609ae87d2803e59b	brossard - 5025 boul lapinière - 35h
+addr-address-752e2125239d	address	address	in	haryana	latin	0	place:45acc813194ef6a5	190 Phase 4, Sector 18, Udyog Vihar, 122015, Gurgaon, Haryana, India
+addr-address-75eb528dfa82	address	address	fr		latin	0	place:7797f59072ad8fe5	66 parks
+addr-address-766d8dfdf419	address	address	de	baden württemberg	latin	0	place:d965aa2fd9004575	Bücklestraße 3, 78467, Constance, Baden-Württemberg, Germany
+addr-address-78123548684f	address	address	nz		latin	0	place:0178c26dc0452c98	Level 1, 505 Lake Road, Takapuna, 0622, Auckland, New Zealand
+addr-address-79d6851c03e8	address	postcode	gb	lancashire	latin	0	place:6baa8ed617d9cefb	1A Fairways Office Park, Fulwood, PR2 9LF, Preston, Lancashire, United Kingdom
+addr-address-79e02eb90597	address	address			latin	0	place:7d4d96edb57a6ec2	21 PLACE SADI CARNOT, 33880, CAMBES
+addr-address-7aaa3728f339	address	address	cz	plzeň region	latin	0	place:1d4a37523e8df8f1	Boženy Němcové 3, 323 00, Severní Předměstí, Plzeň Region, Czechia
+addr-address-7bd77094dc3a	address	address	br	são paulo	latin	0	place:4c516e02b2eb08d7	Rua Sete, 69 - Portal da Mantiqueira, 12040-821, Taubaté, São Paulo, Brazil
+addr-address-7d3e15c51cd4	address	address		california	latin	0	place:30dce149604fdf13	230 California Street, Suite 601, 94111, San Francisco, California, United States
+addr-address-7e6bfea65b28	address	address	us		latin	0	place:1a0a96cc090c0154	232 Route 3, 03576, Colebrook, United States
+addr-address-7eb99e081623	address	address		福岡県	non_latin	0	place:8f0bddd9bb38c0c0	今津377, 福岡県
+addr-address-7f9d965619b4	address	address	in	rajasthan	latin	1	place:37b96a652995977a	94/8 , Vidyadhar Nagar, 302039, Jaipur, Rajasthan, India
+addr-address-811a392ec42d	address	address		wi	latin	0	place:11c64d5e1974d2bd	1547 Strongs Ave; Ste D Stevens Point, WI 54481
+addr-address-844e0743e9e7	address	city	tr	gatem	latin	1	place:c5ed589ae08fdcbd	ŞEKERCİLER VE KURUYEMİŞCİLER SİTESİ 3 BLOK NO: 29 GAZİANTEP, 29, 27110, GAZİANTEP, GATEM, Türkiye
+addr-address-85583fe2fc3c	address	address		tas	latin	1	place:dce2125bcdc3530c	GPO Box 224, Hobart Tas 7001, 1st Floor, 116 Bathurst Street, Hobart Tas 7000
+addr-address-86620db6d0e0	address	address			latin	0	place:700100db61daf3fc	8490 goodyear, az - aspen
+addr-address-87bc59d53905	address	address	gb	greater london	latin	0	place:22b2197dbf50c0f2	27-28 Clements Lane, EC4N 7AE, London, Greater London, United Kingdom
+addr-address-893e0eb449fe	address	address	cl	región metropolitana	latin	0	place:814310a1e9f19eba	Combarbala No. 0159 La Granja Santiago, 1890000, Santiago, Región Metropolitana, Chile
+addr-address-8978df9ce25b	address	address	es	community of madrid	latin	1	place:5666210c55a2dee2	Avenida de Europa, 50, 28905, Getafe, Community of Madrid, Spain
+addr-address-8b47e9dee953	address	address		boquerón	latin	0	place:0904dcc87de098c4	Loma Plata, Avenida Central Nro. 952 casi Uruguay, Loma Plata, Boquerón
+addr-address-8b8a13810430	address	address	vn	ho chi minh	latin	1	place:0b3b87c943c0405e	22/24 TTH15, Tan Thoi Hiep Ward, District 12, 70000, Ho Chi Minh, Ho Chi Minh, Vietnam
+addr-address-8bbce653089e	address	address	si		latin	0	place:6d9e42ee4344f040	Cesta V Kleče 015, 1000, Ljubljana, Slovenia
+addr-address-8c0674a7b2f7	address	address		paris	latin	1	place:722ab0c36b1e313a	290 Maryam Springs 260, Courbevoie, Paris, France
+addr-address-8c1ae138da46	address	address		aurillac	latin	0	place:00b42169d4b52ccb	9 place saint Geraud, Aurillac, 15000
+addr-address-8d11eac5e940	address	address			latin	0	place:55847d7268d3ed6f	3A Antler Complex Bruntcliffe Way, Morley, Ls27 0Jg, Leeds
+addr-address-8e69b0b7884d	address	street	ie		latin	0	place:458bdd7c2398492a	Suite 3, One Earlsfort Centre, Lower Hatch Street, Dublin, Ireland
+addr-address-90e849e22a05	address	address	us	texas	latin	0	place:25badb30bff263fc	4512 Englewood Ave, 79414, Lubbock, Texas, United States
+addr-address-9116c8ba9842	address	address	us		latin	0	place:e62955d5cf86f405	343 WASHINGTON STREET, 02158, NEWTON, United States
+addr-address-919d022ca561	address	address	ca	ontario	latin	0	place:e4924d3dafba7f51	500 Hood Rd, 405, L3R 9Z3, Markham, Ontario, Canada
+addr-address-92240fab5c56	address	address		wellington	latin	0	place:a59574b96107326a	85 Jackson Street, Petone, Lower Hutt 5012, Wellington
+addr-address-939603eded60	address	address	us	new hampshire	latin	1	place:b7dd7def18bef037	217 OLD HOMESTEAD HWY, 03446, Swanzey, New Hampshire, United States
+addr-address-9421f41333cb	address	address	no		latin	0	place:3aded7cdf1faec00	Ulsberghagen 12, 4034, Stavanger, Norway
+addr-address-95815bd25bde	address	address	za	western cape	latin	0	place:071cb893a197be88	30 Keerom St, Cape Town, Western Cape, South Africa
+addr-address-9584d9bbfda8	address	address	cz		latin	0	place:90ae890baabf0cf0	Střekovská 1345/16, Kobylisy, Praha, 182 00, Czechia
+addr-address-95d2fb0d20f6	address	address		selangor	latin	0	place:2f9eb63023fb11af	4, Jalan Jasmin 1, Bandar Botanik, 41200 Klang, Selangor
+addr-address-96b0fb98582c	address	address	it	lazio	latin	0	place:431ff6fe920cf69a	Via Collalto Sabino, 128, 00199, Roma, Lazio, Italy
+addr-address-96f60039db8c	address	postcode		tokyo	latin	0	place:339ed09d7805f02f	5-6 Nampeidai-cho, 150-8511, Tokyo, Japan
+addr-address-96f9a5baecdf	address	address			latin	0	place:02cbebd84dac2cae	14 Gracedale Road, Sw16 6Sw, London
+addr-address-975f56b7a5a1	address	address	vn		latin	0	place:70852cf0f375ae83	Lầu 6, số 231-233 Lê Thánh Tôn, Phường Bến Thành, Quận 1, Hồ Chí Minh, Vietnam
+addr-address-97f60362c095	address	address	de	berlin	latin	0	place:28e65f7a40d7a168	Motzstraße 10, 10777, Berlin, Berlin, Germany
+addr-address-98b5da0af6ff	address	postcode	au	qld	latin	0	place:417c46f3bebca4a5	PO Box 189, Hyde Park, 4812, Townsville, Qld, Australia
+addr-address-98f8b42c9826	address	address		rajasthan	latin	0	place:7c9f53fcd1856431	Rampura Dabri, 202/3, Sikar Rd, Rampura Dabri, Akeda Chaud, Rajasthan 303704
+addr-address-9940ba19a57e	address	address	no		latin	0	place:278b04e415d32c74	Tvetenveien 152b, 0671, Oslo, Norway
+addr-address-9ae191903bed	address	address	ca		latin	0	place:5899525451cfffdb	288 main st:steinbach
+addr-address-9bac205e7a75	address	address	pe	lima	latin	0	place:43d87cf4e29867a7	Av. Mariscal La Mar 662, Oficina 301, 15074, Miraflores, Lima, Peru
+addr-address-9c42723d1085	address	address	ca	on	latin	0	place:43cc9c4c12afde78	5431 Woolwich Guelph Townline, N0B 1M0, Breslau, ON, Canada
+addr-address-9cbf7df9d23f	address	postcode	vg		latin	0	place:fb0b3e7b944dadf0	Intershore Chambers, PO Box 4342, Road Town, Tortola, VG1110 British Virgin Islands, 4342, Tortola, Virgin Islands, British
+addr-address-9cf7f7f4b7ac	address	street	fr	isère	latin	0	place:03ae88705a0534db	1bisA et 2A Chemin du Pré Carré, 38240, Meylan, Isère, France
+addr-address-9dc3a65bca3d	address	address	us	california	latin	0	place:b26ac515b838eaad	15445 Ventura Blvd # 60, 91403, Sherman Oaks, California, United States
+addr-address-9e20fd9d0854	address	address			latin	0	place:72c5a54837b411d0	29 Arboretum Street, Ng1 4Ja, Nottingham
+addr-address-9e3f483f60d1	address	address	fr	bretagne	latin	0	place:804ecf44a0879531	PA de la Tourelle n°2 - 6 rue des frères Montgolfier, 22400, NOYAL, Bretagne, France
+addr-address-9efe68f461ba	address	address	ch		latin	0	place:78bde8130617c9b4	zürich - birchstrasse 160
+addr-address-9f9d464ba6d1	address	address	nz		latin	0	place:03b5c2ccc5268acb	7 Smallbone Drive, 7700, Ashburton, New Zealand
+addr-address-9fba05730fcb	address	address	jp	tokyo	latin	1	place:7f316cc6ffc7f5db	1-9-2 Higashi-Shinbashi Minato-Ku, 105-0021, Tokyo, Japan
+addr-address-9fce9d9c29ce	address	address	us		latin	0	place:1eb06c9720456aaf	usa - buffalo - 4513 genesee st
+addr-address-9fe67556d85f	address	address		haryana	latin	0	place:594a1ac911bb52ac	Gurgaon, LGF, 128, Sector, 52, Gurgaon, Haryana, 122003
+addr-address-a0b55224ec49	address	address	nz		latin	0	place:eb288c2fcd44a278	10a Wernham Place, Northcote, 0626, Auckland, New Zealand
+addr-address-a10cce60c142	address	address		nottinghamshire	latin	0	place:cb5320d92f4a465d	4 The Mews, Hall Lane, Colston Bassett, Nottinghamshire NG12 3FB
+addr-address-a120903b47ab	address	address	au	south australia	latin	0	place:ae9388920653fefd	4a Victoria Square Arcade, 5000, Adelaide, South Australia, Australia
+addr-address-a259e02b826a	address	address	de		latin	1	place:49d14c7a72db8d9e	meesenstiege 54, 48165 münster - hiltrup, deutschland
+addr-address-a2b600af0a69	address	postcode	ar	santa fe	latin	0	place:e21a13b2a4eac174	2000, 2000, Rosario, Santa Fe, Argentina
+addr-address-a3959cd2d9dd	address	street	id	kalimantan selatan	latin	0	place:bc3c773295a0e4da	Jl. A. Yani Km 7.400, Banjarmasin, Kalimantan Selatan, Indonesia
+addr-address-a48fac61fdea	address	address	gb	greater london	latin	1	place:af2012a089013558	100 Rochester Row, SW1P 1JP, London, Greater London, United Kingdom
+addr-address-a6d5c381f08c	address	address			latin	0	place:06e2e58c7da1127d	8-10 Greatorex Street, E1 5Nf, London
+addr-address-a6ffc9763ae1	address	address	gb		latin	1	place:83668b260d4a3382	0232 london talbot village
+addr-address-a7e221af65c5	address	address	us		latin	1	place:0230cb08a68f9418	202 6TH AVE W PO BOX 297, 58535-0297, FLASHER, United States
+addr-address-a8c18e473d51	address	address		cn	latin	0	place:ae209e3e7323fa0a	PUNTO VENDITA MARENE, Via Marconi, 131, 12030 Marene, (CN)
+addr-address-a98708e02bcc	address	address	us	utah	latin	1	place:0d9d0e9738e25692	447 N 1220 W, 84601-2440, Provo, Utah, United States
+addr-address-a9df3776146c	address	address	us	illinois	latin	0	place:cb4aa945101b3234	3165 E Main St, 61834-9380, Danville, Illinois, United States
+addr-address-a9ebcf4d1eb7	address	address		michoacán	latin	1	place:7005b2ed480f7f44	Paseo de los Cedros #18 B, La Floresta, C.P. 59616, Zamora, Michoacán, México
+addr-address-ac3ce20bb1ef	address	address	de		latin	0	place:28caafb4b41090c6	Königsallee 86, Düsseldorf, Germany
+addr-address-aceff7f26297	address	address	gb	31 bretton street	latin	0	place:507f7f7c7ded4771	31 Bretton Street, WF12 9BJ, Dewsbury, 31 Bretton Street, United Kingdom
+addr-address-adc7a36d10c9	address	address		or	latin	0	place:df87c8fb11edd819	6 RUE DES AULNES, 69410, CHAMPAGNE AU MONT D OR
+addr-address-ae986372d836	address	address	us		latin	0	place:ccfc6ec52abc7f83	00871 - lakeport
+addr-address-aea001e49907	address	address	us	ohio	latin	0	place:81a0316219daac23	3699 Corporate Dr, 43231, Columbus, Ohio, United States
+addr-address-af7897571ff3	address	address	de	north rhine westphalia	latin	0	place:89e958b1a45ca9c4	Am Bonner Bogen 2, 53227, Bonn, North Rhine-Westphalia, Germany
+addr-address-af78f7487dc6	address	address	us	fl	latin	0	place:d61222b558d65051	910 BROOKMEADE DRIVE, 32539, CRESTVIEW, FL, United States
+addr-address-b063fc945c48	address	address	ca	saskatchewan	latin	0	place:6f82389333da1006	8-415 115 St E, S7N 2X9, Saskatoon, Saskatchewan, Canada
+addr-address-b06af7da36d9	address	address			latin	0	place:61709bb86ba00690	8 Grove Crescent South, Ls23 6Ay, Boston Spa
+addr-address-b29e1d0bd2be	address	address	fr		latin	0	place:4a30385b492eb947	fra - seynod - 26 rue de sansy
+addr-address-b2dc6122c91a	address	address			latin	0	place:10b357078c08f38c	1 Cowan St, Ponsonby Auckland
+addr-address-b2dd0af08c2b	address	address	cn		non_latin	0	place:8b7110c530659200	南京市江宁区创展路299号
+addr-address-b34d36941473	address	address			latin	1	place:01488259f0884fa7	11218 la plaza, tx-anf
+addr-address-b3526f156a4a	address	address	kr		latin	0	place:7ef2fc89bbfb55e4	39, Sejongdaero, Jung-gu, Level 2 The Korea Chamber of Commerce & Industry Building, 04513, Seoul, South Korea
+addr-address-b421c6bbc78c	address	address	us		latin	0	place:d803c3ba324fefaa	detroit - 1001 woodward
+addr-address-b595a9e4aa1c	address	address	ca	ontario	latin	0	place:6f690f1af72b45b6	5 worthington avenue, brampton, ontario
+addr-address-b6243ef77113	address	address	us	id	latin	0	place:6e2017737ea0aeba	633 n milwaukee st, boise,id 83704-9139
+addr-address-b74c6d799f95	address	address		madrid	latin	1	place:cfd2de664e019a5a	Calle Valparaíso no 2, 2a, oficina 5 C 28945, Fuenlabrada, MADRID
+addr-address-b7b53e951d5e	address	address			latin	1	place:6426a7fdcec55a2c	5243 pa blue bell south
+addr-address-b7e9865bf43f	address	address	us	massachusetts	latin	0	place:f1e9c16810bfbe67	271 main street, great barrington, massachusetts
+addr-address-b81798261dbe	address	address	us		latin	0	place:58bb67e2c8bd39eb	08698 - highland park cvs, l.l.c.
+addr-address-b8c2cd89e7e4	address	address	de		latin	0	place:d0eea42eecdd5b0c	5000 University Pkwy, 27106, Winston-Salem, Germany
+addr-address-b9d214a4cab9	address	address		ab	latin	1	place:f48d03f0d4d22a57	2001-615 6 Ave SE, Calgary, AB T2G 1S2
+addr-address-ba6a40263160	address	address	de		latin	0	place:13fce34b66705a4e	germany > hamburg : sachsenkamp 5
+addr-address-bb184a45eee4	address	postcode	ke	nairobi	latin	0	place:95c9fb1f0daff2d6	53231, 00200, Nairobi, Nairobi, Kenya
+addr-address-bb9b09f21181	address	address	ca		latin	0	place:29ab1249597f407c	P.o. Box 5038, Suite 1100 Cabot Place, 100 New Gower Street, A1C 6K3, St. John's, Canada
+addr-address-bbca0d57ec10	address	address	hu	budapest	latin	0	place:8f8831f240086d7d	Kazinczy street 11., 1075, Budapest, Budapest, Hungary
+addr-address-bc1be6ea511c	address	address	us		latin	0	place:0df920f81d1171cf	681 north avenue, jonesboro, ga - horis a. ward - tara chapel
+addr-address-bcb88eab948c	address	address		ne	latin	1	place:bf803fadc96a9809	54646 832nd Road, Madison, NE 68748
+addr-address-bd13fef0b63e	address	address	us	minnesota	latin	0	place:cc34acbddcecb478	3936 13Th Ave S null, 55407, Minneapolis, Minnesota, United States
+addr-address-bd6ca407c638	address	address	br	ba	latin	0	place:dd7c6e5c80d5f6ea	Av. Beira Mar, 275, Mucuri, 45930-000, Mucuri, Ba, Brazil
+addr-address-bd70bdbb8066	address	address		fe	latin	0	place:769f253eb10a30d1	S. Statale Romea, 57 44022 San Giuseppe di Comacchio (FE)
+addr-address-be82e8581d1c	address	address	nz		latin	0	place:dc3044c13f1b272d	Level 1, 320 Ti Rakau Drive, East Tamaki, 2013, Auckland, New Zealand
+addr-address-bee957d0a8ee	address	address		texas	latin	0	place:8edac2887dc46ed6	1111 HWY 6 South, Suite 150, 77478, Sugar Land, Texas, United States
+addr-address-c2792667710d	address	address		barthes	latin	1	place:7c2c8c656fc21e79	662, chemin de labastide , Les Barthes
+addr-address-c4106967ed52	address	address	it	lombardia	latin	0	place:f9e968172dd52daf	Via Bergamo, 1775, 24030, Pontida, Lombardia, Italy
+addr-address-c51a616b1763	address	address		by	latin	0	place:c489151ebc498049	23 Parkstraße\nMünchen, BY, 80339\nGermany
+addr-address-c52a43f4f86d	address	address	tw		non_latin	0	place:d711cdbfa662b65d	臺北市大同區承德路1段35號9樓之2, 104, 台北市, Taiwan
+addr-address-c5d0cc491e40	address	address	gr	attica	latin	1	place:1b7e15910e50416b	44, Leoforos Vasilisis Amalias, Ground Floor, 105 58, Athens, Attica, Greece
+addr-address-c6bc91b1e8ca	address	address	br	minas gerais	latin	0	place:c9b53e9acaa3bcae	R Curitiba, 1786, 30170-122, Belo Horizonte, Minas Gerais, Brazil
+addr-address-c6e584c0e8a6	address	address	my	selangor	latin	0	place:6b0f945fc42eb5ab	2 Jalan 19/16, 46300, Petaling Jaya, Selangor, Malaysia
+addr-address-c85e529572d1	address	address		burgos	latin	0	place:29217179d5525b4f	Calle San Roman, 5, 09230 Hornillos del Camino, Burgos
+addr-address-c96cd399e588	address	address	zm	lusaka	latin	0	place:ca5de4f5f1d92351	Plot 7817 Kansokomona Road, 10101, Lusdaka, Lusaka, Zambia
+addr-address-cad4fb5935de	address	address	dk		latin	0	place:31d02eb6ad24f9a7	Slotsvænget 10, 2800, Kgs. Lyngby, Denmark
+addr-address-cd70532af58a	address	address		england	latin	0	place:b3a4140852782051	123 Buckingham Palace Road, SW1W 9SR, London, England, United Kingdom
+addr-address-ce1a898517a7	address	address	it	toscana	latin	0	place:d74988149d187c75	Via Claudio Monteverdi, 2, 50144, Firenze, Toscana, Italy
+addr-address-ce32665d05ac	address	address	tn		latin	1	place:654a3d4eb6634f70	bfs #0075
+addr-address-cf8d6e5c2b94	address	address			latin	1	place:4255b0133048edd4	werkbank 32
+addr-address-d151a97da63d	address	address	de	saxony anhalt	latin	1	place:8bf55092ac5b4eb7	Breite Straße 8, 06406, Bernburg (Saale), Saxony-Anhalt, Germany
+addr-address-d19f511f9188	address	address	us		latin	0	place:6b7b4e24b1f75eb7	3111 GRAND AVENUE, 15225, PITTSBURGH, United States
+addr-address-d1f6ef160fe2	address	address	us	oregon	latin	0	place:6ce58c0393e30569	3723 FAIRVIEW INDUSTRIAL DR SE STE 270, 97302, SALEM, Oregon, United States
+addr-address-d287ac5f3f0f	address	address		ks	latin	1	place:d318c869a79eb1e8	10817 West Kellogg, Wichita, KS 67209
+addr-address-d3a4573635c0	address	address	fr		latin	1	place:94efc6cd8de569f2	9 RUE DE NICOSIE, 92160, ANTONY, France
+addr-address-d4cc1875e942	address	address	ar		latin	0	place:6242b1189999357a	AV CORRIENTES 1584 4° PISO, 1042, Buenos Aires, Argentina
+addr-address-d56fe6f022a2	address	address	cn	centre	latin	1	place:e0d8d958e14c5b09	1228 Yan’an Road Middle, Unit C21, 22F, Tower 3, Jing An Kerry Centre, 200040, Shanghai, China
+addr-address-d7d2884cae0f	address	city		広島県廿日	non_latin	1	place:aeb8ad7a18226784	広島県廿日市市大東6-17
+addr-address-d86433b86060	address	address	it	italy	latin	0	place:31b49d407f27b5aa	Via Righi 42, 47924, Rimini, Italy, Italy
+addr-address-d99d99843dfb	address	address	dk		latin	0	place:6f39aca805ae54ce	Herlev Bygade 90, 2730, Herlev, Denmark
+addr-address-dba38992e074	address	postcode	us		latin	0	place:b9b7a542809ac3ed	PO Box 559, 03864, Ossipee, United States
+addr-address-dcb9afa875f3	address	street			latin	0	place:a4f8df08dbbd2f3f	Unit 1 Chalfont Court, Lower Earley, Rg6 5Sy, Reading
+addr-address-dcfcb538a679	address	address		cantabria	latin	0	place:4b910d1a112496ff	Calle de la Ronda, 54 1C 39700, Castro Urdiales, Cantabria, España
+addr-address-dcfd193f2821	address	address	sg		latin	1	place:438f71e789b908c4	sgp - singapore - singapore (70 tuas west dr)
+addr-address-dd350d8ae6ba	address	postcode		california	latin	0	place:ba54003499f56437	P. O. Box 467, 95762, El Dorado Hills, California, United States
+addr-address-dd9b6a200569	address	address	ie	sligo	latin	0	place:e37b37c36da8f4a2	41 Carrowhubbock Village, F26PR53, Enniscrone, Sligo, Ireland
+addr-address-ddf7b9bbe14c	address	address		são paulo	latin	0	place:2085b8de4374325b	Rua Equador,454 Jundiapeba, Mogi das Cruzes, São Paulo, Brasil
+addr-address-df1d19114836	address	address		georgia	latin	0	place:876937a003b30e4d	2325 Lakeview Parkaway Suite 175, 30009, Alpharetta, Georgia, United States
+addr-address-dfa96b03b96f	address	address	us		latin	0	place:282086346247b4ca	ct - ridgefield - 4 prospect st
+addr-address-e1529fd02450	address	address	it	verona	latin	0	place:b20022f141915069	Via Sommacampagna 63D/E Centro Agroalimentare di Verona, 37137, Verona, Verona, Italy
+addr-address-e1c193160359	address	address		sulawesi selatan	latin	1	place:b67d19661306cd8d	Jl. Boulevard Raya No.88, Komplek Ruko Panakkukang Square Blok E5-E7, RT.01/RW.02, Pandang, Kec. Panakkukang, 90231, Kota Makassar, Sulawesi Selatan, Indonesia
+addr-address-e1e665fe7dd1	address	address		kärnten	latin	0	place:f63ac7530d3916c1	Dr. Schrollstraße 14, 9073 Klagenfurt/Viktring - Kärnten / Austria
+addr-address-e2358fc8132d	address	address	nl		latin	0	place:ec76d6779df17e03	oosterschelde 3
+addr-address-e2eac3579dc5	address	address		pontevedra	latin	0	place:6f56ee23d5d20904	Vigo, Rúa Vía Nte. 48 36206 Vigo, Pontevedra
+addr-address-e32815e1433a	address	postcode	id	south sulawesi	latin	0	place:34f52bb50e1edf84	Anuang Street No.142, Workshop, 90131, Maricaya Selatan, South Sulawesi, Indonesia
+addr-address-e360eb5ec5cd	address	address			latin	0	place:fd943b5665737cda	8 Phoenix Road, Ne38 0Ad, Washington
+addr-address-e4a0074785b6	address	address	ch		latin	1	place:0786007c803b3b58	(he)remote_zurich-oerlikon, brown-boveri-strasse 5
+addr-address-e591e0c0e85a	address	address	au	nsw	latin	0	place:aff9655bfd710ac8	2 Knox Lane, 2028, Double Bay, NSW, Australia
+addr-address-e6265273c544	address	address	es	bizkaia	latin	0	place:7a18742a56b09dcf	Calle Juan de Iciar, 2, 48200, Durango, Bizkaia, Spain
+addr-address-e66b054ff208	address	address	at	styria	latin	0	place:5816f419d8453da0	Krenngasse 12, 8010, Graz, Styria, Austria
+addr-address-e69a7deb6c83	address	address			latin	0	place:b0e617733f28804f	boutique vca - mexico city periferico sur, jardines del p 1f (mxme0046)
+addr-address-e6d71bfc3508	address	address	us	ca	latin	1	place:16466ea1d5dbc995	9507 OLYMPIC BLVD, BEVERLY HILLS CA 90212, 90212, BEVERLY HILLS, United States
+addr-address-e6de879547b5	address	address			latin	0	place:da9fdf6f1af90c0f	1 Cowan Street, Ponsonby Auckland
+addr-address-e7e1927b4235	address	address	br	sao paulo	latin	0	place:584bcbd2196a2dc9	Rua Fernando de Albuquerque 155, 01309-030, São Paulo, Sao Paulo, Brazil
+addr-address-e8f9ce3f69d4	address	address	us	mo	latin	0	place:632131ba4f8182c7	1023 MAIN PLAZA DRIVE, 63385, WENTZVILLE, MO, United States
+addr-address-e96c0a567329	address	street	sa	riyadh	latin	0	place:c3cf541e223011d7	P.O.Box:15418 Riyadh 11444, Riyadh, Riyadh, Saudi Arabia
+addr-address-ea0ac25003a4	address	address	us	delaware	latin	0	place:b0a252f5ab69a9a1	8 The Green #24491 Dover, 19901, Dover, Delaware, United States
+addr-address-ea157cf3a43e	address	address	in	delhi	latin	0	place:e67f2943991e9913	23/663, 2nd Floor, Madangir, South Delhi,, Delhi, Delhi, India
+addr-address-ead53f8b90e8	address	address	ca	alberta	latin	0	place:d9a2d59b60d30148	409 highlands boulevard, lethbridge, alberta
+addr-address-eb5b9a8592e0	address	address	us	tx	latin	1	place:c90b63a6e67556a2	store: 1279 forum @ olympia pkwy selma, tx
+addr-address-ebde90081c2b	address	address		gujarat	latin	0	place:c1eb23f197faa2ff	1, Dr Ambedkar Rd, Jain Colony, Shahibag, Ahmedabad, Gujarat 380004, India
+addr-address-ec3ee5c40bd5	address	address	gb	london	latin	0	place:a0d4dd4c30835fc1	145-157 St John St, EC1V 4PW, London, London, United Kingdom
+addr-address-ec925e4f3bc7	address	address	br	são paulo	latin	0	place:8916305149fa4f78	Av. Francisco Alves Monteiro, 500, 12040-650, Taubaté, São Paulo, Brazil
+addr-address-ecd70e579328	address	address		ontario	latin	0	place:2d6663414c403b9b	1137 Western Road, London, Ontario, Canada N6G 1G7
+addr-address-ecff61824c27	address	street	id	sumatra utara	latin	0	place:30a4076a2b7d8cc5	Jln Sangir Talaud I KIM IV Pematang Johar, Labuhan Deli Sumatera Utara 20373 - Indonesia, 20146, Medan, Sumatra Utara, Indonesia
+addr-address-ed85ea1c9aff	address	street	cn	shanghai	latin	0	place:9f03224e87383e91	7F-8F Building 1,No.1006,JinShaJiang Road, 200061, Shanghai, Shanghai, China
+addr-address-efef35a8fe1b	address	address	us	new york	latin	1	place:adb6962e5604770b	940 Jamaica Ave, 11208-1505, Brooklyn, New York, United States
+addr-address-f29c2355fc99	address	address	gb	surrey	latin	0	place:3f8616aabbb7e8b8	55 Cheam Road, SM1 2AX, Sutton, Surrey, United Kingdom
+addr-address-f2ac89560db1	address	city	sv		latin	0	place:bc4e3dedbb58041a	Local Comercial A-29 Metro Sur, Local Comercial A-29 Metro Sur  Edificio Zona 2-A, San Salvador, El Salvador
+addr-address-f30ea4c83e41	address	address	gb	england	latin	0	place:0357db4581188569	119 Marylebone Road, NW1 5PU, London, England, United Kingdom
+addr-address-f3fc2c5355b9	address	address	am		latin	0	place:eb87085f1eac5e1c	yerevan - vagharshyan str 12
+addr-address-f47a4a18f1c7	address	address	us	ca	latin	0	place:9b43dd6ad1bb4445	3280 r st, merced,ca 95348-1954
+addr-address-f5d24e4c0428	address	address			latin	1	place:1940c9e23fcaefed	304 cross iron mills
+addr-address-f6820826d941	address	address		overijssel	latin	0	place:e5b49f24db1021e9	Mr Zigher ter Steghestr 9, 8331 KG, Steenwijk, Overijssel, The Netherlands
+addr-address-f7a7d82bf317	address	address		dc	latin	0	place:f513e86ef30576e5	3622 Commodore Joshua Barney Drive NE Washington, DC 20018
+addr-address-f7b3a7c9836e	address	address		georgia	latin	0	place:ef18cbbe708265cb	5456 Bethelview Road, Suite 103, Cumming, Georgia 30040
+addr-address-f7c78a82ce0d	address	address	cl		latin	1	place:3f4b7a9346dd3656	2663 Avenida Cuatro Pinos, Quilpué, Chile
+addr-address-f8804ce78fde	address	address	us	washington	latin	0	place:05641aaec7c362e9	3400 Harbor Ave SW Ste 314, 98126, Seattle, Washington, United States
+addr-address-fa4fc704f815	address	address	us		latin	0	place:932864bcd63d2684	27 PIERCE ST., 01301, GREENFIELD, United States
+addr-address-fa8916e63b46	address	address	de	kerpen rheinl	latin	0	place:756c2a573f01cccd	Am Keuschenend 143, 50170, Kerpen, Kerpen Rheinl, Germany
+addr-address-fb1bfa43c5a9	address	postcode	us	west virginia	latin	0	place:97f54e3c6a225612	HC 64 Box 132, 26757, Romney, West Virginia, United States
+addr-address-fc12bcaad9ed	address	address		lima	latin	0	place:fc3c6319ac7caab3	Los Cabildos 17515038, Santiago De Surco, Lima, Lima, Perú
+addr-address-fc37db5c6098	address	address		islas baleares	latin	0	place:d45e35762894d7a3	C/Cardenal Pou, 3, Entresuelo Dcha., 07003 Palma, Islas Baleares, España
+addr-address-fcf39d85de4d	address	address	ge	tbilisi	latin	0	place:754f2128f80b0990	2/4 Shota Rustaveli Avenue, Tbilisi, Tbilisi, Georgia
+addr-address-feb3d60eab3a	address	address		nc	latin	0	place:4fd9b700c4d7a511	farm 33 farrowing 85331 aulander nc
+addr-address-fee9139ef537	address	address		southern finland	latin	0	place:1150297ba801a6ed	Arabiankatu 12, 00560, Helsinki, Southern Finland, Finland
+addr-address-ffb21c860e58	address	address		nc	latin	1	place:7fd82d3bf535a26c	Davidson 903 Northeast Dr, Ste 201, Davidson, NC 28036
+addr-address-ffda69483f62	address	address	nz		latin	0	place:5aa3b89f9fcce2d6	3 City Road, Grafton, 1010, Auckland, New Zealand
+addr-city-008f3cb9b501	city	street	co		latin	0	place:280c06882232bc2c	Bucaramanga, Colombia, Bucaramanga, Colombia
+addr-city-032b27cc0b7a	city	city	es	murcia	latin	0	place:42f6d93b7a6ede9b	Murcia, Spain, Spain
+addr-city-03c9361e544b	city	city	py		latin	0	place:f254b30ad4412399	Paraguay, Paraguay
+addr-city-03f4ec09586a	city	city	at	styria	latin	0	place:78e2497b54066149	judendorf, styria, austria
+addr-city-047da2fb9ac4	city	city	za	florida	latin	0	place:2abb5bfd30433492	Global, Florida, South Africa, Global, Florida, South Africa
+addr-city-049f23e228e5	city	street	cl	metropolitana	latin	1	place:070bec32b93fd4fb	Santiago, a, Chile, Chile
+addr-city-04e37325e5c8	city	city	au	south australia	latin	1	place:cc5b7a171e2047c0	Adelaide, South Australia, Australia, Australia
+addr-city-054c7f274266	city	city	fr	haut rhin	latin	1	place:e29e128eb6f6747a	Pfastatt, Haut-Rhin, France, Pfastatt, Haut-Rhin, France
+addr-city-065005bce5ae	city	city	ro	braşov	latin	1	place:c49d21dc012de656	Lovnic, Braşov, Romania, Romania
+addr-city-069cd8cd6f87	city	city	cz	liberecký	latin	0	place:75a475732a3057a1	Jilemnice, Liberecký, Czech Republic, Czechia
+addr-city-070358ed39f2	city	city	fr	bas rhin	latin	0	place:7f8038f8073148d5	Strasbourg, Bas-Rhin, France, Strasbourg, Bas-Rhin, France
+addr-city-07a7a47837e0	city	city	fr	hauts de seine	latin	0	place:887962f63d6e1611	Antony, Hauts-de-Seine, France, Antony, Hauts-de-Seine, France
+addr-city-0a31f5255f12	city	city	ie	county mayo	latin	1	place:c401c6fa7f7f6f1d	balla, county mayo, ireland
+addr-city-0abea48d8207	city	city	ua	rivne	non_latin	1	place:7c0f3e2ddcb91a8e	Рівне, Rivne, Ukraine, Ukraine
+addr-city-0b237b924d12	city	city	fi		latin	1	place:a36a521ba5feb760	Espoo, Finland, Espoo, Finland
+addr-city-0d8dff299eca	city	city	ie	county galway	latin	0	place:cc8e05e7da7cb449	ballinasloe, county galway, ireland
+addr-city-0ffd0c2b5deb	city	city	ch	zurich	latin	0	place:71bb16b16d1f46e4	Oetwil am See, Zurich, Switzerland, Oetwil am See, Zurich, Switzerland
+addr-city-10656c91f5fc	city	city	us	ky	latin	0	place:ba7779427acdae01	nortonville, ky
+addr-city-118ef44ff768	city	city	us	north carolina	latin	0	place:ab7ea753a41f85d7	Eastover, North Carolina, United States, Eastover, North Carolina, United States
+addr-city-11f2dd7a1ab1	city	city	ro		latin	0	place:a1bca1c2687dcf1c	Bucharest, Romania, Bucharest, Romania
+addr-city-12e88843c4a4	city	city	cu		latin	0	place:ebf9ae6d96248e1a	amaro, italy
+addr-city-145319e5e711	city	city	ph	cebu	latin	0	place:683744223babbb71	Cebu, Philippines, Philippines
+addr-city-1546a912ecb2	city	city	ma	casablanca settat	latin	1	place:c4915280ff3a6151	Casablanca, Casablanca-Settat, Morocco, Morocco
+addr-city-162638154e31	city	city	co		latin	0	place:054b3fced8f166a0	Cartagena, Colombia, Cartagena, Colombia
+addr-city-1644e3c05cd0	city	city	no	oslo	latin	0	place:707f3f54d3c7dd2c	Oslo, Norway, Oslo, Norway
+addr-city-16cba396e452	city	city	no		latin	0	place:760d888e4044eea7	Haugesund, Norway, Haugesund, Norway
+addr-city-171c98effecf	city	postcode	gb	isle of wight	latin	0	place:8bca76ffc5231521	Northwood Civil Parish, Isle of Wight, United Kingdom, Northwood Civil Parish, Isle of Wight, United Kingdom
+addr-city-184691e86f48	city	city	pt	setúbal	latin	0	place:cf80e55a464ae472	Setúbal, Setúbal, Portugal, Portugal
+addr-city-18e8423c644c	city	city	gb		latin	1	place:ebe6eee095e1acfa	West End, United Kingdom, West End, United Kingdom
+addr-city-1a11cb473347	city	city	ph	mandaue	latin	1	place:17b71e88a749d9e9	Mandaue City, Mandaue, Philippines, Philippines
+addr-city-1a8ec392173b	city	street	es	biscay	latin	0	place:0df3f5b18b7fa970	Bilbao, Biscay, Spain, Bilbao, Biscay, Spain
+addr-city-1a9ffae70d86	city	city	gb	essex	latin	0	place:f9b47d200b2491e2	Chelmsford, Essex, United Kingdom, United Kingdom
+addr-city-1ace53b75032	city	city	cr	heredia	latin	0	place:05ce06a3996d732d	barreal, heredia, costa rica
+addr-city-1b1629978ff4	city	city	it	milano	latin	1	place:c0aa54bde18ed43d	Rho, Milano, Italy, Italy
+addr-city-1ba568da96c1	city	city	gb	scotland	latin	0	place:ca06e81561e460da	newton mearns, scotland, united kingdom
+addr-city-1d4a7c3396c8	city	city	ug		latin	0	place:07ccce3f61441727	Uganda, Uganda
+addr-city-1d624a133988	city	city	gb	wiltshire	latin	0	place:b8d0ded98dd77624	Charlton, Wiltshire, United Kingdom, Charlton, Wiltshire, United Kingdom
+addr-city-1e20881e381c	city	city	no	nordland	latin	0	place:d799bbe16086daa8	vefsn, nordland, norway
+addr-city-208852b7f859	city	city	be	liege	latin	0	place:a6d212b61346ab44	Remicourt, Liege, Belgium, Remicourt, Liege, Belgium
+addr-city-20cbff64b9a8	city	city	it	veneto	latin	0	place:30f4b80847845bda	giavera del montello, veneto, italy
+addr-city-21d42dcba65a	city	city	nc	sud	latin	0	place:8358da4cfbf7daa1	Nouméa, Sud, New Caledonia, New Caledonia
+addr-city-228809a3eccf	city	city	cn	guangxi	latin	1	place:44987a3df80ea510	longsheng various nationalities autonomous county, guangxi zhuang, china
+addr-city-22bcbbdfc853	city	city	vn	ha tay	latin	0	place:964411fd4a403847	Hanoi, Ha Tay, Vietnam, Viet Nam
+addr-city-248362d749a2	city	city	de	north rhine westphalia	latin	0	place:572464d0ada7a337	dormagen, north rhine-westphalia, germany
+addr-city-24fea3e9204d	city	city	ie	county meath	latin	0	place:3f086dd148e60666	nobber, county meath, ireland
+addr-city-25c4180c244c	city	city	bo		latin	0	place:9da70ab7f00afcad	store: 0696 san borja, per
+addr-city-2673ca5ff487	city	city	mx	chiapas	latin	0	place:601cc31bbeea0187	San Cristóbal de las Casas, Chiapas, Mexico, Mexico
+addr-city-276f5457bcb1	city	city	ga		latin	0	place:df2722d5cbaf3d64	Gabon, Gabon
+addr-city-2c602e89c1e4	city	city	us	il	latin	1	place:16637a0a2c29662c	north shore, il
+addr-city-2e34f1554e98	city	city	us	ne	latin	1	place:e36992f91d6a5613	overland park, ks, omaha, ne
+addr-city-2e74b1e58e2f	city	city	ro	bucureşti	latin	0	place:3251ec7ddc4dfce9	Bucureşti, Romania, Romania
+addr-city-2ea1abe18b70	city	city	at	upper austria	latin	0	place:50a1d3ac5cabe6ed	hellmonsödt, upper austria, austria
+addr-city-2eda31e6cdb1	city	city	sa		latin	1	place:753bc63a6c53dfb8	Riyadh, Saudi Arabia, Riyadh, Saudi Arabia
+addr-city-30c21c1ad591	city	city	ar	santa fe	latin	0	place:6ffd375c9acdee3b	esperanza, santa fe, argentina
+addr-city-30e40fa9b76e	city	city	ch	thurgau	latin	0	place:faa93f9aedbb6107	Wängi, Thurgau, Switzerland, Wängi, Thurgau, Switzerland
+addr-city-30fe6af683d0	city	postcode	gb	edinburgh	latin	1	place:f66cb7cbafb757ca	Edinburgh, United Kingdom, Edinburgh, Edinburgh, United Kingdom
+addr-city-3112aac80619	city	city	us	texas	latin	0	place:9ac040aaa4d7bd13	Waco, Texas, United States, Waco, Texas, United States
+addr-city-327380204e2f	city	city	za	gauteng	latin	0	place:8f54ce6b0163cc42	Mogale City, Gauteng, South Africa, South Africa
+addr-city-3294bcb42a4a	city	city	fr	hauts de france	latin	0	place:2a82de3c33b599f5	thourotte, hauts-de-france, france
+addr-city-334a9ba6b380	city	city	us	colorado	latin	0	place:4e805d761abcea4a	Fort Collins, Colorado, United States, Fort Collins, Colorado, United States
+addr-city-338291bd22b4	city	city	pl	śląskie	latin	0	place:e774bc137ade394e	łąka, śląskie, poland
+addr-city-33d4fc0bb005	city	city	in		latin	0	place:b92e593f58e3a6c4	New Delhi, India, New Delhi, India
+addr-city-344a7761db62	city	city	uy	montevideo	latin	0	place:d1149c36884c992a	Montevideo, Uruguay, Uruguay
+addr-city-35acad9d76c3	city	city	lt	vilnius	latin	0	place:101722d6b2c092d7	Vilnius, Lithuania, Vilnius, Vilnius, Lithuania
+addr-city-36490abe6db5	city	city	ke		latin	0	place:b83f7cd019c012c9	sika canada
+addr-city-37388411199a	city	city	fr	charente maritime	latin	0	place:9c7e71dd7dc2e156	Matha, Charente-Maritime, France, Matha, Charente-Maritime, France
+addr-city-3753a218e39b	city	city	fr	paris	latin	0	place:85e72a8a0ae4daf2	Paris, France, Paris, Paris, France
+addr-city-377c3653710d	city	city	pl	śląskie	latin	0	place:5e4ab623f37597e1	Łodygowice, Śląskie, Poland, Łodygowice, Śląskie, Poland
+addr-city-38756fed7678	city	city	be	antwerpen	latin	0	place:8c209039a1b8be09	Mechelen, Antwerpen, Belgium, Belgium
+addr-city-38cae7923dd2	city	city	es		latin	0	place:9f054910feafe2bf	Barcelona, Spain, Barcelona, Spain
+addr-city-392ebc4dd539	city	city	am		latin	0	place:1cb2e24a49b526e6	Yerevan, Armenia, Yerevan, Armenia
+addr-city-3b7456c48ba4	city	city	fr	aix en provence	latin	0	place:dc1eceb146a48253	montpellier, toulouse, aix-en-provence
+addr-city-3bce3d4abe0d	city	city	ch	ticino	latin	0	place:7b989be9dc3ea7cc	Bellinzona, Ticino, Switzerland, Switzerland
+addr-city-3c48a0bfb70f	city	city	co		latin	0	place:1370276751ee2d88	Medellin, Colombia, Medellin, Colombia
+addr-city-3c74e2a0c403	city	city	ua	kiev	latin	0	place:8800ffc70dc2ec40	Kiev City, Kiev, Ukraine, Kiev City, Kiev, Ukraine
+addr-city-3cc7c83bf24c	city	city	in	tamil nadu	latin	0	place:f4057a85bcdc0c0a	Tiruvannamalai, Tamil Nadu, India, India
+addr-city-3d1a87fe7443	city	city	es	basque country	latin	0	place:0b81e876d9a8a9de	ormáiztegui, basque country, spain
+addr-city-3eda0a72edf9	city	city	us	arizona	latin	0	place:f1f2afc3acdb6ab3	Mesa, Arizona, United States, Mesa, Arizona, United States
+addr-city-3ede62b056bd	city	city	ca	saskatchewan	latin	0	place:a47105b7f278a6f9	delisle, saskatchewan, canada
+addr-city-40b4f7249894	city	city	us	idaho	latin	1	place:ecd2c612795e12d8	Boise, Idaho, United States, United States
+addr-city-42aeca9ae988	city	city	ca	nova scotia	latin	0	place:da7c79b8f622f8e4	Bedford, Nova Scotia, Canada, Bedford, Nova Scotia, Canada
+addr-city-44d07b4394a0	city	city	fr	meurthe et moselle	latin	0	place:a86411d4f3e90ef1	Jarville-la-Malgrange, Meurthe-et-Moselle, France, Jarville-la-Malgrange, Meurthe-et-Moselle, France
+addr-city-450f221848a5	city	city	de	saxony	latin	0	place:3dbacd73874dd229	Dresden, Saxony, Germany, Germany
+addr-city-456d5e4c3af5	city	city	us	oklahoma	latin	0	place:31f0a2da6c6a59a8	Yukon, Oklahoma, United States, United States
+addr-city-46007c21847e	city	city	dk	capital	latin	0	place:c88c7343fdab8740	Copenhagen, Capital, Denmark, Copenhagen, Capital, Denmark
+addr-city-46301b95e766	city	city	it	messina	latin	0	place:821dede8f735984b	Taormina, Messina, Italy, Taormina, Messina, Italy
+addr-city-466358279bce	city	city	zw	harare	latin	0	place:bc37d45495a88f3b	Harare, Zimbabwe, Harare, Harare, Zimbabwe
+addr-city-48ea929501d3	city	city	ca		latin	1	place:aa0e325ddd2c4f39	st mary's
+addr-city-49a49d8d7d6c	city	city	gb	belfast	latin	0	place:971f64785e14448e	Belfast, Belfast, United Kingdom, United Kingdom
+addr-city-4a8bd65a92fd	city	city	de		latin	1	place:264121c1f2c62c3f	Krefeld, Germany
+addr-city-4aa22ae42f17	city	city	br	paraiba	latin	0	place:d164ed9b039f5438	Campina Grande, Paraiba, Brazil, Brazil
+addr-city-4aea22cdf5e3	city	city	my		latin	1	place:04b927f9dedbdfe3	butterworth
+addr-city-4d23cfb5f073	city	city	fr	seine et marne	latin	0	place:733cc1ee9f61d65e	Monthyon, Seine-et-Marne, France, Monthyon, Seine-et-Marne, France
+addr-city-4f6bf838ab81	city	city	at	oberösterreich	latin	0	place:369f5129671671c6	Linz, Oberösterreich, Austria, Austria
+addr-city-50cb913dcfaa	city	city	ca	ontario	latin	1	place:2a7471ae17f1acd6	huron-kinloss, ontario, canada
+addr-city-50d49b490884	city	street	bo	cercado	latin	0	place:afc04ca2d8b11476	Cochabamba, Cercado, Bolivia, Cochabamba, Cercado, Bolivia
+addr-city-50df62aa0324	city	city	es	madrid	latin	1	place:1bca10b4d5fa0030	Torrejón de Ardoz, Madrid, Spain, Torrejón de Ardoz, Madrid, Spain
+addr-city-514f42d9b807	city	city	fr	lannion	latin	1	place:46ab390993a0b5e6	rennes lannion
+addr-city-5174cbd1eedd	city	city	my	malacca	latin	0	place:31d267d9ff20bd7d	jasin, malacca, malaysia
+addr-city-5223d14df663	city	city	de	hesse	latin	1	place:492ba81e9a13f4bd	mörfelden-walldorf, hesse, germany
+addr-city-5293d441c158	city	city	ca	british columbia	latin	0	place:fc72486ab90aa2f4	Central Saanich, British Columbia, Canada, Central Saanich, British Columbia, Canada
+addr-city-5311592c5ca8	city	city	us	iowa	latin	0	place:b58d77b239a094e0	George, Iowa, United States, George, Iowa, United States
+addr-city-53147d4c253f	city	city	it	vicenza	latin	0	place:d978450d08083eea	Creazzo, Vicenza, Italy, Creazzo, Vicenza, Italy
+addr-city-5367c206cf3b	city	city	au	new south wales	latin	1	place:17278df347219d4f	Lindfield, New South Wales, Australia, Lindfield, New South Wales, Australia
+addr-city-53b09337198b	city	city	in	odisha	latin	0	place:5a852fb0836ff376	sambalpur, odisha, india
+addr-city-53fdea955ca3	city	city	co	valle del cauca	latin	0	place:40ca3e2d6e511764	Cali, Valle del cauca, Colombia, Cali, Valle del cauca, Colombia
+addr-city-549d1ec010ad	city	city	cr	puntarenas	latin	0	place:ccabbf1c832d7693	malpais, puntarenas, costa rica
+addr-city-56aacb70b5b4	city	city	pk	islamabad	latin	0	place:41d00e02fdc6b4cc	Islamabad, Pakistan, Pakistan
+addr-city-57fb8d54a71d	city	unparsed	cz	středočeský	latin	0	place:61431cc2601b6c07	Netvořice, Středočeský, Czechia, Netvořice, Středočeský, Czechia
+addr-city-5867bbbe4322	city	city	qa	ad dawhah	latin	0	place:62e994f31abcdcad	Doha, Ad Dawhah, Qatar, Qatar
+addr-city-58cadc31919f	city	city	ch		latin	0	place:82fabcc925ce344e	knutwil, lucerne, switzerland
+addr-city-5a5f26438d8d	city	postcode	id	jakarta raya	latin	0	place:08a42e44d10e43d7	Jakarta Pusat, Jakarta Raya, Indonesia, Jakarta Pusat, Jakarta Raya, Indonesia
+addr-city-5a81e7684d76	city	street	cl	de tarapaca	latin	0	place:ae10dd81de98a390	Arica, De Tarapaca, Chile, Arica, De Tarapaca, Chile
+addr-city-5aa3074ed128	city	city	no	oslo	latin	0	place:e6aa8474ffd66761	Oslo, Norway, Oslo, Oslo, Norway
+addr-city-5bef70e63833	city	city	so	baidoa	latin	0	place:6d13d6735128ce3d	baidoa, baidoa
+addr-city-5bfdda315e07	city	city	be	limburg	latin	0	place:eeb22dde9e2fbcb1	Lommel, Limburg, Belgium, Lommel, Limburg, Belgium
+addr-city-5cca9cd87df8	city	city	ua	kyiv	latin	0	place:0262cfbed5bb3e5b	Kyiv, Ukraine, Kyiv, Kyiv, Ukraine
+addr-city-5ce7fa6c4a4c	city	city	ca	nova scotia	latin	0	place:aeb341ddc34b971b	brookfield, nova scotia, ca
+addr-city-5de6127033bb	city	region	jp	tokyo	latin	0	place:7cc8208481f4a70f	Tokyo, Japan, Tokyo, Tokyo, Japan
+addr-city-5e15da7844da	city	city	ua		latin	0	place:fc9855d3ecfa890f	Kyiv, Ukraine, Kyiv, Ukraine
+addr-city-5eae9878d4bd	city	city	fr	france	latin	0	place:38b3496725ab9736	Paris, France, Paris, France, France
+addr-city-5f85c494c9fb	city	city	zw		latin	0	place:6fa20484e6bdbc42	Harare, Zimbabwe, Harare, Zimbabwe
+addr-city-5f8a88142cea	city	city	ua		latin	0	place:fe16a13c503a3fe6	odessa, ukraine
+addr-city-5fd1a8198e35	city	city	ru	pskov	latin	1	place:8df5768950c47f0d	Pskov, Pskov, Russia, Russian Federation
+addr-city-6079f4b1c396	city	city	cm	littoral	latin	0	place:e269cde79b2a3615	Douala, Littoral, Cameroon, Cameroon
+addr-city-611b61d5a352	city	city	in	haryana	latin	0	place:1007ff39c757c20c	Fatehabad, Haryana, India, Fatehabad, Haryana, India
+addr-city-6148362ddc0f	city	city	ie	county cork	latin	1	place:3fb1911ea6db9812	shanagarry, county cork, ireland
+addr-city-617b5b994f91	city	city	au	queensland	latin	0	place:c73194a625e3a192	Toowong, Queensland, Australia, Toowong, Queensland, Australia
+addr-city-6193cc4792ac	city	city	fr	corsica	latin	0	place:bd938c460d225f4e	ville-di-pietrabugno, corsica, france
+addr-city-61ef22251399	city	city	us	georgia	latin	0	place:e981d9fba3c6a5e2	Fairburn, Georgia, United States, Fairburn, Georgia, United States
+addr-city-633d7993cdde	city	city	ar	mendoza	latin	0	place:fe8573e180fe79c7	Mendoza, Argentina, Argentina
+addr-city-64343b11b9fc	city	city	us	mississippi	latin	0	place:b25af44abb9af0fc	Meridian, Mississippi, United States, Meridian, Mississippi, United States
+addr-city-654226196ce8	city	city	fr	grand est	latin	0	place:82f069eba0d83c42	rozerotte, grand est, france
+addr-city-657f2654b6b5	city	city	gb	buckinghamshire	latin	1	place:2eddb00c0db568a1	Stowe, Buckinghamshire, United Kingdom, Stowe, Buckinghamshire, United Kingdom
+addr-city-65b3d79698a5	city	city	us	wy	latin	0	place:a9e409877611b40a	mcfadden, wy
+addr-city-65dd3b0be531	city	city	fr	eure	latin	1	place:a99f79a5f5fc63d5	Évreux, Eure, France, France
+addr-city-6626872e1569	city	city	us	maryland	latin	0	place:6cb34ec954f92adb	Ellicott City, Maryland, United States, Ellicott City, Maryland, United States
+addr-city-664b1c1d9155	city	city	tr	denizli	latin	0	place:f9f09cecd43b6396	Denizli, Denizli, Turkey, Türkiye
+addr-city-672e31f63d10	city	city	cd		latin	0	place:d8cfea3fc5737ff8	mbanza congo
+addr-city-67531a15cbbf	city	city	ve	miranda	latin	0	place:cf1c7375e997d8db	Higuerote, Miranda, Venezuela, Venezuela, Bolivarian Republic of
+addr-city-6798d2b824d9	city	city	ar	neuquén	latin	0	place:99ed00e4ea145853	San Martín de Los Andes, Neuquén, Argentina, San Martín de Los Andes, Neuquén, Argentina
+addr-city-67cdf839870c	city	city	pt	castelo branco	latin	0	place:c8eb8f7030d81d52	gaia, castelo branco, portugal
+addr-city-68c203c2a5ba	city	city	fi	northern ostrobothnia	latin	1	place:dc26c4a28baafa7d	Oulu, Northern Ostrobothnia, Finland, Finland
+addr-city-68d85a889439	city	city	gb	denbighshire	latin	0	place:3c2bc94f3f40ad68	Wrexham, Denbighshire, United Kingdom, United Kingdom
+addr-city-699b43fc5392	city	city	us	mo	latin	0	place:353c72732b461849	florissant, mo, us
+addr-city-6a7ed811b3de	city	city	br	minas gerais	latin	0	place:aa0914fdf2ea6812	Conselheiro Lafaiete, Minas Gerais, Brazil, Conselheiro Lafaiete, Minas Gerais, Brazil
+addr-city-6b1debcb97a2	city	city	us	wi	latin	0	place:4ec1d3d3833894c1	benoit, wi
+addr-city-6b37aac068e2	city	city	gb	hampshire	latin	0	place:8c3d93629b6cc8e8	Lymington and Pennington Civil Parish, Hampshire, United Kingdom, United Kingdom
+addr-city-6ccfda86dd2d	city	city	gb	norfolk	latin	0	place:419abaa6bc448dd5	Norwich, Norfolk, United Kingdom, Norwich, Norfolk, United Kingdom
+addr-city-6d7a11802813	city	city	si		latin	0	place:8414f53a4d764cc2	slovenske konjice, slovenske konjice, slovenia
+addr-city-6da09531b620	city	country	ba	republic of srpska	latin	1	place:ad248a404f5761f3	Banja Luka, Republic of Srpska, Bosnia and Herzegovina, Banja Luka, Republic of Srpska, Bosnia and Herzegovina
+addr-city-6dc37bb692b5	city	city	nl	north holland	latin	0	place:ad7c97b0485a3dff	badhoevedorp, north holland, netherlands
+addr-city-6e5b524f7200	city	city	us	minnesota	latin	1	place:024d85349d6af420	New Prague, Minnesota, United States, New Prague, Minnesota, United States
+addr-city-6f46b4f3617b	city	city	bg		latin	0	place:4e4dbd5ca1e9373e	traction
+addr-city-6fa1c207b379	city	city	us	washington dc	latin	0	place:78f94f4330c0ebb7	Washington DC, United States, Washington DC, United States
+addr-city-7137fd01ee75	city	city	vn		latin	0	place:fc17a1491a902821	hung nhan commune, hai phong city, vietnam
+addr-city-724d73774a71	city	city	ca	british columbia	latin	0	place:ae5d9baee1822261	fraser valley c, british columbia, canada
+addr-city-7307ab4b96be	city	city	tn	tunis	latin	1	place:474dfa951b95bb53	Tunis, Tunis, Tunisia, Tunisia
+addr-city-730be0d16081	city	city	in	rajasthan	latin	1	place:4d67c5273f0836f2	Bikaner, Rajasthan, India, India
+addr-city-735094a8f3b9	city	city	in	bihar	latin	1	place:5c609f920b75e512	Hajipur, Bihar, India, Hajipur, Bihar, India
+addr-city-746884d319c1	city	city	it		latin	0	place:8ed18c0ea67a3609	Roma, Italy, Roma, Italy
+addr-city-749a74aa3af4	city	region	gb	england	latin	0	place:bbb53dfededdb45b	Durham, England, United Kingdom, Durham, England, United Kingdom
+addr-city-75d078067fe8	city	city	za		latin	0	place:f12ecc06970e12db	Global, South Africa, Global, South Africa
+addr-city-75ecf4ef15d4	city	city	de		latin	0	place:9c6fef61170c03bd	Heidelberg, Germany, Heidelberg, Germany
+addr-city-764fd70a06ce	city	city	us	new york	latin	0	place:f89a4c3cfc573437	New York City, New York, United States, New York City, New York, United States
+addr-city-774e528477ab	city	city	ve	mérida	latin	0	place:27e5a77557356e8c	Mérida, Mérida, Venezuela, Venezuela, Bolivarian Republic of
+addr-city-7ada13616315	city	city	it	genova	latin	0	place:960a6eb2c61f336f	Genova, Italy, Genova, Genova, Italy
+addr-city-7bf11619fda0	city	city	us	ca	latin	0	place:4be30aea7fb18d46	store: 0421 gran plaza outlets calexico,ca
+addr-city-7c14e9de5803	city	city	nz	hawke s bay	latin	0	place:3e3ae29cf95afa12	hastings, hawke's bay, new zealand
+addr-city-7ec7e5ed3b8e	city	city	gb	oxfordshire	latin	0	place:a5725e2ebb172003	Abingdon on Thames Civil Parish, Oxfordshire, United Kingdom, United Kingdom
+addr-city-7fa31565952b	city	city	jp	osaka	latin	0	place:12620bbd46e10458	Ōsaka, Osaka, Japan, Japan
+addr-city-8076daaad332	city	city	ug	mukono	latin	0	place:705e97f7a99d954d	Mukono, Uganda, Mukono, Mukono, Uganda
+addr-city-809251749f21	city	city	se	vasternorrland	latin	0	place:0063b41ce5d6f84e	Örnsköldsvik, Vasternorrland, Sweden, Sweden
+addr-city-80edbcc2b7d0	city	city	pl	małopolskie	latin	1	place:db1c6e601afeb09a	Kraków, Małopolskie, Poland, Poland
+addr-city-8100aea8c222	city	city	gb	somerset	latin	0	place:1e79cf4cc00f69fb	Bath, Somerset, United Kingdom, Bath, Somerset, United Kingdom
+addr-city-822ab1a88248	city	city	tr	ankara	latin	0	place:6b6a697babb8e794	Ankara, Ankara, Turkey, Türkiye
+addr-city-8257c62ea034	city	city	sa		latin	0	place:3bb0e45431b618f3	qatif, eastern, saudi arabia
+addr-city-83371a32100b	city	city	fr	maine et loire	latin	0	place:e144e8e7d1d1c0e2	Thorigné-d'Anjou, Maine-et-Loire, France, Thorigné-d'Anjou, Maine-et-Loire, France
+addr-city-83b368f870e7	city	city	us	ar	latin	0	place:670b4fdc5c8f288b	waldo, ar
+addr-city-869af55f5c1c	city	city	hr	istarska	latin	0	place:ffbf03eeb1b32722	Pula, Istarska, Croatia, Croatia
+addr-city-872f28c3c518	city	city	fr	nouvelle aquitaine	latin	0	place:ca094664a7ede383	moncontour, nouvelle-aquitaine, france
+addr-city-88b2813d9113	city	city	bd		latin	0	place:d53ac0edb48ce45a	Manikganj, Bangladesh, Manikganj, Bangladesh
+addr-city-8ad3be998a38	city	city	ee	harjumaa	latin	0	place:a3740725ab3958d1	harku, harjumaa, estonia
+addr-city-8b4ea830ea2c	city	city	br	paraná	latin	0	place:e5328d7de187fd10	espigão alto do iguaçu, paraná, brazil
+addr-city-8b8ecc3f77b0	city	city	us	iowa	latin	0	place:b78eb0a67d4223b6	britt, iowa
+addr-city-8de7ba565112	city	city	au	western australia	latin	0	place:7274c9851cf7738b	Dardanup West, Western Australia, Australia, Dardanup West, Western Australia, Australia
+addr-city-8e0ff620fe4f	city	city	mt		latin	0	place:8587d615021f1870	Malta, Malta
+addr-city-8e15d29db632	city	city	au	queensland	latin	0	place:0d63c7e7af7a4e55	durah, queensland, australia
+addr-city-8ea33d2e2994	city	city	nl	north holland	latin	0	place:97ccf2313250141f	Diemen, North Holland, Netherlands, Diemen, North Holland, Netherlands
+addr-city-915e1bf8ac7c	city	city	in		latin	0	place:da879e519bee64b0	Chennai, India, Chennai, India
+addr-city-92450bb7695f	city	city	pt	lisboa	latin	0	place:884d8a5fe92958c5	Lisboa, Lisboa, Portugal, Portugal
+addr-city-92a2cce26b72	city	region	my	sarawak	latin	0	place:b88275945a223618	Sarawak, Malaysia, Sarawak, Malaysia
+addr-city-92bf0802263a	city	city	dk	capital	latin	0	place:36b1526e2d5f84ad	Copenhagen, Capital, Denmark, Denmark
+addr-city-930afd3b8a8f	city	postcode	es	balearic islands	latin	0	place:5091c76f910e57b5	Palma de Mallorca, Balearic Islands, Spain, Palma de Mallorca, Balearic Islands, Spain
+addr-city-93374626568a	city	city	cl	metropolitana	latin	0	place:f46760066799faa9	Santiago, Metropolitana, Chile, Santiago, Metropolitana, Chile
+addr-city-937afe62f570	city	city	fr	alpes maritimes	latin	1	place:e62da29749891202	Nice, Alpes-Maritimes, France, Nice, Alpes-Maritimes, France
+addr-city-93d15ff876bf	city	city	ch	saint gallen	latin	0	place:04780dc9708494e6	Mels, Saint Gallen, Switzerland, Mels, Saint Gallen, Switzerland
+addr-city-9643dcc10897	city	city	au	south australia	latin	1	place:f364a3f9483f0ddf	rosewater, south australia, australia
+addr-city-96883038534d	city	city	it	brescia	latin	0	place:7987453ce221b779	Brescia, Italy, Italy
+addr-city-96aee8cc46e2	city	city	ro		latin	0	place:e2bb5517e6603e03	Izvoru Muresului, Romania, Izvoru Muresului, Romania
+addr-city-97e4fb458049	city	city	cz	jihočeský	latin	0	place:9f768fdcb8c234ca	České Budějovice, Jihočeský, Czech Republic, Czechia
+addr-city-995fd0462ade	city	city	gt		latin	0	place:2275cf74d1f4f3ee	Guatemala, Guatemala
+addr-city-99c72fa8e974	city	city	gb		latin	0	place:fc472a224824c544	Nottingham, United Kingdom, Nottingham, United Kingdom
+addr-city-9aea1b04771c	city	city	gb	cornwall	latin	1	place:93f1c8bfe2d8c79a	Truro, Cornwall, United Kingdom, United Kingdom
+addr-city-9af80baa61ab	city	city	in	uttar pradesh	latin	0	place:6e997fcd74fc40f2	Kakori, Uttar Pradesh, India, India
+addr-city-9b071c2537e8	city	city	dz	sétif	non_latin	0	place:1c0ca4d5cf586ebc	ولاية سطيف, Sétif, Algeria, Algeria
+addr-city-9b13cde0d436	city	city	pe	lima	latin	1	place:30ffc5f609fda29f	Lima, Lima, Peru, Peru
+addr-city-9b498b5e0510	city	city	ky	ky	latin	0	place:0df228f5e7ebfb77	farley, ky
+addr-city-9c048d787cc8	city	city	pl	wielkopolskie	latin	0	place:ed22a01f5e15aad2	Kalisz, Wielkopolskie, Poland, Kalisz, Wielkopolskie, Poland
+addr-city-9ce1dee3a713	city	city	fi		latin	1	place:38d613c0e590101c	jyväskylä, oulu, seinäjoki
+addr-city-9e2f7253fbc5	city	city	jp	kumamoto	latin	0	place:777f60c515714802	kuma, kumamoto, japan
+addr-city-9f3e896fe725	city	city	in	haryana	latin	0	place:907d981441971abd	ambala city, haryana, india
+addr-city-9f4f17e1515c	city	city	in	kerala	latin	1	place:25f11decc3a7f1d5	Kochi, Kerala, India, India
+addr-city-9f5691d610d9	city	city	at		latin	0	place:c6c093d6064b4b1a	Vienna, Austria
+addr-city-a02ecce68eda	city	city	sg	central singapore community development council	latin	1	place:3c7642074a58fdc6	singapore river, central singapore community development council, singapore
+addr-city-a0bd96277c23	city	city	us		latin	1	place:cdeb28d3228ea1a9	Miami, United States, Miami, United States
+addr-city-a10ded568233	city	postcode	be	vlaams brabant	latin	0	place:324db72edf54ecba	Wemmel, Vlaams-Brabant, Belgium, Wemmel, Vlaams-Brabant, Belgium
+addr-city-a127b6bb2983	city	city	ca	ontario	latin	0	place:65e4ff05c94d902a	Temiskaming Shores, Ontario, Canada, Temiskaming Shores, Ontario, Canada
+addr-city-a17a52819708	city	city	us	ga	latin	0	place:35dc7389fbdc9ae4	townsend, ga
+addr-city-a256fb16896e	city	city	ca		latin	1	place:33609a28deb56393	Ottawa, Canada, Ottawa, Canada
+addr-city-a286e47c13f1	city	city	de	pomerania	latin	0	place:997f7b1efe47e7bb	parchim, mecklenburg-west pomerania, germany
+addr-city-a310a2d4efb1	city	city	it	chieti	latin	0	place:f8bb1aaabf9a24d1	Lanciano, Chieti, Italy, Lanciano, Chieti, Italy
+addr-city-a4a21a18982b	city	city	us	new york	latin	0	place:69e70c813fd4fbf3	Deer Park, New York, United States, United States
+addr-city-a5091b4a5a73	city	city	cn	zhejiang	latin	0	place:50641c7264d9a6b7	Yiwu, Zhejiang, China, Yiwu, Zhejiang, China
+addr-city-a82a05be0757	city	city	de	baden württemberg	latin	0	place:4f2edc73a9eecc21	Nürtingen, Baden-Württemberg, Germany, Nürtingen, Baden-Württemberg, Germany
+addr-city-a8a916cc0f39	city	city	co		latin	0	place:e5abcb93093da879	Armenia, Colombia, Armenia, Colombia
+addr-city-a94b0b90c634	city	city	kr		latin	1	place:6b70323d4a0a778f	daegu
+addr-city-a9e0c506bd97	city	city	ch	geneva	latin	0	place:6844987f5e1da30e	Satigny, Geneva, Switzerland, Satigny, Geneva, Switzerland
+addr-city-aa056182794e	city	street	ar	entre rios	latin	1	place:9186742d29172530	Uruguay, Entre Rios, Argentina, Argentina
+addr-city-aa92cff6c007	city	city	se		latin	0	place:1cc4a397e5c0551c	Västerås, Sweden
+addr-city-ac2480fe25d3	city	city	es	la rioja	latin	0	place:da15de329744ba50	Arnedillo, La Rioja, Spain, Arnedillo, La Rioja, Spain
+addr-city-adb25d47c601	city	city	id	south east sulawesi	latin	0	place:8755fb00edf3241d	kendari, south east sulawesi, indonesia
+addr-city-addfc45db23d	city	city	tw	new taipei city	latin	0	place:1274ccf842821ebf	New Taipei City, Taiwan, Taiwan, Province of China
+addr-city-af07c741b376	city	city	ie	dublin	latin	0	place:510e7964c6a91c91	Dublin, Ireland, Dublin, Dublin, Ireland
+addr-city-afb20e508a0b	city	city	br	santa catarina	latin	1	place:9ac5db228faef0b3	Florianópolis, Santa Catarina, Brazil, Brazil
+addr-city-b134fb84f54b	city	city	us	oregon	latin	0	place:06ef111a9c0163f4	Stayton, Oregon, United States, Stayton, Oregon, United States
+addr-city-b159ff7cdb28	city	city	lu		latin	0	place:a32d60010c5c7591	luxembourg city, esch-sur-alzette, dudelange
+addr-city-b1c3e8f2a68c	city	city	de	berlin	latin	0	place:b5a9f7b6efaebc0b	Berlin, Germany, Berlin, Berlin, Germany
+addr-city-b2da0ac43ee8	city	city	bo	beni	latin	0	place:1f0e8ecfdf86d779	riberalta, beni, bolivia
+addr-city-b50ec067d126	city	city	gb	greater london	latin	0	place:853d49ab8d29909e	Bromley,  London, United Kingdom, United Kingdom
+addr-city-b51a2fd1996f	city	city	co		latin	0	place:1d90bd0f2e2e21d7	Villavicencio, Colombia, Villavicencio, Colombia
+addr-city-b52fff6906b9	city	city	de	thuringia	latin	0	place:ed9102c94b3b96b9	Gera, Thuringia, Germany, Gera, Thuringia, Germany
+addr-city-b5e60b624ee1	city	city	us	ohio	latin	0	place:2b0dae5b45f960bf	Miamisburg, Ohio, United States, United States
+addr-city-b689f2ded888	city	city	ch	bern	latin	0	place:b606f2306dae1d94	 bern,  bern
+addr-city-b735453f71d8	city	city	it	apulia	latin	0	place:9aad85c84b187fff	noicattaro, apulia, italy
+addr-city-b7e925bb6435	city	city	ye		latin	0	place:d48a41c952726ce9	sana'a governorate, yemen
+addr-city-b8793f73dd23	city	city	tz		latin	0	place:e282d508dbf2d734	songwe
+addr-city-b90dec639fdc	city	city	fr		latin	0	place:957f2f5b80961186	petit forestier location nice colomars
+addr-city-b95cb7013de4	city	city	sa	eastern province	latin	1	place:5d01e53f0eff5bbe	Dammam, Eastern Province, Saudi Arabia, Saudi Arabia
+addr-city-b974f18e5cee	city	city	br	parana	latin	0	place:0d7d92035f9dff29	Foz do Iguaçu, Parana, Brazil, Foz do Iguaçu, Parana, Brazil
+addr-city-b9df6c227c79	city	city	in	west bengal	latin	0	place:4ff6feeedf45fc4b	Barra, West Bengal, India, India
+addr-city-ba4e16b3e5ea	city	city	in	ahmadabad	latin	0	place:47479304c7f7ae92	Ahmadabad, India, Ahmadabad, India
+addr-city-badc9ff89b8a	city	city	br	pernambuco	latin	0	place:6e03b6e243c14029	Vitória de Santo Antão, Pernambuco, Brazil, Brazil
+addr-city-bbcf45837f98	city	city	us	virginia	latin	0	place:40a468aeae9e741e	Fort Lee, Virginia, United States, United States
+addr-city-bc063c92d955	city	city	lv	riga	latin	1	place:01e78d22975c2ab2	Rīga, Riga, Latvia, Rīga, Riga, Latvia
+addr-city-be6bfbfb212a	city	postcode	gb	newry mourne and down	latin	0	place:28537248d40375bb	Bangor, Newry, Mourne and Down, United Kingdom, Bangor, Newry, Mourne and Down, United Kingdom
+addr-city-beaa7d60ec8c	city	city	ca	nova scotia	latin	0	place:317b931901700d9b	Beaver Bank, Nova Scotia, Canada, Canada
+addr-city-bee39fb4aa70	city	city	co		latin	1	place:e6d309a19c75559b	Pereira, Colombia, Pereira, Colombia
+addr-city-bf5d311925f8	city	city	it	ancona	latin	1	place:19e2915ee14b86fc	Castelplanio, Ancona, Italy, Castelplanio, Ancona, Italy
+addr-city-bfb1a5c0bfb0	city	city	us	ga	latin	0	place:c58ca0961486cf93	Atlanta, GA, United States, Atlanta, GA, United States
+addr-city-bff41d18d3df	city	city	ro	bucureşti	latin	0	place:860acc2bd82bce40	Bucharest, Bucureşti, Romania, Bucharest, Bucureşti, Romania
+addr-city-c0843d43d21f	city	city	nl	limburg	latin	0	place:208c78a2490327f2	hasselt, limburg, netherlands
+addr-city-c274269ef2fd	city	city	fr	normandy	latin	1	place:650517c401041840	beauvain, normandy, france
+addr-city-c2a98af3481d	city	city	us	west virginia	latin	0	place:b65eca47edd43db5	Romney, West Virginia, United States, Romney, West Virginia, United States
+addr-city-c3445051ee68	city	city	cn		latin	0	place:332a86c2d8f90e88	uk, hong kong, australia, ireland
+addr-city-c35d0195db53	city	city	es	madrid	latin	0	place:ccb276427a52ce9a	Madrid, Spain, Spain
+addr-city-c4c4c03e8ed2	city	city	bo	murillo	latin	0	place:4e44cff75ea0d3c7	La Paz, Bolivia, Murillo, La Paz, Bolivia, Murillo, Bolivia
+addr-city-c4edfddf692e	city	city	cd	kinshasa city	latin	0	place:bda6368a0878913b	Kinshasa, Kinshasa City, Democratic Republic of the Congo, Congo, The Democratic Republic of the
+addr-city-c5ae91504e09	city	city	do	distrito nacional	latin	0	place:af970f93c8e8bc28	Santo Domingo, Distrito Nacional, Dominican Republic, Dominican Republic
+addr-city-c60878ae4cfe	city	city	ca	prince edward county	latin	1	place:d7161b4a3088e7a8	wellington, prince edward county
+addr-city-c7e0684b81c3	city	city	us	north carolina	latin	0	place:6427d99654205c64	Greensboro, North Carolina, United States, United States
+addr-city-c84841fe46a8	city	city	co		latin	1	place:5cd76862b7a20a55	Bogotá, Colombia, Bogotá, Colombia
+addr-city-c8ddcdab4c35	city	city	de	baden württemberg	latin	0	place:d4c9a8d695350503	lauda-königshofen, baden-württemberg
+addr-city-ca088eae7d63	city	city	in	gujarat	latin	0	place:a69e9682a4391ffa	home town, ahmedabad, gujarat
+addr-city-cb2e955427a0	city	city	se		latin	0	place:bf40eaa8d76a29fe	Stockholm, Sweden, Stockholm, Sweden
+addr-city-cd5a40955c58	city	city	us	utah	latin	0	place:50245bf5e840da09	Provo, Utah, United States, Provo, Utah, United States
+addr-city-cfa9af409a92	city	street	gb	kirklees	latin	0	place:3761afb88b9a9b3b	Leeds, Kirklees, United Kingdom, Leeds, Kirklees, United Kingdom
+addr-city-d160c034f760	city	street	al	elbasan	latin	0	place:5f9b9ad5487ae325	Elbasan, Elbasan, Albania, Albania
+addr-city-d3e059cae6fd	city	city	it	ancona	latin	0	place:8ece1e645ead35e0	Osimo, Ancona, Italy, Italy
+addr-city-d45f6bea4164	city	city	es		latin	0	place:d85e295663ef17d1	Palma de Mallorca, Spain, Palma de Mallorca, Spain
+addr-city-d4ed3b638589	city	city	jo	amman	latin	1	place:806489438d67a85f	Amman, Jordan, Amman, Amman, Jordan
+addr-city-d504a339ed56	city	city	au	new south wales	latin	0	place:f1295fac6591bf75	collector, new south wales, australia
+addr-city-d529f2d4dae1	city	city	nl	utrecht	latin	0	place:0875e813fe705179	Utrecht, Netherlands, Utrecht, Utrecht, Netherlands
+addr-city-d54d8bc63ceb	city	city	mx	mexico	latin	0	place:5b32fc35f65062b7	brazil, mexico, colombia, argentina
+addr-city-d6e843bb08ae	city	city	br	sergipe	latin	0	place:1d0025563f36e3ef	Aracaju, Sergipe, Brazil, Aracaju, Sergipe, Brazil
+addr-city-d95fd287c84f	city	city	pk	khyber pakhtunkhwa	latin	0	place:f63711cf317e704a	Abbottabad, Khyber Pakhtunkhwa, Pakistan, Pakistan
+addr-city-dc4eabdb3661	city	city	ph	olongapo	latin	0	place:db431aca71ca5bc2	Olongapo, Philippines, Philippines
+addr-city-dc584a75d5ca	city	city	ir	fars	latin	0	place:1c7834f42178a5ee	Shiraz, Fars, Iran, Shiraz, Fars, Iran
+addr-city-dce953604e46	city	city	es		latin	0	place:065403707e6913e0	Madrid, Spain, Madrid, Spain
+addr-city-ddd154e59b35	city	city	in	chhattisgarh	latin	0	place:6521bbe9fef1a59e	kawardha, chhattisgarh, india
+addr-city-df727f7bf6ca	city	city	bo	cercado	latin	0	place:5e59c3f3dc12cdce	Tarija, Bolivia, Cercado, Tarija, Bolivia, Cercado, Bolivia
+addr-city-dfb44f334255	city	city	hk		latin	0	place:d52731ad56bb8ecc	TST, Hong Kong, TST, Hong Kong
+addr-city-e28a91f00f40	city	city	mg	analamanga	latin	0	place:9317ddfea2ef03e6	Antananarivo, Analamanga, Madagascar, Madagascar
+addr-city-e2b86602ec49	city	city	mx	sonora	latin	0	place:49c11e7a9e815f3e	Hermosillo, Sonora, Mexico, Mexico
+addr-city-e34ed87facf3	city	city	vn	thái bình	latin	0	place:30406e943ad8e826	Thái Bình, Vietnam, Viet Nam
+addr-city-e38f62316679	city	city	gb	birmingham	latin	0	place:0669756aabbdb3e0	Birmingham, Birmingham, United Kingdom, United Kingdom
+addr-city-e3cea9cb9e63	city	city	us	co	latin	1	place:facf4bb2799378a2	big bend, co
+addr-city-e59ef7d1920f	city	city	ca	ab	latin	0	place:9e22d98119ce88df	morinville , ab
+addr-city-e5be57c36b2a	city	street	sa	al madinah	latin	0	place:9553d70650e2f169	Medina, Al Madinah, Saudi Arabia, Saudi Arabia
+addr-city-e622fdf3930f	city	city	it	turin	latin	0	place:c7ac8a0a8055a9b0	Turin, Italy, Italy
+addr-city-e72da1eed305	city	city	gb	west northamptonshire	latin	1	place:3b9339fa24ad040f	Northampton, West Northamptonshire, United Kingdom, Northampton, West Northamptonshire, United Kingdom
+addr-city-e7547c702a23	city	city	in	karnataka	latin	0	place:b9cda5683f620fff	Bangalore, Karnataka, India, India
+addr-city-e8acf09a7b97	city	city	in	mo	latin	1	place:8f9e8d4c21eec63e	city, mo
+addr-city-e8dc8ac0e0e5	city	city	us	michigan	latin	0	place:26e8d749a6c6a161	battle creek,michigan
+addr-city-e95c356d8f7a	city	city	cu	ciudad de la habana	latin	1	place:0bdd3013ed5da456	Havana, Ciudad De La Habana, Cuba, Cuba
+addr-city-ea391fa01e88	city	city	in	bihar	latin	0	place:c6d31d77f7fb6ab1	saharsa, bihar
+addr-city-ecbee139884d	city	city	tr	izmir	latin	0	place:f7fcfe94560f50c2	İzmir, Izmir, Türkiye, İzmir, Izmir, Türkiye
+addr-city-ecd64e8448ec	city	city	bj		latin	0	place:4bdad6b25442ea69	cote d' ivoire, ghana, togo, benin
+addr-city-ecef6e3fea87	city	city	th	phra nakhon si ayutthaya	latin	0	place:405d72035cbd11e6	Phra Nakhon Si Ayutthaya, Phra Nakhon Si Ayutthaya, Thailand, Thailand
+addr-city-ed38fc702c24	city	city	br	rio de janeiro	latin	0	place:e5ffe44c01894954	Rio de Janeiro, Rio De Janeiro, Brazil, Rio de Janeiro, Rio De Janeiro, Brazil
+addr-city-edfbdf04aca7	city	city	au	australian capital territory	latin	0	place:4aeca24a64d9367a	narrabundah, australian capital territory, australia
+addr-city-ee766c318dc0	city	city	fr	saône et loire	latin	0	place:197ba1fc3cb9f0ad	Chalon-sur-Saône, Saône-et-Loire, France, Chalon-sur-Saône, Saône-et-Loire, France
+addr-city-ef3782f822c0	city	city	jp	mie	latin	0	place:1af5a47221393aac	shima, mie, japan
+addr-city-ef7cffded570	city	city	ke	central	latin	0	place:21153cce2ceb97f6	Karuri, Central, Kenya, Kenya
+addr-city-ef90571fb9c9	city	city	nl		latin	0	place:3f6efde8450a4af6	Amsterdam & Salt Lake City, Netherlands, Amsterdam & Salt Lake City, Netherlands
+addr-city-f1748b03bd8d	city	city	it	catania	latin	1	place:4f7473d6b35c8735	Catania, Italy, Italy
+addr-city-f1cd5b5e827e	city	city	us	tn	latin	0	place:06de6b14b16f7db9	iti la vergne tn
+addr-city-f1ed2d4c7147	city	city	pl	małopolskie	latin	0	place:42b07743d8da6a65	Modlniczka, Małopolskie, Poland, Modlniczka, Małopolskie, Poland
+addr-city-f2b2fff44973	city	city	es	valencian community	latin	0	place:3a815f0751165574	la eliana, valencian community, spain
+addr-city-f37dac5c246c	city	city	gb		latin	0	place:c1037950ecf06a2b	Rickmansworth, United Kingdom, Rickmansworth, United Kingdom
+addr-city-f489dd1984bf	city	city	es		latin	0	place:76a17b6ea8dd9ca8	Spain, Spain
+addr-city-f4bd719fbb5a	city	city	nl		latin	1	place:cf25edbb915bfc8b	Leeuwarden, Netherlands, Leeuwarden, Netherlands
+addr-city-f669219516e8	city	city	tr	afyonkarahisar	latin	0	place:d71492c4fd935027	Anitkaya, Afyonkarahisar, Turkey, Türkiye
+addr-city-f757f29d516a	city	city	in	gujarat	latin	0	place:92c9b4a3de76445f	Rajkot, Gujarat, India, India
+addr-city-f8b5b23444d9	city	city	gb	east sussex	latin	0	place:03802afe175ce895	brighton, east sussex, uk
+addr-city-f9f20e93c2d0	city	city	hk	hk	latin	0	place:4a1beb22501ae604	Hong Kong, HK, Hong Kong, HK, Hong Kong
+addr-city-fad0304d5263	city	city	fr	aml	latin	0	place:20bf68f1bf86bc01	france le bourget aml
+addr-city-fb0e536969d9	city	city	co		latin	1	place:8b418e635655a14d	Barranquilla, Colombia, Barranquilla, Colombia
+addr-city-fe4cea827b23	city	city	ar	corrientes	latin	0	place:93d840fac4bf6496	Corrientes, Argentina, Argentina
+addr-city-ff489ddaa813	city	country	co		latin	0	place:c703f46e4b933cf0	Business Related, Colombia, Business Related, Colombia
+addr-country-0b1001a02c97	country	country	au		non_latin	1	place:0b1001a02c971a01	澳大利亚
+addr-country-143301433db0	country	country	in		latin	1	place:143301433db0c42c	indien
+addr-country-14a51d9b4395	country	country	sn		latin	1	place:9a6e87d7022b8e2e	Senegal, Senegal
+addr-country-19c8691aa787	country	country	sa		latin	0	place:7e45b54bc37e0c95	Saudi Arabia, Saudi Arabia
+addr-country-19e89519adee	country	country	zm		latin	0	place:19e89519adeef639	zambie
+addr-country-1b599ec0dec9	country	country	be		latin	1	place:05aa90ecd697438e	Belgium, Belgium
+addr-country-262a33c9243e	country	country	dz		latin	0	place:2450ca9a20e6696c	Algeria, Algeria
+addr-country-3f9e22b7156c	country	country	ae		latin	0	place:b468483122d51ea7	United Arab Emirates, United Arab Emirates
+addr-country-438b72b78a78	country	country	kr		latin	0	place:45c0cb1e5fdd7afe	South Korea, Korea, Republic of
+addr-country-48e0ca36763e	country	country	ru		latin	0	place:f57faf6393e15858	Russia, Russian Federation
+addr-country-4e6ccc537bd2	country	country	si		latin	0	place:d97562a8e7ab424b	Slovenia, Slovenia
+addr-country-51ac985635f8	country	country	za		latin	0	place:9c162d7f3c2e6486	South Africa, South Africa
+addr-country-5d2446aafbf8	country	country	fi		latin	1	place:1ad31b7d37786209	Finland, Finland
+addr-country-5eb0d6680cd3	country	country	nl		latin	1	place:6b3800ab67cafb77	Netherlands, Netherlands
+addr-country-62414696e3ce	country	country	cn		latin	0	place:62414696e3ce77a7	adtaxi mng
+addr-country-63e7bc784676	country	country	ba		latin	0	place:671a582dffc2b49d	Bosnia and Herzegovina, Bosnia and Herzegovina
+addr-country-79e1293cb7be	country	country	se		latin	0	place:4f0dbfa0f0f7a8c8	Sweden, Sweden
+addr-country-86607077a197	country	country	ph		latin	0	place:65e06257a3c5d339	Philippines, Philippines
+addr-country-8850d3f026ae	country	country	fr		latin	0	place:8850d3f026ae226b	frankreich
+addr-country-8a07b97c1ea2	country	country	mz		latin	0	place:b9797e1d3b761519	Mozambique, Mozambique
+addr-country-a1c1a1859a96	country	country	lv		latin	0	place:14ca7bd328eca4ab	Latvia, Latvia
+addr-country-a30e7d3ebca5	country	country	hr		latin	1	place:c9161ea0c9286801	Croatia, Croatia
+addr-country-a841e32bb43b	country	country	lk		latin	1	place:c81a48f1629c83d6	Sri Lanka, Sri Lanka
+addr-country-ac8c3ef666c9	country	country	jp		latin	0	place:e57df5e9cd5c2711	Japan, Japan
+addr-country-adb5078cced2	country	country	np		latin	0	place:21f27dfdc8766ed1	Nepal, Nepal
+addr-country-bf04adf69f84	country	country	tr		latin	0	place:b1e0f54f519fcb94	türkiye, kazakistan
+addr-country-ccdae8456de1	country	country	zm		latin	1	place:c61f68afe4303141	Zambia, Zambia
+addr-country-d15872658e3b	country	country	iq		latin	0	place:47c43fe8513d9a47	Iraq, Iraq
+addr-country-d1b579aa2fe8	country	country	sr		latin	0	place:a1b696b70fd19913	Suriname, Suriname
+addr-country-d32c3ffb22ed	country	country	de		latin	0	place:a42ad75e4d638fdc	Germany, Germany
+addr-country-d408cf2698f4	country	country	sk		latin	1	place:4478246e1b6e7c9f	Slovakia, Slovakia
+addr-country-dda663e18f3b	country	country	tr		latin	0	place:832d8b91684970d2	Turkey, Türkiye
+addr-country-e4937327bc76	country	country	mw		latin	0	place:efc3e23975aef6ee	Malawi, Malawi
+addr-country-e4bec22b1efd	country	country	cm		latin	0	place:461fd70cec5c09e1	Cameroon, Cameroon
+addr-country-e5e94ccf6fa4	country	country	uz		latin	0	place:cf21401276562452	Uzbekistan, Uzbekistan
+addr-country-ea319ebfaeaa	country	country	au		latin	1	place:61e40a476a39f596	nz, australia
+addr-country-f63e6f17aeea	country	country	do		latin	0	place:f5c17007ba2e1204	Dominican Republic, Dominican Republic
+addr-country-f904ab031163	country	country	kg		latin	0	place:9ad877541315eade	Kyrgyzstan, Kyrgyzstan
+addr-country-fb665e54f48b	country	country	th		latin	0	place:caae9641bb9ad55a	Thailand, Thailand
+addr-country-fdcdb32047b2	country	country	ua		latin	0	place:32939333dc730023	Ukraine, Ukraine
+addr-postcode-005f7eaf0a96	postcode	postcode	us	al	latin	0	place:e56cc0d636de46a1	dothan, al 36305
+addr-postcode-00f8975378b5	postcode	postcode	pk	sindh	latin	0	place:2390be5b260268dc	75950, Karachi, Sindh, Pakistan
+addr-postcode-053da98740ba	postcode	postcode	in	in tn	latin	0	place:8c5dd39c629836e2	635109, Hosur, IN-TN, India
+addr-postcode-09db4630f29c	postcode	postcode	ua		latin	1	place:b352b2c19c8aef36	97212
+addr-postcode-0a62728844d1	postcode	postcode	au		latin	0	place:39770c774a0e1050	2144, Australia
+addr-postcode-0ec0ce9e7d4c	postcode	postcode	us	la	latin	0	place:8b33b04dfde162e5	covington, la, united states 70433
+addr-postcode-1d2e19f1db87	postcode	postcode	us	michigan	latin	1	place:b7c0ea865c3f1376	49707, Alpena, Michigan, United States
+addr-postcode-1f348f4e1ff1	postcode	postcode	es		latin	0	place:26a3b7b32779bc90	03315 - macon county dialysis
+addr-postcode-203f22b86624	postcode	postcode	au		latin	0	place:199effd539273c4b	5044, Australia
+addr-postcode-2180d97367f0	postcode	postcode	us		latin	0	place:c73f45c46571e270	98103, United States
+addr-postcode-21988ba5ffe3	postcode	postcode	ch		latin	1	place:71ca1f4cc943bb10	Blumen Iseli, 8580, Amriswil, Switzerland
+addr-postcode-29daa66cf8e9	postcode	postcode	au		latin	0	place:0dfadef78da80861	3074, Thomastown, Australia
+addr-postcode-3066254ed3ac	postcode	postcode	de		latin	0	place:93b61e1317dde676	07549, Gera, Germany
+addr-postcode-39eca1fc360c	postcode	postcode	be		latin	0	place:7f6765b00b0df889	3920, Lommel, Belgium
+addr-postcode-3a272a7e8290	postcode	postcode	us	id	latin	0	place:a5f34c8087e6e1cc	83705, Boise, ID, United States
+addr-postcode-3b46f345fe5e	postcode	postcode	fr		latin	0	place:b0eaa685dac6261d	11140 lincoln park women's, il-anf
+addr-postcode-3cef808886ae	postcode	postcode	es	madrid	latin	0	place:9b03ca14730dc09a	28035, Madrid, Madrid, Spain
+addr-postcode-3db816c250c9	postcode	postcode	us		latin	0	place:2091a4e2e6baacf4	91342
+addr-postcode-3e50a8914d50	postcode	postcode	au		latin	0	place:51f7807c8048534d	2148, Australia
+addr-postcode-45cbf8bf9223	postcode	postcode	cr		latin	0	place:78a8b0d231a33d93	11102 galleria at roseville, ca-anf
+addr-postcode-4dd2ffd03022	postcode	postcode	no	vestland	latin	0	place:08a3f88a37cdd219	6727, Bremanger, Vestland, Norway
+addr-postcode-4e0586789902	postcode	postcode	au		latin	0	place:e464f6da0ecea658	4567, Australia
+addr-postcode-5b3554b2f173	postcode	postcode	au		latin	1	place:56861431174e405a	2015, Australia
+addr-postcode-625f07d0bb3c	postcode	postcode	us	mi	latin	0	place:15086d23f6af6abb	macomb township, mi 48044
+addr-postcode-6968c272ffc4	postcode	postcode	za	durban	latin	0	place:b1872e8e076e99af	4339, Verulam, Durban, South Africa
+addr-postcode-6eccbbd5ab83	postcode	postcode	sd		latin	0	place:cc0e2846f6f01e78	00097 brickyard healthcare - golden rule
+addr-postcode-6f42b579dd05	postcode	postcode	in	karnataka	latin	0	place:a48688e95d964cdd	560008, Bengaluru, Karnataka, India
+addr-postcode-748c3854ca11	postcode	postcode	ar	buenos aires	latin	0	place:d191d3441394107d	B7600, Mar del Plata, Buenos Aires, Argentina
+addr-postcode-7566402ae737	postcode	postcode	au		latin	0	place:bcb5400d2ccb6f67	2773, Australia
+addr-postcode-7626a2a8c03f	postcode	postcode	co		latin	0	place:4792b8d5dfabf531	150001, TUNJA, Colombia
+addr-postcode-7e0937c5e7d9	postcode	postcode	us	fl	latin	0	place:025003279cf04ad4	33301, Fort Lauderdale, FL, United States
+addr-postcode-7e71d4531aa6	postcode	postcode	us	new york	latin	1	place:f10a80ac584b3734	11206, Brooklyn, New York, United States
+addr-postcode-80b461ba0064	postcode	postcode	gb		latin	0	place:25bc3e55498d9194	B28 0BX, BIRMINGHAM, United Kingdom
+addr-postcode-831bc30939a5	postcode	postcode	us	al	latin	0	place:a14d72817820ccfd	35244, Hoover, AL, United States
+addr-postcode-8b40143644c3	postcode	address	ie	leinster	latin	0	place:12ba030f949a79e4	A92 HX34, Drogheda, Leinster, Ireland
+addr-postcode-8c68adbab122	postcode	postcode	au		latin	1	place:6aab113c7632f995	2334, Australia
+addr-postcode-8db81d6ab60e	postcode	postcode	hr		latin	0	place:f811b2afccf71bf3	22301
+addr-postcode-9131581df409	postcode	postcode	in		latin	0	place:cab820f43e8aa7d2	686691, Kuttampuzha, India
+addr-postcode-983a8bb52ba7	postcode	postcode	gb	england	latin	0	place:7246b7b6321b89b2	ls27 7ts, leeds, west yorkshire, england, ls27 7ts, leeds, west yorkshire, england
+addr-postcode-a87eab0311be	postcode	postcode	au		latin	0	place:6700b7bce6a74cf7	5162, Australia
+addr-postcode-a98f79f58973	postcode	postcode	lt		latin	0	place:adfa6ad1c9772dc9	19142
+addr-postcode-ab362ca49758	postcode	postcode	us	virginia	latin	1	place:5f5e77ea4054e128	22015, Burke, Virginia, United States
+addr-postcode-abd698225110	postcode	postcode	za	gauteng	latin	0	place:f607cc46d21fa17b	1619, Kempton Park, Gauteng, South Africa
+addr-postcode-ac00a8c7befd	postcode	postcode	us	ohio	latin	0	place:982ce4f6803ce281	43123, Columbus, Ohio, United States
+addr-postcode-adf6ea97d950	postcode	postcode	es		latin	0	place:19947cb0b052c9e8	26589, Arnedillo, Spain
+addr-postcode-aeecbb0f1399	postcode	postcode	au		latin	0	place:ea766fe7785f7e1f	5015, Australia
+addr-postcode-b2090879f813	postcode	postcode	us	ny	latin	0	place:aee9707ed02aab59	11221, Brooklyn, NY, United States
+addr-postcode-b401c3bd477a	postcode	postcode	us	minnesota	latin	0	place:825806d3000f97e8	55353, Kimball, Minnesota, United States
+addr-postcode-b4d94ba6cf7d	postcode	postcode	nz	nelson region	latin	0	place:9ef2c3cb4de0f27e	7010, NELSON, Nelson Region, New Zealand
+addr-postcode-b522d80b2bfd	postcode	postcode	us	illinois	latin	0	place:17b9e7649456d325	60193, Schaumburg, Illinois, United States
+addr-postcode-bc7b546b510a	postcode	postcode	fi		latin	0	place:f66d79527b627f66	10820 - dumas store
+addr-postcode-c3d3b2cfbc6e	postcode	postcode	us		latin	0	place:d0c9a787f168137c	50522, Burt, United States
+addr-postcode-c5c48449fc04	postcode	postcode	au		latin	1	place:bd9ee107314a973c	4215, Australia
+addr-postcode-d0aa6cb7c046	postcode	postcode	au		latin	0	place:211785bccda666bc	6024, Australia
+addr-postcode-d52d858a95b4	postcode	postcode	au		latin	0	place:793577736b400953	6333, Australia
+addr-postcode-e2aab935a599	postcode	postcode	us	texas	latin	0	place:67c12310e9708632	76108, Fort Worth, Texas, United States
+addr-postcode-ef721646dcc5	postcode	postcode	au		latin	0	place:50748af9c525c67d	3977, Australia
+addr-postcode-f071a2e0aba1	postcode	postcode	ee		latin	0	place:3cb09619d227889b	10315 - ingleside store
+addr-postcode-f154a5a07b85	postcode	postcode	de		latin	0	place:b93f74d2adf036e5	80539 münchen
+addr-postcode-f6285917de43	postcode	postcode	in	andhrapradesh	latin	0	place:3f28d7a99e70f063	520013, vijayawada, andhrapradesh, India
+addr-region-00440907b2f8	region	region	hr	grad zagreb	latin	0	place:7243cdaa0cc851cd	Grad Zagreb, Croatia, Croatia
+addr-region-08119dd8e054	region	region	fr	ardèche	latin	0	place:c39e9102e5457bf6	ardèche
+addr-region-083c4cd5ba76	region	region	pt	mts	latin	0	place:d1e7603ac300e0f1	mts
+addr-region-0a96d00b1936	region	region	fr	haute loire	latin	0	place:727cee7bf765a890	haute loire
+addr-region-112726800ca9	region	region	gb	essex	latin	0	place:87a8fb83a0baca99	Essex, United Kingdom, Essex, United Kingdom
+addr-region-130c0e31fa5a	region	region	ve	distrito capital	latin	1	place:a433770697de90ba	Distrito Capital, Venezuela, Venezuela, Bolivarian Republic of
+addr-region-198005331bad	region	region	cn	guizhou	latin	0	place:89c9fabaf5c6b7ce	liuzhi special district, guizhou, china
+addr-region-1b3ab0e3c226	region	region	ph		latin	0	place:9735755d2da4b938	san juan islands
+addr-region-1bde65a52878	region	region	gb	south hams	latin	0	place:8df65b475fda6654	south hams
+addr-region-1c5547e4a882	region	region	tw	province of	latin	0	place:cd4bae83d6beb7d3	Taiwan, Taiwan, Province of China
+addr-region-1e2f6648b360	region	region	cd	orientale	latin	0	place:67cc4ae2a10d9df5	Orientale, Democratic Republic of the Congo, Congo, The Democratic Republic of the
+addr-region-238042f0d321	region	region	gb	england	latin	0	place:21ffb8f0546c8ae7	norfolk, england
+addr-region-23c9aad8e4af	region	city	pt	lisboa	latin	0	place:0f5113cb1da002bc	Lisboa, Portugal, Lisboa, Portugal
+addr-region-2665c7707295	region	region	gb		latin	1	place:36d226f03759892c	United Kingdom, United Kingdom
+addr-region-2bdf46be9edc	region	region	fr	loir et cher	latin	1	place:8de40e278b0dc273	loir et cher
+addr-region-2e0e14d13fcb	region	region	so	banaadir	latin	1	place:b632141e4c26d739	Banaadir, Somalia, Somalia
+addr-region-2f7b1104251c	region	region	au	south australia	latin	0	place:b80b134163651aa6	aus work-at-home south australia
+addr-region-34319356b939	region	city	gb	swansea	latin	0	place:286ba094a6b37b8d	Swansea, United Kingdom, Swansea, United Kingdom
+addr-region-35b395ec6f79	region	city	it	forli cesena	latin	0	place:357d10d56ecec267	Forli'-Cesena, Italy, Forli'-Cesena, Italy
+addr-region-3751840c896e	region	region	nz	hawke s bay region	latin	0	place:f40cab8bb6f097e8	Hawke's Bay , New Zealand, New Zealand
+addr-region-3a529010c880	region	city	ir	tehran	latin	0	place:613563180b84b1cb	Tehran, Iran, Tehran, Iran
+addr-region-3a8fa8ac753a	region	region	tw	ren ai district	latin	0	place:55f7a79701774040	ren'ai district, taiwan, taiwan
+addr-region-3d4c665eac54	region	region	ph	benguet	latin	1	place:47640fb16dc2d322	Benguet, Philippines, Philippines
+addr-region-3dbaa682768a	region	region	tr	mugla	latin	0	place:cb1c8d9cd5f37f97	Mugla, Turkey, Türkiye
+addr-region-3e8293c3e39d	region	region	in	sonbhadra	latin	0	place:d922cef3e1a45248	sonbhadra
+addr-region-415d2cef04bb	region	region	tn	ariana	latin	0	place:3451730fbbd6653c	Ariana, Tunisia, Tunisia
+addr-region-423caa40f1fa	region	street	it	genova	latin	1	place:ee091b4a0472bc00	Genova, Italy, Genova, Italy
+addr-region-43ffbee24334	region	region	au	australia	latin	0	place:3170d403396d0052	Australia, Australia
+addr-region-4445a8dca1dc	region	region	mx	michoacán	latin	0	place:d0fe034162f5982c	michoacán, mexico
+addr-region-48c2691f87dc	region	region	ua	симферополя	non_latin	0	place:dbbd8c65162799a8	симферополя
+addr-region-4ba5f47421aa	region	region	mm	magway	latin	0	place:8273fe0289b5476d	Magway, Myanmar, Myanmar
+addr-region-4c183b9be925	region	region	in	maharashtra	latin	0	place:b545f850f8f78290	Maharashtra, India, India
+addr-region-4cd58a5ad4cf	region	region	fr	hauts de france occitanie	latin	0	place:183bfce46a432224	hauts de france, occitanie
+addr-region-4dc56312cc1a	region	region	sa	eastern province	latin	0	place:a4199d54707716bf	Eastern Province, Saudi Arabia, Saudi Arabia
+addr-region-4e34d79f3e98	region	region	ch	vaud	latin	0	place:aa54fb9f954b30b1	Vaud, Switzerland, Switzerland
+addr-region-50c948cdd428	region	region	in	jharkhand	latin	0	place:d31c04347e2bae33	pakur, jharkhand
+addr-region-52b1c58bdfc3	region	region	fr	ile de france	latin	0	place:a91dbf91c605d974	ile-de-france, val de marne
+addr-region-54aa603093b8	region	region	bd	pirojpur district	latin	0	place:5651b8614103a4fc	pirojpur district
+addr-region-569b96c4f396	region	region	tr	ankara	latin	0	place:2d42593c9afd56ef	ankara
+addr-region-5935d51786bb	region	region	gb	lancashire	latin	0	place:876a553ac61062d9	Lancashire, United Kingdom, Lancashire, United Kingdom
+addr-region-5dc97e9928d1	region	region	fr	auvergne rhône alpes	latin	0	place:4ff1d45f7bc3a6ba	loire, auvergne-rhône-alpes, france
+addr-region-5e1ccebb819b	region	region	be	bruxelles capitale	latin	0	place:c456c0c9c7d9fef9	région bruxelles-capitale
+addr-region-5e505ae22465	region	region	my		latin	0	place:b38fbe7f9fd6b0af	Malaysia, Malaysia
+addr-region-614907020f4f	region	region	be	brussels capital region	latin	1	place:d60f5fa2df856a61	Brussels-Capital Region, Belgium, Brussels-Capital Region, Belgium
+addr-region-61953e63bc15	region	city	kh	phnom penh	latin	1	place:cdcb8180303f919a	Phnom Penh, Cambodia, Phnom Penh, Cambodia
+addr-region-61f5850ecc58	region	region	br	federal district	latin	0	place:ed1853195edd5b83	Federal District, Brazil, Brazil
+addr-region-627031039adf	region	region	dk	southern	latin	0	place:66c4776544c692b4	Southern, Denmark, Denmark
+addr-region-6d2153775282	region	region	nc	new caledonia	latin	0	place:966081bcec0df3e3	New Caledonia, New Caledonia
+addr-region-6d977423894f	region	region	de	hesse	latin	0	place:67aa136dcedc02f4	Hesse, Germany, Hesse, Germany
+addr-region-705080de16d3	region	region	gr	peloponnese	latin	0	place:31bbde13acd50a78	návplion, peloponnese, greece
+addr-region-7057e20355ef	region	city	ar	buenos aires	latin	0	place:f10eabcca59e383a	Buenos Aires, Argentina, Buenos Aires, Argentina
+addr-region-7577d470e53f	region	region	cu		latin	0	place:a0679b7d03a0f325	Cuba, Cuba
+addr-region-7820d2dc82b2	region	region	se	rügen	latin	1	place:125bc2d874be854c	rügen
+addr-region-78ac2418f993	region	region	br	ns	latin	0	place:0f7975cbb014f82c	nb, nl, ns, pe
+addr-region-78eea1b80d9d	region	region	hn	lempira	latin	0	place:1aca75603e85ba63	san manuel colohete, lempira, honduras
+addr-region-7b0a9edb3ab1	region	region	mx	veracruz	latin	0	place:d27a4b1129718e5d	veracruz, mexico
+addr-region-8216acf4bf39	region	city	tr	ankara	latin	1	place:1d22e72ac802cfa8	Ankara, Turkey, Ankara, Turkey
+addr-region-82a9c92045a4	region	region	in	west bengal	latin	0	place:52310b464e073a0c	West Bengal, India, West Bengal, India
+addr-region-85070e17f55f	region	city	ch	zurich	latin	0	place:02c3d811b272f731	Zurich, Switzerland, Zurich, Switzerland
+addr-region-878540b268a6	region	region	my	johor	latin	0	place:5d0f35e41c0380d6	Johor, Malaysia, Malaysia
+addr-region-87ad4bc696a4	region	region	ph	bulacan	latin	0	place:deae7d52e9e04821	bulacan
+addr-region-88dc825076e3	region	region	ma	béni mellal khénifra	latin	0	place:e7e9d96c3d0d867d	Béni Mellal-Khénifra, Morocco, Morocco
+addr-region-89044d7c1baa	region	region	au	western australia new south wales	latin	1	place:c89d6d2caff9cf46	western australia, new south wales
+addr-region-8b51441c4fa0	region	region	ch	basel city	latin	0	place:b8493c73d873a738	basel (city)
+addr-region-8bf5100166be	region	region	in	andhra pradesh	latin	0	place:e8b46afa125a44b2	Andhra Pradesh, India, India
+addr-region-8d55b91cc056	region	city	es	granada	latin	0	place:8e18104988d13598	Granada, Spain, Granada, Spain
+addr-region-8d9aa446e62b	region	region	mu		latin	0	place:2cc3035b36c6c091	Mauritius, Mauritius
+addr-region-8e64b26d2574	region	region	tn	sfax	latin	0	place:38bc11d11225c345	Sfax, Tunisia, Tunisia
+addr-region-90077ed86d0b	region	region	ca	newfoundland and labrador	latin	0	place:55476215e34ac8e2	division 7, subdivision e, newfoundland and labrador, canada
+addr-region-94e595ff0ad5	region	region	tr	manisa	latin	0	place:7647e7c08c8b8222	Manisa, Turkey, Türkiye
+addr-region-987cda6d1008	region	region	ma	rabat salé kénitra	latin	0	place:c3b395ac1f31df3c	cercle de sidi slimane, rabat-salé-kénitra, morocco
+addr-region-99a563fc8256	region	region	ng	federal capital territory	latin	0	place:fdbc2322682cf802	Federal Capital Territory, Nigeria, Nigeria
+addr-region-9c062bc7fb2a	region	region	in	odisha	latin	1	place:c554f5db2345b7e4	Odisha, India, India
+addr-region-9d141ab492fe	region	region	do	distrito nacional	latin	0	place:4bc2600e7f72c9b3	Distrito Nacional, Dominican Republic, Dominican Republic
+addr-region-a2256c6737d4	region	region	au	new south wales nsw	latin	0	place:197681848624dd79	new south wales, nsw, australia
+addr-region-a22b3c2a21b6	region	region	gb	greater london	latin	0	place:d0f870ec39fb6dbd	Greater London, United Kingdom, Greater London, United Kingdom
+addr-region-a5a5e0f91ad3	region	region	kz	кокшетау г а akmola	non_latin	0	place:3890d01b49c672a9	кокшетау г.а., akmola , kazakhstan
+addr-region-a89e0b546ff3	region	region	th	buriram	latin	1	place:0ebc74bcd2c1f470	buriram, thailand
+addr-region-aa02c880d815	region	region	br	santa catarina	latin	0	place:9b553119f0dea07f	Santa Catarina, Brazil, Brazil
+addr-region-ac15b9cf8f2f	region	region	gb	engeland	latin	0	place:55ebc7fea6d0ed2e	belgië, duitsland, denemarken, frankrijk, engeland, hongarije, polen
+addr-region-aecab6016d87	region	region	do	monte cristi	latin	1	place:1e7492a143e1ac81	monte cristi, dominican republic
+addr-region-b19ad0023783	region	region	in	haryana	latin	0	place:19e594e431784775	Haryana, India, India
+addr-region-b4ee393a1021	region	region	au	south australia	latin	1	place:a467096bfdbfbf63	onkaparinga, south australia, australia
+addr-region-b8f1b3940ff5	region	region	my	perak	latin	1	place:0a3413c4991d7238	Perak, Malaysia, Malaysia
+addr-region-b941d6755719	region	region	in	karnataka	latin	1	place:a3e635da283186d1	Karnataka, India, India
+addr-region-bb0f00985850	region	region	ir	al	latin	0	place:e357e3a413e11648	va, co, al
+addr-region-bb26406c44ca	region	region	de	rhineland palatinate	latin	0	place:622acec7218533af	Rhineland-Palatinate, Germany, Rhineland-Palatinate, Germany
+addr-region-bf2459b5c874	region	region	au	new south wales	latin	0	place:11dfd6588dd102fe	New South Wales, Australia, Australia
+addr-region-c8fadcb1a5ab	region	region	ar	sj	latin	1	place:8621a8e5f245ade1	sj
+addr-region-c946f03ea843	region	region	no		latin	1	place:dc3981ac4fce6d03	Norway, Norway
+addr-region-cb365d266c17	region	region	gb	scotland	latin	1	place:2b8113c6579844f3	lanarkshire, scotland
+addr-region-cb39492bc211	region	region	in	delhi	latin	0	place:5cfbb40698e452ff	Delhi, India, India
+addr-region-cca1219925e9	region	region	gb	worcestershire	latin	1	place:bbd6c78be9257f41	Worcestershire, United Kingdom, United Kingdom
+addr-region-cf0796da576a	region	region	au	qld	latin	0	place:9a3153670a0622ad	central support office qld
+addr-region-d6d26aaa83bd	region	region	co	atlántico	latin	0	place:fbe6597e1f2d4568	atlántico, colombia
+addr-region-d83f01934515	region	region	cm	centre	latin	0	place:5faa5c64071659e4	Centre, Cameroon, Cameroon
+addr-region-d8c982c3ed8d	region	region	tw	pingtung county	latin	0	place:0b3e440525496716	pingtung county
+addr-region-d8dda227ed80	region	region	au	northern territory	latin	0	place:847d004528d6c5b0	Northern Territory, Australia, Australia
+addr-region-d96f35850194	region	region	gb	south west	latin	0	place:12819d0b8b7d7e78	south west uk
+addr-region-da0b6d18ad7b	region	city	mx	ciudad de méxico	latin	0	place:521d3b69abfe9675	Ciudad de México, Mexico, Ciudad de México, Mexico
+addr-region-dad481e45b24	region	region	ph	nueva ecija	latin	0	place:d04651cce54ce0db	nueva ecija, central luzon, philippines
+addr-region-dbffe96333ba	region	region	tr	malatya	latin	0	place:1ee807d48a25f2e1	Malatya, Turkey, Türkiye
+addr-region-e002e67ec94d	region	region	jp	tokyo	latin	1	place:5e7a1649fd3ef9e8	Tokyo, Japan, Tokyo, Japan
+addr-region-ea0435518d2e	region	region	af	nuristan province	latin	0	place:fe760bded5d23521	du ab, nuristan province, afghanistan
+addr-region-eb345a332245	region	region	au		latin	0	place:802ffb3be5c17d17	channel island
+addr-region-ee24b4380e81	region	region	pl	lubelskie	latin	1	place:c44fc853c24ba5b3	gmina zamość, lubelskie, poland
+addr-region-f22dd3da7b06	region	region	my	selangor	latin	0	place:8fc89db7b81b3f22	Selangor, Malaysia, Malaysia
+addr-region-f3cc7e5df3ca	region	region	gb	cambridgeshire	latin	0	place:f3e054ce27291563	Cambridgeshire, United Kingdom, United Kingdom
+addr-region-f4de8dd8ba4b	region	region	co	santander	latin	0	place:6d9aaa5ae04369fc	santander us
+addr-region-f4e2cac18354	region	region	ph	apayao	latin	1	place:26b1ed277c9aec24	Apayao, Philippines, Philippines
+addr-region-f60a8405f7d1	region	region	in	kerala	latin	1	place:a2cf4e35fa6e90d2	kerala, india
+addr-region-f881dee633db	region	region	om	oman	latin	1	place:708cd4334aefe693	Oman, Oman
+addr-region-fa59a92e38e9	region	city	ae	abu dhabi	latin	0	place:660636e94b107180	Abu Dhabi, United Arab Emirates, Abu Dhabi, United Arab Emirates
+addr-region-ff25f10bfb91	region	city	vn	đà nẵng	latin	0	place:7372ab1c85b968f6	Đà Nẵng, Vietnam, Đà Nẵng, Vietnam
+addr-street-02a962a020dc	street	street	ie		latin	0	place:86fbd8b54cefd818	ct/ ny
+addr-street-03663cbaaaa8	street	street	in	karnataka	latin	0	place:e49b6a4f58f57a37	Sangolirayanna Main Road, 560033, Bengaluru, Karnataka, India
+addr-street-08e9030bf122	street	city	sg	singapore	latin	0	place:c2d29fc5cd32d8db	SE Asia Base, SINGAPORE, SINGAPORE, Singapore
+addr-street-0ea4d9fdac1a	street	street	in	west bengal	latin	0	place:8d7a42111812bdcc	Deshbandu Nagar Road, Tebhaga apartment, 700059, Baguiati, West Bengal, India
+addr-street-0f144d07fbde	street	street	fr	hauts de france	latin	0	place:1ffb960745b32d5d	Chemin de la Fernaye, 62600, Groffliers, Hauts-de-France, France
+addr-street-1786c0a7f410	street	street		ri	latin	0	place:34eb9f6ed5a0b58b	Earle DR., North Kingstown, RI 02852
+addr-street-1bb084a9e565	street	street	in	bihar	latin	0	place:9fa0c220a50eb3ef	Dr H N Roy Lane,Umesh Cinema Rd, 844101, Hajipur, Bihar, India
+addr-street-1de3992ef558	street	street	mx	mexico	latin	1	place:7c760218457af2f1	Calle San Martín, 54477, Nicolás Romero, Mexico
+addr-street-1e046a94206b	street	city	ae		latin	0	place:60fd933421f5e476	Jumeirah Lakes Towers, Dubai, United Arab Emirates
+addr-street-25de62f86a27	street	street	gb	banes	latin	0	place:bf473230fa795319	Cranwell House, Weston Park East, BA1 2UZ, Bath, BANES, United Kingdom
+addr-street-4b01840f0693	street	street	ng	lagos	latin	0	place:8ad20bb700f4423f	Jakande Crescent, Oniru, Victoria Island, Lagos, Nigeria
+addr-street-4c640217e4d8	street	street	eg		latin	0	place:30bdd8783330c85d	makram ebeid, nasr city
+addr-street-4f5eb526d8a2	street	street	us	rancho bernardo	latin	0	place:f06862e353b4582c	escondido, san marcos, poway, rancho bernardo
+addr-street-555a74419a8f	street	street	it	liguria	latin	0	place:ef26ea35bcb12711	Vico San Pancrazio, 16124, Genoa, Liguria, Italy
+addr-street-55df1d519117	street	street	gb	gwent	latin	1	place:5216c071e446ed14	Penmaen Wharf, Usk Way, NP20 2BY, Newport, Gwent, United Kingdom
+addr-street-586832e5fcd6	street	street		banten	latin	0	place:413ccb2b23430c25	center blok A2 no. 12, Jl. BSD Raya Utama, Tangerang, Banten
+addr-street-59864d233e14	street	street	gb	england	latin	0	place:a1b73768dc5981b2	Montpelier Road, Brighton, England, United Kingdom
+addr-street-5a7a76ad5a2f	street	street	us	tx	latin	1	place:848b10140f950a97	4146_weatherford tx
+addr-street-5cf38d19dd34	street	street	ke	nairobi	latin	0	place:03a61cac7023a2ba	Devan Plaza, Chiromo Rd, Nairobi, Kenya, 90100, Nairobi, Nairobi, Kenya
+addr-street-5d3100fed4eb	street	address	zm	lusaka	latin	0	place:9d4c2bec3f1b367d	Off Chilumbulu Rd, Kabwata S&S, Plot 773/8536, 10101, Lusaka, Lusaka, Zambia
+addr-street-601a23d0d171	street	street	co	bogota	latin	0	place:58213c32b4b56fb0	Bogota, Colombia, Colombia
+addr-street-6245e5a9d13b	street	street	fr		latin	0	place:07480fc89e2d1a36	hyatt place rouen
+addr-street-62aac73bd692	street	street	gr		non_latin	0	place:00fbcba907c06215	πέρδικα θεσπρωτίασ
+addr-street-6486636878dd	street	street	us	pa	latin	1	place:6c62ba77d5d15932	east bethlehem, pa
+addr-street-6bf65ac63fe1	street	street	in	maharashtra	latin	0	place:536a49869d647472	Ganesh Mandir Road, 12/13, Mira Saphalya CHSL, 401107, Mira Road, Maharashtra, India
+addr-street-6d9edc07ceaa	street	street	es	comunidad de madrid	latin	0	place:e7451a74b1b4663f	Calle de la Pedriza, 28260, Galapagar, Comunidad de Madrid, Spain
+addr-street-7310e233cc31	street	address	ro		latin	0	place:225ff1b71d25067c	Județ Mureş, Sat Livezeni, Comuna Livezeni, Str.livezeni Nr. 303, Romania
+addr-street-76a26e69e545	street	street	us	nd	latin	0	place:95bf0fc468012c30	britton sd, sisseton sd, wheaton mn, browns valley mn, hankinson nd, gwinner nd, lisbon nd, wyndmere nd, lidgerwood nd, wahpeton nd
+addr-street-7f5f519d0be3	street	street	us	rhode island kentucky	latin	0	place:2913ede9fcdfc7fc	maryland, delaware, rhode island, kentucky
+addr-street-8388c2e553ec	street	street	in	gujarat	latin	1	place:ec690d952399248a	Prahlad Nagar Road, Sidhivinayak Business Tower, 380015, Ahmedabad, Gujarat, India
+addr-street-874d615e1f4a	street	street	hk		latin	0	place:d94df72ea180e60e	Harbour Road, Wanchai, Hong Kong
+addr-street-8a7ec0a53dcf	street	street	pe	arequipa	latin	1	place:73bc9b6800e66431	Arequipa, Peru, Peru
+addr-street-964c950e2882	street	street	br		latin	1	place:68996640bc85e147	Av. Min. Petrônio Portela, 64180-000, Esperantina, Brazil
+addr-street-999dbbbaa9d4	street	city		england	latin	0	place:e457559193102042	Soho Square, W1D UK, London, England, United Kingdom
+addr-street-9c2b08c24939	street	street	my		latin	0	place:2d0e3f9fbe91f79b	old klang road
+addr-street-9c56f874f7ba	street	street	us	florida	latin	1	place:31cdb75e5fe2fc4e	E Las Olas Blvd, Fort Lauderdale, Florida, United States
+addr-street-a36675d46aa6	street	street	mk		latin	0	place:a04c128332768ed9	North Macedonia, North Macedonia
+addr-street-ac9ea51a29b4	street	street	gb	surrey	latin	0	place:0a872f4b1816b690	York House Dental Practice, Lavender Park Road, KT14 6ND, WEST BYFLEET, Surrey, United Kingdom
+addr-street-b2bd87203f2d	street	street	mw		latin	0	place:5eb3e36e24a7f0ab	local, al, central
+addr-street-b6ad771108a2	street	city	us	kansas	latin	0	place:1bee33c6d5bb2f40	Wichita Kansas, Wichita, Kansas, United States
+addr-street-ba966a70fc0f	street	street	no		latin	0	place:1f0ecab0ed4f047d	Lysaker torg, 1366, Oslo, Norway
+addr-street-babecc60cc24	street	street	dk	central jutland	latin	1	place:3f2f1b9bcb6caa62	Central Jutland, Denmark, Denmark
+addr-street-bfeb9352c105	street	address	mx	mexico city	latin	0	place:1222e2cb90a849c4	Avenida Chapultepec, 218, 06700, Roma Norta, Mexico City, Mexico
+addr-street-c0665dcf85f2	street	street	id	vt	latin	0	place:9ec71d09b263ee79	state wide, vt
+addr-street-c414c3a9754b	street	street	ch	sa	latin	0	place:ac910308f44d3fe4	Route De La Venoge, Espace Arbres Monod Sa, 1302, Vufflens-la-ville, Switzerland
+addr-street-c41beff3a176	street	street	ba	central bosnia	latin	0	place:4ea2c2c850b68f7c	Central Bosnia, Bosnia and Herzegovina, Bosnia and Herzegovina
+addr-street-c55c22860880	street	street		england	latin	0	place:152d092226aed1a7	Wimbledon High School \n, Mansel Road, SW19 4AB, London, England, United Kingdom
+addr-street-cb7e2ac6bf9c	street	address	mx	estado de méxico	latin	0	place:d22a97decd897cc4	Av. Tejocotes s/n, Bodega 5B, 54769, Cuautitlán Izcalli, Estado de México, Mexico
+addr-street-cbeae9aad758	street	street	pe	cajamarca	latin	0	place:4ec0a9246d5fc68c	Cajamarca, Peru, Peru
+addr-street-d3adf19540ca	street	address	do		latin	0	place:c8a8efdaece7f4fc	Calle el Recodo, Edificio Monte Mirador, primer piso LOCAL 101 B, Bella Vista, Santo Domingo, Dominican Republic
+addr-street-dc11dfc6870e	street	city	pk	punjab	latin	0	place:b675296bd4e127c3	Zahra Medicare | Best Eye Clinic in Lahore, H/102 Main Market, Near MCB Bank, 2nd Round About, Samanabad, Lahore, Lahore, Punjab, Pakistan
+addr-street-de096e84a0f1	street	street	ch	zg	latin	0	place:260893f22bcfb371	General-Guisan Strasse, 6300, Zug, ZG, Switzerland
+addr-street-df27187ee808	street	city	pk		latin	1	place:6cf13db9d8839944	-, Karachi, Pakistan
+addr-street-e07c90747556	street	address	at	wien	latin	0	place:1ee9fcaaa9b2fa71	Alserstraße, 32/20, 1090, Wien, Wien, Austria
+addr-street-e8ecd6dfa76b	street	postcode	no		latin	0	place:b7c940253d6c667f	Guvåg, 8475, Straumsjøen, Norway
+addr-street-edd34885bede	street	address	nl		latin	0	place:751572a0c83d2ad6	Bestuursbureau, Mr. Zigher ter Steghestraat 9, 8331 KG, Steenwijk, Netherlands
+addr-street-ef65915513cb	street	street	us	ga	latin	1	place:2bebb76f0bddd532	savannah, richmond hill, pooler, guyton, rincon, bloomingdale, ga
+addr-street-fa3a09eb41ec	street	street	ma	marrakesh safi	latin	0	place:fedf0836a9bb2035	Marrakesh-Safi, Morocco, Morocco
+addr-street-fbc853860f26	street	street	gb	milton keynes	latin	0	place:5f6ddd455b037f63	suez, dickens road, wolverton, milton keynes,
+addr-street-fe4654378a49	street	postcode	no		latin	0	place:d52bd587e2b37f0a	V/birger Grotle, 6727, Bremanger, Norway
+addr-unparsed-08bf11640187	unparsed	unparsed	de		latin	0	place:08bf116401873756	frankfurt hauptbahnhof
+addr-unparsed-0bae96580cfd	unparsed	unparsed	ph		latin	0	place:0bae96580cfd5433	district 109
+addr-unparsed-25b65fb12044	unparsed	unparsed	cn	yunnan	latin	0	place:0b1f166d039e5be8	Yunnan, China, China
+addr-unparsed-27f24073ca25	unparsed	unparsed	cn	guangdong	latin	0	place:3daf50beab62db1c	Guangdong, China, China
+addr-unparsed-29abdf52703b	unparsed	unparsed	cz		latin	0	place:cfb405d3af5445a7	Czechia, Czechia
+addr-unparsed-2b407b450e5f	unparsed	unparsed	cn		latin	0	place:fa68c44626a9827d	China, China
+addr-unparsed-2fb0e03cefad	unparsed	unparsed	cn	zhejiang	latin	0	place:d8fe291c02abf001	Zhejiang, China, China
+addr-unparsed-3b9bc395f6e0	unparsed	unparsed	ve	portuguesa	latin	0	place:cd594bc5e2dd9911	Portuguesa, Venezuela, Venezuela, Bolivarian Republic of
+addr-unparsed-3ffa1c0cd50a	unparsed	unparsed	es		latin	1	place:3ffa1c0cd50a8dad	maeztu
+addr-unparsed-43ae41443e98	unparsed	unparsed	zw		latin	0	place:43ae41443e98c7c7	service industry
+addr-unparsed-4965df6d1486	unparsed	unparsed	sg		latin	0	place:270a01cbb10e2286	sembawang central, sembawang
+addr-unparsed-5ad3a1c8c066	unparsed	unparsed	gr		latin	0	place:97a13533e9b5d939	agia paraskevi, athens
+addr-unparsed-60d69fa46870	unparsed	unparsed	je		latin	0	place:60d69fa46870c5e1	beach gardens
+addr-unparsed-639f8bd24f72	unparsed	unparsed	ec		latin	1	place:96023531daa2eb68	new york | san francisco
+addr-unparsed-80b004ecef17	unparsed	unparsed	cn	shandong	latin	0	place:3644db0fc535898d	Shandong, China, China
+addr-unparsed-824902e701c7	unparsed	unparsed	cn	chongqing	latin	0	place:f58e2d31395739ae	Chongqing, China, China
+addr-unparsed-82b0eb67b60b	unparsed	unparsed	bh		latin	0	place:44a8cd072cd82760	Bahrain, Bahrain
+addr-unparsed-85a27e629aec	unparsed	unparsed	pl		latin	0	place:85a27e629aec26f1	popard
+addr-unparsed-85e6d1c0bbec	unparsed	unparsed	ve		latin	0	place:0ec70eab851d3724	Venezuela, Venezuela, Bolivarian Republic of
+addr-unparsed-88cf2f3d4dc7	unparsed	unparsed	cn	tianjin	latin	1	place:aa7399133606a7f4	Tianjin, China, China
+addr-unparsed-944ce12cfc86	unparsed	unparsed	bo		latin	0	place:c7d412f152f0fbad	Bolivia, Bolivia, Plurinational State of
+addr-unparsed-9ac39ebf5c1e	unparsed	unparsed	fr		latin	0	place:9ac39ebf5c1ed8c8	habitat jeunes
+addr-unparsed-a0882cb9af18	unparsed	unparsed	gd		latin	0	place:048ebfab88102e8e	st.george
+addr-unparsed-a1dc2720c833	unparsed	unparsed	at		latin	0	place:a1dc2720c83338bd	verbund
+addr-unparsed-aa496e67f5bf	unparsed	unparsed	tj		latin	1	place:aa496e67f5bff4e9	open space
+addr-unparsed-b9ab01686893	unparsed	unparsed	cn	shanxi	latin	0	place:12f236c11a1edcb1	Shanxi, China, China
+addr-unparsed-ba56ee6686dd	unparsed	unparsed	lu		latin	0	place:ba56ee6686dd5bae	fridhaff
+addr-unparsed-baeaa38b031c	unparsed	unparsed	ve		latin	0	place:baeaa38b031c84a7	fundación rafael
+addr-unparsed-bb0fa8c61f17	unparsed	unparsed	my		latin	1	place:c0d1af355b63f0f0	t-mex park
+addr-unparsed-bcb6cf45c36f	unparsed	unparsed	cn	jilin	latin	0	place:44a5cb89f84ad259	Jilin, China, China
+addr-unparsed-bfc8122bd68f	unparsed	unparsed	cn	beijing	latin	1	place:911e34019ca7bfd3	Beijing, China, China
+addr-unparsed-c2329198e19e	unparsed	unparsed	gm		latin	0	place:c2329198e19e2d10	sap qm
+addr-unparsed-c3064b3d315b	unparsed	unparsed	ir		latin	1	place:eb22da34e108900c	Iran, Iran, Islamic Republic of
+addr-unparsed-c6d4ee416074	unparsed	unparsed	is		latin	0	place:bb8b915ef80920d0	Iceland, Iceland
+addr-unparsed-d425a39e985c	unparsed	unparsed	cl	metropolitana	latin	0	place:f1e6c33feb05f2c8	a, Chile, Chile
+addr-unparsed-d46e3a52b1e4	unparsed	unparsed	ve	miranda	latin	0	place:de1d7d10ba4aeb38	Miranda, Venezuela, Venezuela, Bolivarian Republic of
+addr-unparsed-de8c759a08a2	unparsed	unparsed	ve	táchira	latin	0	place:9b50e7e4133475f4	Táchira, Venezuela, Venezuela, Bolivarian Republic of
+addr-unparsed-e35fad674130	unparsed	unparsed	dk		latin	0	place:b4730508e935116d	copenhagen, 84
+addr-unparsed-f2ffda8918ba	unparsed	unparsed	cg		latin	0	place:f2ffda8918bad413	republic of congo
+addr-unparsed-f99800c468eb	unparsed	unparsed	cn	jiangxi	latin	0	place:639f0130a00c2afd	Jiangxi, China, China

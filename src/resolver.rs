@@ -1,4 +1,4 @@
-use crate::{matching::*, metrics::METRICS, proto::nominatim_geolocation::*};
+use crate::{matching::*, metrics::METRICS, proto::geolocation::*};
 use anyhow::{Context, Result, bail};
 use reqwest::{
     Client, Url,

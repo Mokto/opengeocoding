@@ -57,13 +57,13 @@ Addresses inside Docker must be reachable from the container; `localhost` refers
 Example request:
 
 ```sh
-curl http://localhost:11121/nominatim_geolocation.NominatimGeolocation/SearchAddress \
+curl http://localhost:11121/geolocation.Geolocation/SearchAddress \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{"addressString":"Copenhagen, Denmark"}'
 ```
 
-The protocol definitions are in `proto/`. The four methods are `SearchAddress`, `ResolveRegion`, `RefreshRegionMap` and `GetRegionMap`.
+The contract is `proto/geolocation-v1.proto`, package `geolocation`, service `Geolocation`. The four methods are `SearchAddress`, `ResolveRegion`, `RefreshRegionMap` and `GetRegionMap`. Clients generated from the earlier `nominatim_geolocation.NominatimGeolocation` service keep working: `/nominatim_geolocation.NominatimGeolocation/*` is served by the same service, with identical messages and field numbers. gRPC reflection lists only the new names.
 
 ## Known interoperability issue
 
@@ -103,28 +103,28 @@ cargo fmt --check
 docker build --target checks .
 ```
 
-`tests/rpc.py` exercises Connect JSON/protobuf, persistence, candidate safeguards, concurrent requests, metrics and shutdown against a real isolated ClickHouse database and a local HTTP fixture. It creates and removes its own database. Install `grpcurl` to include gRPC/reflection checks:
+`tests/rpc.rs` exercises Connect JSON/protobuf, persistence, candidate safeguards, concurrent requests, metrics and shutdown against a real isolated ClickHouse database and a local HTTP fixture. It creates and removes its own database. It needs ClickHouse and provisioned models, so it is ignored by default. Install `grpcurl` to include gRPC/reflection checks:
 
 ```sh
-CLICKHOUSE_URL=http://127.0.0.1:8125 python3 tests/rpc.py
+CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --locked --test rpc -- --ignored --nocapture
 ```
 
 To test the final container instead of a local binary:
 
 ```sh
 SERVICE_IMAGE=geolocation LIBPOSTAL_MODELS="$PWD/models/libpostal" \
-  CLICKHOUSE_URL=http://127.0.0.1:8125 python3 tests/rpc.py
+  CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --locked --test rpc -- --ignored --nocapture
 ```
 
-CI builds and checks both amd64 and arm64 without downloading models. Model-backed RPC tests run separately with provisioned models.
+CI builds and checks both amd64 and arm64 without downloading models. Regenerate `THIRD_PARTY_NOTICES.txt` with `cargo run --locked --bin notices` after dependency changes. Model-backed RPC tests run separately with provisioned models.
 
 ## Local performance benchmark
 
-`tools/benchmark.py` provides a loopback Nominatim mock and a standard-library Connect JSON benchmark. It compares full responses and checks that each implementation makes the same number of backend requests. No failed requests are retried.
+The `benchmark` binary provides a loopback Nominatim mock and a Connect JSON benchmark. It compares full responses and checks that each implementation makes the same number of backend requests. No failed requests are retried. Its fixture and validation checks run in `cargo test`.
 
 ```sh
-python3 tools/benchmark.py --self-test
-python3 tools/benchmark.py --serve 18080
+cargo build --locked --release --bin geolocation --bin benchmark
+target/release/benchmark --serve 18080
 ```
 
 Start release-built local services with `NOMINATIM_HOST=http://127.0.0.1:18080`, the same provisioned libpostal models, and isolated ClickHouse databases. Seed their administrative-region tables identically, then restart the services to warm their caches:
@@ -138,7 +138,7 @@ Start release-built local services with `NOMINATIM_HOST=http://127.0.0.1:18080`,
 Use empty parent codes. Benchmarking must not depend on live Nominatim or production databases. The Python reference service is supplied separately; this repository does not bundle one.
 
 ```sh
-python3 tools/benchmark.py \
+target/release/benchmark \
   --service rust=http://127.0.0.1:18121 \
   --service reference=http://127.0.0.1:18122 \
   --iterations 100 --rounds 3 > benchmark.jsonl
@@ -147,6 +147,56 @@ python3 tools/benchmark.py \
 The default matrix covers 1/10/100 candidates, local-language corroboration, postcode fallback, concurrency 1/8, and backend delays of 0/10 ms. Service order rotates between rounds. Connections and caches are warmed outside each timed batch. Mock responses are pre-encoded and TCP delayed-ACK artifacts are disabled; injected delays still depend on operating-system scheduling.
 
 Use at least one complete rotation of all service names. Keep timed batches below the servers' per-connection request limits. Compare release builds on the same machine. Results include the mock, client, HTTP transport, native parsing and RPC framework; they are not production throughput or accuracy guarantees.
+
+## Geographic evaluation
+
+The `evaluate` binary (`src/bin/evaluate`) measures geographic correctness against a real Nominatim backend through this service's RPCs. It is for backend, data and consumer changes; it does not measure throughput. Build it with the service:
+
+```sh
+cargo build --locked --release --bin geolocation --bin evaluate
+```
+
+| Suite | Command | Needs |
+| --- | --- | --- |
+| PR (CI) | `cargo test --locked` (or `target/release/evaluate check`) | Nothing; scorer, diff gate, corpus and snapshot checks |
+| Deployed smoke | `target/release/evaluate run --suite smoke --out eval-results/smoke` | Backend, models, ClickHouse |
+| Pre-release | `target/release/evaluate run --suite gold --out eval-results/gold` | Same |
+| Address snapshots | `target/release/evaluate run --suite addresses --out eval-results/addresses --compare tests/snapshots/addresses.tsv` | Same |
+| Compare | `target/release/evaluate diff BASELINE CANDIDATE` | Two saved runs or snapshots |
+| Re-score | `target/release/evaluate report RUN_DIR --rescore` | A saved run; lists cases whose class changed |
+
+Set `NOMINATIM_URL` (and optionally `NOMINATIM_AUTHORITY`). `run` starts `target/release/geolocation` (or `SERVICE_BINARY`) with a fresh ClickHouse database at `CLICKHOUSE_URL` and an empty region map. All backend traffic, including the service's own, goes through an in-process proxy. The proxy rate-limits it (`--max-rps`, default 20), enforces a request budget (`--budget`, default 20,000) and attributes calls to cases. `--rpc URL` targets a running service instead; backend counts and region-cache control are then unavailable. Results are checkpointed per case (`--resume`); the database, process and proxy are removed on exit, including after Ctrl-C. No request is retried by the evaluator.
+
+Each run writes `manifest.json` (Nominatim status and data date, a hashed endpoint, consumer commit and binary hash, libpostal model and reference-data hashes, cache state and limits), `results.jsonl` (full responses, backend traces, direct-backend evidence) and `report.md`. Label the backend with `--backend-label`, e.g. image digest and configuration. A code or configuration comparison requires the same OSM snapshot; a data or import change is a separate experiment.
+
+### Gold corpus
+
+`tests/gold.jsonl` is generated by `evaluate build-gold` from the curated case list in `tests/gold.seeds.jsonl` (one line per place or construct: queries, cohort, tolerances, must-pass and known-failure labels). Expected coordinates, countries, regions and components come from Wikidata, Base Adresse Nationale, PDOK/BAG, the US Census geocoder and postcodes.io, never from Nominatim or this service. It covers cities in many scripts, street addresses, postcodes, regions, ambiguous names, rural places, borders, fallbacks, malformed input and no-result input. Each case records an expected country, a resolution range, an area (point and radius, or ISO 3166-2 code), relevant components, a goodMatch expectation, provenance, licence and review status. Variants share a `location` key so they are not counted as independent places. Roughly one in five locations is held out by a stable hash and reported separately; keep it out of tuning. Review status is `source-verified`; human review is pending.
+
+Cases are scored as `pass`, `confidence_mismatch`, `too_coarse` (a fallback never passes an exact-address case), `abstain`, `too_fine`, `wrong_component`, `wrong_region`, `near_miss`, `far_miss` (>100 km), `wrong_country` or `error`. Critical classes are listed individually, flagged when goodMatch was true. For failures the evaluator queries Nominatim directly (raw, structured, reverse, details) to hint whether the backend lacked an acceptable candidate or the consumer rejected one. All four RPCs are exercised. Connect protobuf answers are decoded into the contract type and must equal the Connect JSON answers field for field. grpcurl runs as a known failure and is reported, not skipped.
+
+`known_failure` labels record triaged baseline failures with their attribution. They stay visible in every report, and a label is only removed after a fix is verified. Do not weaken expectations or regenerate them from a run.
+
+### Gates
+
+`run` fails on a must-pass failure, an untriaged critical result or a transport regression. `diff` fails on any newly failing case, a worse failure class, a new critical result or a must-pass failure in the candidate. It lists newly passing cases for review and drift in unscored cases. Accept a backend change only when both gates pass on the same corpus, consumer, models, reference data and fresh region cache. Report cohort changes as case counts: with about 250 cases, aggregate rates carry several points of uncertainty and per-country rows are individual evidence, not rates.
+
+### Address snapshots
+
+`tests/addresses.tsv` holds 1,000 real address and location strings sampled from business addresses, job postings and profile locations. They are spread across 125 countries and stratified by the granularity they target: full address, street, postcode, city, region, country and unparseable. They show how a code or backend change moves everything else; they have no expected answers and measure change, not accuracy. The file holds only the query strings and their geography. Source names, providers, coordinates and identities are removed, and so are imprint addresses and strings naming a company. `tests/snapshots/addresses.tsv` records the accepted behaviour, one row per case: country, level, coordinates (3 decimals, about 100 m), goodMatch, house number, road, postcode, locality, ISO and enriched regions, and the query. A changed answer is one changed row in a PR; `git diff --word-diff` shows just the changed fields. Run metadata (backend version and data date, consumer commit, binary, model and reference-data hashes) is in `addresses.manifest.json` beside it, so it does not clutter the row diff. Full responses stay in the run's `results.jsonl`. Tabs, newlines and other control or separator characters in values are written as backslash escapes.
+
+```sh
+target/release/evaluate run --suite addresses --out eval-results/addresses \
+  --compare tests/snapshots/addresses.tsv
+# after reviewing the changes, accept them
+target/release/evaluate snapshot eval-results/addresses tests/snapshots/addresses.tsv
+```
+
+The diff counts per target granularity which cases gained or lost a result, changed country, became finer or coarser, moved more than 1 km (or less, but visibly in the snapshot), flipped goodMatch, or changed components or regions, and lists each one. `--fail-on-drift` turns any change into a failure. Rerunning an unchanged binary against the same backend produces no drift. A changed answer is not automatically better or worse. Snapshots depend on the backend's data; regenerate the baseline on the target backend before comparing code changes there.
+
+The sampler that queries production data is kept outside this repository; it reuses `geolocation::eval` for TSV escaping and hold-out assignment. Other corpora are JSONL in the gold format, or TSV with at least `id` and `query` columns, passed with `--corpus`. Private ones (e.g. replay sets with earlier production geocodes) use the same tooling; keep those and their runs out of this repository.
+
+GitHub-hosted runners cannot reach an IP-restricted backend and do not download models, so CI runs only the offline checks in `cargo test`. Run deployed suites locally or from a runner inside the trusted network.
 
 ## GHCR publishing
 
@@ -160,7 +210,7 @@ GHCR can initially create packages as private even for public repositories. Afte
 
 Country aliases use public Unicode CLDR and GeoNames data. Administrative-region hints use GeoNames. Sources, revision and download hashes are recorded in `data/sources.json`; the checked-in data allows offline reference generation during normal builds.
 
-To refresh it, run `python3 tools/update_reference.py`. This requires network access and changes the checked-in dataset; review it as a data update.
+To refresh it, run `cargo run --locked --bin update_reference`. This requires network access and changes the checked-in dataset; review it as a data update. Character classes come from the Unicode Character Database version pinned in the generator (currently 16.0.0), not from the toolchain.
 
 An optional build-time `REFERENCE_DATA` path can supply a custom reference JSON. Search overrides are empty by default. No private deployments, endpoints or address overrides are included.
 

@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use geolocation::{
     matching::*,
-    proto::nominatim_geolocation::*,
+    proto::geolocation::*,
     regions::{format_regions, python_repr},
     resolver::{Resolver, format_response},
 };

@@ -1,4 +1,4 @@
-use crate::proto::nominatim_geolocation::{AddressDetails, FullAddress};
+use crate::proto::geolocation::{AddressDetails, FullAddress};
 use indexmap::IndexMap;
 use regex::Regex;
 use serde::Deserialize;
