@@ -1,0 +1,36 @@
+[package]
+name = "geolocation"
+version = "0.1.0"
+edition = "2024"
+license = "FSL-1.1-Apache-2.0"
+description = "Address resolution with libpostal, Nominatim, ClickHouse, Connect and gRPC"
+repository = "https://github.com/Mokto/geolocation"
+rust-version = "1.99"
+
+[dependencies]
+anyhow = "1"
+axum = "0.8"
+buffa = "0.9"
+connectrpc = { version = "0.9", features = ["axum"] }
+deunicode = "1.6"
+connectrpc-reflection = { version = "0.9", default-features = false }
+indexmap = { version = "2", features = ["serde"] }
+prometheus = "0.14"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rustpostal = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sentry = { version = "0.42", default-features = false, features = ["backtrace", "contexts", "panic", "reqwest", "rustls"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync", "fs", "io-util"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[build-dependencies]
+connectrpc-build = "0.9"
+deunicode = "1.6"
+serde_json = "1"
+
+[profile.release]
+lto = "thin"
+strip = true

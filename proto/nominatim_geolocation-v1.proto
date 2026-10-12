@@ -1,0 +1,125 @@
+syntax = "proto3";
+package nominatim_geolocation;
+
+import "common-v1.proto";
+
+option go_package = "github.com/Mokto/geolocation/gen/nominatim_geolocation";
+
+service NominatimGeolocation {
+  rpc SearchAddress(SearchAddressTask) returns (FullAddress) {}
+  rpc ResolveRegion(GeoCoordinates) returns (RegionsResponse) {}
+  rpc RefreshRegionMap(common.EmptyRequest) returns (common.EmptyResponse) {}
+  rpc GetRegionMap(common.EmptyRequest) returns (RegionMap) {}
+}
+
+message SearchAddressTask {
+  string address_string = 1;
+  string domain = 2;
+  bool notify_done = 3;
+  bool background_job = 4;
+}
+
+message ISO3166_2 {
+  uint32 admin_level = 1;
+  string code = 2;
+}
+
+message AddressDetails {
+  string continent = 1;
+  string country = 2;
+  string country_code = 3;
+  string region = 4;
+  string state = 5;
+  string state_district = 6;
+  string county = 7;
+  repeated ISO3166_2 region_codes = 8;
+  string municipality = 9;
+  string city = 10;
+  string town = 11;
+  string village = 12;
+  string city_district = 13;
+  string district = 14;
+  string borough = 15;
+  string suburb = 16;
+  string subdivision = 17;
+  string hamlet = 18;
+  string croft = 19;
+  string isolated_dwelling = 20;
+  string neighbourhood = 21;
+  string allotments = 22;
+  string quarter = 23;
+  string city_block = 24;
+  string residential = 25;
+  string farm = 26;
+  string farmyard = 27;
+  string industrial = 28;
+  string commercial = 29;
+  string retail = 30;
+  string road = 31;
+  string house_number = 32;
+  string house_name = 33;
+  string emergency = 34;
+  string historic = 35;
+  string military = 36;
+  string natural = 37;
+  string landuse = 38;
+  string place = 39;
+  string railway = 40;
+  string man_made = 41;
+  string aerialway = 42;
+  string boundary = 43;
+  string amenity = 44;
+  string aeroway = 45;
+  string club = 46;
+  string craft = 47;
+  string leisure = 48;
+  string office = 49;
+  string mountain_pass = 50;
+  string shop = 51;
+  string tourism = 52;
+  string bridge = 53;
+  string tunnel = 54;
+  string waterway = 55;
+  string postcode = 56;
+  string province = 57;
+  string highway = 58;
+  repeated Region regions = 59;
+}
+
+message BoundingBox {
+  float min_lat = 1;
+  float max_lat = 2;
+  float min_lon = 3;
+  float max_lon = 4;
+}
+
+message GeoCoordinates {
+  float lat = 1;
+  float lon = 2;
+  BoundingBox bounding_box = 3;
+}
+
+message FullAddress {
+  string display_name = 1;
+  GeoCoordinates geo_coordinates = 2;
+  AddressDetails address_details = 3;
+  bool good_match = 4;
+}
+
+message Region {
+  string country_code = 1;
+  string country_name = 2;
+  string admin_code = 3;
+  uint32 admin_level = 4;
+  string local_name = 5;
+  string en_name = 6;
+  string parent_admin_code = 7;
+}
+
+message RegionsResponse {
+  repeated Region regions = 1;
+}
+
+message RegionMap {
+  string region_map = 1;
+}

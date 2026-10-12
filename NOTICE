@@ -1,0 +1,24 @@
+Geolocation
+Copyright 2026 Geolocation contributors
+
+Project source is licensed under the Functional Source License 1.1, Apache-2.0 future license (see LICENSE).
+Copyright 2026 Théo Mathieu (https://github.com/Mokto/geolocation)
+Each release converts to Apache-2.0 on the second anniversary of its publication.
+
+Transliteration uses deunicode, copyright its respective contributors,
+licensed under BSD-3-Clause. It does not embed Python Unidecode tables.
+See https://github.com/kornelski/deunicode
+
+Country display names are derived from Unicode CLDR, licensed under Unicode-3.0.
+See https://cldr.unicode.org/ and LICENSES/Unicode-3.0.txt.
+Country and administrative-region names are derived from GeoNames,
+licensed under Creative Commons Attribution 4.0 International.
+See https://www.geonames.org/ and LICENSES/CC-BY-4.0.txt.
+Names have been normalized, grouped and filtered. Dataset URLs, revision
+and download hashes are recorded in data/sources.json.
+
+libpostal and rustpostal are MIT-licensed. Their notices remain applicable.
+See https://github.com/openvenues/libpostal and https://github.com/kodemartin/rustpostal
+The native libpostal notice is included in the runtime image.
+libpostal model files are not bundled. Their source-data licensing and
+attribution obligations are separate from this project's source license.
