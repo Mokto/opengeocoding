@@ -2,7 +2,7 @@
 {"kind": "place", "cohort": "city", "qid": "Q1748", "queries": ["København, Danmark", "Kopenhagen, Dänemark"], "radius_km": 10}
 {"kind": "place", "cohort": "city", "qid": "Q1748", "queries": ["COPENHAGEN, DENMARK", "  copenhagen ,\tdenmark  ", "København\u001cDanmark", "copenhagen denmark"], "radius_km": 10, "tags": ["variant"]}
 {"kind": "place", "cohort": "city", "qid": "Q25319", "queries": ["Aarhus, Denmark"], "radius_km": 10, "must_pass": true}
-{"kind": "place", "cohort": "city", "qid": "Q25319", "queries": ["Århus, Denmark", "Århus, Danmark"], "radius_km": 10, "known_failure": "abstain (2026-10-11 deployed comparison)"}
+{"kind": "place", "cohort": "city", "qid": "Q25319", "queries": ["Århus, Denmark", "Århus, Danmark"], "radius_km": 10}
 {"kind": "place", "cohort": "city", "qid": "Q1754", "queries": ["Stockholm, Sweden"], "radius_km": 15}
 {"kind": "place", "cohort": "city", "qid": "Q585", "queries": ["Oslo, Norge"], "radius_km": 15}
 {"kind": "place", "cohort": "city", "qid": "Q1757", "queries": ["Helsinki, Finland", "Helsingfors, Finland"], "radius_km": 15}
@@ -21,7 +21,7 @@
 {"kind": "place", "cohort": "city", "qid": "Q72", "queries": ["Zürich, Schweiz"], "radius_km": 10}
 {"kind": "place", "cohort": "city", "qid": "Q727", "queries": ["Amsterdam, Nederland"], "radius_km": 10, "must_pass": true}
 {"kind": "place", "cohort": "city", "qid": "Q239", "queries": ["Brussels, Belgium", "Brussel, België"], "radius_km": 10}
-{"kind": "place", "cohort": "city", "qid": "Q239", "queries": ["Bruxelles, Belgique", "Bruxelles, Belgium"], "radius_km": 10, "known_failure": "wrong_country: Bruxelles, Manitoba, Canada with goodMatch=true (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q239", "queries": ["Bruxelles, Belgique", "Bruxelles, Belgium"], "radius_km": 10}
 {"kind": "place", "cohort": "city", "qid": "Q2807", "queries": ["Madrid, España"], "radius_km": 15}
 {"kind": "place", "cohort": "city", "qid": "Q597", "queries": ["Lisboa, Portugal"], "radius_km": 10}
 {"kind": "place", "cohort": "city", "qid": "Q220", "queries": ["Roma, Italia"], "radius_km": 15}
@@ -29,8 +29,8 @@
 {"kind": "place", "cohort": "city", "qid": "Q270", "queries": ["Warszawa, Polska"], "radius_km": 15}
 {"kind": "place", "cohort": "city", "qid": "Q580", "queries": ["Łódź, Poland", "Lodz, Poland"], "radius_km": 10}
 {"kind": "place", "cohort": "city", "qid": "Q1085", "queries": ["Praha, Česko"], "radius_km": 15}
-{"kind": "place", "cohort": "city", "qid": "Q1781", "queries": ["Budapest, Hungary"], "radius_km": 15, "known_failure": "abstain: consumer rejects the backend's correct top candidate (no city key) (2026-10-12)"}
-{"kind": "place", "cohort": "city", "qid": "Q1781", "queries": ["Budapest, Magyarország"], "radius_km": 15, "known_failure": "abstain (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q1781", "queries": ["Budapest, Hungary"], "radius_km": 15}
+{"kind": "place", "cohort": "city", "qid": "Q1781", "queries": ["Budapest, Magyarország"], "radius_km": 15}
 {"kind": "place", "cohort": "city", "qid": "Q134494", "queries": ["Győr, Hungary"], "radius_km": 10}
 {"kind": "place", "cohort": "city", "qid": "Q19660", "queries": ["București, România"], "radius_km": 15}
 {"kind": "place", "cohort": "city", "qid": "Q472", "queries": ["Sofia, Bulgaria", "София, България"], "radius_km": 15}
@@ -38,41 +38,41 @@
 {"kind": "place", "cohort": "city", "qid": "Q1770", "queries": ["Tallinn, Estonia"], "radius_km": 10}
 {"kind": "place", "cohort": "city", "qid": "Q1899", "queries": ["Kyiv, Ukraine", "Київ, Україна"], "radius_km": 20}
 {"kind": "place", "cohort": "city", "qid": "Q649", "queries": ["Moscow, Russia"], "radius_km": 25, "must_pass": true}
-{"kind": "place", "cohort": "city", "qid": "Q649", "queries": ["Москва, Russia", "Москва, Россия"], "radius_km": 25, "known_failure": "far_miss: Москва hamlet in Kirov Oblast with goodMatch=true (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q649", "queries": ["Москва, Russia", "Москва, Россия"], "radius_km": 25}
 {"kind": "place", "cohort": "city", "qid": "Q406", "queries": ["İstanbul, Türkiye"], "radius_km": 30}
 {"kind": "place", "cohort": "city", "qid": "Q994", "queries": ["Tbilisi, Georgia"], "radius_km": 15, "must_pass": true, "tags": ["ambiguous_country_name"]}
 {"kind": "place", "cohort": "city", "qid": "Q994", "queries": ["თბილისი, საქართველო"], "radius_km": 15}
 {"kind": "place", "cohort": "city", "qid": "Q1953", "queries": ["Երևան, Հայաստան"], "radius_km": 15}
-{"kind": "place", "cohort": "city", "qid": "Q9248", "queries": ["Baku, Azerbaijan"], "radius_km": 20, "known_failure": "wrong_country: Baku, Darchula, Nepal with goodMatch=true (2026-10-11)"}
-{"kind": "place", "cohort": "city", "qid": "Q9248", "queries": ["Bakı, Azerbaijan", "Bakı, Azərbaycan"], "radius_km": 20, "known_failure": "abstain (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q9248", "queries": ["Baku, Azerbaijan"], "radius_km": 20}
+{"kind": "place", "cohort": "city", "qid": "Q9248", "queries": ["Bakı, Azerbaijan", "Bakı, Azərbaycan"], "radius_km": 20}
 {"kind": "place", "cohort": "city", "qid": "Q33935", "queries": ["Tel Aviv, Israel"], "radius_km": 10}
-{"kind": "place", "cohort": "city", "qid": "Q33935", "queries": ["תל אביב, ישראל"], "radius_km": 10, "known_failure": "abstain (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q33935", "queries": ["תל אביב, ישראל"], "radius_km": 10}
 {"kind": "place", "cohort": "city", "qid": "Q85", "queries": ["Cairo, Egypt", "القاهرة, مصر"], "radius_km": 25}
 {"kind": "place", "cohort": "city", "qid": "Q612", "queries": ["Dubai, UAE", "دبي, الإمارات العربية المتحدة"], "radius_km": 25}
 {"kind": "place", "cohort": "city", "qid": "Q3616", "queries": ["Tehran, Iran"], "radius_km": 20}
-{"kind": "place", "cohort": "city", "qid": "Q3616", "queries": ["تهران, Iran"], "radius_km": 20, "known_failure": "abstain (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q3616", "queries": ["تهران, Iran"], "radius_km": 20}
 {"kind": "place", "cohort": "city", "qid": "Q7903", "queries": ["Casablanca, Morocco"], "radius_km": 20}
-{"kind": "place", "cohort": "city", "qid": "Q7903", "queries": ["الدار البيضاء, Morocco"], "radius_km": 20, "known_failure": "wrong_country: Saudi Arabia with goodMatch=true (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q7903", "queries": ["الدار البيضاء, Morocco"], "radius_km": 20}
 {"kind": "place", "cohort": "city", "qid": "Q1490", "queries": ["Tokyo, Japan"], "radius_km": 30, "must_pass": true}
 {"kind": "place", "cohort": "city", "qid": "Q1490", "queries": ["東京, 日本"], "radius_km": 30}
 {"kind": "place", "cohort": "city", "qid": "Q35765", "queries": ["Osaka, Japan"], "radius_km": 15}
-{"kind": "place", "cohort": "city", "qid": "Q35765", "queries": ["大阪, 日本"], "radius_km": 15, "known_failure": "far_miss: Osaka, Kimitsu, Chiba with goodMatch=true (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q35765", "queries": ["大阪, 日本"], "radius_km": 15}
 {"kind": "place", "cohort": "city", "qid": "Q34600", "queries": ["Kyoto, Japan"], "radius_km": 15, "must_pass": true}
-{"kind": "place", "cohort": "city", "qid": "Q34600", "queries": ["京都, Japan", "京都, 日本"], "radius_km": 15, "known_failure": "far_miss: Tokyo with goodMatch=true (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q34600", "queries": ["京都, Japan", "京都, 日本"], "radius_km": 15, "known_failure": "near_miss: parser labels 京都 a state, and Nominatim ranks Kyoto Prefecture above the city (2026-10-12)"}
 {"kind": "place", "cohort": "city", "qid": "Q956", "queries": ["Beijing, China", "北京, 中国"], "radius_km": 30}
 {"kind": "place", "cohort": "city", "qid": "Q8686", "queries": ["Shanghai, China"], "radius_km": 40}
-{"kind": "place", "cohort": "city", "qid": "Q8686", "queries": ["上海, China", "上海, 中国"], "radius_km": 40, "known_failure": "far_miss: Shanghai, Yanyuan County, Sichuan with goodMatch=true (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q8686", "queries": ["上海, China", "上海, 中国"], "radius_km": 40}
 {"kind": "place", "cohort": "city", "qid": "Q8684", "queries": ["Seoul, South Korea", "서울, 대한민국"], "radius_km": 20}
 {"kind": "place", "cohort": "city", "qid": "Q1861", "queries": ["กรุงเทพมหานคร, ประเทศไทย"], "radius_km": 25}
 {"kind": "place", "cohort": "city", "qid": "Q1858", "queries": ["Hà Nội, Việt Nam"], "radius_km": 20}
-{"kind": "place", "cohort": "city", "qid": "Q1858", "queries": ["Hanoi, Vietnam"], "radius_km": 20, "known_failure": "abstain (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q1858", "queries": ["Hanoi, Vietnam"], "radius_km": 20}
 {"kind": "place", "cohort": "city", "qid": "Q987", "queries": ["New Delhi, India"], "radius_km": 15}
-{"kind": "place", "cohort": "city", "qid": "Q987", "queries": ["नई दिल्ली, India"], "radius_km": 15, "known_failure": "abstain (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q987", "queries": ["नई दिल्ली, India"], "radius_km": 15}
 {"kind": "place", "cohort": "city", "qid": "Q1156", "queries": ["Mumbai, India"], "radius_km": 25}
-{"kind": "place", "cohort": "city", "qid": "Q1156", "queries": ["मुंबई, India"], "radius_km": 25, "known_failure": "abstain (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q1156", "queries": ["मुंबई, India"], "radius_km": 25}
 {"kind": "place", "cohort": "city", "qid": "Q1354", "queries": ["ঢাকা, বাংলাদেশ"], "radius_km": 15}
-{"kind": "place", "cohort": "city", "qid": "Q3037", "queries": ["Kathmandu, Nepal", "काठमाडौं, नेपाल"], "radius_km": 15, "known_failure": "abstain (2026-10-11)"}
-{"kind": "place", "cohort": "city", "qid": "Q3630", "queries": ["Jakarta, Indonesia"], "radius_km": 25, "known_failure": "abstain (2026-10-11)"}
+{"kind": "place", "cohort": "city", "qid": "Q3037", "queries": ["Kathmandu, Nepal", "काठमाडौं, नेपाल"], "radius_km": 15}
+{"kind": "place", "cohort": "city", "qid": "Q3630", "queries": ["Jakarta, Indonesia"], "radius_km": 25}
 {"kind": "place", "cohort": "city", "qid": "Q1461", "queries": ["Manila, Philippines"], "radius_km": 10}
 {"kind": "place", "cohort": "city", "qid": "Q3130", "queries": ["Sydney, Australia"], "radius_km": 25, "must_pass": true}
 {"kind": "place", "cohort": "city", "qid": "Q37100", "queries": ["Auckland, New Zealand"], "radius_km": 20}
@@ -109,7 +109,7 @@
 {"kind": "place", "cohort": "border", "qid": "Q200709", "queries": ["Słubice, Poland"], "radius_km": 6}
 {"kind": "place", "cohort": "border", "qid": "Q6596", "queries": ["Gorizia, Italy"], "radius_km": 6}
 {"kind": "place", "cohort": "border", "qid": "Q1018", "queries": ["Nova Gorica, Slovenia"], "radius_km": 6}
-{"kind": "place", "cohort": "border", "qid": "Q193905", "queries": ["Valga, Estonia"], "radius_km": 5, "known_failure": "wrong_country: consumer rejects the correct raw top hit, then the without-stated-country tier accepts Valga, Spain with goodMatch=true (2026-10-12)"}
+{"kind": "place", "cohort": "border", "qid": "Q193905", "queries": ["Valga, Estonia"], "radius_km": 5}
 {"kind": "place", "cohort": "border", "qid": "Q323774", "queries": ["Valka, Latvia"], "radius_km": 5}
 {"kind": "place", "cohort": "border", "qid": "Q102158", "queries": ["Narva, Estonia"], "radius_km": 8}
 {"kind": "place", "cohort": "border", "qid": "Q15256", "queries": ["Ivangorod, Russia"], "radius_km": 6}
@@ -130,7 +130,7 @@
 {"kind": "place", "cohort": "ambiguous", "qid": "Q8818", "queries": ["Valencia, Spain"], "radius_km": 10}
 {"kind": "place", "cohort": "ambiguous", "qid": "Q54880", "queries": ["Valencia, Venezuela"], "radius_km": 15}
 {"kind": "place", "cohort": "ambiguous", "qid": "Q2887", "queries": ["Santiago, Chile"], "radius_km": 20}
-{"kind": "place", "cohort": "ambiguous", "qid": "Q92561", "queries": ["London, Ontario"], "radius_km": 12, "known_failure": "abstain: consumer rejects the backend's correct top candidate (2026-10-12)"}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q92561", "queries": ["London, Ontario"], "radius_km": 12}
 {"kind": "place", "cohort": "ambiguous", "qid": "Q2132", "queries": ["Victoria, BC, Canada"], "radius_km": 10}
 {"kind": "place", "cohort": "ambiguous", "qid": "Q28515", "queries": ["Springfield, Illinois"], "radius_km": 10}
 {"kind": "place", "cohort": "ambiguous", "qid": "Q49158", "queries": ["Springfield, MA"], "radius_km": 10}
@@ -141,7 +141,7 @@
 {"kind": "place", "cohort": "ambiguous", "qid": "Q3070", "queries": ["San José, Costa Rica"], "radius_km": 10}
 {"kind": "place", "cohort": "ambiguous", "qid": "Q34692", "queries": ["Kingston, Jamaica"], "radius_km": 10}
 {"kind": "place", "cohort": "ambiguous", "qid": "Q1361", "queries": ["Hyderabad, India"], "radius_km": 20}
-{"kind": "place", "cohort": "ambiguous", "qid": "Q1640079", "queries": ["Hyderabad, Pakistan"], "radius_km": 10, "known_failure": "wrong_country: consumer rejects the correct raw top hit, then the without-stated-country tier accepts Hyderabad, India with goodMatch=true (2026-10-12)"}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q1640079", "queries": ["Hyderabad, Pakistan"], "radius_km": 10}
 {"kind": "place", "cohort": "ambiguous", "qid": "Q23556", "queries": ["Atlanta, Georgia"], "radius_km": 15, "must_pass": true, "tags": ["ambiguous_country_name"]}
 {"kind": "region", "qid": "Q980", "queries": ["Bavaria, Germany", "Bayern"], "admin_level": 4}
 {"kind": "region", "qid": "Q13917", "queries": ["Île-de-France, France"], "admin_level": 4}
@@ -163,7 +163,7 @@
 {"kind": "landmark", "cohort": "address", "qid": "Q169101", "queries": ["10 Downing Street, London SW1A 2AA, United Kingdom"], "house_number": "10", "postcode": "SW1A 2AA", "must_pass": true}
 {"kind": "landmark", "cohort": "address", "qid": "Q12495", "queries": ["1 Sheikh Mohammed bin Rashid Boulevard, Dubai, United Arab Emirates"], "level": "street", "radius_km": 0.5}
 {"kind": "landmark", "cohort": "address", "qid": "Q183536", "queries": ["東京都港区芝公園4-2-8"], "level": "locality", "radius_km": 0.6, "good_match": null}
-{"kind": "landmark", "cohort": "address", "qid": "Q615183", "queries": ["東京都台東区浅草2-3-1"], "level": "locality", "radius_km": 0.6, "good_match": null, "known_failure": "wrong_country: parser splits the address; a structured tier queries only '区' and accepts a place in India (2026-10-12)"}
+{"kind": "landmark", "cohort": "address", "qid": "Q615183", "queries": ["東京都台東区浅草2-3-1"], "level": "locality", "radius_km": 0.6, "good_match": null, "known_failure": "abstain: parser splits the address and no tier finds it (2026-10-12)"}
 {"kind": "address", "source": "ban", "ref": "10 Rue de Rivoli 75004 Paris", "queries": ["10 Rue de Rivoli, 75004 Paris, France"], "city": "Q90", "must_pass": true}
 {"kind": "address", "source": "ban", "ref": "10 Rue de Rivoli 75004 Paris", "queries": ["10 rue de rivoli, 75004 paris, france"], "city": "Q90", "tags": ["variant"]}
 {"kind": "address", "source": "ban", "ref": "5 Place Bellecour 69002 Lyon", "queries": ["5 Place Bellecour, 69002 Lyon, France"], "city": "Q456"}
@@ -191,11 +191,11 @@
 {"kind": "postcode", "source": "pdok", "ref": "postcode:1012JS", "queries": ["1012 JS Amsterdam"], "city": "Q727", "radius_km": 1}
 {"kind": "postcode", "source": "wikidata", "ref": "Q9188", "queries": ["10118, USA"], "radius_km": 1.5}
 {"kind": "place", "cohort": "postcode", "qid": "Q1761", "queries": ["D02 AF30 Dublin Ireland"], "label": "Eircode routing area D02 (Dublin 2) with space separator", "level": "locality", "radius_km": 5, "good_match": null, "tags": ["variant", "separator"], "must_pass": true}
-{"kind": "place", "cohort": "postcode", "qid": "Q1761", "queries": ["D02\tAF30 Dublin Ireland"], "label": "Eircode routing area D02 (Dublin 2) with tab separator", "level": "locality", "radius_km": 5, "good_match": null, "tags": ["variant", "separator"], "known_failure": "abstain (2026-10-11)"}
-{"kind": "place", "cohort": "postcode", "qid": "Q1761", "queries": ["D02\u001cAF30 Dublin Ireland"], "label": "Eircode routing area D02 (Dublin 2) with U+001C separator", "level": "locality", "radius_km": 5, "good_match": null, "tags": ["variant", "separator"], "known_failure": "abstain (2026-10-11)"}
-{"kind": "place", "cohort": "postcode", "qid": "Q1761", "queries": ["D02\u001dAF30 Dublin Ireland"], "label": "Eircode routing area D02 (Dublin 2) with U+001D separator", "level": "locality", "radius_km": 5, "good_match": null, "tags": ["variant", "separator"], "known_failure": "abstain (2026-10-11)"}
-{"kind": "place", "cohort": "postcode", "qid": "Q1761", "queries": ["D02\u001eAF30 Dublin Ireland"], "label": "Eircode routing area D02 (Dublin 2) with U+001E separator", "level": "locality", "radius_km": 5, "good_match": null, "tags": ["variant", "separator"], "known_failure": "abstain (2026-10-11)"}
-{"kind": "place", "cohort": "postcode", "qid": "Q1761", "queries": ["D02\u001fAF30 Dublin Ireland"], "label": "Eircode routing area D02 (Dublin 2) with U+001F separator", "level": "locality", "radius_km": 5, "good_match": null, "tags": ["variant", "separator"], "known_failure": "abstain (2026-10-11)"}
+{"kind": "place", "cohort": "postcode", "qid": "Q1761", "queries": ["D02\tAF30 Dublin Ireland"], "label": "Eircode routing area D02 (Dublin 2) with tab separator", "level": "locality", "radius_km": 5, "good_match": null, "tags": ["variant", "separator"]}
+{"kind": "place", "cohort": "postcode", "qid": "Q1761", "queries": ["D02\u001cAF30 Dublin Ireland"], "label": "Eircode routing area D02 (Dublin 2) with U+001C separator", "level": "locality", "radius_km": 5, "good_match": null, "tags": ["variant", "separator"]}
+{"kind": "place", "cohort": "postcode", "qid": "Q1761", "queries": ["D02\u001dAF30 Dublin Ireland"], "label": "Eircode routing area D02 (Dublin 2) with U+001D separator", "level": "locality", "radius_km": 5, "good_match": null, "tags": ["variant", "separator"]}
+{"kind": "place", "cohort": "postcode", "qid": "Q1761", "queries": ["D02\u001eAF30 Dublin Ireland"], "label": "Eircode routing area D02 (Dublin 2) with U+001E separator", "level": "locality", "radius_km": 5, "good_match": null, "tags": ["variant", "separator"]}
+{"kind": "place", "cohort": "postcode", "qid": "Q1761", "queries": ["D02\u001fAF30 Dublin Ireland"], "label": "Eircode routing area D02 (Dublin 2) with U+001F separator", "level": "locality", "radius_km": 5, "good_match": null, "tags": ["variant", "separator"]}
 {"kind": "place", "cohort": "fallback", "qid": "Q90", "queries": ["Rue de Rivoli 9999, 75001 Paris, France"], "location": "fallback:rue-de-rivoli-9999-75001-paris-france", "level": "locality", "max_level": "street", "radius_km": 5, "good_match": false}
 {"kind": "place", "cohort": "fallback", "qid": "Q727", "queries": ["Dam 999, 1012 JS Amsterdam, Netherlands"], "location": "fallback:dam-999-1012-js-amsterdam-netherlands", "level": "locality", "max_level": "street", "radius_km": 3, "good_match": false}
 {"kind": "place", "cohort": "fallback", "qid": "Q1748", "queries": ["Rådhuspladsen 999, 1550 København V, Denmark"], "location": "fallback:r-dhuspladsen-999-1550-k-benhavn-v-denmark", "level": "locality", "max_level": "street", "radius_km": 3, "good_match": false}
@@ -207,14 +207,14 @@
 {"kind": "none", "cohort": "malformed", "queries": ["🏠🏠🏠"]}
 {"kind": "none", "cohort": "malformed", "queries": ["https://example.com/contact"]}
 {"kind": "none", "cohort": "malformed", "queries": ["info@example.com"]}
-{"kind": "none", "cohort": "malformed", "queries": ["N/A"], "known_failure": "unexpected_result: backend has an OSM place named 'n/a' (Falkland Islands); consumer accepts it with goodMatch=true (2026-10-12)"}
+{"kind": "none", "cohort": "malformed", "queries": ["N/A"]}
 {"kind": "none", "cohort": "malformed", "queries": ["null"]}
 {"kind": "none", "cohort": "no_result", "queries": ["Xqzvbnmk Plorttz"]}
-{"kind": "none", "cohort": "no_result", "queries": ["Qwertyuiop Asdfghjkl 12345"], "known_failure": "unexpected_result: postcode tier queries '12345' without a country and accepts Cairo (2026-10-12)"}
+{"kind": "none", "cohort": "no_result", "queries": ["Qwertyuiop Asdfghjkl 12345"]}
 {"kind": "error", "cohort": "malformed", "queries": ["Copenhagen\u0000Denmark"], "location": "none:nul", "label": "NUL byte", "error": "invalid_argument", "must_pass": true}
 {"kind": "any_of", "cohort": "ambiguous", "queries": ["Paris"], "label": "documented alternatives", "any_of": [{"qid": "Q90", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}, {"qid": "Q830149", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}]}
 {"kind": "any_of", "cohort": "ambiguous", "queries": ["Frankfurt"], "label": "documented alternatives", "any_of": [{"qid": "Q1794", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}, {"qid": "Q4024", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}]}
-{"kind": "any_of", "cohort": "ambiguous", "queries": ["Cambridge"], "label": "documented alternatives", "any_of": [{"qid": "Q350", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}, {"qid": "Q49111", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}], "known_failure": "far_miss: backend ranks Western Australia first and the documented alternatives 6th; consumer returns Cambridge, Vermont with goodMatch=true (2026-10-12)"}
+{"kind": "any_of", "cohort": "ambiguous", "queries": ["Cambridge"], "label": "documented alternatives", "any_of": [{"qid": "Q350", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}, {"qid": "Q49111", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}], "known_failure": "wrong_country: this backend has no Wikipedia importance data (all cities score 0.187), so nothing ranks Cambridge UK or MA above Cambridge, Ontario (2026-10-12)"}
 {"kind": "any_of", "cohort": "ambiguous", "queries": ["Georgia"], "location": "ambiguous:georgia", "label": "country or US state", "ref": "Q230,Q1428", "any_of": [{"country": ["ge"], "level": "country", "max_level": "region", "good_match": null}, {"qid": "Q1428", "level": "region", "max_level": "region", "area": "region", "radius_km": 400, "good_match": null}]}
 {"kind": "any_of", "cohort": "no_result", "queries": ["Nonexistentstraße 999, 99999 Nirgendwo, Germany"], "location": "none:nirgendwo", "label": "invented address in a real country", "source": "constructed", "any_of": [{"level": "none"}, {"country": ["de"], "level": "country", "max_level": "country", "good_match": false}]}
 {"kind": "unscored", "cohort": "conflict", "queries": ["Marienplatz 1, 80331 München, France"], "label": "policy undecided", "tags": ["policy_undecided"]}

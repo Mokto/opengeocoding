@@ -27,7 +27,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 ## Compatibility and safety
 
 - The package is `geolocation`; the service is `Geolocation`. Messages, field numbers and types are unchanged from the earlier `nominatim_geolocation.NominatimGeolocation` service, whose paths `src/main.rs` still rewrites to the new ones. Preserve the package and service names, field numbers, types and that legacy path until every caller uses the new package. Modify `proto/` and regenerate through Cargo; never edit generated files under `target/`.
-- Preserve deliberate fallback ordering, country/region conflict guards, postcode-area compatibility, local-language candidate corroboration and `good_match` semantics.
+- Preserve deliberate fallback ordering, country/region conflict guards, postcode-area compatibility, local-language candidate corroboration and `good_match` semantics (false for structured fallbacks and for a missing requested house number). Other-language names (`namedetails`) corroborate settlements, and regions only for bare place names; they never justify overriding a recognized stated country.
 - Coordinates use protobuf float32. `GetRegionMap` returns a Python-style dictionary string; the stored map is JSON. Neither is an accidental formatting choice.
 - Validate input at trust boundaries. Do not expose backend details in RPC errors.
 - Region-map refresh must remain atomic. Test database changes against an isolated database, never a shared production instance.

@@ -39,7 +39,7 @@ const LOCALITY_KEYS: [&str; 15] = [
     "subdivision",
     "cityBlock",
 ];
-const REGION_KEYS: [&str; 4] = ["state", "stateDistrict", "county", "province"];
+const REGION_KEYS: [&str; 5] = ["state", "stateDistrict", "county", "province", "region"];
 
 pub fn rank(level: &str) -> usize {
     LEVELS.iter().position(|l| *l == level).unwrap_or(0)
@@ -674,11 +674,15 @@ mod tests {
             json!({"country": ["hu"], "level": "region", "max_level": "house",
             "point": [47.4979, 19.0402], "radius_km": 15, "region": ["HU-BU"], "good_match": true}),
         );
-        let budapest = json!({"state": "Budapest", "regionCodes": [{"code": "HU-BU"}]});
-        assert_eq!(
-            class(&city_state, &full("hu", 47.4979, 19.0402, true, budapest)),
-            "pass"
-        );
+        for budapest in [
+            json!({"state": "Budapest", "regionCodes": [{"code": "HU-BU"}]}),
+            json!({"region": "Budapest", "regionCodes": [{"code": "HU-BU"}]}),
+        ] {
+            assert_eq!(
+                class(&city_state, &full("hu", 47.4979, 19.0402, true, budapest)),
+                "pass"
+            );
+        }
         let pest = json!({"state": "Pest", "regionCodes": [{"code": "HU-PE"}]});
         assert_eq!(
             class(&city_state, &full("hu", 47.2, 19.4, true, pest)),

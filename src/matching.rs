@@ -73,7 +73,65 @@ pub fn normalize_place(value: &str) -> String {
 }
 
 pub fn normalize_postcode(value: &str) -> String {
-    value.replace([' ', '-'], "").to_lowercase()
+    value
+        .chars()
+        .filter(|&ch| ch != '-' && !whitespace(ch))
+        .collect::<String>()
+        .to_lowercase()
+}
+
+/// Words that qualify a place name rather than identify it ("Valga city", "Town of Cambridge",
+/// "Special Capital Region of Jakarta").
+const QUALIFIERS: &[&str] = &[
+    "capital",
+    "city",
+    "district",
+    "greater",
+    "metropolitan",
+    "municipality",
+    "of",
+    "region",
+    "special",
+    "taluka",
+    "tehsil",
+    "town",
+    "village",
+];
+/// CJK administrative suffixes: 大阪市 is Osaka, 京都府 is Kyoto Prefecture.
+const CJK_SUFFIXES: &[char] = &['市', '府', '県', '县', '縣', '省', '郡', '町', '村'];
+
+fn place_keys(value: &str) -> (String, String) {
+    let trimmed = value.trim_end_matches(CJK_SUFFIXES);
+    // Transliteration conflates distinct Han characters (大阪 Osaka and 大坂 both become "Da Ban").
+    if value
+        .chars()
+        .any(|ch| matches!(ch, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{9fff}'))
+    {
+        let key: String = trimmed.chars().filter(|ch| !whitespace(*ch)).collect();
+        return (key.clone(), key);
+    }
+    let normalized = normalize_place(if trimmed.is_empty() { value } else { trimmed });
+    let words: Vec<_> = normalized.split(' ').collect();
+    let start = words
+        .iter()
+        .position(|w| !QUALIFIERS.contains(w))
+        .unwrap_or(words.len());
+    let end = words
+        .iter()
+        .rposition(|w| !QUALIFIERS.contains(w))
+        .map_or(start, |i| i + 1);
+    // Spacing differs between transliterations (Hà Nội/Hanoi, 上海/Shanghai); Danish and Norwegian
+    // "aa" is the older spelling of "å" (Aarhus/Århus).
+    let compact = |words: &[&str]| words.concat().replace("aa", "a");
+    (compact(&words), compact(&words[start..end.max(start)]))
+}
+
+/// Whether two names denote the same place, ignoring qualifiers, spacing and script.
+pub fn names_agree(expected: &str, actual: &str) -> bool {
+    let (expected, expected_core) = place_keys(expected);
+    let (actual, actual_core) = place_keys(actual);
+    !expected.is_empty()
+        && (expected == actual || (!expected_core.is_empty() && expected_core == actual_core))
 }
 
 pub fn expected_country(address: &ParsedAddress) -> String {
@@ -199,17 +257,10 @@ pub fn city_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
     let Some(d) = details else {
         return false;
     };
-    let expected = normalize_place(expected);
     [&d.city, &d.town, &d.village, &d.municipality]
         .iter()
         .filter(|s| !s.is_empty())
-        .any(|s| {
-            let name = normalize_place(s);
-            name == expected
-                || ["greater ", "city of ", "metropolitan "]
-                    .iter()
-                    .any(|prefix| name.strip_prefix(prefix).is_some_and(|v| v == expected))
-        })
+        .any(|s| names_agree(expected, s))
 }
 
 pub fn region_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
@@ -222,10 +273,16 @@ pub fn region_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) 
         .filter(|s| !s.is_empty())
         .any(|s| {
             let expected = normalize_place(s);
-            [&d.state, &d.region, &d.county, &d.state_district]
-                .iter()
-                .filter(|s| !s.is_empty())
-                .any(|name| normalize_place(name) == expected)
+            [
+                &d.state,
+                &d.province,
+                &d.region,
+                &d.county,
+                &d.state_district,
+            ]
+            .iter()
+            .filter(|s| !s.is_empty())
+            .any(|name| normalize_place(name) == expected)
         })
 }
 

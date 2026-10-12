@@ -4,7 +4,8 @@ A Rust service that combines libpostal address parsing, Nominatim lookups and Cl
 
 - Connect JSON and Connect protobuf; an experimental legacy gRPC surface.
 - Forward geocoding, reverse region resolution and region-map refresh/read APIs.
-- Country/region corroboration, local-language candidate matching, postcode-area safeguards and ordered fallback queries.
+- Country/region corroboration, local-language candidate matching (including each place's names in other languages and scripts), postcode-area safeguards and ordered fallback queries.
+- `goodMatch` is false for structured-fallback results and for street results that lack the requested house number.
 - Prometheus metrics, gRPC reflection and graceful shutdown.
 - A non-root, Python-free runtime for Linux amd64 and arm64.
 
