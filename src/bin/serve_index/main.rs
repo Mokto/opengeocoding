@@ -21,8 +21,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tantivy::{
-    DocAddress, Index, Order, Searcher, Term,
-    collector::TopDocs,
+    DocAddress, Index, Searcher, Term,
     query::{BooleanQuery, Occur, Query as TQuery, RangeQuery, TermQuery},
     schema::{Field, IndexRecordOption},
 };
@@ -47,9 +46,15 @@ struct Place {
     primary: Box<str>,
     /// `language=name` pairs joined by SEP.
     names: Box<str>,
+    /// Sorted `name_key` hashes of all names, so exact-name checks don't re-fold them.
+    keys: Box<[u64]>,
 }
 
 impl Place {
+    fn named(&self, key: u64) -> bool {
+        self.keys.binary_search(&key).is_ok()
+    }
+
     fn name(&self, en: bool) -> &str {
         en.then(|| self.lang("en"))
             .flatten()
@@ -119,13 +124,85 @@ fn load_places(path: &str) -> Vec<Place> {
                 parent: f(12).parse().unwrap_or(NONE),
                 primary: f(13).into(),
                 names: f(14).into(),
+                keys: Box::default(),
             }
         })
         .collect()
 }
 
+struct Columns {
+    id: tantivy::columnar::Column<u64>,
+    place: tantivy::columnar::Column<u64>,
+    x: tantivy::columnar::Column<f64>,
+    y: tantivy::columnar::Column<f64>,
+    importance: tantivy::columnar::Column<u64>,
+}
+
+struct ByImportance {
+    n: usize,
+    columns: Vec<tantivy::columnar::Column<u64>>,
+}
+
+struct SegmentTop {
+    segment: u32,
+    n: usize,
+    column: tantivy::columnar::Column<u64>,
+    heap: std::collections::BinaryHeap<std::cmp::Reverse<(u64, u32)>>,
+}
+
+impl tantivy::collector::Collector for ByImportance {
+    type Fruit = Vec<DocAddress>;
+    type Child = SegmentTop;
+
+    fn for_segment(&self, segment: u32, _: &tantivy::SegmentReader) -> tantivy::Result<SegmentTop> {
+        Ok(SegmentTop {
+            segment,
+            n: self.n,
+            column: self.columns[segment as usize].clone(),
+            heap: Default::default(),
+        })
+    }
+
+    fn requires_scoring(&self) -> bool {
+        false
+    }
+
+    fn merge_fruits(
+        &self,
+        fruits: Vec<Vec<(u64, DocAddress)>>,
+    ) -> tantivy::Result<Vec<DocAddress>> {
+        let mut all: Vec<(u64, DocAddress)> = fruits.into_iter().flatten().collect();
+        all.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        Ok(all.into_iter().take(self.n).map(|(_, a)| a).collect())
+    }
+}
+
+impl tantivy::collector::SegmentCollector for SegmentTop {
+    type Fruit = Vec<(u64, DocAddress)>;
+
+    fn collect(&mut self, doc: u32, _: tantivy::Score) {
+        let v = self.column.first(doc).unwrap_or(0);
+        if self.heap.len() < self.n {
+            self.heap.push(std::cmp::Reverse((v, doc)));
+        } else if self.heap.peek().is_some_and(|m| m.0.0 < v) {
+            self.heap.pop();
+            self.heap.push(std::cmp::Reverse((v, doc)));
+        }
+    }
+
+    fn harvest(self) -> Self::Fruit {
+        let segment = self.segment;
+        self.heap
+            .into_iter()
+            .map(|std::cmp::Reverse((v, doc))| (v, DocAddress::new(segment, doc)))
+            .collect()
+    }
+}
+
 struct App {
     searcher: Searcher,
+    /// Fast-field readers per segment, opened once: opening one parses its block index.
+    columns: Vec<Columns>,
     f: Fields,
     numbers: Vec<tantivy_fst::Map<Vec<u8>>>,
     places: Vec<Place>,
@@ -171,6 +248,13 @@ fn term(f: Field, t: &str) -> Box<dyn TQuery> {
 /// (東京 names 東京都, 上海 names 上海市, 서울 names 서울특별시).
 fn exact_key(name: &str) -> String {
     fold(cjk_stem(name).unwrap_or(name.trim()))
+}
+
+/// Hash of `exact_key`, for `Place::keys`.
+fn name_key(name: &str) -> u64 {
+    use std::hash::BuildHasher;
+    std::hash::BuildHasherDefault::<std::collections::hash_map::DefaultHasher>::default()
+        .hash_one(exact_key(name))
 }
 
 fn cjk_stem(name: &str) -> Option<&str> {
@@ -284,7 +368,16 @@ impl App {
                     .unwrap()
             })
             .collect();
-        let places = load_places(&format!("{dir}/places.tsv"));
+        let mut places = load_places(&format!("{dir}/places.tsv"));
+        {
+            use rayon::prelude::*;
+            places.par_iter_mut().for_each(|p| {
+                let mut keys: Vec<u64> = p.all_names().map(name_key).collect();
+                keys.sort_unstable();
+                keys.dedup();
+                p.keys = keys.into();
+            });
+        }
         let mut countries = HashMap::new();
         let mut regions: HashMap<String, u32> = HashMap::new();
         for (i, p) in places.iter().enumerate() {
@@ -310,8 +403,23 @@ impl App {
         countries.entry("uae".into()).or_insert_with(|| "ae".into());
         let postal = rustpostal::LibModules::Address;
         postal.setup().expect("libpostal model setup failed");
+        let columns = searcher
+            .segment_readers()
+            .iter()
+            .map(|r| {
+                let f = r.fast_fields();
+                Columns {
+                    id: f.u64("id").unwrap(),
+                    place: f.u64("place").unwrap(),
+                    x: f.f64("x").unwrap(),
+                    y: f.f64("y").unwrap(),
+                    importance: f.u64("importance").unwrap(),
+                }
+            })
+            .collect();
         App {
             searcher,
+            columns,
             f,
             numbers,
             places,
@@ -340,35 +448,35 @@ impl App {
     }
 
     fn fast(&self, a: DocAddress, field: &str) -> u64 {
-        self.searcher
-            .segment_reader(a.segment_ord)
-            .fast_fields()
-            .u64(field)
-            .unwrap()
-            .first(a.doc_id)
-            .unwrap_or(0)
+        let c = &self.columns[a.segment_ord as usize];
+        match field {
+            "id" => &c.id,
+            "place" => &c.place,
+            _ => unreachable!("{field}"),
+        }
+        .first(a.doc_id)
+        .unwrap_or(0)
     }
 
     fn fast_f64(&self, a: DocAddress, field: &str) -> f64 {
-        self.searcher
-            .segment_reader(a.segment_ord)
-            .fast_fields()
-            .f64(field)
-            .unwrap()
-            .first(a.doc_id)
-            .unwrap_or(0.0)
+        let c = &self.columns[a.segment_ord as usize];
+        match field {
+            "x" => &c.x,
+            "y" => &c.y,
+            _ => unreachable!("{field}"),
+        }
+        .first(a.doc_id)
+        .unwrap_or(0.0)
     }
 
+    /// The `n` most important matches. TopDocs' fast-field ordering reopens the column of every
+    /// segment on every query, which cost more than the search itself.
     fn top(&self, q: &dyn TQuery, n: usize) -> Vec<DocAddress> {
-        self.searcher
-            .search(
-                q,
-                &TopDocs::with_limit(n).order_by_fast_field::<u64>("importance", Order::Desc),
-            )
-            .unwrap()
-            .into_iter()
-            .map(|(_, a)| a)
-            .collect()
+        let by = ByImportance {
+            n,
+            columns: self.columns.iter().map(|c| c.importance.clone()).collect(),
+        };
+        self.searcher.search(q, &by).unwrap()
     }
 
     fn musts(&self, field: Field, text: &str) -> Vec<(Occur, Box<dyn TQuery>)> {
@@ -409,8 +517,8 @@ impl App {
         if let Some(cc) = cc {
             cl.push(must(term(self.f.country, &cc.to_uppercase())));
         }
-        let want = exact_key(text);
-        let within = within.map(fold).filter(|w| !w.is_empty());
+        let want = name_key(text);
+        let within = within.filter(|w| !fold(w).is_empty()).map(name_key);
         let mut found: Vec<(bool, bool, bool, usize, u32)> = self
             .top(&BooleanQuery::new(cl), 100)
             .into_iter()
@@ -418,14 +526,12 @@ impl App {
             .map(|(rank, a)| (rank, self.fast(a, "id") as u32))
             .filter(|(_, id)| ok(&self.places[*id as usize]))
             .map(|(rank, id)| {
-                let exact = self.places[id as usize]
-                    .all_names()
-                    .any(|n| exact_key(n) == want);
-                let inside = within.as_ref().is_some_and(|w| {
+                let exact = self.places[id as usize].named(want);
+                let inside = within.is_some_and(|w| {
                     self.chain(id)
                         .iter()
                         .skip(1)
-                        .any(|&a| self.places[a as usize].all_names().any(|n| fold(n) == *w))
+                        .any(|&a| self.places[a as usize].named(w))
                 });
                 // A major city outranks a same-named region, as with Nominatim (Tokyo, New York).
                 let pl = &self.places[id as usize];
@@ -566,13 +672,12 @@ impl App {
                 });
                 let place = self.fast(a, "place") as u32;
                 let named = |c: &str| {
-                    let want = exact_key(c);
+                    let want = name_key(c);
                     place != NONE
-                        && self.chain(place).iter().any(|&p| {
-                            self.places[p as usize]
-                                .all_names()
-                                .any(|n| exact_key(n) == want)
-                        })
+                        && self
+                            .chain(place)
+                            .iter()
+                            .any(|&p| self.places[p as usize].named(want))
                 };
                 let city = city
                     .filter(|c| postal_city.contains(&a) && !named(c))
