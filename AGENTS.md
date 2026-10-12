@@ -81,5 +81,5 @@ docker build --target runtime -t geolocation .
 - Use feature branches and pull requests; never push directly to `main` or continue a branch whose PR has merged.
 - Keep public PR descriptions accurate after every push and free of internal references.
 - Pin GitHub Actions and reusable workflows by commit SHA. Keep publishing credentials out of pull-request jobs.
-- Branch pushes trigger checked, multi-platform image publishing to `ghcr.io/mokto/geolocation`. Only `main` updates `latest`; branch, SHA and version tags are separate.
-- Do not merge, create release tags, publish crates or change package visibility without explicit authorization. GHCR publication already configured by this repository runs automatically on branch pushes.
+- Pushes to `main`, `v*` tag pushes and manual dispatch trigger checked, multi-platform image publishing to `ghcr.io/mokto/geolocation`. Only `main` updates `latest`; branch, SHA and version tags are separate.
+- Do not merge, create release tags, publish crates or change package visibility without explicit authorization. GHCR publication already configured by this repository runs automatically on pushes to `main` and `v*` tags.
