@@ -2,7 +2,7 @@
 //! extracts. Both feed the same `Sink` as Overture rows, so a house number that several sources
 //! hold on the same street collapses to one FST key.
 use super::{Shared, Sink, country};
-use osmpbf::{BlobDecode, BlobReader, ByteOffset, PrimitiveBlock};
+use osmpbf::{BlobDecode, BlobReader, ByteOffset, PrimitiveBlock, RelMemberType};
 use rayon::prelude::*;
 use serde::Deserialize;
 use std::{
@@ -179,9 +179,9 @@ fn fail(path: &Path, e: osmpbf::Error) -> ! {
     panic!("{}: {e}", path.display())
 }
 
-/// Blob offsets, and the index of the first blob after the nodes. Reads only blob headers and
+/// Blob offsets, and the indexes of the first blob after the nodes and after the ways. Reads only blob headers and
 /// decodes about log2(blobs) blocks. Needs a file sorted by type then id, as Geofabrik's are.
-fn layout(path: &Path) -> (Vec<ByteOffset>, usize) {
+fn layout(path: &Path) -> (Vec<ByteOffset>, usize, usize) {
     let mut r = BlobReader::seekable_from_path(path).unwrap_or_else(|e| fail(path, e));
     let mut offsets = vec![];
     while let Some(h) = r.next_header_skip_blob() {
@@ -207,16 +207,20 @@ fn layout(path: &Path) -> (Vec<ByteOffset>, usize) {
         b.groups()
             .any(|g| g.dense_nodes().next().is_some() || g.nodes().next().is_some())
     };
-    let first_way = 1
-        + (1..offsets.len())
+    let has_ways = |b: &PrimitiveBlock| b.groups().any(|g| g.ways().next().is_some());
+    let mut first = |from: usize, before: &dyn Fn(&PrimitiveBlock) -> bool| {
+        from + (from..offsets.len())
             .collect::<Vec<_>>()
             .partition_point(|&i| {
                 let block = r
                     .blob_from_offset(offsets[i])
                     .and_then(|b| b.to_primitiveblock());
-                has_nodes(&block.unwrap_or_else(|e| fail(path, e)))
-            });
-    (offsets, first_way)
+                before(&block.unwrap_or_else(|e| fail(path, e)))
+            })
+    };
+    let first_way = first(1, &has_nodes);
+    let first_relation = first(first_way, &|b| has_nodes(b) || has_ways(b));
+    (offsets, first_way, first_relation)
 }
 
 #[derive(Default)]
@@ -242,6 +246,16 @@ impl<'a> Addr<'a> {
         (a.number.is_some() || a.postcode.is_some()).then_some(a)
     }
 
+    fn owned(&self) -> OwnedAddr {
+        let o = |v: Option<&str>| v.map(str::to_string);
+        OwnedAddr {
+            number: o(self.number),
+            street: o(self.street),
+            postcode: o(self.postcode),
+            city: o(self.city),
+        }
+    }
+
     fn add(&self, sink: &mut Sink, x: f64, y: f64) {
         sink.add(
             None,
@@ -255,10 +269,17 @@ impl<'a> Addr<'a> {
     }
 }
 
-/// Per-job buffer, appended to the shared one when rayon drops it.
-struct Collect<'m>(Vec<i64>, &'m Mutex<Vec<i64>>);
+struct OwnedAddr {
+    number: Option<String>,
+    street: Option<String>,
+    postcode: Option<String>,
+    city: Option<String>,
+}
 
-impl Drop for Collect<'_> {
+/// Per-job buffer, appended to the shared one when rayon drops it.
+struct Collect<'m, T>(Vec<T>, &'m Mutex<Vec<T>>);
+
+impl<T> Drop for Collect<'_, T> {
     fn drop(&mut self) {
         self.1.lock().unwrap().append(&mut self.0);
     }
@@ -275,34 +296,70 @@ fn unpack(v: u64) -> (f64, f64) {
     )
 }
 
-/// Addressed nodes, and addressed ways (buildings) located at their first node. The country is
+/// Addressed nodes, ways (buildings) and relations (multipolygon buildings), the latter two
+/// located at their (first outer way's) first node. The country is
 /// the containing place's. Returns the number of files read.
-// ponytail: a building's first node is within metres of its centroid; relations (multipolygon
-// buildings) and addr:interpolation ways are skipped, as are addr:place addresses without
-// addr:street. Each needs node coordinates or place linking that this pass doesn't keep.
+// ponytail: a building's first node is within metres of its centroid; addr:interpolation ways
+// and addr:place addresses without addr:street are skipped. Each needs node coordinates or place
+// linking that this pass doesn't keep.
 pub fn osm(dir: &Path, shared: &Shared) -> usize {
     let files = files(dir, ".osm.pbf");
     files.par_iter().for_each(|path| {
-        let (offsets, first_way) = layout(path);
-        let (nodes, ways) = (1..first_way, first_way..offsets.len());
+        let (offsets, first_way, first_relation) = layout(path);
+        let (nodes, ways, relations) = (
+            1..first_way,
+            first_way..first_relation,
+            first_relation..offsets.len(),
+        );
 
-        // 1: first node of each addressed way
-        let refs = Mutex::new(vec![]);
+        // 0: addressed relations (multipolygon buildings) and their first way, outer if any
+        let found = Mutex::new(vec![]);
+        for_blobs(
+            path,
+            &offsets,
+            relations,
+            || Collect(vec![], &found),
+            |mine, block| {
+                for r in block.groups().flat_map(|g| g.relations()) {
+                    let Some(a) = Addr::from(r.tags()) else {
+                        continue;
+                    };
+                    let ways = || r.members().filter(|m| m.member_type == RelMemberType::Way);
+                    let way = ways()
+                        .find(|m| m.role().is_ok_and(|role| role == "outer"))
+                        .or_else(|| ways().next());
+                    if let Some(w) = way {
+                        mine.0.push((w.member_id, a.owned()));
+                    }
+                }
+            },
+        );
+        let relations = found.into_inner().unwrap();
+        let mut member_ways: Vec<i64> = relations.iter().map(|(w, _)| *w).collect();
+        member_ways.par_sort_unstable();
+        member_ways.dedup();
+
+        // 1: first node of each addressed way and of those relations' ways
+        let (refs, firsts) = (Mutex::new(vec![]), Mutex::new(vec![]));
         for_blobs(
             path,
             &offsets,
             ways.clone(),
-            || Collect(vec![], &refs),
-            |mine, block| {
+            || (Collect(vec![], &refs), Collect(vec![], &firsts)),
+            |(mine, first), block| {
                 for w in block.groups().flat_map(|g| g.ways()) {
-                    if Addr::from(w.tags()).is_some()
-                        && let Some(r) = w.refs().next()
-                    {
+                    let Some(r) = w.refs().next() else { continue };
+                    if member_ways.binary_search(&w.id()).is_ok() {
+                        first.0.push((w.id(), r));
+                        mine.0.push(r);
+                    } else if Addr::from(w.tags()).is_some() {
                         mine.0.push(r);
                     }
                 }
             },
         );
+        let mut firsts = firsts.into_inner().unwrap();
+        firsts.par_sort_unstable();
         let mut needed = refs.into_inner().unwrap();
         needed.par_sort_unstable();
         needed.dedup();
@@ -368,6 +425,28 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                 }
             },
         );
+        let coord = |node: i64| {
+            let k = needed.binary_search(&node).ok()?;
+            let v = coords[k].load(Relaxed);
+            (v != u64::MAX).then(|| unpack(v))
+        };
+        let mut sink = Sink::new(shared);
+        for (way, a) in &relations {
+            let Ok(k) = firsts.binary_search_by_key(way, |(w, _)| *w) else {
+                continue;
+            };
+            if let Some((x, y)) = coord(firsts[k].1) {
+                sink.add(
+                    None,
+                    x,
+                    y,
+                    a.street.as_deref(),
+                    a.number.as_deref(),
+                    a.postcode.as_deref(),
+                    a.city.as_deref(),
+                );
+            }
+        }
     });
     files.len()
 }

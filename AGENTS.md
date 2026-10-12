@@ -19,7 +19,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - `data/`, `src/bin/update_reference.rs`: public reference data and its generator.
 - `tests/matching.rs`, `tests/rpc.rs`: regression tests and the model-backed RPC integration test (ignored by default).
 - `src/bin/benchmark.rs`, `src/bin/notices.rs`: local mock benchmark and third-party notice generation.
-- `src/bin/build_index/`: experimental Overture-to-Tantivy index builder (polygon assignment, street merging, house-number FSTs; `sources.rs` reads OSM and OpenAddresses); not used by the service.
+- `src/bin/build_index/`: experimental Overture-to-Tantivy index builder (polygon assignment, street merging, house-number FSTs; `sources.rs` reads OSM and OpenAddresses); `src/bin/serve_index/`: Nominatim-compatible HTTP shim over that index, for evaluating it through the unchanged service; not used by the service.
 - `src/bin/evaluate/`, `src/eval.rs`: geographic-correctness evaluator (scoring, runs, reports, snapshots, gold builder) and the TSV/hold-out helpers it shares with external samplers.
 - `tests/gold.seeds.jsonl`, `tests/gold.jsonl`: curated gold case list and the corpus generated from it.
 - `tests/addresses.tsv`, `tests/snapshots/addresses.tsv`: unscored real-address corpus and its accepted snapshot for change detection.

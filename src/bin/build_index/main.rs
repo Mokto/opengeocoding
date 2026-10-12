@@ -13,7 +13,9 @@ use arrow_array::{
     types::{Float64Type, Int32Type},
 };
 use geo::{Assigner, KINDS, Poly, wkb_point, wkb_polygons};
-use index::{Bucket, Num, NumberSpill, fold, fold_into, pc_norm};
+use index::{
+    Bucket, Num, NumberSpill, fold, fold_into, pack, pc_norm, postcode_slot, with_postcode,
+};
 use parquet::arrow::{
     ProjectionMask,
     arrow_reader::{ArrowReaderMetadata, ParquetRecordBatchReaderBuilder},
@@ -236,9 +238,24 @@ struct Place {
     xy: Option<(f64, f64)>,
     parents: Vec<Str>,
     anc: Box<[u32]>,
+    parent: Option<Str>,
+    /// The `places.tsv` columns after the row's place id, with the parent left out.
+    row: Str,
 }
 
-fn load_places(dir: &Path) -> (Vec<Place>, HashMap<Str, u32>) {
+/// Tab-separated text with tabs, newlines and NAME_SEP in values turned into spaces.
+fn cell(s: &str) -> std::borrow::Cow<'_, str> {
+    if s.contains(['\t', '\n', '\r', NAME_SEP]) {
+        s.replace(['\t', '\n', '\r', NAME_SEP], " ").into()
+    } else {
+        s.into()
+    }
+}
+
+/// Also writes `places.tsv`, one row per place id: subtype, class, country, ISO 3166-2 region,
+/// admin level, population, x, y, bbox (xmin, ymin, xmax, ymax), parent place id (or empty),
+/// primary name, and `language=name` pairs joined by NAME_SEP.
+fn load_places(dir: &Path, out: &str) -> (Vec<Place>, HashMap<Str, u32>) {
     let mut places: Vec<Place> = tasks(dir)
         .par_iter()
         .flat_map_iter(|t| {
@@ -251,11 +268,31 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<Str, u32>) {
                     "country",
                     "names.primary",
                     "names.common",
+                    "names.rules",
                     "population",
                     "hierarchies",
                     "geometry",
+                    "class",
+                    "region",
+                    "admin_level",
+                    "parent_division_id",
+                    "bbox",
                 ],
             ) {
+                let (class, region, parent) = (
+                    col(&b, "class").as_string::<i32>(),
+                    col(&b, "region").as_string::<i32>(),
+                    col(&b, "parent_division_id").as_string::<i32>(),
+                );
+                let level = col(&b, "admin_level").as_primitive::<Int32Type>();
+                let bbox = col(&b, "bbox").as_struct();
+                let bb = |n: &str| {
+                    bbox.column_by_name(n)
+                        .unwrap()
+                        .as_primitive::<Float64Type>()
+                        .clone()
+                };
+                let (x0, x1, y0, y1) = (bb("xmin"), bb("xmax"), bb("ymin"), bb("ymax"));
                 let (id, sub, cc) = (
                     col(&b, "id").as_string::<i32>(),
                     col(&b, "subtype").as_string::<i32>(),
@@ -268,8 +305,37 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<Str, u32>) {
                 );
                 let hier = col(&b, "hierarchies").as_list::<i32>();
                 let mut names = vec![];
+                let rules = nm
+                    .column_by_name("rules")
+                    .map(|r| r.as_list::<i32>().clone());
                 for i in 0..b.num_rows() {
                     names_at(nm, i, &mut names);
+                    // alternate, short and official names, as (Nominatim namedetails key, name)
+                    let mut extra: Vec<(String, &str)> = vec![];
+                    if let Some(rules) = rules.as_ref().filter(|r| !r.is_null(i)) {
+                        let (o, v) = (rules.value_offsets(), rules.values().as_struct());
+                        let (variant, lang, value) = (
+                            v.column_by_name("variant").unwrap().as_string::<i32>(),
+                            v.column_by_name("language").unwrap().as_string::<i32>(),
+                            v.column_by_name("value").unwrap().as_string::<i32>(),
+                        );
+                        for j in o[i] as usize..o[i + 1] as usize {
+                            let Some(name) = text(value, j) else { continue };
+                            let key = match text(variant, j) {
+                                Some("official") => "official_name",
+                                Some("short") => "short_name",
+                                _ => "alt_name",
+                            };
+                            let key = match text(lang, j) {
+                                Some(l) => format!("{key}:{l}"),
+                                None => key.to_string(),
+                            };
+                            if !names.contains(&name) {
+                                names.push(name);
+                            }
+                            extra.push((key, name));
+                        }
+                    }
                     let mut parents = vec![];
                     if !hier.is_null(i) {
                         let outer = hier.value(i);
@@ -285,7 +351,65 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<Str, u32>) {
                                 .extend((0..ids.len()).filter_map(|k| text(ids, k)).map(Str::from));
                         }
                     }
+                    let xy = (!geom.is_null(i))
+                        .then(|| wkb_point(geom.value(i)))
+                        .flatten();
+                    let mut row = String::new();
+                    {
+                        use std::fmt::Write;
+                        let (x, y) = xy.unwrap_or((f64::NAN, f64::NAN));
+                        let num = |a: &arrow_array::Float64Array| {
+                            if bbox.is_null(i) || a.is_null(i) {
+                                f64::NAN
+                            } else {
+                                a.value(i)
+                            }
+                        };
+                        let _ = write!(
+                            row,
+                            "{}\t{}\t{}\t{}\t{}\t{}\t{x}\t{y}\t{}\t{}\t{}\t{}\t{}\t",
+                            sub.value(i),
+                            text(class, i).unwrap_or(""),
+                            text(cc, i).unwrap_or(""),
+                            text(region, i).unwrap_or(""),
+                            if level.is_null(i) { 0 } else { level.value(i) },
+                            if pop.is_null(i) {
+                                0
+                            } else {
+                                pop.value(i).max(0)
+                            },
+                            num(&x0),
+                            num(&y0),
+                            num(&x1),
+                            num(&y1),
+                            cell(names.first().copied().unwrap_or("")),
+                        );
+                        let common = nm.column_by_name("common").unwrap().as_map();
+                        if !common.is_null(i) {
+                            let (o, k, v) = (
+                                common.value_offsets(),
+                                common.keys().as_string::<i32>(),
+                                common.values().as_string::<i32>(),
+                            );
+                            for j in o[i] as usize..o[i + 1] as usize {
+                                if let Some(name) = text(v, j) {
+                                    if !row.ends_with('\t') {
+                                        row.push(NAME_SEP);
+                                    }
+                                    let _ = write!(row, "{}={}", cell(k.value(j)), cell(name));
+                                }
+                            }
+                        }
+                        for (k, name) in &extra {
+                            if !row.ends_with('\t') {
+                                row.push(NAME_SEP);
+                            }
+                            let _ = write!(row, "{}={}", cell(k), cell(name));
+                        }
+                    }
                     out.push(Place {
+                        parent: text(parent, i).map(Str::from),
+                        row: row.into(),
                         id: id.value(i).into(),
                         subtype: SUBTYPES
                             .iter()
@@ -298,9 +422,7 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<Str, u32>) {
                         } else {
                             pop.value(i).max(0) as u64
                         },
-                        xy: (!geom.is_null(i))
-                            .then(|| wkb_point(geom.value(i)))
-                            .flatten(),
+                        xy,
                         parents,
                         anc: Box::default(),
                     });
@@ -327,6 +449,20 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<Str, u32>) {
         p.anc = anc.into();
         p.parents = vec![];
     });
+    let mut w = std::io::BufWriter::new(File::create(Path::new(out).join("places.tsv")).unwrap());
+    for p in &mut places {
+        use std::io::Write;
+        let parent = p.parent.take().and_then(|d| idx.get(&d).copied());
+        let row = std::mem::take(&mut p.row);
+        let (head, tail) = row.split_at(
+            row.match_indices('\t')
+                .nth(11)
+                .map_or(row.len(), |(k, _)| k + 1),
+        );
+        let parent = parent.map_or(String::new(), |v| v.to_string());
+        writeln!(w, "{head}{parent}\t{tail}").unwrap();
+    }
+    std::io::Write::flush(&mut w).unwrap();
     (places, idx)
 }
 
@@ -663,8 +799,9 @@ impl<'s, 'a> Sink<'s, 'a> {
             }
         };
         let e = &mut self.aggs[li as usize];
-        if pc.is_some() && !self.pcn.is_empty() && e.pcs.len() < MAX_POSTCODES {
-            let id = self.shared.strings.cached(&mut self.cache, &self.pcn);
+        let pc_id = (pc.is_some() && !self.pcn.is_empty())
+            .then(|| self.shared.strings.cached(&mut self.cache, &self.pcn));
+        if let Some(id) = pc_id {
             push_unique(&mut e.pcs, id, MAX_POSTCODES);
         }
         if let Some(city) = nonempty(city)
@@ -682,7 +819,12 @@ impl<'s, 'a> Sink<'s, 'a> {
         {
             self.lower.clear();
             self.lower.extend(n.chars().flat_map(char::to_lowercase));
-            match Num::new(li, &self.lower, x as f32, y as f32) {
+            // slot = 1-based position in this task's list for the street; remapped on flush
+            let slot = pc_id
+                .and_then(|id| e.pcs.iter().position(|&p| p == id))
+                .map_or(0, |i| i as u8 + 1);
+            let (px, py) = pack(x, y, slot);
+            match Num::new(li, &self.lower, px, py) {
                 Ok(v) => self.nums.short.push(v),
                 Err(v) => self.nums.long.push(v),
             }
@@ -693,10 +835,13 @@ impl<'s, 'a> Sink<'s, 'a> {
         let sh = self.shared;
         sh.rows.fetch_add(std::mem::take(&mut self.rows), Relaxed);
         let mut remap = vec![0u32; self.aggs.len()];
+        // per local street: its local postcode slots -> slots in the merged street's list
+        let mut slots: Vec<Vec<u8>> = vec![vec![]; self.aggs.len()];
         for ((c, place), m) in self.local.drain() {
             for (k, li) in m {
                 let key: AddrKey = (c, place, k);
                 let agg = std::mem::take(&mut self.aggs[li as usize]);
+                let local_pcs = agg.pcs.clone();
                 let shard_ix = shard(&key);
                 let mut s = sh.streets[shard_ix].lock().unwrap();
                 let pos = match s.ids.get(&key) {
@@ -712,6 +857,16 @@ impl<'s, 'a> Sink<'s, 'a> {
                     }
                 };
                 assert!(pos < 1 << 24, "too many streets in one shard");
+                let merged = &s.streets[pos as usize].pcs;
+                slots[li as usize] = local_pcs
+                    .iter()
+                    .map(|id| {
+                        merged
+                            .iter()
+                            .position(|m| m == id)
+                            .map_or(0, |i| i as u8 + 1)
+                    })
+                    .collect();
                 remap[li as usize] = (pos << 8) | shard_ix as u32;
             }
         }
@@ -726,11 +881,20 @@ impl<'s, 'a> Sink<'s, 'a> {
         let shards = sh.numbers.shards();
         let mut out: Vec<Bucket> = (0..shards).map(|_| Bucket::default()).collect();
         let nums = std::mem::take(&mut self.nums);
+        let slot = |li: u32, x: u32| match postcode_slot(x) {
+            0 => x,
+            k => with_postcode(
+                x,
+                slots[li as usize].get(k as usize - 1).copied().unwrap_or(0),
+            ),
+        };
         for mut n in nums.short {
+            n.x = slot(n.sid, n.x);
             n.sid = remap[n.sid as usize];
             out[n.sid as usize % shards].short.push(n);
         }
         for mut n in nums.long {
+            n.x = slot(n.sid, n.x);
             n.sid = remap[n.sid as usize];
             out[n.sid as usize % shards].long.push(n);
         }
@@ -832,9 +996,17 @@ fn geonames_postcodes(path: &str) -> HashMap<PcKey, PcAgg> {
         ) else {
             continue;
         };
-        agg.entry((country(Some(cc)), pc_norm(pc).into()))
+        let cc = country(Some(cc));
+        agg.entry((cc, pc_norm(pc).into()))
             .or_default()
             .add(pc, x, y, 1);
+        // "EC1A 1BB" also places its outward code "EC1A" (GB), "1012 JS" its PC4 (NL) and
+        // "K1A 0B1" its FSA (CA) at the mean of their full postcodes.
+        if let Some((area, _)) = pc.split_once(' ') {
+            agg.entry((cc, pc_norm(area).into()))
+                .or_default()
+                .add(area, x, y, 1);
+        }
     }
     agg
 }
@@ -876,7 +1048,7 @@ fn main() {
         t = Instant::now();
     };
 
-    let (places, idx) = load_places(&dir.join("division"));
+    let (places, idx) = load_places(&dir.join("division"), out);
     lap(&format!("places ({})", places.len()));
     let assigner = load_assigner(&dir.join("division_area"), &places, &idx);
     drop(idx);
@@ -910,6 +1082,37 @@ fn main() {
         strings,
         ..
     } = shared;
+    let mut postcodes: HashMap<PcKey, PcAgg> = postcodes
+        .into_iter()
+        .flat_map(|m| m.into_inner().unwrap())
+        .collect();
+    let before = postcodes.len();
+    // GeoNames' points are official centroids; a key seen on only a few addresses (often an
+    // outward code typed alone, like "EC1A") takes GeoNames' instead. Earlier files win.
+    let mut from_geonames = std::collections::HashSet::new();
+    for path in &geonames {
+        for (k, v) in geonames_postcodes(path) {
+            if !from_geonames.contains(&k) && postcodes.get(&k).is_none_or(|e| e.n < 10) {
+                from_geonames.insert(k.clone());
+                postcodes.insert(k, v);
+            }
+        }
+    }
+    println!(
+        "  {} postcodes from address data, {} from GeoNames ({} new)",
+        before,
+        from_geonames.len(),
+        postcodes.len() - before
+    );
+    let postcodes: Vec<(PcKey, PcAgg, u32)> = postcodes
+        .into_par_iter()
+        .map(|(k, v)| {
+            let place = assigner
+                .place(v.sx / v.n as f64, v.sy / v.n as f64)
+                .unwrap_or(NO_PLACE);
+            (k, v, place)
+        })
+        .collect();
     drop(assigner);
 
     // Each shard sorts in memory; allow as many at once as half the headroom fits.
@@ -976,6 +1179,7 @@ fn main() {
             f.country => cc,
             f.name => names[0],
             f.id => sid as u64,
+            f.place => place as u64,
             f.importance => weight,
             f.x => x,
             f.y => y,
@@ -1066,22 +1270,7 @@ fn main() {
         addr_streets - merged
     ));
 
-    let mut postcodes: HashMap<PcKey, PcAgg> = postcodes
-        .into_iter()
-        .flat_map(|m| m.into_inner().unwrap())
-        .collect();
-    let before = postcodes.len();
-    for path in &geonames {
-        for (k, v) in geonames_postcodes(path) {
-            postcodes.entry(k).or_insert(v);
-        }
-    }
-    println!(
-        "  {} postcodes from address data, {} more from GeoNames",
-        before,
-        postcodes.len() - before
-    );
-    postcodes.par_iter().for_each(|((cc, pc), v)| {
+    postcodes.par_iter().for_each(|((cc, pc), v, place)| {
         writer
             .add_document(doc!(
                 f.kind => "z",
@@ -1089,6 +1278,7 @@ fn main() {
                 f.country => country_str(cc),
                 f.name => &*v.display,
                 f.importance => v.n,
+                f.place => *place as u64,
                 f.x => v.sx / v.n as f64,
                 f.y => v.sy / v.n as f64,
             ))

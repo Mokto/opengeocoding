@@ -66,6 +66,8 @@ pub struct Fields {
     pub name: Field,
     pub id: Field,
     pub importance: Field,
+    /// Street and postcode docs: their place id, or u32::MAX.
+    pub place: Field,
     pub x: Field,
     pub y: Field,
 }
@@ -85,11 +87,12 @@ pub fn schema() -> (Schema, Fields) {
         city: b.add_text_field("city", folded()),
         country: b.add_text_field("country", STRING),
         ids: b.add_text_field("ids", STRING),
-        pcode: b.add_text_field("pcode", STRING),
+        pcode: b.add_text_field("pcode", STRING | STORED),
         ctok: b.add_text_field("ctok", STRING),
         name: b.add_text_field("name", STORED),
         id: b.add_u64_field("id", FAST),
         importance: b.add_u64_field("importance", FAST),
+        place: b.add_u64_field("place", FAST),
         x: b.add_f64_field("x", FAST),
         y: b.add_f64_field("y", FAST),
     };
@@ -118,19 +121,46 @@ pub const INLINE: usize = 8;
 pub struct Num {
     pub sid: u32,
     pub num: [u8; INLINE],
-    pub x: f32,
-    pub y: f32,
+    /// `pack`ed: longitude and postcode slot.
+    pub x: u32,
+    /// `pack`ed: latitude.
+    pub y: u32,
 }
 
 pub struct LongNum {
     pub sid: u32,
     pub num: String,
-    pub x: f32,
-    pub y: f32,
+    pub x: u32,
+    pub y: u32,
+}
+
+/// An FST value: longitude in 24 bits (about 2 m), the house's postcode as a 1-based index into
+/// its street's stored `pcode` list (0 = none) in 8 bits, then latitude in 32 bits.
+pub fn pack(lon: f64, lat: f64, postcode: u8) -> (u32, u32) {
+    let x = ((lon + 180.0) / 360.0 * (1u64 << 24) as f64).clamp(0.0, ((1 << 24) - 1) as f64) as u32;
+    let y = ((lat + 90.0) / 180.0 * (1u64 << 32) as f64).clamp(0.0, u32::MAX as f64) as u32;
+    (x | (postcode as u32) << 24, y)
+}
+
+pub fn with_postcode(x: u32, postcode: u8) -> u32 {
+    (x & 0xff_ffff) | (postcode as u32) << 24
+}
+
+pub fn postcode_slot(x: u32) -> u8 {
+    (x >> 24) as u8
+}
+
+/// (longitude, latitude, postcode slot) of an FST value.
+#[allow(dead_code)] // read by serve_index
+pub fn unpack(v: u64) -> (f64, f64, u8) {
+    let (x, y) = ((v >> 32) as u32, v as u32);
+    let lon = (x & 0xff_ffff) as f64 / (1u64 << 24) as f64 * 360.0 - 180.0;
+    let lat = y as f64 / (1u64 << 32) as f64 * 180.0 - 90.0;
+    (lon, lat, postcode_slot(x))
 }
 
 impl Num {
-    pub fn new(sid: u32, num: &str, x: f32, y: f32) -> Result<Num, LongNum> {
+    pub fn new(sid: u32, num: &str, x: u32, y: u32) -> Result<Num, LongNum> {
         if num.len() > INLINE || num.as_bytes().contains(&0) {
             return Err(LongNum {
                 sid,
@@ -168,8 +198,8 @@ impl Num {
         Num {
             sid: u32::from_le_bytes(f(0)),
             num: r[4..4 + INLINE].try_into().unwrap(),
-            x: f32::from_le_bytes(f(4 + INLINE)),
-            y: f32::from_le_bytes(f(8 + INLINE)),
+            x: u32::from_le_bytes(f(4 + INLINE)),
+            y: u32::from_le_bytes(f(8 + INLINE)),
         }
     }
 }
@@ -301,8 +331,7 @@ fn shard(out: &str, s: usize, dir: &std::path::Path, long: Vec<LongNum>) -> u64 
         if key <= last {
             continue;
         }
-        fst.insert(&key, ((x.to_bits() as u64) << 32) | y.to_bits() as u64)
-            .unwrap();
+        fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
         n += 1;
         std::mem::swap(&mut key, &mut last);
     }
@@ -332,6 +361,13 @@ mod tests {
         ] {
             assert_eq!(fold(a), fold(b), "{a} / {b}");
         }
+        assert_eq!(fold("350 Fifth Avenue"), fold("350 5th Ave"));
+        assert_eq!(fold("5 AVENUE"), fold("5th Avenue"));
+        assert_eq!(fold("21st St"), "21 st");
+        assert_eq!(fold("İstanbul"), "istanbul");
+        assert_eq!(fold("東京都"), "東京 京都");
+        assert_eq!(fold("東京"), "東京");
+        assert_eq!(fold("서울특별시"), "서울 울특 특별 별시");
         assert_eq!(fold("Via Roma"), "via roma");
         assert_eq!(fold("Strasse"), "str");
     }
@@ -356,7 +392,8 @@ mod tests {
             let mut buckets: Vec<Bucket> = (0..2).map(|_| Bucket::default()).collect();
             for (sid, num) in task {
                 let b = &mut buckets[sid as usize % 2];
-                match Num::new(sid, num, sid as f32, num.len() as f32) {
+                let (x, y) = pack(sid as f64, num.len() as f64, 3);
+                match Num::new(sid, num, x, y) {
                     Ok(n) => b.short.push(n),
                     Err(l) => b.long.push(l),
                 }
@@ -376,10 +413,16 @@ mod tests {
             assert!(s1.get(key(7, n)).is_some(), "{n}");
         }
         let v = s1.get(key(7, "1a")).unwrap();
-        assert_eq!(
-            (f32::from_bits((v >> 32) as u32), f32::from_bits(v as u32)),
-            (7.0, 2.0)
+        let (lon, lat, pc) = unpack(v);
+        assert!(
+            (lon - 7.0).abs() < 1e-4 && (lat - 2.0).abs() < 1e-6 && pc == 3,
+            "{lon} {lat} {pc}"
         );
+        let (lon, lat, pc) = unpack({
+            let (x, y) = pack(-179.99999, 89.99999, 255);
+            (x as u64) << 32 | y as u64
+        });
+        assert!((lon + 179.99999).abs() < 3e-5 && (lat - 89.99999).abs() < 1e-6 && pc == 255);
         fs::remove_dir_all(&dir).unwrap();
     }
 }

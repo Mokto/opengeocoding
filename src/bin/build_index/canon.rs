@@ -69,6 +69,20 @@ pub const VARIANTS: &[(&str, &str)] = &[
     ("northwest", "nw"),
     ("southeast", "se"),
     ("southwest", "sw"),
+    // English ordinal words; numeric ordinals lose their suffix in `apply` ("5th" -> "5", as
+    // New York's own address data writes "5 AVENUE")
+    ("first", "1"),
+    ("second", "2"),
+    ("third", "3"),
+    ("fourth", "4"),
+    ("fifth", "5"),
+    ("sixth", "6"),
+    ("seventh", "7"),
+    ("eighth", "8"),
+    ("ninth", "9"),
+    ("tenth", "10"),
+    ("eleventh", "11"),
+    ("twelfth", "12"),
     // French
     ("chemin", "ch"),
     ("impasse", "imp"),
@@ -157,6 +171,12 @@ pub fn canon(t: &str) -> Option<&'static str> {
     MAP.with(|m| m.get(t).copied())
 }
 
+/// "21st", "2nd", "3rd", "5th": the length of the digits.
+fn ordinal(t: &str) -> Option<usize> {
+    let digits = t.bytes().take_while(u8::is_ascii_digit).count();
+    (digits > 0 && matches!(&t[digits..], "st" | "nd" | "rd" | "th")).then_some(digits)
+}
+
 /// German and Dutch compounds: "hauptstrasse" -> "hauptstr", like "Hauptstr.".
 fn compound(t: &str) -> Option<usize> {
     ["strasse", "straat"].iter().find_map(|s| {
@@ -167,13 +187,43 @@ fn compound(t: &str) -> Option<usize> {
 }
 
 fn apply(text: &mut String) {
+    // "İ" lowercases to "i" plus a combining dot that ASCII folding keeps
+    if text.chars().any(|c| ('\u{300}'..='\u{36f}').contains(&c)) {
+        text.retain(|c| !('\u{300}'..='\u{36f}').contains(&c));
+    }
     if let Some(c) = canon(text) {
         text.clear();
         text.push_str(c);
+    } else if let Some(n) = ordinal(text) {
+        text.truncate(n);
     } else if let Some(stem) = compound(text) {
         text.truncate(stem);
         text.push_str("str");
     }
+}
+
+/// Han, kana and Hangul: written without spaces, so whole runs never match a shorter query.
+fn cjk(c: char) -> bool {
+    matches!(c as u32, 0x1100..=0x11ff | 0x3040..=0x30ff | 0x3130..=0x318f | 0x3400..=0x4dbf | 0x4e00..=0x9fff | 0xac00..=0xd7af | 0xf900..=0xfaff | 0x20000..=0x2ffff)
+}
+
+/// A token's CJK runs as overlapping bigrams (a lone character stays), other runs whole.
+fn split(text: &str) -> Vec<String> {
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = vec![];
+    let mut i = 0;
+    while i < chars.len() {
+        let kind = cjk(chars[i]);
+        let j = i + chars[i..].iter().take_while(|&&c| cjk(c) == kind).count();
+        let run = &chars[i..j];
+        if kind && run.len() > 1 {
+            out.extend(run.windows(2).map(|w| w.iter().collect::<String>()));
+        } else {
+            out.push(run.iter().collect());
+        }
+        i = j;
+    }
+    out
 }
 
 #[derive(Clone)]
@@ -206,26 +256,46 @@ impl<T: Tokenizer> Tokenizer for CanonFilter<T> {
     type TokenStream<'a> = CanonStream<T::TokenStream<'a>>;
 
     fn token_stream<'a>(&'a mut self, text: &'a str) -> Self::TokenStream<'a> {
-        CanonStream(self.0.token_stream(text))
+        CanonStream {
+            tail: self.0.token_stream(text),
+            pending: vec![],
+        }
     }
 }
 
-pub struct CanonStream<T>(T);
+pub struct CanonStream<T> {
+    tail: T,
+    /// Remaining pieces of a split token, last first.
+    pending: Vec<String>,
+}
 
 impl<T: TokenStream> TokenStream for CanonStream<T> {
     fn advance(&mut self) -> bool {
-        if !self.0.advance() {
+        if let Some(next) = self.pending.pop() {
+            self.tail.token_mut().text = next;
+            return true;
+        }
+        if !self.tail.advance() {
             return false;
         }
-        apply(&mut self.0.token_mut().text);
+        let token = self.tail.token_mut();
+        if token.text.chars().any(cjk) {
+            let mut parts = split(&token.text);
+            parts.iter_mut().for_each(apply);
+            parts.reverse();
+            token.text = parts.pop().unwrap_or_default();
+            self.pending = parts;
+        } else {
+            apply(&mut token.text);
+        }
         true
     }
 
     fn token(&self) -> &Token {
-        self.0.token()
+        self.tail.token()
     }
 
     fn token_mut(&mut self) -> &mut Token {
-        self.0.token_mut()
+        self.tail.token_mut()
     }
 }

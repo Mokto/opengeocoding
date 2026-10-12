@@ -177,6 +177,20 @@ Streets and addresses are assigned to the containing locality polygon, else a lo
 
 Known limitations: outside Overture's address countries, house numbers are only as complete as OSM and OpenAddresses there; OSM relations, `addr:interpolation` ways and `addr:place` addresses without `addr:street` are skipped; abbreviations outside that table (`MLK`, `CR 123` for County Road) still index as separate streets; house numbers are matched lowercased, exactly as written; accuracy has not been evaluated. Overture's divisions and transportation themes and OpenStreetMap are ODbL (attribution "© OpenStreetMap contributors", share-alike for a distributed derived database); OpenAddresses licenses vary per source and many state none; review them before distributing an index.
 
+### Evaluating the index through the service
+
+`serve_index` answers the part of Nominatim's HTTP API the service and the evaluator use (`/search`, `/details`, `/reverse`, `/status`) from a `build_index` output, so the unchanged service can be evaluated against it:
+
+```sh
+target/release/serve_index out/ 127.0.0.1:8099 overture-2026-09-23.1 &
+NOMINATIM_URL=http://127.0.0.1:8099 target/release/evaluate run --suite gold --out eval-results/gold-index --max-rps 200
+target/release/evaluate diff BASELINE_GOLD_RUN eval-results/gold-index
+```
+
+It parses with libpostal (serialized), matches places, streets, postcodes and house numbers like Nominatim's all-terms search, and recognizes postcodes from the index when libpostal mislabels them. It reports each house's own postcode, as the source data gives it. It is an evaluation harness, not a production API: it holds about 3 GB besides libpostal, and `/reverse` returns the nearest locality point.
+
+In one run against the October 2026 Overture release with the OSM, OpenAddresses and GeoNames sources above, the gold suite passed 238 of 247 cases. Nominatim 5.3.2 with January 2026 OSM data passed 227. Against Nominatim, 12 cases newly passed, 1 newly failed (a Dubai boulevard whose address data names a smaller locality) and no must-pass case failed. On the 1,000 address samples, the index answered 840 (Nominatim 855) and 136 at house level (117). Where the sample's country is known, it chose the right country for 95.0% of its answers (Nominatim 97.5%). It gave 30 answers that claimed a good match in the wrong country (Nominatim 14), mostly for strings with no stated country such as "4 west" or a bare postcode. These are single runs on curated and sampled inputs, not production accuracy.
+
 ## Geographic evaluation
 
 The `evaluate` binary (`src/bin/evaluate`) measures geographic correctness against a real Nominatim backend through this service's RPCs. It is for backend, data and consumer changes; it does not measure throughput. Build it with the service:
