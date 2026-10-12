@@ -50,7 +50,7 @@ docker build --target runtime -t geolocation .
 
 ## Licensing, data and models
 
-- Project source is PolyForm-Shield-1.0.0. Keep dependencies compatible with distribution under it and retain their required notices.
+- Project source is FSL-1.1-Apache-2.0. Keep dependencies compatible with distribution under it and retain their required notices.
 - Transliteration uses BSD-3-Clause `deunicode`. Do not copy or export GPL Unidecode tables to restore old outputs. Transliteration changes require multilingual accuracy checks.
 - CLDR and GeoNames data retain their separate licenses and attribution. Refresh `data/` through `tools/update_reference.py`; review dataset changes and provenance together.
 - Regenerate `THIRD_PARTY_NOTICES.txt` with `python3 tools/dependency_notices.py` after dependency changes. Do not edit generated data or notices by hand.
