@@ -209,7 +209,8 @@ struct App {
     /// Fast-field readers per segment, opened once: opening one parses its block index.
     columns: Vec<Columns>,
     f: Fields,
-    numbers: Vec<tantivy_fst::Map<Vec<u8>>>,
+    /// Memory-mapped, so cold parts stay in the page cache instead of private memory.
+    numbers: Vec<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
     places: Vec<Place>,
     /// Folded country names and ISO codes -> lowercase country code.
     countries: HashMap<String, String>,
@@ -369,10 +370,16 @@ impl App {
             .trim()
             .parse()
             .unwrap();
+        let mmap = tantivy::directory::MmapDirectory::open(dir).unwrap();
         let numbers = (0..shards)
             .map(|s| {
-                tantivy_fst::Map::from_bytes(fs::read(format!("{dir}/numbers-{s:02}.fst")).unwrap())
-                    .unwrap()
+                use tantivy::directory::Directory;
+                let file = mmap
+                    .open_read(std::path::Path::new(&format!("numbers-{s:02}.fst")))
+                    .unwrap();
+                tantivy_fst::Map::from(
+                    tantivy_fst::raw::Fst::new(file.read_bytes().unwrap()).unwrap(),
+                )
             })
             .collect();
         let mut places = load_places(&format!("{dir}/places.tsv"));
