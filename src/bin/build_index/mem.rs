@@ -10,6 +10,9 @@ const USEFUL_PER_THREAD: u64 = 64 * MB;
 const MAX_PER_THREAD: u64 = 4000 * MB;
 /// The layout measured for query speed (about 64 segments for the world); more is untested.
 const MAX_TOTAL: u64 = 4096 * MB;
+/// Smaller arenas save little next to the build's other memory but flush thousands of tiny
+/// segments that make the index slow to build and to query.
+pub const MIN_TOTAL: u64 = 1024 * MB;
 
 fn field(text: &str, key: &str) -> Option<u64> {
     text.lines().find_map(|l| {
@@ -125,10 +128,10 @@ fn footprint(text: &str) -> Option<u64> {
     Some((v * unit as f64) as u64)
 }
 
-/// Writer threads and total arena: half the headroom, capped at MAX_TOTAL, with fewer threads
-/// when each would get less than USEFUL_PER_THREAD.
+/// Writer threads and total arena: half the headroom, between MIN_TOTAL and MAX_TOTAL, with
+/// fewer threads when each would get less than USEFUL_PER_THREAD.
 pub fn writer_budget(headroom: u64, max_threads: usize) -> (usize, usize) {
-    let total = (headroom / 2).min(MAX_TOTAL);
+    let total = (headroom / 2).clamp(MIN_TOTAL, MAX_TOTAL);
     let threads = (max_threads as u64).min(total / USEFUL_PER_THREAD).max(1);
     let per = (total / threads).clamp(MIN_PER_THREAD, MAX_PER_THREAD);
     (threads as usize, (per * threads) as usize)
@@ -173,7 +176,9 @@ mod tests {
     fn writer_budget_scales_with_headroom() {
         assert_eq!(writer_budget(64 * GB, 16), (16, 4 * GB as usize));
         assert_eq!(writer_budget(2 * GB, 16), (16, GB as usize));
-        assert_eq!(writer_budget(256 * MB, 16), (2, 128 * MB as usize));
-        assert_eq!(writer_budget(0, 16), (1, 15 * MB as usize));
+        assert_eq!(writer_budget(3 * GB, 16), (16, 1536 * MB as usize));
+        assert_eq!(writer_budget(0, 16), (16, GB as usize));
+        assert_eq!(writer_budget(0, 4), (4, GB as usize));
+        assert_eq!(writer_budget(64 * GB, 1), (1, 4000 * MB as usize));
     }
 }

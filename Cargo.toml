@@ -33,6 +33,8 @@ rayon = "1"
 arrow-array = "60"
 parquet = { version = "60", default-features = false, features = ["arrow", "zstd", "snap"] }
 mimalloc = { version = "0.1", default-features = false }
+osmpbf = "0.3"
+flate2 = "1"
 
 [build-dependencies]
 connectrpc-build = "0.9"

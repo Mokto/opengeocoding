@@ -159,14 +159,21 @@ Download the `division` and `division_area` (divisions theme), `segment` (transp
 aws s3 sync --no-sign-request \
   s3://overturemaps-us-west-2/release/2026-09-23.1/theme=addresses/type=address/ overture/address/
 cargo build --locked --release --bin build_index
-target/release/build_index overture out/ --geonames-postal allCountries.txt
+target/release/build_index overture out/ --openaddresses openaddresses/ --osm osm/ \
+  --geonames-postal GB_full.txt --geonames-postal allCountries.txt
 ```
 
-The optional GeoNames postal file (`download.geonames.org/export/zip/allCountries.zip`, CC-BY-4.0) adds postcodes for countries without Overture addresses. The output holds places, streets (one per normalized name per place, merging road names with address streets) and postcodes in Tantivy, plus house numbers with coordinates in sharded FSTs.
+Overture's address theme covers about 40 countries. The optional sources fill the rest:
 
-Streets and addresses are assigned to the containing locality polygon, else a locality point within 5 km, else the local admin area or county. House numbers are spilled to `out/.numbers-spill` during the build (about 7 GB for the world) and removed afterwards. The builder reads available memory at startup (cgroup limit and usage, capped by the host's `MemAvailable`; `vm_stat` on macOS) and sizes the index writer and the number sort from the remaining headroom. One world release took about 100 seconds on an 18-core laptop with a 19 GB peak memory footprint; that is a single measurement, not a guarantee, and it needs that memory regardless of the writer budget.
+- `--osm DIR`: every `*.osm.pbf` in the directory. Addressed nodes, and addressed ways at their first node; the country is that of the containing place. Files must be sorted by type then id, as [Geofabrik](https://download.geofabrik.de/) extracts are. Pick the extracts for countries without Overture addresses from `download.geofabrik.de/index-v1-nogeom.json` (`iso3166-1:alpha2`); about 150 extracts and 30 GB in October 2026. Extracts overlap at borders; duplicate house numbers collapse.
+- `--openaddresses DIR`: every `*.geojson.gz` in the directory, one OpenAddresses batch job output each, named `<cc>_<source path>-<layer>.geojson.gz` (the country comes from the prefix). List address layers with `batch.openaddresses.io/api/data` and download `v2.openaddresses.io/batch-prod/job/<job>/source.geojson.gz`. Only take countries without Overture addresses: other OpenAddresses sources mostly repeat data Overture already has (for example `fr/countrywide` versus Overture's per-département BAN files) under differently abbreviated street names, which index as separate streets.
+- `--geonames-postal FILE`, repeatable: GeoNames postal-code dumps (`download.geonames.org/export/zip/`, CC-BY-4.0). `allCountries` has only outward codes for GB and 3-character codes for CA; `GB_full`, `CA_full` and `NL_full` hold full codes. A postcode is added only when the address data and earlier files lack it.
 
-Known limitations: only the countries in Overture's address theme have house numbers; abbreviated and expanded street names (`AVE`/`Avenue`) are not merged; accuracy has not been evaluated. Overture's divisions and transportation themes are ODbL and address licenses vary by source; review them before distributing an index.
+The output holds places, streets (one per normalized name per place, merging road names with address streets) and postcodes in Tantivy, plus house numbers with coordinates in sharded FSTs.
+
+Streets and addresses are assigned to the containing locality polygon, else a locality point within 5 km, else the local admin area or county. House numbers are spilled to `out/.numbers-spill` during the build (about 7 GB for the world) and removed afterwards. The builder reads available memory at startup (cgroup limit and usage, capped by the host's `MemAvailable`; `vm_stat` on macOS) and sizes the index writer and the number sort from the remaining headroom. One world release took about 100 seconds on an 18-core laptop with a 19 GB peak memory footprint; with the OSM extracts, OpenAddresses and GeoNames files above it took about 270 seconds and 20.5 GB on a loaded machine, of which OSM was about 110 seconds. These are single measurements, not guarantees, and the build needs that memory regardless of the writer budget.
+
+Known limitations: outside Overture's address countries, house numbers are only as complete as OSM and OpenAddresses there; OSM relations, `addr:interpolation` ways and `addr:place` addresses without `addr:street` are skipped; abbreviated and expanded street names (`AVE`/`Avenue`) are not merged; house numbers are matched lowercased, exactly as written; accuracy has not been evaluated. Overture's divisions and transportation themes and OpenStreetMap are ODbL (attribution "© OpenStreetMap contributors", share-alike for a distributed derived database); OpenAddresses licenses vary per source and many state none; review them before distributing an index.
 
 ## Geographic evaluation
 
