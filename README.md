@@ -164,7 +164,7 @@ target/release/build_index overture out/ --geonames-postal allCountries.txt
 
 The optional GeoNames postal file (`download.geonames.org/export/zip/allCountries.zip`, CC-BY-4.0) adds postcodes for countries without Overture addresses. The output holds places, streets (one per normalized name per place, merging road names with address streets) and postcodes in Tantivy, plus house numbers with coordinates in sharded FSTs.
 
-Streets and addresses are assigned to the containing locality polygon, else a locality point within 5 km, else the local admin area or county. One world release took about 90 seconds on an 18-core laptop with a 26 GB peak memory footprint; that is a single measurement, not a guarantee.
+Streets and addresses are assigned to the containing locality polygon, else a locality point within 5 km, else the local admin area or county. House numbers are spilled to `out/.numbers-spill` during the build (about 7 GB for the world) and removed afterwards. The builder reads available memory at startup (cgroup limit and usage, capped by the host's `MemAvailable`; `vm_stat` on macOS) and sizes the index writer and the number sort from the remaining headroom. One world release took about 100 seconds on an 18-core laptop with a 19 GB peak memory footprint; that is a single measurement, not a guarantee, and it needs that memory regardless of the writer budget.
 
 Known limitations: only the countries in Overture's address theme have house numbers; abbreviated and expanded street names (`AVE`/`Avenue`) are not merged; accuracy has not been evaluated. Overture's divisions and transportation themes are ODbL and address licenses vary by source; review them before distributing an index.
 

@@ -1,7 +1,8 @@
 //! Builds the address index from a local Overture release directory (division, division_area,
-//! segment and address parquet), without Nominatim and without intermediate files.
+//! segment and address parquet), without Nominatim. Only house numbers are spilled to disk.
 mod geo;
 mod index;
+mod mem;
 
 use arrow_array::{
     Array, ArrayRef, RecordBatch, StringArray,
@@ -9,7 +10,7 @@ use arrow_array::{
     types::{Float64Type, Int32Type},
 };
 use geo::{Assigner, KINDS, Poly, wkb_point, wkb_polygons};
-use index::{Bucket, Num, fold, fold_into, pc_norm};
+use index::{Bucket, Num, NumberSpill, fold, fold_into, pc_norm};
 use parquet::arrow::{
     ProjectionMask,
     arrow_reader::{ArrowReaderMetadata, ParquetRecordBatchReaderBuilder},
@@ -28,6 +29,10 @@ use std::{
 };
 use tantivy::doc;
 
+// Returns freed memory to the OS promptly, so the writer budget sees the real headroom.
+#[global_allocator]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 const USAGE: &str =
     "usage: build_index <overture-release-dir> <out-dir> [--geonames-postal allCountries.txt]";
 const SHARDS: usize = 256;
@@ -35,6 +40,11 @@ const MAX_POSTCODES: usize = 20;
 const MAX_CITIES: usize = 5;
 const MAX_ALT_NAMES: usize = 64;
 const NUMBER_SHARDS: usize = 16;
+const MAX_WRITER_THREADS: usize = 16;
+const NAME_SEP: char = '\u{1f}';
+const GB: f64 = (1u64 << 30) as f64;
+
+type Str = Box<str>;
 
 struct Task {
     path: PathBuf,
@@ -64,7 +74,7 @@ fn tasks(dir: &Path) -> Vec<Task> {
 }
 
 /// Reads one row group, projecting the leaves under the given column paths.
-fn read(t: &Task, roots: &[&str]) -> Vec<RecordBatch> {
+fn read(t: &Task, roots: &[&str]) -> impl Iterator<Item = RecordBatch> {
     let schema = t.meta.metadata().file_metadata().schema_descr();
     let leaves: Vec<usize> = (0..schema.num_columns())
         .filter(|&i| {
@@ -81,7 +91,6 @@ fn read(t: &Task, roots: &[&str]) -> Vec<RecordBatch> {
         .build()
         .unwrap()
         .map(|b| b.unwrap())
-        .collect()
 }
 
 fn col<'a>(b: &'a RecordBatch, name: &str) -> &'a ArrayRef {
@@ -95,8 +104,8 @@ fn text(a: &StringArray, i: usize) -> Option<&str> {
         .filter(|s| !s.is_empty())
 }
 
-/// names.primary and the values of names.common
-fn names_at(names: &arrow_array::StructArray, i: usize, out: &mut Vec<String>) {
+/// names.primary and the values of names.common, deduplicated.
+fn names_at<'a>(names: &'a arrow_array::StructArray, i: usize, out: &mut Vec<&'a str>) {
     out.clear();
     if names.is_null(i) {
         return;
@@ -105,7 +114,7 @@ fn names_at(names: &arrow_array::StructArray, i: usize, out: &mut Vec<String>) {
         names.column_by_name("primary").unwrap().as_string::<i32>(),
         i,
     ) {
-        out.push(p.to_string());
+        out.push(p);
     }
     let common = names.column_by_name("common").unwrap().as_map();
     if common.is_null(i) {
@@ -114,19 +123,92 @@ fn names_at(names: &arrow_array::StructArray, i: usize, out: &mut Vec<String>) {
     let (o, values) = (common.value_offsets(), common.values().as_string::<i32>());
     for j in o[i] as usize..o[i + 1] as usize {
         if let Some(v) = text(values, j)
-            && !out.iter().any(|n| n == v)
+            && !out.contains(&v)
         {
-            out.push(v.to_string());
+            out.push(v);
         }
     }
 }
 
-fn shard<K: Hash>(k: &K) -> usize {
+fn shard<K: Hash + ?Sized>(k: &K) -> usize {
     BuildHasherDefault::<DefaultHasher>::default().hash_one(k) as usize % SHARDS
 }
 
 fn sharded<T: Default>() -> Vec<Mutex<T>> {
     (0..SHARDS).map(|_| Mutex::default()).collect()
+}
+
+fn country(s: Option<&str>) -> [u8; 2] {
+    s.and_then(|c| c.as_bytes().try_into().ok())
+        .unwrap_or([0; 2])
+}
+
+fn country_str(c: &[u8; 2]) -> &str {
+    if *c == [0; 2] {
+        ""
+    } else {
+        std::str::from_utf8(c).unwrap_or("")
+    }
+}
+
+fn push_unique<T: PartialEq>(v: &mut Vec<T>, x: T, max: usize) {
+    if v.len() < max && !v.contains(&x) {
+        v.push(x);
+    }
+}
+
+/// Deduplicated strings; ids are (position in shard) << 8 | shard.
+struct Interner(Vec<Mutex<HashMap<Str, u32>>>);
+
+impl Interner {
+    fn new() -> Interner {
+        Interner(sharded())
+    }
+
+    fn id(&self, s: &str) -> u32 {
+        let sh = shard(s);
+        let mut m = self.0[sh].lock().unwrap();
+        if let Some(&i) = m.get(s) {
+            return i;
+        }
+        let i = ((m.len() as u32) << 8) | sh as u32;
+        m.insert(s.into(), i);
+        i
+    }
+
+    /// Task-local cache in front of the shared, locked table.
+    fn cached(&self, cache: &mut HashMap<Str, u32>, s: &str) -> u32 {
+        if let Some(&i) = cache.get(s) {
+            return i;
+        }
+        let i = self.id(s);
+        cache.insert(s.into(), i);
+        i
+    }
+
+    fn table(self) -> Strings {
+        Strings(
+            self.0
+                .into_iter()
+                .map(|m| {
+                    let m = m.into_inner().unwrap();
+                    let mut v = vec![Str::default(); m.len()];
+                    for (s, i) in m {
+                        v[(i >> 8) as usize] = s;
+                    }
+                    v
+                })
+                .collect(),
+        )
+    }
+}
+
+struct Strings(Vec<Vec<Str>>);
+
+impl Strings {
+    fn get(&self, id: u32) -> &str {
+        &self.0[id as usize & 0xff][(id >> 8) as usize]
+    }
 }
 
 const SUBTYPES: [&str; 10] = [
@@ -143,22 +225,22 @@ const SUBTYPES: [&str; 10] = [
 ];
 
 struct Place {
-    id: String,
+    id: Str,
     subtype: &'static str,
-    country: String,
-    names: Vec<String>,
+    country: [u8; 2],
+    /// All names, primary first, joined by NAME_SEP.
+    names: Str,
     population: u64,
     xy: Option<(f64, f64)>,
-    parents: Vec<String>,
-    anc: Vec<u32>,
+    parents: Vec<Str>,
+    anc: Box<[u32]>,
 }
 
-fn load_places(dir: &Path) -> (Vec<Place>, HashMap<String, u32>) {
+fn load_places(dir: &Path) -> (Vec<Place>, HashMap<Str, u32>) {
     let mut places: Vec<Place> = tasks(dir)
         .par_iter()
         .flat_map_iter(|t| {
             let mut out = vec![];
-            let mut names = vec![];
             for b in read(
                 t,
                 &[
@@ -183,6 +265,7 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<String, u32>) {
                     col(&b, "names").as_struct(),
                 );
                 let hier = col(&b, "hierarchies").as_list::<i32>();
+                let mut names = vec![];
                 for i in 0..b.num_rows() {
                     names_at(nm, i, &mut names);
                     let mut parents = vec![];
@@ -196,21 +279,18 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<String, u32>) {
                                 .column_by_name("division_id")
                                 .unwrap()
                                 .as_string::<i32>();
-                            parents.extend(
-                                (0..ids.len())
-                                    .filter_map(|k| text(ids, k))
-                                    .map(str::to_string),
-                            );
+                            parents
+                                .extend((0..ids.len()).filter_map(|k| text(ids, k)).map(Str::from));
                         }
                     }
                     out.push(Place {
-                        id: id.value(i).to_string(),
+                        id: id.value(i).into(),
                         subtype: SUBTYPES
                             .iter()
                             .find(|s| **s == sub.value(i))
                             .unwrap_or(&"other"),
-                        country: text(cc, i).unwrap_or("").to_string(),
-                        names: names.clone(),
+                        country: country(text(cc, i)),
+                        names: names.join(&NAME_SEP.to_string()).into(),
                         population: if pop.is_null(i) {
                             0
                         } else {
@@ -220,7 +300,7 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<String, u32>) {
                             .then(|| wkb_point(geom.value(i)))
                             .flatten(),
                         parents,
-                        anc: vec![],
+                        anc: Box::default(),
                     });
                 }
             }
@@ -228,7 +308,7 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<String, u32>) {
         })
         .collect();
     places.par_sort_unstable_by(|a, b| a.id.cmp(&b.id));
-    let idx: HashMap<String, u32> = places
+    let idx: HashMap<Str, u32> = places
         .iter_mut()
         .enumerate()
         .map(|(i, p)| (std::mem::take(&mut p.id), i as u32))
@@ -242,13 +322,13 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<String, u32>) {
             .collect();
         anc.sort_unstable();
         anc.dedup();
-        p.anc = anc;
+        p.anc = anc.into();
         p.parents = vec![];
     });
     (places, idx)
 }
 
-fn load_assigner(dir: &Path, places: &[Place], idx: &HashMap<String, u32>) -> Assigner {
+fn load_assigner(dir: &Path, places: &[Place], idx: &HashMap<Str, u32>) -> Assigner {
     let polys: Vec<Poly> = tasks(dir)
         .par_iter()
         .flat_map_iter(|t| {
@@ -295,21 +375,34 @@ fn load_assigner(dir: &Path, places: &[Place], idx: &HashMap<String, u32>) -> As
 
 #[derive(Default)]
 struct SegAgg {
-    name: String,
-    alt: Vec<String>,
+    name: Str,
+    alt: Vec<Str>,
     sx: f64,
     sy: f64,
     n: u64,
 }
 
-type SegKey = (u32, String);
+impl SegAgg {
+    fn add(&mut self, other: SegAgg) {
+        if self.n == 0 {
+            self.name = other.name;
+        }
+        for a in other.alt {
+            push_unique(&mut self.alt, a, MAX_ALT_NAMES);
+        }
+        (self.sx, self.sy, self.n) = (self.sx + other.sx, self.sy + other.sy, self.n + other.n);
+    }
+}
+
+type SegKey = (u32, Str);
 
 fn pass_segments(dir: &Path, a: &Assigner) -> Vec<Mutex<HashMap<SegKey, SegAgg>>> {
     let shards = sharded::<HashMap<SegKey, SegAgg>>();
     let rows = AtomicU64::new(0);
     tasks(dir).par_iter().for_each(|t| {
-        let mut local: HashMap<SegKey, SegAgg> = HashMap::new();
-        let (mut names, mut key, mut last) = (vec![], String::new(), String::new());
+        // place -> folded name, so lookups borrow the key instead of allocating one per row
+        let mut local: HashMap<u32, HashMap<Str, SegAgg>> = HashMap::new();
+        let (mut key, mut last) = (String::new(), String::new());
         for b in read(t, &["subtype", "names.primary", "names.common", "bbox"]) {
             let (sub, nm, bbox) = (
                 col(&b, "subtype").as_string::<i32>(),
@@ -323,13 +416,14 @@ fn pass_segments(dir: &Path, a: &Assigner) -> Vec<Mutex<HashMap<SegKey, SegAgg>>
                     .clone()
             };
             let (x0, x1, y0, y1) = (c("xmin"), c("xmax"), c("ymin"), c("ymax"));
+            let mut names = vec![];
             rows.fetch_add(b.num_rows() as u64, Relaxed);
             for i in 0..b.num_rows() {
                 if sub.is_null(i) || sub.value(i) != "road" || bbox.is_null(i) {
                     continue;
                 }
                 names_at(nm, i, &mut names);
-                let Some(primary) = names.first() else {
+                let Some(&primary) = names.first() else {
                     continue;
                 };
                 let (x, y) = (
@@ -337,37 +431,40 @@ fn pass_segments(dir: &Path, a: &Assigner) -> Vec<Mutex<HashMap<SegKey, SegAgg>>
                     (y0.value(i) + y1.value(i)) / 2.0,
                 );
                 let Some(place) = a.place(x, y) else { continue };
-                if *primary != last {
+                if primary != last {
                     fold_into(primary, &mut key);
-                    last.clone_from(primary);
+                    last.clear();
+                    last.push_str(primary);
                 }
                 if key.is_empty() {
                     continue;
                 }
-                let e = local.entry((place, key.clone())).or_default();
-                if e.n == 0 {
-                    e.name.clone_from(primary);
-                }
+                let m = local.entry(place).or_default();
+                let e = match m.get_mut(key.as_str()) {
+                    Some(e) => e,
+                    None => m.entry(key.as_str().into()).or_insert_with(|| SegAgg {
+                        name: primary.into(),
+                        ..Default::default()
+                    }),
+                };
                 for alt in &names[1..] {
-                    if e.alt.len() < MAX_ALT_NAMES && !e.alt.contains(alt) {
-                        e.alt.push(alt.clone());
+                    if e.alt.len() < MAX_ALT_NAMES && !e.alt.iter().any(|a| &**a == *alt) {
+                        e.alt.push((*alt).into());
                     }
                 }
                 (e.sx, e.sy, e.n) = (e.sx + x, e.sy + y, e.n + 1);
             }
         }
-        for (k, v) in local {
-            let mut s = shards[shard(&k)].lock().unwrap();
-            let e = s.entry(k).or_default();
-            if e.n == 0 {
-                e.name = v.name;
+        for (place, m) in local {
+            for (k, v) in m {
+                let k = (place, k);
+                shards[shard(&k)]
+                    .lock()
+                    .unwrap()
+                    .entry(k)
+                    .or_default()
+                    .add(v);
             }
-            for alt in v.alt {
-                if e.alt.len() < MAX_ALT_NAMES && !e.alt.contains(&alt) {
-                    e.alt.push(alt);
-                }
-            }
-            (e.sx, e.sy, e.n) = (e.sx + v.sx, e.sy + v.sy, e.n + v.n);
         }
     });
     println!("  {} segment rows", rows.into_inner());
@@ -376,33 +473,30 @@ fn pass_segments(dir: &Path, a: &Assigner) -> Vec<Mutex<HashMap<SegKey, SegAgg>>
 
 #[derive(Default)]
 struct AddrAgg {
-    name: String,
-    pcs: Vec<String>,
-    cities: Vec<String>,
+    name: Str,
+    /// Interned normalized postcodes and postal city names.
+    pcs: Vec<u32>,
+    cities: Vec<u32>,
     sx: f64,
     sy: f64,
     n: u64,
 }
 
-type AddrKey = ([u8; 2], u32, String);
-type PcKey = ([u8; 2], String);
-const NO_PLACE: u32 = u32::MAX;
-
 impl AddrAgg {
     fn add(&mut self, other: AddrAgg) {
         for p in other.pcs {
-            if self.pcs.len() < MAX_POSTCODES && !self.pcs.contains(&p) {
-                self.pcs.push(p);
-            }
+            push_unique(&mut self.pcs, p, MAX_POSTCODES);
         }
         for c in other.cities {
-            if self.cities.len() < MAX_CITIES && !self.cities.contains(&c) {
-                self.cities.push(c);
-            }
+            push_unique(&mut self.cities, c, MAX_CITIES);
         }
         (self.sx, self.sy, self.n) = (self.sx + other.sx, self.sy + other.sy, self.n + other.n);
     }
 }
+
+type AddrKey = ([u8; 2], u32, Str);
+type PcKey = ([u8; 2], Str);
+const NO_PLACE: u32 = u32::MAX;
 
 #[derive(Default)]
 struct AddrShard {
@@ -412,31 +506,42 @@ struct AddrShard {
 
 #[derive(Default)]
 struct PcAgg {
-    display: String,
+    display: Str,
     sx: f64,
     sy: f64,
     n: u64,
 }
 
+impl PcAgg {
+    fn add(&mut self, display: &str, x: f64, y: f64, n: u64) {
+        if self.n == 0 {
+            self.display = display.into();
+        }
+        (self.sx, self.sy, self.n) = (self.sx + x, self.sy + y, self.n + n);
+    }
+}
+
 struct Addresses {
     streets: Vec<Mutex<AddrShard>>,
     postcodes: Vec<Mutex<HashMap<PcKey, PcAgg>>>,
-    numbers: Vec<Bucket>,
+    strings: Interner,
 }
 
 /// Street ids are (position in shard) << 8 | shard, so they're known when a task flushes.
-fn pass_addresses(dir: &Path, a: &Assigner) -> Addresses {
+fn pass_addresses(dir: &Path, a: &Assigner, numbers: &NumberSpill) -> Addresses {
     let streets = sharded::<AddrShard>();
     let postcodes = sharded::<HashMap<PcKey, PcAgg>>();
-    let numbers: Vec<Mutex<Bucket>> = (0..NUMBER_SHARDS).map(|_| Mutex::default()).collect();
+    let strings = Interner::new();
     let rows = AtomicU64::new(0);
     tasks(dir).par_iter().for_each(|t| {
-        let mut local: HashMap<AddrKey, u32> = HashMap::new();
+        let mut local: HashMap<([u8; 2], u32), HashMap<Str, u32>> = HashMap::new();
         let mut aggs: Vec<AddrAgg> = vec![];
-        let mut pcs: HashMap<PcKey, PcAgg> = HashMap::new();
+        let mut pcs: HashMap<[u8; 2], HashMap<Str, PcAgg>> = HashMap::new();
+        let mut cache: HashMap<Str, u32> = HashMap::new();
         // sid holds the task-local street index until the flush remaps it
         let mut nums = Bucket::default();
-        let (mut key, mut last, mut lower) = (String::new(), String::new(), String::new());
+        let (mut key, mut last, mut lower, mut pcn) =
+            (String::new(), String::new(), String::new(), String::new());
         for b in read(
             t,
             &[
@@ -463,10 +568,10 @@ fn pass_addresses(dir: &Path, a: &Assigner) -> Addresses {
             );
             rows.fetch_add(b.num_rows() as u64, Relaxed);
             for i in 0..b.num_rows() {
-                let Some(c) = text(&cc, i).filter(|c| c.len() == 2) else {
+                let c = country(text(&cc, i));
+                if c == [0; 2] {
                     continue;
-                };
-                let c: [u8; 2] = c.as_bytes().try_into().unwrap();
+                }
                 let Some((x, y)) = (!geom.is_null(i))
                     .then(|| wkb_point(geom.value(i)))
                     .flatten()
@@ -475,11 +580,17 @@ fn pass_addresses(dir: &Path, a: &Assigner) -> Addresses {
                 };
                 let pc = text(&postcode, i);
                 if let Some(pc) = pc {
-                    let e = pcs.entry((c, pc_norm(pc))).or_default();
-                    if e.n == 0 {
-                        e.display = pc.to_string();
+                    pcn.clear();
+                    pcn.extend(
+                        pc.chars()
+                            .filter(|c| c.is_alphanumeric())
+                            .flat_map(char::to_uppercase),
+                    );
+                    let m = pcs.entry(c).or_default();
+                    match m.get_mut(pcn.as_str()) {
+                        Some(e) => e.add(pc, x, y, 1),
+                        None => m.entry(pcn.as_str().into()).or_default().add(pc, x, y, 1),
                     }
-                    (e.sx, e.sy, e.n) = (e.sx + x, e.sy + y, e.n + 1);
                 }
                 let Some(st) = text(&street, i) else { continue };
                 if st != last {
@@ -491,15 +602,23 @@ fn pass_addresses(dir: &Path, a: &Assigner) -> Addresses {
                     continue;
                 }
                 let place = a.place(x, y).unwrap_or(NO_PLACE);
-                let k: AddrKey = (c, place, key.clone());
-                let li = *local.entry(k).or_insert_with(|| {
-                    aggs.push(AddrAgg {
-                        name: st.to_string(),
-                        ..Default::default()
-                    });
-                    aggs.len() as u32 - 1
-                });
+                let m = local.entry((c, place)).or_default();
+                let li = match m.get(key.as_str()) {
+                    Some(&li) => li,
+                    None => {
+                        aggs.push(AddrAgg {
+                            name: st.into(),
+                            ..Default::default()
+                        });
+                        m.insert(key.as_str().into(), aggs.len() as u32 - 1);
+                        aggs.len() as u32 - 1
+                    }
+                };
                 let e = &mut aggs[li as usize];
+                if pc.is_some() && !pcn.is_empty() && e.pcs.len() < MAX_POSTCODES {
+                    let id = strings.cached(&mut cache, &pcn);
+                    push_unique(&mut e.pcs, id, MAX_POSTCODES);
+                }
                 let city = text(&postal, i).or_else(|| {
                     let (o, v) = (
                         levels.value_offsets(),
@@ -509,17 +628,11 @@ fn pass_addresses(dir: &Path, a: &Assigner) -> Addresses {
                         .then(|| text(v, o[i + 1] as usize - 1))
                         .flatten()
                 });
-                if let Some(pc) = pc
-                    && e.pcs.len() < MAX_POSTCODES
-                    && !e.pcs.iter().any(|p| p == pc)
-                {
-                    e.pcs.push(pc.to_string());
-                }
                 if let Some(city) = city
                     && e.cities.len() < MAX_CITIES
-                    && !e.cities.iter().any(|p| p == city)
                 {
-                    e.cities.push(city.to_string());
+                    let id = strings.cached(&mut cache, city);
+                    push_unique(&mut e.cities, id, MAX_CITIES);
                 }
                 (e.sx, e.sy, e.n) = (e.sx + x, e.sy + y, e.n + 1);
                 if let Some(n) = text(&number, i) {
@@ -533,56 +646,52 @@ fn pass_addresses(dir: &Path, a: &Assigner) -> Addresses {
             }
         }
         let mut remap = vec![0u32; aggs.len()];
-        for (key, li) in local {
-            let agg = std::mem::take(&mut aggs[li as usize]);
-            let sh = shard(&key);
-            let mut s = streets[sh].lock().unwrap();
-            let pos = match s.ids.get(&key) {
-                Some(&p) => {
-                    s.streets[p as usize].add(agg);
-                    p
-                }
-                None => {
-                    let p = s.streets.len() as u32;
-                    s.ids.insert(key, p);
-                    s.streets.push(agg);
-                    p
-                }
-            };
-            assert!(pos < 1 << 24, "too many streets in one shard");
-            remap[li as usize] = (pos << 8) | sh as u32;
-        }
-        for (k, v) in pcs {
-            let mut s = postcodes[shard(&k)].lock().unwrap();
-            let e = s.entry(k).or_default();
-            if e.n == 0 {
-                e.display = v.display;
+        for ((c, place), m) in local {
+            for (k, li) in m {
+                let key: AddrKey = (c, place, k);
+                let agg = std::mem::take(&mut aggs[li as usize]);
+                let sh = shard(&key);
+                let mut s = streets[sh].lock().unwrap();
+                let pos = match s.ids.get(&key) {
+                    Some(&p) => {
+                        s.streets[p as usize].add(agg);
+                        p
+                    }
+                    None => {
+                        let p = s.streets.len() as u32;
+                        s.ids.insert(key, p);
+                        s.streets.push(agg);
+                        p
+                    }
+                };
+                assert!(pos < 1 << 24, "too many streets in one shard");
+                remap[li as usize] = (pos << 8) | sh as u32;
             }
-            (e.sx, e.sy, e.n) = (e.sx + v.sx, e.sy + v.sy, e.n + v.n);
         }
-        let mut out: Vec<Bucket> = (0..NUMBER_SHARDS).map(|_| Bucket::default()).collect();
+        for (c, m) in pcs {
+            for (k, v) in m {
+                let k = (c, k);
+                let mut s = postcodes[shard(&k)].lock().unwrap();
+                s.entry(k).or_default().add(&v.display, v.sx, v.sy, v.n);
+            }
+        }
+        let shards = numbers.shards();
+        let mut out: Vec<Bucket> = (0..shards).map(|_| Bucket::default()).collect();
         for mut n in nums.short {
             n.sid = remap[n.sid as usize];
-            out[n.sid as usize % NUMBER_SHARDS].short.push(n);
+            out[n.sid as usize % shards].short.push(n);
         }
         for mut n in nums.long {
             n.sid = remap[n.sid as usize];
-            out[n.sid as usize % NUMBER_SHARDS].long.push(n);
+            out[n.sid as usize % shards].long.push(n);
         }
-        for (b, o) in numbers.iter().zip(out) {
-            let mut b = b.lock().unwrap();
-            b.short.extend(o.short);
-            b.long.extend(o.long);
-        }
+        numbers.add(out);
     });
     println!("  {} address rows", rows.into_inner());
     Addresses {
         streets,
         postcodes,
-        numbers: numbers
-            .into_iter()
-            .map(|b| b.into_inner().unwrap())
-            .collect(),
+        strings,
     }
 }
 
@@ -603,32 +712,27 @@ fn place_weight(subtype: &str) -> u64 {
 fn geonames_postcodes(
     path: &str,
     covered: &std::collections::HashSet<[u8; 2]>,
-) -> Vec<([u8; 2], String, String, f64, f64)> {
+) -> HashMap<PcKey, PcAgg> {
     let mut agg: HashMap<PcKey, PcAgg> = HashMap::new();
     for l in std::fs::read_to_string(path).unwrap().lines() {
         let c: Vec<&str> = l.split('\t').collect();
         let (Some(cc), Some(pc)) = (c.first().filter(|s| s.len() == 2), c.get(1)) else {
             continue;
         };
-        let cc: [u8; 2] = cc.as_bytes().try_into().unwrap();
+        let cc = country(Some(cc));
         let (Some(y), Some(x)) = (
             c.get(9).and_then(|v| v.parse::<f64>().ok()),
             c.get(10).and_then(|v| v.parse::<f64>().ok()),
         ) else {
             continue;
         };
-        if covered.contains(&cc) {
-            continue;
+        if !covered.contains(&cc) {
+            agg.entry((cc, pc_norm(pc).into()))
+                .or_default()
+                .add(pc, x, y, 1);
         }
-        let e = agg.entry((cc, pc_norm(pc))).or_default();
-        if e.n == 0 {
-            e.display = pc.to_string();
-        }
-        (e.sx, e.sy, e.n) = (e.sx + x, e.sy + y, e.n + 1);
     }
-    agg.into_iter()
-        .map(|((cc, pc), v)| (cc, pc, v.display, v.sx / v.n as f64, v.sy / v.n as f64))
-        .collect()
+    agg
 }
 
 fn main() {
@@ -642,9 +746,24 @@ fn main() {
         .position(|a| a == "--geonames-postal")
         .map(|i| args.get(i + 1).expect(USAGE).clone());
     let dir = Path::new(release);
+    let _ = std::fs::remove_dir_all(out);
+    std::fs::create_dir_all(out).unwrap();
+    let available = mem::available();
+    let rss0 = mem::rss().unwrap_or(0);
+    match available {
+        Some(a) => println!("memory available at start: {:.1} GB", a as f64 / GB),
+        None => println!("memory available at start: unknown"),
+    }
+    // Memory available at start minus what this process has grown by since.
+    let headroom = || {
+        available.map_or(u64::MAX, |a| {
+            a.saturating_sub(mem::rss().unwrap_or(0).saturating_sub(rss0))
+        })
+    };
     let (t0, mut t) = (Instant::now(), Instant::now());
     let mut lap = |what: &str| {
-        println!("{what}: {:.1}s", t.elapsed().as_secs_f64());
+        let rss = mem::rss().map_or(String::new(), |r| format!(", rss {:.1} GB", r as f64 / GB));
+        println!("{what}: {:.1}s{rss}", t.elapsed().as_secs_f64());
         t = Instant::now();
     };
 
@@ -655,20 +774,34 @@ fn main() {
     lap("polygons");
     let segs = pass_segments(&dir.join("segment"), &assigner);
     lap("segments");
+    let spill = NumberSpill::new(Path::new(out).join(".numbers-spill"), NUMBER_SHARDS);
     let Addresses {
         streets,
         postcodes,
-        numbers,
-    } = pass_addresses(&dir.join("address"), &assigner);
+        strings,
+    } = pass_addresses(&dir.join("address"), &assigner, &spill);
     drop(assigner);
     lap("addresses");
 
-    let _ = std::fs::remove_dir_all(out);
-    std::fs::create_dir_all(out).unwrap();
-    let n = index::numbers(out, numbers);
+    // Each shard sorts in memory; allow as many at once as half the headroom fits.
+    let shard_bytes = spill.bytes() / NUMBER_SHARDS as u64;
+    let parallel = (headroom() / 2 / shard_bytes.max(1)).clamp(1, NUMBER_SHARDS as u64) as usize;
+    println!("  sorting {parallel} of {NUMBER_SHARDS} house-number shards at a time");
+    let n = spill.write_fsts(out, parallel);
+    let strings = strings.table();
     lap(&format!("house numbers ({n})"));
 
-    let (index, writer, f) = index::create(out);
+    let headroom = headroom();
+    let (threads, budget) = mem::writer_budget(
+        headroom,
+        MAX_WRITER_THREADS.min(rayon::current_num_threads()),
+    );
+    println!(
+        "  writer: {threads} threads, {:.2} GB arena (headroom {:.1} GB)",
+        budget as f64 / GB,
+        headroom.min(1 << 50) as f64 / GB
+    );
+    let (index, writer, f) = index::create(out, threads, budget);
     places
         .par_iter()
         .enumerate()
@@ -676,10 +809,10 @@ fn main() {
         .for_each(|(i, p)| {
             let mut d = doc!(
                 f.kind => "p",
-                f.names => p.names.join(" "),
-                f.country => p.country.as_str(),
+                f.names => p.names.replace(NAME_SEP, " "),
+                f.country => country_str(&p.country),
                 f.ids => i.to_string(),
-                f.name => p.names[0].as_str(),
+                f.name => p.names.split(NAME_SEP).next().unwrap_or(""),
                 f.id => i as u64,
                 f.importance => p.population + place_weight(p.subtype),
             );
@@ -695,10 +828,11 @@ fn main() {
                       cc: &str,
                       place: u32,
                       names: &[&str],
-                      pcs: &[String],
-                      cities: &[String],
+                      pcs: &[u32],
+                      cities: &[u32],
                       (x, y): (f64, f64),
                       weight: u64| {
+        let cities: Vec<&str> = cities.iter().map(|&c| strings.get(c)).collect();
         let mut d = doc!(
             f.kind => "s",
             f.names => names.join(" "),
@@ -710,12 +844,12 @@ fn main() {
             f.x => x,
             f.y => y,
         );
-        for pc in pcs {
-            d.add_text(f.pcode, pc_norm(pc));
+        for &pc in pcs {
+            d.add_text(f.pcode, strings.get(pc));
         }
         if place != NO_PLACE {
             d.add_text(f.ids, place.to_string());
-            for a in &places[place as usize].anc {
+            for a in places[place as usize].anc.iter() {
                 d.add_text(f.ids, a.to_string());
             }
             let mut toks: Vec<String> = names
@@ -740,22 +874,20 @@ fn main() {
             max_sid.fetch_max(sid, Relaxed);
             let seg = (*place != NO_PLACE)
                 .then(|| {
-                    segs[shard(&(*place, key.clone()))]
-                        .lock()
-                        .unwrap()
-                        .remove(&(*place, key.clone()))
+                    let k = (*place, key.clone());
+                    segs[shard(&k)].lock().unwrap().remove(&k)
                 })
                 .flatten();
-            let primary = seg.as_ref().map_or(st.name.as_str(), |g| g.name.as_str());
+            let primary = seg.as_ref().map_or(&*st.name, |g| &*g.name);
             let mut names = vec![primary];
             if let Some(g) = &seg {
                 merged.fetch_add(1, Relaxed);
-                names.extend(g.alt.iter().map(String::as_str).filter(|a| *a != primary));
+                names.extend(g.alt.iter().map(|a| &**a).filter(|a| *a != primary));
             }
             let n = st.n + seg.as_ref().map_or(0, |g| g.n);
             street_doc(
                 sid,
-                std::str::from_utf8(cc).unwrap(),
+                country_str(cc),
                 *place,
                 &names,
                 &st.pcs,
@@ -765,21 +897,21 @@ fn main() {
             );
         }
     });
-    let addr_streets: usize = streets
+    let addr_streets: u64 = streets
         .iter()
-        .map(|s| s.lock().unwrap().streets.len())
+        .map(|s| s.lock().unwrap().streets.len() as u64)
         .sum();
     drop(streets);
     let next = AtomicU32::new(max_sid.load(Relaxed) + 1);
     segs.par_iter().for_each(|s| {
         for ((place, _), g) in s.lock().unwrap().drain() {
             let sid = next.fetch_add(1, Relaxed);
-            let names: Vec<&str> = std::iter::once(g.name.as_str())
-                .chain(g.alt.iter().map(String::as_str).filter(|a| *a != g.name))
+            let names: Vec<&str> = std::iter::once(&*g.name)
+                .chain(g.alt.iter().map(|a| &**a).filter(|a| *a != &*g.name))
                 .collect();
             street_doc(
                 sid,
-                &places[place as usize].country,
+                country_str(&places[place as usize].country),
                 place,
                 &names,
                 &[],
@@ -789,51 +921,37 @@ fn main() {
             );
         }
     });
-    let seg_only = next.load(Relaxed) - max_sid.load(Relaxed) - 1;
+    drop(segs);
+    let seg_only = (next.load(Relaxed) - max_sid.load(Relaxed) - 1) as u64;
+    let merged = merged.load(Relaxed);
     lap(&format!(
-        "street docs ({} streets: {} merged, {} address only, {seg_only} segment only)",
-        addr_streets as u64 + seg_only as u64,
-        merged.load(Relaxed),
-        addr_streets as u64 - merged.load(Relaxed)
+        "street docs ({} streets: {merged} merged, {} address only, {seg_only} segment only)",
+        addr_streets + seg_only,
+        addr_streets - merged
     ));
 
-    let mut covered = std::collections::HashSet::new();
-    let mut n_pc = 0;
-    drop(segs);
-    for s in &postcodes {
-        for ((cc, pc), v) in s.lock().unwrap().iter() {
-            covered.insert(*cc);
-            n_pc += 1;
-            writer
-                .add_document(doc!(
-                    f.kind => "z",
-                    f.pcode => pc.as_str(),
-                    f.country => std::str::from_utf8(cc).unwrap(),
-                    f.name => v.display.as_str(),
-                    f.importance => v.n,
-                    f.x => v.sx / v.n as f64,
-                    f.y => v.sy / v.n as f64,
-                ))
-                .unwrap();
-        }
-    }
+    let mut postcodes: HashMap<PcKey, PcAgg> = postcodes
+        .into_iter()
+        .flat_map(|m| m.into_inner().unwrap())
+        .collect();
     if let Some(path) = geonames {
-        for (cc, pc, display, x, y) in geonames_postcodes(&path, &covered) {
-            n_pc += 1;
-            writer
-                .add_document(doc!(
-                    f.kind => "z",
-                    f.pcode => pc,
-                    f.country => std::str::from_utf8(&cc).unwrap(),
-                    f.name => display,
-                    f.importance => 0u64,
-                    f.x => x,
-                    f.y => y,
-                ))
-                .unwrap();
-        }
+        let covered = postcodes.keys().map(|(cc, _)| *cc).collect();
+        postcodes.extend(geonames_postcodes(&path, &covered));
     }
-    lap(&format!("postcode docs ({n_pc})"));
+    postcodes.par_iter().for_each(|((cc, pc), v)| {
+        writer
+            .add_document(doc!(
+                f.kind => "z",
+                f.pcode => &**pc,
+                f.country => country_str(cc),
+                f.name => &*v.display,
+                f.importance => v.n,
+                f.x => v.sx / v.n as f64,
+                f.y => v.sy / v.n as f64,
+            ))
+            .unwrap();
+    });
+    lap(&format!("postcode docs ({})", postcodes.len()));
 
     let mut writer = writer;
     writer.commit().unwrap();
