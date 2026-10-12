@@ -5,7 +5,7 @@ use reqwest::{
     header::{HOST, HeaderMap, HeaderValue},
 };
 use serde_json::{Value, json};
-use std::{sync::Arc, time::Duration};
+use std::{borrow::Cow, sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 
 const ORDERS: [(&str, &[&str]); 4] = [
@@ -123,10 +123,10 @@ impl Resolver {
                 language,
             )
             .await?;
-        result
-            .as_array()
-            .cloned()
-            .context("Nominatim search response must be an array")
+        match result {
+            Value::Array(candidates) => Ok(candidates),
+            _ => bail!("Nominatim search response must be an array"),
+        }
     }
 
     pub async fn first_acceptable(
@@ -145,7 +145,7 @@ impl Resolver {
             .iter()
             .map(format_response)
             .collect::<Result<Vec<_>>>()?;
-        let mut judged = english.clone();
+        let mut judged = Cow::Borrowed(english.as_slice());
         if !part(address, "city").is_empty()
             && !english
                 .iter()
@@ -160,7 +160,7 @@ impl Resolver {
                 }) {
                     let formatted = format_response(twin)?;
                     if city_agrees(address, formatted.address_details.as_option()) {
-                        judged[index] = formatted;
+                        judged.to_mut()[index] = formatted;
                     }
                 }
             }

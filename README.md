@@ -118,6 +118,36 @@ SERVICE_IMAGE=geolocation LIBPOSTAL_MODELS="$PWD/models/libpostal" \
 
 CI builds and checks both amd64 and arm64 without downloading models. Model-backed RPC tests run separately with provisioned models.
 
+## Local performance benchmark
+
+`tools/benchmark.py` provides a loopback Nominatim mock and a standard-library Connect JSON benchmark. It compares full responses and checks that each implementation makes the same number of backend requests. No failed requests are retried.
+
+```sh
+python3 tools/benchmark.py --self-test
+python3 tools/benchmark.py --serve 18080
+```
+
+Start release-built local services with `NOMINATIM_HOST=http://127.0.0.1:18080`, the same provisioned libpostal models, and isolated ClickHouse databases. Seed their administrative-region tables identically, then restart the services to warm their caches:
+
+| Country | Admin code | Level | Country name | Local name | English name |
+| --- | --- | --- | --- | --- | --- |
+| dk | 84 | 4 | Denmark | Hovedstaden | Capital Region |
+| de | BY | 4 | Germany | Bayern | Bavaria |
+| fr | IDF | 4 | France | Île-de-France | Ile-de-France |
+
+Use empty parent codes. Benchmarking must not depend on live Nominatim or production databases. The Python reference service is supplied separately; this repository does not bundle one.
+
+```sh
+python3 tools/benchmark.py \
+  --service rust=http://127.0.0.1:18121 \
+  --service reference=http://127.0.0.1:18122 \
+  --iterations 100 --rounds 3 > benchmark.jsonl
+```
+
+The default matrix covers 1/10/100 candidates, local-language corroboration, postcode fallback, concurrency 1/8, and backend delays of 0/10 ms. Service order rotates between rounds. Connections and caches are warmed outside each timed batch. Mock responses are pre-encoded and TCP delayed-ACK artifacts are disabled; injected delays still depend on operating-system scheduling.
+
+Use at least one complete rotation of all service names. Keep timed batches below the servers' per-connection request limits. Compare release builds on the same machine. Results include the mock, client, HTTP transport, native parsing and RPC framework; they are not production throughput or accuracy guarantees.
+
 ## GHCR publishing
 
 `.github/workflows/docker.yml` runs on repository branch pushes, `v*` tag pushes and manual dispatch. It runs the existing checks first, then uses Docker's pinned reusable workflow to build on native amd64/arm64 runners, push to `ghcr.io/mokto/geolocation`, and assemble and verify the multi-platform manifest. Pull requests do not publish images.
