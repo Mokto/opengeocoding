@@ -107,7 +107,7 @@ jobs:
             echo "<!-- gold-check -->"
             echo "## Gold check: $([ "${{ steps.diff.outputs.failed }}" = 1 ] && echo regressions || echo no regressions)"
             echo
-            echo "Cases passing on the index fixture (base \`${GITHUB_BASE_SHA:0:7}\` → this PR): **$(pass base) → $(pass head)** of $(wc -l < eval/head/results.jsonl | tr -d " "). The fixture covers only small boxes around the corpus (Overture, OSM and OpenAddresses), so absolute numbers differ from a full index; only the difference is meaningful."
+            echo "Cases passing on the index fixture (base \`${GITHUB_BASE_SHA:0:7}\` → this PR): **$(pass base) → $(pass head)** of $(wc -l < eval/head/results.jsonl | tr -d " "). The fixture covers only small boxes around the corpus (Overture, OSM, OpenAddresses and GeoNames postcodes for GB, CA and NL), so absolute numbers can differ from a full index; only the difference is meaningful."
             echo
             grep -v '^# ' eval/diff.md | head -c 55000
             echo

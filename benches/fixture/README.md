@@ -5,12 +5,15 @@
 nothing when `INDEX_DIR` is unset.
 
 The index is built by `build.sh` from Overture release 2026-09-23.1, the OSM country extracts
-and the OpenAddresses layers `build_index` accepts by licence (October 2026): every row inside the
+the OpenAddresses layers `build_index` accepts by licence and the GeoNames `GB_full`, `CA_full` and
+`NL_full` postal dumps (October 2026): every row inside the
 0.08° boxes of `boxes.txt` (2,243 boxes around every `tests/gold.jsonl` point and every place the
 address queries resolved to in a full index), through `build_index`. `slice_sources.py` cuts the
-OSM and OpenAddresses files (osmium-tool and shapely). It holds about 32 million house numbers and
-1.7 million streets in 590 MB, so searches hit real data for every row's country. Overture removes releases after a few months, so the result is published once as a
-`tar.zst` release asset (`bench-fixture-v3`, 359 MB, SHA-256 in the repository variable), not
+OSM, OpenAddresses and GeoNames files (osmium-tool and shapely); `build.sh` also keeps every
+Overture division whose area touches a box, since a region's own row is a point far from the
+boxes. It holds about 33 million house numbers and 1.8 million streets in 607 MB, so searches hit
+real data for every row's country. Overture removes releases after a few months, so the result is published once as a
+`tar.zst` release asset (`bench-fixture-v4`, 375 MB, SHA-256 in the repository variable), not
 rebuilt in CI. Rebuild and republish it when `build_index` changes the index format
 (`Index::open` then fails).
 
@@ -20,7 +23,7 @@ Without the variables the CodSpeed workflow skips `resolve`.
 
 ```sh
 cargo build --locked --release --bin build_index
-OSM_DIR=~/geodata/osm OPENADDRESSES_DIR=~/geodata/openaddresses \
+OSM_DIR=~/geodata/osm OPENADDRESSES_DIR=~/geodata/openaddresses GEONAMES_DIR=~/geodata/geonames \
   benches/fixture/build.sh ~/geodata/overture/2026-09-23.1 /tmp/fixture   # about 12 minutes
 tar --zstd -cf fixture.tar.zst -C /tmp/fixture index provenance.txt ATTRIBUTION.txt   # ATTRIBUTION.txt: see the release
 INDEX_DIR=/tmp/fixture/index cargo bench --bench resolve   # wall-clock locally
