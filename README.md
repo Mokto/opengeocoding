@@ -153,7 +153,7 @@ SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS="$PWD/models/libpostal" INDEX_DIR=o
   CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --locked --test rpc -- --ignored --nocapture
 ```
 
-CI builds and checks both amd64 and arm64 without downloading models. [CodSpeed](https://codspeed.io/) runs the `benches/` suites (the index analyzer and house-number keys; the service's candidate matching) in its simulation mode on pushes to `main` and on pull requests, and reports changes in instruction counts; run them locally with `cargo bench`, or `cargo codspeed build && cargo codspeed run`. The workflow builds libpostal without models, since the benchmarks link it but never parse. Regenerate `THIRD_PARTY_NOTICES.txt` with `cargo run --locked --bin notices` after dependency changes. Model-backed RPC tests run separately with provisioned models.
+CI builds and checks both amd64 and arm64 without downloading models. [CodSpeed](https://codspeed.io/) runs the `benches/` suites (the index analyzer and house-number keys; the service's candidate matching) in its simulation mode on pushes to `main` and on pull requests, and reports changes in instruction counts; run them locally with `cargo bench`, or `cargo codspeed build && cargo codspeed run`. `benches/resolve.rs` also times model-backed parsing and index searches against a small pinned index fixture; the workflow runs it only when the `BENCH_FIXTURE_URL` repository variable is set (see `benches/fixture/README.md`), and the other suites never load models. Regenerate `THIRD_PARTY_NOTICES.txt` with `cargo run --locked --bin notices` after dependency changes. Model-backed RPC tests run separately with provisioned models.
 
 ## Local performance benchmark
 
