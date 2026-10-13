@@ -219,6 +219,8 @@ struct App {
     regions: HashMap<String, u32>,
     postal: Mutex<rustpostal::LibModules>,
     release: String,
+    /// `terms_near` results: retried road and town splits ask for the same words.
+    near: Mutex<HashMap<String, std::sync::Arc<[String]>>>,
 }
 
 #[derive(Clone)]
@@ -242,6 +244,80 @@ enum Hit {
         x: f64,
         y: f64,
     },
+}
+
+/// A street word long enough to correct, and a word rather than a number or code ("3526").
+fn fuzzable(t: &str) -> bool {
+    t.chars().count() >= 4 && t.chars().all(char::is_alphabetic)
+}
+
+/// Matches terms within one insertion, deletion, substitution or adjacent transposition of a word
+/// (optimal string alignment over bytes, so a non-ASCII letter's substitution counts twice) that
+/// start with its first byte: typed addresses rarely get the first letter wrong, and requiring it
+/// lets the walk skip all but one branch of the term dictionary.
+struct OneEdit<'a>(&'a [u8]);
+
+/// Longest word `OneEdit` takes: the analyzer drops longer tokens.
+const MAX_WORD: usize = 40;
+
+/// (previous DP row, DP row, last byte); distances saturate at 2. The previous row of the start
+/// state is all 2s, so it never allows a transposition.
+type EditState = ([u8; MAX_WORD + 1], [u8; MAX_WORD + 1], u8);
+
+impl tantivy_fst::Automaton for OneEdit<'_> {
+    type State = EditState;
+
+    fn start(&self) -> EditState {
+        let mut row = [2; MAX_WORD + 1];
+        for (j, d) in row.iter_mut().enumerate().take(self.0.len() + 1) {
+            *d = j.min(2) as u8;
+        }
+        ([2; MAX_WORD + 1], row, 0)
+    }
+
+    fn is_match(&self, (_, row, _): &EditState) -> bool {
+        row[self.0.len()] <= 1
+    }
+
+    fn can_match(&self, (_, row, _): &EditState) -> bool {
+        row[..=self.0.len()].iter().any(|&d| d <= 1)
+    }
+
+    fn accept(&self, (prev, row, last): &EditState, c: u8) -> EditState {
+        let w = self.0;
+        // terms hold no zero bytes, so `last` is 0 only at the start
+        if *last == 0 && w.first() != Some(&c) {
+            return ([2; MAX_WORD + 1], [2; MAX_WORD + 1], c);
+        }
+        let mut next = [2; MAX_WORD + 1];
+        next[0] = (row[0] + 1).min(2);
+        for j in 1..=w.len() {
+            let mut d = (row[j] + 1)
+                .min(next[j - 1] + 1)
+                .min(row[j - 1] + u8::from(w[j - 1] != c));
+            if j > 1 && c == w[j - 2] && *last == w[j - 1] {
+                d = d.min(prev[j - 2] + 1);
+            }
+            next[j] = d.min(2);
+        }
+        (*row, next, c)
+    }
+}
+
+/// Within one insertion, deletion, substitution or transposition of adjacent letters.
+fn one_edit(a: &str, b: &str) -> bool {
+    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
+    let head = a.iter().zip(&b).take_while(|(x, y)| x == y).count();
+    let (a, b) = (&a[head..], &b[head..]);
+    match (a.len(), b.len()) {
+        (0, 0) => true,
+        (m, n) if m == n => {
+            a[1..] == b[1..] || (m >= 2 && a[0] == b[1] && a[1] == b[0] && a[2..] == b[2..])
+        }
+        (m, n) if m == n + 1 => a[1..] == *b,
+        (m, n) if m + 1 == n => *a == b[1..],
+        _ => false,
+    }
 }
 
 fn term(f: Field, t: &str) -> Box<dyn TQuery> {
@@ -684,6 +760,7 @@ impl App {
             regions,
             postal: Mutex::new(postal),
             release,
+            near: Mutex::default(),
         }
     }
 
@@ -913,6 +990,176 @@ impl App {
         postcode: Option<&str>,
         cc: Option<&str>,
     ) -> Vec<Hit> {
+        let named: Vec<u32> = city
+            .into_iter()
+            .flat_map(|city| {
+                self.places(city, cc, None, &|p| {
+                    !matches!(&*p.subtype, "country" | "dependency")
+                })
+            })
+            .filter_map(|h| match h {
+                Hit::Place(id) => Some(id),
+                _ => None,
+            })
+            .collect();
+        let hits = self.streets_by(road, number, city, &named, postcode, cc);
+        // A misspelt street ("Tarilwood Dr, Clinton"): only inside a stated town or postcode, and
+        // only a house that exists there answers.
+        if hits.is_empty()
+            && number.is_some_and(|n| !n.trim().is_empty())
+            && let Some(name) = self.respelt(road, city, &named, postcode, cc)
+        {
+            return self
+                .streets_by(&name, number, city, &named, postcode, cc)
+                .into_iter()
+                .filter(|h| {
+                    matches!(
+                        h,
+                        Hit::Street {
+                            number: Some(_),
+                            ..
+                        }
+                    )
+                })
+                .collect();
+        }
+        hits
+    }
+
+    /// The name of a street in the stated town or postcode that has every word of `road` but
+    /// one, and that one within an edit of the word there, or the misspelt street type
+    /// ("srteet"). Words missing from the scope are counted first, so a road the index lacks
+    /// costs a few lookups rather than an expansion.
+    fn respelt(
+        &self,
+        road: &str,
+        city: Option<&str>,
+        named: &[u32],
+        postcode: Option<&str>,
+        cc: Option<&str>,
+    ) -> Option<String> {
+        // Most misses are streets the index lacks; without a real town or postcode to search
+        // in, there is nothing to correct against.
+        if named.is_empty() && !postcode.is_some_and(|p| self.postcode_exists(p, cc)) {
+            return None;
+        }
+        let mut scope: Vec<(Occur, Box<dyn TQuery>)> = named
+            .iter()
+            .map(|id| (Occur::Should, term(self.f.ids, &id.to_string())))
+            .collect();
+        if let Some(city) = city {
+            let postal = self.musts(self.f.city, city);
+            if !postal.is_empty() {
+                scope.push((Occur::Should, Box::new(BooleanQuery::new(postal))));
+            }
+        }
+        if let Some(pc) = postcode.map(pc_norm).filter(|p| !p.is_empty()) {
+            scope.push((Occur::Should, term(self.f.pcode, &pc)));
+        }
+        if scope.is_empty() {
+            return None;
+        }
+        let first = |mut cl: Vec<(Occur, Box<dyn TQuery>)>| {
+            cl.push(must(Box::new(BooleanQuery::new(
+                scope.iter().map(|(o, q)| (*o, q.box_clone())).collect(),
+            ))));
+            cl.push(must(term(self.f.kind, "s")));
+            if let Some(cc) = cc {
+                cl.push(must(term(self.f.country, &cc.to_uppercase())));
+            }
+            self.top(&BooleanQuery::new(cl), 1).into_iter().next()
+        };
+        let words: Vec<String> = fold(road)
+            .split(' ')
+            .filter(|t| !t.is_empty())
+            .map(String::from)
+            .collect();
+        let mut missing = words
+            .iter()
+            .enumerate()
+            .filter(|(_, w)| first(vec![must(term(self.f.names, w))]).is_none());
+        let (wrong, word) = missing.next()?;
+        if missing.next().is_some() || !fuzzable(word) {
+            return None;
+        }
+        let kind = (!canon::is_canonical(word))
+            .then(|| {
+                canon::VARIANTS
+                    .iter()
+                    .find(|(full, _)| one_edit(word, full))
+            })
+            .flatten();
+        let alternatives: Vec<String> = match kind {
+            Some((_, short)) => vec![short.to_string()],
+            // the words themselves, not tantivy's FuzzyTermQuery: that marks every document
+            // holding any of them in a bitset per segment before the scope narrows anything
+            None => self.terms_near(word).to_vec(),
+        };
+        if alternatives.is_empty() {
+            return None;
+        }
+        let mut cl: Vec<(Occur, Box<dyn TQuery>)> = words
+            .iter()
+            .enumerate()
+            .filter(|&(i, _)| i != wrong)
+            .map(|(_, w)| must(term(self.f.names, w)))
+            .collect();
+        cl.push(must(Box::new(BooleanQuery::new(
+            alternatives
+                .iter()
+                .map(|w| (Occur::Should, term(self.f.names, w)))
+                .collect(),
+        ))));
+        let doc: tantivy::TantivyDocument = self.searcher.doc(first(cl)?).ok()?;
+        let mut respelt = words.clone();
+        let name = best_name(&doc, self.f.name, road);
+        // the street's own spelling of the word, so the exact search finds it
+        respelt[wrong] = fold(&name)
+            .split(' ')
+            .find(|w| alternatives.iter().any(|a| a == w))?
+            .to_string();
+        Some(respelt.join(" "))
+    }
+
+    /// Street-name words within one edit of `word`, with the same first letter.
+    fn terms_near(&self, word: &str) -> std::sync::Arc<[String]> {
+        if word.len() > MAX_WORD {
+            return std::sync::Arc::new([]);
+        }
+        if let Some(hit) = self.near.lock().unwrap().get(word) {
+            return hit.clone();
+        }
+        let mut out = std::collections::BTreeSet::new();
+        for segment in self.searcher.segment_readers() {
+            let Ok(index) = segment.inverted_index(self.f.names) else {
+                continue;
+            };
+            let Ok(mut terms) = index.terms().search(OneEdit(word.as_bytes())).into_stream() else {
+                continue;
+            };
+            while terms.advance() {
+                out.extend(std::str::from_utf8(terms.key()).ok().map(String::from));
+            }
+        }
+        let out: std::sync::Arc<[String]> = out.into_iter().collect();
+        let mut cache = self.near.lock().unwrap();
+        // ponytail: dropped whole when full, not LRU; ~100k words is a few MB
+        if cache.len() >= 100_000 {
+            cache.clear();
+        }
+        cache.insert(word.to_string(), out.clone());
+        out
+    }
+
+    fn streets_by(
+        &self,
+        road: &str,
+        number: Option<&str>,
+        city: Option<&str>,
+        named: &[u32],
+        postcode: Option<&str>,
+        cc: Option<&str>,
+    ) -> Vec<Hit> {
         let base = || {
             let mut cl = self.musts(self.f.names, road);
             cl.push(must(term(self.f.kind, "s")));
@@ -926,21 +1173,7 @@ impl App {
         }
         let mut scopes: Vec<Option<Box<dyn TQuery>>> = vec![];
         let mut near = None;
-        let mut named: Vec<u32> = vec![];
         if let Some(city) = city {
-            named = self
-                .places(city, cc, None, &|p| {
-                    !matches!(&*p.subtype, "country" | "dependency")
-                })
-                .into_iter()
-                .filter_map(|h| {
-                    if let Hit::Place(id) = h {
-                        Some(id)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
             let ids: Vec<u32> = named
                 .iter()
                 .copied()
@@ -1002,6 +1235,7 @@ impl App {
                 scopes.push(Some(s));
             }
         }
+        let town_scopes = scopes.len();
         if let Some(pc) = postcode.map(pc_norm).filter(|p| !p.is_empty()) {
             scopes.push(Some(term(self.f.pcode, &pc)));
             // Streets near the postcode, when neither the town nor the street's own postcodes
@@ -1140,6 +1374,18 @@ impl App {
                     city,
                 }
             };
+            let own_postcode = |a: DocAddress, own: u8| {
+                use tantivy::schema::Value as _;
+                let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
+                (own > 0)
+                    .then(|| {
+                        doc.get_all(self.f.pcode)
+                            .nth(own as usize - 1)?
+                            .as_str()
+                            .map(pc_norm)
+                    })
+                    .flatten()
+            };
             let lookup = |a: DocAddress, n: &str| {
                 let sid = self.fast(a, "id") as u32;
                 let mut key = sid.to_be_bytes().to_vec();
@@ -1183,6 +1429,22 @@ impl App {
                     key.extend_from_slice(n.as_bytes());
                     if let Some(v) = self.numbers[sid as usize % self.numbers.len()].get(&key) {
                         let (x, y, own) = index::unpack(v);
+                        // The town and the postcode disagree: when the house in the town has
+                        // another postcode and the requested postcode holds the same street and
+                        // number, the postcode is taken to be right and the town wrong.
+                        let wanted = postcode.map(pc_norm).filter(|p| !p.is_empty());
+                        if i < town_scopes
+                            && let Some(wanted) = &wanted
+                            && own_postcode(a, own).is_some_and(|o| o != *wanted)
+                            && let Some((b, (x, y, own))) = with_postcode
+                                .iter()
+                                .filter_map(|&b| Some((b, index::unpack(lookup(b, n)?))))
+                                .find(|&(b, (_, _, own))| {
+                                    own_postcode(b, own).as_ref() == Some(wanted)
+                                })
+                        {
+                            return vec![street(b, Some(n.to_string()), (x, y), own)];
+                        }
                         // like Nominatim, a found house is the only answer
                         return vec![street(a, Some(n.to_string()), (x, y), own)];
                     }
@@ -1972,6 +2234,59 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn one_edit_apart() {
+        for (a, b) in [
+            ("srteet", "street"),
+            ("stret", "street"),
+            ("streeet", "street"),
+            ("strete", "street"),
+            ("street", "street"),
+            ("snta", "santa"),
+        ] {
+            assert!(one_edit(a, b), "{a} {b}");
+        }
+        for (a, b) in [
+            ("sretet", "street"),
+            ("str", "street"),
+            ("avenue", "street"),
+            ("tsreet", "streets"),
+        ] {
+            assert!(!one_edit(a, b), "{a} {b}");
+        }
+        use tantivy_fst::Automaton;
+        let run = |word: &str, input: &str| {
+            let a = OneEdit(word.as_bytes());
+            let state = input.bytes().fold(a.start(), |s, c| a.accept(&s, c));
+            a.is_match(&state)
+        };
+        for word in ["street", "santa", "jacinthes", "trailwood"] {
+            for input in [
+                "street",
+                "srteet",
+                "stret",
+                "strete",
+                "streeet",
+                "sretet",
+                "snta",
+                "santa",
+                "jaicnthes",
+                "tarilwood",
+                "trailwod",
+                "avenue",
+                "tsreet",
+                "atreet",
+            ] {
+                let same_start = input.as_bytes().first() == word.as_bytes().first();
+                assert_eq!(
+                    run(word, input),
+                    same_start && one_edit(input, word),
+                    "{word} {input}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn admin_words_and_number_prefixes() {

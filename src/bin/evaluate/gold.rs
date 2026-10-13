@@ -151,6 +151,18 @@ fn entity(binding: &Value) -> String {
         .to_string()
 }
 
+/// The postcode of a "number street, postcode town" reference: the last five-digit number, since
+/// a house number can have five digits too.
+fn last_five_digits(text: &str) -> Result<String> {
+    static FIVE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b\d{5}\b").unwrap());
+    Ok(FIVE
+        .find_iter(text)
+        .last()
+        .context("no five-digit postcode")?
+        .as_str()
+        .into())
+}
+
 fn round6(value: f64) -> f64 {
     crate::score::round(value, 6)
 }
@@ -340,7 +352,7 @@ impl Sources {
                 let feature = &result["features"][0];
                 let props = &feature["properties"];
                 let house = query.split_whitespace().next().unwrap_or("").to_string();
-                let postcode = first(r"\b\d{5}\b", query)?;
+                let postcode = last_five_digits(query)?;
                 ensure!(
                     props["type"] == "housenumber" && props["score"].as_f64().unwrap_or(0.) > 0.8,
                     "BAN match {props}"
@@ -423,7 +435,7 @@ impl Sources {
                 ensure!(matches.len() == 1, "Census matches {matches:?}");
                 let matched = &matches[0];
                 let house = query.split_whitespace().next().unwrap_or("").to_string();
-                let postcode = first(r"\b\d{5}\b", query)?;
+                let postcode = last_five_digits(query)?;
                 let address = matched["matchedAddress"].as_str().unwrap_or("");
                 ensure!(
                     address.starts_with(&format!("{house} ")) && address.contains(&postcode),
@@ -973,6 +985,18 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn five_digit_house_numbers_are_not_postcodes() {
+        assert_eq!(
+            last_five_digits("11626 Old Statesville Rd, Huntersville, NC 28078").unwrap(),
+            "28078"
+        );
+        assert_eq!(
+            last_five_digits("12 Rue de la Paix, 75002 Paris").unwrap(),
+            "75002"
+        );
+    }
 
     #[test]
     fn slugs_match_the_existing_ids() {
