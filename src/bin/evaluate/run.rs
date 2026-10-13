@@ -857,6 +857,7 @@ pub async fn run(options: Options) -> Result<i32> {
             &options.out,
             Some(&options.out.join("diff.md")),
             options.fail_on_drift,
+            false,
         )?;
     }
     Ok(i32::from(failed))

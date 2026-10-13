@@ -1,0 +1,139 @@
+name: Gold check
+
+# Runs the gold suite on the pull request's merge result and on the base commit, against the
+# same index fixture, models, corpus and evaluator, and reports what regressed. Both sides see
+# only the fixture (benches/fixture), so absolute pass rates are lower than on a full index:
+# only the difference between them means anything.
+on:
+  pull_request:
+    paths:
+      - src/**
+      - data/**
+      - proto/**
+      - build.rs
+      - Cargo.toml
+      - Cargo.lock
+      - tests/gold*.jsonl
+      - .github/workflows/gold.yml
+      - .github/actions/bench-env/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: gold-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  LIBPOSTAL_COMMIT: 25099c506612b34b23b1bfe286ca6321fcf06f35
+  LIBPOSTAL_PREFIX: /home/runner/libpostal
+  RUSTFLAGS: -L native=/home/runner/libpostal/lib
+  LD_LIBRARY_PATH: /home/runner/libpostal/lib
+  LIBPOSTAL_MODELS: /home/runner/models
+  LIBPOSTAL_DATA_DIR: /home/runner/models/libpostal
+  INDEX_DIR: /home/runner/fixture/index
+  CLICKHOUSE_URL: http://127.0.0.1:8125
+
+jobs:
+  gold:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:26.9.15.5
+        env:
+          CLICKHOUSE_SKIP_USER_SETUP: "1"
+        ports:
+          - 8125:8123
+        options: >-
+          --health-cmd "wget -q --spider http://localhost:8123/ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          fetch-depth: 2
+      - name: Check out the base commit
+        run: |
+          git fetch --depth=1 origin "$BASE_SHA"
+          git worktree add ../base "$BASE_SHA"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+      - uses: ./.github/actions/bench-env
+        with:
+          fixture-url: ${{ vars.BENCH_FIXTURE_URL }}
+          fixture-sha256: ${{ vars.BENCH_FIXTURE_SHA256 }}
+      - name: Install Rust and Buf
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal && rustup default 1.99.0
+          curl -fsSL --retry 3 "https://github.com/bufbuild/buf/releases/download/v1.68.1/buf-Linux-x86_64" -o "$HOME/.cargo/bin/buf"
+          chmod +x "$HOME/.cargo/bin/buf"
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            .
+            ../base
+      - name: Build the service on both sides, and the evaluator once
+        run: |
+          cargo build --locked --release --bin opengeocoding --bin evaluate
+          (cd ../base && cargo build --locked --release --bin opengeocoding)
+      - name: Run the gold suite on both sides
+        run: |
+          # A failing gate (exit 1) or transport check (3) is expected on a fixture; anything else,
+          # or a missing result file, is a broken run.
+          for side in base head; do
+            binary=$PWD/target/release/opengeocoding
+            [ "$side" = base ] && binary=$PWD/../base/target/release/opengeocoding
+            code=0
+            SERVICE_BINARY=$binary target/release/evaluate run --suite gold --out "eval/$side" \
+              --index "$INDEX_DIR" --max-rps 100 --no-direct --backend-label "$side" || code=$?
+            case $code in 0|1|3) ;; *) echo "evaluate run $side exited $code"; exit 1 ;; esac
+            test -s "eval/$side/results.jsonl"
+          done
+      - name: Compare
+        id: diff
+        run: |
+          code=0
+          target/release/evaluate diff eval/base eval/head --corpus tests/gold.jsonl --relative --out eval/diff.md || code=$?
+          [ "$code" -le 1 ] || exit "$code"
+          echo "failed=$code" >> "$GITHUB_OUTPUT"
+      - name: Report
+        run: |
+          pass() { grep -m1 '^| pass |' "eval/$1/report.md" | tr -d ' ' | cut -d'|' -f3; }
+          {
+            echo "<!-- gold-check -->"
+            echo "## Gold check: $([ "${{ steps.diff.outputs.failed }}" = 1 ] && echo regressions || echo no regressions)"
+            echo
+            echo "Cases passing on the index fixture (base \`${GITHUB_BASE_SHA:0:7}\` → this PR): **$(pass base) → $(pass head)** of $(wc -l < eval/head/results.jsonl | tr -d " "). The fixture has no OSM or OpenAddresses data, so absolute numbers are lower than on a full index; only the difference is meaningful."
+            echo
+            grep -v '^# ' eval/diff.md | head -c 55000
+            echo
+            echo "Full runs are in the \`gold-eval\` artifact."
+          } > eval/comment.md
+          cp eval/comment.md "$GITHUB_STEP_SUMMARY"
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      - name: Comment on the pull request
+        if: github.event_name == 'pull_request'
+        # Pull requests from forks get a read-only token: the summary above still has the report.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            -q '.[] | select(.body | startswith("<!-- gold-check -->")) | .id' | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@eval/comment.md
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@eval/comment.md
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: gold-eval
+          path: eval/
+      - name: Fail on regressions
+        if: steps.diff.outputs.failed == '1'
+        run: exit 1
