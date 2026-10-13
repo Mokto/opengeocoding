@@ -1,9 +1,10 @@
 OpenGeocoding
-Copyright 2026 Geolocation contributors
-
-Project source is licensed under the Functional Source License 1.1, Apache-2.0 future license (see LICENSE).
 Copyright 2026 Théo Mathieu (https://github.com/Mokto/opengeocoding)
-Each release converts to Apache-2.0 on the second anniversary of its publication.
+
+Project source is licensed under the PolyForm Shield License 1.0.0 (see LICENSE).
+Versions published before this license took effect were licensed under the
+Functional Source License 1.1 with an Apache-2.0 future license, and keep that
+license, including its Apache-2.0 grant two years after each publication.
 
 Transliteration uses deunicode, copyright its respective contributors,
 licensed under BSD-3-Clause. It does not embed Python Unidecode tables.

@@ -2,7 +2,8 @@
 name = "opengeocoding"
 version = "0.1.0"
 edition = "2024"
-license = "FSL-1.1-Apache-2.0"
+# PolyForm Shield 1.0.0 has no SPDX identifier.
+license-file = "LICENSE"
 description = "Address resolution with libpostal, Overture indexes, ClickHouse, Connect and gRPC"
 repository = "https://github.com/Mokto/opengeocoding"
 rust-version = "1.99"

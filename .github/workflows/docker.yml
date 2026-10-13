@@ -41,7 +41,7 @@ jobs:
         type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
       set-meta-labels: true
       meta-labels: |
-        org.opencontainers.image.licenses=FSL-1.1-Apache-2.0
+        org.opencontainers.image.licenses=LicenseRef-PolyForm-Shield-1.0.0
     secrets:
       registry-auths: |
         - registry: ghcr.io
