@@ -36,8 +36,10 @@ parquet = { version = "60", default-features = false, features = ["arrow", "zstd
 mimalloc = { version = "0.1", default-features = false }
 osmpbf = "0.3"
 flate2 = "1"
+object_store = { version = "0.13.2", default-features = false, features = ["aws", "fs"] }
 
 [build-dependencies]
+ring = { version = "0.17", default-features = false }
 connectrpc-build = "0.9"
 deunicode = "1.6"
 serde_json = "1"

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: opengeocoding
+description: Address geocoding over an index built from Overture Maps, OpenStreetMap, OpenAddresses and GeoNames
+type: application
+home: https://github.com/Mokto/opengeocoding
+sources:
+  - https://github.com/Mokto/opengeocoding
+# Published charts set both from the release: version from the tag, appVersion (the image tag)
+# from the commit.
+version: 0.1.0
+appVersion: latest

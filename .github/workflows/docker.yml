@@ -65,3 +65,31 @@ jobs:
         run: |
           docker buildx imagetools inspect "ghcr.io/mokto/opengeocoding@$DIGEST" --raw |
             jq -e '[.manifests[].platform | .os + "/" + .architecture] | contains(["linux/amd64", "linux/arm64"])'
+
+  chart:
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Install Helm
+        run: |
+          curl -fsSLo helm.tgz https://get.helm.sh/helm-v3.22.0-linux-amd64.tar.gz
+          echo "1e4ab49e429626cf6c6958d914248b78c9730803c2751b87627e171dc800e7bb  helm.tgz" | sha256sum -c -
+          tar -xzf helm.tgz linux-amd64/helm
+          sudo install linux-amd64/helm /usr/local/bin/helm
+      - name: Publish the chart, pinned to this commit's image
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          base="$(sed -n 's/^version: //p' manifests/Chart.yaml)"
+          case "$GITHUB_REF" in
+            refs/tags/v*) version="${GITHUB_REF#refs/tags/v}"; app="$version" ;;
+            *) version="$base-g${GITHUB_SHA::12}"; app="sha-$GITHUB_SHA" ;;
+          esac
+          helm package manifests --version "$version" --app-version "$app"
+          echo "$TOKEN" | helm registry login ghcr.io --username "$ACTOR" --password-stdin
+          helm push "opengeocoding-$version.tgz" oci://ghcr.io/mokto/charts

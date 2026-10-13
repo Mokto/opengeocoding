@@ -20,7 +20,8 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - `data/`, `src/bin/update_reference.rs`: public reference data and its generator.
 - `tests/matching.rs`, `tests/rpc.rs`: regression tests and the model-backed RPC integration test (ignored by default).
 - `src/bin/benchmark.rs`, `src/bin/notices.rs`: SearchAddress benchmark across running services and third-party notice generation.
-- `src/bin/build_index/`: experimental offline Overture-to-Tantivy index builder (polygon assignment, street merging, house-number FSTs; `sources.rs` reads OSM and OpenAddresses). The service loads its output read-only from `INDEX_DIR`.
+- `src/bin/build_index/`: experimental offline Overture-to-Tantivy index builder (polygon assignment, street merging, house-number FSTs; `sources.rs` reads OSM and OpenAddresses), plus `job`/`pull`/`hash` subcommands (`job.rs`): fetching and mirroring sources (`fetch.rs`) and publishing and pulling sealed directories in any S3-compatible store (`store.rs`). The service loads its output read-only from `INDEX_DIR`.
+- `manifests/`: the Helm chart (build Job, serving Deployment with a `pull` init container); `tests/chart.rs` checks that it pins this code's builder hash.
 - `src/bin/evaluate/`, `src/eval.rs`: geographic-correctness evaluator (scoring, runs, reports, snapshots, gold builder) and the TSV/hold-out helpers it shares with external samplers.
 - `tests/gold.seeds.jsonl`, `tests/gold.jsonl`: curated gold case list and the corpus generated from it.
 - `benches/`: CodSpeed benchmark suites (divan); `.github/workflows/codspeed.yml` runs them.
@@ -32,7 +33,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - The protobuf package is `opengeocoding`; the service is `Geolocation`. The Rust crate and service executable are `opengeocoding`. Messages, field numbers and types are unchanged from the earlier `geolocation.Geolocation` and `nominatim_geolocation.NominatimGeolocation` services, whose paths `src/main.rs` rewrites to the canonical ones. Preserve the contract and both legacy RPC paths for benchmarking. Modify `proto/` and regenerate through Cargo; never edit generated files under `target/`.
 - Preserve deliberate fallback ordering, country/region conflict guards, postcode-area compatibility, local-language candidate corroboration and `good_match` semantics (false for structured fallbacks and for a missing requested house number). Other-language names (`namedetails`) corroborate settlements, and regions only for bare place names; they never justify overriding a recognized stated country.
 - Coordinates use protobuf float32. `GetRegionMap` returns a Python-style dictionary string; the stored map is JSON. Neither is an accidental formatting choice.
-- Preserve both legacy RPC routes for benchmarking, but do not restore Nominatim backend configuration or fallback. One process parses, looks up and serves; do not reintroduce an internal HTTP hop or a separate index server. Indexes and models come from read-only mounts; never download them at startup.
+- Preserve both legacy RPC routes for benchmarking, but do not restore Nominatim backend configuration or fallback. One process parses, looks up and serves; do not reintroduce an internal HTTP hop or a separate index server. The service reads indexes and models from read-only paths and never downloads anything. Only the chart's init container downloads them, from the installer's own store, sealed and checked against `MANIFEST`; never from upstream at startup.
 - Validate input at trust boundaries. Do not expose backend details in RPC errors.
 - Region-map refresh must remain atomic. Test database changes against an isolated database, never a shared production instance.
 - libpostal is native C behind `rustpostal`, not a pure-Rust parser. The resolver and the index share one `index::Parser`; keep parsing and index lookups off the async executor and libpostal calls serialized until native thread-safety testing supports widening concurrency. Set up libpostal once per process.
@@ -77,7 +78,8 @@ docker build --target runtime -t opengeocoding .
 - CLDR and GeoNames data retain their separate licenses and attribution. Refresh `data/` through `cargo run --bin update_reference`; review dataset changes and provenance together. Changing the pinned Unicode version is a data update too.
 - Gold-corpus sources (Wikidata, BAN, PDOK/BAG, US Census, ONSPD via postcodes.io) are attributed in `NOTICE`; update it when adding a source. Do not add Google Maps or other restricted geocoder output to any corpus.
 - Regenerate `THIRD_PARTY_NOTICES.txt` with `cargo run --bin notices` after dependency changes. Do not edit generated data or notices by hand.
-- Models are external, large and not bundled in the runtime image. Do not add automatic startup downloads or commit model files. The container expects a read-only model mount at `/data/libpostal`.
+- Models are external, large and not bundled in the runtime image. Do not add automatic startup downloads from upstream or commit model files. The container expects read-only models at `/data/libpostal`; the build Job mirrors them into the store with libpostal's own `libpostal_data`.
+- Any change under `src/bin/build_index/`, to `src/index/{schema,canon}.rs` or to the tantivy or deunicode versions changes the builder hash: update `index.builderHash` in `manifests/values.yaml` (`build_index hash`) in the same commit. That names a new index, which deployed charts rebuild. Store layout and `MANIFEST`/`_COMPLETE` sealing are a compatibility surface for existing buckets.
 - Keep the runtime Python-free and non-root (uid/gid 1000), with a writable region-map directory. Do not conflate a parser/model upgrade with unrelated service changes.
 
 ## Git and publishing
@@ -85,5 +87,5 @@ docker build --target runtime -t opengeocoding .
 - Use feature branches and pull requests; never push directly to `main` or continue a branch whose PR has merged.
 - Keep public PR descriptions accurate after every push and free of internal references.
 - Pin GitHub Actions and reusable workflows by commit SHA. Keep publishing credentials out of pull-request jobs.
-- Pushes to `main`, `v*` tag pushes and manual dispatch trigger checked, multi-platform image publishing to `ghcr.io/mokto/opengeocoding`. Only `main` updates `latest`; branch, SHA and version tags are separate.
+- Pushes to `main`, `v*` tag pushes and manual dispatch trigger checked, multi-platform image publishing to `ghcr.io/mokto/opengeocoding`. Only `main` updates `latest`; branch, SHA and version tags are separate. The Helm chart is published to `oci://ghcr.io/mokto/charts` after the image, pinned to it.
 - Do not merge, create release tags, publish crates or change package visibility without explicit authorization. GHCR publication already configured by this repository runs automatically on pushes to `main` and `v*` tags.

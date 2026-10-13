@@ -1,0 +1,168 @@
+{{- $id := include "og.indexId" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "og.name" . }}
+  labels:
+    {{- include "og.labels" . | nindent 4 }}
+    app.kubernetes.io/component: serving
+spec:
+  {{- if not .Values.serving.autoscaling.enabled }}
+  replicas: {{ .Values.serving.replicas }}
+  {{- end }}
+  progressDeadlineSeconds: {{ .Values.serving.progressDeadlineSeconds }}
+  # New pods wait for their index before old ones go, so a rebuild never interrupts serving.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: serving
+  template:
+    metadata:
+      labels:
+        {{- include "og.labels" . | nindent 8 }}
+        app.kubernetes.io/component: serving
+      annotations:
+        opengeocoding.io/index: {{ $id | quote }}
+        {{- with .Values.serving.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "og.serviceAccount" . }}
+      terminationGracePeriodSeconds: 40
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "og.podSecurity" . | nindent 8 }}
+      initContainers:
+        - name: pull-index
+          image: {{ include "og.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - build_index
+            - pull
+            - --store
+            - {{ required "store.url is required" .Values.store.url | quote }}
+            - --index
+            - {{ $id | quote }}
+            - --to
+            - /index
+            - --models
+            - /data/libpostal
+            - --models-version
+            - {{ .Values.index.modelsVersion | quote }}
+          env:
+            {{- include "og.storeEnv" . | nindent 12 }}
+          {{- with (.Values.store.readCredentialsSecret | default .Values.store.credentialsSecret) }}
+          envFrom:
+            - secretRef:
+                name: {{ . }}
+          {{- end }}
+          securityContext:
+            {{- include "og.containerSecurity" . | nindent 12 }}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: index
+              mountPath: /index
+            - name: data
+              mountPath: /data
+      containers:
+        - name: opengeocoding
+          image: {{ include "og.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: INDEX_DIR
+              value: /index
+            - name: RPC_PORT
+              value: {{ .Values.service.port | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.service.metricsPort | quote }}
+            - name: CLICKHOUSE_URL
+              value: {{ required "clickhouse.url is required" .Values.clickhouse.url | quote }}
+            - name: CLICKHOUSE_DATABASE
+              value: {{ .Values.clickhouse.database | quote }}
+            - name: CLICKHOUSE_USER
+              value: {{ .Values.clickhouse.user | quote }}
+            - name: CLICKHOUSE_PREFIX
+              value: {{ .Values.clickhouse.prefix | quote }}
+            - name: CLICKHOUSE_SINGLE_NODE
+              value: {{ ternary "1" "" .Values.clickhouse.singleNode | quote }}
+            {{- with .Values.clickhouse.passwordSecret.name }}
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.clickhouse.passwordSecret.key }}
+            {{- end }}
+            {{- with .Values.serving.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: rpc
+              containerPort: {{ .Values.service.port }}
+            - name: metrics
+              containerPort: {{ .Values.service.metricsPort }}
+          lifecycle:
+            # Keeps serving while the Service drops the pod, which happens after SIGTERM.
+            preStop:
+              exec:
+                command: [sleep, "10"]
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: rpc
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: rpc
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: rpc
+            periodSeconds: 10
+            timeoutSeconds: 15
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.serving.resources | nindent 12 }}
+          securityContext:
+            {{- include "og.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - name: index
+              mountPath: /index
+              readOnly: true
+            - name: data
+              mountPath: /data
+              readOnly: true
+      volumes:
+        - name: index
+          emptyDir:
+            sizeLimit: {{ .Values.serving.indexVolumeSize }}
+        - name: data
+          emptyDir:
+            sizeLimit: 4Gi
+      {{- with .Values.serving.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serving.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serving.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serving.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -737,9 +737,28 @@ impl Parser {
     }
 }
 
+/// Refuses an index whose `build.json` names another builder: its terms were folded, and its
+/// house numbers packed, by code this binary may not match. Hand-built indexes have no
+/// `build.json` and are opened as they are.
+fn check_builder(dir: &Path) -> Result<()> {
+    let Ok(text) = fs::read_to_string(dir.join("build.json")) else {
+        return Ok(());
+    };
+    let build: Value = serde_json::from_str(&text).context("build.json")?;
+    let found = build["builder_hash"].as_str().unwrap_or("none");
+    anyhow::ensure!(
+        found == env!("BUILDER_HASH"),
+        "index {} was built by builder {found}, this binary reads builder {}'s indexes",
+        dir.display(),
+        env!("BUILDER_HASH")
+    );
+    Ok(())
+}
+
 impl Index {
     /// Blocks for several seconds: the place table is read into memory.
     pub fn open(dir: &Path, parser: Arc<Parser>) -> Result<Index> {
+        check_builder(dir)?;
         let mmap = tantivy::directory::MmapDirectory::open(dir)?;
         let index = tantivy::Index::open(ReadOnly(mmap.clone()))
             .with_context(|| format!("open index {}", dir.display()))?;
@@ -2243,6 +2262,25 @@ impl Index {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn refuses_another_builders_index() {
+        let dir = std::env::temp_dir().join(format!("builder-check-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        check_builder(&dir).unwrap();
+        let write = |hash: &str| {
+            std::fs::write(
+                dir.join("build.json"),
+                format!(r#"{{"builder_hash":"{hash}"}}"#),
+            )
+            .unwrap()
+        };
+        write(env!("BUILDER_HASH"));
+        check_builder(&dir).unwrap();
+        write("0000000000000000");
+        assert!(check_builder(&dir).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn opens_without_writing_a_lock() {
