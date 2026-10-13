@@ -221,3 +221,1036 @@
 {"kind": "unscored", "cohort": "conflict", "queries": ["Nyhavn 1, 1051 København, Germany"], "label": "policy undecided", "tags": ["policy_undecided"]}
 {"kind": "unscored", "cohort": "conflict", "queries": ["10 Downing Street, London SW1A 2AA, France"], "label": "policy undecided", "tags": ["policy_undecided"]}
 {"kind": "unscored", "cohort": "conflict", "queries": ["Paris, Texas, France"], "label": "policy undecided", "tags": ["policy_undecided"]}
+{"kind": "place", "cohort": "city", "qid": "Q1863", "queries": ["Andorra la Vella, Andorra"], "radius_km": 6, "tags": ["geonames-sample", "ad"]}
+{"kind": "place", "cohort": "city", "qid": "Q989558", "queries": ["Encamp, Andorra"], "radius_km": 6, "tags": ["geonames-sample", "ad"]}
+{"kind": "place", "cohort": "city", "qid": "Q1519", "queries": ["Abu Dhabi, United Arab Emirates"], "radius_km": 20, "tags": ["geonames-sample", "ae"]}
+{"kind": "place", "cohort": "city", "qid": "Q49278591", "queries": ["Umm Al Quwain City, Umm Al Quwain, United Arab Emirates"], "radius_km": 6, "tags": ["geonames-sample", "ae"]}
+{"kind": "place", "cohort": "city", "qid": "Q5838", "queries": ["Kabul, Afghanistan"], "radius_km": 20, "tags": ["geonames-sample", "af"]}
+{"kind": "place", "cohort": "city", "qid": "Q21754950", "queries": ["Jabal os Saraj, Parwan, Afghanistan"], "radius_km": 6, "tags": ["geonames-sample", "af"]}
+{"kind": "place", "cohort": "city", "qid": "Q36262", "queries": ["Saint John’s, Saint John Parish, Antigua and Barbuda"], "radius_km": 6, "tags": ["geonames-sample", "ag"]}
+{"kind": "place", "cohort": "rural", "qid": "Q30994", "queries": ["The Valley, Anguilla"], "radius_km": 6, "tags": ["geonames-sample", "ai"]}
+{"kind": "place", "cohort": "city", "qid": "Q19689", "queries": ["Tirana, Albania"], "radius_km": 10, "tags": ["geonames-sample", "al"]}
+{"kind": "place", "cohort": "city", "qid": "Q116341", "queries": ["Korçë, Korçë County, Albania"], "radius_km": 6, "tags": ["geonames-sample", "al"]}
+{"kind": "place", "cohort": "city", "qid": "Q49755180", "queries": ["Yerevan, Armenia"], "radius_km": 20, "tags": ["geonames-sample", "am"]}
+{"kind": "place", "cohort": "city", "qid": "Q319735", "queries": ["Goris, Syunik, Armenia"], "radius_km": 6, "tags": ["geonames-sample", "am"]}
+{"kind": "place", "cohort": "city", "qid": "Q3897", "queries": ["Luanda, Angola"], "radius_km": 20, "tags": ["geonames-sample", "ao"]}
+{"kind": "place", "cohort": "city", "qid": "Q52535", "queries": ["Rosario, Argentina"], "radius_km": 10, "tags": ["geonames-sample", "ar"]}
+{"kind": "place", "cohort": "city", "qid": "Q44244", "queries": ["Santa Fe, Argentina"], "radius_km": 10, "tags": ["geonames-sample", "ar"]}
+{"kind": "place", "cohort": "city", "qid": "Q44214", "queries": ["Formosa, Argentina"], "radius_km": 10, "tags": ["geonames-sample", "ar"]}
+{"kind": "place", "cohort": "city", "qid": "Q2779417", "queries": ["Chamical, La Rioja, Argentina"], "radius_km": 6, "tags": ["geonames-sample", "ar"]}
+{"kind": "place", "cohort": "city", "qid": "Q686736", "queries": ["Chivilcoy, Buenos Aires, Argentina"], "radius_km": 6, "tags": ["geonames-sample", "ar"]}
+{"kind": "place", "cohort": "rural", "qid": "Q5393050", "queries": ["Laprida, Buenos Aires, Argentina"], "radius_km": 6, "tags": ["geonames-sample", "ar"], "known_failure": "far_miss: a Laprida street in the city of Buenos Aires outranks the town in the province (2026-10-13)"}
+{"kind": "place", "cohort": "rural", "qid": "Q2732721", "queries": ["James Craik, Cordoba, Argentina"], "radius_km": 6, "tags": ["geonames-sample", "ar"]}
+{"kind": "place", "cohort": "city", "qid": "Q51678", "queries": ["Pago Pago, Eastern District, American Samoa"], "radius_km": 6, "tags": ["geonames-sample", "as"]}
+{"kind": "place", "cohort": "rural", "qid": "Q4007275", "queries": ["Vailoatai, Western District, American Samoa"], "radius_km": 6, "tags": ["geonames-sample", "as"]}
+{"kind": "place", "cohort": "city", "qid": "Q1741", "queries": ["Vienna, Austria"], "radius_km": 20, "tags": ["geonames-sample", "at"]}
+{"kind": "place", "cohort": "city", "qid": "Q21881853", "queries": ["Lienz, Tyrol, Austria"], "radius_km": 6, "tags": ["geonames-sample", "at"]}
+{"kind": "place", "cohort": "city", "qid": "Q3114", "queries": ["Canberra, Australia"], "radius_km": 10, "tags": ["geonames-sample", "au"]}
+{"kind": "place", "cohort": "city", "qid": "Q3141", "queries": ["Melbourne, Australia"], "radius_km": 20, "tags": ["geonames-sample", "au"]}
+{"kind": "place", "cohort": "city", "qid": "Q595542", "queries": ["Mandurah, Australia"], "radius_km": 10, "tags": ["geonames-sample", "au"]}
+{"kind": "place", "cohort": "city", "qid": "Q190021", "queries": ["Townsville, Australia"], "radius_km": 10, "tags": ["geonames-sample", "au"]}
+{"kind": "place", "cohort": "city", "qid": "Q1434796", "queries": ["Tamworth, New South Wales, Australia"], "radius_km": 6, "tags": ["geonames-sample", "au"]}
+{"kind": "place", "cohort": "city", "qid": "Q377975", "queries": ["Maryborough, Queensland, Australia"], "radius_km": 6, "tags": ["geonames-sample", "au"]}
+{"kind": "place", "cohort": "rural", "qid": "Q2492122", "queries": ["Bermagui, New South Wales, Australia"], "radius_km": 6, "tags": ["geonames-sample", "au"]}
+{"kind": "place", "cohort": "rural", "qid": "Q7076068", "queries": ["Ocean Shores, New South Wales, Australia"], "radius_km": 6, "tags": ["geonames-sample", "au"]}
+{"kind": "place", "cohort": "city", "qid": "Q131243", "queries": ["Oranjestad, Aruba"], "radius_km": 6, "tags": ["geonames-sample", "aw"]}
+{"kind": "place", "cohort": "city", "qid": "Q32122272", "queries": ["Mariehamn, Aland Islands"], "radius_km": 6, "tags": ["geonames-sample", "ax"]}
+{"kind": "place", "cohort": "city", "qid": "Q1013454", "queries": ["Julfa, Nakhchivan, Azerbaijan"], "radius_km": 6, "tags": ["geonames-sample", "az"]}
+{"kind": "place", "cohort": "city", "qid": "Q11194", "queries": ["Sarajevo, Bosnia and Herzegovina"], "radius_km": 10, "tags": ["geonames-sample", "ba"]}
+{"kind": "place", "cohort": "city", "qid": "Q861772", "queries": ["Bileća, Srpska, Bosnia and Herzegovina"], "radius_km": 6, "tags": ["geonames-sample", "ba"]}
+{"kind": "place", "cohort": "city", "qid": "Q36168", "queries": ["Bridgetown, Saint Michael, Barbados"], "radius_km": 6, "tags": ["geonames-sample", "bb"]}
+{"kind": "place", "cohort": "rural", "qid": "Q692475", "queries": ["Oistins, Christ Church, Barbados"], "radius_km": 6, "tags": ["geonames-sample", "bb"]}
+{"kind": "place", "cohort": "city", "qid": "Q1354", "queries": ["Dhaka, Bangladesh"], "radius_km": 20, "tags": ["geonames-sample", "bd"]}
+{"kind": "place", "cohort": "city", "qid": "Q2573174", "queries": ["Madaripur, Dhaka Division, Bangladesh"], "radius_km": 6, "tags": ["geonames-sample", "bd"]}
+{"kind": "place", "cohort": "city", "qid": "Q31467408", "queries": ["Antwerp, Belgium"], "radius_km": 10, "tags": ["geonames-sample", "be"]}
+{"kind": "place", "cohort": "city", "qid": "Q31467408", "queries": ["Antwerpen, België"], "radius_km": 10, "tags": ["geonames-sample", "be", "native"]}
+{"kind": "place", "cohort": "city", "qid": "Q31590146", "queries": ["Gent, Belgium"], "radius_km": 10, "tags": ["geonames-sample", "be"]}
+{"kind": "place", "cohort": "city", "qid": "Q21765571", "queries": ["Liège, Belgium"], "radius_km": 10, "tags": ["geonames-sample", "be"]}
+{"kind": "place", "cohort": "city", "qid": "Q51389725", "queries": ["Namur, Belgium"], "radius_km": 10, "tags": ["geonames-sample", "be"]}
+{"kind": "place", "cohort": "city", "qid": "Q31596396", "queries": ["Zedelgem, Flanders, Belgium"], "radius_km": 6, "tags": ["geonames-sample", "be"]}
+{"kind": "place", "cohort": "rural", "qid": "Q773208", "queries": ["Leefdaal, Flanders, Belgium"], "radius_km": 6, "tags": ["geonames-sample", "be"]}
+{"kind": "place", "cohort": "rural", "qid": "Q2161364", "queries": ["Kanne, Flanders, Belgium"], "radius_km": 6, "tags": ["geonames-sample", "be"]}
+{"kind": "place", "cohort": "city", "qid": "Q3777", "queries": ["Ouagadougou, Burkina Faso"], "radius_km": 20, "tags": ["geonames-sample", "bf"]}
+{"kind": "place", "cohort": "city", "qid": "Q895110", "queries": ["Boulsa, Centre-Nord, Burkina Faso"], "radius_km": 6, "tags": ["geonames-sample", "bf"]}
+{"kind": "place", "cohort": "city", "qid": "Q405742", "queries": ["Radomir, Pernik, Bulgaria"], "radius_km": 6, "tags": ["geonames-sample", "bg"]}
+{"kind": "place", "cohort": "city", "qid": "Q3882", "queries": ["Manama, Bahrain"], "radius_km": 10, "tags": ["geonames-sample", "bh"]}
+{"kind": "place", "cohort": "city", "qid": "Q1017673", "queries": ["Madīnat ‘Īsá, Southern Governorate, Bahrain"], "radius_km": 6, "tags": ["geonames-sample", "bh"]}
+{"kind": "place", "cohort": "city", "qid": "Q167551", "queries": ["Gitega, Burundi"], "radius_km": 6, "tags": ["geonames-sample", "bi"]}
+{"kind": "place", "cohort": "city", "qid": "Q2006076", "queries": ["Muyinga, Burundi"], "radius_km": 6, "tags": ["geonames-sample", "bi"]}
+{"kind": "place", "cohort": "city", "qid": "Q3799", "queries": ["Porto-Novo, Benin"], "radius_km": 10, "tags": ["geonames-sample", "bj"]}
+{"kind": "place", "cohort": "city", "qid": "Q2269235", "queries": ["Boukoumbé, Atakora, Benin"], "radius_km": 6, "tags": ["geonames-sample", "bj"]}
+{"kind": "place", "cohort": "rural", "qid": "Q34112", "queries": ["Gustavia, Saint Barthelemy"], "radius_km": 6, "tags": ["geonames-sample", "bl"]}
+{"kind": "place", "cohort": "rural", "qid": "Q30985", "queries": ["Hamilton, Hamilton city, Bermuda"], "radius_km": 6, "tags": ["geonames-sample", "bm"]}
+{"kind": "place", "cohort": "city", "qid": "Q7129799", "queries": ["Kampung Panaga, Belait, Brunei"], "radius_km": 6, "tags": ["geonames-sample", "bn"]}
+{"kind": "place", "cohort": "city", "qid": "Q2907", "queries": ["Sucre, Bolivia"], "radius_km": 10, "tags": ["geonames-sample", "bo"]}
+{"kind": "place", "cohort": "city", "qid": "Q1107702", "queries": ["Colchani, Potosí Department, Bolivia"], "radius_km": 6, "tags": ["geonames-sample", "bo"]}
+{"kind": "place", "cohort": "city", "qid": "Q331584", "queries": ["Kralendijk, Bonaire, Bonaire, Saint Eustatius and Saba "], "radius_km": 6, "tags": ["geonames-sample", "bq"], "country": ["nl", "bq"]}
+{"kind": "place", "cohort": "rural", "qid": "Q9357153", "queries": ["Dorp Tera Kora, Bonaire, Bonaire, Saint Eustatius and Saba "], "radius_km": 6, "tags": ["geonames-sample", "bq"]}
+{"kind": "place", "cohort": "city", "qid": "Q2844", "queries": ["Brasília, Brazil"], "radius_km": 20, "tags": ["geonames-sample", "br"]}
+{"kind": "place", "cohort": "city", "qid": "Q32153304", "queries": ["Tubarão, Brazil"], "radius_km": 10, "tags": ["geonames-sample", "br"]}
+{"kind": "place", "cohort": "city", "qid": "Q32129830", "queries": ["Itaguaí, Brazil"], "radius_km": 10, "tags": ["geonames-sample", "br"]}
+{"kind": "place", "cohort": "city", "qid": "Q22047908", "queries": ["Arroio Grande, Rio Grande do Sul, Brazil"], "radius_km": 6, "tags": ["geonames-sample", "br"]}
+{"kind": "place", "cohort": "rural", "qid": "Q22064536", "queries": ["Poloni, São Paulo, Brazil"], "radius_km": 6, "tags": ["geonames-sample", "br"]}
+{"kind": "place", "cohort": "city", "qid": "Q2467", "queries": ["Nassau, Bahamas"], "radius_km": 10, "tags": ["geonames-sample", "bs"]}
+{"kind": "place", "cohort": "city", "qid": "Q6696401", "queries": ["Lucaya, Freeport, Bahamas"], "radius_km": 6, "tags": ["geonames-sample", "bs"]}
+{"kind": "place", "cohort": "city", "qid": "Q9270", "queries": ["Thimphu, Thimphu District, Bhutan"], "radius_km": 6, "tags": ["geonames-sample", "bt"]}
+{"kind": "place", "cohort": "city", "qid": "Q3919", "queries": ["Gaborone, Botswana"], "radius_km": 10, "tags": ["geonames-sample", "bw"]}
+{"kind": "place", "cohort": "city", "qid": "Q21858552", "queries": ["Janeng, South-East, Botswana"], "radius_km": 6, "tags": ["geonames-sample", "bw"], "known_failure": "far_miss: Janeng is not in the index; only the country answers (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q2280", "queries": ["Minsk, Belarus"], "radius_km": 20, "tags": ["geonames-sample", "by"]}
+{"kind": "place", "cohort": "city", "qid": "Q656579", "queries": ["Malorita, Brest, Belarus"], "radius_km": 6, "tags": ["geonames-sample", "by"]}
+{"kind": "place", "cohort": "city", "qid": "Q3043", "queries": ["Belmopan, Cayo District, Belize"], "radius_km": 6, "tags": ["geonames-sample", "bz"]}
+{"kind": "place", "cohort": "city", "qid": "Q724815", "queries": ["San Ignacio, Cayo District, Belize"], "radius_km": 6, "tags": ["geonames-sample", "bz"]}
+{"kind": "place", "cohort": "city", "qid": "Q1930", "queries": ["Ottawa, Canada"], "radius_km": 20, "tags": ["geonames-sample", "ca"]}
+{"kind": "place", "cohort": "city", "qid": "Q340", "queries": ["Montréal, Canada"], "radius_km": 20, "tags": ["geonames-sample", "ca"]}
+{"kind": "place", "cohort": "city", "qid": "Q2145", "queries": ["Québec, Canada"], "radius_km": 10, "tags": ["geonames-sample", "ca"]}
+{"kind": "place", "cohort": "city", "qid": "Q126805", "queries": ["St. Catharines, Canada"], "radius_km": 10, "tags": ["geonames-sample", "ca"]}
+{"kind": "place", "cohort": "city", "qid": "Q3476253", "queries": ["Sherwood Park, Alberta, Canada"], "radius_km": 6, "tags": ["geonames-sample", "ca"]}
+{"kind": "place", "cohort": "city", "qid": "Q3045039", "queries": ["West Nipissing, Ontario, Canada"], "radius_km": 6, "tags": ["geonames-sample", "ca"]}
+{"kind": "place", "cohort": "rural", "qid": "Q141378", "queries": ["Plessisville, Quebec, Canada"], "radius_km": 6, "tags": ["geonames-sample", "ca"]}
+{"kind": "place", "cohort": "rural", "qid": "Q3078545", "queries": ["Fortune, Newfoundland and Labrador, Canada"], "radius_km": 6, "tags": ["geonames-sample", "ca"]}
+{"kind": "place", "cohort": "rural", "qid": "Q22565692", "queries": ["West Island, Cocos Islands"], "radius_km": 6, "tags": ["geonames-sample", "cc"]}
+{"kind": "place", "cohort": "city", "qid": "Q3838", "queries": ["Kinshasa, Democratic Republic of the Congo"], "radius_km": 20, "tags": ["geonames-sample", "cd"]}
+{"kind": "place", "cohort": "city", "qid": "Q3832", "queries": ["Bangui, Central African Republic"], "radius_km": 10, "tags": ["geonames-sample", "cf"]}
+{"kind": "place", "cohort": "city", "qid": "Q1772726", "queries": ["Grimari, Ouaka, Central African Republic"], "radius_km": 6, "tags": ["geonames-sample", "cf"]}
+{"kind": "place", "cohort": "city", "qid": "Q3844", "queries": ["Brazzaville, Republic of the Congo"], "radius_km": 20, "tags": ["geonames-sample", "cg"]}
+{"kind": "place", "cohort": "city", "qid": "Q739308", "queries": ["Sibiti, Lékoumou, Republic of the Congo"], "radius_km": 6, "tags": ["geonames-sample", "cg"]}
+{"kind": "place", "cohort": "city", "qid": "Q9125", "queries": ["Winterthur, Switzerland"], "radius_km": 10, "tags": ["geonames-sample", "ch"]}
+{"kind": "place", "cohort": "city", "qid": "Q49356500", "queries": ["Kloten, Zurich, Switzerland"], "radius_km": 6, "tags": ["geonames-sample", "ch"]}
+{"kind": "place", "cohort": "city", "qid": "Q22430133", "queries": ["Oftringen, Aargau, Switzerland"], "radius_km": 6, "tags": ["geonames-sample", "ch"]}
+{"kind": "place", "cohort": "rural", "qid": "Q22366733", "queries": ["Gonten, Appenzell Innerrhoden, Switzerland"], "radius_km": 6, "tags": ["geonames-sample", "ch"]}
+{"kind": "place", "cohort": "rural", "qid": "Q22543837", "queries": ["Linden, Bern, Switzerland"], "radius_km": 6, "tags": ["geonames-sample", "ch"]}
+{"kind": "place", "cohort": "city", "qid": "Q3768", "queries": ["Yamoussoukro, Ivory Coast"], "radius_km": 10, "tags": ["geonames-sample", "ci"]}
+{"kind": "place", "cohort": "city", "qid": "Q2409805", "queries": ["Katiola, Vallée du Bandama District, Ivory Coast"], "radius_km": 6, "tags": ["geonames-sample", "ci"]}
+{"kind": "place", "cohort": "city", "qid": "Q170482", "queries": ["Avarua, Rarotonga, Cook Islands"], "radius_km": 6, "tags": ["geonames-sample", "ck"]}
+{"kind": "place", "cohort": "rural", "qid": "Q3298238", "queries": ["Matavera, Rarotonga, Cook Islands"], "radius_km": 6, "tags": ["geonames-sample", "ck"]}
+{"kind": "place", "cohort": "city", "qid": "Q23660147", "queries": ["Cabrero, Biobio, Chile"], "radius_km": 6, "tags": ["geonames-sample", "cl"]}
+{"kind": "place", "cohort": "city", "qid": "Q3808", "queries": ["Yaoundé, Cameroon"], "radius_km": 20, "tags": ["geonames-sample", "cm"]}
+{"kind": "place", "cohort": "city", "qid": "Q3591508", "queries": ["Eséka, Centre, Cameroon"], "radius_km": 6, "tags": ["geonames-sample", "cm"]}
+{"kind": "place", "cohort": "city", "qid": "Q956", "queries": ["北京市, 中华人民共和国"], "radius_km": 20, "tags": ["geonames-sample", "cn", "native"]}
+{"kind": "place", "cohort": "city", "qid": "Q15897817", "queries": ["Chongqing, China"], "radius_km": 20, "tags": ["geonames-sample", "cn"]}
+{"kind": "place", "cohort": "city", "qid": "Q416988", "queries": ["Loudi, China"], "radius_km": 10, "tags": ["geonames-sample", "cn"]}
+{"kind": "place", "cohort": "city", "qid": "Q416988", "queries": ["娄底市, 中华人民共和国"], "radius_km": 10, "tags": ["geonames-sample", "cn", "native"]}
+{"kind": "place", "cohort": "city", "qid": "Q28794705", "queries": ["Macheng, China"], "radius_km": 10, "tags": ["geonames-sample", "cn"]}
+{"kind": "place", "cohort": "rural", "qid": "Q13670233", "queries": ["Wangqinzhuang, Tianjin, China"], "radius_km": 6, "tags": ["geonames-sample", "cn"]}
+{"kind": "place", "cohort": "city", "qid": "Q23696223", "queries": ["Cali, Colombia"], "radius_km": 20, "tags": ["geonames-sample", "co"]}
+{"kind": "place", "cohort": "city", "qid": "Q23686302", "queries": ["Medellín, Colombia"], "radius_km": 20, "tags": ["geonames-sample", "co"]}
+{"kind": "place", "cohort": "city", "qid": "Q23682708", "queries": ["Sincelejo, Colombia"], "radius_km": 10, "tags": ["geonames-sample", "co"]}
+{"kind": "place", "cohort": "city", "qid": "Q23681854", "queries": ["Soacha, Colombia"], "radius_km": 10, "tags": ["geonames-sample", "co"]}
+{"kind": "place", "cohort": "city", "qid": "Q23704478", "queries": ["Morales, Cauca Department, Colombia"], "radius_km": 6, "tags": ["geonames-sample", "co"]}
+{"kind": "place", "cohort": "city", "qid": "Q23730084", "queries": ["Ponedera, Atlántico, Colombia"], "radius_km": 6, "tags": ["geonames-sample", "co"]}
+{"kind": "place", "cohort": "rural", "qid": "Q23718572", "queries": ["El Paujíl, Caquetá, Colombia"], "radius_km": 6, "tags": ["geonames-sample", "co"]}
+{"kind": "place", "cohort": "rural", "qid": "Q23692909", "queries": ["Durania, Norte de Santander Department, Colombia"], "radius_km": 6, "tags": ["geonames-sample", "co"]}
+{"kind": "place", "cohort": "city", "qid": "Q3961977", "queries": ["Siquirres, Limón Province, Costa Rica"], "radius_km": 6, "tags": ["geonames-sample", "cr"]}
+{"kind": "place", "cohort": "city", "qid": "Q1563", "queries": ["Havana, Cuba"], "radius_km": 20, "tags": ["geonames-sample", "cu"]}
+{"kind": "place", "cohort": "city", "qid": "Q60827095", "queries": ["Primero de Enero, Ciego de Ávila Province, Cuba"], "radius_km": 6, "tags": ["geonames-sample", "cu"]}
+{"kind": "place", "cohort": "city", "qid": "Q3751", "queries": ["Praia, Cabo Verde"], "radius_km": 10, "tags": ["geonames-sample", "cv"]}
+{"kind": "place", "cohort": "city", "qid": "Q490573", "queries": ["Assomada, Santa Catarina, Cabo Verde"], "radius_km": 6, "tags": ["geonames-sample", "cv"], "known_failure": "wrong_country: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "rural", "qid": "Q30980", "queries": ["Flying Fish Cove, Christmas Island"], "radius_km": 6, "tags": ["geonames-sample", "cx"]}
+{"kind": "place", "cohort": "city", "qid": "Q3856", "queries": ["Nicosia, Cyprus"], "radius_km": 10, "tags": ["geonames-sample", "cy"]}
+{"kind": "place", "cohort": "city", "qid": "Q1085", "queries": ["Prague, Czechia"], "radius_km": 20, "tags": ["geonames-sample", "cz"]}
+{"kind": "place", "cohort": "city", "qid": "Q513417", "queries": ["Vsetín, Zlín, Czechia"], "radius_km": 6, "tags": ["geonames-sample", "cz"]}
+{"kind": "place", "cohort": "city", "qid": "Q1055", "queries": ["Hamburg, Germany"], "radius_km": 20, "tags": ["geonames-sample", "de"]}
+{"kind": "place", "cohort": "city", "qid": "Q32664319", "queries": ["Kreisfreie Stadt München, Deutschland"], "radius_km": 20, "tags": ["geonames-sample", "de", "native"]}
+{"kind": "place", "cohort": "city", "qid": "Q117751880", "queries": ["Erlangen, Germany"], "radius_km": 10, "tags": ["geonames-sample", "de"]}
+{"kind": "place", "cohort": "city", "qid": "Q32235643", "queries": ["Premnitz, Brandenburg, Germany"], "radius_km": 6, "tags": ["geonames-sample", "de"]}
+{"kind": "place", "cohort": "city", "qid": "Q32053134", "queries": ["Harsum, Lower Saxony, Germany"], "radius_km": 6, "tags": ["geonames-sample", "de"]}
+{"kind": "place", "cohort": "rural", "qid": "Q32285176", "queries": ["Schlagsdorf, Mecklenburg-Vorpommern, Germany"], "radius_km": 6, "tags": ["geonames-sample", "de"]}
+{"kind": "place", "cohort": "rural", "qid": "Q1666065", "queries": ["Münster, Bavaria, Germany"], "radius_km": 6, "tags": ["geonames-sample", "de"]}
+{"kind": "place", "cohort": "city", "qid": "Q3604", "queries": ["Djibouti, Djibouti"], "radius_km": 10, "tags": ["geonames-sample", "dj"]}
+{"kind": "place", "cohort": "city", "qid": "Q842854", "queries": ["Ali Sabih, Ali Sabieh, Djibouti"], "radius_km": 6, "tags": ["geonames-sample", "dj"]}
+{"kind": "place", "cohort": "city", "qid": "Q25331", "queries": ["Odense, Denmark"], "radius_km": 10, "tags": ["geonames-sample", "dk"]}
+{"kind": "place", "cohort": "city", "qid": "Q25410", "queries": ["Aalborg, Denmark"], "radius_km": 10, "tags": ["geonames-sample", "dk"]}
+{"kind": "place", "cohort": "city", "qid": "Q26881", "queries": ["Helsingør, Capital Region, Denmark"], "radius_km": 6, "tags": ["geonames-sample", "dk"]}
+{"kind": "place", "cohort": "city", "qid": "Q927713", "queries": ["Hobro, North Denmark, Denmark"], "radius_km": 6, "tags": ["geonames-sample", "dk"]}
+{"kind": "place", "cohort": "rural", "qid": "Q2590975", "queries": ["Vadum, North Denmark, Denmark"], "radius_km": 6, "tags": ["geonames-sample", "dk"]}
+{"kind": "place", "cohort": "rural", "qid": "Q12304252", "queries": ["Bramming, South Denmark, Denmark"], "radius_km": 6, "tags": ["geonames-sample", "dk"]}
+{"kind": "place", "cohort": "city", "qid": "Q36281", "queries": ["Roseau, Saint George Parish, Dominica"], "radius_km": 6, "tags": ["geonames-sample", "dm"]}
+{"kind": "place", "cohort": "rural", "qid": "Q3555054", "queries": ["Salisbury, Saint Joseph Parish, Dominica"], "radius_km": 6, "tags": ["geonames-sample", "dm"]}
+{"kind": "place", "cohort": "city", "qid": "Q34820", "queries": ["Santo Domingo, Dominican Republic"], "radius_km": 20, "tags": ["geonames-sample", "do"]}
+{"kind": "place", "cohort": "city", "qid": "Q23762304", "queries": ["Sabana Yegua, Azua Province, Dominican Republic"], "radius_km": 6, "tags": ["geonames-sample", "do"]}
+{"kind": "place", "cohort": "city", "qid": "Q3561", "queries": ["Algiers, Algeria"], "radius_km": 20, "tags": ["geonames-sample", "dz"]}
+{"kind": "place", "cohort": "city", "qid": "Q3043115", "queries": ["El Hadjar, Annaba, Algeria"], "radius_km": 6, "tags": ["geonames-sample", "dz"]}
+{"kind": "place", "cohort": "city", "qid": "Q2900", "queries": ["Quito, Ecuador"], "radius_km": 20, "tags": ["geonames-sample", "ec"]}
+{"kind": "place", "cohort": "city", "qid": "Q6465543", "queries": ["La Troncal, Canar, Ecuador"], "radius_km": 6, "tags": ["geonames-sample", "ec"]}
+{"kind": "place", "cohort": "city", "qid": "Q188179", "queries": ["Kuressaare, Saare, Estonia"], "radius_km": 6, "tags": ["geonames-sample", "ee"]}
+{"kind": "place", "cohort": "city", "qid": "Q4116186", "queries": ["Al Bawīţī, Giza, Egypt"], "radius_km": 6, "tags": ["geonames-sample", "eg"], "known_failure": "far_miss: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q3642", "queries": ["Asmara, Eritrea"], "radius_km": 10, "tags": ["geonames-sample", "er"]}
+{"kind": "place", "cohort": "city", "qid": "Q1019356", "queries": ["Mendefera, Debub, Eritrea"], "radius_km": 6, "tags": ["geonames-sample", "er"]}
+{"kind": "place", "cohort": "city", "qid": "Q116170766", "queries": ["Madrid, Spain"], "radius_km": 20, "tags": ["geonames-sample", "es"]}
+{"kind": "place", "cohort": "city", "qid": "Q21414421", "queries": ["Oviedo, Spain"], "radius_km": 10, "tags": ["geonames-sample", "es"]}
+{"kind": "place", "cohort": "city", "qid": "Q23984786", "queries": ["Huelva, Spain"], "radius_km": 10, "tags": ["geonames-sample", "es"]}
+{"kind": "place", "cohort": "city", "qid": "Q23992453", "queries": ["Sant Sadurní d'Anoia, Catalonia, Spain"], "radius_km": 6, "tags": ["geonames-sample", "es"]}
+{"kind": "place", "cohort": "rural", "qid": "Q24012792", "queries": ["Samos, Galicia, Spain"], "radius_km": 6, "tags": ["geonames-sample", "es"]}
+{"kind": "place", "cohort": "rural", "qid": "Q24009604", "queries": ["Puebla de Alcocer, Extremadura, Spain"], "radius_km": 6, "tags": ["geonames-sample", "es"]}
+{"kind": "place", "cohort": "city", "qid": "Q3624", "queries": ["Addis Ababa, Ethiopia"], "radius_km": 20, "tags": ["geonames-sample", "et"]}
+{"kind": "place", "cohort": "city", "qid": "Q108293179", "queries": ["Gasuba, South Ethiopia Regional State, Ethiopia"], "radius_km": 6, "tags": ["geonames-sample", "et"]}
+{"kind": "place", "cohort": "city", "qid": "Q31845198", "queries": ["Kurikka, South Ostrobothnia, Finland"], "radius_km": 6, "tags": ["geonames-sample", "fi"]}
+{"kind": "place", "cohort": "city", "qid": "Q38807", "queries": ["Suva, Central, Fiji"], "radius_km": 6, "tags": ["geonames-sample", "fj"]}
+{"kind": "place", "cohort": "city", "qid": "Q26713", "queries": ["Ba, Western, Fiji"], "radius_km": 6, "tags": ["geonames-sample", "fj"]}
+{"kind": "place", "cohort": "rural", "qid": "Q12245", "queries": ["Stanley, Falkland Islands"], "radius_km": 6, "tags": ["geonames-sample", "fk"]}
+{"kind": "place", "cohort": "rural", "qid": "Q42751", "queries": ["Palikir, Pohnpei State, Micronesia"], "radius_km": 6, "tags": ["geonames-sample", "fm"]}
+{"kind": "place", "cohort": "city", "qid": "Q10704", "queries": ["Tórshavn, Streymoy, Faroe Islands"], "radius_km": 6, "tags": ["geonames-sample", "fo"]}
+{"kind": "place", "cohort": "rural", "qid": "Q855785", "queries": ["Miðvágur, Vágar, Faroe Islands"], "radius_km": 6, "tags": ["geonames-sample", "fo"]}
+{"kind": "place", "cohort": "city", "qid": "Q23482", "queries": ["Marseille, France"], "radius_km": 10, "tags": ["geonames-sample", "fr"]}
+{"kind": "place", "cohort": "city", "qid": "Q79815", "queries": ["Mulhouse, France"], "radius_km": 10, "tags": ["geonames-sample", "fr"]}
+{"kind": "place", "cohort": "city", "qid": "Q42716", "queries": ["Saint-Étienne, France"], "radius_km": 10, "tags": ["geonames-sample", "fr"]}
+{"kind": "place", "cohort": "city", "qid": "Q653467", "queries": ["Vieux-Condé, Hauts-de-France, France"], "radius_km": 6, "tags": ["geonames-sample", "fr"]}
+{"kind": "place", "cohort": "city", "qid": "Q235382", "queries": ["Quimperlé, Brittany, France"], "radius_km": 6, "tags": ["geonames-sample", "fr"]}
+{"kind": "place", "cohort": "rural", "qid": "Q213309", "queries": ["Bédée, Brittany, France"], "radius_km": 6, "tags": ["geonames-sample", "fr"]}
+{"kind": "place", "cohort": "city", "qid": "Q3825", "queries": ["Libreville, Gabon"], "radius_km": 10, "tags": ["geonames-sample", "ga"]}
+{"kind": "place", "cohort": "city", "qid": "Q690421", "queries": ["Tchibanga, Nyanga, Gabon"], "radius_km": 6, "tags": ["geonames-sample", "ga"]}
+{"kind": "place", "cohort": "city", "qid": "Q2256", "queries": ["Birmingham, United Kingdom"], "radius_km": 20, "tags": ["geonames-sample", "gb"]}
+{"kind": "place", "cohort": "city", "qid": "Q4093", "queries": ["Glasgow, United Kingdom"], "radius_km": 10, "tags": ["geonames-sample", "gb"]}
+{"kind": "place", "cohort": "city", "qid": "Q170478", "queries": ["Bournemouth, United Kingdom"], "radius_km": 10, "tags": ["geonames-sample", "gb"]}
+{"kind": "place", "cohort": "city", "qid": "Q36405", "queries": ["Aberdeen, United Kingdom"], "radius_km": 10, "tags": ["geonames-sample", "gb"]}
+{"kind": "place", "cohort": "city", "qid": "Q2612131", "queries": ["Snaresbrook, England, United Kingdom"], "radius_km": 6, "tags": ["geonames-sample", "gb"]}
+{"kind": "place", "cohort": "city", "qid": "Q257446", "queries": ["Holyhead, Wales, United Kingdom"], "radius_km": 6, "tags": ["geonames-sample", "gb"]}
+{"kind": "place", "cohort": "rural", "qid": "Q749338", "queries": ["Dulverton, England, United Kingdom"], "radius_km": 6, "tags": ["geonames-sample", "gb"]}
+{"kind": "place", "cohort": "rural", "qid": "Q4986208", "queries": ["Bugle, England, United Kingdom"], "radius_km": 6, "tags": ["geonames-sample", "gb"]}
+{"kind": "place", "cohort": "rural", "qid": "Q41547", "queries": ["Saint George's, Saint George Parish, Grenada"], "radius_km": 6, "tags": ["geonames-sample", "gd"]}
+{"kind": "place", "cohort": "rural", "qid": "Q7587702", "queries": ["Saint David’s, Saint David Parish, Grenada"], "radius_km": 6, "tags": ["geonames-sample", "gd"]}
+{"kind": "place", "cohort": "city", "qid": "Q1553013", "queries": ["Gudauri, Mtskheta-Mtianeti, Georgia"], "radius_km": 6, "tags": ["geonames-sample", "ge"]}
+{"kind": "place", "cohort": "city", "qid": "Q44401", "queries": ["Cayenne, Guyane, French Guiana"], "radius_km": 6, "tags": ["geonames-sample", "gf"]}
+{"kind": "place", "cohort": "city", "qid": "Q319959", "queries": ["Saint-Laurent-du-Maroni, Guyane, French Guiana"], "radius_km": 6, "tags": ["geonames-sample", "gf"]}
+{"kind": "place", "cohort": "city", "qid": "Q174262", "queries": ["Saint Peter Port, St Peter Port, Guernsey"], "radius_km": 6, "tags": ["geonames-sample", "gg"]}
+{"kind": "place", "cohort": "city", "qid": "Q1471408", "queries": ["Keta, Volta, Ghana"], "radius_km": 6, "tags": ["geonames-sample", "gh"], "known_failure": "wrong_country: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q1410", "queries": ["Gibraltar, Gibraltar"], "radius_km": 6, "tags": ["geonames-sample", "gi"]}
+{"kind": "place", "cohort": "city", "qid": "Q226", "queries": ["Nuuk, Sermersooq, Greenland"], "radius_km": 6, "tags": ["geonames-sample", "gl"]}
+{"kind": "place", "cohort": "rural", "qid": "Q855324", "queries": ["Nanortalik, Kujalleq, Greenland"], "radius_km": 6, "tags": ["geonames-sample", "gl"]}
+{"kind": "place", "cohort": "city", "qid": "Q3726", "queries": ["Banjul, Gambia"], "radius_km": 6, "tags": ["geonames-sample", "gm"]}
+{"kind": "place", "cohort": "city", "qid": "Q3733", "queries": ["Conakry, Guinea"], "radius_km": 20, "tags": ["geonames-sample", "gn"]}
+{"kind": "place", "cohort": "city", "qid": "Q167024", "queries": ["Basse-Terre, Guadeloupe, Guadeloupe"], "radius_km": 6, "tags": ["geonames-sample", "gp"]}
+{"kind": "place", "cohort": "city", "qid": "Q844987", "queries": ["Petit-Bourg, Guadeloupe, Guadeloupe"], "radius_km": 6, "tags": ["geonames-sample", "gp"]}
+{"kind": "place", "cohort": "city", "qid": "Q2549481", "queries": ["Aconibe, Wele-Nzas, Equatorial Guinea"], "radius_km": 6, "tags": ["geonames-sample", "gq"]}
+{"kind": "place", "cohort": "city", "qid": "Q1135206", "queries": ["Néa Artáki, Central Greece, Greece"], "radius_km": 6, "tags": ["geonames-sample", "gr"]}
+{"kind": "place", "cohort": "rural", "qid": "Q185672", "queries": ["Grytviken, South Georgia and the South Sandwich Islands"], "radius_km": 6, "tags": ["geonames-sample", "gs"]}
+{"kind": "place", "cohort": "city", "qid": "Q25180112", "queries": ["Guatemala City, Guatemala"], "radius_km": 10, "tags": ["geonames-sample", "gt"]}
+{"kind": "place", "cohort": "city", "qid": "Q25174890", "queries": ["Santiago Sacatepéquez, Sacatepéquez, Guatemala"], "radius_km": 6, "tags": ["geonames-sample", "gt"]}
+{"kind": "place", "cohort": "rural", "qid": "Q30988", "queries": ["Hagåtña, Hagatna, Guam"], "radius_km": 6, "tags": ["geonames-sample", "gu"]}
+{"kind": "place", "cohort": "city", "qid": "Q25185555", "queries": ["Yigo Village, Yigo, Guam"], "radius_km": 6, "tags": ["geonames-sample", "gu"]}
+{"kind": "place", "cohort": "city", "qid": "Q3739", "queries": ["Bissau, Guinea-Bissau"], "radius_km": 10, "tags": ["geonames-sample", "gw"]}
+{"kind": "place", "cohort": "city", "qid": "Q799788", "queries": ["Bafatá, Guinea-Bissau"], "radius_km": 6, "tags": ["geonames-sample", "gw"]}
+{"kind": "place", "cohort": "city", "qid": "Q10717", "queries": ["Georgetown, Guyana"], "radius_km": 10, "tags": ["geonames-sample", "gy"]}
+{"kind": "place", "cohort": "city", "qid": "Q923811", "queries": ["New Amsterdam, East Berbice-Corentyne, Guyana"], "radius_km": 6, "tags": ["geonames-sample", "gy"]}
+{"kind": "place", "cohort": "city", "qid": "Q3238", "queries": ["Tegucigalpa, Honduras"], "radius_km": 10, "tags": ["geonames-sample", "hn"]}
+{"kind": "place", "cohort": "city", "qid": "Q1435", "queries": ["Zagreb, Croatia"], "radius_km": 10, "tags": ["geonames-sample", "hr"]}
+{"kind": "place", "cohort": "city", "qid": "Q167839", "queries": ["Čakovec, Međimurje, Croatia"], "radius_km": 6, "tags": ["geonames-sample", "hr"]}
+{"kind": "place", "cohort": "city", "qid": "Q33707894", "queries": ["Port-au-Prince, Haiti"], "radius_km": 20, "tags": ["geonames-sample", "ht"]}
+{"kind": "place", "cohort": "city", "qid": "Q26225136", "queries": ["Saint-Louis du Nord, Nord-Ouest, Haiti"], "radius_km": 6, "tags": ["geonames-sample", "ht"]}
+{"kind": "place", "cohort": "city", "qid": "Q209988", "queries": ["Gödöllő, Pest County, Hungary"], "radius_km": 6, "tags": ["geonames-sample", "hu"]}
+{"kind": "place", "cohort": "city", "qid": "Q24920716", "queries": ["Juwana, Central Java, Indonesia"], "radius_km": 6, "tags": ["geonames-sample", "id"]}
+{"kind": "place", "cohort": "city", "qid": "Q36647", "queries": ["Cork, Ireland"], "radius_km": 10, "tags": ["geonames-sample", "ie"]}
+{"kind": "place", "cohort": "city", "qid": "Q133315", "queries": ["Limerick, Ireland"], "radius_km": 10, "tags": ["geonames-sample", "ie"]}
+{"kind": "place", "cohort": "city", "qid": "Q3777969", "queries": ["Jobstown, Leinster, Ireland"], "radius_km": 6, "tags": ["geonames-sample", "ie"]}
+{"kind": "place", "cohort": "city", "qid": "Q1766143", "queries": ["Ashbourne, Leinster, Ireland"], "radius_km": 6, "tags": ["geonames-sample", "ie"]}
+{"kind": "place", "cohort": "rural", "qid": "Q1899651", "queries": ["Ballymote, Connacht, Ireland"], "radius_km": 6, "tags": ["geonames-sample", "ie"]}
+{"kind": "place", "cohort": "rural", "qid": "Q1440225", "queries": ["Foxford, Connacht, Ireland"], "radius_km": 6, "tags": ["geonames-sample", "ie"]}
+{"kind": "place", "cohort": "city", "qid": "Q152418", "queries": ["Karmi’el, Northern District, Israel"], "radius_km": 6, "tags": ["geonames-sample", "il"]}
+{"kind": "place", "cohort": "city", "qid": "Q18569", "queries": ["Douglas, Isle of Man"], "radius_km": 6, "tags": ["geonames-sample", "im"]}
+{"kind": "place", "cohort": "rural", "qid": "Q147524", "queries": ["Peel, Isle of Man"], "radius_km": 6, "tags": ["geonames-sample", "im"]}
+{"kind": "place", "cohort": "city", "qid": "Q1353", "queries": ["Delhi, India"], "radius_km": 20, "tags": ["geonames-sample", "in"]}
+{"kind": "place", "cohort": "city", "qid": "Q207799", "queries": ["Puri, India"], "radius_km": 10, "tags": ["geonames-sample", "in"]}
+{"kind": "place", "cohort": "city", "qid": "Q1557962", "queries": ["Gyānpur, India"], "radius_km": 10, "tags": ["geonames-sample", "in"]}
+{"kind": "place", "cohort": "city", "qid": "Q622834", "queries": ["Bakhtiyārpur, Bihar, India"], "radius_km": 6, "tags": ["geonames-sample", "in"]}
+{"kind": "place", "cohort": "city", "qid": "Q1530", "queries": ["Baghdad, Iraq"], "radius_km": 20, "tags": ["geonames-sample", "iq"]}
+{"kind": "place", "cohort": "city", "qid": "Q988430", "queries": ["Ad Dujayl, Salah ad Din, Iraq"], "radius_km": 6, "tags": ["geonames-sample", "iq"]}
+{"kind": "place", "cohort": "city", "qid": "Q80983", "queries": ["Neqāb, Razavi Khorasan, Iran"], "radius_km": 6, "tags": ["geonames-sample", "ir"]}
+{"kind": "place", "cohort": "city", "qid": "Q1764", "queries": ["Reykjavík, Iceland"], "radius_km": 10, "tags": ["geonames-sample", "is"]}
+{"kind": "place", "cohort": "city", "qid": "Q27016214", "queries": ["Reykjanesbær, Southern Peninsula, Iceland"], "radius_km": 6, "tags": ["geonames-sample", "is"]}
+{"kind": "place", "cohort": "city", "qid": "Q220", "queries": ["Rome, Italy"], "radius_km": 20, "tags": ["geonames-sample", "it"]}
+{"kind": "place", "cohort": "city", "qid": "Q490", "queries": ["Milan, Italy"], "radius_km": 20, "tags": ["geonames-sample", "it"]}
+{"kind": "place", "cohort": "city", "qid": "Q49295418", "queries": ["Naples, Italy"], "radius_km": 10, "tags": ["geonames-sample", "it"]}
+{"kind": "place", "cohort": "city", "qid": "Q49280815", "queries": ["Udine, Italy"], "radius_km": 10, "tags": ["geonames-sample", "it"]}
+{"kind": "place", "cohort": "city", "qid": "Q49286610", "queries": ["Mazara del Vallo, Sicily, Italy"], "radius_km": 6, "tags": ["geonames-sample", "it"]}
+{"kind": "place", "cohort": "city", "qid": "Q30025877", "queries": ["Frascati, Lazio, Italy"], "radius_km": 6, "tags": ["geonames-sample", "it"]}
+{"kind": "place", "cohort": "rural", "qid": "Q18437000", "queries": ["Musci, Campania, Italy"], "radius_km": 6, "tags": ["geonames-sample", "it"], "known_failure": "far_miss: the index has only the Lombardy hamlet named Musci (2026-10-13)"}
+{"kind": "place", "cohort": "rural", "qid": "Q18446287", "queries": ["Santo Stefano-Carraie, Emilia-Romagna, Italy"], "radius_km": 6, "tags": ["geonames-sample", "it"]}
+{"kind": "place", "cohort": "city", "qid": "Q147738", "queries": ["Saint Helier, St Helier, Jersey"], "radius_km": 6, "tags": ["geonames-sample", "je"]}
+{"kind": "place", "cohort": "city", "qid": "Q1677434", "queries": ["May Pen, Clarendon, Jamaica"], "radius_km": 6, "tags": ["geonames-sample", "jm"]}
+{"kind": "place", "cohort": "city", "qid": "Q3805", "queries": ["Amman, Jordan"], "radius_km": 20, "tags": ["geonames-sample", "jo"]}
+{"kind": "place", "cohort": "city", "qid": "Q27125481", "queries": ["Karak City, Karak, Jordan"], "radius_km": 6, "tags": ["geonames-sample", "jo"]}
+{"kind": "place", "cohort": "city", "qid": "Q49367641", "queries": ["Shiojiri, Nagano, Japan"], "radius_km": 6, "tags": ["geonames-sample", "jp"]}
+{"kind": "place", "cohort": "city", "qid": "Q737375", "queries": ["Kemin, Chuy Region, Kyrgyzstan"], "radius_km": 6, "tags": ["geonames-sample", "kg"]}
+{"kind": "place", "cohort": "city", "qid": "Q1850", "queries": ["Phnom Penh, Cambodia"], "radius_km": 20, "tags": ["geonames-sample", "kh"]}
+{"kind": "place", "cohort": "city", "qid": "Q27220983", "queries": ["Betio Village, Gilbert Islands, Kiribati"], "radius_km": 6, "tags": ["geonames-sample", "ki"], "known_failure": "far_miss: Betio is not in the index; only the country answers (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q3901", "queries": ["Moroni, Grande Comore, Comoros"], "radius_km": 6, "tags": ["geonames-sample", "km"]}
+{"kind": "place", "cohort": "city", "qid": "Q2824136", "queries": ["Adda-Douéni, Anjouan, Comoros"], "radius_km": 6, "tags": ["geonames-sample", "km"]}
+{"kind": "place", "cohort": "city", "qid": "Q41295", "queries": ["Basseterre, Saint George Basseterre, Saint Kitts and Nevis"], "radius_km": 6, "tags": ["geonames-sample", "kn"]}
+{"kind": "place", "cohort": "rural", "qid": "Q3398739", "queries": ["Market Shop, Saint George Gingerland, Saint Kitts and Nevis"], "radius_km": 6, "tags": ["geonames-sample", "kn"]}
+{"kind": "place", "cohort": "city", "qid": "Q27244260", "queries": ["Pyongyang, North Korea"], "radius_km": 20, "tags": ["geonames-sample", "kp"]}
+{"kind": "place", "cohort": "city", "qid": "Q27247509", "queries": ["Sŭngam-nodongjagu, North Hamgyong, North Korea"], "radius_km": 6, "tags": ["geonames-sample", "kp"]}
+{"kind": "place", "cohort": "city", "qid": "Q27264604", "queries": ["Neietsu, Gangwon-do, South Korea"], "radius_km": 6, "tags": ["geonames-sample", "kr"]}
+{"kind": "place", "cohort": "city", "qid": "Q35178", "queries": ["Kuwait City, Al Asimah, Kuwait"], "radius_km": 6, "tags": ["geonames-sample", "kw"]}
+{"kind": "place", "cohort": "city", "qid": "Q1195526", "queries": ["Al Farwānīyah, Al Farwaniyah, Kuwait"], "radius_km": 6, "tags": ["geonames-sample", "kw"]}
+{"kind": "place", "cohort": "city", "qid": "Q172996", "queries": ["George Town, Cayman Islands"], "radius_km": 6, "tags": ["geonames-sample", "ky"]}
+{"kind": "place", "cohort": "city", "qid": "Q1520", "queries": ["Astana, Kazakhstan"], "radius_km": 20, "tags": ["geonames-sample", "kz"]}
+{"kind": "place", "cohort": "city", "qid": "Q4299929", "queries": ["Moyynkum, Zhambyl, Kazakhstan"], "radius_km": 6, "tags": ["geonames-sample", "kz"], "known_failure": "far_miss: Moyynkum is not found under Jambyl Region; a same-named district elsewhere answers (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q9326", "queries": ["Vientiane, Laos"], "radius_km": 10, "tags": ["geonames-sample", "la"]}
+{"kind": "place", "cohort": "city", "qid": "Q383622", "queries": ["Pakse, Champasak Province, Laos"], "radius_km": 6, "tags": ["geonames-sample", "la"]}
+{"kind": "place", "cohort": "city", "qid": "Q3820", "queries": ["Beirut, Lebanon"], "radius_km": 20, "tags": ["geonames-sample", "lb"]}
+{"kind": "place", "cohort": "city", "qid": "Q753812", "queries": ["Qâna, South Governorate, Lebanon"], "radius_km": 6, "tags": ["geonames-sample", "lb"]}
+{"kind": "place", "cohort": "city", "qid": "Q41699", "queries": ["Castries, Saint Lucia"], "radius_km": 6, "tags": ["geonames-sample", "lc"]}
+{"kind": "place", "cohort": "city", "qid": "Q27439114", "queries": ["Bisee, Castries, Saint Lucia"], "radius_km": 6, "tags": ["geonames-sample", "lc"]}
+{"kind": "place", "cohort": "rural", "qid": "Q1844", "queries": ["Vaduz, Liechtenstein"], "radius_km": 6, "tags": ["geonames-sample", "li"]}
+{"kind": "place", "cohort": "rural", "qid": "Q49655", "queries": ["Schellenberg, Liechtenstein"], "radius_km": 6, "tags": ["geonames-sample", "li"]}
+{"kind": "place", "cohort": "city", "qid": "Q35381", "queries": ["Colombo, Sri Lanka"], "radius_km": 10, "tags": ["geonames-sample", "lk"]}
+{"kind": "place", "cohort": "city", "qid": "Q2307889", "queries": ["Point Pedro, Northern Province, Sri Lanka"], "radius_km": 6, "tags": ["geonames-sample", "lk"]}
+{"kind": "place", "cohort": "city", "qid": "Q3748", "queries": ["Monrovia, Liberia"], "radius_km": 20, "tags": ["geonames-sample", "lr"]}
+{"kind": "place", "cohort": "city", "qid": "Q1024888", "queries": ["Voinjama, Lofa County, Liberia"], "radius_km": 6, "tags": ["geonames-sample", "lr"]}
+{"kind": "place", "cohort": "city", "qid": "Q3909", "queries": ["Maseru, Lesotho"], "radius_km": 10, "tags": ["geonames-sample", "ls"]}
+{"kind": "place", "cohort": "city", "qid": "Q6754147", "queries": ["Mapoteng, Berea, Lesotho"], "radius_km": 6, "tags": ["geonames-sample", "ls"], "known_failure": "wrong_country: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q216", "queries": ["Vilnius, Lithuania"], "radius_km": 10, "tags": ["geonames-sample", "lt"]}
+{"kind": "place", "cohort": "city", "qid": "Q923393", "queries": ["Lentvaris, Vilnius, Lithuania"], "radius_km": 6, "tags": ["geonames-sample", "lt"]}
+{"kind": "place", "cohort": "city", "qid": "Q1842", "queries": ["Luxembourg, Luxembourg"], "radius_km": 6, "tags": ["geonames-sample", "lu"]}
+{"kind": "place", "cohort": "city", "qid": "Q16014", "queries": ["Dudelange, Esch-sur-Alzette, Luxembourg"], "radius_km": 6, "tags": ["geonames-sample", "lu"]}
+{"kind": "place", "cohort": "city", "qid": "Q1773", "queries": ["Riga, Latvia"], "radius_km": 10, "tags": ["geonames-sample", "lv"]}
+{"kind": "place", "cohort": "city", "qid": "Q3579", "queries": ["Tripoli, Libya"], "radius_km": 20, "tags": ["geonames-sample", "ly"]}
+{"kind": "place", "cohort": "city", "qid": "Q1474013", "queries": ["Mizdah, Jabal al Gharbi, Libya"], "radius_km": 6, "tags": ["geonames-sample", "ly"]}
+{"kind": "place", "cohort": "city", "qid": "Q3551", "queries": ["Rabat, Morocco"], "radius_km": 20, "tags": ["geonames-sample", "ma"]}
+{"kind": "place", "cohort": "city", "qid": "Q3483281", "queries": ["Sidi Rahhal, Marrakesh-Safi, Morocco"], "radius_km": 6, "tags": ["geonames-sample", "ma"]}
+{"kind": "place", "cohort": "city", "qid": "Q49755141", "queries": ["Monaco, Municipality of Monaco, Monaco"], "radius_km": 6, "tags": ["geonames-sample", "mc"]}
+{"kind": "place", "cohort": "city", "qid": "Q21197", "queries": ["Chisinau, Moldova"], "radius_km": 10, "tags": ["geonames-sample", "md"]}
+{"kind": "place", "cohort": "city", "qid": "Q1986341", "queries": ["Dancu, Hînceşti, Moldova"], "radius_km": 6, "tags": ["geonames-sample", "md"]}
+{"kind": "place", "cohort": "city", "qid": "Q23564", "queries": ["Podgorica, Montenegro"], "radius_km": 10, "tags": ["geonames-sample", "me"]}
+{"kind": "place", "cohort": "city", "qid": "Q174237", "queries": ["Budva, Montenegro"], "radius_km": 6, "tags": ["geonames-sample", "me"]}
+{"kind": "place", "cohort": "rural", "qid": "Q200605", "queries": ["Marigot, Saint Martin"], "radius_km": 6, "tags": ["geonames-sample", "mf"]}
+{"kind": "place", "cohort": "city", "qid": "Q3915", "queries": ["Antananarivo, Madagascar"], "radius_km": 20, "tags": ["geonames-sample", "mg"]}
+{"kind": "place", "cohort": "city", "qid": "Q3047030", "queries": ["Vangaindrano, Atsimo-Atsinanana, Madagascar"], "radius_km": 6, "tags": ["geonames-sample", "mg"]}
+{"kind": "place", "cohort": "city", "qid": "Q12919", "queries": ["Majuro, Majuro Atoll, Marshall Islands"], "radius_km": 6, "tags": ["geonames-sample", "mh"]}
+{"kind": "place", "cohort": "city", "qid": "Q27577775", "queries": ["Ebaye, Kwajalein Atoll, Marshall Islands"], "radius_km": 6, "tags": ["geonames-sample", "mh"], "known_failure": "far_miss: Ebeye is not in the index under this spelling; only the country answers (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q384", "queries": ["Skopje, North Macedonia"], "radius_km": 10, "tags": ["geonames-sample", "mk"]}
+{"kind": "place", "cohort": "city", "qid": "Q20932274", "queries": ["Kondovo, Grad Skopje, North Macedonia"], "radius_km": 6, "tags": ["geonames-sample", "mk"]}
+{"kind": "place", "cohort": "city", "qid": "Q49755115", "queries": ["Bamako, Mali"], "radius_km": 20, "tags": ["geonames-sample", "ml"]}
+{"kind": "place", "cohort": "city", "qid": "Q37400", "queries": ["Nay Pyi Taw, Myanmar"], "radius_km": 10, "tags": ["geonames-sample", "mm"]}
+{"kind": "place", "cohort": "city", "qid": "Q978611", "queries": ["Kawthoung, Tanintharyi Region, Myanmar"], "radius_km": 6, "tags": ["geonames-sample", "mm"]}
+{"kind": "place", "cohort": "city", "qid": "Q23430", "queries": ["Ulan Bator, Mongolia"], "radius_km": 10, "tags": ["geonames-sample", "mn"]}
+{"kind": "place", "cohort": "city", "qid": "Q1000373", "queries": ["Mandalgovi, Middle Govĭ, Mongolia"], "radius_km": 6, "tags": ["geonames-sample", "mn"]}
+{"kind": "place", "cohort": "city", "qid": "Q14773", "queries": ["Macau, Macao"], "radius_km": 10, "tags": ["geonames-sample", "mo"]}
+{"kind": "place", "cohort": "city", "qid": "Q49755159", "queries": ["Saipan, Northern Mariana Islands"], "radius_km": 6, "tags": ["geonames-sample", "mp"]}
+{"kind": "place", "cohort": "city", "qid": "Q7414433", "queries": ["San Jose Village, Tinian, Northern Mariana Islands"], "radius_km": 6, "tags": ["geonames-sample", "mp"], "known_failure": "far_miss: the index finds the Tinian municipality, not the village; the service then finds Tinian, New Mexico (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q81621", "queries": ["Fort-de-France, Martinique, Martinique"], "radius_km": 6, "tags": ["geonames-sample", "mq"]}
+{"kind": "place", "cohort": "city", "qid": "Q27729194", "queries": ["La Trinité, Martinique, Martinique"], "radius_km": 6, "tags": ["geonames-sample", "mq"]}
+{"kind": "place", "cohort": "city", "qid": "Q3688", "queries": ["Nouakchott, Mauritania"], "radius_km": 20, "tags": ["geonames-sample", "mr"]}
+{"kind": "place", "cohort": "city", "qid": "Q2118111", "queries": ["Ṭinṭâne, Hodh El Gharbi, Mauritania"], "radius_km": 6, "tags": ["geonames-sample", "mr"]}
+{"kind": "place", "cohort": "rural", "qid": "Q30990", "queries": ["Plymouth, Saint Anthony, Montserrat"], "radius_km": 6, "tags": ["geonames-sample", "ms"]}
+{"kind": "place", "cohort": "rural", "qid": "Q31006", "queries": ["Brades, Saint Peter, Montserrat"], "radius_km": 6, "tags": ["geonames-sample", "ms"]}
+{"kind": "place", "cohort": "rural", "qid": "Q20924973", "queries": ["Valletta, Malta"], "radius_km": 6, "tags": ["geonames-sample", "mt"]}
+{"kind": "place", "cohort": "city", "qid": "Q20923006", "queries": ["Żabbar, Ħaż-Żabbar, Malta"], "radius_km": 6, "tags": ["geonames-sample", "mt"]}
+{"kind": "place", "cohort": "city", "qid": "Q3929", "queries": ["Port Louis, Mauritius"], "radius_km": 10, "tags": ["geonames-sample", "mu"]}
+{"kind": "place", "cohort": "city", "qid": "Q7846369", "queries": ["Trou aux Biches, Pamplemousses, Mauritius"], "radius_km": 6, "tags": ["geonames-sample", "mu"]}
+{"kind": "place", "cohort": "city", "qid": "Q9347", "queries": ["Male, Maldives"], "radius_km": 10, "tags": ["geonames-sample", "mv"]}
+{"kind": "place", "cohort": "city", "qid": "Q2060910", "queries": ["Fuvahmulah, Gnyaviyani Atoll, Maldives"], "radius_km": 6, "tags": ["geonames-sample", "mv"]}
+{"kind": "place", "cohort": "city", "qid": "Q3876", "queries": ["Lilongwe, Malawi"], "radius_km": 20, "tags": ["geonames-sample", "mw"]}
+{"kind": "place", "cohort": "city", "qid": "Q804607", "queries": ["Balaka, Southern Region, Malawi"], "radius_km": 6, "tags": ["geonames-sample", "mw"]}
+{"kind": "place", "cohort": "city", "qid": "Q1489", "queries": ["Mexico City, Mexico"], "radius_km": 20, "tags": ["geonames-sample", "mx"]}
+{"kind": "place", "cohort": "city", "qid": "Q124739", "queries": ["Tijuana, Mexico"], "radius_km": 20, "tags": ["geonames-sample", "mx"]}
+{"kind": "place", "cohort": "city", "qid": "Q5923757", "queries": ["Iztapalapa, Mexico"], "radius_km": 20, "tags": ["geonames-sample", "mx"]}
+{"kind": "place", "cohort": "city", "qid": "Q985521", "queries": ["Heroica Guaymas, Mexico"], "radius_km": 10, "tags": ["geonames-sample", "mx"]}
+{"kind": "place", "cohort": "city", "qid": "Q995380", "queries": ["San Luis Río Colorado, Mexico"], "radius_km": 10, "tags": ["geonames-sample", "mx"]}
+{"kind": "place", "cohort": "city", "qid": "Q868423", "queries": ["Comalcalco, Tabasco, Mexico"], "radius_km": 6, "tags": ["geonames-sample", "mx"]}
+{"kind": "place", "cohort": "city", "qid": "Q20237286", "queries": ["Calimaya, México, Mexico"], "radius_km": 6, "tags": ["geonames-sample", "mx"]}
+{"kind": "place", "cohort": "rural", "qid": "Q20264977", "queries": ["Zacapalco, Morelos, Mexico"], "radius_km": 6, "tags": ["geonames-sample", "mx"]}
+{"kind": "place", "cohort": "rural", "qid": "Q20227946", "queries": ["Francisco Rueda, Tabasco, Mexico"], "radius_km": 6, "tags": ["geonames-sample", "mx"]}
+{"kind": "place", "cohort": "city", "qid": "Q1865", "queries": ["Kuala Lumpur, Malaysia"], "radius_km": 20, "tags": ["geonames-sample", "my"]}
+{"kind": "place", "cohort": "city", "qid": "Q231318", "queries": ["Johor Bahru, Malaysia"], "radius_km": 10, "tags": ["geonames-sample", "my"]}
+{"kind": "place", "cohort": "city", "qid": "Q33450445", "queries": ["Kampung Baru Subang, Malaysia"], "radius_km": 10, "tags": ["geonames-sample", "my"], "known_failure": "wrong_country: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q1317145", "queries": ["Teluk Intan, Malaysia"], "radius_km": 10, "tags": ["geonames-sample", "my"]}
+{"kind": "place", "cohort": "city", "qid": "Q2680825", "queries": ["Yong Peng, Johor, Malaysia"], "radius_km": 6, "tags": ["geonames-sample", "my"]}
+{"kind": "place", "cohort": "city", "qid": "Q1005701", "queries": ["Marudi, Sarawak, Malaysia"], "radius_km": 6, "tags": ["geonames-sample", "my"]}
+{"kind": "place", "cohort": "city", "qid": "Q3889", "queries": ["Maputo, Mozambique"], "radius_km": 20, "tags": ["geonames-sample", "mz"]}
+{"kind": "place", "cohort": "city", "qid": "Q1027174", "queries": ["Montepuez, Cabo Delgado Province, Mozambique"], "radius_km": 6, "tags": ["geonames-sample", "mz"]}
+{"kind": "place", "cohort": "city", "qid": "Q3935", "queries": ["Windhoek, Namibia"], "radius_km": 10, "tags": ["geonames-sample", "na"]}
+{"kind": "place", "cohort": "city", "qid": "Q9733", "queries": ["Nouméa, South Province, New Caledonia"], "radius_km": 6, "tags": ["geonames-sample", "nc"]}
+{"kind": "place", "cohort": "city", "qid": "Q9732", "queries": ["Mont-Dore, South Province, New Caledonia"], "radius_km": 6, "tags": ["geonames-sample", "nc"]}
+{"kind": "place", "cohort": "city", "qid": "Q3674", "queries": ["Niamey, Niger"], "radius_km": 20, "tags": ["geonames-sample", "ne"]}
+{"kind": "place", "cohort": "city", "qid": "Q992115", "queries": ["I-n-Gall, Agadez, Niger"], "radius_km": 6, "tags": ["geonames-sample", "ne"]}
+{"kind": "place", "cohort": "rural", "qid": "Q30963", "queries": ["Kingston, Norfolk Island"], "radius_km": 6, "tags": ["geonames-sample", "nf"]}
+{"kind": "place", "cohort": "city", "qid": "Q3787", "queries": ["Abuja, Nigeria"], "radius_km": 20, "tags": ["geonames-sample", "ng"]}
+{"kind": "place", "cohort": "city", "qid": "Q49277970", "queries": ["Obudu, Cross River State, Nigeria"], "radius_km": 6, "tags": ["geonames-sample", "ng"]}
+{"kind": "place", "cohort": "city", "qid": "Q131546626", "queries": ["Managua, Nicaragua"], "radius_km": 10, "tags": ["geonames-sample", "ni"]}
+{"kind": "place", "cohort": "city", "qid": "Q31811532", "queries": ["Jalapa, Nueva Segovia Department, Nicaragua"], "radius_km": 6, "tags": ["geonames-sample", "ni"]}
+{"kind": "place", "cohort": "city", "qid": "Q727", "queries": ["Amsterdam, The Netherlands"], "radius_km": 10, "tags": ["geonames-sample", "nl"]}
+{"kind": "place", "cohort": "city", "qid": "Q34370", "queries": ["Rotterdam, The Netherlands"], "radius_km": 10, "tags": ["geonames-sample", "nl"]}
+{"kind": "place", "cohort": "city", "qid": "Q36600", "queries": ["The Hague, The Netherlands"], "radius_km": 10, "tags": ["geonames-sample", "nl"]}
+{"kind": "place", "cohort": "city", "qid": "Q13188714", "queries": ["Nijmegen, The Netherlands"], "radius_km": 10, "tags": ["geonames-sample", "nl"]}
+{"kind": "place", "cohort": "city", "qid": "Q25390", "queries": ["Leeuwarden, The Netherlands"], "radius_km": 10, "tags": ["geonames-sample", "nl"]}
+{"kind": "place", "cohort": "city", "qid": "Q969531", "queries": ["Monster, South Holland, The Netherlands"], "radius_km": 6, "tags": ["geonames-sample", "nl"]}
+{"kind": "place", "cohort": "rural", "qid": "Q2673803", "queries": ["Noordwolde, Friesland, The Netherlands"], "radius_km": 6, "tags": ["geonames-sample", "nl"]}
+{"kind": "place", "cohort": "city", "qid": "Q585", "queries": ["Oslo, Norway"], "radius_km": 20, "tags": ["geonames-sample", "no"]}
+{"kind": "place", "cohort": "city", "qid": "Q26793", "queries": ["Bergen, Norway"], "radius_km": 10, "tags": ["geonames-sample", "no"]}
+{"kind": "place", "cohort": "city", "qid": "Q25804", "queries": ["Trondheim, Norway"], "radius_km": 10, "tags": ["geonames-sample", "no"]}
+{"kind": "place", "cohort": "city", "qid": "Q26772333", "queries": ["Stavanger, Norway"], "radius_km": 10, "tags": ["geonames-sample", "no"]}
+{"kind": "place", "cohort": "city", "qid": "Q15138612", "queries": ["Drammen, Norway"], "radius_km": 10, "tags": ["geonames-sample", "no"]}
+{"kind": "place", "cohort": "city", "qid": "Q3742792", "queries": ["Asker, Akershus, Norway"], "radius_km": 6, "tags": ["geonames-sample", "no"]}
+{"kind": "place", "cohort": "city", "qid": "Q10498783", "queries": ["Fredrikstad, Østfold, Norway"], "radius_km": 6, "tags": ["geonames-sample", "no"]}
+{"kind": "place", "cohort": "rural", "qid": "Q145948", "queries": ["Svolvær, Nordland, Norway"], "radius_km": 6, "tags": ["geonames-sample", "no"]}
+{"kind": "place", "cohort": "rural", "qid": "Q3366918", "queries": ["Ask, Akershus, Norway"], "radius_km": 6, "tags": ["geonames-sample", "no"]}
+{"kind": "place", "cohort": "city", "qid": "Q2465447", "queries": ["Inaruwa, Koshi, Nepal"], "radius_km": 6, "tags": ["geonames-sample", "np"]}
+{"kind": "place", "cohort": "rural", "qid": "Q49755176", "queries": ["Yaren, Yaren District, Nauru"], "radius_km": 6, "tags": ["geonames-sample", "nr"]}
+{"kind": "place", "cohort": "rural", "qid": "Q16530036", "queries": ["Arijejen, Aiwo District, Nauru"], "radius_km": 6, "tags": ["geonames-sample", "nr"]}
+{"kind": "place", "cohort": "rural", "qid": "Q30966", "queries": ["Alofi, Niue"], "radius_km": 6, "tags": ["geonames-sample", "nu"]}
+{"kind": "place", "cohort": "city", "qid": "Q23661", "queries": ["Wellington, New Zealand"], "radius_km": 10, "tags": ["geonames-sample", "nz"]}
+{"kind": "place", "cohort": "city", "qid": "Q79990", "queries": ["Christchurch, New Zealand"], "radius_km": 10, "tags": ["geonames-sample", "nz"]}
+{"kind": "place", "cohort": "city", "qid": "Q133073", "queries": ["Dunedin, New Zealand"], "radius_km": 10, "tags": ["geonames-sample", "nz"]}
+{"kind": "place", "cohort": "city", "qid": "Q986198", "queries": ["Manukau City, New Zealand"], "radius_km": 10, "tags": ["geonames-sample", "nz"]}
+{"kind": "place", "cohort": "city", "qid": "Q1028261", "queries": ["Cambridge, Waikato Region, New Zealand"], "radius_km": 6, "tags": ["geonames-sample", "nz"]}
+{"kind": "place", "cohort": "city", "qid": "Q1020244", "queries": ["Te Puke, Bay of Plenty, New Zealand"], "radius_km": 6, "tags": ["geonames-sample", "nz"]}
+{"kind": "place", "cohort": "rural", "qid": "Q151839", "queries": ["Taihape, Manawatu-Wanganui, New Zealand"], "radius_km": 6, "tags": ["geonames-sample", "nz"]}
+{"kind": "place", "cohort": "city", "qid": "Q3414795", "queries": ["Qurayyāt, Muscat, Oman"], "radius_km": 6, "tags": ["geonames-sample", "om"]}
+{"kind": "place", "cohort": "city", "qid": "Q3306", "queries": ["Panama City, Panama"], "radius_km": 10, "tags": ["geonames-sample", "pa"]}
+{"kind": "place", "cohort": "city", "qid": "Q4845221", "queries": ["Pocrí, Coclé, Panama"], "radius_km": 6, "tags": ["geonames-sample", "pa"]}
+{"kind": "place", "cohort": "city", "qid": "Q2868", "queries": ["Lima, Peru"], "radius_km": 20, "tags": ["geonames-sample", "pe"]}
+{"kind": "place", "cohort": "city", "qid": "Q1014523", "queries": ["Oxapampa, Pasco, Peru"], "radius_km": 6, "tags": ["geonames-sample", "pe"]}
+{"kind": "place", "cohort": "city", "qid": "Q130800", "queries": ["Papeete, Îles du Vent, French Polynesia"], "radius_km": 6, "tags": ["geonames-sample", "pf"]}
+{"kind": "place", "cohort": "city", "qid": "Q36526", "queries": ["Port Moresby, Papua New Guinea"], "radius_km": 10, "tags": ["geonames-sample", "pg"]}
+{"kind": "place", "cohort": "city", "qid": "Q33511316", "queries": ["Vanimo, Sandaun Province, Papua New Guinea"], "radius_km": 6, "tags": ["geonames-sample", "pg"]}
+{"kind": "place", "cohort": "city", "qid": "Q1461", "queries": ["Maynila, Pilipinas"], "radius_km": 20, "tags": ["geonames-sample", "ph", "native"]}
+{"kind": "place", "cohort": "city", "qid": "Q1475", "queries": ["Quezon City, Philippines"], "radius_km": 20, "tags": ["geonames-sample", "ph"]}
+{"kind": "place", "cohort": "city", "qid": "Q1473", "queries": ["Davao, Philippines"], "radius_km": 20, "tags": ["geonames-sample", "ph"]}
+{"kind": "place", "cohort": "city", "qid": "Q56759", "queries": ["Olongapo, Philippines"], "radius_km": 10, "tags": ["geonames-sample", "ph"]}
+{"kind": "place", "cohort": "city", "qid": "Q212784", "queries": ["South Upi, Autonomous Region in Muslim Mindanao, Philippines"], "radius_km": 6, "tags": ["geonames-sample", "ph"]}
+{"kind": "place", "cohort": "city", "qid": "Q54560", "queries": ["Bustos, Central Luzon, Philippines"], "radius_km": 6, "tags": ["geonames-sample", "ph"]}
+{"kind": "place", "cohort": "rural", "qid": "Q31812540", "queries": ["Nalsian Norte, Ilocos, Philippines"], "radius_km": 6, "tags": ["geonames-sample", "ph"]}
+{"kind": "place", "cohort": "rural", "qid": "Q31528302", "queries": ["Kaliling, Western Visayas, Philippines"], "radius_km": 6, "tags": ["geonames-sample", "ph"]}
+{"kind": "place", "cohort": "city", "qid": "Q1362", "queries": ["Islamabad, Pakistan"], "radius_km": 10, "tags": ["geonames-sample", "pk"]}
+{"kind": "place", "cohort": "city", "qid": "Q49355860", "queries": ["Kalaswala, Punjab, Pakistan"], "radius_km": 6, "tags": ["geonames-sample", "pk"]}
+{"kind": "place", "cohort": "city", "qid": "Q270", "queries": ["Warsaw, Poland"], "radius_km": 20, "tags": ["geonames-sample", "pl"]}
+{"kind": "place", "cohort": "city", "qid": "Q149111", "queries": ["Lubsko, Lubusz, Poland"], "radius_km": 6, "tags": ["geonames-sample", "pl"]}
+{"kind": "place", "cohort": "rural", "qid": "Q185678", "queries": ["Saint-Pierre, Saint Pierre and Miquelon"], "radius_km": 6, "tags": ["geonames-sample", "pm"]}
+{"kind": "place", "cohort": "rural", "qid": "Q1932388", "queries": ["Miquelon, Miquelon-Langlade, Saint Pierre and Miquelon"], "radius_km": 6, "tags": ["geonames-sample", "pm"]}
+{"kind": "place", "cohort": "rural", "qid": "Q48273", "queries": ["Adamstown, Pitcairn"], "radius_km": 6, "tags": ["geonames-sample", "pn"]}
+{"kind": "place", "cohort": "city", "qid": "Q41211", "queries": ["San Juan, Puerto Rico"], "radius_km": 10, "tags": ["geonames-sample", "pr"]}
+{"kind": "place", "cohort": "city", "qid": "Q31870753", "queries": ["Aguadilla, Puerto Rico"], "radius_km": 6, "tags": ["geonames-sample", "pr"]}
+{"kind": "place", "cohort": "city", "qid": "Q597", "queries": ["Lisbon, Portugal"], "radius_km": 10, "tags": ["geonames-sample", "pt"]}
+{"kind": "place", "cohort": "rural", "qid": "Q515229", "queries": ["Ngerulmud, Melekeok, Palau"], "radius_km": 6, "tags": ["geonames-sample", "pw"]}
+{"kind": "place", "cohort": "city", "qid": "Q527748", "queries": ["Koror, Palau"], "radius_km": 6, "tags": ["geonames-sample", "pw"]}
+{"kind": "place", "cohort": "city", "qid": "Q2933", "queries": ["Asunción, Paraguay"], "radius_km": 20, "tags": ["geonames-sample", "py"]}
+{"kind": "place", "cohort": "city", "qid": "Q3861", "queries": ["Doha, Qatar"], "radius_km": 10, "tags": ["geonames-sample", "qa"]}
+{"kind": "place", "cohort": "city", "qid": "Q47045", "queries": ["Saint-Denis, Reunion"], "radius_km": 10, "tags": ["geonames-sample", "re"]}
+{"kind": "place", "cohort": "city", "qid": "Q19660", "queries": ["Bucharest, Romania"], "radius_km": 20, "tags": ["geonames-sample", "ro"]}
+{"kind": "place", "cohort": "city", "qid": "Q16898207", "queries": ["Murfatlar, Constanța County, Romania"], "radius_km": 6, "tags": ["geonames-sample", "ro"]}
+{"kind": "place", "cohort": "city", "qid": "Q3711", "queries": ["Belgrade, Serbia"], "radius_km": 20, "tags": ["geonames-sample", "rs"]}
+{"kind": "place", "cohort": "city", "qid": "Q309343", "queries": ["Pirot, Central Serbia, Serbia"], "radius_km": 6, "tags": ["geonames-sample", "rs"]}
+{"kind": "place", "cohort": "city", "qid": "Q196531", "queries": ["Sysert’, Sverdlovsk Oblast, Russia"], "radius_km": 6, "tags": ["geonames-sample", "ru"]}
+{"kind": "place", "cohort": "city", "qid": "Q3859", "queries": ["Kigali, Rwanda"], "radius_km": 20, "tags": ["geonames-sample", "rw"]}
+{"kind": "place", "cohort": "city", "qid": "Q2356928", "queries": ["Nyamata, Eastern Province, Rwanda"], "radius_km": 6, "tags": ["geonames-sample", "rw"]}
+{"kind": "place", "cohort": "city", "qid": "Q3692", "queries": ["Riyadh, Saudi Arabia"], "radius_km": 20, "tags": ["geonames-sample", "sa"]}
+{"kind": "place", "cohort": "city", "qid": "Q40921", "queries": ["Honiara, Solomon Islands"], "radius_km": 6, "tags": ["geonames-sample", "sb"]}
+{"kind": "place", "cohort": "city", "qid": "Q3940", "queries": ["Victoria, La Rivière Anglaise, Seychelles"], "radius_km": 6, "tags": ["geonames-sample", "sc"]}
+{"kind": "place", "cohort": "city", "qid": "Q1963", "queries": ["Khartoum, Sudan"], "radius_km": 20, "tags": ["geonames-sample", "sd"]}
+{"kind": "place", "cohort": "city", "qid": "Q995369", "queries": ["Lomma, Skåne, Sweden"], "radius_km": 6, "tags": ["geonames-sample", "se"]}
+{"kind": "place", "cohort": "city", "qid": "Q49755161", "queries": ["Singapore, Singapore"], "radius_km": 20, "tags": ["geonames-sample", "sg"]}
+{"kind": "place", "cohort": "rural", "qid": "Q30970", "queries": ["Jamestown, Saint Helena, Saint Helena"], "radius_km": 6, "tags": ["geonames-sample", "sh"]}
+{"kind": "place", "cohort": "rural", "qid": "Q498153", "queries": ["Edinburgh of the Seven Seas, Tristan da Cunha, Saint Helena"], "radius_km": 6, "tags": ["geonames-sample", "sh"]}
+{"kind": "place", "cohort": "city", "qid": "Q437", "queries": ["Ljubljana, Slovenia"], "radius_km": 10, "tags": ["geonames-sample", "si"]}
+{"kind": "place", "cohort": "city", "qid": "Q15928", "queries": ["Velenje, Urban Municipality of Velenje, Slovenia"], "radius_km": 6, "tags": ["geonames-sample", "si"]}
+{"kind": "place", "cohort": "rural", "qid": "Q25923", "queries": ["Longyearbyen, Svalbard, Svalbard and Jan Mayen"], "radius_km": 6, "tags": ["geonames-sample", "sj"], "country": ["no", "sj"]}
+{"kind": "place", "cohort": "city", "qid": "Q1780", "queries": ["Bratislava, Slovakia"], "radius_km": 10, "tags": ["geonames-sample", "sk"]}
+{"kind": "place", "cohort": "city", "qid": "Q750423", "queries": ["Topoľčany, Nitra Region, Slovakia"], "radius_km": 6, "tags": ["geonames-sample", "sk"]}
+{"kind": "place", "cohort": "city", "qid": "Q3780", "queries": ["Freetown, Sierra Leone"], "radius_km": 10, "tags": ["geonames-sample", "sl"]}
+{"kind": "place", "cohort": "city", "qid": "Q49371366", "queries": ["Yengema, Eastern Province, Sierra Leone"], "radius_km": 6, "tags": ["geonames-sample", "sl"]}
+{"kind": "place", "cohort": "rural", "qid": "Q1848", "queries": ["San Marino, San Marino"], "radius_km": 6, "tags": ["geonames-sample", "sm"]}
+{"kind": "place", "cohort": "rural", "qid": "Q49283028", "queries": ["Fiorentino, San Marino"], "radius_km": 6, "tags": ["geonames-sample", "sm"]}
+{"kind": "place", "cohort": "city", "qid": "Q3718", "queries": ["Dakar, Senegal"], "radius_km": 20, "tags": ["geonames-sample", "sn"]}
+{"kind": "place", "cohort": "city", "qid": "Q1153061", "queries": ["Richard-Toll, Saint-Louis, Senegal"], "radius_km": 6, "tags": ["geonames-sample", "sn"]}
+{"kind": "place", "cohort": "city", "qid": "Q2449", "queries": ["Mogadishu, Somalia"], "radius_km": 20, "tags": ["geonames-sample", "so"]}
+{"kind": "place", "cohort": "city", "qid": "Q3001", "queries": ["Paramaribo, Suriname"], "radius_km": 10, "tags": ["geonames-sample", "sr"]}
+{"kind": "place", "cohort": "city", "qid": "Q738313", "queries": ["Nieuw Nickerie, Nickerie District, Suriname"], "radius_km": 6, "tags": ["geonames-sample", "sr"]}
+{"kind": "place", "cohort": "city", "qid": "Q1947", "queries": ["Juba, South Sudan"], "radius_km": 10, "tags": ["geonames-sample", "ss"]}
+{"kind": "place", "cohort": "city", "qid": "Q3132425", "queries": ["Yirol, Lakes, South Sudan"], "radius_km": 6, "tags": ["geonames-sample", "ss"]}
+{"kind": "place", "cohort": "city", "qid": "Q3932", "queries": ["São Tomé, São Tomé Island, Sao Tome and Principe"], "radius_km": 6, "tags": ["geonames-sample", "st"]}
+{"kind": "place", "cohort": "city", "qid": "Q3110", "queries": ["San Salvador, El Salvador"], "radius_km": 10, "tags": ["geonames-sample", "sv"]}
+{"kind": "place", "cohort": "city", "qid": "Q682015", "queries": ["Armenia, Sonsonate Department, El Salvador"], "radius_km": 6, "tags": ["geonames-sample", "sv"]}
+{"kind": "place", "cohort": "rural", "qid": "Q30958", "queries": ["Philipsburg, Sint Maarten"], "radius_km": 6, "tags": ["geonames-sample", "sx"]}
+{"kind": "place", "cohort": "rural", "qid": "Q2002890", "queries": ["Lower Prince’s Quarter, Sint Maarten"], "radius_km": 6, "tags": ["geonames-sample", "sx"]}
+{"kind": "place", "cohort": "city", "qid": "Q3766", "queries": ["Damascus, Syria"], "radius_km": 20, "tags": ["geonames-sample", "sy"]}
+{"kind": "place", "cohort": "city", "qid": "Q3904", "queries": ["Mbabane, Hhohho Region, Eswatini"], "radius_km": 6, "tags": ["geonames-sample", "sz"]}
+{"kind": "place", "cohort": "rural", "qid": "Q3235603", "queries": ["Hlathikhulu, Shiselweni, Eswatini"], "radius_km": 6, "tags": ["geonames-sample", "sz"]}
+{"kind": "place", "cohort": "rural", "qid": "Q34205", "queries": ["Cockburn Town, Turks and Caicos Islands"], "radius_km": 6, "tags": ["geonames-sample", "tc"]}
+{"kind": "place", "cohort": "city", "qid": "Q3659", "queries": ["N'Djamena, Chad"], "radius_km": 20, "tags": ["geonames-sample", "td"]}
+{"kind": "place", "cohort": "rural", "qid": "Q839559", "queries": ["Port-aux-Français, Kerguelen, French Southern Territories"], "radius_km": 6, "tags": ["geonames-sample", "tf"]}
+{"kind": "place", "cohort": "city", "qid": "Q3792", "queries": ["Lomé, Togo"], "radius_km": 20, "tags": ["geonames-sample", "tg"]}
+{"kind": "place", "cohort": "city", "qid": "Q2528080", "queries": ["Tabligbo, Maritime, Togo"], "radius_km": 6, "tags": ["geonames-sample", "tg"]}
+{"kind": "place", "cohort": "city", "qid": "Q1861", "queries": ["Bangkok, Thailand"], "radius_km": 20, "tags": ["geonames-sample", "th"]}
+{"kind": "place", "cohort": "city", "qid": "Q13025390", "queries": ["Wichian Buri, Phetchabun, Thailand"], "radius_km": 6, "tags": ["geonames-sample", "th"]}
+{"kind": "place", "cohort": "city", "qid": "Q49755125", "queries": ["Dushanbe, Tajikistan"], "radius_km": 10, "tags": ["geonames-sample", "tj"]}
+{"kind": "place", "cohort": "city", "qid": "Q3375469", "queries": ["Yovon, Khatlon Province, Tajikistan"], "radius_km": 6, "tags": ["geonames-sample", "tj"]}
+{"kind": "place", "cohort": "city", "qid": "Q9310", "queries": ["Dili, Timor Leste"], "radius_km": 10, "tags": ["geonames-sample", "tl"]}
+{"kind": "place", "cohort": "city", "qid": "Q23438", "queries": ["Ashgabat, Turkmenistan"], "radius_km": 20, "tags": ["geonames-sample", "tm"]}
+{"kind": "place", "cohort": "city", "qid": "Q7675325", "queries": ["Tagtabazar, Mary, Turkmenistan"], "radius_km": 6, "tags": ["geonames-sample", "tm"]}
+{"kind": "place", "cohort": "city", "qid": "Q3572", "queries": ["Tunis, Tunisia"], "radius_km": 10, "tags": ["geonames-sample", "tn"]}
+{"kind": "place", "cohort": "city", "qid": "Q38834", "queries": ["Nuku‘alofa, Tongatapu, Tonga"], "radius_km": 6, "tags": ["geonames-sample", "to"]}
+{"kind": "place", "cohort": "city", "qid": "Q3640", "queries": ["Ankara, Turkey"], "radius_km": 20, "tags": ["geonames-sample", "tr"]}
+{"kind": "place", "cohort": "city", "qid": "Q406", "queries": ["Istanbul, Turkey"], "radius_km": 20, "tags": ["geonames-sample", "tr"]}
+{"kind": "place", "cohort": "city", "qid": "Q40738", "queries": ["Bursa, Turkey"], "radius_km": 20, "tags": ["geonames-sample", "tr"]}
+{"kind": "place", "cohort": "city", "qid": "Q693929", "queries": ["Kızıltepe, Turkey"], "radius_km": 10, "tags": ["geonames-sample", "tr"]}
+{"kind": "place", "cohort": "city", "qid": "Q134287", "queries": ["Tarsus, Turkey"], "radius_km": 10, "tags": ["geonames-sample", "tr"]}
+{"kind": "place", "cohort": "city", "qid": "Q2744950", "queries": ["Pasinler, Erzurum, Turkey"], "radius_km": 6, "tags": ["geonames-sample", "tr"]}
+{"kind": "place", "cohort": "city", "qid": "Q205942", "queries": ["Yalova, Turkey"], "radius_km": 6, "tags": ["geonames-sample", "tr"]}
+{"kind": "place", "cohort": "rural", "qid": "Q10780414", "queries": ["Kocadere, Yalova, Turkey"], "radius_km": 6, "tags": ["geonames-sample", "tr"]}
+{"kind": "place", "cohort": "rural", "qid": "Q6943378", "queries": ["Mustafalar, Adana, Turkey"], "radius_km": 6, "tags": ["geonames-sample", "tr"]}
+{"kind": "place", "cohort": "city", "qid": "Q39178", "queries": ["Port of Spain, Trinidad and Tobago"], "radius_km": 6, "tags": ["geonames-sample", "tt"]}
+{"kind": "place", "cohort": "city", "qid": "Q4795612", "queries": ["Arouca, Tunapuna/Piarco, Trinidad and Tobago"], "radius_km": 6, "tags": ["geonames-sample", "tt"]}
+{"kind": "place", "cohort": "city", "qid": "Q1867", "queries": ["Taipei, Taiwan"], "radius_km": 20, "tags": ["geonames-sample", "tw"]}
+{"kind": "place", "cohort": "city", "qid": "Q706455", "queries": ["Daxi, Taiwan, Taiwan"], "radius_km": 6, "tags": ["geonames-sample", "tw"]}
+{"kind": "place", "cohort": "city", "qid": "Q3866", "queries": ["Dodoma, Tanzania"], "radius_km": 10, "tags": ["geonames-sample", "tz"]}
+{"kind": "place", "cohort": "city", "qid": "Q6885673", "queries": ["Mlangali, Njombe, Tanzania"], "radius_km": 6, "tags": ["geonames-sample", "tz"]}
+{"kind": "place", "cohort": "city", "qid": "Q156732", "queries": ["Kherson, Ukraine"], "radius_km": 6, "tags": ["geonames-sample", "ua"]}
+{"kind": "place", "cohort": "city", "qid": "Q3894", "queries": ["Kampala, Uganda"], "radius_km": 20, "tags": ["geonames-sample", "ug"]}
+{"kind": "place", "cohort": "city", "qid": "Q61", "queries": ["Washington, United States"], "radius_km": 10, "tags": ["geonames-sample", "us"]}
+{"kind": "place", "cohort": "city", "qid": "Q60", "queries": ["New York City, United States"], "radius_km": 20, "tags": ["geonames-sample", "us"]}
+{"kind": "place", "cohort": "city", "qid": "Q65", "queries": ["Los Angeles, United States"], "radius_km": 20, "tags": ["geonames-sample", "us"]}
+{"kind": "place", "cohort": "city", "qid": "Q5083", "queries": ["Seattle, United States"], "radius_km": 10, "tags": ["geonames-sample", "us"]}
+{"kind": "place", "cohort": "city", "qid": "Q18013", "queries": ["Sacramento, United States"], "radius_km": 10, "tags": ["geonames-sample", "us"]}
+{"kind": "place", "cohort": "city", "qid": "Q983845", "queries": ["South El Monte, California, United States"], "radius_km": 6, "tags": ["geonames-sample", "us"]}
+{"kind": "place", "cohort": "rural", "qid": "Q577391", "queries": ["Bushnell, Illinois, United States"], "radius_km": 6, "tags": ["geonames-sample", "us"]}
+{"kind": "place", "cohort": "rural", "qid": "Q2320183", "queries": ["Yates Center, Kansas, United States"], "radius_km": 6, "tags": ["geonames-sample", "us"]}
+{"kind": "place", "cohort": "city", "qid": "Q1335", "queries": ["Montevideo, Uruguay"], "radius_km": 20, "tags": ["geonames-sample", "uy"]}
+{"kind": "place", "cohort": "city", "qid": "Q841342", "queries": ["Canelones, Uruguay"], "radius_km": 6, "tags": ["geonames-sample", "uy"]}
+{"kind": "place", "cohort": "city", "qid": "Q269", "queries": ["Tashkent, Uzbekistan"], "radius_km": 20, "tags": ["geonames-sample", "uz"]}
+{"kind": "place", "cohort": "rural", "qid": "Q32039279", "queries": ["Vatican City, Vatican"], "radius_km": 6, "tags": ["geonames-sample", "va"]}
+{"kind": "place", "cohort": "city", "qid": "Q41474", "queries": ["Kingstown, Saint George Parish, Saint Vincent and the Grenadines"], "radius_km": 6, "tags": ["geonames-sample", "vc"]}
+{"kind": "place", "cohort": "city", "qid": "Q5021973", "queries": ["Calliaqua, Saint George Parish, Saint Vincent and the Grenadines"], "radius_km": 6, "tags": ["geonames-sample", "vc"]}
+{"kind": "place", "cohort": "city", "qid": "Q1533", "queries": ["Caracas, Venezuela"], "radius_km": 20, "tags": ["geonames-sample", "ve"]}
+{"kind": "place", "cohort": "city", "qid": "Q5672060", "queries": ["El Dividive, Trujillo, Venezuela"], "radius_km": 6, "tags": ["geonames-sample", "ve"]}
+{"kind": "place", "cohort": "rural", "qid": "Q179431", "queries": ["Road Town, British Virgin Islands"], "radius_km": 6, "tags": ["geonames-sample", "vg"]}
+{"kind": "place", "cohort": "rural", "qid": "Q9340035", "queries": ["Spanish Town, British Virgin Islands"], "radius_km": 6, "tags": ["geonames-sample", "vg"]}
+{"kind": "place", "cohort": "city", "qid": "Q51681", "queries": ["Charlotte Amalie, Saint Thomas Island, U.S. Virgin Islands"], "radius_km": 6, "tags": ["geonames-sample", "vi"]}
+{"kind": "place", "cohort": "city", "qid": "Q642481", "queries": ["Saint Croix, Saint Croix Island, U.S. Virgin Islands"], "radius_km": 6, "tags": ["geonames-sample", "vi"]}
+{"kind": "place", "cohort": "city", "qid": "Q797431", "queries": ["Ba Chúc, An Giang, Vietnam"], "radius_km": 6, "tags": ["geonames-sample", "vn"]}
+{"kind": "place", "cohort": "city", "qid": "Q37806", "queries": ["Port-Vila, Shefa, Vanuatu"], "radius_km": 6, "tags": ["geonames-sample", "vu"]}
+{"kind": "place", "cohort": "city", "qid": "Q876557", "queries": ["Luganville, Sanma, Vanuatu"], "radius_km": 6, "tags": ["geonames-sample", "vu"]}
+{"kind": "place", "cohort": "rural", "qid": "Q31002", "queries": ["Mata-Utu, Uvea, Wallis and Futuna"], "radius_km": 6, "tags": ["geonames-sample", "wf"]}
+{"kind": "place", "cohort": "city", "qid": "Q25270", "queries": ["Pristina, Kosovo"], "radius_km": 10, "tags": ["geonames-sample", "xk"]}
+{"kind": "place", "cohort": "city", "qid": "Q227569", "queries": ["Zubin Potok, Mitrovica, Kosovo"], "radius_km": 6, "tags": ["geonames-sample", "xk"]}
+{"kind": "place", "cohort": "city", "qid": "Q2471", "queries": ["Sanaa, Yemen"], "radius_km": 20, "tags": ["geonames-sample", "ye"]}
+{"kind": "place", "cohort": "city", "qid": "Q249175", "queries": ["Laḩij, Yemen"], "radius_km": 6, "tags": ["geonames-sample", "ye"]}
+{"kind": "place", "cohort": "city", "qid": "Q132676", "queries": ["Mamoudzou, Mayotte"], "radius_km": 6, "tags": ["geonames-sample", "yt"]}
+{"kind": "place", "cohort": "city", "qid": "Q1010634", "queries": ["Pamandzi, Mayotte"], "radius_km": 6, "tags": ["geonames-sample", "yt"]}
+{"kind": "place", "cohort": "city", "qid": "Q3926", "queries": ["Pretoria, South Africa"], "radius_km": 20, "tags": ["geonames-sample", "za"]}
+{"kind": "place", "cohort": "city", "qid": "Q1870711", "queries": ["Kriel, Mpumalanga, South Africa"], "radius_km": 6, "tags": ["geonames-sample", "za"], "known_failure": "far_miss: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q3881", "queries": ["Lusaka, Zambia"], "radius_km": 20, "tags": ["geonames-sample", "zm"]}
+{"kind": "place", "cohort": "city", "qid": "Q260171", "queries": ["Lundazi, Eastern Province, Zambia"], "radius_km": 6, "tags": ["geonames-sample", "zm"]}
+{"kind": "place", "cohort": "city", "qid": "Q3921", "queries": ["Harare, Zimbabwe"], "radius_km": 20, "tags": ["geonames-sample", "zw"]}
+{"kind": "place", "cohort": "city", "qid": "Q991725", "queries": ["Rusape, Manicaland, Zimbabwe"], "radius_km": 6, "tags": ["geonames-sample", "zw"]}
+{"kind": "region", "qid": "Q1184", "queries": ["Jharkhand, India"], "admin_level": 4, "tags": ["geonames-sample", "in"]}
+{"kind": "region", "qid": "Q1196", "queries": ["Mecklenburg-Vorpommern, Germany"], "admin_level": 4, "tags": ["geonames-sample", "de"]}
+{"kind": "region", "qid": "Q1199", "queries": ["Hesse, Germany"], "admin_level": 4, "tags": ["geonames-sample", "de"]}
+{"kind": "region", "qid": "Q1222", "queries": ["Aosta Valley, Italy"], "admin_level": 4, "tags": ["geonames-sample", "it"]}
+{"kind": "region", "qid": "Q1256", "queries": ["Liguria, Italy"], "admin_level": 4, "tags": ["geonames-sample", "it"]}
+{"kind": "region", "qid": "Q1445", "queries": ["Tamil Nadu, India"], "admin_level": 4, "tags": ["geonames-sample", "in"]}
+{"kind": "region", "qid": "Q1965", "queries": ["New Brunswick, Canada"], "admin_level": 4, "tags": ["geonames-sample", "ca"]}
+{"kind": "region", "qid": "Q2009", "queries": ["Yukon, Canada"], "admin_level": 4, "tags": ["geonames-sample", "ca"]}
+{"kind": "region", "qid": "Q2246", "queries": ["Nizhny Novgorod Oblast, Russia"], "admin_level": 4, "tags": ["geonames-sample", "ru"]}
+{"kind": "region", "qid": "Q3206", "queries": ["Western Australia, Australia"], "admin_level": 4, "tags": ["geonames-sample", "au"]}
+{"kind": "region", "qid": "Q5711", "queries": ["Uusimaa, Finland"], "admin_level": 4, "tags": ["geonames-sample", "fi"]}
+{"kind": "region", "qid": "Q5777", "queries": ["Extremadura, Spain"], "admin_level": 4, "tags": ["geonames-sample", "es"]}
+{"kind": "region", "qid": "Q9337", "queries": ["Flanders, Belgium"], "admin_level": 4, "tags": ["geonames-sample", "be"]}
+{"kind": "region", "qid": "Q11198", "queries": ["Federation of B&H, Bosnia and Herzegovina"], "admin_level": 4, "tags": ["geonames-sample", "ba"]}
+{"kind": "region", "qid": "Q19038", "queries": ["Guria, Georgia"], "admin_level": 4, "tags": ["geonames-sample", "ge"]}
+{"kind": "region", "qid": "Q21208", "queries": ["Hebei, China"], "admin_level": 4, "tags": ["geonames-sample", "cn"]}
+{"kind": "region", "qid": "Q22424", "queries": ["Punjab, India"], "admin_level": 4, "tags": ["geonames-sample", "in"]}
+{"kind": "region", "qid": "Q30656", "queries": ["Faiyum, Egypt"], "admin_level": 4, "tags": ["geonames-sample", "eg"]}
+{"kind": "region", "qid": "Q34366", "queries": ["Tasmania, Australia"], "admin_level": 4, "tags": ["geonames-sample", "au"]}
+{"kind": "region", "qid": "Q35715", "queries": ["South Australia, Australia"], "admin_level": 4, "tags": ["geonames-sample", "au"]}
+{"kind": "region", "qid": "Q40395", "queries": ["Belait, Brunei"], "admin_level": 4, "tags": ["geonames-sample", "bn"]}
+{"kind": "region", "qid": "Q41967", "queries": ["Upper Austria, Austria"], "admin_level": 4, "tags": ["geonames-sample", "at"]}
+{"kind": "region", "qid": "Q50624", "queries": ["Rogaland, Norway"], "admin_level": 4, "tags": ["geonames-sample", "no"]}
+{"kind": "region", "qid": "Q106915", "queries": ["Södermanland, Sweden"], "admin_level": 4, "tags": ["geonames-sample", "se"]}
+{"kind": "region", "qid": "Q133935", "queries": ["Tottori, Japan"], "admin_level": 4, "tags": ["geonames-sample", "jp"]}
+{"kind": "region", "qid": "Q134417", "queries": ["Markazi, Iran"], "admin_level": 4, "tags": ["geonames-sample", "ir"]}
+{"kind": "region", "qid": "Q160284", "queries": ["Free State, South Africa"], "admin_level": 4, "tags": ["geonames-sample", "za"]}
+{"kind": "region", "qid": "Q166709", "queries": ["Vinnytsia, Ukraine"], "admin_level": 4, "tags": ["geonames-sample", "ua"]}
+{"kind": "region", "qid": "Q170291", "queries": ["West Greece, Greece"], "admin_level": 4, "tags": ["geonames-sample", "gr"], "known_failure": "wrong_country: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "region", "qid": "Q185221", "queries": ["Melaka, Malaysia"], "admin_level": 4, "tags": ["geonames-sample", "my"]}
+{"kind": "region", "qid": "Q188096", "queries": ["Penang, Malaysia"], "admin_level": 4, "tags": ["geonames-sample", "my"]}
+{"kind": "region", "qid": "Q188505", "queries": ["Constanța County, Romania"], "admin_level": 4, "tags": ["geonames-sample", "ro"]}
+{"kind": "region", "qid": "Q189001", "queries": ["Prešov Region, Slovakia"], "admin_level": 4, "tags": ["geonames-sample", "sk"]}
+{"kind": "region", "qid": "Q189952", "queries": ["Lääne-Virumaa, Estonia"], "admin_level": 4, "tags": ["geonames-sample", "ee"]}
+{"kind": "region", "qid": "Q191346", "queries": ["Pahang, Malaysia"], "admin_level": 4, "tags": ["geonames-sample", "my"]}
+{"kind": "region", "qid": "Q200697", "queries": ["Gilgit-Baltistan, Pakistan"], "admin_level": 4, "tags": ["geonames-sample", "pk"]}
+{"kind": "region", "qid": "Q205824", "queries": ["Sucre, Venezuela"], "admin_level": 4, "tags": ["geonames-sample", "ve"]}
+{"kind": "region", "qid": "Q212768", "queries": ["Southern Peninsula, Iceland"], "admin_level": 4, "tags": ["geonames-sample", "is"]}
+{"kind": "region", "qid": "Q232564", "queries": ["Cundinamarca, Colombia"], "admin_level": 4, "tags": ["geonames-sample", "co"]}
+{"kind": "region", "qid": "Q232953", "queries": ["Putumayo Department, Colombia"], "admin_level": 4, "tags": ["geonames-sample", "co"]}
+{"kind": "region", "qid": "Q241582", "queries": ["Sughd, Tajikistan"], "admin_level": 4, "tags": ["geonames-sample", "tj"]}
+{"kind": "region", "qid": "Q309190", "queries": ["Kagera, Tanzania"], "admin_level": 4, "tags": ["geonames-sample", "tz"]}
+{"kind": "region", "qid": "Q330158", "queries": ["Dhaka Division, Bangladesh"], "admin_level": 4, "tags": ["geonames-sample", "bd"]}
+{"kind": "region", "qid": "Q375630", "queries": ["Muharraq, Bahrain"], "admin_level": 4, "tags": ["geonames-sample", "bh"]}
+{"kind": "region", "qid": "Q379658", "queries": ["Maputo Province, Mozambique"], "admin_level": 4, "tags": ["geonames-sample", "mz"]}
+{"kind": "region", "qid": "Q473717", "queries": ["Makueni County, Kenya"], "admin_level": 4, "tags": ["geonames-sample", "ke"]}
+{"kind": "region", "qid": "Q487585", "queries": ["Tashkent Region, Uzbekistan"], "admin_level": 4, "tags": ["geonames-sample", "uz"]}
+{"kind": "region", "qid": "Q686586", "queries": ["Amambay Department, Paraguay"], "admin_level": 4, "tags": ["geonames-sample", "py"]}
+{"kind": "region", "qid": "Q690026", "queries": ["Guanacaste Province, Costa Rica"], "admin_level": 4, "tags": ["geonames-sample", "cr"]}
+{"kind": "region", "qid": "Q751387", "queries": ["Sanaag, Somalia"], "admin_level": 4, "tags": ["geonames-sample", "so"]}
+{"kind": "region", "qid": "Q775410", "queries": ["Sangha, Republic of the Congo"], "admin_level": 4, "tags": ["geonames-sample", "cg"]}
+{"kind": "region", "qid": "Q843954", "queries": ["Tanintharyi Region, Myanmar"], "admin_level": 4, "tags": ["geonames-sample", "mm"]}
+{"kind": "region", "qid": "Q849297", "queries": ["River Nile, Sudan"], "admin_level": 4, "tags": ["geonames-sample", "sd"]}
+{"kind": "region", "qid": "Q860758", "queries": ["Central Region, Malawi"], "admin_level": 4, "tags": ["geonames-sample", "mw"]}
+{"kind": "region", "qid": "Q1130134", "queries": ["Paramaribo District, Suriname"], "admin_level": 4, "tags": ["geonames-sample", "sr"]}
+{"kind": "region", "qid": "Q1130677", "queries": ["Cuscatlan, El Salvador"], "admin_level": 4, "tags": ["geonames-sample", "sv"]}
+{"kind": "region", "qid": "Q1131523", "queries": ["Copperbelt, Zambia"], "admin_level": 4, "tags": ["geonames-sample", "zm"]}
+{"kind": "region", "qid": "Q1207752", "queries": ["Dhofar, Oman"], "admin_level": 4, "tags": ["geonames-sample", "om"]}
+{"kind": "region", "qid": "Q1471266", "queries": ["Al Jawf Region, Saudi Arabia"], "admin_level": 4, "tags": ["geonames-sample", "sa"]}
+{"kind": "region", "qid": "Q1831695", "queries": ["Krāslava Municipality, Latvia"], "admin_level": 4, "tags": ["geonames-sample", "lv"]}
+{"kind": "region", "qid": "Q2499228", "queries": ["Nacional, Dominican Republic"], "admin_level": 4, "tags": ["geonames-sample", "do"]}
+{"kind": "region", "qid": "Q107356467", "queries": ["Balearic Islands, Spain"], "admin_level": 4, "tags": ["geonames-sample", "es"]}
+{"kind": "region", "qid": "Q21", "queries": ["England, United Kingdom"], "admin_level": 4, "tags": ["geonames-sample", "gb"]}
+{"kind": "region", "qid": "Q22", "queries": ["Scotland, United Kingdom"], "admin_level": 4, "tags": ["geonames-sample", "gb"]}
+{"kind": "region", "qid": "Q26", "queries": ["Northern Ireland, United Kingdom"], "admin_level": 4, "tags": ["geonames-sample", "gb"]}
+{"kind": "region", "qid": "Q64", "queries": ["State of Berlin, Germany"], "admin_level": 4, "tags": ["geonames-sample", "de"]}
+{"kind": "region", "qid": "Q231", "queries": ["Wallonia, Belgium"], "admin_level": 4, "tags": ["geonames-sample", "be"]}
+{"kind": "region", "qid": "Q240", "queries": ["Brussels Capital, Belgium"], "admin_level": 4, "tags": ["geonames-sample", "be"]}
+{"kind": "region", "qid": "Q694", "queries": ["South Holland, The Netherlands"], "admin_level": 4, "tags": ["geonames-sample", "nl"]}
+{"kind": "region", "qid": "Q773", "queries": ["Overijssel, The Netherlands"], "admin_level": 4, "tags": ["geonames-sample", "nl"]}
+{"kind": "region", "qid": "Q1212", "queries": ["Montana, United States"], "admin_level": 4, "tags": ["geonames-sample", "us"]}
+{"kind": "region", "qid": "Q1250", "queries": ["Friuli Venezia Giulia, Italy"], "admin_level": 4, "tags": ["geonames-sample", "it"]}
+{"kind": "region", "qid": "Q1522", "queries": ["New Mexico, United States"], "admin_level": 4, "tags": ["geonames-sample", "us"]}
+{"kind": "region", "qid": "Q1527", "queries": ["Minnesota, United States"], "admin_level": 4, "tags": ["geonames-sample", "us"]}
+{"kind": "region", "qid": "Q1989", "queries": ["Saskatchewan, Canada"], "admin_level": 4, "tags": ["geonames-sample", "ca"]}
+{"kind": "region", "qid": "Q2170", "queries": ["Biobio, Chile"], "admin_level": 4, "tags": ["geonames-sample", "cl"]}
+{"kind": "region", "qid": "Q3903", "queries": ["North Kalimantan, Indonesia"], "admin_level": 4, "tags": ["geonames-sample", "id"]}
+{"kind": "region", "qid": "Q12592", "queries": ["Nidwalden, Switzerland"], "admin_level": 4, "tags": ["geonames-sample", "ch"]}
+{"kind": "region", "qid": "Q13606", "queries": ["Cordillera, Philippines"], "admin_level": 4, "tags": ["geonames-sample", "ph"]}
+{"kind": "region", "qid": "Q13694", "queries": ["Davao Region, Philippines"], "admin_level": 4, "tags": ["geonames-sample", "ph"]}
+{"kind": "region", "qid": "Q26067", "queries": ["North Denmark, Denmark"], "admin_level": 4, "tags": ["geonames-sample", "dk"]}
+{"kind": "region", "qid": "Q26073", "queries": ["Capital Region, Denmark"], "admin_level": 4, "tags": ["geonames-sample", "dk"]}
+{"kind": "region", "qid": "Q26586", "queries": ["Central Jutland, Denmark"], "admin_level": 4, "tags": ["geonames-sample", "dk"], "known_failure": "wrong_country: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "region", "qid": "Q27038", "queries": ["Zagreb County, Croatia"], "admin_level": 4, "tags": ["geonames-sample", "hr"]}
+{"kind": "region", "qid": "Q29173", "queries": ["Kouffo, Benin"], "admin_level": 4, "tags": ["geonames-sample", "bj"]}
+{"kind": "region", "qid": "Q38088", "queries": ["Paraíba, Brazil"], "admin_level": 4, "tags": ["geonames-sample", "br"]}
+{"kind": "region", "qid": "Q41066", "queries": ["North Chungcheong, South Korea"], "admin_level": 4, "tags": ["geonames-sample", "kr"]}
+{"kind": "region", "qid": "Q43194", "queries": ["Yunnan, China"], "admin_level": 4, "tags": ["geonames-sample", "cn"]}
+{"kind": "region", "qid": "Q43235", "queries": ["Rondônia, Brazil"], "admin_level": 4, "tags": ["geonames-sample", "br"]}
+{"kind": "region", "qid": "Q43934", "queries": ["Liaoning, China"], "admin_level": 4, "tags": ["geonames-sample", "cn"]}
+{"kind": "region", "qid": "Q44762", "queries": ["Entre Rios, Argentina"], "admin_level": 4, "tags": ["geonames-sample", "ar"]}
+{"kind": "region", "qid": "Q50631", "queries": ["Troms, Norway"], "admin_level": 4, "tags": ["geonames-sample", "no"]}
+{"kind": "region", "qid": "Q54158", "queries": ["Łódź Voivodeship, Poland"], "admin_level": 4, "tags": ["geonames-sample", "pl"]}
+{"kind": "region", "qid": "Q93195", "queries": ["Ulster, Ireland"], "admin_level": 4, "tags": ["geonames-sample", "ie"], "known_failure": "wrong_country: Irish provinces are not places in the index; the service finds Ulster County, New York (2026-10-13)"}
+{"kind": "region", "qid": "Q131438", "queries": ["Munster, Ireland"], "admin_level": 4, "tags": ["geonames-sample", "ie"], "known_failure": "wrong_country: Irish provinces are not places in the index; the service finds Münster, Germany (2026-10-13)"}
+{"kind": "region", "qid": "Q159736", "queries": ["Leinster, Ireland"], "admin_level": 4, "tags": ["geonames-sample", "ie"]}
+{"kind": "region", "qid": "Q187677", "queries": ["Vas County, Hungary"], "admin_level": 4, "tags": ["geonames-sample", "hu"]}
+{"kind": "region", "qid": "Q193317", "queries": ["Pardubice Region, Czechia"], "admin_level": 4, "tags": ["geonames-sample", "cz"]}
+{"kind": "region", "qid": "Q211793", "queries": ["San Martín Department, Peru"], "admin_level": 4, "tags": ["geonames-sample", "pe"]}
+{"kind": "region", "qid": "Q214814", "queries": ["Pastaza Province, Ecuador"], "admin_level": 4, "tags": ["geonames-sample", "ec"]}
+{"kind": "region", "qid": "Q233933", "queries": ["Tarija Department, Bolivia"], "admin_level": 4, "tags": ["geonames-sample", "bo"]}
+{"kind": "region", "qid": "Q241129", "queries": ["Bizerte Governorate, Tunisia"], "admin_level": 4, "tags": ["geonames-sample", "tn"]}
+{"kind": "region", "qid": "Q559537", "queries": ["Kwilu, Democratic Republic of the Congo"], "admin_level": 4, "tags": ["geonames-sample", "cd"]}
+{"kind": "region", "qid": "Q591139", "queries": ["Santa Bárbara Department, Honduras"], "admin_level": 4, "tags": ["geonames-sample", "hn"]}
+{"kind": "region", "qid": "Q598745", "queries": ["Northern Province, Sri Lanka"], "admin_level": 4, "tags": ["geonames-sample", "lk"]}
+{"kind": "region", "qid": "Q607499", "queries": ["South-West, Cameroon"], "admin_level": 4, "tags": ["geonames-sample", "cm"]}
+{"kind": "region", "qid": "Q823774", "queries": ["Ngouni, Gabon"], "admin_level": 4, "tags": ["geonames-sample", "ga"]}
+{"kind": "region", "qid": "Q824373", "queries": ["Upper River, Gambia"], "admin_level": 4, "tags": ["geonames-sample", "gm"]}
+{"kind": "region", "qid": "Q1476289", "queries": ["Saint John Parish, Grenada"], "admin_level": 4, "tags": ["geonames-sample", "gd"]}
+{"kind": "region", "qid": "Q2192924", "queries": ["Bay of Plenty, New Zealand"], "admin_level": 4, "tags": ["geonames-sample", "nz"]}
+{"kind": "region", "qid": "Q2559188", "queries": ["Western Region, Uganda"], "admin_level": 4, "tags": ["geonames-sample", "ug"]}
+{"kind": "region", "qid": "Q2729021", "queries": ["Agder, Norway"], "admin_level": 4, "tags": ["geonames-sample", "no"]}
+{"kind": "region", "qid": "Q3503153", "queries": ["Municipality of Kamnik, Slovenia"], "admin_level": 4, "tags": ["geonames-sample", "si"]}
+{"kind": "region", "qid": "Q18578267", "queries": ["Bourgogne-Franche-Comté, France"], "admin_level": 4, "tags": ["geonames-sample", "fr"]}
+{"kind": "region", "qid": "Q18677875", "queries": ["Normandy, France"], "admin_level": 4, "tags": ["geonames-sample", "fr"]}
+{"kind": "region", "qid": "Q18678265", "queries": ["Occitanie, France"], "admin_level": 4, "tags": ["geonames-sample", "fr"]}
+{"kind": "landmark", "cohort": "address", "qid": "Q18660952", "queries": ["Haartmaninkatu 2, 00290 Helsinki, Finland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fi"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q17515968", "queries": ["Pikkukankaantie 3, 90130 Oulu, Finland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fi"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q581487", "queries": ["Largo Tomba di Rotari 99, 71037 Monte Sant'angelo, Italy"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "it"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q869130", "queries": ["Piazza Duomo 8, 53100 Siena, Italy"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "it"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q632638", "queries": ["Madonna, 163 - 39020 Senales (BZ), Schnals, Italy"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "it"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q150066", "queries": ["Via Brera 28, 20121 Milano, Italy"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "it"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q247451", "queries": ["Via Bernardo Clesio, 5, 38122 Trento, Italy"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "it"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q902532", "queries": ["Piazza Giacomo Matteotti 11, 36100 Vicenza, Italy"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "it"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q609293", "queries": ["Piazza Bocca della Verità 18, 00186 Roma, Roma Capitale, Italy"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "it"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q963954", "queries": ["Piazza Eremitani 8, 35121 Padova, 35126 Padua, Italy"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "it"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q894646", "queries": ["Corso Montecarlo 43, 18039 Ventimiglia, Italy"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "it"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q51252", "queries": ["Piazzale degli Uffizi 6, I-50122 Firenze, Florence, Italy"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "it"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q11786922", "queries": ["ul. M. Kopernika 11, 40-064 Katowice, Poland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "pl"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q11699306", "queries": ["pl. Teatralny 12, 45-056 Opole, Poland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "pl"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q666572", "queries": ["Ruchfeldstrasse 19, 4142 Münchenstein, Switzerland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ch"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q537748", "queries": ["Angenstein 1, 4202 Duggingen, Switzerland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ch"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q252513", "queries": ["Limmatstrasse 268, 8005 Zürich, Zurich, Switzerland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ch"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1953492", "queries": ["Seestrasse 201–203, 8002 Zürich, Zurich, Switzerland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ch"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1540777", "queries": ["Grabenöliweg 1, 4584 Lüterswil, Buchegg, Switzerland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ch"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1487433", "queries": ["Kirchplatz, 5000 Aarau, Switzerland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ch"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q3552574", "queries": ["1345, Avenue Lalonde, Montréal (Québec) H2L 5A9, Montreal, Canada"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ca"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q670250", "queries": ["317 Dundas Street West, Toronto M5T 1G4, Canada"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ca"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q4984293", "queries": ["12 Alexander Street, Toronto, Ontario, Canada"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ca"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q3333891", "queries": ["59, rue Sainte-Catherine Est, Montréal (Québec) H2X 1K5, Ville-Marie, Canada"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ca"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q276785", "queries": ["450, rue de la Gare-du-Palais, Québec (Québec) G1K 3X2, La Cité-Limoilou, Canada"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ca"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q164540", "queries": ["639, rue de Bretagne, Baie-Comeau (Québec), Côte-Nord G5C 1X2, Canada"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ca"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1054135", "queries": ["70 Michel-Hemon Avenue, Baie-Comeau G4Z 2A5, Canada"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ca"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q3813458", "queries": ["2795 Ness Avenue, Manitoba R3J 3S4, Canada"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ca"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1132683", "queries": ["Edenbridge TN8 7NG, Hever, United Kingdom"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "gb"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1015079", "queries": ["Burghley House, Stamford PE9 3JY, Barnack, United Kingdom"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "gb"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q824346", "queries": ["1 St James Street, Monmouth, NP25 3DL, United Kingdom"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "gb"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1421440", "queries": ["Trumpington Street, Cambridge CB2 1RB, United Kingdom"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "gb"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q441079", "queries": ["Althorp, Northamptonshire NN7 4HQ, United Kingdom"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "gb"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q928272", "queries": ["21250 Stevens Creek Blvd., Cupertino, CA, 95014, United States"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "us"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q24309", "queries": ["9081 N Santa Monica Blvd, West Hollywood, CA 90069, USA, United States"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "us"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q517545", "queries": ["1500 South Capitol St SE, Washington, DC 20003-1507, Washington, D.C., United States"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "us"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1796553", "queries": ["48380 US Hwy 52N, Misenheimer, NC, 28109, North Carolina, United States"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "us"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q500154", "queries": ["2801 S University Ave, Little Rock, AR, 72204, United States"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "us"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q616591", "queries": ["70 N Professor St, Oberlin 44074, United States"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "us"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q49087", "queries": ["1000 17th Ave North, Nashville, TN, 37208-4501, United States"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "us"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q895457", "queries": ["220 McFall Ctr, Bowling Green, OH, 43403, United States"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "us"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q586735", "queries": ["800 Chestnut St, San Francisco, CA, 94133-2299, United States"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "us"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q106638250", "queries": ["Köpmangatan 26, 895 30 Anundsjö, Sweden"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "se"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q30281098", "queries": ["Fjällvägen 9, 45153 Uddevalla, Sweden"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "se"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q3282616", "queries": ["Van Ertbornstraat 6, 2018 Antwerp, Belgium"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "be"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q2353919", "queries": ["Evence Coppéelaan 87, 3600 Genk, Belgium"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "be"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q220003", "queries": ["Koningin Astridplein 26, 2018 Antwerp, Belgium"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "be"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q905848", "queries": ["Burg 12, 8000 Bruges, Belgium"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "be"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q13427644", "queries": ["Tichelrei 1, 9000 Ghent, Belgium"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "be"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q16136319", "queries": ["M5PJ+PJ, Nelluvai Pattambi Rd, Nelluwaya, Kerala 680584, India"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "in"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q5208445", "queries": ["250, Budhwar Peth, Pune, Maharashtra 411002, India"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "in"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q111602905", "queries": ["Plot No 1 RY, 15 Railway Quarter, 75530 Karachi, Pakistan"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "pk"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q96005947", "queries": ["Magallanes 1064, 11200 Montevideo, Uruguay"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "uy"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q115754284", "queries": ["117 Addison Rd, Marrickville, New South Wales 2204, Uruguay"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "uy"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q131496799", "queries": ["Al Mustaqbal Street, Floor 18, Dubai 507251, United Arab Emirates"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ae"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q141256102", "queries": ["Møllevannsveien 55, 4616 Kristiansand, Norway"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "no"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q108615738", "queries": ["Eikenga 4, 0579 Oslo, Grünerløkka, Norway"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "no"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q115943223", "queries": ["Konnerudgata 9, 3045, Drammen, Norway"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "no"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q113885684", "queries": ["Hotvetveien 41, 3018 Drammen, Norway"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "no"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q17779447", "queries": ["Guldlisten 35, 3048 Drammen, Norway"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "no"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q116259687", "queries": ["Gamle Kirkeplass 5, 3019 Drammen, Norway"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "no"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q64654610", "queries": ["19 Beach Street, Port Chalmers, Dunedin City 9023, New Zealand"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "nz"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q222625", "queries": ["63 Boulcott Street, Wellington Central, Wellington 6011, Wellington City, New Zealand"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "nz"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q61758511", "queries": ["1 Bridge St, Mataura 9712, Gore, New Zealand"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "nz"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q74264156", "queries": ["4 Jeffreys Road, Fendalton, Christchurch 8053, Christchurch City 8052, New Zealand"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "nz"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q85890242", "queries": ["18 Canterbury Street, Lyttelton, Christchurch City 8082, New Zealand"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "nz"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q30872376", "queries": ["Zámecké náměstí 71, 41501 Teplice, Czechia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cz"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q457671", "queries": ["Platz der Menschenrechte 3, 30159 Hannover, Mitte, Germany"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "de"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q266759", "queries": ["Max-Planck-Straße 1, 81675 Munich, Germany"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "de"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q46033", "queries": ["Hugo-Eckener-Ring, 60549 Frankfurt am Main, Rüsselsheim am Main, Germany"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "de"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q7033", "queries": ["Markt 1, 99734 Nordhausen, Germany"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "de"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q681355", "queries": ["Tschaikowskistraße 1, 13156 Berlin, Pankow, Germany"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "de"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q636931", "queries": ["Holzhauser Weg 5, 86456 Gablingen, Germany"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "de"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q264691", "queries": ["Tierparkstraße 30, 81543 Untergiesing-Harlaching, Germany"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "de"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q462239", "queries": ["August-Böckstiegel-Straße 2, 01326 Dresden, Saxony, Germany"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "de"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q700562", "queries": ["Festung Königstein 1, 01824 Königstein, Germany"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "de"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q821828", "queries": ["Berliner Straße 38, 39288 Burg, Germany"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "de"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q614612", "queries": ["гр. Генерал Тошево, ул. \"Васил Априлов\" № 5, 9500 Dobrich, Bulgaria"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "bg"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q748965", "queries": ["Варна, бул.\"8-ми Приморски полк\" № 43, 9000–9030 Varna, Bulgaria"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "bg"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q12496645", "queries": ["Jl. Gn. Sahari No.1, Ancol, Kec. Pademangan, Kota Jkt Utara, Indonesia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "id"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q6670215", "queries": ["17 Bar Hofmann, 6811925 Tel Aviv, Israel"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "il"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q100375948", "queries": ["רח' מח\"ל 59, ת\"א, 67291 Tel Aviv, Israel"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "il"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q136206063", "queries": ["28 Tottenham Ave, Johannesburg 2196, South Africa"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "za"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q22927242", "queries": ["44 Ryneveld Street, Stellenbosch, South Africa"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "za"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q25380781", "queries": ["420111, г. Казань, ул. Батурина, 7, Kazan, Russia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ru"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q96625573", "queries": ["394071, Россия, Воронежская область, г. Воронеж, пер. Мурманский, Voronezh, Russia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ru"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q4903473", "queries": ["Pte.Roca 731, Rosario S2000CXO, Argentina"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ar"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1808336", "queries": ["Av. Figueroa Alcorta 3415, Buenos Aires C1425CLA, Argentina"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ar"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q6010631", "queries": ["Avenida Rivadavia 5408, Buenos Aires C1424AMC, Argentina"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ar"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q6033444", "queries": ["Belgrano 750 - Córdoba, provincia de Córdoba (X5000JQP), Argentina"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ar"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q56826536", "queries": ["Estados Unidos 299, Buenos Aires C1064AAR, Argentina"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ar"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q16579119", "queries": ["Av. Ramos Mejía 1398 2 piso - Ciudad Autónoma de Buenos Aires, Argentina"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ar"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q873769", "queries": ["พระบรมมหาราชวัง ถนนหน้าพระลาน แขวงพระบรมมหาราชวัง เขตพระนคร กรุงเทพมหานคร 10200, Phra Borom Maha Ratchawang, Thailand"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "th"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q140455737", "queries": ["96 Võ Nguyên Giáp, Mân Thái, Sơn Trà 50000, Vietnam"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "vn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q139945910", "queries": ["369B Nguyễn Trãi, Phường Cầu Ông Lãnh, TP.HCM, Ho Chi Minh City 700000, Vietnam"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "vn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q662776", "queries": ["1a place de la Gare, 68300 Saint-Louis, France"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q677672", "queries": ["Place de la Gare, 69220 Lozanne, France"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q675938", "queries": ["Place de la Marne, 88800 Vittel, France"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q935193", "queries": ["rue Eugène-Gibault 41130 Gièvres, France"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q2970179", "queries": ["7 place du Château, 63500 Parentignat, France"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q2974801", "queries": ["RN3 Bourg Murat 97418 Plaine des Cafres, Le Tampon, France"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1021409", "queries": ["20 rue de la Poste, 85610 La Bernardière, Vendée, France"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q127037", "queries": ["CHEF LIEU 74110 Morzine, Haute-Savoie, France"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q3003136", "queries": ["1 route forestière, 97427 L'Étang-Salé, France"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q2283118", "queries": ["1 place Salvador Dalí, 66000 Perpignan, France"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "fr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q38097125", "queries": ["California 2100, Col. Obregon Norte, Sonora 85010, Mexico"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "mx"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q111000517", "queries": ["Av. Benito Juárez 312, Centro, 20800, Calvillo, Mexico"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "mx"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q6033593", "queries": ["Av. Observatorio 94, esq. Periférico, Tacubaya, 11870, Miguel Hidalgo, Mexico"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "mx"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q38094016", "queries": ["Paseo del Tecnológico 751. Colonia Ampliación La Rosita, Torreón 27250, Mexico"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "mx"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q7232155", "queries": ["Avenida Paulista, nº 1824 - Torre Sul - Bela Vista, São Paulo 01310-936, Brazil"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "br"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q10298383", "queries": ["Avenida da Amizade, 2400 - Jd Bela Vista - Sumaré SP, Brazil"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "br"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q4262088", "queries": ["Rua Álvares Penteado, 49 - São Paulo, SP - 03906-060, Central Zone of São Paulo, Brazil"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "br"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q9630383", "queries": ["Praça Dr. Deocleciano Teixeira, 52. Centro, Caetité - BA. 46400-000, Brazil"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "br"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q10300368", "queries": ["Avenida Independência, 230 - Independência, Porto Alegre - RS, 90035-070, Brazil"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "br"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q135703346", "queries": ["Jinene El Kantaoui, Hammam Sousse B.P. 243, Tunisia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "tn"], "good_match": null, "known_failure": "far_miss: neither place is found under these names; only the country answers (2026-10-13)"}
+{"kind": "landmark", "cohort": "address", "qid": "Q141279939", "queries": ["تهران، جاده قدیم قم، روبهروی پالایشگاه نفت خیرآباد، جعفرآباد، گلستان ۱, 1815114653 Tehran, Iran"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ir"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q139823971", "queries": ["Boerhaavelaan 43, 2035 RB Haarlem, The Netherlands"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "nl"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q64549096", "queries": ["Május 1. út 56., 3700 Kazincbarcika, Hungary"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "hu"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q106237631", "queries": ["Arany János u. 69, 7720 Zengővárkony, Hungary"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "hu"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q108336576", "queries": ["Harmonijas iela 1, LV-3101 Tukums, Latvia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "lv"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q2034327", "queries": ["Pilsoņu iela 13, Rīga, LV-1002, Riga, Latvia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "lv"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q7071717", "queries": ["Richmond St N, Dublin 1, Ireland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ie"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q15925128", "queries": ["Geležinkelio g. 16, LT-02100 Vilnius, Lithuania"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "lt"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q12670742", "queries": ["Laisvės g. 28, Raguva, LT–38155 Panevėžio r., Lithuania"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "lt"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q55440529", "queries": ["597 Brunswick Street, Victoria 3068, Australia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "au"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q48767830", "queries": ["464 Oxley Road, Queensland 4075, Australia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "au"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q21930951", "queries": ["160 Willan Dr, Cartwright NSW 2168, New South Wales, Australia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "au"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q21928761", "queries": ["2A Guernsey St, Busby NSW 2168, New South Wales, Australia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "au"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q56747921", "queries": ["153-161 Princes Way Drouin VIC 3818, Victoria, Australia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "au"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q23814149", "queries": ["75-81 Chelmsford Drive, Metford, NSW, 2323, New South Wales, Australia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "au"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q21932770", "queries": ["1-51 Macquarie St North, Liverpool 2170, New South Wales, Australia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "au"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q21925697", "queries": ["19 Blackwood Ave, Casula NSW 2170, New South Wales, Australia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "au"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q55716113", "queries": ["山西省太原市唐槐产业园区汾东大街7号, Taiyuan 030032, China"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q7488446", "queries": ["上海市虹口区中山北一路295号, Hongkou 200083, China"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1604022", "queries": ["北京市海淀区新街口外大街19号, Beijing 100875, China"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q7038668", "queries": ["宁波市江北区风华路201号, Ningbo 315211, China"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q10440298", "queries": ["学院路18号, Beijing 100083, China"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q30946111", "queries": ["北京市房山区长于大街11号, Beijing 102488, China"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q66619321", "queries": ["浙江省海宁市学林街60至62号, Haining 314400, China"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q109347922", "queries": ["湖北省荆门市泉口路12号, Jingmen 448000, China"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q107464910", "queries": ["Citic Square 2501-2505, 25th floor, 1168 Nanjing Xi Lu, 200041 SHANGHAI, China"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q17405608", "queries": ["Ed. Telecabina, 3r pis, AD100 Canillo, Andorra"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ad"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q117599199", "queries": ["Av. el Través, 43,Edifici del Bombers, 2a planta, AD400 La Massana, Andorra"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ad"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q7851303", "queries": ["9, Rue Henri Tudor, 6582 Rosport-Mompach, Luxembourg"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "lu"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q950735", "queries": ["În Piața Unirii; carou cadastral 15 - 16; CB, municipiul București, 030119 Bucharest, Romania"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ro"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q179283", "queries": ["Calea Victoriei 12Sector 3, București, 030026 Bucharest, Romania"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ro"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1203932", "queries": ["Calle Monasterio de Guadalupe 7, 28049 Madrid, Spain"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "es"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q3390725", "queries": ["Paseo Marítimo, 10, 39700 Castro Urdiales, Spain"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "es"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q5727797", "queries": ["Avda. de los Labradores, 28, 28760 Tres Cantos, Spain"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "es"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q2980092", "queries": ["Avenida Zarandoa, 21, 48015 Deusto, Spain"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "es"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q800612", "queries": ["Av. Fernando el Católico, 2, 22880 Canfranc-Estación, Spain"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "es"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q2992368", "queries": ["Alkolea, 7, 20012 San Sebastián, Spain"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "es"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q5405681", "queries": ["Calle Santa María La Rica, 3, 28801 Alcalá de Henares, Spain"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "es"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q130724878", "queries": ["Hobyar, Hoca Kasım Köprüsü Sk. No:5, 34112 Istanbul, Turkey"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "tr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q131526499", "queries": ["Bayır Sokak No. 1 Feriköy 34377 Şişli İstanbul, Turkey"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "tr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q21524121", "queries": ["Kalyoncu Kulluğu Cd. No. 176, Çukur, 34435 Beyoğlu İstanbul, Turkey"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "tr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q6903317", "queries": ["Sanatoryum Yolu Sokak No 5, Nizam, 34970 Adalar İstanbul, Istanbul, Turkey"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "tr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q20476828", "queries": ["Ebuziya Caddesi 30, Zeytinlik 34140 Bakırköy Istanbul, Turkey"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "tr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q135261435", "queries": ["Anfión Muñoz 875, 1720170 La Serena, Chile"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cl"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q86834210", "queries": ["Antonino Toro 995, 1240000 Antofagasta, Chile"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cl"], "good_match": null, "known_failure": "far_miss: the index returns the house first, but the service takes the postcode, whose GeoNames centroid is 120 km off (2026-10-13)"}
+{"kind": "landmark", "cohort": "address", "qid": "Q139831854", "queries": ["Trubarjeva 31A, 1000 Ljubljana, Slovenia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "si"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q130358568", "queries": ["Slovenska cesta 50 - 1000 Ljubljana, Slovenia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "si"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q140453098", "queries": ["Avenida Angamos Este 649, Surquillo, Lima, Peru"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "pe"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q87917879", "queries": ["Av. Brasil cuadra 26, Jesús María, 15072 Lima, Peru"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "pe"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1338856", "queries": ["7-1, Nagatachō 1-chōme, Chiyoda-ku, Tokyo 100-0014, Japan"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "jp"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q73107", "queries": ["静岡県藤枝市城南2-4-6, Fujieda 426-0021, Japan"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "jp"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q624623", "queries": ["경기도 고양시 덕양구 서오릉로 334-32, Goyang 10548, South Korea"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "kr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q106297455", "queries": ["광주광역시 남구 대남대로 413, Gwangju 61610, South Korea"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "kr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q12874634", "queries": ["Κρατίνου 9 και Αθηνάς, 105 52 Athens, Greece"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "gr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q128232117", "queries": ["Jalan Kota, 34009 Taiping, Perak, Malaysia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "my"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q128236771", "queries": ["Peti Surat 548, 91008 Tawau, Sabah, Malaysia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "my"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q4204300", "queries": ["Astana, Petra Jaya 93500 Kuching, Sarawak., Malaysia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "my"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q28923977", "queries": ["Eisvogelgasse 2a, 1060 Vienna, Austria"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "at"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q30268470", "queries": ["Bäckerstraße 13, 1010 Wien, Vienna, Austria"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "at"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q130722977", "queries": ["Al Dalaa Northern 1244, Sharma 49643, Saudi Arabia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "sa"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q115794856", "queries": ["2653 Northern Ring Rd, Al Muruj, Riyadh 12283, Saudi Arabia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "sa"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q61931385", "queries": ["Calle La Reforma 166, San Salvador, El Salvador"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "sv"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q25382608", "queries": ["Նալբանդյան փողոց 104, Երևան, 0001 Yerevan, Armenia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "am"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q16398523", "queries": ["Հայաստան, 0009, Երևան, Իսահակյան փողոց, 38 շենք, Yerevan, Armenia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "am"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q130619752", "queries": ["Tengiz Chantladze Street 28, Orkhevi, Samgori District, Tbilisi, Georgia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ge"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q138548770", "queries": ["Carrera 3 # 28-59, Montería 230002, Colombia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "co"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q138548669", "queries": ["Calle 50 #50-21, Medellín 050012, Colombia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "co"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q5019807", "queries": ["KR 2-14 W, Santiago de Cali, Colombia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "co"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q17623505", "queries": ["AV Belalcazar 5 A 55, Cali 760045648, Colombia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "co"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q20017473", "queries": ["CL 10-12 50, Cali 760044148, Colombia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "co"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q4201602", "queries": ["ул. Энтузиастов, 14, 69017 Zaporizhzhia, Ukraine"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ua"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q20081474", "queries": ["вулиця Карбишева, 1, Луцьк, Волинська область, 43000, Lutsk, Ukraine"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ua"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q5927711", "queries": ["Calle Calzada, No. 654 entre A y B, 10400 Vedado, Cuba"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cu"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q135183332", "queries": ["58 Paterno St., Diocese of Balanga 2100, Philippines"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ph"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q106981525", "queries": ["J. Buizon Street cor. Año 1733 Street, Brgy. Poblacion, Baliwag 3006, Philippines"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ph"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q138610946", "queries": ["Poblacion District 9, San Diego, Burauen Sports Complex, Burauen, Leyte, Philippines"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ph"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q140386210", "queries": ["LOT 01 T6-01, La Ville Verte Mohammed VI, 43150 Ben Guerir, Morocco"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ma"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q21029695", "queries": ["ر 7731، طريق الجديدة 8 كلم، حي الليمون ، الدار البيضاء، المغرب, 20000 Casablanca, Morocco"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ma"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q52242934", "queries": ["4 Rua da Imprensa à Estrela, Portugal"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "pt"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q21006731", "queries": ["Calle 5, Avenida Central, Plaza de la Cultura, 10104 San José, Costa Rica"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q139807703", "queries": ["8th and Fort Streets, 4001 Matabeleland, Zimbabwe"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "zw"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q115969529", "queries": ["23 Diplomatic St, 122104 Doha, Qatar"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "qa"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q111855904", "queries": ["2780 Wadi Msheireb St, 80978 Doha, Qatar"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "qa"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q16335742", "queries": ["VG68+79 Yaoundé Cameroun, Cameroon"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cm"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q111904449", "queries": ["3844+7JH, Ave d'Eala, Mbandaka, Congo - Kinshasa, Democratic Republic of the Congo"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "cd"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q87603947", "queries": ["Avenida Occidente, Caracas 1011, Venezuela"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ve"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1397958", "queries": ["Glođina br. 6, Čurčića brijeg, 71000 Sarajevo, Stari Grad, Bosnia and Herzegovina"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ba"], "good_match": null, "known_failure": "far_miss: Stari Grad resolves to the one in Cazin, not Sarajevo's (2026-10-13)"}
+{"kind": "landmark", "cohort": "address", "qid": "Q63633740", "queries": ["Splitska 2, 71000 Sarajevo, Sarajevo Canton, Bosnia and Herzegovina"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ba"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q60642328", "queries": ["Ulica Kneza Branimira 29, 10000 Zagreb, Croatia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "hr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q2352506", "queries": ["Kaptol 9, 10001 Zagreb, Croatia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "hr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q51876", "queries": ["শাহবাগ, ঢাকা-১০০০, 1000 Shahbag, Bangladesh"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "bd"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q1698949", "queries": ["Jaani 5, 51007 Tartu City, Estonia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ee"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q937320", "queries": ["Toom-Kooli 6, 10130 Tallinn, Estonia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ee"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q130288492", "queries": ["Castille Place, CMR01 Valletta, Malta"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "mt"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q135465000", "queries": ["04 CHEMINS, BEJAIA 06000, Béjaïa, Algeria"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "dz"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q112703736", "queries": ["50, Route de Aliliguia, Boumerdès, 35000, Algeria"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "dz"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q137776624", "queries": ["P.O.BOX 2126 Paje, 73111 Zanzibar Islands, Tanzania"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "tz"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q135526771", "queries": ["PH72+8JR, Carretera Arena Gorda Bavaro, Higuey, Punta Cana, Dominican Republic"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "do"], "good_match": null, "known_failure": "far_miss: plus codes are not read, and Punta Cana resolves to a same-named village inland (2026-10-13)"}
+{"kind": "landmark", "cohort": "address", "qid": "Q106750974", "queries": ["Rruga Dedë Gjon Luli 56, 4001 Shkodër, Albania"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "al"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q130633953", "queries": ["7 Elia Abu Madi, 11194 Amman, Jordan"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "jo"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q134551308", "queries": ["Avenue Blaise DIAGNE X RUE 25 MEDINA, B.P : 7559 Dakar, Senegal"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "sn"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q120845137", "queries": ["Bairiya, Khairahani 13, Chitwan, 44203 Khairhani, Nepal"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "np"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q140088079", "queries": ["Old Baneshwor, Kathmandu 44600, Nepal"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "np"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q152299", "queries": ["Leopoldstraat 6 1000 Brussel, 2514 JA The Hague, Suriname"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "sr"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q12774288", "queries": ["Štefánikova 2, 010 01 Žilina, Slovakia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "sk"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q141119121", "queries": ["Hodžova 6844, 911 01 Trenčín, Slovakia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "sk"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q140248125", "queries": ["улица Махтумкули 120, 100047 Tashkent, Uzbekistan"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "uz"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q4146885", "queries": ["16, Amir Temur Avenue, 100060 Tashkent, Uzbekistan"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "uz"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q16976056", "queries": ["68 Mederov St., 720005 Bishkek, Kyrgyzstan"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "kg"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q73879785", "queries": ["26th St, 66th St, Chanayethazan, 05021 Mandalay, Myanmar"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "mm"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q117750310", "queries": ["Uche Anozia Cl, 103242, Isalu, Ajara badagry, Lagos, Nigeria"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ng"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q12236150", "queries": ["11 شارع السرايا  المنيل  القاهرة, 11251 Rhoda Island, Egypt"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "eg"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q107563394", "queries": ["1 شارع الجبلاية – دار الأوبرا المصرية، الجزيرة، القاهرة, 11567 Cairo Governorate, Egypt"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "eg"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q20568245", "queries": ["Apostol Guslarot, 1000 Skopje, North Macedonia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "mk"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q324471", "queries": ["11 март бр. 3, 1000 Skopje, North Macedonia"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "mk"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q117037776", "queries": ["Av. 12 de abril, 010203 Cuenca, Ecuador"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ec"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q131459487", "queries": ["Road 4625, 346 Manama, Bahrain"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "bh"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q139848888", "queries": ["Ayni Street 48, 734024 Dushanbe, Tajikistan"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "tj"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q140685060", "queries": ["Hafnarstræti 80-82, 600 Akureyrarbær, Iceland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "is"], "good_match": null}
+{"kind": "landmark", "cohort": "address", "qid": "Q56598554", "queries": ["Smiðjustígur 4, 101 Reykjavík, Iceland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "is"], "good_match": null}
+{"kind": "address", "source": "census", "ref": "417 FOXTAIL LILY Drive, Holly Springs, NC 27540", "queries": ["417 FOXTAIL LILY Drive, Holly Springs, NC 27540"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "312 Lowell Street, Lexington, MA 02420", "queries": ["312 Lowell Street, Lexington, MA 02420"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "318 Virginia Ave, Mccomb, MS 39648", "queries": ["318 Virginia Ave, Mccomb, MS 39648"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "1750 North Newport Avenue, Long Beach, CA 90804", "queries": ["1750 North Newport Avenue, Long Beach, CA 90804"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "504 Trailwood Dr, Clinton, MS 39056", "queries": ["504 Trailwood Dr, Clinton, MS 39056"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "pdok", "ref": "Zagrebstraat 225 3541EL Utrecht", "queries": ["Zagrebstraat 225, 3541 EL Utrecht, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "census", "ref": "9303 Baring Cross Street, Los Angeles, CA 90044", "queries": ["9303 Baring Cross Street, Los Angeles, CA 90044"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "pdok", "ref": "Lange Akker 55 4847KL Teteringen", "queries": ["Lange Akker 55, 4847 KL Teteringen, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "census", "ref": "6210 Faris Way, Louisville, KY 40272", "queries": ["6210 Faris Way, Louisville, KY 40272"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "2347 Wynterbrook Dr, Highlands Ranch, CO 80126", "queries": ["2347 Wynterbrook Dr, Highlands Ranch, CO 80126"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "440 Meadow Rose Court, Delano, MN 55328", "queries": ["440 Meadow Rose Court, Delano, MN 55328"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "515 Oak Tree Boulevard Northwest, Christiansburg Town, VA 24073", "queries": ["515 Oak Tree Boulevard Northwest, Christiansburg Town, VA 24073"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "ban", "ref": "67a Rue des Jacinthes 57155 Marly", "queries": ["67a Rue des Jacinthes, 57155 Marly, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "census", "ref": "161 JACK HARRIS Lane, TX 75076", "queries": ["161 JACK HARRIS Lane, TX 75076"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "7413 Janes Ranch Road, TX 78744", "queries": ["7413 Janes Ranch Road, TX 78744"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "11626 OLD STATESVILLE Road, Huntersville, NC 28078", "queries": ["11626 OLD STATESVILLE Road, Huntersville, NC 28078"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "3917 LEAF Point, Kingsport, TN 37663", "queries": ["3917 LEAF Point, Kingsport, TN 37663"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "6915 Brandywine Drive, Evans, NY 14047", "queries": ["6915 Brandywine Drive, Evans, NY 14047"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "kartverket", "ref": "Sandvikveien 27A|9300", "queries": ["Sandvikveien 27A, 9300 Finnsnes, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "census", "ref": "601 DODSON Drive, TX 79553", "queries": ["601 DODSON Drive, TX 79553"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "17885 Camino Del Roca, Ramona, CA 92065", "queries": ["17885 Camino Del Roca, Ramona, CA 92065"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "15 Westervelt Place, Essex, Irvington Township, NJ 07111", "queries": ["15 Westervelt Place, Essex, Irvington Township, NJ 07111"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "2716 S Lecanto Hwy, Lecanto, FL 34461", "queries": ["2716 S Lecanto Hwy, Lecanto, FL 34461"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "1516 RUTH Avenue, OH 45207", "queries": ["1516 RUTH Avenue, OH 45207"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "200 Deer Valley Rd, San Rafael, CA 94903", "queries": ["200 Deer Valley Rd, San Rafael, CA 94903"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "1905 Brookdale Drive West, Mobile, AL 36618", "queries": ["1905 Brookdale Drive West, Mobile, AL 36618"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "ban", "ref": "258 Rue du Vieux Château 76160 Saint-Léger-du-Bourg-Denis", "queries": ["258 Rue du Vieux Château, 76160 Saint-Léger-du-Bourg-Denis, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "census", "ref": "701 GREENWOOD Avenue, OH 45229", "queries": ["701 GREENWOOD Avenue, OH 45229"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "1503 NIGHTINGALE Lane, TX 76210", "queries": ["1503 NIGHTINGALE Lane, TX 76210"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "ban", "ref": "121 Rue Paul Cezanne 26500 Bourg-lès-Valence", "queries": ["121 Rue Paul Cezanne, 26500 Bourg-lès-Valence, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "census", "ref": "4802 Lavista Road, FL 32440", "queries": ["4802 Lavista Road, FL 32440"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "54 Curtis Place, Essex, Maplewood Township, NJ 07040", "queries": ["54 Curtis Place, Essex, Maplewood Township, NJ 07040"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "ban", "ref": "23 Lieu Dit Penhouet 56700 Kervignac", "queries": ["23 Lieu Dit Penhouet, 56700 Kervignac, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "census", "ref": "12140 Us Highway 377, TX 76856", "queries": ["12140 Us Highway 377, TX 76856"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "pdok", "ref": "Meengatstraat 50 6971VE Brummen", "queries": ["Meengatstraat 50, 6971 VE Brummen, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Fortweg 39 2131WH Hoofddorp", "queries": ["Fortweg 39, 2131 WH Hoofddorp, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "census", "ref": "530 Ellis Rd S, Jacksonville, FL 32254", "queries": ["530 Ellis Rd S, Jacksonville, FL 32254"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "pdok", "ref": "Slotlaan 240 3701GV Zeist", "queries": ["Slotlaan 240, 3701 GV Zeist, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "census", "ref": "608 HENDERSON Drive, Seneca, SC 29678", "queries": ["608 HENDERSON Drive, Seneca, SC 29678"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "1236 Somerset Avenue, Taunton, MA 02780", "queries": ["1236 Somerset Avenue, Taunton, MA 02780"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "ban", "ref": "3 Rue du Lavoir 71550 Cussy-en-Morvan", "queries": ["3 Rue du Lavoir, 71550 Cussy-en-Morvan, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "census", "ref": "8324 Jordana Lane, AR 72937", "queries": ["8324 Jordana Lane, AR 72937"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "ban", "ref": "20 Rue Alexandre Dumas 78470 Saint-Rémy-lès-Chevreuse", "queries": ["20 Rue Alexandre Dumas, 78470 Saint-Rémy-lès-Chevreuse, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "census", "ref": "15411 Woodcliffe Trail, IN 46845", "queries": ["15411 Woodcliffe Trail, IN 46845"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "185 Clairemont, TX 77351", "queries": ["185 Clairemont, TX 77351"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "1603 West Shady Lane, IN 47201", "queries": ["1603 West Shady Lane, IN 47201"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "ban", "ref": "2 Lotissement Vio de Collanges 43320 Loudes", "queries": ["2 Lotissement Vio de Collanges, 43320 Loudes, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "20 Rue de la Clairière 91000 Évry-Courcouronnes", "queries": ["20 Rue de la Clairière, 91000 Évry-Courcouronnes, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "census", "ref": "5880 W Pine Cir, Crystal River, FL 34429", "queries": ["5880 W Pine Cir, Crystal River, FL 34429"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "3209 Peck St, Muskegon Heights, MI 49444", "queries": ["3209 Peck St, Muskegon Heights, MI 49444"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "2024 Santa Cruz Ave, Menlo Park, CA 94025", "queries": ["2024 Santa Cruz Ave, Menlo Park, CA 94025"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "2242 Olivewood Drive, Thousand Oaks, CA 91362", "queries": ["2242 Olivewood Drive, Thousand Oaks, CA 91362"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "1110 MAIN Street, Huron, OH 44839", "queries": ["1110 MAIN Street, Huron, OH 44839"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "census", "ref": "7590 East Camino del Rio, Tucson, AZ 85715", "queries": ["7590 East Camino del Rio, Tucson, AZ 85715"], "tags": ["registry-sample", "us"]}
+{"kind": "address", "source": "ban", "ref": "35 Rue Emile Gallé 54380 Dieulouard", "queries": ["35 Rue Emile Gallé, 54380 Dieulouard, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "pdok", "ref": "Deken de Wijsstraat 1 5281JW Boxtel", "queries": ["Deken de Wijsstraat 1, 5281 JW Boxtel, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "ban", "ref": "7 Route de Beaumont 36400 Briantes", "queries": ["7 Route de Beaumont, 36400 Briantes, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "7 La Poinconniere 35320 Pancé", "queries": ["7 La Poinconniere, 35320 Pancé, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "18 Rue de la Gare 59570 Bavay", "queries": ["18 Rue de la Gare, 59570 Bavay, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "pdok", "ref": "Tumulusstraat 13 9406KX Assen", "queries": ["Tumulusstraat 13, 9406 KX Assen, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "ban", "ref": "33 Rue du Plessier 02850 Jaulgonne", "queries": ["33 Rue du Plessier, 02850 Jaulgonne, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "12 Rue du Faubourg de Nanteuil 41400 Montrichard Val de Cher", "queries": ["12 Rue du Faubourg de Nanteuil, 41400 Montrichard Val de Cher, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "44 Rue de Monlieux 38390 La Balme-les-Grottes", "queries": ["44 Rue de Monlieux, 38390 La Balme-les-Grottes, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "6 Ferme du Plesnoy 02190 Proviseux-et-Plesnoy", "queries": ["6 Ferme du Plesnoy, 02190 Proviseux-et-Plesnoy, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "17 Rue le Val Fleury 14140 Livarot-Pays-d'Auge", "queries": ["17 Rue le Val Fleury, 14140 Livarot-Pays-d'Auge, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "1 Rue des Epicéas 25560 Bonnevaux", "queries": ["1 Rue des Epicéas, 25560 Bonnevaux, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "8 Rue des Ecoles 89320 Arces-Dilo", "queries": ["8 Rue des Ecoles, 89320 Arces-Dilo, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "kartverket", "ref": "Ørvikveien 257|3788", "queries": ["Ørvikveien 257, 3788 Stabbestad, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "ban", "ref": "83 Rue du Pet-au-diable 77000 Vaux-le-Pénil", "queries": ["83 Rue du Pet-au-diable, 77000 Vaux-le-Pénil, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "3 Impasse de Chantoiseau 63590 Tours-sur-Meymont", "queries": ["3 Impasse de Chantoiseau, 63590 Tours-sur-Meymont, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "624 Avenue Sully 62400 Béthune", "queries": ["624 Avenue Sully, 62400 Béthune, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "19b Route de Dijon 21470 Brazey-en-Plaine", "queries": ["19b Route de Dijon, 21470 Brazey-en-Plaine, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "pdok", "ref": "Hogeweg 88 4328PJ Burgh-Haamstede", "queries": ["Hogeweg 88, 4328 PJ Burgh-Haamstede, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "ban", "ref": "16 Place Marcel Vigne 49000 Angers", "queries": ["16 Place Marcel Vigne, 49000 Angers, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "ban", "ref": "1239 Chemin de l'Ozone 83160 La Valette-du-Var", "queries": ["1239 Chemin de l'Ozone, 83160 La Valette-du-Var, France"], "tags": ["registry-sample", "fr"]}
+{"kind": "address", "source": "pdok", "ref": "Meerring 70 5658LD Eindhoven", "queries": ["Meerring 70, 5658 LD Eindhoven, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "swisstopo", "ref": "Jonental 1 8916 Jonen", "queries": ["Jonental 1, 8916 Jonen, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "Stubbvegen 1|7550", "queries": ["Stubbvegen 1, 7550 Hommelvik, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "swisstopo", "ref": "Via Cantinetta 16 6853 Ligornetto", "queries": ["Via Cantinetta 16, 6853 Ligornetto, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "pdok", "ref": "Middeldijk 20 8094PS Hattemerbroek", "queries": ["Middeldijk 20, 8094 PS Hattemerbroek, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Ponjaardruwe 48 6218SL Maastricht", "queries": ["Ponjaardruwe 48, 6218 SL Maastricht, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Prins Mauritsstraat 22 7141KL Groenlo", "queries": ["Prins Mauritsstraat 22, 7141 KL Groenlo, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Fruinlaan 55 5624DA Eindhoven", "queries": ["Fruinlaan 55, 5624 DA Eindhoven, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Irenestraat 25 5754AJ Deurne", "queries": ["Irenestraat 25, 5754 AJ Deurne, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Nieuwe Bosscheweg 6 5017JM Tilburg", "queries": ["Nieuwe Bosscheweg 6, 5017 JM Tilburg, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Rudolf Dieselstraat 40 7442DR Nijverdal", "queries": ["Rudolf Dieselstraat 40, 7442 DR Nijverdal, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "swisstopo", "ref": "Via alla Chiesa 31 6808 Torricella", "queries": ["Via alla Chiesa 31, 6808 Torricella, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "St Hanshaugen 1|9952", "queries": ["St Hanshaugen 1, 9952 Vardø, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "swisstopo", "ref": "Furrenstrasse 24 3985 Münster VS", "queries": ["Furrenstrasse 24, 3985 Münster VS, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "swisstopo", "ref": "Route de Montheron 53 1053 Cugy VD", "queries": ["Route de Montheron 53, 1053 Cugy VD, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "pdok", "ref": "Goedestraat 51 3572RN Utrecht", "queries": ["Goedestraat 51, 3572 RN Utrecht, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "swisstopo", "ref": "Escherweg 4 8134 Adliswil", "queries": ["Escherweg 4, 8134 Adliswil, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "Fangstvegen 11|2652", "queries": ["Fangstvegen 11, 2652 Svingvoll, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "kartverket", "ref": "Florenveien 72|3265", "queries": ["Florenveien 72, 3265 Larvik, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "pdok", "ref": "Muiderschans 169 3432XG Nieuwegein", "queries": ["Muiderschans 169, 3432 XG Nieuwegein, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Mauritsweg 16 7242AR Lochem", "queries": ["Mauritsweg 16, 7242 AR Lochem, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Spengen 8 3628EX Kockengen", "queries": ["Spengen 8, 3628 EX Kockengen, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Klaverlaar 28 5467JD Veghel", "queries": ["Klaverlaar 28, 5467 JD Veghel, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Elpermeer 91 1025AC Amsterdam", "queries": ["Elpermeer 91, 1025 AC Amsterdam, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Bos en Lommerweg 295 1055DX Amsterdam", "queries": ["Bos en Lommerweg 295, 1055 DX Amsterdam, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Stationsplein 5 9726AE Groningen", "queries": ["Stationsplein 5, 9726 AE Groningen, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "pdok", "ref": "Burgemeester Muijtersstraat 22 6325CB Berg en Terblijt", "queries": ["Burgemeester Muijtersstraat 22, 6325 CB Berg en Terblijt, Netherlands"], "tags": ["registry-sample", "nl"]}
+{"kind": "address", "source": "swisstopo", "ref": "Route de Sion 11 1961 Vernamiège", "queries": ["Route de Sion 11, 1961 Vernamiège, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "swisstopo", "ref": "Auf Pünten 13 8405 Winterthur", "queries": ["Auf Pünten 13, 8405 Winterthur, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "Einerveien 5|3075", "queries": ["Einerveien 5, 3075 Berger, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "swisstopo", "ref": "Bernstrasse 106g 3363 Oberönz", "queries": ["Bernstrasse 106g, 3363 Oberönz, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "Slettebrotan 90|4715", "queries": ["Slettebrotan 90, 4715 Øvrebø, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "swisstopo", "ref": "Kappelerweg 21 5400 Baden", "queries": ["Kappelerweg 21, 5400 Baden, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "Vestre Røinevei 18|3410", "queries": ["Vestre Røinevei 18, 3410 Sylling, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "kartverket", "ref": "Mundheimsvegen 523|5632", "queries": ["Mundheimsvegen 523, 5632 Omastrand, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "kartverket", "ref": "Briskebyveien 84B|0259", "queries": ["Briskebyveien 84B, 0259 Oslo, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "swisstopo", "ref": "Wohlenstrasse 50 3032 Hinterkappelen", "queries": ["Wohlenstrasse 50, 3032 Hinterkappelen, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "swisstopo", "ref": "Route du Pâquier 30a 1663 Pringy", "queries": ["Route du Pâquier 30a, 1663 Pringy, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "Pardisvegen 35|2380", "queries": ["Pardisvegen 35, 2380 Brumunddal, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "swisstopo", "ref": "Au Pâturage 6c 2743 Eschert", "queries": ["Au Pâturage 6c, 2743 Eschert, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "Nedre Ullevål 3A|0850", "queries": ["Nedre Ullevål 3A, 0850 Oslo, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "kartverket", "ref": "Grønnviga 17|4790", "queries": ["Grønnviga 17, 4790 Lillesand, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "swisstopo", "ref": "Hauptstrasse 84 9553 Bettwiesen", "queries": ["Hauptstrasse 84, 9553 Bettwiesen, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "swisstopo", "ref": "Pergolastrasse 27 3184 Wünnewil", "queries": ["Pergolastrasse 27, 3184 Wünnewil, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "swisstopo", "ref": "Horriwilstrasse 5 4566 Oekingen", "queries": ["Horriwilstrasse 5, 4566 Oekingen, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "swisstopo", "ref": "Ambrieschweg 6 7074 Malix", "queries": ["Ambrieschweg 6, 7074 Malix, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "Strandpromenaden 112|1516", "queries": ["Strandpromenaden 112, 1516 Moss, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "kartverket", "ref": "Godøyvegen 280|6055", "queries": ["Godøyvegen 280, 6055 Godøya, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "kartverket", "ref": "Gravarhovdvegen 27|3588", "queries": ["Gravarhovdvegen 27, 3588 Dagali, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "kartverket", "ref": "Martebakken 6|1533", "queries": ["Martebakken 6, 1533 Moss, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "swisstopo", "ref": "Merzenacker 8 3006 Bern", "queries": ["Merzenacker 8, 3006 Bern, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "Åstjernvegen 10|2843", "queries": ["Åstjernvegen 10, 2843 Eina, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "kartverket", "ref": "Gamle Fjellhvilveien 7|3536", "queries": ["Gamle Fjellhvilveien 7, 3536 Noresund, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "swisstopo", "ref": "Steinbruchweg 31 4625 Oberbuchsiten", "queries": ["Steinbruchweg 31, 4625 Oberbuchsiten, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "swisstopo", "ref": "Bodenacker 83 3158 Guggisberg", "queries": ["Bodenacker 83, 3158 Guggisberg, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "swisstopo", "ref": "Via Cran 14 6540 Castaneda", "queries": ["Via Cran 14, 6540 Castaneda, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "swisstopo", "ref": "Längebodeweg 20 3784 Feutersoey", "queries": ["Längebodeweg 20, 3784 Feutersoey, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "swisstopo", "ref": "Goldisberg 26d 3475 Hermiswil", "queries": ["Goldisberg 26d, 3475 Hermiswil, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "Brubakken 8|7608", "queries": ["Brubakken 8, 7608 Levanger, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "swisstopo", "ref": "Zentrum 4a 6356 Rigi Kaltbad", "queries": ["Zentrum 4a, 6356 Rigi Kaltbad, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "kartverket", "ref": "Sjusjøen-Brøttum 1812|2612", "queries": ["Sjusjøen-Brøttum 1812, 2612 Sjusjøen, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "kartverket", "ref": "Tuvvollveien 5B|8613", "queries": ["Tuvvollveien 5B, 8613 Mo I Rana, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "kartverket", "ref": "Skogholtveien 9C|1178", "queries": ["Skogholtveien 9C, 1178 Oslo, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "kartverket", "ref": "Sørhitterveien 448|7246", "queries": ["Sørhitterveien 448, 7246 Sandstad, Norway"], "tags": ["registry-sample", "no"]}
+{"kind": "address", "source": "swisstopo", "ref": "Via las Pleuncas 2 7017 Flims Dorf", "queries": ["Via las Pleuncas 2, 7017 Flims Dorf, Switzerland"], "tags": ["registry-sample", "ch"]}
+{"kind": "address", "source": "cartociudad", "ref": "Masias Visent 1, Morella|12300", "queries": ["Masias Visent 1, 12300 Morella, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Mayor 2, Garganta de los Montes|28743", "queries": ["Calle Mayor 2, 28743 Garganta de los Montes, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Cuesta Pino 71, Granada|18008", "queries": ["Cuesta Pino 71, 18008 Granada, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Paseo Bosque 23, Pioz|19162", "queries": ["Paseo Bosque 23, 19162 Pioz, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Homero 11, Almodóvar del Río|14720", "queries": ["Calle Homero 11, 14720 Almodóvar del Río, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Avenida Europa 2, Badajoz|06004", "queries": ["Avenida Europa 2, 06004 Badajoz, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle D'Anselm Clave 36, Llinars del Vallès|08450", "queries": ["Calle D'Anselm Clave 36, 08450 Llinars del Vallès, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Rua Venus 56, Carballo|15100", "queries": ["Rua Venus 56, 15100 Carballo, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Plaza Iglesia 6, Fariza|49213", "queries": ["Plaza Iglesia 6, 49213 Fariza, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle San Isidro 5, La Puebla de Montalbán|45516", "queries": ["Calle San Isidro 5, 45516 La Puebla de Montalbán, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Avenida Orihuela 114, Alacant/Alicante|03006", "queries": ["Avenida Orihuela 114, 03006 Alacant/Alicante, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Tanque 17, Agaete|35480", "queries": ["Calle Tanque 17, 35480 Agaete, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Tejeria Segunda 29, Cáseda|31490", "queries": ["Calle Tejeria Segunda 29, 31490 Cáseda, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Miradores Los 83, Sancti-Spíritus|37470", "queries": ["Calle Miradores Los 83, 37470 Sancti-Spíritus, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Doctor Cistare 40, Terrassa|08225", "queries": ["Calle Doctor Cistare 40, 08225 Terrassa, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Cementerio 7, San Pedro de la Nave-Almendra|49183", "queries": ["Calle Cementerio 7, 49183 San Pedro de la Nave-Almendra, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Riu Guadalquivir 2, Vilanova i la Geltrú|08800", "queries": ["Calle Riu Guadalquivir 2, 08800 Vilanova i la Geltrú, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Amberes 47, Valladolid|47008", "queries": ["Calle Amberes 47, 47008 Valladolid, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Betis 43, Lora del Río|41440", "queries": ["Calle Betis 43, 41440 Lora del Río, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Martires 5, Salvatierra de Santiago|10189", "queries": ["Calle Martires 5, 10189 Salvatierra de Santiago, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Manresa 8, Pinto|28320", "queries": ["Calle Manresa 8, 28320 Pinto, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Avenida Patos Los 29, Busot|03111", "queries": ["Avenida Patos Los 29, 03111 Busot, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Barrio Elechas-La Lastra 1070, Marina de Cudeyo|39130", "queries": ["Barrio Elechas-La Lastra 1070, 39130 Marina de Cudeyo, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Cubas 7, Lastras de Cuéllar|40352", "queries": ["Calle Cubas 7, 40352 Lastras de Cuéllar, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Avinguda Doctor Folch 19, Montblanc|43400", "queries": ["Avinguda Doctor Folch 19, 43400 Montblanc, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Lepanto 15, Rocafort|46111", "queries": ["Calle Lepanto 15, 46111 Rocafort, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Carretera De San Lorenzo 28, Las Palmas de Gran Canaria|35017", "queries": ["Carretera De San Lorenzo 28, 35017 Las Palmas de Gran Canaria, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Aldea, Alameda Cuestas,Las 37, Oviedo|33119", "queries": ["Aldea, Alameda Cuestas,Las 37, 33119 Oviedo, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Germans Forcada 20, Navàs|08670", "queries": ["Calle Germans Forcada 20, 08670 Navàs, Spain"], "tags": ["registry-sample", "es"]}
+{"kind": "address", "source": "cartociudad", "ref": "Calle Josep M. De Casacuberta 8, Folgueroles|08519", "queries": ["Calle Josep M. De Casacuberta 8, 08519 Folgueroles, Spain"], "tags": ["registry-sample", "es"]}
