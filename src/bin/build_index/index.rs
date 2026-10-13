@@ -48,6 +48,21 @@ pub fn fold(s: &str) -> String {
     out
 }
 
+/// A house number as stored and looked up: lowercase, full-width forms as ASCII ("１２６號" is
+/// "126"), without the 号/號 that only says "number".
+pub fn number_key(n: &str) -> String {
+    n.trim()
+        .chars()
+        .map(|c| match c {
+            '\u{ff01}'..='\u{ff5e}' => char::from_u32(c as u32 - 0xfee0).unwrap_or(c),
+            _ => c,
+        })
+        .flat_map(char::to_lowercase)
+        .collect::<String>()
+        .trim_end_matches(['号', '號'])
+        .to_string()
+}
+
 pub fn pc_norm(s: &str) -> String {
     s.chars()
         .filter(|c| c.is_alphanumeric())
@@ -358,6 +373,10 @@ mod tests {
             ("Atatürk Cad.", "Atatürk Caddesi"),
             ("ул. Ленина", "улица Ленина"),
             ("St Mary's Rd", "Saint Mary's Road"),
+            ("Drottninggatan 5", "Drottningg. 5"),
+            ("Storgata 12", "Storgt. 12"),
+            ("Karl Johans gate", "Karl Johans gt"),
+            ("Kungsvägen", "Kungsv."),
         ] {
             assert_eq!(fold(a), fold(b), "{a} / {b}");
         }
@@ -370,6 +389,13 @@ mod tests {
         assert_eq!(fold("서울특별시"), "서울 울특 특별 별시");
         assert_eq!(fold("Via Roma"), "via roma");
         assert_eq!(fold("Strasse"), "str");
+        assert_eq!(number_key("１２６號"), "126");
+        assert_eq!(number_key("12B"), "12b");
+        assert_eq!(fold("濱海路三段"), fold("濱海路3段"));
+        assert_eq!(fold("芝公園四丁目"), fold("芝公園4丁目"));
+        assert_eq!(fold("浅草５丁目"), fold("浅草5丁目"));
+        assert_ne!(fold("浅草２丁目"), fold("浅草5丁目"));
+        assert_eq!(fold("二十一丁目"), fold("21丁目"));
     }
 
     #[test]

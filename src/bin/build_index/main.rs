@@ -540,7 +540,7 @@ fn pass_segments(dir: &Path, a: &Assigner) -> Vec<Mutex<HashMap<SegKey, SegAgg>>
     tasks(dir).par_iter().for_each(|t| {
         // place -> folded name, so lookups borrow the key instead of allocating one per row
         let mut local: HashMap<u32, HashMap<Str, SegAgg>> = HashMap::new();
-        let (mut key, mut last) = (String::new(), String::new());
+        let (mut key, mut last, mut cell_key) = (String::new(), String::new(), String::new());
         for b in read(t, &["subtype", "names.primary", "names.common", "bbox"]) {
             let (sub, nm, bbox) = (
                 col(&b, "subtype").as_string::<i32>(),
@@ -578,9 +578,10 @@ fn pass_segments(dir: &Path, a: &Assigner) -> Vec<Mutex<HashMap<SegKey, SegAgg>>
                     continue;
                 }
                 let m = local.entry(place).or_default();
-                let e = match m.get_mut(key.as_str()) {
+                let celled = with_cell(&key, x, y, &mut cell_key);
+                let e = match m.get_mut(celled) {
                     Some(e) => e,
-                    None => m.entry(key.as_str().into()).or_insert_with(|| SegAgg {
+                    None => m.entry(celled.into()).or_insert_with(|| SegAgg {
                         name: primary.into(),
                         ..Default::default()
                     }),
@@ -686,6 +687,21 @@ impl<'a> Shared<'a> {
     }
 }
 
+/// A street's merge key: its folded name and a 0.1° cell, so same-named streets in one large
+/// locality (Port Chalmers' and central Dunedin's Beach Street) stay apart instead of sharing
+/// house numbers. A street crossing a cell edge becomes two documents; lookups try both.
+fn with_cell<'k>(key: &str, x: f64, y: f64, out: &'k mut String) -> &'k str {
+    use std::fmt::Write;
+    out.clear();
+    let _ = write!(
+        out,
+        "{key}\u{1}{}:{}",
+        (x * 10.0).floor() as i32,
+        (y * 10.0).floor() as i32
+    );
+    out
+}
+
 /// Rows a sink aggregates before flushing, to bound task-local memory on large files.
 const SINK_ROWS: u64 = 2_000_000;
 
@@ -702,6 +718,7 @@ struct Sink<'s, 'a> {
     key: String,
     last: String,
     lower: String,
+    cell_key: String,
     pcn: String,
 }
 
@@ -722,6 +739,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             key: String::new(),
             last: String::new(),
             lower: String::new(),
+            cell_key: String::new(),
             pcn: String::new(),
         }
     }
@@ -776,7 +794,11 @@ impl<'s, 'a> Sink<'s, 'a> {
                     .add(pc, x, y, 1),
             }
         }
-        let Some(st) = nonempty(street) else { return };
+        // Village addresses without streets ("Libá 156", OSM addr:place) number within the
+        // village, so its name stands in for the street, as in Nominatim.
+        let Some(st) = nonempty(street).or_else(|| nonempty(number).and(nonempty(city))) else {
+            return;
+        };
         if st != self.last {
             fold_into(st, &mut self.key);
             self.last.clear();
@@ -787,14 +809,15 @@ impl<'s, 'a> Sink<'s, 'a> {
         }
         let place = place.unwrap_or_else(|| a.place(x, y)).unwrap_or(NO_PLACE);
         let m = self.local.entry((c, place)).or_default();
-        let li = match m.get(self.key.as_str()) {
+        let celled = with_cell(&self.key, x, y, &mut self.cell_key);
+        let li = match m.get(celled) {
             Some(&li) => li,
             None => {
                 self.aggs.push(AddrAgg {
                     name: st.into(),
                     ..Default::default()
                 });
-                m.insert(self.key.as_str().into(), self.aggs.len() as u32 - 1);
+                m.insert(celled.into(), self.aggs.len() as u32 - 1);
                 self.aggs.len() as u32 - 1
             }
         };
@@ -818,7 +841,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             .filter(|n| !n.is_empty())
         {
             self.lower.clear();
-            self.lower.extend(n.chars().flat_map(char::to_lowercase));
+            self.lower.push_str(&index::number_key(n));
             // slot = 1-based position in this task's list for the street; remapped on flush
             let slot = pc_id
                 .and_then(|id| e.pcs.iter().position(|&p| p == id))
@@ -1177,13 +1200,15 @@ fn main() {
             f.names => names.join(" "),
             f.city => cities.join(" "),
             f.country => cc,
-            f.name => names[0],
             f.id => sid as u64,
             f.place => place as u64,
             f.importance => weight,
             f.x => x,
             f.y => y,
         );
+        for n in names {
+            d.add_text(f.name, n);
+        }
         for &pc in pcs {
             d.add_text(f.pcode, strings.get(pc));
         }

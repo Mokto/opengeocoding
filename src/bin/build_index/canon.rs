@@ -123,6 +123,7 @@ pub const VARIANTS: &[(&str, &str)] = &[
     ("coronel", "cel"),
     ("marechal", "mal"),
     ("presidente", "pres"),
+    ("pte", "pres"),
     ("governador", "gov"),
     ("engenheiro", "eng"),
     ("capitao", "cap"),
@@ -135,6 +136,10 @@ pub const VARIANTS: &[(&str, &str)] = &[
     ("straat", "str"),
     ("strada", "str"),
     ("burgemeester", "burg"),
+    // Norwegian, Swedish
+    ("gate", "gt"),
+    ("gata", "gt"),
+    ("gaten", "gt"),
     ("viale", "vle"),
     // Turkish
     ("caddesi", "cd"),
@@ -149,6 +154,8 @@ pub const VARIANTS: &[(&str, &str)] = &[
     ("mahallesi", "mh"),
     ("mahalle", "mh"),
     ("mah", "mh"),
+    // Hungarian
+    ("utca", "u"),
     // Polish
     ("ulica", "ul"),
     ("osiedle", "os"),
@@ -171,19 +178,69 @@ pub fn canon(t: &str) -> Option<&'static str> {
     MAP.with(|m| m.get(t).copied())
 }
 
+/// Whether `t` is the canonical short form of some variant ("rd", "st").
+#[allow(dead_code)]
+pub fn is_canonical(t: &str) -> bool {
+    thread_local! {
+        static SHORT: std::collections::HashSet<&'static str> = VARIANTS.iter().map(|(_, c)| *c).collect();
+    }
+    SHORT.with(|s| s.contains(t))
+}
+
 /// "21st", "2nd", "3rd", "5th": the length of the digits.
 fn ordinal(t: &str) -> Option<usize> {
     let digits = t.bytes().take_while(u8::is_ascii_digit).count();
     (digits > 0 && matches!(&t[digits..], "st" | "nd" | "rd" | "th")).then_some(digits)
 }
 
-/// German and Dutch compounds: "hauptstrasse" -> "hauptstr", like "Hauptstr.".
-fn compound(t: &str) -> Option<usize> {
-    ["strasse", "straat"].iter().find_map(|s| {
+/// Compounds and their written short forms: "hauptstrasse" -> "hauptstr" ("Hauptstr."),
+/// "storgata" -> "storgt" ("Storgt."), "drottninggatan" -> "drottningg" ("Drottningg.").
+fn compound(t: &str) -> Option<(usize, &'static str)> {
+    [
+        ("strasse", "str"),
+        ("straat", "str"),
+        ("gatan", "g"),
+        ("gaten", "gt"),
+        ("gata", "gt"),
+        ("gate", "gt"),
+        ("vagen", "v"),
+    ]
+    .iter()
+    .find_map(|(s, short)| {
         t.strip_suffix(s)
-            .filter(|stem| !stem.is_empty())
-            .map(|stem| stem.len())
+            .filter(|stem| stem.len() > 2)
+            .map(|stem| (stem.len(), *short))
     })
+}
+
+/// "芝公園四丁目", "浅草５丁目" and "梅田1丁目" all write the chōme number, "濱海路三段" the
+/// section number: read it as digits.
+fn chome(text: &mut String) {
+    let Some(at) = text.find("丁目").or_else(|| text.find('段')) else {
+        return;
+    };
+    let (head, tail) = text.split_at(at);
+    let digits = |c: char| "〇一二三四五六七八九十".contains(c);
+    let start = head.trim_end_matches(digits).len();
+    let kanji = &head[start..];
+    let value = |c: char| {
+        "〇一二三四五六七八九"
+            .chars()
+            .position(|d| d == c)
+            .map(|d| d as u32)
+    };
+    let chars: Vec<char> = kanji.chars().collect();
+    let n = match chars.as_slice() {
+        ['十'] => Some(10),
+        [c] => value(*c),
+        ['十', u] => value(*u).map(|u| 10 + u),
+        [t, '十'] => value(*t).map(|t| t * 10),
+        [t, '十', u] => value(*t).zip(value(*u)).map(|(t, u)| t * 10 + u),
+        _ => None,
+    };
+    if let Some(n) = n {
+        *text = format!("{}{n}{tail}", &head[..start]);
+    }
 }
 
 fn apply(text: &mut String) {
@@ -196,9 +253,9 @@ fn apply(text: &mut String) {
         text.push_str(c);
     } else if let Some(n) = ordinal(text) {
         text.truncate(n);
-    } else if let Some(stem) = compound(text) {
+    } else if let Some((stem, short)) = compound(text) {
         text.truncate(stem);
-        text.push_str("str");
+        text.push_str(short);
     }
 }
 
@@ -280,6 +337,9 @@ impl<T: TokenStream> TokenStream for CanonStream<T> {
         }
         let token = self.tail.token_mut();
         if token.text.chars().any(cjk) {
+            if token.text.contains("丁目") || token.text.contains('段') {
+                chome(&mut token.text);
+            }
             let mut parts = split(&token.text);
             parts.iter_mut().for_each(apply);
             parts.reverse();
