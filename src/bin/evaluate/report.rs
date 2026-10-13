@@ -404,6 +404,14 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
         .filter(|r| r.class != "pass" && !critical(&r.class) && case(r).known_failure.is_none())
         .collect();
     for r in &others {
+        if let Some(error) = &r.error {
+            let _ = writeln!(
+                out,
+                "- `{}` {} (RPC status {error}, no answer)",
+                r.id, r.class
+            );
+            continue;
+        }
         let _ = writeln!(
             out,
             "- `{}` {} (level {}, {} km): {:?}{}",

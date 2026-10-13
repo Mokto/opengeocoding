@@ -766,7 +766,7 @@ pub async fn run(options: Options) -> Result<i32> {
             "status": status,
             "label": options.backend_label,
         },
-        "consumer": { "git": git(&["rev-parse", "HEAD"]), "dirty": !git(&["status", "--porcelain"]).is_empty() },
+        "consumer": { "git": git(&["rev-parse", "HEAD"]), "dirty": !git(&["status", "--porcelain", "--untracked-files=no"]).is_empty() },
         "reference_data_sha256": sha256_file(&root().join("data/reference.json"))?,
         "max_rps": options.max_rps,
         "budget": options.budget,
