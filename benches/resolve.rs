@@ -1,13 +1,10 @@
 //! Model-backed libpostal parsing and searches against a built index, over the non-held-out
 //! rows of `tests/addresses.tsv`. Needs libpostal's models and `INDEX_DIR`; without the
-//! index it runs nothing. Parsing uses every row, in every country and script. Searches use
-//! only the rows of `BENCH_COUNTRIES` (comma-separated ISO codes; set it to the countries
-//! your index covers), since elsewhere they would only measure the empty-result path.
+//! index it runs nothing. Every row is used; the fixture index (benches/fixture) covers the
+//! area around each one, so searches do not just measure the empty-result path.
 use divan::{Bencher, black_box};
 use opengeocoding::index::{Index, Parser};
 use std::{path::PathBuf, sync::Arc, sync::LazyLock};
-
-const COUNTRIES: &str = "dk,nl,fr,ch,no,es";
 
 struct Fixture {
     parser: Arc<Parser>,
@@ -18,13 +15,11 @@ struct Fixture {
 struct Row {
     target: String,
     script: String,
-    covered: bool,
     query: String,
 }
 
 static FIXTURE: LazyLock<Fixture> = LazyLock::new(|| {
     let dir = PathBuf::from(std::env::var_os("INDEX_DIR").expect("INDEX_DIR"));
-    let countries = std::env::var("BENCH_COUNTRIES").unwrap_or_else(|_| COUNTRIES.into());
     let parser = Arc::new(Parser::setup().expect("libpostal models"));
     let index = Index::open(&dir, parser.clone()).expect("index");
     let rows = include_str!("../tests/addresses.tsv")
@@ -35,7 +30,6 @@ static FIXTURE: LazyLock<Fixture> = LazyLock::new(|| {
             (c[6] == "0").then(|| Row {
                 target: c[1].into(),
                 script: c[5].into(),
-                covered: countries.split(',').any(|x| x == c[3]),
                 query: c[8].into(),
             })
         })
@@ -104,7 +98,7 @@ fn parse_non_latin(bencher: Bencher) {
 }
 
 fn search(bencher: Bencher, targets: &[&str]) {
-    let qs = queries(|r| r.covered && targets.contains(&r.target.as_str()));
+    let qs = queries(|r| targets.contains(&r.target.as_str()));
     bencher.with_inputs(|| &*FIXTURE).bench_local_refs(|f| {
         qs.iter()
             .map(|q| f.index.search(black_box(q)).len())

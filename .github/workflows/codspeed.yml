@@ -52,8 +52,14 @@ jobs:
       - name: Download libpostal models
         if: vars.BENCH_FIXTURE_URL != '' && steps.models.outputs.cache-hit != 'true'
         run: ${LIBPOSTAL_PREFIX}/bin/libpostal_data download all "$LIBPOSTAL_MODELS/libpostal"
-      - name: Fetch the index fixture
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        id: fixture
         if: vars.BENCH_FIXTURE_URL != ''
+        with:
+          path: /home/runner/fixture
+          key: bench-fixture-${{ vars.BENCH_FIXTURE_SHA256 }}
+      - name: Fetch the index fixture
+        if: vars.BENCH_FIXTURE_URL != '' && steps.fixture.outputs.cache-hit != 'true'
         env:
           URL: ${{ vars.BENCH_FIXTURE_URL }}
           SHA256: ${{ vars.BENCH_FIXTURE_SHA256 }}
