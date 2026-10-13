@@ -1,10 +1,9 @@
-//! Model-backed RPC integration test against a real, isolated ClickHouse database and a
-//! `build_index` output with world coverage (Copenhagen, Munich, Paris). It creates and removes
-//! its own database. Ignored by default:
+//! Model-backed RPC integration test against a `build_index` output with world coverage
+//! (Copenhagen, Munich, Paris). Ignored by default:
 //!
 //! ```text
-//! INDEX_DIR=out CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --test rpc -- --ignored --nocapture
-//! SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS=$PWD/models/libpostal INDEX_DIR=out CLICKHOUSE_URL=... cargo test --test rpc -- --ignored --nocapture
+//! INDEX_DIR=out cargo test --test rpc -- --ignored --nocapture
+//! SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS=$PWD/models/libpostal INDEX_DIR=out cargo test --test rpc -- --ignored --nocapture
 //! ```
 //!
 //! With grpcurl installed, legacy gRPC is exercised too; its known hang fails the test with a
@@ -12,9 +11,8 @@
 
 use anyhow::{Context, Result, ensure};
 use buffa::Message;
-use opengeocoding::{
-    proto::opengeocoding::{EmptyRequest, FullAddress, GeoCoordinates, SearchAddressTask},
-    regions::python_repr,
+use opengeocoding::proto::opengeocoding::{
+    EmptyRequest, FullAddress, GeoCoordinates, SearchAddressTask,
 };
 use reqwest::{StatusCode, header};
 use serde_json::{Value, json};
@@ -25,37 +23,13 @@ const SERVICE: &str = "opengeocoding.Geolocation";
 
 struct Env {
     client: reqwest::Client,
-    clickhouse: String,
-    database: String,
     child: Option<Child>,
     rpc: String,
     metrics: String,
-    map_dir: PathBuf,
     index: PathBuf,
 }
 
 impl Env {
-    async fn clickhouse(&self, query: &str) -> Result<()> {
-        let response = self
-            .client
-            .post(&self.clickhouse)
-            .basic_auth(
-                std::env::var("CLICKHOUSE_USER").unwrap_or_else(|_| "default".into()),
-                Some(std::env::var("CLICKHOUSE_PASSWORD").unwrap_or_default()),
-            )
-            .query(&[("query", query)])
-            .header(header::CONTENT_LENGTH, "0")
-            .timeout(Duration::from_secs(30))
-            .send()
-            .await?;
-        ensure!(
-            response.status().is_success(),
-            "ClickHouse: {}",
-            response.text().await?
-        );
-        Ok(())
-    }
-
     async fn rpc(&self, method: &str, body: Vec<u8>, proto: bool) -> Result<(StatusCode, Vec<u8>)> {
         let response = self
             .client
@@ -119,74 +93,28 @@ async fn grpcurl(args: &[&str]) -> Result<String> {
 }
 
 async fn start(env: &mut Env, image: Option<&str>) -> Result<()> {
-    env.clickhouse(&format!("CREATE DATABASE {}", env.database))
-        .await?;
-    env.clickhouse(&format!(
-        "CREATE TABLE {}.administrative_levels (country_code String, country_name String, level UInt8,
-         local_name String, en_name String, admin_code String, updated_at Nullable(DateTime('UTC')),
-         parent_admin_code String) ENGINE = ReplacingMergeTree ORDER BY (country_code, admin_code)",
-        env.database
-    ))
-    .await?;
-    env.clickhouse(&format!(
-        "INSERT INTO {}.administrative_levels VALUES ('dk','Denmark',4,'Hovedstaden','Capital Region','84',NULL,'')",
-        env.database
-    ))
-    .await?;
     let port = |listener: std::net::TcpListener| listener.local_addr().map(|a| a.port());
     let rpc_port = port(std::net::TcpListener::bind("127.0.0.1:0")?)?;
     let metrics_port = port(std::net::TcpListener::bind("127.0.0.1:0")?)?;
     env.rpc = format!("http://127.0.0.1:{rpc_port}");
     env.metrics = format!("http://127.0.0.1:{metrics_port}/metrics");
-    std::fs::create_dir_all(&env.map_dir)?;
-    std::fs::write(env.map_dir.join("regions.json"), "{}")?;
     let mut settings = vec![
         ("INDEX_DIR", env.index.to_string_lossy().into()),
-        ("CLICKHOUSE_URL", env.clickhouse.clone()),
-        (
-            "CLICKHOUSE_USER",
-            std::env::var("CLICKHOUSE_USER").unwrap_or_else(|_| "default".into()),
-        ),
-        (
-            "CLICKHOUSE_PASSWORD",
-            std::env::var("CLICKHOUSE_PASSWORD").unwrap_or_default(),
-        ),
-        ("CLICKHOUSE_DATABASE", env.database.clone()),
-        ("CLICKHOUSE_PREFIX", String::new()),
-        ("CLICKHOUSE_SINGLE_NODE", "1".into()),
-        (
-            "REGION_MAP_PATH",
-            env.map_dir.join("regions.json").to_string_lossy().into(),
-        ),
         ("RPC_PORT", rpc_port.to_string()),
         ("METRICS_PORT", metrics_port.to_string()),
         ("SENTRY_DSN", String::new()),
     ];
     let mut command = if let Some(image) = image {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&env.map_dir, std::fs::Permissions::from_mode(0o777))?;
-        std::fs::set_permissions(
-            env.map_dir.join("regions.json"),
-            std::fs::Permissions::from_mode(0o666),
-        )?;
         for (key, value) in &mut settings {
-            match *key {
-                "INDEX_DIR" => *value = "/data/index".into(),
-                "CLICKHOUSE_URL" => *value = value.replace("127.0.0.1", "host.docker.internal"),
-                "REGION_MAP_PATH" => *value = "/region-map/regions.json".into(),
-                _ => {}
+            if *key == "INDEX_DIR" {
+                *value = "/data/index".into();
             }
         }
         let mut command = Command::new("docker");
         command
-            .args([
-                "run",
-                "--rm",
-                "--add-host=host.docker.internal:host-gateway",
-            ])
+            .args(["run", "--rm"])
             .args(["-p", &format!("127.0.0.1:{rpc_port}:{rpc_port}")])
             .args(["-p", &format!("127.0.0.1:{metrics_port}:{metrics_port}")])
-            .args(["-v", &format!("{}:/region-map", env.map_dir.display())])
             .args([
                 "-v",
                 &format!(
@@ -233,10 +161,13 @@ async fn start(env: &mut Env, image: Option<&str>) -> Result<()> {
 async fn checks(env: &mut Env) -> Result<()> {
     let found = env.search("Copenhagen, Denmark").await?;
     ensure!(found["addressDetails"]["countryCode"] == "dk", "{found}");
+    let region = &found["addressDetails"]["regions"][0];
     ensure!(
-        found["addressDetails"]["regions"][0]["adminCode"] == "84",
+        region["adminCode"] == "84" && region["adminLevel"] == 4 && region["countryCode"] == "dk",
         "{found}"
     );
+    let local_name = region["localName"].as_str().unwrap_or("").to_owned();
+    ensure!(!local_name.is_empty(), "{found}");
     let task = SearchAddressTask {
         address_string: "Copenhagen, Denmark".into(),
         ..Default::default()
@@ -256,7 +187,7 @@ async fn checks(env: &mut Env) -> Result<()> {
             && details
                 .regions
                 .first()
-                .is_some_and(|r| r.local_name == "Hovedstaden")
+                .is_some_and(|r| r.local_name == local_name)
     );
     println!("PASS: Connect JSON and protobuf search with region enrichment");
 
@@ -372,14 +303,12 @@ async fn checks(env: &mut Env) -> Result<()> {
     ensure!(env.json("RefreshRegionMap", json!({})).await? == json!({}));
     let served = env.json("GetRegionMap", json!({})).await?;
     let served = served["regionMap"].as_str().unwrap_or("");
-    ensure!(served.contains("Hovedstaden"), "{served}");
-    let stored: Value =
-        serde_json::from_str(&std::fs::read_to_string(env.map_dir.join("regions.json"))?)?;
+    ensure!(served.contains(&local_name), "{served}");
     ensure!(
-        python_repr(&stored)? == served,
-        "stored and served region maps differ"
+        env.json("GetRegionMap", json!({})).await?["regionMap"] == served,
+        "the region map changed between reads"
     );
-    println!("PASS: reverse lookup and atomic region-map refresh");
+    println!("PASS: reverse lookup and region map");
 
     for (method, payload) in [
         ("SearchAddress", json!({"addressString": "bad\u{0}address"})),
@@ -475,19 +404,14 @@ async fn checks(env: &mut Env) -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs ClickHouse (CLICKHOUSE_URL), an index (INDEX_DIR) and libpostal models; run with --ignored"]
+#[ignore = "needs an index (INDEX_DIR) and libpostal models; run with --ignored"]
 async fn rpc_contracts() {
     let image = std::env::var("SERVICE_IMAGE").ok();
     let mut env = Env {
         client: reqwest::Client::new(),
-        clickhouse: std::env::var("CLICKHOUSE_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:8125".into()),
-        database: format!("opengeocoding_rpc_test_{}", std::process::id()),
         child: None,
         rpc: String::new(),
         metrics: String::new(),
-        map_dir: std::env::temp_dir()
-            .join(format!("opengeocoding-rpc-test-{}", std::process::id())),
         index: std::env::var_os("INDEX_DIR")
             .expect("INDEX_DIR: a build_index output")
             .into(),
@@ -499,10 +423,5 @@ async fn rpc_contracts() {
     if let Some(mut child) = env.child.take() {
         let _ = child.kill().await;
     }
-    let dropped = env
-        .clickhouse(&format!("DROP DATABASE IF EXISTS {}", env.database))
-        .await;
-    let _ = std::fs::remove_dir_all(&env.map_dir);
     outcome.unwrap();
-    dropped.unwrap();
 }

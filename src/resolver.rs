@@ -329,34 +329,35 @@ impl Resolver {
         Ok(Some(formatted))
     }
 
-    pub async fn state(&self, query: &str) -> Result<Option<Region>> {
-        let Some(result) = self.candidates(query).await?.into_iter().next() else {
-            return Ok(None);
-        };
-        if !truthy(&result["place_id"]) {
-            return Ok(None);
+    /// Each ISO 3166-2 code the index knows with its region, as a search for `<cc>, <code>`
+    /// renders it.
+    pub fn regions(&self) -> Result<Vec<(String, Region)>> {
+        let mut regions = vec![];
+        for (code, place) in self.index.region_places() {
+            let result = self.index.render(&crate::index::Hit::Place(place), true);
+            let details = self.index.details(place.into());
+            let names = &details["names"];
+            let en_name = ["name:en", "_place_name:en", "name"]
+                .iter()
+                .find_map(|name| names[*name].as_str().filter(|s| !s.is_empty()))
+                .unwrap_or("");
+            let Some((_, admin_code)) = code.split_once('-') else {
+                continue;
+            };
+            regions.push((
+                code.to_uppercase(),
+                Region {
+                    country_code: string(&details["country_code"]).into(),
+                    country_name: string(&result["address"]["country"]).into(),
+                    admin_level: integer(&details["admin_level"])?,
+                    local_name: string(&details["localname"]).into(),
+                    en_name: en_name.into(),
+                    admin_code: admin_code.into(),
+                    ..Default::default()
+                },
+            ));
         }
-        let details = self
-            .index
-            .details(result["place_id"].as_u64().unwrap_or(u64::MAX));
-        let names = &details["names"];
-        let en_name = ["name:en", "_place_name:en", "name"]
-            .iter()
-            .find_map(|name| names[*name].as_str().filter(|s| !s.is_empty()))
-            .unwrap_or("");
-        Ok(Some(Region {
-            country_code: string(&details["country_code"]).into(),
-            country_name: string(&result["address"]["country"]).into(),
-            admin_level: integer(&details["admin_level"])?,
-            local_name: string(&details["localname"]).into(),
-            en_name: en_name.into(),
-            admin_code: query
-                .split('-')
-                .nth(1)
-                .context("region code must contain a hyphen")?
-                .into(),
-            ..Default::default()
-        }))
+        Ok(regions)
     }
 }
 

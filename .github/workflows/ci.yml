@@ -25,7 +25,6 @@ jobs:
           test "$(docker image inspect opengeocoding --format '{{json .Config.Entrypoint}}')" = '["/usr/local/bin/opengeocoding"]'
           docker run --rm --entrypoint sh opengeocoding -ec '
             test "$(id -u)" = 1000
-            test -w /app/regions.json
             test ! -e /usr/local/bin/python
             test -x /usr/local/bin/opengeocoding
             test -x /usr/local/bin/build_index
@@ -49,7 +48,7 @@ jobs:
           sudo install linux-amd64/helm /usr/local/bin/helm
       - name: Lint and render the chart
         run: |
-          set -- --set store.url=s3://bucket/prefix --set clickhouse.url=http://clickhouse:8123
+          set -- --set store.url=s3://bucket/prefix
           helm lint --strict manifests "$@"
           helm template t manifests "$@" > /dev/null
           helm template t manifests "$@" --set serviceAccount.create=true \

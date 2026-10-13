@@ -78,11 +78,9 @@ impl Geolocation for Service {
             }
             let mut address = self.resolver.resolve(request.address_string).await?;
             if let Some(details) = address.address_details.as_option_mut() {
-                let regions = self
+                details
                     .regions
-                    .reformat(&self.resolver, &details.region_codes)
-                    .await?;
-                details.regions.extend(regions);
+                    .extend(self.regions.reformat(&details.region_codes));
             }
             Ok(address)
         })
@@ -112,10 +110,7 @@ impl Geolocation for Service {
                 return Ok(RegionsResponse::default());
             };
             Ok(RegionsResponse {
-                regions: self
-                    .regions
-                    .reformat(&self.resolver, &details.region_codes)
-                    .await?,
+                regions: self.regions.reformat(&details.region_codes),
                 ..Default::default()
             })
         })
@@ -128,7 +123,6 @@ impl Geolocation for Service {
         _: ServiceRequest<'_, EmptyRequest>,
     ) -> ServiceResult<impl connectrpc::Encodable<EmptyResponse> + Send + use<'a>> {
         self.run(&ctx, "RefreshRegionMap", async {
-            self.regions.refresh_map().await?;
             Ok(EmptyResponse::default())
         })
         .await
@@ -141,7 +135,7 @@ impl Geolocation for Service {
     ) -> ServiceResult<impl connectrpc::Encodable<RegionMap> + Send + use<'a>> {
         self.run(&ctx, "GetRegionMap", async {
             Ok(RegionMap {
-                region_map: self.regions.read_map().await?,
+                region_map: self.regions.map().to_owned(),
                 ..Default::default()
             })
         })

@@ -11,9 +11,9 @@
 //! evaluate check                             validate the corpora and snapshot, no network
 //! ```
 //!
-//! `run` starts the local service binary on the index in `--index` (or INDEX_DIR) with a fresh
-//! ClickHouse database, unless `--rpc` points at a running service. Direct checks load the same
-//! index into the evaluator; they need it too.
+//! `run` starts the local service binary on the index in `--index` (or INDEX_DIR), unless `--rpc`
+//! points at a running service. Direct checks load the same index into the evaluator; they need
+//! it too.
 
 mod gold;
 mod model;

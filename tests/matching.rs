@@ -1,7 +1,7 @@
 use opengeocoding::{
     matching::*,
     proto::opengeocoding::*,
-    regions::{format_regions, python_repr},
+    regions::{Regions, format_regions, python_repr},
     resolver::format_response,
 };
 use serde_json::json;
@@ -224,6 +224,53 @@ fn region_hierarchy_and_python_representation() {
     assert_eq!(
         python_repr(&json!({"key": "line\n\u{1c}"})).unwrap(),
         "{'key': 'line\\n\\x1c'}"
+    );
+}
+
+#[test]
+fn regions_come_from_codes_and_serve_one_stable_map() {
+    let region = |country: &str, code: &str, level: u32, name: &str| {
+        (
+            format!("{}-{code}", country.to_uppercase()),
+            Region {
+                country_code: country.into(),
+                country_name: country.to_uppercase(),
+                admin_code: code.into(),
+                admin_level: level,
+                local_name: name.into(),
+                en_name: name.into(),
+                ..Default::default()
+            },
+        )
+    };
+    let code = |code: &str, admin_level: u32| ISO3166_2 {
+        code: code.into(),
+        admin_level,
+        ..Default::default()
+    };
+    let rows = vec![
+        region("dk", "84", 4, "Hovedstaden"),
+        region("ie", "D", 4, "County Dublin"),
+        region("dk", "82", 4, "Midtjylland"),
+    ];
+    let regions = Regions::from_rows(rows.clone()).unwrap();
+    assert_eq!(regions.len(), 3);
+    let found = regions.reformat(&[code("DK-84", 4), code("DK-XX", 5), code("dk-82", 3)]);
+    // lowest admin level first; a code with no region is left out; case does not matter
+    assert_eq!(
+        found
+            .iter()
+            .map(|r| r.local_name.as_str())
+            .collect::<Vec<_>>(),
+        ["Midtjylland", "Hovedstaden"]
+    );
+    // the map does not depend on the order the index listed the regions in
+    let reversed = Regions::from_rows(rows.into_iter().rev().collect()).unwrap();
+    assert_eq!(regions.map(), reversed.map());
+    assert!(
+        regions
+            .map()
+            .starts_with("{'dk': {'country_name': 'DK', '82': ")
     );
 }
 

@@ -44,7 +44,7 @@ COPY --from=build /usr/local/bin/libpostal_data /usr/local/bin/libpostal_data
 COPY --from=build /source/target/release/opengeocoding /source/target/release/build_index /usr/local/bin/
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.txt /usr/local/share/licenses/opengeocoding/
 COPY LICENSES /usr/local/share/licenses/opengeocoding/dependencies/
-RUN ldconfig && printf '{}' > /app/regions.json && chown 1000:1000 /app/regions.json
+RUN ldconfig
 WORKDIR /app
 USER 1000:1000
 EXPOSE 11121 8000
