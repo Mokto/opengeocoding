@@ -15,7 +15,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - `src/resolver.rs`: native parsing, serve_index HTTP calls, candidate formatting and fallback ordering.
 - `src/regions.rs`: ClickHouse persistence, cache and atomic region-map refresh.
 - `src/service.rs`, `src/main.rs`, `src/metrics.rs`: RPCs, process lifecycle and observability.
-- `proto/geolocation-v1.proto`, `build.rs`: the single wire contract and build-time generation.
+- `proto/opengeocoding-v1.proto`, `build.rs`: the single wire contract and build-time generation.
 - `data/`, `src/bin/update_reference.rs`: public reference data and its generator.
 - `tests/matching.rs`, `tests/rpc.rs`: regression tests and the model-backed RPC integration test (ignored by default).
 - `src/bin/benchmark.rs`, `src/bin/notices.rs`: local mock benchmark and third-party notice generation.
@@ -28,10 +28,10 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 
 ## Compatibility and safety
 
-- The package is `geolocation`; the service is `Geolocation`. Messages, field numbers and types are unchanged from the earlier `nominatim_geolocation.NominatimGeolocation` service, whose paths `src/main.rs` still rewrites to the new ones. Preserve the package and service names, field numbers, types and that legacy path until every caller uses the new package. Modify `proto/` and regenerate through Cargo; never edit generated files under `target/`.
+- The protobuf package is `opengeocoding`; the service is `Geolocation`. The Rust crate remains `geolocation`. Messages, field numbers and types are unchanged from the earlier `geolocation.Geolocation` and `nominatim_geolocation.NominatimGeolocation` services, whose paths `src/main.rs` rewrites to the canonical ones. Preserve the contract and both legacy paths until every caller has migrated. Modify `proto/` and regenerate through Cargo; never edit generated files under `target/`.
 - Preserve deliberate fallback ordering, country/region conflict guards, postcode-area compatibility, local-language candidate corroboration and `good_match` semantics (false for structured fallbacks and for a missing requested house number). Other-language names (`namedetails`) corroborate settlements, and regions only for bare place names; they never justify overriding a recognized stated country.
 - Coordinates use protobuf float32. `GetRegionMap` returns a Python-style dictionary string; the stored map is JSON. Neither is an accidental formatting choice.
-- Preserve the legacy RPC route for benchmarking, but do not restore Nominatim backend configuration or fallback. Service startup checks that `INDEX_URL` reports a ready `serve_index` backend.
+- Preserve both legacy RPC routes for benchmarking, but do not restore Nominatim backend configuration or fallback. Service startup checks that `INDEX_URL` reports a ready `serve_index` backend.
 - Validate input at trust boundaries. Do not expose backend details in RPC errors.
 - Region-map refresh must remain atomic. Test database changes against an isolated database, never a shared production instance.
 - libpostal is native C behind `rustpostal`, not a pure-Rust parser. Keep parsing off the async executor and serialized until native thread-safety testing supports widening concurrency.

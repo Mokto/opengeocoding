@@ -18,7 +18,7 @@ use axum::{
 };
 use buffa::Message;
 use geolocation::{
-    proto::geolocation::{FullAddress, SearchAddressTask},
+    proto::opengeocoding::{EmptyRequest, FullAddress, GeoCoordinates, SearchAddressTask},
     regions::python_repr,
 };
 use serde_json::{Value, json};
@@ -29,7 +29,7 @@ use std::{
 };
 use tokio::process::{Child, Command};
 
-const SERVICE: &str = "geolocation.Geolocation";
+const SERVICE: &str = "opengeocoding.Geolocation";
 
 #[derive(Default)]
 struct Fixture {
@@ -322,55 +322,98 @@ async fn checks(env: &mut Env) -> Result<()> {
     );
     println!("PASS: Connect JSON and protobuf search with region enrichment");
 
-    // Clients generated before the package rename keep working on the old paths.
-    let legacy = format!(
-        "{}/nominatim_geolocation.NominatimGeolocation/SearchAddress",
-        env.rpc
-    );
-    for proto in [false, true] {
-        let body = if proto {
-            task.encode_to_vec()
-        } else {
-            json!({"addressString": "Copenhagen, Denmark"})
-                .to_string()
-                .into_bytes()
-        };
-        let response = env
-            .client
-            .post(&legacy)
-            .header(
-                header::CONTENT_TYPE,
-                if proto {
-                    "application/proto"
+    for (method, json_body, proto_body) in [
+        (
+            "SearchAddress",
+            json!({"addressString": "Copenhagen, Denmark"}),
+            task.encode_to_vec(),
+        ),
+        (
+            "ResolveRegion",
+            json!({"lat": 55.676098, "lon": 12.568337}),
+            GeoCoordinates {
+                lat: 55.676098,
+                lon: 12.568337,
+                ..Default::default()
+            }
+            .encode_to_vec(),
+        ),
+        (
+            "RefreshRegionMap",
+            json!({}),
+            EmptyRequest::default().encode_to_vec(),
+        ),
+        (
+            "GetRegionMap",
+            json!({}),
+            EmptyRequest::default().encode_to_vec(),
+        ),
+        (
+            "SearchAddress",
+            json!({"addressString": "bad\u{0}address"}),
+            SearchAddressTask {
+                address_string: "bad\0address".into(),
+                ..Default::default()
+            }
+            .encode_to_vec(),
+        ),
+        (
+            "ResolveRegion",
+            json!({"lat": 100, "lon": 0}),
+            GeoCoordinates {
+                lat: 100.,
+                ..Default::default()
+            }
+            .encode_to_vec(),
+        ),
+    ] {
+        for proto in [false, true] {
+            let body = if proto {
+                proto_body.clone()
+            } else {
+                json_body.to_string().into_bytes()
+            };
+            let (expected_status, expected) = env.rpc(method, body.clone(), proto).await?;
+            for service in [
+                "geolocation.Geolocation",
+                "nominatim_geolocation.NominatimGeolocation",
+            ] {
+                let response = env
+                    .client
+                    .post(format!("{}/{service}/{method}", env.rpc))
+                    .header(
+                        header::CONTENT_TYPE,
+                        if proto {
+                            "application/proto"
+                        } else {
+                            "application/json"
+                        },
+                    )
+                    .header("Connect-Protocol-Version", "1")
+                    .body(body.clone())
+                    .send()
+                    .await?;
+                ensure!(
+                    response.status() == expected_status,
+                    "{service}/{method}: status differs"
+                );
+                let actual = response.bytes().await?;
+                if proto && expected_status.is_success() {
+                    ensure!(
+                        actual.as_ref() == expected,
+                        "{service}/{method}: protobuf answer differs"
+                    );
                 } else {
-                    "application/json"
-                },
-            )
-            .header("Connect-Protocol-Version", "1")
-            .body(body)
-            .send()
-            .await?;
-        ensure!(
-            response.status().is_success(),
-            "legacy path returned {}",
-            response.status()
-        );
-        let bytes = response.bytes().await?;
-        let city = if proto {
-            FullAddress::decode_from_slice(&bytes)?
-                .address_details
-                .as_option()
-                .map(|d| d.city.clone())
-                .unwrap_or_default()
-        } else {
-            serde_json::from_slice::<Value>(&bytes)?["addressDetails"]["city"]
-                .as_str()
-                .unwrap_or("")
-                .to_string()
-        };
-        ensure!(city == "Copenhagen", "legacy path answer: {city:?}");
+                    ensure!(
+                        serde_json::from_slice::<Value>(&actual)?
+                            == serde_json::from_slice::<Value>(&expected)?,
+                        "{service}/{method}: JSON answer differs"
+                    );
+                }
+            }
+        }
     }
-    println!("PASS: legacy nominatim_geolocation.NominatimGeolocation paths (JSON and protobuf)");
+    println!("PASS: both legacy RPC aliases match canonical JSON/protobuf responses and errors");
 
     env.set(|f| {
         f.mode = "local";
@@ -451,7 +494,17 @@ async fn checks(env: &mut Env) -> Result<()> {
     if which("grpcurl") {
         let address = env.rpc.trim_start_matches("http://").to_string();
         let services = grpcurl(&["-plaintext", "-max-time", "5", &address, "list"]).await?;
-        ensure!(services.contains(SERVICE), "{services}");
+        ensure!(
+            services.lines().any(|service| service == SERVICE),
+            "{services}"
+        );
+        ensure!(
+            !services.lines().any(|service| matches!(
+                service,
+                "geolocation.Geolocation" | "nominatim_geolocation.NominatimGeolocation"
+            )),
+            "reflection exposes legacy services: {services}"
+        );
         let body = grpcurl(&[
             "-plaintext",
             "-max-time",
@@ -472,6 +525,7 @@ async fn checks(env: &mut Env) -> Result<()> {
     ensure!(metrics.contains("nominatim_geolocation_query_tier_total"));
     ensure!(
         metrics.contains("grpc_requests_total")
+            && metrics.contains(r#"grpc_service="opengeocoding.Geolocation""#)
             && metrics.contains(r#"organization_id="rpc-test""#)
     );
     let mut child = env.child.take().context("service process")?;

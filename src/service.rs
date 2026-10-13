@@ -1,5 +1,5 @@
 use crate::{
-    matching::search_override, metrics::METRICS, proto::geolocation::*, regions::Regions,
+    matching::search_override, metrics::METRICS, proto::opengeocoding::*, regions::Regions,
     resolver::Resolver,
 };
 use anyhow::Result;
@@ -17,7 +17,7 @@ impl Service {
         method: &str,
         operation: impl Future<Output = Result<T>>,
     ) -> ServiceResult<T> {
-        let service = "geolocation.Geolocation";
+        let service = "opengeocoding.Geolocation";
         let organization = ctx
             .headers()
             .get("x-organization-id")

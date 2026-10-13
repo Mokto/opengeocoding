@@ -1,4 +1,4 @@
-use crate::{matching::*, metrics::METRICS, proto::geolocation::*};
+use crate::{matching::*, metrics::METRICS, proto::opengeocoding::*};
 use anyhow::{Context, Result, bail, ensure};
 use reqwest::{Client, Url};
 use serde_json::{Value, json};

@@ -6,20 +6,20 @@ use geolocation::{metrics::METRICS, regions::Regions, resolver::Resolver, servic
 use std::{borrow::Cow, sync::Arc, time::Duration};
 use tokio::sync::watch;
 
-/// Clients generated before the package and service rename call `/nominatim_geolocation.NominatimGeolocation/*`.
-/// Messages and field numbers are unchanged, so those paths are served by the renamed one.
 async fn legacy_package(mut request: Request) -> Request {
-    if let Some(rest) = request
-        .uri()
-        .path()
-        .strip_prefix("/nominatim_geolocation.NominatimGeolocation/")
+    if let Some(rest) = [
+        "/geolocation.Geolocation/",
+        "/nominatim_geolocation.NominatimGeolocation/",
+    ]
+    .iter()
+    .find_map(|prefix| request.uri().path().strip_prefix(prefix))
     {
         let query = request
             .uri()
             .query()
             .map(|q| format!("?{q}"))
             .unwrap_or_default();
-        if let Ok(path) = format!("/geolocation.Geolocation/{rest}{query}").parse() {
+        if let Ok(path) = format!("/opengeocoding.Geolocation/{rest}{query}").parse() {
             let mut parts = request.uri().clone().into_parts();
             parts.path_and_query = Some(path);
             if let Ok(uri) = Uri::from_parts(parts) {
@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
         "/reflection.bin"
     )))?
     .with_services([
-        "geolocation.Geolocation",
+        "opengeocoding.Geolocation",
         "grpc.reflection.v1.ServerReflection",
         "grpc.reflection.v1alpha.ServerReflection",
     ]);
@@ -94,7 +94,7 @@ async fn main() -> Result<()> {
         "GetRegionMap",
     ] {
         connect = connect.with_route_limits(
-            &format!("geolocation.Geolocation/{method}"),
+            &format!("opengeocoding.Geolocation/{method}"),
             Limits::unlimited(),
         );
     }
@@ -147,26 +147,38 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn legacy_rpc_path_is_preserved() {
-        for (path, expected) in [
-            (
-                "/nominatim_geolocation.NominatimGeolocation/SearchAddress",
-                "/geolocation.Geolocation/SearchAddress",
-            ),
-            (
-                "/nominatim_geolocation.NominatimGeolocation/ResolveRegion?key=value",
-                "/geolocation.Geolocation/ResolveRegion?key=value",
-            ),
-            (
-                "/geolocation.Geolocation/SearchAddress",
-                "/geolocation.Geolocation/SearchAddress",
-            ),
+    async fn legacy_rpc_paths_are_preserved() {
+        for service in [
+            "opengeocoding.Geolocation",
+            "geolocation.Geolocation",
+            "nominatim_geolocation.NominatimGeolocation",
         ] {
+            for method in [
+                "SearchAddress",
+                "ResolveRegion",
+                "RefreshRegionMap",
+                "GetRegionMap",
+            ] {
+                let request = Request::builder()
+                    .uri(format!(
+                        "http://localhost/{service}/{method}?key=%2Fvalue&key=other"
+                    ))
+                    .body(axum::body::Body::empty())
+                    .unwrap();
+                assert_eq!(
+                    legacy_package(request).await.uri().to_string(),
+                    format!(
+                        "http://localhost/opengeocoding.Geolocation/{method}?key=%2Fvalue&key=other"
+                    )
+                );
+            }
+        }
+        for path in ["/healthz", "/geolocation.GeolocationExtra/SearchAddress"] {
             let request = Request::builder()
                 .uri(path)
                 .body(axum::body::Body::empty())
                 .unwrap();
-            assert_eq!(legacy_package(request).await.uri().to_string(), expected);
+            assert_eq!(legacy_package(request).await.uri().to_string(), path);
         }
     }
 }

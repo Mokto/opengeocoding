@@ -20,7 +20,7 @@ use std::{
 };
 
 const UA: &str =
-    "geolocation-eval/0.1 (https://github.com/Mokto/geolocation; test corpus curation)";
+    "geolocation-eval/0.1 (https://github.com/Mokto/opengeocoding; test corpus curation)";
 static NON_LATIN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[^\x00-\x{024f}\s]").unwrap());
 static NUMBERS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"-?[\d.]+").unwrap());
 

@@ -15,7 +15,7 @@ use axum::{
 use buffa::Message;
 use geolocation::{
     eval::sha256_hex,
-    proto::geolocation::{FullAddress, SearchAddressTask},
+    proto::opengeocoding::{FullAddress, SearchAddressTask},
     regions::python_repr,
     resolver::check_index_status,
 };
@@ -32,7 +32,7 @@ use std::{
 };
 use tokio::process::{Child, Command};
 
-const SERVICE: &str = "geolocation.Geolocation";
+const SERVICE: &str = "opengeocoding.Geolocation";
 
 pub struct Options {
     pub suite: String,
@@ -1057,7 +1057,7 @@ mod tests {
             serde_json::from_str(r#"{"geoCoordinates":{"lat":55.686726,"lon":12.570072}}"#)
                 .unwrap();
         let message = FullAddress {
-            geo_coordinates: geolocation::proto::geolocation::GeoCoordinates {
+            geo_coordinates: geolocation::proto::opengeocoding::GeoCoordinates {
                 lat: 55.686_726,
                 lon: 12.570_072,
                 ..Default::default()

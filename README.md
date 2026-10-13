@@ -1,4 +1,4 @@
-# Geolocation
+# OpenGeocoding
 
 A Rust service that combines libpostal address parsing, Overture-backed index lookups and ClickHouse-backed administrative regions.
 
@@ -65,13 +65,19 @@ Addresses inside Docker must be reachable from the container; `localhost` refers
 Example request:
 
 ```sh
-curl http://localhost:11121/geolocation.Geolocation/SearchAddress \
+curl http://localhost:11121/opengeocoding.Geolocation/SearchAddress \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{"addressString":"Copenhagen, Denmark"}'
 ```
 
-The contract is `proto/geolocation-v1.proto`, package `geolocation`, service `Geolocation`. The four methods are `SearchAddress`, `ResolveRegion`, `RefreshRegionMap` and `GetRegionMap`. Clients generated from the earlier `nominatim_geolocation.NominatimGeolocation` service keep working: `/nominatim_geolocation.NominatimGeolocation/*` is served by the same service, with identical messages and field numbers. gRPC reflection lists only the new names.
+The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `Geolocation`. The four methods are `SearchAddress`, `ResolveRegion`, `RefreshRegionMap` and `GetRegionMap`.
+
+### Client migration
+
+Regenerate clients from `proto/opengeocoding-v1.proto` and use `/opengeocoding.Geolocation/*`. The Go package is `github.com/Mokto/opengeocoding/gen/opengeocoding`; the Rust crate remains `geolocation`, with generated types under `geolocation::proto::opengeocoding`.
+
+Existing clients can continue using `/geolocation.Geolocation/*` and `/nominatim_geolocation.NominatimGeolocation/*`. Both are compatibility aliases for every method, with unchanged message fields, numbers and types. Keep these aliases until callers have migrated; they do not enable a Nominatim backend. gRPC reflection advertises only `opengeocoding.Geolocation`, and the `grpc_service` metric label uses this canonical name on all routes.
 
 ## Known interoperability issue
 
@@ -155,7 +161,7 @@ target/release/benchmark \
 
 The default matrix covers 1/10/100 candidates, local-language corroboration, postcode fallback, concurrency 1/8, and backend delays of 0/10 ms. Service order rotates between rounds. Connections and caches are warmed outside each timed batch. Mock responses are pre-encoded and TCP delayed-ACK artifacts are disabled; injected delays still depend on operating-system scheduling.
 
-To benchmark the legacy RPC route, use `--service legacy=http://127.0.0.1:18121/nominatim_geolocation.NominatimGeolocation`. A service URL without a route uses `geolocation.Geolocation`; an explicit `/geolocation.Geolocation` suffix also works. Both RPC routes use the same index-backed resolver.
+A benchmark service URL without a route uses `opengeocoding.Geolocation`; an explicit `/opengeocoding.Geolocation` suffix also works. To benchmark old clients, use `--service legacy=http://127.0.0.1:18121/geolocation.Geolocation` or `--service legacy=http://127.0.0.1:18121/nominatim_geolocation.NominatimGeolocation`. All three routes use the same index-backed resolver.
 
 Use at least one complete rotation of all service names. Keep timed batches below the servers' per-connection request limits. Compare release builds on the same machine. Results include the mock, client, HTTP transport, native parsing and RPC framework; they are not production throughput or accuracy guarantees.
 
@@ -257,6 +263,8 @@ GitHub-hosted runners cannot reach an IP-restricted backend and do not download 
 ## GHCR publishing
 
 `.github/workflows/docker.yml` runs on pushes to `main`, `v*` tag pushes and manual dispatch. It runs the existing checks first, then uses Docker's pinned reusable workflow to build on native amd64/arm64 runners, push to `ghcr.io/mokto/geolocation`, and assemble and verify the multi-platform manifest. Pull requests do not publish images.
+
+The repository is `Mokto/opengeocoding`; the existing GHCR image remains `ghcr.io/mokto/geolocation`. The repository rename does not rename the Rust crate, executable or registry package.
 
 Tags include the sanitized branch name and `sha-<full-commit-SHA>`. A `v1.2.3` Git tag produces `1.2.3`; only `main` updates `latest`. Publishing uses the workflow's `GITHUB_TOKEN` with `packages: write`, so no personal access token secret is required. OCI labels link the package to this repository. Crates and GitHub releases are not published.
 

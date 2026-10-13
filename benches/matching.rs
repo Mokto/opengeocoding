@@ -2,7 +2,7 @@
 use divan::black_box;
 use geolocation::{
     matching::*,
-    proto::geolocation::{AddressDetails, FullAddress},
+    proto::opengeocoding::{AddressDetails, FullAddress},
     resolver::format_response,
 };
 use serde_json::json;
