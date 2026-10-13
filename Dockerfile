@@ -22,6 +22,7 @@ COPY proto proto
 COPY data data
 COPY src src
 COPY tests tests
+COPY benches benches
 ENV RUSTFLAGS="-L native=/usr/local/lib"
 RUN cargo build --locked --release --bin geolocation
 

@@ -44,3 +44,19 @@ serde_json = "1"
 [profile.release]
 lto = "thin"
 strip = true
+
+# CodSpeed's profiles need symbols.
+[profile.bench]
+strip = false
+debug = true
+
+[dev-dependencies]
+divan = { package = "codspeed-divan-compat", version = "5.0.2" }
+
+[[bench]]
+name = "index"
+harness = false
+
+[[bench]]
+name = "matching"
+harness = false

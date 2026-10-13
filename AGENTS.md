@@ -22,6 +22,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - `src/bin/build_index/`: experimental Overture-to-Tantivy index builder (polygon assignment, street merging, house-number FSTs; `sources.rs` reads OSM and OpenAddresses); `src/bin/serve_index/`: Nominatim-compatible HTTP shim over that index, for evaluating it through the unchanged service; not used by the service.
 - `src/bin/evaluate/`, `src/eval.rs`: geographic-correctness evaluator (scoring, runs, reports, snapshots, gold builder) and the TSV/hold-out helpers it shares with external samplers.
 - `tests/gold.seeds.jsonl`, `tests/gold.jsonl`: curated gold case list and the corpus generated from it.
+- `benches/`: CodSpeed benchmark suites (divan); `.github/workflows/codspeed.yml` runs them.
 - `tests/addresses.tsv`, `tests/snapshots/addresses.tsv`: unscored real-address corpus and its accepted snapshot for change detection.
 - `Dockerfile`, `.github/workflows/`: runtime packaging, CI and GHCR publishing.
 
