@@ -140,10 +140,34 @@ pub fn slug(text: &str) -> String {
     }
 }
 
+/// "Q1748" from a SPARQL binding of an entity URI.
+fn entity(binding: &Value) -> String {
+    binding["value"]
+        .as_str()
+        .unwrap_or("")
+        .rsplit('/')
+        .next()
+        .unwrap_or("")
+        .to_string()
+}
+
+/// The postcode of a "number street, postcode town" reference: the last five-digit number, since
+/// a house number can have five digits too.
+fn last_five_digits(text: &str) -> Result<String> {
+    static FIVE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b\d{5}\b").unwrap());
+    Ok(FIVE
+        .find_iter(text)
+        .last()
+        .context("no five-digit postcode")?
+        .as_str()
+        .into())
+}
+
 fn round6(value: f64) -> f64 {
     crate::score::round(value, 6)
 }
 
+#[derive(Clone)]
 struct Sources {
     client: Client,
 }
@@ -156,15 +180,19 @@ impl Sources {
             if attempt > 0 {
                 tokio::time::sleep(Duration::from_secs(5)).await;
             }
-            match self
+            // Wikidata cuts a body short when a query hits its time limit: retry that too.
+            let response = self
                 .client
                 .get(url)
                 .query(params)
                 .send()
                 .await
-                .and_then(|r| r.error_for_status())
-            {
-                Ok(response) => return Ok(response.json().await?),
+                .and_then(|r| r.error_for_status());
+            match response {
+                Ok(response) => match response.json().await {
+                    Ok(value) => return Ok(value),
+                    Err(error) => last = Some(error),
+                },
                 Err(error) => last = Some(error),
             }
         }
@@ -188,34 +216,33 @@ impl Sources {
     async fn wikidata(&self, qids: &BTreeSet<String>) -> Result<BTreeMap<String, Item>> {
         let mut found: BTreeMap<String, Item> = BTreeMap::new();
         let ordered: Vec<_> = qids.iter().collect();
-        for batch in ordered.chunks(20) {
+        for batch in ordered.chunks(50) {
             let values = batch
                 .iter()
                 .map(|q| format!("wd:{q}"))
                 .collect::<Vec<_>>()
                 .join(" ");
-            let qid = |row: &Value| {
-                row["item"]["value"]
-                    .as_str()
-                    .unwrap_or("")
-                    .rsplit('/')
-                    .next()
-                    .unwrap_or("")
-                    .to_string()
-            };
-            for row in self
-                .sparql(&format!(
-                    r#"SELECT ?item ?coord ?iso ?label ?own WHERE {{ VALUES ?item {{ {values} }}
-                    OPTIONAL {{ ?item wdt:P625 ?coord }} OPTIONAL {{ ?item wdt:P17/wdt:P297 ?iso }} OPTIONAL {{ ?item wdt:P300 ?own }}
-                    OPTIONAL {{ ?item rdfs:label ?label FILTER(lang(?label) = "en") }} }}"#
-                ))
-                .await?
-            {
+            let qid = |row: &Value| entity(&row["item"]);
+            let own = format!(
+                r#"SELECT ?item ?coord ?iso ?label ?own WHERE {{ VALUES ?item {{ {values} }}
+                OPTIONAL {{ ?item wdt:P625 ?coord }} OPTIONAL {{ ?item wdt:P17/wdt:P297 ?iso }} OPTIONAL {{ ?item wdt:P300 ?own }}
+                OPTIONAL {{ ?item rdfs:label ?label FILTER(lang(?label) = "en") }} }}"#
+            );
+            // Each item's located-in (P131) chain, then those areas' codes: one transitive query
+            // that also returns the codes repeats them once per path and takes Wikidata ~30 s.
+            let chain = format!(
+                "SELECT DISTINCT ?item ?area WHERE {{ VALUES ?item {{ {values} }} ?item wdt:P131* ?area }}"
+            );
+            let (own, chain) = tokio::try_join!(self.sparql(&own), self.sparql(&chain))?;
+            for row in own {
                 let item = found.entry(qid(&row)).or_default();
                 if let Some(coord) = row["coord"]["value"].as_str()
                     && item.point.is_none()
                 {
-                    let numbers: Vec<f64> = NUMBERS.find_iter(coord).filter_map(|m| m.as_str().parse().ok()).collect();
+                    let numbers: Vec<f64> = NUMBERS
+                        .find_iter(coord)
+                        .filter_map(|m| m.as_str().parse().ok())
+                        .collect();
                     ensure!(numbers.len() == 2, "coordinate {coord}");
                     item.point = Some([round6(numbers[1]), round6(numbers[0])]);
                 }
@@ -225,33 +252,46 @@ impl Sources {
                 item.label = row["label"]["value"].as_str().unwrap_or("").into();
                 item.subdivision |= row.get("own").is_some();
             }
-            for row in self
-                .sparql(&format!(
-                    "SELECT ?item ?code WHERE {{ VALUES ?item {{ {values} }}
-                    ?item wdt:P131* ?area . ?area wdt:P300 ?code FILTER NOT EXISTS {{ ?area wdt:P297 ?country }} }}"
-                ))
-                .await?
-            {
-                let code = row["code"]["value"].as_str().unwrap_or("").to_uppercase();
-                found.entry(qid(&row)).or_default().codes.insert(code);
-            }
-            // Territories with their own ISO code (American Samoa, Åland, Réunion) answer as
-            // either that code or the sovereign country's.
-            for row in self
-                .sparql(&format!(
-                    "SELECT ?item ?iso WHERE {{ VALUES ?item {{ {values} }}
-                    ?item wdt:P131* ?area . ?area wdt:P297 ?iso }}"
-                ))
-                .await?
-            {
-                let iso = row["iso"]["value"].as_str().unwrap_or("").to_lowercase();
-                if let Some(item) = found.get_mut(&qid(&row))
-                    && !item.iso.is_empty()
+            let chain: Vec<(String, String)> = chain
+                .iter()
+                .map(|row| (qid(row), entity(&row["area"])))
+                .collect();
+            let areas: BTreeSet<&str> = chain.iter().map(|(_, a)| a.as_str()).collect();
+            // area -> (ISO 3166-2 code if it isn't a country, ISO 3166-1 code if it is)
+            let mut codes: BTreeMap<String, (Vec<String>, Vec<String>)> = BTreeMap::new();
+            for group in areas.into_iter().collect::<Vec<_>>().chunks(200) {
+                let values = group
+                    .iter()
+                    .map(|a| format!("wd:{a}"))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                for row in self
+                    .sparql(&format!(
+                        "SELECT ?area ?code ?iso WHERE {{ VALUES ?area {{ {values} }}
+                        OPTIONAL {{ ?area wdt:P300 ?code }} OPTIONAL {{ ?area wdt:P297 ?iso }} }}"
+                    ))
+                    .await?
                 {
-                    item.iso.insert(iso);
+                    let entry = codes.entry(entity(&row["area"])).or_default();
+                    match (row["code"]["value"].as_str(), row["iso"]["value"].as_str()) {
+                        (_, Some(iso)) => entry.1.push(iso.to_lowercase()),
+                        (Some(code), None) => entry.0.push(code.to_uppercase()),
+                        _ => {}
+                    }
                 }
             }
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            for (item, area) in &chain {
+                let Some((subdivisions, countries)) = codes.get(area) else {
+                    continue;
+                };
+                let item = found.entry(item.clone()).or_default();
+                item.codes.extend(subdivisions.iter().cloned());
+                // Territories with their own ISO code (American Samoa, Åland, Réunion) answer
+                // as either that code or the sovereign country's.
+                if !item.iso.is_empty() {
+                    item.iso.extend(countries.iter().cloned());
+                }
+            }
         }
         let missing: Vec<_> = qids.iter().filter(|q| !found.contains_key(*q)).collect();
         ensure!(missing.is_empty(), "Wikidata items not found: {missing:?}");
@@ -312,7 +352,7 @@ impl Sources {
                 let feature = &result["features"][0];
                 let props = &feature["properties"];
                 let house = query.split_whitespace().next().unwrap_or("").to_string();
-                let postcode = first(r"\b\d{5}\b", query)?;
+                let postcode = last_five_digits(query)?;
                 ensure!(
                     props["type"] == "housenumber" && props["score"].as_f64().unwrap_or(0.) > 0.8,
                     "BAN match {props}"
@@ -395,7 +435,7 @@ impl Sources {
                 ensure!(matches.len() == 1, "Census matches {matches:?}");
                 let matched = &matches[0];
                 let house = query.split_whitespace().next().unwrap_or("").to_string();
-                let postcode = first(r"\b\d{5}\b", query)?;
+                let postcode = last_five_digits(query)?;
                 let address = matched["matchedAddress"].as_str().unwrap_or("");
                 ensure!(
                     address.starts_with(&format!("{house} ")) && address.contains(&postcode),
@@ -558,6 +598,53 @@ impl Sources {
     }
 }
 
+/// (source, ref) of a seed answered by an address registry rather than Wikidata.
+fn registry_ref(seed: &Seed) -> Option<(String, String)> {
+    (matches!(seed.kind.as_str(), "address" | "postcode")
+        && seed.source.as_deref() != Some("wikidata"))
+    .then(|| Some((seed.source.clone()?, seed.reference.clone()?)))
+    .flatten()
+}
+
+/// Every distinct registry reference, looked up once: one task per registry, so the slow ones
+/// (the Census geocoder) don't hold up the rest, and requests to each stay sequential and spaced.
+async fn lookups(
+    sources: &Sources,
+    seeds: &[Seed],
+) -> Result<BTreeMap<(String, String), (Found, String)>> {
+    let mut by_source: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for seed in seeds {
+        if matches!(seed.kind.as_str(), "address" | "postcode")
+            && seed.source.as_deref() != Some("wikidata")
+        {
+            let (source, reference) =
+                registry_ref(seed).context("address seeds need a source and ref")?;
+            by_source.entry(source).or_default().insert(reference);
+        }
+    }
+    let mut tasks = tokio::task::JoinSet::new();
+    for (source, refs) in by_source {
+        let sources = sources.clone();
+        tasks.spawn(async move {
+            let mut out = vec![];
+            for reference in refs {
+                let found = sources
+                    .lookup(&source, &reference)
+                    .await
+                    .with_context(|| format!("{source} {reference}"))?;
+                out.push(((source.clone(), reference), found));
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+            anyhow::Ok(out)
+        });
+    }
+    let mut all = BTreeMap::new();
+    while let Some(done) = tasks.join_next().await {
+        all.extend(done??);
+    }
+    Ok(all)
+}
+
 pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
     let seeds: Vec<Seed> = crate::model::load_jsonl::<Value>(seeds_path)?
         .into_iter()
@@ -584,7 +671,7 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
             qids.extend(alt["qid"].as_str().map(String::from));
         }
     }
-    let wd = sources.wikidata(&qids).await?;
+    let (wd, looked_up) = tokio::try_join!(sources.wikidata(&qids), lookups(&sources, &seeds))?;
     // Any listed code is acceptable: OSM tags different levels per country (FR-IDF and FR-75C, IE-L and IE-D).
     let region = |qid: Option<&str>, extra: &[String]| -> Vec<String> {
         // Only ISO 3166-2 codes: Somaliland's "SL" sits on Sanaag's chain too.
@@ -608,21 +695,9 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
     for seed in &seeds {
         let good_match = seed.good_match.clone().unwrap_or(json!(true));
         let item = seed.qid.as_deref().map(|q| &wd[q]);
-        let mut found = None;
-        if matches!(seed.kind.as_str(), "address" | "postcode")
-            && seed.source.as_deref() != Some("wikidata")
-        {
-            let reference = seed
-                .reference
-                .as_deref()
-                .context("address seeds need a ref")?;
-            found = Some(
-                sources
-                    .lookup(seed.source.as_deref().unwrap_or(""), reference)
-                    .await?,
-            );
-            tokio::time::sleep(Duration::from_millis(300)).await;
-        }
+        let found = registry_ref(seed)
+            .map(|key| looked_up.get(&key).context("looked up"))
+            .transpose()?;
         for query in &seed.queries {
             let cohort = seed.cohort.clone().unwrap_or_else(|| seed.kind.clone());
             let (expect, location, label, case_source) = match seed.kind.as_str() {
@@ -722,7 +797,7 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
                         .reference
                         .as_deref()
                         .context("address seeds need a ref")?;
-                    let (point, components, floor, country, regions, id) = match &found {
+                    let (point, components, floor, country, regions, id) = match found {
                         None => {
                             let postcode =
                                 seed.queries[0].split(',').next().unwrap_or("").to_string();
@@ -750,7 +825,26 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
                                 found.point,
                                 json!(found.components),
                                 found.radius_floor_km,
-                                vec![country.to_string()],
+                                // overseas departments answer with their own ISO code too
+                                std::iter::once(country)
+                                    .chain(
+                                        found
+                                            .components
+                                            .get("postcode")
+                                            .filter(|_| name == "ban")
+                                            .and_then(|pc| {
+                                                Some(match pc.get(..3)? {
+                                                    "971" => "gp",
+                                                    "972" => "mq",
+                                                    "973" => "gf",
+                                                    "974" => "re",
+                                                    "976" => "yt",
+                                                    _ => return None,
+                                                })
+                                            }),
+                                    )
+                                    .map(String::from)
+                                    .collect(),
                                 region(seed.city.as_deref(), &[]),
                                 id.clone(),
                             )
@@ -891,6 +985,18 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn five_digit_house_numbers_are_not_postcodes() {
+        assert_eq!(
+            last_five_digits("11626 Old Statesville Rd, Huntersville, NC 28078").unwrap(),
+            "28078"
+        );
+        assert_eq!(
+            last_five_digits("12 Rue de la Paix, 75002 Paris").unwrap(),
+            "75002"
+        );
+    }
 
     #[test]
     fn slugs_match_the_existing_ids() {
