@@ -7,9 +7,10 @@ on:
   # lets CodSpeed backfill a baseline
   workflow_dispatch:
 
-# Public repository: CodSpeed accepts results without a token.
 permissions:
   contents: read
+  # OIDC authentication with CodSpeed
+  id-token: write
 
 env:
   LIBPOSTAL_COMMIT: 25099c506612b34b23b1bfe286ca6321fcf06f35
@@ -46,7 +47,7 @@ jobs:
           cargo install cargo-codspeed --locked --version 5.0.2
       - name: Build the benchmarks
         run: cargo codspeed build
-      - uses: CodSpeedHQ/action@f842b9a3ffe213dbb81768fd7f7eeb4dfcf1c369
+      - uses: CodSpeedHQ/action@f842b9a3ffe213dbb81768fd7f7eeb4dfcf1c369 # v5.4.2
         with:
           mode: simulation
           run: cargo codspeed run
