@@ -51,7 +51,7 @@ jobs:
           key: libpostal-models-${{ env.LIBPOSTAL_COMMIT }}
       - name: Download libpostal models
         if: vars.BENCH_FIXTURE_URL != '' && steps.models.outputs.cache-hit != 'true'
-        run: ${LIBPOSTAL_PREFIX}/bin/libpostal_data download all "$LIBPOSTAL_MODELS"
+        run: ${LIBPOSTAL_PREFIX}/bin/libpostal_data download all "$LIBPOSTAL_MODELS/libpostal"
       - name: Fetch the index fixture
         if: vars.BENCH_FIXTURE_URL != ''
         env:
