@@ -765,7 +765,7 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
                         "radius_km": seed.radius_km.unwrap_or(0.15).max(floor),
                         "region": regions,
                         "components": components,
-                        "good_match": true,
+                        "good_match": good_match,
                     });
                     (
                         expect,
