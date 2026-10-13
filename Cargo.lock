@@ -1012,41 +1012,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "geolocation"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arrow-array",
- "axum",
- "buffa",
- "codspeed-divan-compat",
- "connectrpc",
- "connectrpc-build",
- "connectrpc-reflection",
- "deunicode",
- "flate2",
- "indexmap",
- "mimalloc",
- "osmpbf",
- "parquet",
- "prometheus",
- "rayon",
- "regex",
- "reqwest",
- "ring",
- "rstar",
- "rustpostal",
- "sentry",
- "serde",
- "serde_json",
- "tantivy",
- "tantivy-fst",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1962,6 +1927,41 @@ name = "oneshot"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "269bca4c2591a28585d6bf10d9ed0332b7d76900a1b02bec41bdc3a2cdcda107"
+
+[[package]]
+name = "opengeocoding"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arrow-array",
+ "axum",
+ "buffa",
+ "codspeed-divan-compat",
+ "connectrpc",
+ "connectrpc-build",
+ "connectrpc-reflection",
+ "deunicode",
+ "flate2",
+ "indexmap",
+ "mimalloc",
+ "osmpbf",
+ "parquet",
+ "prometheus",
+ "rayon",
+ "regex",
+ "reqwest",
+ "ring",
+ "rstar",
+ "rustpostal",
+ "sentry",
+ "serde",
+ "serde_json",
+ "tantivy",
+ "tantivy-fst",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "ordered-float"

@@ -1,5 +1,5 @@
 use crate::{
-    proto::geolocation::{ISO3166_2, Region},
+    proto::opengeocoding::{ISO3166_2, Region},
     resolver::Resolver,
 };
 use anyhow::{Context, Result, ensure};

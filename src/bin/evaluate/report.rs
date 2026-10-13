@@ -3,8 +3,8 @@ use crate::{
     score::{CLASSES, DRIFT_KINDS, Summary, critical, drift, haversine, severity, snapshot_point},
 };
 use anyhow::{Context, Result};
-use geolocation::eval::{Row, read_tsv, write_tsv};
 use indexmap::IndexMap;
+use opengeocoding::eval::{Row, read_tsv, write_tsv};
 use serde_json::Value;
 use std::{collections::BTreeMap, fmt::Write as _, path::Path};
 
@@ -251,7 +251,7 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
     let status = &manifest["backend"]["status"];
     let _ = writeln!(
         out,
-        "# Geolocation evaluation ({}, {} cases)\n",
+        "# OpenGeocoding evaluation ({}, {} cases)\n",
         manifest["suite"].as_str().unwrap_or("?"),
         results.len()
     );

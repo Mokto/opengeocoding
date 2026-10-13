@@ -1,4 +1,4 @@
-use crate::proto::geolocation::{AddressDetails, FullAddress};
+use crate::proto::opengeocoding::{AddressDetails, FullAddress};
 use indexmap::IndexMap;
 use regex::Regex;
 use serde::Deserialize;

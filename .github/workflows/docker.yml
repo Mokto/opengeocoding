@@ -18,7 +18,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   publish:
-    if: github.repository == 'Mokto/geolocation'
+    if: github.repository == 'Mokto/opengeocoding'
     needs: checks
     uses: docker/github-builder/.github/workflows/build.yml@58cb9f5b71b1836d6f690c1e95effdeb9b98cb8a
     permissions:
@@ -32,7 +32,7 @@ jobs:
       platforms: linux/amd64,linux/arm64
       cache: true
       cache-mode: max
-      meta-images: ghcr.io/mokto/geolocation
+      meta-images: ghcr.io/mokto/opengeocoding
       meta-flavor: latest=false
       meta-tags: |
         type=sha,prefix=sha-,format=long
@@ -63,5 +63,5 @@ jobs:
         env:
           DIGEST: ${{ needs.publish.outputs.digest }}
         run: |
-          docker buildx imagetools inspect "ghcr.io/mokto/geolocation@$DIGEST" --raw |
+          docker buildx imagetools inspect "ghcr.io/mokto/opengeocoding@$DIGEST" --raw |
             jq -e '[.manifests[].platform | .os + "/" + .architecture] | contains(["linux/amd64", "linux/arm64"])'

@@ -6,8 +6,8 @@
 
 use crate::{report::sorted, run::utc_now};
 use anyhow::{Context, Result, bail, ensure};
-use geolocation::eval::{holdout, sha256_hex};
 use indexmap::IndexMap;
+use opengeocoding::eval::{holdout, sha256_hex};
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Deserializer};
@@ -20,7 +20,7 @@ use std::{
 };
 
 const UA: &str =
-    "geolocation-eval/0.1 (https://github.com/Mokto/geolocation; test corpus curation)";
+    "opengeocoding-eval/0.1 (https://github.com/Mokto/opengeocoding; test corpus curation)";
 static NON_LATIN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[^\x00-\x{024f}\s]").unwrap());
 static NUMBERS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"-?[\d.]+").unwrap());
 

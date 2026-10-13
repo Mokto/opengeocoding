@@ -237,12 +237,13 @@ fn endpoint(url: &str) -> Result<String> {
 }
 
 fn search_endpoint(base: &str) -> String {
-    if base.ends_with("/geolocation.Geolocation")
+    if base.ends_with("/opengeocoding.Geolocation")
+        || base.ends_with("/geolocation.Geolocation")
         || base.ends_with("/nominatim_geolocation.NominatimGeolocation")
     {
         format!("{base}/SearchAddress")
     } else {
-        format!("{base}/geolocation.Geolocation/SearchAddress")
+        format!("{base}/opengeocoding.Geolocation/SearchAddress")
     }
 }
 
@@ -500,7 +501,11 @@ mod tests {
     #[test]
     fn fixtures_validation_and_percentiles() {
         for (base, service) in [
-            ("http://localhost:11121", "geolocation.Geolocation"),
+            ("http://localhost:11121", "opengeocoding.Geolocation"),
+            (
+                "http://localhost:11121/opengeocoding.Geolocation",
+                "opengeocoding.Geolocation",
+            ),
             (
                 "http://localhost:11121/geolocation.Geolocation",
                 "geolocation.Geolocation",

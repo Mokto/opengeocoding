@@ -13,9 +13,9 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use buffa::Message;
-use geolocation::{
+use opengeocoding::{
     eval::sha256_hex,
-    proto::geolocation::{FullAddress, SearchAddressTask},
+    proto::opengeocoding::{FullAddress, SearchAddressTask},
     regions::python_repr,
     resolver::check_index_status,
 };
@@ -32,7 +32,7 @@ use std::{
 };
 use tokio::process::{Child, Command};
 
-const SERVICE: &str = "geolocation.Geolocation";
+const SERVICE: &str = "opengeocoding.Geolocation";
 
 pub struct Options {
     pub suite: String,
@@ -204,7 +204,7 @@ async fn rpc(
             },
         )
         .header("Connect-Protocol-Version", "1")
-        .header("x-organization-id", "geolocation-eval")
+        .header("x-organization-id", "opengeocoding-eval")
         .timeout(Duration::from_secs(120))
         .body(body)
         .send()
@@ -719,7 +719,7 @@ impl Local {
         }));
         self.clickhouse_url =
             std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://127.0.0.1:8125".into());
-        let database = format!("geolocation_eval_{}", std::process::id());
+        let database = format!("opengeocoding_eval_{}", std::process::id());
         clickhouse(
             client,
             &self.clickhouse_url,
@@ -727,7 +727,8 @@ impl Local {
         )
         .await?;
         self.database = Some(database.clone());
-        let map_dir = std::env::temp_dir().join(format!("geolocation-eval-{}", std::process::id()));
+        let map_dir =
+            std::env::temp_dir().join(format!("opengeocoding-eval-{}", std::process::id()));
         std::fs::create_dir_all(&map_dir)?;
         self.map_dir = Some(map_dir.clone());
         std::fs::write(map_dir.join("regions.json"), "{}")?;
@@ -894,7 +895,7 @@ pub async fn run(options: Options) -> Result<i32> {
         }
         let binary = std::env::var_os("SERVICE_BINARY")
             .map(PathBuf::from)
-            .unwrap_or_else(|| root().join("target/release/geolocation"));
+            .unwrap_or_else(|| root().join("target/release/opengeocoding"));
         let base = local
             .start(
                 &client,
@@ -1057,7 +1058,7 @@ mod tests {
             serde_json::from_str(r#"{"geoCoordinates":{"lat":55.686726,"lon":12.570072}}"#)
                 .unwrap();
         let message = FullAddress {
-            geo_coordinates: geolocation::proto::geolocation::GeoCoordinates {
+            geo_coordinates: opengeocoding::proto::opengeocoding::GeoCoordinates {
                 lat: 55.686_726,
                 lon: 12.570_072,
                 ..Default::default()

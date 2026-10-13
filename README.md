@@ -1,4 +1,4 @@
-# Geolocation
+# OpenGeocoding
 
 A Rust service that combines libpostal address parsing, Overture-backed index lookups and ClickHouse-backed administrative regions.
 
@@ -16,14 +16,14 @@ This is an initial implementation, not a production accuracy or throughput guara
 Build the image locally:
 
 ```sh
-docker build -t geolocation .
+docker build -t opengeocoding .
 ```
 
 Or pull a published image:
 
 ```sh
-docker pull ghcr.io/mokto/geolocation:latest
-docker tag ghcr.io/mokto/geolocation:latest geolocation
+docker pull ghcr.io/mokto/opengeocoding:latest
+docker tag ghcr.io/mokto/opengeocoding:latest opengeocoding
 ```
 
 `latest` is published from `main`. Models and indexes are not included in the image.
@@ -33,7 +33,7 @@ Download libpostal models explicitly into a writable directory. Downloads are la
 ```sh
 mkdir -p models
 docker run --rm --entrypoint libpostal_data \
-  -v "$PWD/models:/data" geolocation download all /data
+  -v "$PWD/models:/data" opengeocoding download all /data
 ```
 
 The resulting directory is `models/libpostal`. Keep it for subsequent runs.
@@ -41,21 +41,21 @@ The resulting directory is `models/libpostal`. Keep it for subsequent runs.
 Build an index into `out/` (see the index section below), start `serve_index`, and provide your own ClickHouse instance:
 
 ```sh
-docker network create geolocation
-docker run -d --name geolocation-index --network geolocation \
+docker network create opengeocoding
+docker run -d --name opengeocoding-index --network opengeocoding \
   --entrypoint serve_index \
   -v "$PWD/out:/index:ro" \
   -v "$PWD/models/libpostal:/data/libpostal:ro" \
-  geolocation /index 0.0.0.0:8099 overture-2026-09-23.1
+  opengeocoding /index 0.0.0.0:8099 overture-2026-09-23.1
 
-docker run --rm --network geolocation \
+docker run --rm --network opengeocoding \
   -p 11121:11121 -p 8000:8000 \
   -v "$PWD/models/libpostal:/data/libpostal:ro" \
-  -e INDEX_URL=http://geolocation-index:8099 \
+  -e INDEX_URL=http://opengeocoding-index:8099 \
   -e CLICKHOUSE_URL=http://your-clickhouse:8123 \
   -e CLICKHOUSE_USER=default \
   -e CLICKHOUSE_PASSWORD=your-password \
-  geolocation
+  opengeocoding
 ```
 
 Addresses inside Docker must be reachable from the container; `localhost` refers to that container. The service creates its ClickHouse database/table and warms its region cache at startup.
@@ -65,13 +65,17 @@ Addresses inside Docker must be reachable from the container; `localhost` refers
 Example request:
 
 ```sh
-curl http://localhost:11121/geolocation.Geolocation/SearchAddress \
+curl http://localhost:11121/opengeocoding.Geolocation/SearchAddress \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{"addressString":"Copenhagen, Denmark"}'
 ```
 
-The contract is `proto/geolocation-v1.proto`, package `geolocation`, service `Geolocation`. The four methods are `SearchAddress`, `ResolveRegion`, `RefreshRegionMap` and `GetRegionMap`. Clients generated from the earlier `nominatim_geolocation.NominatimGeolocation` service keep working: `/nominatim_geolocation.NominatimGeolocation/*` is served by the same service, with identical messages and field numbers. gRPC reflection lists only the new names.
+The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `Geolocation`. The four methods are `SearchAddress`, `ResolveRegion`, `RefreshRegionMap` and `GetRegionMap`.
+
+The canonical RPC path is `/opengeocoding.Geolocation/*`. The Go package is `github.com/Mokto/opengeocoding/gen/opengeocoding`; the Rust crate is `opengeocoding`, with generated types under `opengeocoding::proto::opengeocoding`.
+
+`/geolocation.Geolocation/*` and `/nominatim_geolocation.NominatimGeolocation/*` remain aliases for every method, including for benchmarking. Message fields, numbers and types are unchanged. These aliases do not enable a Nominatim backend. gRPC reflection advertises only `opengeocoding.Geolocation`, and the `grpc_service` metric label uses this canonical name on all routes.
 
 ## Known interoperability issue
 
@@ -105,7 +109,7 @@ Clustered ClickHouse needs the usual `cluster`, `shard` and `replica` macros. Re
 Local builds require Rust 1.99+, Buf and a compiled libpostal installation. Native library/model paths are determined by libpostal's configure options. Nonstandard linker paths can be supplied through `RUSTFLAGS="-L native=/path/to/lib"`.
 
 ```sh
-cargo build --locked --bin geolocation --bin serve_index
+cargo build --locked --bin opengeocoding --bin serve_index
 cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
 cargo fmt --check
@@ -121,7 +125,7 @@ CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --locked --test rpc -- --ignored
 To test the final container instead of a local binary:
 
 ```sh
-SERVICE_IMAGE=geolocation LIBPOSTAL_MODELS="$PWD/models/libpostal" \
+SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS="$PWD/models/libpostal" \
   CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --locked --test rpc -- --ignored --nocapture
 ```
 
@@ -132,7 +136,7 @@ CI builds and checks both amd64 and arm64 without downloading models. [CodSpeed]
 The `benchmark` binary provides a loopback `serve_index` mock and a Connect JSON benchmark. It compares full responses and checks that each implementation makes the same number of backend requests. No failed requests are retried. Its fixture and validation checks run in `cargo test`.
 
 ```sh
-cargo build --locked --release --bin geolocation --bin benchmark
+cargo build --locked --release --bin opengeocoding --bin benchmark
 target/release/benchmark --serve 18080
 ```
 
@@ -155,7 +159,7 @@ target/release/benchmark \
 
 The default matrix covers 1/10/100 candidates, local-language corroboration, postcode fallback, concurrency 1/8, and backend delays of 0/10 ms. Service order rotates between rounds. Connections and caches are warmed outside each timed batch. Mock responses are pre-encoded and TCP delayed-ACK artifacts are disabled; injected delays still depend on operating-system scheduling.
 
-To benchmark the legacy RPC route, use `--service legacy=http://127.0.0.1:18121/nominatim_geolocation.NominatimGeolocation`. A service URL without a route uses `geolocation.Geolocation`; an explicit `/geolocation.Geolocation` suffix also works. Both RPC routes use the same index-backed resolver.
+A benchmark service URL without a route uses `opengeocoding.Geolocation`; an explicit `/opengeocoding.Geolocation` suffix also works. To benchmark old clients, use `--service legacy=http://127.0.0.1:18121/geolocation.Geolocation` or `--service legacy=http://127.0.0.1:18121/nominatim_geolocation.NominatimGeolocation`. All three routes use the same index-backed resolver.
 
 Use at least one complete rotation of all service names. Keep timed batches below the servers' per-connection request limits. Compare release builds on the same machine. Results include the mock, client, HTTP transport, native parsing and RPC framework; they are not production throughput or accuracy guarantees.
 
@@ -192,7 +196,7 @@ Known limitations: outside Overture's address countries, house numbers are only 
 `serve_index` answers `/search`, `/details`, `/reverse`, `/parse` and `/status` from a `build_index` output. Its JSON responses retain the existing candidate format; this does not make Nominatim a supported backend. Build and evaluate it through the service:
 
 ```sh
-cargo build --locked --release --bin geolocation --bin serve_index --bin evaluate
+cargo build --locked --release --bin opengeocoding --bin serve_index --bin evaluate
 target/release/serve_index out/ 127.0.0.1:8099 overture-2026-09-23.1 &
 INDEX_URL=http://127.0.0.1:8099 target/release/evaluate run --suite gold --out eval-results/gold-index --max-rps 200
 target/release/evaluate diff BASELINE_GOLD_RUN eval-results/gold-index
@@ -207,7 +211,7 @@ In one run against the October 2026 Overture release with the OSM, OpenAddresses
 The `evaluate` binary (`src/bin/evaluate`) measures geographic correctness against `serve_index` through this service's RPCs. It is for backend, data and consumer changes; it does not measure throughput. Build it with the service:
 
 ```sh
-cargo build --locked --release --bin geolocation --bin evaluate
+cargo build --locked --release --bin opengeocoding --bin evaluate
 ```
 
 | Suite | Command | Needs |
@@ -219,7 +223,7 @@ cargo build --locked --release --bin geolocation --bin evaluate
 | Compare | `target/release/evaluate diff BASELINE CANDIDATE` | Two saved runs or snapshots |
 | Re-score | `target/release/evaluate report RUN_DIR --rescore` | A saved run; lists cases whose class changed |
 
-Set `INDEX_URL` to a running `serve_index` backend. `run` starts `target/release/geolocation` (or `SERVICE_BINARY`) with a fresh ClickHouse database at `CLICKHOUSE_URL` and an empty region map. All backend traffic, including the service's own, goes through an in-process proxy. The proxy rate-limits it (`--max-rps`, default 20), enforces a request budget (`--budget`, default 20,000) and attributes calls to cases. `--rpc URL` targets a running service instead; backend counts and region-cache control are then unavailable. Results are checkpointed per case (`--resume`); the database, process and proxy are removed on exit, including after Ctrl-C. No request is retried by the evaluator.
+Set `INDEX_URL` to a running `serve_index` backend. `run` starts `target/release/opengeocoding` (or `SERVICE_BINARY`) with a fresh ClickHouse database at `CLICKHOUSE_URL` and an empty region map. All backend traffic, including the service's own, goes through an in-process proxy. The proxy rate-limits it (`--max-rps`, default 20), enforces a request budget (`--budget`, default 20,000) and attributes calls to cases. `--rpc URL` targets a running service instead; backend counts and region-cache control are then unavailable. Results are checkpointed per case (`--resume`); the database, process and proxy are removed on exit, including after Ctrl-C. No request is retried by the evaluator.
 
 Each run writes `manifest.json` (index status and release label, a hashed endpoint, consumer commit and binary hash, libpostal model and reference-data hashes, cache state and limits), `results.jsonl` (full responses, backend traces, direct-backend evidence) and `report.md`. Label the backend with `--backend-label`, e.g. image digest and configuration. A code or configuration comparison requires the same built index; a data or import change is a separate experiment.
 
@@ -250,17 +254,19 @@ target/release/evaluate snapshot eval-results/addresses tests/snapshots/addresse
 
 The diff counts per target granularity which cases gained or lost a result, changed country, became finer or coarser, moved more than 1 km (or less, but visibly in the snapshot), flipped goodMatch, or changed components or regions, and lists each one. `--fail-on-drift` turns any change into a failure. Rerunning an unchanged binary against the same backend produces no drift. A changed answer is not automatically better or worse. Snapshots depend on the backend's data; regenerate the baseline on the target backend before comparing code changes there.
 
-The sampler that queries production data is kept outside this repository; it reuses `geolocation::eval` for TSV escaping and hold-out assignment. Other corpora are JSONL in the gold format, or TSV with at least `id` and `query` columns, passed with `--corpus`. Private ones (e.g. replay sets with earlier production geocodes) use the same tooling; keep those and their runs out of this repository.
+The sampler that queries production data is kept outside this repository; it reuses `opengeocoding::eval` for TSV escaping and hold-out assignment. Other corpora are JSONL in the gold format, or TSV with at least `id` and `query` columns, passed with `--corpus`. Private ones (e.g. replay sets with earlier production geocodes) use the same tooling; keep those and their runs out of this repository.
 
 GitHub-hosted runners cannot reach an IP-restricted backend and do not download models, so CI runs only the offline checks in `cargo test`. Run deployed suites locally or from a runner inside the trusted network.
 
 ## GHCR publishing
 
-`.github/workflows/docker.yml` runs on pushes to `main`, `v*` tag pushes and manual dispatch. It runs the existing checks first, then uses Docker's pinned reusable workflow to build on native amd64/arm64 runners, push to `ghcr.io/mokto/geolocation`, and assemble and verify the multi-platform manifest. Pull requests do not publish images.
+`.github/workflows/docker.yml` runs on pushes to `main`, `v*` tag pushes and manual dispatch. It runs the existing checks first, then uses Docker's pinned reusable workflow to build on native amd64/arm64 runners, push to `ghcr.io/mokto/opengeocoding`, and assemble and verify the multi-platform manifest. Pull requests do not publish images.
+
+The repository is `Mokto/opengeocoding`. The Rust crate and service executable are `opengeocoding`, and the GHCR image is `ghcr.io/mokto/opengeocoding`.
 
 Tags include the sanitized branch name and `sha-<full-commit-SHA>`. A `v1.2.3` Git tag produces `1.2.3`; only `main` updates `latest`. Publishing uses the workflow's `GITHUB_TOKEN` with `packages: write`, so no personal access token secret is required. OCI labels link the package to this repository. Crates and GitHub releases are not published.
 
-GHCR can initially create packages as private even for public repositories. After the first successful push, set the [package visibility](https://github.com/users/Mokto/packages/container/geolocation/settings) to public if anonymous image pulls are required.
+GHCR can initially create packages as private even for public repositories. After the first successful push, set the [package visibility](https://github.com/users/Mokto/packages/container/opengeocoding/settings) to public if anonymous image pulls are required.
 
 ## Reference data and normalization
 

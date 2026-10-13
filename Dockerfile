@@ -24,7 +24,7 @@ COPY src src
 COPY tests tests
 COPY benches benches
 ENV RUSTFLAGS="-L native=/usr/local/lib"
-RUN cargo build --locked --release --bin geolocation --bin serve_index
+RUN cargo build --locked --release --bin opengeocoding --bin serve_index
 
 FROM build AS checks
 RUN ldconfig && rustup component add rustfmt clippy \
@@ -35,17 +35,17 @@ RUN ldconfig && rustup component add rustfmt clippy \
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 1000 geolocation && useradd --uid 1000 --gid 1000 --create-home geolocation \
+    && groupadd --gid 1000 opengeocoding && useradd --uid 1000 --gid 1000 --create-home opengeocoding \
     && mkdir -p /app /data && chown 1000:1000 /app /data
 COPY --from=build /usr/local/lib/libpostal.so* /usr/local/lib/
 COPY --from=build /usr/local/lib/LICENSE.libpostal /usr/local/share/licenses/libpostal/LICENSE
 COPY --from=build /usr/local/bin/libpostal_data /usr/local/bin/libpostal_data
-COPY --from=build /source/target/release/geolocation /usr/local/bin/geolocation
+COPY --from=build /source/target/release/opengeocoding /usr/local/bin/opengeocoding
 COPY --from=build /source/target/release/serve_index /usr/local/bin/serve_index
-COPY LICENSE NOTICE THIRD_PARTY_NOTICES.txt /usr/local/share/licenses/geolocation/
-COPY LICENSES /usr/local/share/licenses/geolocation/dependencies/
+COPY LICENSE NOTICE THIRD_PARTY_NOTICES.txt /usr/local/share/licenses/opengeocoding/
+COPY LICENSES /usr/local/share/licenses/opengeocoding/dependencies/
 RUN ldconfig && printf '{}' > /app/regions.json && chown 1000:1000 /app/regions.json
 WORKDIR /app
 USER 1000:1000
 EXPOSE 11121 8000
-ENTRYPOINT ["/usr/local/bin/geolocation"]
+ENTRYPOINT ["/usr/local/bin/opengeocoding"]
