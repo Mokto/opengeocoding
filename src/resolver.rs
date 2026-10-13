@@ -108,11 +108,11 @@ impl Resolver {
             .map(format_response)
             .collect::<Result<Vec<_>>>()?;
         let mut judged = Cow::Borrowed(english.as_slice());
-        if !part(address, "city").is_empty()
-            && !english
-                .iter()
-                .any(|f| city_agrees(address, f.address_details.as_option()))
-        {
+        let place_agrees = |f: &FullAddress| {
+            city_agrees(address, f.address_details.as_option())
+                || postcode_place_agrees(address, postcode, f.address_details.as_option())
+        };
+        if !part(address, "city").is_empty() && !english.iter().any(place_agrees) {
             // the same hits named in their own languages
             let local: Vec<_> = hits.iter().map(|h| self.index.render(h, false)).collect();
             for (index, candidate) in candidates.iter().enumerate() {
@@ -122,7 +122,7 @@ impl Resolver {
                         && hit.get("osm_type") == candidate.get("osm_type")
                 }) {
                     let formatted = format_response(twin)?;
-                    if city_agrees(address, formatted.address_details.as_option()) {
+                    if place_agrees(&formatted) {
                         judged.to_mut()[index] = formatted;
                     }
                 }
@@ -170,7 +170,8 @@ impl Resolver {
                 (postcode_matches(postcode, details) || house_road_city(address, details))
                     && (part(address, "city").is_empty()
                         || city_agrees(address, details)
-                        || same_postcode_country(country, postcode, details))
+                        || same_postcode_country(country, postcode, details)
+                        || postcode_place_agrees(address, postcode, details))
             })
             .collect();
         if !lone_state

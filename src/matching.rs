@@ -263,6 +263,46 @@ pub fn city_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
         .any(|s| names_agree(expected, s))
 }
 
+/// The stated postcode is the candidate's and the stated town names a place above the
+/// candidate's own locality. The index files a house under its borough or locality: "10719
+/// Berlin" is in Charlottenburg-Wilmersdorf of the state Berlin, and "1165 København K" in the
+/// suburb København. Without the postcode this would accept any house in a same-named region.
+pub fn postcode_place_agrees(
+    address: &ParsedAddress,
+    postcode: &str,
+    details: Option<&AddressDetails>,
+) -> bool {
+    let expected = part(address, "city");
+    let Some(d) = details else {
+        return false;
+    };
+    if expected.is_empty()
+        || postcode.is_empty()
+        || d.postcode.is_empty()
+        || normalize_postcode(postcode) != normalize_postcode(&d.postcode)
+    {
+        return false;
+    }
+    // Danish postal districts ("København K", "Frederiksberg C") end in one letter.
+    let words: Vec<_> = expected.split(whitespace).collect();
+    let undistricted = match words.split_last() {
+        Some((last, rest)) if !rest.is_empty() && last.chars().count() == 1 => rest.join(" "),
+        _ => expected.to_owned(),
+    };
+    [
+        &d.state,
+        &d.county,
+        &d.state_district,
+        &d.suburb,
+        &d.city_district,
+        &d.borough,
+        &d.district,
+    ]
+    .iter()
+    .filter(|s| !s.is_empty())
+    .any(|s| names_agree(expected, s) || names_agree(&undistricted, s))
+}
+
 pub fn region_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
     let Some(d) = details else {
         return false;
