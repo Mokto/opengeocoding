@@ -79,7 +79,7 @@ docker build --target runtime -t opengeocoding .
 - Gold-corpus sources (Wikidata, BAN, PDOK/BAG, US Census, ONSPD via postcodes.io) are attributed in `NOTICE`; update it when adding a source. Do not add Google Maps or other restricted geocoder output to any corpus.
 - Regenerate `THIRD_PARTY_NOTICES.txt` with `cargo run --bin notices` after dependency changes. Do not edit generated data or notices by hand.
 - Models are external, large and not bundled in the runtime image. Do not add automatic startup downloads from upstream or commit model files. The container expects read-only models at `/data/libpostal`; the build Job mirrors them into the store with libpostal's own `libpostal_data`.
-- Any change under `src/bin/build_index/`, to `src/index/{schema,canon}.rs` or to the tantivy or deunicode versions changes the builder hash: update `index.builderHash` in `manifests/values.yaml` (`build_index hash`) in the same commit. That names a new index, which deployed charts rebuild. Store layout and `MANIFEST`/`_COMPLETE` sealing are a compatibility surface for existing buckets.
+- Any change under `src/bin/build_index/` other than `fetch.rs` and `store.rs`, to `src/index/{schema,canon}.rs` or to the tantivy or deunicode versions changes the builder hash: update `index.builderHash` in `manifests/values.yaml` (`build_index hash`) in the same commit. That names a new index, which deployed charts rebuild. Store layout and `MANIFEST`/`_COMPLETE` sealing are a compatibility surface for existing buckets.
 - Keep the runtime Python-free and non-root (uid/gid 1000), with a writable region-map directory. Do not conflate a parser/model upgrade with unrelated service changes.
 
 ## Git and publishing
