@@ -61,11 +61,14 @@ jobs:
           curl -fsSL --retry 3 "$URL" -o /tmp/fixture.tar.zst
           echo "$SHA256  /tmp/fixture.tar.zst" | sha256sum -c -
           mkdir -p /home/runner/fixture && tar --zstd -xf /tmp/fixture.tar.zst -C /home/runner/fixture
-      - name: Install Buf, Rust and cargo-codspeed
+      - name: Install Rust
+        run: rustup toolchain install 1.99.0 --profile minimal && rustup default 1.99.0
+      # Caches dependencies, build output and the binaries installed below.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Install Buf and cargo-codspeed
         run: |
           curl -fsSL --retry 3 "https://github.com/bufbuild/buf/releases/download/v1.68.1/buf-Linux-x86_64" -o "$HOME/.cargo/bin/buf"
           chmod +x "$HOME/.cargo/bin/buf"
-          rustup toolchain install 1.99.0 --profile minimal && rustup default 1.99.0
           cargo install cargo-codspeed --locked --version 5.0.2
       - name: Build the benchmarks
         run: cargo codspeed build
