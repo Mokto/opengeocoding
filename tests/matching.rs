@@ -155,7 +155,7 @@ fn fallback_query_order_is_postcode_first() {
 }
 
 #[test]
-fn nominatim_response_and_region_code_filtering() {
+fn index_response_and_region_code_filtering() {
     let result = format_response(&json!({
         "display_name": "Paris, France", "lat": "48.8566", "lon": "2.3522",
         "address": { "city": "Paris", "country_code": "fr", "unknown_key": "ignored",

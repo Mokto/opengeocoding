@@ -234,9 +234,9 @@ impl Regions {
                 tracing::warn!(
                     code = code.code,
                     admin_level = code.admin_level,
-                    "No region found in Nominatim"
+                    "No region found in the index"
                 );
-                sentry::capture_message("No region found in Nominatim", sentry::Level::Warning);
+                sentry::capture_message("No region found in the index", sentry::Level::Warning);
             }
             previous = &code.code;
         }

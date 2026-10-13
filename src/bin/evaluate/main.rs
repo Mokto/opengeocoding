@@ -1,4 +1,4 @@
-//! Geographic-correctness evaluation against a real Nominatim backend.
+//! Geographic-correctness evaluation against serve_index.
 //!
 //! ```text
 //! evaluate run --suite smoke|gold|addresses --out DIR [--compare SNAPSHOT] [options]
@@ -12,8 +12,7 @@
 //! ```
 //!
 //! `run` starts the local service binary against a counting, rate-limited proxy and a fresh
-//! ClickHouse database, unless `--rpc` points at a running service. NOMINATIM_URL selects the
-//! backend (optionally NOMINATIM_AUTHORITY for a Host override).
+//! ClickHouse database, unless `--rpc` points at a running service. INDEX_URL selects the backend.
 
 mod gold;
 mod model;

@@ -1,4 +1,4 @@
-//! Loopback Nominatim mock and Connect JSON benchmark for comparing local service builds.
+//! Loopback serve_index mock and Connect JSON benchmark for comparing local service builds.
 //!
 //! ```text
 //! benchmark --serve 18080
@@ -53,7 +53,7 @@ fn country(scenario: &str) -> &'static str {
     }
 }
 
-/// Pre-encoded Nominatim search results for a scenario.
+/// Pre-encoded index search results for a scenario.
 fn hits(scenario: &str, count: usize, local: bool, postcode: &str) -> Bytes {
     let code = country(scenario);
     let city = match scenario {
@@ -201,6 +201,12 @@ async fn serve(port: u16) -> Result<()> {
         counts: Default::default(),
     };
     let app = Router::new()
+        .route(
+            "/status",
+            get(|| async {
+                axum::Json(json!({"status": 0, "software_version": "overture-index"}))
+            }),
+        )
         .route("/__control", post(control))
         .route("/__stats", get(stats))
         .fallback(get(search))
@@ -211,7 +217,7 @@ async fn serve(port: u16) -> Result<()> {
         .tap_io(|tcp| {
             let _ = tcp.set_nodelay(true);
         });
-    println!("Mock Nominatim listening on 127.0.0.1:{port}");
+    println!("Mock serve_index listening on 127.0.0.1:{port}");
     axum::serve(listener, app).await?;
     Ok(())
 }
@@ -228,6 +234,16 @@ fn endpoint(url: &str) -> Result<String> {
         "benchmark endpoints must be plain HTTP URLs without credentials, queries or fragments"
     );
     Ok(url.trim_end_matches('/').to_string())
+}
+
+fn search_endpoint(base: &str) -> String {
+    if base.ends_with("/geolocation.Geolocation")
+        || base.ends_with("/nominatim_geolocation.NominatimGeolocation")
+    {
+        format!("{base}/SearchAddress")
+    } else {
+        format!("{base}/geolocation.Geolocation/SearchAddress")
+    }
 }
 
 fn client(workers: usize) -> Result<reqwest::Client> {
@@ -299,7 +315,7 @@ async fn batch(
     workers: usize,
 ) -> Result<Vec<(f64, Value)>> {
     let next = Arc::new(AtomicUsize::new(0));
-    let url = Arc::new(format!("{base}/geolocation.Geolocation/SearchAddress"));
+    let url = Arc::new(search_endpoint(base));
     let body = Arc::new(json!({ "addressString": query(scenario) }));
     let mut tasks = tokio::task::JoinSet::new();
     for _ in 0..workers {
@@ -483,6 +499,22 @@ mod tests {
 
     #[test]
     fn fixtures_validation_and_percentiles() {
+        for (base, service) in [
+            ("http://localhost:11121", "geolocation.Geolocation"),
+            (
+                "http://localhost:11121/geolocation.Geolocation",
+                "geolocation.Geolocation",
+            ),
+            (
+                "http://localhost:11121/nominatim_geolocation.NominatimGeolocation",
+                "nominatim_geolocation.NominatimGeolocation",
+            ),
+        ] {
+            assert_eq!(
+                search_endpoint(base),
+                format!("http://localhost:11121/{service}/SearchAddress")
+            );
+        }
         assert_eq!(percentile(&[1., 2., 3., 4.], 0.5), 2.);
         let parse = |b: Bytes| serde_json::from_slice::<Value>(&b).unwrap();
         assert_eq!(

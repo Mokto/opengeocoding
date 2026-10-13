@@ -70,10 +70,8 @@ async fn main() -> Result<()> {
         release: sentry::release_name!(),
         ..Default::default()
     });
-    let resolver = Resolver::new(
-        std::env::var("NOMINATIM_HOST").context("NOMINATIM_HOST is required")?,
-        std::env::var("NOMINATIM_AUTHORITY").ok(),
-    )?;
+    let resolver =
+        Resolver::new(std::env::var("INDEX_URL").context("INDEX_URL is required")?).await?;
     let regions = Regions::from_env()?;
     regions.initialize().await?;
     let reflector = Reflector::from_descriptor_set_bytes(include_bytes!(concat!(
@@ -142,4 +140,33 @@ async fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn legacy_rpc_path_is_preserved() {
+        for (path, expected) in [
+            (
+                "/nominatim_geolocation.NominatimGeolocation/SearchAddress",
+                "/geolocation.Geolocation/SearchAddress",
+            ),
+            (
+                "/nominatim_geolocation.NominatimGeolocation/ResolveRegion?key=value",
+                "/geolocation.Geolocation/ResolveRegion?key=value",
+            ),
+            (
+                "/geolocation.Geolocation/SearchAddress",
+                "/geolocation.Geolocation/SearchAddress",
+            ),
+        ] {
+            let request = Request::builder()
+                .uri(path)
+                .body(axum::body::Body::empty())
+                .unwrap();
+            assert_eq!(legacy_package(request).await.uri().to_string(), expected);
+        }
+    }
 }

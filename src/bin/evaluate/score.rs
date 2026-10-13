@@ -208,8 +208,8 @@ pub fn level_of(response: &Value) -> &'static str {
     "country"
 }
 
-/// Shapes a raw Nominatim JSON hit like a FullAddress so both are scored identically.
-pub fn from_nominatim(hit: &Value) -> Value {
+/// Shapes a raw index JSON hit like a FullAddress so both are scored identically.
+pub fn from_index(hit: &Value) -> Value {
     let mut address = serde_json::Map::new();
     let mut codes = vec![];
     for (key, value) in hit["address"].as_object().into_iter().flatten() {
@@ -693,7 +693,7 @@ mod tests {
 
     #[test]
     fn raw_hits_and_region_flags() {
-        let raw = from_nominatim(
+        let raw = from_index(
             &json!({"display_name": "Tokyo", "lat": "35.6", "lon": "139.7",
             "address": {"city": "Tokyo", "country_code": "jp", "house_number": "1", "ISO3166-2-lvl4": "JP-13"}}),
         );

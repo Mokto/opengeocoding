@@ -67,7 +67,7 @@ fn choose_among_candidates(bencher: divan::Bencher) {
 }
 
 #[divan::bench]
-fn format_nominatim_response(bencher: divan::Bencher) {
+fn format_index_response(bencher: divan::Bencher) {
     let hit = json!({
         "display_name": "10, Rue de Rivoli, Paris, Île-de-France, France",
         "lat": "48.8556", "lon": "2.3601", "addresstype": "place",

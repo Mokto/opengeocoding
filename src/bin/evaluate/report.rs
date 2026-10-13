@@ -257,7 +257,7 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
     );
     let _ = writeln!(
         out,
-        "Backend: Nominatim {} data {} ({}); consumer {}{}; region cache: {}.",
+        "Backend: {} data {} ({}); consumer {}{}; region cache: {}.",
         status["software_version"].as_str().unwrap_or("?"),
         status["data_updated"].as_str().unwrap_or("?"),
         manifest["backend"]["label"]
@@ -616,7 +616,7 @@ fn side_line(name: &str, manifest: &Value) -> String {
     let status = &manifest["backend"]["status"];
     let short = |v: &Value| clip(v.as_str().unwrap_or("?"), 12);
     format!(
-        "- {name}: {}, Nominatim {} data {}, consumer {}{} binary {} models {}",
+        "- {name}: {}, backend {} data {}, consumer {}{} binary {} models {}",
         manifest["backend"]["label"]
             .as_str()
             .filter(|l| !l.is_empty())

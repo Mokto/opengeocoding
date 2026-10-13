@@ -1,5 +1,5 @@
 //! Model-backed RPC integration test against a real, isolated ClickHouse database and a local
-//! Nominatim fixture. It creates and removes its own database. Ignored by default:
+//! serve_index fixture. It creates and removes its own database. Ignored by default:
 //!
 //! ```text
 //! CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --test rpc -- --ignored --nocapture
@@ -40,12 +40,16 @@ struct Fixture {
 
 type Shared = Arc<Mutex<Fixture>>;
 
-async fn nominatim(
+async fn index_backend(
     State(fixture): State<Shared>,
     uri: Uri,
     RawQuery(_): RawQuery,
     headers: HeaderMap,
 ) -> Response {
+    if uri.path() == "/status" {
+        return axum::Json(json!({"status": 0, "software_version": "overture-index"}))
+            .into_response();
+    }
     let language = headers
         .get(header::ACCEPT_LANGUAGE)
         .and_then(|v| v.to_str().ok())
@@ -183,7 +187,7 @@ async fn grpcurl(args: &[&str]) -> Result<String> {
     Ok(String::from_utf8(output.stdout)?)
 }
 
-async fn start(env: &mut Env, nominatim_port: u16, image: Option<&str>) -> Result<()> {
+async fn start(env: &mut Env, index_port: u16, image: Option<&str>) -> Result<()> {
     env.clickhouse(&format!("CREATE DATABASE {}", env.database))
         .await?;
     env.clickhouse(&format!(
@@ -206,10 +210,7 @@ async fn start(env: &mut Env, nominatim_port: u16, image: Option<&str>) -> Resul
     std::fs::create_dir_all(&env.map_dir)?;
     std::fs::write(env.map_dir.join("regions.json"), "{}")?;
     let mut settings = vec![
-        (
-            "NOMINATIM_HOST",
-            format!("http://127.0.0.1:{nominatim_port}"),
-        ),
+        ("INDEX_URL", format!("http://127.0.0.1:{index_port}")),
         ("CLICKHOUSE_URL", env.clickhouse.clone()),
         (
             "CLICKHOUSE_USER",
@@ -239,7 +240,7 @@ async fn start(env: &mut Env, nominatim_port: u16, image: Option<&str>) -> Resul
         )?;
         for (key, value) in &mut settings {
             match *key {
-                "NOMINATIM_HOST" | "CLICKHOUSE_URL" => {
+                "INDEX_URL" | "CLICKHOUSE_URL" => {
                     *value = value.replace("127.0.0.1", "host.docker.internal")
                 }
                 "REGION_MAP_PATH" => *value = "/region-map/regions.json".into(),
@@ -502,9 +503,9 @@ async fn rpc_contracts() {
     let listener = tokio::net::TcpListener::bind(bind)
         .await
         .expect("bind fixture");
-    let nominatim_port = listener.local_addr().expect("fixture address").port();
+    let index_port = listener.local_addr().expect("fixture address").port();
     let app = Router::new()
-        .fallback(nominatim)
+        .fallback(index_backend)
         .with_state(fixture.clone());
     let server = tokio::spawn(async move { axum::serve(listener, app).await });
     let mut env = Env {
@@ -518,7 +519,7 @@ async fn rpc_contracts() {
         map_dir: std::env::temp_dir().join(format!("geolocation-rpc-test-{}", std::process::id())),
         fixture,
     };
-    let outcome = match start(&mut env, nominatim_port, image.as_deref()).await {
+    let outcome = match start(&mut env, index_port, image.as_deref()).await {
         Ok(()) => checks(&mut env).await,
         Err(error) => Err(error),
     };

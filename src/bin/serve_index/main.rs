@@ -1,6 +1,5 @@
-//! Experimental: answers the subset of Nominatim's HTTP API the service and the evaluator use
-//! (`/search`, `/details`, `/reverse`, `/status`) from a `build_index` output directory, so the
-//! unchanged service can be evaluated against it with `NOMINATIM_URL`.
+//! Serves search, details, reverse and status from a build_index output directory.
+//! The service and evaluator connect through INDEX_URL.
 #[path = "../build_index/canon.rs"]
 mod canon;
 #[allow(dead_code)]

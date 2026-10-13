@@ -2,7 +2,7 @@ use crate::{
     model::{Call, Case, DirectRaw, Record, root},
     report::{diff, sorted, summarize},
     score::{
-        Expect, details, from_nominatim, rank, region_codes, region_flags, score, summary_of, text,
+        Expect, details, from_index, rank, region_codes, region_flags, score, summary_of, text,
     },
 };
 use anyhow::{Context, Result, bail};
@@ -17,6 +17,7 @@ use geolocation::{
     eval::sha256_hex,
     proto::geolocation::{FullAddress, SearchAddressTask},
     regions::python_repr,
+    resolver::check_index_status,
 };
 use reqwest::{Client, Url};
 use serde_json::{Value, json};
@@ -76,7 +77,6 @@ impl Budget {
 struct Backend {
     client: Client,
     base: String,
-    authority: Option<String>,
     budget: Budget,
 }
 
@@ -89,9 +89,6 @@ impl Backend {
             self.base,
             path_and_query.trim_start_matches('/')
         ));
-        if let Some(host) = &self.authority {
-            request = request.header(header::HOST, host);
-        }
         if let Some(language) = language {
             request = request.header(header::ACCEPT_LANGUAGE, language);
         }
@@ -109,7 +106,7 @@ impl Backend {
             )
             .await?;
         if status >= 400 {
-            bail!("Nominatim {endpoint} returned HTTP {status}");
+            bail!("serve_index {endpoint} returned HTTP {status}");
         }
         Ok(serde_json::from_slice(&body)?)
     }
@@ -127,7 +124,7 @@ impl Proxy {
     }
 }
 
-/// Forwards the service's Nominatim calls and attributes them to the current case.
+/// Forwards the service's index calls and attributes them to the current case.
 async fn forward(State(proxy): State<Proxy>, request: Request) -> Response {
     let path_and_query = request
         .uri()
@@ -351,7 +348,7 @@ impl Checker {
         let raw = raw.as_array().cloned().unwrap_or_default();
         let scored: Vec<_> = raw
             .iter()
-            .map(|hit| score(Some(expect), &from_nominatim(hit), false))
+            .map(|hit| score(Some(expect), &from_index(hit), false))
             .collect();
         record.direct_raw = Some(DirectRaw {
             count: raw.len(),
@@ -378,7 +375,7 @@ impl Checker {
             record.direct_structured = Some(
                 hits.get(0)
                     .map_or("abstain", |hit| {
-                        score(Some(expect), &from_nominatim(hit), false).class
+                        score(Some(expect), &from_index(hit), false).class
                     })
                     .into(),
             );
@@ -395,7 +392,7 @@ impl Checker {
                 )
                 .await?;
             let reverse = if hit.get("address").is_some() {
-                from_nominatim(&hit)
+                from_index(&hit)
             } else {
                 json!({})
             };
@@ -739,8 +736,7 @@ impl Local {
         let log = std::fs::File::create(out.join("service.log"))?;
         let child = Command::new(binary)
             .envs([
-                ("NOMINATIM_HOST", format!("http://127.0.0.1:{proxy_port}")),
-                ("NOMINATIM_AUTHORITY", String::new()),
+                ("INDEX_URL", format!("http://127.0.0.1:{proxy_port}")),
                 ("CLICKHOUSE_URL", self.clickhouse_url.clone()),
                 ("CLICKHOUSE_DATABASE", database),
                 ("CLICKHOUSE_PREFIX", String::new()),
@@ -819,7 +815,7 @@ impl Local {
 }
 
 pub async fn run(options: Options) -> Result<i32> {
-    let url = std::env::var("NOMINATIM_URL").context("NOMINATIM_URL is required")?;
+    let url = std::env::var("INDEX_URL").context("INDEX_URL is required")?;
     let corpus = options.corpus.clone().unwrap_or_else(|| {
         if options.suite == "addresses" {
             crate::model::addresses()
@@ -848,9 +844,6 @@ pub async fn run(options: Options) -> Result<i32> {
     let backend = Arc::new(Backend {
         client: Client::builder().timeout(Duration::from_secs(30)).build()?,
         base: url.trim_end_matches('/').into(),
-        authority: std::env::var("NOMINATIM_AUTHORITY")
-            .ok()
-            .filter(|a| !a.is_empty()),
         budget: Budget {
             interval: Duration::from_secs_f64(1. / options.max_rps),
             limit: options.budget,
@@ -859,6 +852,7 @@ pub async fn run(options: Options) -> Result<i32> {
         },
     });
     let status = backend.json("status", &[("format", "json".into())]).await?;
+    check_index_status(&status)?;
     let relative = corpus.strip_prefix(root()).map_or_else(
         |_| {
             corpus
