@@ -30,7 +30,7 @@ const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|check>
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000]
             [--no-direct] [--resume] [--backend-label TEXT]
-diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift]
+diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
 build-gold  [--seeds FILE] [--out FILE]
@@ -144,7 +144,7 @@ async fn command() -> Result<i32> {
             run::run(options).await
         }
         "diff" => {
-            args.only_flags(&["fail-on-drift"])?;
+            args.only_flags(&["fail-on-drift", "relative"])?;
             let [baseline, candidate] = args.positional.as_slice() else {
                 bail!("diff needs BASELINE and CANDIDATE\n\n{USAGE}");
             };
@@ -154,6 +154,7 @@ async fn command() -> Result<i32> {
                 candidate.as_ref(),
                 args.path("out").as_deref(),
                 args.flag("fail-on-drift"),
+                args.flag("relative"),
             )?;
             Ok(i32::from(failed))
         }

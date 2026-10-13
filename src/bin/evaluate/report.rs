@@ -668,6 +668,7 @@ pub fn diff(
     candidate: &Path,
     out: Option<&Path>,
     fail_on_drift: bool,
+    relative: bool,
 ) -> Result<bool> {
     let cases: IndexMap<_, _> = cases.iter().map(|c| (c.id.as_str(), c)).collect();
     let (old_manifest, old) =
@@ -744,9 +745,12 @@ pub fn diff(
     let new_critical = shared
         .iter()
         .any(|id| critical(&new[*id].class) && !critical(&old[*id].class));
-    let must = new
-        .iter()
-        .any(|(id, r)| cases.get(id.as_str()).is_some_and(|c| c.must_pass) && r.class != "pass");
+    // `relative` leaves out must-pass cases that also fail in the baseline: an index without the
+    // full data fails some on both sides. One that passed there is a newly failing case anyway.
+    let must = !relative
+        && new.iter().any(|(id, r)| {
+            cases.get(id.as_str()).is_some_and(|c| c.must_pass) && r.class != "pass"
+        });
     let _ = write!(
         report,
         "\n## Changes by cohort\n\n| Cohort | Cases | Changed | {} |\n|---|{}\n",
@@ -810,8 +814,13 @@ pub fn diff(
         || (fail_on_drift && total > 0);
     let _ = writeln!(
         report,
-        "\nGate: {} (no newly failing or worse cases, no new critical results, all must-pass cases pass{}).",
+        "\nGate: {} (no newly failing or worse cases, no new critical results, {}{}).",
         if failed { "FAIL" } else { "pass" },
+        if relative {
+            "baseline failures not gated"
+        } else {
+            "all must-pass cases pass"
+        },
         if fail_on_drift {
             ", no snapshot drift"
         } else {
@@ -946,7 +955,17 @@ mod tests {
         for baseline in [dir.join("old"), dir.join("old.tsv")] {
             for strict in [false, true] {
                 let out = dir.join("diff.md");
-                assert!(diff(&cases, &baseline, &dir.join("new"), Some(&out), strict).unwrap());
+                assert!(
+                    diff(
+                        &cases,
+                        &baseline,
+                        &dir.join("new"),
+                        Some(&out),
+                        strict,
+                        false
+                    )
+                    .unwrap()
+                );
                 let report = std::fs::read_to_string(&out).unwrap();
                 assert!(report.contains("## Newly failing (1)"), "{report}");
                 assert!(report.contains("## Newly passing (verify before relabelling) (1)"));
@@ -957,7 +976,22 @@ mod tests {
             }
         }
         snapshot(&dir.join("new"), &dir.join("new.tsv")).unwrap();
-        assert!(!diff(&cases, &dir.join("new.tsv"), &dir.join("new"), None, true).unwrap());
+        assert!(
+            !diff(
+                &cases,
+                &dir.join("new.tsv"),
+                &dir.join("new"),
+                None,
+                true,
+                false
+            )
+            .unwrap()
+        );
+        let mut must_pass = cases;
+        must_pass[3].must_pass = true;
+        let new = dir.join("new");
+        assert!(diff(&must_pass, &new, &new, None, false, false).unwrap());
+        assert!(!diff(&must_pass, &new, &new, None, false, true).unwrap());
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

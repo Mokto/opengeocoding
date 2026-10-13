@@ -25,42 +25,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        id: libpostal
-        with:
-          path: ${{ env.LIBPOSTAL_PREFIX }}
-          key: libpostal-datadir-${{ runner.os }}-${{ runner.arch }}-${{ env.LIBPOSTAL_COMMIT }}
-      # The model path is compiled in, as in the Dockerfile. Models are only used by benches/resolve.rs.
-      - name: Build libpostal
-        if: steps.libpostal.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends autoconf automake libtool pkg-config
-          mkdir /tmp/libpostal
-          curl -fsSL --retry 3 "https://github.com/openvenues/libpostal/archive/${LIBPOSTAL_COMMIT}.tar.gz" \
-            | tar -xz --strip-components=1 -C /tmp/libpostal
-          cd /tmp/libpostal && ./bootstrap.sh
-          CFLAGS="-std=gnu99" ./configure --prefix="$LIBPOSTAL_PREFIX" --datadir="$LIBPOSTAL_MODELS" --disable-data-download
-          make -j4 && make install
       # benches/resolve.rs needs models and an index; without BENCH_FIXTURE_URL it is skipped.
       # The fixture is described in benches/fixture/README.md.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        id: models
-        if: vars.BENCH_FIXTURE_URL != ''
+      - uses: ./.github/actions/bench-env
         with:
-          path: ${{ env.LIBPOSTAL_MODELS }}
-          key: libpostal-models-${{ env.LIBPOSTAL_COMMIT }}
-      - name: Download libpostal models
-        if: vars.BENCH_FIXTURE_URL != '' && steps.models.outputs.cache-hit != 'true'
-        run: ${LIBPOSTAL_PREFIX}/bin/libpostal_data download all "$LIBPOSTAL_MODELS/libpostal"
-      - name: Fetch the index fixture
-        if: vars.BENCH_FIXTURE_URL != ''
-        env:
-          URL: ${{ vars.BENCH_FIXTURE_URL }}
-          SHA256: ${{ vars.BENCH_FIXTURE_SHA256 }}
-        run: |
-          curl -fsSL --retry 3 "$URL" -o /tmp/fixture.tar.zst
-          echo "$SHA256  /tmp/fixture.tar.zst" | sha256sum -c -
-          mkdir -p /home/runner/fixture && tar --zstd -xf /tmp/fixture.tar.zst -C /home/runner/fixture
+          fixture-url: ${{ vars.BENCH_FIXTURE_URL }}
+          fixture-sha256: ${{ vars.BENCH_FIXTURE_SHA256 }}
       - name: Install Rust
         run: rustup toolchain install 1.99.0 --profile minimal && rustup default 1.99.0
       # Caches dependencies, build output and the binaries installed below.
