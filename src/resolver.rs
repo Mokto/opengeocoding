@@ -223,7 +223,7 @@ impl Resolver {
             .enumerate()
             .filter(|(_, f)| {
                 let details = f.address_details.as_option();
-                postcode_matches(postcode, details)
+                (postcode_matches(postcode, details) || house_road_city(address, details))
                     && (part(address, "city").is_empty()
                         || city_agrees(address, details)
                         || same_postcode_country(country, postcode, details))
@@ -477,13 +477,15 @@ fn accept(
             .address_details
             .as_option()
             .is_some_and(|d| !d.house_number.is_empty());
+    // Accepted although its postcode disagrees: the input contradicts itself.
+    let postcode_found = postcode_matches(postcode, found.address_details.as_option());
     if !postcode.is_empty() {
         let details = found.address_details.get_or_insert_default();
         if details.postcode.is_empty() {
             details.postcode = postcode.into();
         }
     }
-    found.good_match = good && house_found;
+    found.good_match = good && house_found && postcode_found;
     METRICS.tiers.with_label_values(&[tier]).inc();
     found
 }

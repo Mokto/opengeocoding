@@ -409,7 +409,23 @@ pub fn choose_candidate(
     {
         return Some((i, "city_region"));
     }
+    // A mistyped postcode ("312 Lowell Street, Lexington, MA 02423" for 02421): the house, road
+    // and town still agree. Only after every candidate holding the postcode has been refused.
+    if !postcode.is_empty() {
+        let road_city = candidates
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| house_road_city(address, item.address_details.as_option()))
+            .map(|(i, _)| i)
+            .collect();
+        return prefer(road_city, "road_city");
+    }
     None
+}
+
+/// House number, road and town all agree with the parsed address.
+pub fn house_road_city(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
+    road_agrees(address, details) && city_agrees(address, details)
 }
 
 pub fn without_country(query: &str, address: &ParsedAddress) -> String {

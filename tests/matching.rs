@@ -130,6 +130,33 @@ fn country_postcode_conflict_is_rejected() {
 }
 
 #[test]
+fn mistyped_postcode_is_overruled_by_house_road_and_town() {
+    let address = parsed(&[
+        ("house_number", "312"),
+        ("road", "Lowell Street"),
+        ("city", "Lexington"),
+        ("postcode", "02423"),
+    ]);
+    let mut house = candidate("us", "Lexington", "Massachusetts", "02421");
+    let details = house.address_details.get_or_insert_default();
+    details.road = "Lowell Street".into();
+    details.house_number = "312".into();
+    assert_eq!(
+        choose_candidate(&address, "", "02423", std::slice::from_ref(&house)).map(|(i, _)| i),
+        Some(0)
+    );
+    // a candidate holding the postcode still comes first
+    let other = candidate("us", "Lexington", "Massachusetts", "02423");
+    assert_eq!(
+        choose_candidate(&address, "", "02423", &[house.clone(), other]).map(|(i, _)| i),
+        Some(1)
+    );
+    // another house number on the road is no match
+    house.address_details.get_or_insert_default().house_number = "310".into();
+    assert_eq!(choose_candidate(&address, "", "02423", &[house]), None);
+}
+
+#[test]
 fn postcode_missing_is_eligible_for_backfill() {
     assert!(postcode_matches("75001", Some(&AddressDetails::default())));
     assert!(!postcode_agrees("75001", Some(&AddressDetails::default())));
