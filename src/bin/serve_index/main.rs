@@ -821,6 +821,11 @@ impl App {
         }
         let want = name_key(text);
         // "Cauca Department" is named "Cauca"
+        // a region written as its code ("Elmwood Park, NJ"): the "-NJ" of US-NJ
+        let within_code = within
+            .map(str::trim)
+            .filter(|w| (2..=3).contains(&w.len()) && w.chars().all(|c| c.is_ascii_alphabetic()))
+            .map(|w| format!("-{}", w.to_uppercase()));
         let within: Vec<u64> = within
             .filter(|w| !fold(w).is_empty())
             .into_iter()
@@ -866,7 +871,9 @@ impl App {
                         .iter()
                         .skip(1)
                         .any(|&a| self.places[a as usize].named(w))
-                });
+                }) || within_code
+                    .as_ref()
+                    .is_some_and(|c| pl.region.ends_with(c.as_str()));
                 // A major city outranks a same-named region, as with Nominatim (Tokyo, New York),
                 // and so does a town inside a same-named area (Brasília in the Federal District
                 // also called Brasília, Yalova in Yalova Province).
@@ -1583,7 +1590,8 @@ impl App {
             // all parts together first: "région bruxelles-capitale" is one name, and "région"
             // alone matches every region
             let joined = texts.join(" ");
-            let tries = (texts.len() > 1)
+            // ...but not with a code ("Stratford, CT" is not "Stratford Court")
+            let tries = (texts.len() > 1 && texts.iter().all(|t| t.trim().len() > 3))
                 .then_some(joined.as_str())
                 .into_iter()
                 .chain(texts.iter().copied());
