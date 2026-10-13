@@ -1,5 +1,7 @@
 # OpenGeocoding
 
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/Mokto/opengeocoding?utm_source=badge)
+
 A Rust service that combines libpostal address parsing, Overture-backed index lookups and ClickHouse-backed administrative regions.
 
 - Connect JSON and Connect protobuf; an experimental legacy gRPC surface.
