@@ -31,8 +31,16 @@ fn manifest_path(snapshot: &Path) -> std::path::PathBuf {
     snapshot.with_extension("manifest.json")
 }
 
-/// A run directory or a TSV snapshot: (manifest, records by id).
+/// A run directory, a TSV snapshot or a JSON snapshot: (manifest, records by id).
 pub fn load_side(path: &Path) -> Result<(Value, IndexMap<String, Record>)> {
+    if path.extension().is_some_and(|e| e == "json") {
+        let mut snapshot: Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
+        let records: Vec<Record> = serde_json::from_value(snapshot["results"].take())?;
+        return Ok((
+            snapshot["manifest"].take(),
+            records.into_iter().map(|r| (r.id.clone(), r)).collect(),
+        ));
+    }
     if path.is_dir() {
         let manifest = serde_json::from_str(&std::fs::read_to_string(path.join("manifest.json"))?)?;
         let records = load_jsonl::<Record>(&path.join("results.jsonl"))?;
@@ -86,12 +94,15 @@ pub fn load_side(path: &Path) -> Result<(Value, IndexMap<String, Record>)> {
 }
 
 pub fn snapshot(run_dir: &Path, out: &Path) -> Result<()> {
-    anyhow::ensure!(
-        out.extension().is_some_and(|e| e == "tsv"),
-        "snapshot output must be a .tsv file"
-    );
     let (manifest, mut records) = load_side(run_dir)?;
     records.sort_keys();
+    if out.extension().is_some_and(|e| e == "json") {
+        return json_snapshot(manifest, records, out);
+    }
+    anyhow::ensure!(
+        out.extension().is_some_and(|e| e == "tsv"),
+        "snapshot output must be a .tsv or .json file"
+    );
     let rows: Vec<Row> = records
         .values()
         .map(|r| {
@@ -138,6 +149,38 @@ pub fn snapshot(run_dir: &Path, out: &Path) -> Result<()> {
         out.display(),
         manifest_path(out).display()
     );
+    Ok(())
+}
+
+/// A run's manifest, class counts and full per-case records (responses and direct backend
+/// checks, without timings or backend traces), one case per line so diffs stay readable.
+fn json_snapshot(manifest: Value, records: IndexMap<String, Record>, out: &Path) -> Result<()> {
+    let mut classes: std::collections::BTreeMap<String, usize> = Default::default();
+    for r in records.values() {
+        *classes.entry(r.class.clone()).or_default() += 1;
+    }
+    let lines = records
+        .into_values()
+        .map(|mut r| {
+            r.ms = None;
+            r.backend_trace.clear();
+            Ok(format!(
+                "    {}",
+                serde_json::to_string(&sorted(serde_json::to_value(r)?))?
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let head = |v: Value| -> Result<String> {
+        Ok(serde_json::to_string_pretty(&sorted(v))?.replace('\n', "\n  "))
+    };
+    let text = format!(
+        "{{\n  \"classes\": {},\n  \"manifest\": {},\n  \"results\": [\n{}\n  ]\n}}\n",
+        head(serde_json::to_value(&classes)?)?,
+        head(manifest)?,
+        lines.join(",\n")
+    );
+    std::fs::write(out, text)?;
+    println!("snapshot of {} cases -> {}", lines.len(), out.display());
     Ok(())
 }
 
@@ -786,6 +829,36 @@ pub fn diff(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn json_snapshot_round_trips() {
+        let dir = std::env::temp_dir().join(format!("snapshot-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let record = json!({"id": "b", "query": "Paris", "class": "pass", "ms": 12,
+            "backend_trace": [{"endpoint": "search", "q": "Paris", "language": "en", "status": 200, "ms": 2}],
+            "summary": {"country": "fr", "level": "locality", "good_match": true}});
+        let other = json!({"id": "a", "query": "", "class": "pass", "flags": []});
+        std::fs::write(dir.join("manifest.json"), r#"{"suite":"gold"}"#).unwrap();
+        std::fs::write(dir.join("results.jsonl"), format!("{record}\n{other}\n")).unwrap();
+        let out = dir.join("snapshot.json");
+        snapshot(&dir, &out).unwrap();
+        let (manifest, records) = load_side(&out).unwrap();
+        assert_eq!(manifest["suite"], "gold");
+        assert_eq!(records.keys().collect::<Vec<_>>(), ["a", "b"]);
+        assert_eq!(records["b"].summary.as_ref().unwrap().country, "fr");
+        assert!(records["b"].ms.is_none() && records["b"].backend_trace.is_empty());
+        let text = std::fs::read_to_string(&out).unwrap();
+        assert!(text.contains(r#""classes": {"#) && text.contains(r#""pass": 2"#));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn nominatim_gold_reference_loads() {
+        let path = crate::model::root().join("tests/snapshots/gold.nominatim.json");
+        let (manifest, records) = load_side(&path).unwrap();
+        assert_eq!(manifest["corpus"], "tests/gold.jsonl");
+        assert!(records.len() >= 1000);
+    }
 
     fn summary(cc: &str, level: &str, locality: &str) -> Summary {
         Summary {
