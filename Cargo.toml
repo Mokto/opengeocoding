@@ -60,3 +60,7 @@ harness = false
 [[bench]]
 name = "matching"
 harness = false
+
+[[bench]]
+name = "resolve"
+harness = false

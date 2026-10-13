@@ -17,6 +17,8 @@ env:
   LIBPOSTAL_PREFIX: /home/runner/libpostal
   RUSTFLAGS: -L native=/home/runner/libpostal/lib
   LD_LIBRARY_PATH: /home/runner/libpostal/lib
+  LIBPOSTAL_MODELS: /home/runner/models
+  INDEX_DIR: /home/runner/fixture/index
 
 jobs:
   benchmarks:
@@ -27,8 +29,8 @@ jobs:
         id: libpostal
         with:
           path: ${{ env.LIBPOSTAL_PREFIX }}
-          key: libpostal-${{ runner.os }}-${{ runner.arch }}-${{ env.LIBPOSTAL_COMMIT }}
-      # The benchmarks link libpostal but never load its models.
+          key: libpostal-datadir-${{ runner.os }}-${{ runner.arch }}-${{ env.LIBPOSTAL_COMMIT }}
+      # The model path is compiled in, as in the Dockerfile. Models are only used by benches/resolve.rs.
       - name: Build libpostal
         if: steps.libpostal.outputs.cache-hit != 'true'
         run: |
@@ -37,8 +39,28 @@ jobs:
           curl -fsSL --retry 3 "https://github.com/openvenues/libpostal/archive/${LIBPOSTAL_COMMIT}.tar.gz" \
             | tar -xz --strip-components=1 -C /tmp/libpostal
           cd /tmp/libpostal && ./bootstrap.sh
-          CFLAGS="-std=gnu99" ./configure --prefix="$LIBPOSTAL_PREFIX" --disable-data-download
+          CFLAGS="-std=gnu99" ./configure --prefix="$LIBPOSTAL_PREFIX" --datadir="$LIBPOSTAL_MODELS" --disable-data-download
           make -j4 && make install
+      # benches/resolve.rs needs models and an index; without BENCH_FIXTURE_URL it is skipped.
+      # The fixture is described in benches/fixture/README.md.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        id: models
+        if: vars.BENCH_FIXTURE_URL != ''
+        with:
+          path: ${{ env.LIBPOSTAL_MODELS }}
+          key: libpostal-models-${{ env.LIBPOSTAL_COMMIT }}
+      - name: Download libpostal models
+        if: vars.BENCH_FIXTURE_URL != '' && steps.models.outputs.cache-hit != 'true'
+        run: ${LIBPOSTAL_PREFIX}/bin/libpostal_data download all "$LIBPOSTAL_MODELS"
+      - name: Fetch the index fixture
+        if: vars.BENCH_FIXTURE_URL != ''
+        env:
+          URL: ${{ vars.BENCH_FIXTURE_URL }}
+          SHA256: ${{ vars.BENCH_FIXTURE_SHA256 }}
+        run: |
+          curl -fsSL --retry 3 "$URL" -o /tmp/fixture.tar.zst
+          echo "$SHA256  /tmp/fixture.tar.zst" | sha256sum -c -
+          mkdir -p /home/runner/fixture && tar --zstd -xf /tmp/fixture.tar.zst -C /home/runner/fixture
       - name: Install Buf, Rust and cargo-codspeed
         run: |
           curl -fsSL --retry 3 "https://github.com/bufbuild/buf/releases/download/v1.68.1/buf-Linux-x86_64" -o "$HOME/.cargo/bin/buf"
