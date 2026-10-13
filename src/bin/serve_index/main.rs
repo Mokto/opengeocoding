@@ -18,7 +18,7 @@ use serde_json::{Map, Value, json};
 use std::{
     collections::HashMap,
     fs,
-    sync::{Arc, Mutex},
+    sync::{Arc, LazyLock, Mutex},
 };
 use tantivy::{
     DocAddress, Index, Searcher, Term,
@@ -336,6 +336,211 @@ fn irish_province(county: &str) -> Option<&'static str> {
     })
 }
 
+/// (administrative units, road, number) of a Chinese road address, the units most general
+/// first: "上海市虹口区中山北一路295号" -> (["上海市", "虹口区"], "中山北一路", "295").
+fn chinese(q: &str) -> Option<(Vec<String>, String, String)> {
+    static NUMBER: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"(\d+)(?:[至-]\d+)?[号號]").unwrap());
+    let part = q.split([',', '，']).find(|p| p.contains(['号', '號']))?;
+    let t: String = part
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .map(|c| match c {
+            '０'..='９' => char::from_u32(c as u32 - '０' as u32 + '0' as u32).unwrap(),
+            _ => c,
+        })
+        .collect();
+    let m = NUMBER.captures(&t)?;
+    let before = &t[..m.get(0)?.start()];
+    let before = before.trim_start_matches(|c: char| c.is_ascii_digit());
+    let before = ["中国", "中國", "臺灣", "台灣", "台湾"]
+        .iter()
+        .fold(before, |b, p| b.strip_prefix(p).unwrap_or(b));
+    if before.is_empty() || !before.chars().all(|c| c as u32 >= 0x3040) {
+        return None;
+    }
+    let mut units = vec![];
+    let mut start = 0;
+    for (i, c) in before.char_indices() {
+        if "省市区區县縣镇鎮乡鄉".contains(c) {
+            units.push(before[start..i + c.len_utf8()].to_string());
+            start = i + c.len_utf8();
+        }
+    }
+    let road = &before[start..];
+    if road.chars().count() < 2 {
+        return None;
+    }
+    Some((units, road.to_string(), m[1].to_string()))
+}
+
+/// Reads 一 to 九十九.
+fn kanji_number(t: &str) -> Option<u32> {
+    let digit = |c: char| {
+        "〇一二三四五六七八九"
+            .chars()
+            .position(|d| d == c)
+            .map(|d| d as u32)
+    };
+    let chars: Vec<char> = t.chars().collect();
+    match chars.as_slice() {
+        ['十'] => Some(10),
+        [c] => digit(*c),
+        ['十', u] => Some(10 + digit(*u)?),
+        [t, '十'] => Some(digit(*t)? * 10),
+        [t, '十', u] => Some(digit(*t)? * 10 + digit(*u)?),
+        _ => None,
+    }
+}
+
+/// Candidate (municipality, street, number) readings of a Japanese block address, most likely
+/// first: "東京都港区芝公園4-2-8" is chōme 4 of 芝公園 in 港区, block 2, house 8, stored as street
+/// "芝公園四丁目" and number "2-8"; towns without chōme store "block-house" under the town.
+fn japanese(q: &str) -> Vec<(String, String, String)> {
+    static POSTCODE: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"〒?\d{3}-\d{4}|^日本国?|,?Japan$").unwrap());
+    static CHOME: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new("([〇一二三四五六七八九十]+)丁目").unwrap());
+    let t: String = q
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .map(|c| match c {
+            '０'..='９' => char::from_u32(c as u32 - '０' as u32 + '0' as u32).unwrap(),
+            '－' | '−' | '‐' | 'ー' | '―' | '‑' => '-',
+            _ => c,
+        })
+        .collect();
+    let t = POSTCODE.replace_all(&t, "");
+    let t = CHOME.replace_all(&t, |c: &regex::Captures| {
+        kanji_number(&c[1]).map_or(c[0].to_string(), |n| format!("{n}丁目"))
+    });
+    let Some(at) = t.find(|c: char| c.is_ascii_digit()) else {
+        return vec![];
+    };
+    let (prefix, rest) = t.split_at(at);
+    if prefix.is_empty() || !prefix.chars().all(|c| c as u32 >= 0x3040) {
+        return vec![];
+    }
+    let rest = rest
+        .replace("丁目", "-")
+        .replace("番地", "-")
+        .replace(['番', 'の'], "-")
+        .replace('号', "");
+    let numbers: Vec<u32> = rest
+        .split(|c: char| !c.is_ascii_digit() && c != '-')
+        .next()
+        .unwrap_or("")
+        .split('-')
+        .filter_map(|n| n.parse().ok())
+        .collect();
+    if numbers.len() < 2 {
+        return vec![];
+    }
+    let joined = |ns: &[u32]| ns.iter().map(u32::to_string).collect::<Vec<_>>().join("-");
+    let mut out = vec![];
+    for (i, c) in prefix.char_indices().rev() {
+        let end = i + c.len_utf8();
+        if !"都道府県市区郡町村".contains(c) || end == prefix.len() {
+            continue;
+        }
+        let (city, town) = prefix.split_at(end);
+        // the municipality, without its prefecture
+        let city = city
+            .rfind(['都', '道', '府', '県'])
+            .map(|k| &city[k + 3..])
+            .filter(|c| !c.is_empty())
+            .unwrap_or(city);
+        out.push((
+            city.to_string(),
+            format!("{town}{}丁目", numbers[0]),
+            joined(&numbers[1..numbers.len().min(3)]),
+        ));
+        out.push((city.to_string(), town.to_string(), joined(&numbers[..2])));
+    }
+    out
+}
+
+/// "Vas County" -> "Vas", "Departamento de Santa Cruz" -> "Santa Cruz": words that classify a
+/// region rather than name it, which the data's names mostly leave out.
+fn without_admin_word(text: &str) -> Option<String> {
+    const WORDS: [&str; 30] = [
+        "county",
+        "department",
+        "departement",
+        "departamento",
+        "province",
+        "provincia",
+        "provincie",
+        "region",
+        "región",
+        "région",
+        "regione",
+        "district",
+        "parish",
+        "governorate",
+        "prefecture",
+        "oblast",
+        "state",
+        "estado",
+        "municipality",
+        "municipio",
+        "kreis",
+        "landkreis",
+        "kreisfreie",
+        "stadt",
+        "comté",
+        "division",
+        "rajon",
+        "raion",
+        "voivodeship",
+        "city",
+    ];
+    const LINKS: [&str; 6] = ["of", "de", "del", "di", "du", "do"];
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let kept: Vec<&str> = words
+        .iter()
+        .copied()
+        .filter(|w| {
+            let w = w
+                .trim_matches(|c: char| !c.is_alphanumeric())
+                .to_lowercase();
+            !WORDS.contains(&w.as_str())
+        })
+        .collect();
+    let kept: Vec<&str> = kept
+        .iter()
+        .copied()
+        .skip_while(|w| LINKS.contains(&w.to_lowercase().as_str()))
+        .collect();
+    (!kept.is_empty() && kept.len() < words.len()).then(|| kept.join(" "))
+}
+
+/// "hoca kasım köprüsü sk. no" (from "Sk. No:5") -> "hoca kasım köprüsü sk.".
+fn without_number_mark(road: &str) -> &str {
+    let t = road.trim_end();
+    for mark in [" no.", " no", " nº", " n°", " nr.", " nr", " №", " #"] {
+        if t.len() > mark.len() && t.to_lowercase().ends_with(mark) {
+            return t[..t.len() - mark.len()].trim_end();
+        }
+    }
+    t
+}
+
+/// "No:5", "nº 1824", "№ 43", "#12" -> the number itself.
+fn house_number(n: &str) -> &str {
+    let t = n.trim();
+    let lower = t.to_lowercase();
+    for prefix in ["no.", "no:", "nº", "n°", "n.", "no", "№", "#", "nr.", "nr"] {
+        if let Some(rest) = lower.strip_prefix(prefix) {
+            let rest = rest.trim_start_matches([' ', ':', '.']);
+            if rest.starts_with(|c: char| c.is_ascii_digit()) {
+                return &t[t.len() - rest.len()..];
+            }
+        }
+    }
+    t
+}
+
 fn title(s: &str) -> String {
     s.split(' ')
         .map(|w| {
@@ -353,6 +558,22 @@ fn stored(doc: &tantivy::TantivyDocument, f: Field) -> String {
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string()
+}
+
+/// The stored name sharing most words with the query, so "Sheikh Mohammed bin Rashid
+/// Boulevard" shows in English rather than as the street's Arabic primary name.
+fn best_name(doc: &tantivy::TantivyDocument, f: Field, query: &str) -> String {
+    use tantivy::schema::Value as _;
+    let want: std::collections::HashSet<String> =
+        fold(query).split(' ').map(String::from).collect();
+    let mut best = (0, String::new());
+    for name in doc.get_all(f).filter_map(|v| v.as_str()) {
+        let shared = fold(name).split(' ').filter(|t| want.contains(*t)).count();
+        if best.1.is_empty() || shared > best.0 {
+            best = (shared, name.to_string());
+        }
+    }
+    best.1
 }
 
 fn must(q: Box<dyn TQuery>) -> (Occur, Box<dyn TQuery>) {
@@ -561,13 +782,35 @@ impl App {
         self.places_exact(text, cc, within, ok).0
     }
 
-    /// `places`, and whether the first one is named exactly `text`.
+    /// `places`, and whether the first one is named exactly `text`; failing that, the same for
+    /// `text` without an administrative word ("Vas County" is named "Vas").
     fn places_exact(
         &self,
         text: &str,
         cc: Option<&str>,
         within: Option<&str>,
         ok: &dyn Fn(&Place) -> bool,
+    ) -> (Vec<Hit>, bool) {
+        let found = self.places_named(text, cc, within, ok, false);
+        if found.0.is_empty()
+            && let Some(bare) = without_admin_word(text)
+        {
+            // "Kreisfreie Stadt München" names a city; "Vas County" an area
+            let city_word = ["city", "stadt", "kreisfreie"]
+                .iter()
+                .any(|w| text.split_whitespace().any(|t| t.to_lowercase() == *w));
+            return self.places_named(&bare, cc, within, ok, !city_word);
+        }
+        found
+    }
+
+    fn places_named(
+        &self,
+        text: &str,
+        cc: Option<&str>,
+        within: Option<&str>,
+        ok: &dyn Fn(&Place) -> bool,
+        area_named: bool,
     ) -> (Vec<Hit>, bool) {
         let mut cl = self.musts(self.f.names, text);
         if cl.is_empty() {
@@ -578,28 +821,73 @@ impl App {
             cl.push(must(term(self.f.country, &cc.to_uppercase())));
         }
         let want = name_key(text);
-        let within = within.filter(|w| !fold(w).is_empty()).map(name_key);
-        let mut found: Vec<(bool, bool, bool, usize, u32)> = self
+        // "Cauca Department" is named "Cauca"
+        let within: Vec<u64> = within
+            .filter(|w| !fold(w).is_empty())
+            .into_iter()
+            .flat_map(|w| std::iter::once(w.to_string()).chain(without_admin_word(w)))
+            .map(|w| name_key(&w))
+            .collect();
+        let ids: Vec<(usize, u32)> = self
             .top(&BooleanQuery::new(cl), 100)
             .into_iter()
             .enumerate()
             .map(|(rank, a)| (rank, self.fast(a, "id") as u32))
             .filter(|(_, id)| ok(&self.places[*id as usize]))
+            .collect();
+        // The most important exact match among administrative areas, and the population of the
+        // largest exact-named settlement: only that settlement may outrank the area.
+        let area = ids
+            .iter()
+            .map(|&(_, id)| &self.places[id as usize])
+            .position(|p| {
+                p.named(want)
+                    && matches!(
+                        &*p.subtype,
+                        "region" | "macroregion" | "county" | "macrocounty"
+                    )
+            })
+            .map(|k| ids[k].1)
+            .filter(|_| !area_named);
+        let largest = ids
+            .iter()
+            .map(|&(_, id)| &self.places[id as usize])
+            .filter(|p| p.subtype.as_ref() == "locality" && p.named(want))
+            .map(|p| p.population)
+            .max()
+            .unwrap_or(0);
+        let mut found: Vec<(bool, bool, bool, usize, u32)> = ids
+            .into_iter()
             .map(|(rank, id)| {
-                let exact = self.places[id as usize].named(want);
-                let inside = within.is_some_and(|w| {
-                    self.chain(id)
+                let pl = &self.places[id as usize];
+                let exact = pl.named(want);
+                let chain = self.chain(id);
+                let inside = within.iter().any(|&w| {
+                    chain
                         .iter()
                         .skip(1)
                         .any(|&a| self.places[a as usize].named(w))
                 });
-                // A major city outranks a same-named region, as with Nominatim (Tokyo, New York).
-                let pl = &self.places[id as usize];
-                let big = pl.subtype.as_ref() == "locality" && pl.population >= 500_000;
+                // A major city outranks a same-named region, as with Nominatim (Tokyo, New York),
+                // and so does a town inside a same-named area (Brasília in the Federal District
+                // also called Brasília, Yalova in Yalova Province).
+                let town = pl.subtype.as_ref() == "locality"
+                    && (matches!(&*pl.class, "city" | "town") || pl.population >= 10_000)
+                    && [&*pl.primary, pl.name(true)]
+                        .iter()
+                        .any(|n| exact_key(n) == exact_key(text))
+                    && pl.population >= largest;
+                let big = pl.subtype.as_ref() == "locality" && pl.population >= 500_000
+                    || town && area.is_some_and(|a| chain.contains(&a))
+                    || area_named && !matches!(&*pl.subtype, "locality" | "localadmin");
                 (!exact, !inside, !big, rank, id)
             })
             .collect();
         found.sort();
+        // Places outside the stated region ("big bend, co") only when none is inside it.
+        if found.first().is_some_and(|f| !f.1) {
+            found.retain(|f| !f.1);
+        }
         let exact = found.first().is_some_and(|f| !f.0);
         (
             found
@@ -631,10 +919,12 @@ impl App {
             return vec![];
         }
         let mut scopes: Vec<Option<Box<dyn TQuery>>> = vec![];
+        let mut near = None;
+        let mut named: Vec<u32> = vec![];
         if let Some(city) = city {
-            let mut any: Vec<(Occur, Box<dyn TQuery>)> = self
+            named = self
                 .places(city, cc, None, &|p| {
-                    !matches!(&*p.subtype, "country" | "dependency" | "region")
+                    !matches!(&*p.subtype, "country" | "dependency")
                 })
                 .into_iter()
                 .filter_map(|h| {
@@ -644,6 +934,10 @@ impl App {
                         None
                     }
                 })
+                .collect();
+            let ids: Vec<u32> = named
+                .iter()
+                .copied()
                 // A neighbourhood's streets belong to the town around it (Seynod is now part of
                 // Annecy): scope to that town too.
                 .flat_map(|id| {
@@ -659,22 +953,69 @@ impl App {
                     .flatten();
                     std::iter::once(id).chain(town)
                 })
-                .map(|id| (Occur::Should, term(self.f.ids, &id.to_string())))
                 .collect();
-            let postal = self.musts(self.f.city, city);
-            if !postal.is_empty() {
-                any.push((Occur::Should, Box::new(BooleanQuery::new(postal))));
+            // Towns before same-named counties: Milan's Via Brera, not one elsewhere in the
+            // province of Milan that has the number.
+            let county = |id: &&u32| {
+                matches!(
+                    &*self.places[**id as usize].subtype,
+                    "county" | "macrocounty"
+                )
+            };
+            // City-provinces (Istanbul, Bangkok, Moscow) hold streets outside the town proper,
+            // but only a region named exactly like the city stands for it.
+            let want = name_key(city);
+            let region = |id: &&u32| {
+                matches!(
+                    &*self.places[**id as usize].subtype,
+                    "region" | "macroregion"
+                )
+            };
+            let named_region = |id: &&u32| region(id) && self.places[**id as usize].named(want);
+            let scope = |ids: Vec<&u32>, postal: bool| {
+                let mut any: Vec<(Occur, Box<dyn TQuery>)> = ids
+                    .into_iter()
+                    .map(|id| (Occur::Should, term(self.f.ids, &id.to_string())))
+                    .collect();
+                let city_terms = self.musts(self.f.city, city);
+                if postal && !city_terms.is_empty() {
+                    any.push((Occur::Should, Box::new(BooleanQuery::new(city_terms))));
+                }
+                (!any.is_empty()).then(|| Box::new(BooleanQuery::new(any)) as Box<dyn TQuery>)
+            };
+            if let Some(s) = scope(
+                ids.iter().filter(|id| !county(id) && !region(id)).collect(),
+                true,
+            ) {
+                scopes.push(Some(s));
             }
-            if !any.is_empty() {
-                scopes.push(Some(Box::new(BooleanQuery::new(any))));
+            if let Some(s) = scope(ids.iter().filter(county).collect(), false) {
+                scopes.push(Some(s));
+            }
+            if let Some(s) = scope(ids.iter().filter(named_region).collect(), false) {
+                scopes.push(Some(s));
             }
         }
         if let Some(pc) = postcode.map(pc_norm).filter(|p| !p.is_empty()) {
             scopes.push(Some(term(self.f.pcode, &pc)));
+            // Streets near the postcode, when neither the town nor the street's own postcodes
+            // place it ("Köpmangatan 26, 895 30 Anundsjö": Anundsjö is a parish).
+            if let Some(Hit::Postcode { x, y, .. }) = self.postcodes(&pc, cc).first() {
+                near = Some((*x, *y));
+            }
         }
         if city.is_none() && postcode.is_none() {
             scopes.push(None);
         }
+        // last: same-named streets within about 5 km of the postcode, filtered by distance
+        // rather than a range query, which would scan every document's coordinates.
+        // ponytail: only the 1000 most important same-named streets are checked, so a name
+        // shared by more ("Main Street") can miss; a geo-cell term field would lift that.
+        let near_scope = near.is_some();
+        if near_scope {
+            scopes.push(None);
+        }
+        let scope_count = scopes.len();
         // Streets whose addresses name the requested city as their postal city.
         let postal_city: std::collections::HashSet<DocAddress> = match city {
             Some(c) if !self.musts(self.f.city, c).is_empty() => {
@@ -686,13 +1027,7 @@ impl App {
             }
             _ => Default::default(),
         };
-        let number = number.map(|n| {
-            n.trim()
-                .trim_end_matches('号')
-                .chars()
-                .flat_map(char::to_lowercase)
-                .collect::<String>()
-        });
+        let number = number.map(index::number_key);
         // Streets that hold the requested postcode report it, as Nominatim reports an address's.
         let with_postcode: std::collections::HashSet<DocAddress> =
             match postcode.map(pc_norm).filter(|p| !p.is_empty()) {
@@ -707,20 +1042,45 @@ impl App {
             Some(Hit::Postcode { x, y, .. }) => Some((*x, *y)),
             _ => None,
         });
-        for scope in scopes {
+        for (i, scope) in scopes.into_iter().enumerate() {
             let mut cl = base();
             if let Some(s) = scope {
                 cl.push(must(s));
             }
-            let mut top = self.top(&BooleanQuery::new(cl), STREET_CANDIDATES);
+            let mut top = match near {
+                Some((px, py)) if near_scope && i + 1 == scope_count => self
+                    .top(&BooleanQuery::new(cl), 1000)
+                    .into_iter()
+                    .filter(|&a| {
+                        let (x, y) = (self.fast_f64(a, "x"), self.fast_f64(a, "y"));
+                        ((x - px) * py.to_radians().cos()).hypot(y - py) < 0.05
+                    })
+                    .take(STREET_CANDIDATES)
+                    .collect(),
+                _ => self.top(&BooleanQuery::new(cl), STREET_CANDIDATES),
+            };
             if top.is_empty() {
                 continue;
             }
-            top.sort_by_key(|a| !with_postcode.contains(a));
+            // Streets holding the postcode first, then those nearest its centre: a municipality
+            // can have two Fjällvägen, and the postcode tells them apart.
+            let dist = |a: &DocAddress| {
+                near_postcode.map_or(0, |(px, py)| {
+                    let (x, y) = (self.fast_f64(*a, "x"), self.fast_f64(*a, "y"));
+                    (((x - px) * py.to_radians().cos()).hypot(y - py) * 1e4) as u64
+                })
+            };
+            // and those in the place named rather than the town around it (Port Chalmers' Beach
+            // Street, not central Dunedin's)
+            let in_named = |a: &DocAddress| {
+                let place = self.fast(*a, "place") as u32;
+                place != NONE && self.chain(place).iter().any(|p| named.contains(p))
+            };
+            top.sort_by_cached_key(|a| (!with_postcode.contains(a), !in_named(a), dist(a)));
             // `own`: the house's postcode slot (1-based, into the street's stored list)
             let street = |a: DocAddress, number: Option<String>, (x, y): (f64, f64), own: u8| {
                 let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
-                let name = stored(&doc, self.f.name);
+                let name = best_name(&doc, self.f.name, road);
                 let km =
                     |(px, py): (f64, f64)| ((px - x) * py.to_radians().cos()).hypot(py - y) * 111.0;
                 let own = (own > 0)
@@ -822,14 +1182,30 @@ impl App {
                     }
                 }
             }
+            // A street crossing a cell edge is indexed in parts: answer the middle of the parts
+            // near the first, not one part's.
             let a = top[0];
-            let out = vec![street(
-                a,
-                None,
-                (self.fast_f64(a, "x"), self.fast_f64(a, "y")),
-                0,
-            )];
-            return out;
+            let xy = |b: DocAddress| (self.fast_f64(b, "x"), self.fast_f64(b, "y"));
+            let name = |b: DocAddress| {
+                let doc: tantivy::TantivyDocument = self.searcher.doc(b).unwrap();
+                stored(&doc, self.f.name)
+            };
+            let ((ax, ay), place, first) = (xy(a), self.fast(a, "place"), name(a));
+            let parts: Vec<(f64, f64)> = top
+                .iter()
+                .copied()
+                .filter(|&b| {
+                    let (bx, by) = xy(b);
+                    let km = ((bx - ax) * ay.to_radians().cos()).hypot(by - ay) * 111.0;
+                    km < 3.0 && self.fast(b, "place") == place && name(b) == first
+                })
+                .map(xy)
+                .collect();
+            let n = parts.len() as f64;
+            let mid = parts
+                .iter()
+                .fold((0.0, 0.0), |(x, y), p| (x + p.0 / n, y + p.1 / n));
+            return vec![street(a, None, mid, 0)];
         }
         vec![]
     }
@@ -961,6 +1337,32 @@ impl App {
         if q.is_empty() {
             return vec![];
         }
+        // Japanese block addresses: libpostal splits them, and the data names the chōme
+        // ("芝公園四丁目", number "2-8"), so they're read here.
+        let mut chome = None;
+        for (city, street, number) in japanese(q) {
+            let city = self.resolve_place(&city, Some("jp")).unwrap_or(city);
+            let hits = self.streets(&street, Some(&number), Some(&city), None, Some("jp"));
+            let housed = |h: &Hit| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        ..
+                    }
+                )
+            };
+            if let Some(h) = hits.iter().find(|h| housed(h)) {
+                return vec![self.json(h, en)];
+            }
+            if chome.is_none() && street.ends_with("丁目") {
+                chome = hits.into_iter().next();
+            }
+        }
+        // the block's chōme when the house isn't in the data
+        if let Some(h) = chome {
+            return vec![self.json(&h, en)];
+        }
         if let Some(p) = self.region_query(q) {
             return vec![self.json(&Hit::Place(p), en)];
         }
@@ -972,6 +1374,7 @@ impl App {
             .map(str::trim)
             .filter(|p| seen.insert(p.to_lowercase()))
             .collect();
+        let repeated = deduped.len() < q.split(',').count();
         let deduped = deduped.join(", ");
         let q = deduped.as_str();
         let mut parsed = self.parse(q);
@@ -1005,19 +1408,64 @@ impl App {
             .or(get("state_district"))
             .or(get("country_region"));
         let local = |p: &Place| !matches!(&*p.subtype, "country" | "dependency");
-        // A query that only names a country ("Malta", "North Macedonia") means the country.
+        // A query that only names a country ("Malta", "North Macedonia") means the country,
+        // unless it was repeated and the country has a town of that name ("Luxembourg,
+        // Luxembourg", "Djibouti, Djibouti").
         if let Some(c) = self.country(q)
             && let Some(&p) = self.country_places.get(&c)
         {
+            let town = |p: &Place| matches!(&*p.subtype, "locality" | "localadmin");
+            if repeated && let (places, true) = self.places_exact(q, Some(&c), None, &town) {
+                return places.iter().take(1).map(|h| self.json(h, en)).collect();
+            }
             return vec![self.json(&Hit::Place(p), en)];
         }
+        // Chinese road addresses ("上海市虹口区中山北一路295号"): libpostal splits the road
+        // from its number; read them here, scoped by the written district or city.
+        if let Some((units, road, number)) = chinese(q) {
+            let towns = units.iter().rev().map(String::as_str).chain(city);
+            let mut street = None;
+            for town in towns {
+                let hits = self.streets(&road, Some(&number), Some(town), None, cc);
+                if let Some(h) = hits.iter().find(|h| {
+                    matches!(
+                        h,
+                        Hit::Street {
+                            number: Some(_),
+                            ..
+                        }
+                    )
+                }) {
+                    return vec![self.json(h, en)];
+                }
+                if street.is_none() {
+                    street = hits.into_iter().next();
+                }
+            }
+            if let Some(h) = street {
+                return vec![self.json(&h, en)];
+            }
+        }
         let mut hits = vec![];
-        let roads: Vec<&str> = parsed
+        let mut roads: Vec<&str> = parsed
             .iter()
             .filter(|(l, _)| l == "road")
             .map(|(_, v)| v.as_str())
             .collect();
-        if let Some(&road) = roads.last() {
+        // The street is the road written next to the house number ("Pte.Roca 731, Rosario"
+        // gives roads "pte.roca" and "rosario"), else the last road.
+        if let Some(at) = parsed.iter().position(|(l, _)| l == "house_number") {
+            let next_to = [at.checked_sub(1), Some(at + 1)]
+                .into_iter()
+                .flatten()
+                .find(|&i| parsed.get(i).is_some_and(|(l, _)| l == "road"));
+            if let Some(i) = next_to {
+                let street = parsed[i].1.as_str();
+                roads.retain(|r| *r != street);
+                roads.push(street);
+            }
+        }
+        if let Some(road) = roads.last().map(|r| without_number_mark(r)) {
             // libpostal often puts the town in another part: "zürich - birchstrasse 160" gives
             // house "zürich", "fra - seynod - 26 rue de sansy" a first road "fra seynod". The
             // street is the last road; the town, if none is labelled, the first other part that
@@ -1031,14 +1479,61 @@ impl App {
             };
             hits = self.streets(
                 road,
-                get("house_number"),
+                get("house_number").map(house_number),
                 resolved_city.as_deref(),
                 get("postcode"),
                 cc,
             );
+            // "70 N Professor St, Oberlin 44074" parses one road "n professor st oberlin": with
+            // no town labelled, the road's last words may be it.
+            if hits.is_empty() && city.is_none() && (cc.is_some() || get("postcode").is_some()) {
+                let words: Vec<&str> = road.split_whitespace().collect();
+                // a street-type word ("road", "st") or a short one is no town
+                let kind = |w: &str| {
+                    let f = fold(w);
+                    f.len() < 3 || canon::canon(&f).is_some() || canon::is_canonical(&f)
+                };
+                for k in 1..words.len().min(3) {
+                    let (street, town) = words.split_at(words.len() - k);
+                    if town.iter().any(|w| kind(w)) || street.iter().all(|w| fold(w).len() < 3) {
+                        continue;
+                    }
+                    let town = town.join(" ");
+                    if let Some(town) = self.resolve_place(&town, cc) {
+                        hits = self.streets(
+                            &street.join(" "),
+                            get("house_number").map(house_number),
+                            Some(&town),
+                            get("postcode"),
+                            cc,
+                        );
+                        if !hits.is_empty() {
+                            break;
+                        }
+                    }
+                }
+            }
         }
         // "Santiago, Metropolitana, Chile" parses "santiago" as a road: without a house number,
         // an unmatched road is tried as a place name too.
+        // Village addresses ("Libá 156, 351 31 Libá"): the number belongs to the village,
+        // indexed as a street of that name. Only an exact house answers.
+        if roads.is_empty()
+            && let (Some(n), Some(town)) = (get("house_number").map(house_number), city)
+        {
+            let found = self.streets(town, Some(n), Some(town), get("postcode"), cc);
+            if let Some(h) = found.into_iter().find(|h| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        ..
+                    }
+                )
+            }) {
+                return vec![self.json(&h, en)];
+            }
+        }
         let road_as_place = hits.is_empty() && get("house_number").is_none();
         if get("road").is_none() || road_as_place {
             // libpostal's labels for place-only text are unreliable ("Doha, Ad Dawhah, Qatar"
@@ -1060,7 +1555,14 @@ impl App {
                     PLACE_LABELS.contains(&l.as_str()) || (road_as_place && l == "road")
                 })
                 .map(|(_, v)| v.as_str())
-                .filter(|t| !(cc.is_some() && self.country(t).as_deref() == cc))
+                // The country's own text, or another of its names, unless that also names a place
+                // there: Finnish calls Brazil "Brasilia", and some languages Tunisia "Tunis".
+                .filter(|t| {
+                    !(Some(*t) == country_text
+                        || (cc.is_some()
+                            && self.country(t).as_deref() == cc
+                            && !self.places_exact(t, cc, None, &local).1))
+                })
                 .collect();
             if let Some(pc) = get("postcode") {
                 let found = self.postcodes(pc, cc);
@@ -1420,8 +1922,16 @@ async fn main() {
         .route(
             "/search",
             get(blocking(|app, p, en| {
-                let q = p.get("q").map(String::as_str).unwrap_or("");
-                Value::Array(app.search(q, en))
+                // Nominatim's structured form reads as the same parts written in order.
+                let structured = || {
+                    ["amenity", "street", "city", "county", "state", "postalcode", "country"]
+                        .iter()
+                        .filter_map(|k| p.get(*k).map(|v| v.trim()).filter(|v| !v.is_empty()))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                };
+                let q = p.get("q").cloned().unwrap_or_else(structured);
+                Value::Array(app.search(&q, en))
             })),
         )
         .route("/details", get(blocking(|app, p, _| app.details(p.get("place_id").and_then(|v| v.parse().ok()).unwrap_or(u64::MAX)))))
@@ -1455,6 +1965,68 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn admin_words_and_number_prefixes() {
+        assert_eq!(without_admin_word("Vas County").as_deref(), Some("Vas"));
+        assert_eq!(
+            without_admin_word("Departamento de Santa Cruz").as_deref(),
+            Some("Santa Cruz")
+        );
+        assert_eq!(
+            without_admin_word("Kreisfreie Stadt München").as_deref(),
+            Some("München")
+        );
+        assert_eq!(without_admin_word("County"), None);
+        assert_eq!(without_admin_word("Leinster"), None);
+        assert_eq!(house_number("No:5"), "5");
+        assert_eq!(without_number_mark("köprüsü sk. no"), "köprüsü sk.");
+        assert_eq!(without_number_mark("nord"), "nord");
+        assert_eq!(house_number("nº 1824"), "1824");
+        assert_eq!(house_number("№ 43"), "43");
+        assert_eq!(house_number("12b"), "12b");
+        assert_eq!(house_number("Nordweg"), "Nordweg");
+    }
+
+    #[test]
+    fn chinese_road_addresses() {
+        assert_eq!(
+            chinese("上海市虹口区中山北一路295号, Hongkou 200083, China"),
+            Some((
+                vec!["上海市".into(), "虹口区".into()],
+                "中山北一路".into(),
+                "295".into()
+            ))
+        );
+        assert_eq!(
+            chinese("浙江省海宁市学林街60至62号"),
+            Some((
+                vec!["浙江省".into(), "海宁市".into()],
+                "学林街".into(),
+                "60".into()
+            ))
+        );
+        assert_eq!(
+            chinese("学院路18号, Beijing 100083, China"),
+            Some((vec![], "学院路".into(), "18".into()))
+        );
+        assert_eq!(chinese("10 Downing Street"), None);
+    }
+
+    #[test]
+    fn japanese_block_addresses() {
+        let got = japanese("〒105-0011 東京都港区芝公園４丁目２番８号");
+        assert_eq!(got[0], ("港区".into(), "芝公園4丁目".into(), "2-8".into()));
+        assert_eq!(got[1], ("港区".into(), "芝公園".into(), "4-2".into()));
+        assert_eq!(
+            japanese("東京都千代田区大手町1-1-1")[0],
+            ("千代田区".into(), "大手町1丁目".into(), "1-1".into())
+        );
+        assert_eq!(japanese("大阪府大阪市北区梅田三丁目1-3")[0].1, "梅田3丁目");
+        assert_eq!(kanji_number("二十一"), Some(21));
+        assert!(japanese("1600 Pennsylvania Avenue").is_empty());
+        assert!(japanese("東京都").is_empty());
+    }
 
     #[test]
     fn names_and_codes() {
