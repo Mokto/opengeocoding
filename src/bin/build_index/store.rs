@@ -5,10 +5,11 @@
 //! `_COMPLETE`; readers trust nothing without `_COMPLETE` and check every file against `MANIFEST`.
 use anyhow::{Context, Result, bail, ensure};
 use object_store::{
-    ObjectStore, ObjectStoreExt, PutPayload, WriteMultipart, aws::AmazonS3Builder,
+    ClientOptions, ObjectStore, ObjectStoreExt, PutPayload, WriteMultipart, aws::AmazonS3Builder,
     local::LocalFileSystem, path::Path as Key,
 };
 use serde::{Deserialize, Serialize};
+use std::{collections::BTreeSet, time::Duration};
 use std::{
     os::unix::fs::FileExt,
     path::{Path, PathBuf},
@@ -17,7 +18,7 @@ use std::{
 use tokio::{sync::Semaphore, task::JoinSet};
 
 const CHUNK: u64 = 32 << 20;
-const TRANSFERS: usize = 16;
+const TRANSFERS: usize = 64;
 
 #[derive(Clone)]
 pub struct Store {
@@ -40,24 +41,28 @@ pub struct Manifest {
 
 impl Store {
     pub fn open(url: &str) -> Result<Self> {
-        let (inner, root): (Arc<dyn ObjectStore>, String) =
-            if let Some(dir) = url.strip_prefix("file://") {
-                std::fs::create_dir_all(dir).with_context(|| format!("create {dir}"))?;
-                (
-                    Arc::new(LocalFileSystem::new_with_prefix(dir)?),
-                    String::new(),
-                )
-            } else if let Some(rest) = url.strip_prefix("s3://") {
-                let (bucket, prefix) = rest.split_once('/').unwrap_or((rest, ""));
-                ensure!(!bucket.is_empty(), "store URL {url} names no bucket");
-                let s3 = AmazonS3Builder::from_env()
-                    .with_bucket_name(bucket)
-                    .build()
-                    .context("configure S3 from the AWS_* environment")?;
-                (Arc::new(s3), prefix.trim_matches('/').to_string())
-            } else {
-                bail!("store URL must be s3://bucket/prefix or file:///path, got {url}");
-            };
+        let (inner, root): (Arc<dyn ObjectStore>, String) = if let Some(dir) =
+            url.strip_prefix("file://")
+        {
+            std::fs::create_dir_all(dir).with_context(|| format!("create {dir}"))?;
+            (
+                Arc::new(LocalFileSystem::new_with_prefix(dir)?),
+                String::new(),
+            )
+        } else if let Some(rest) = url.strip_prefix("s3://") {
+            let (bucket, prefix) = rest.split_once('/').unwrap_or((rest, ""));
+            ensure!(!bucket.is_empty(), "store URL {url} names no bucket");
+            let s3 = AmazonS3Builder::from_env()
+                .with_bucket_name(bucket)
+                // The default 30 s covers the whole body: too short for a 32 MiB range when
+                // many parallel ranges share the pod's bandwidth.
+                .with_client_options(ClientOptions::new().with_timeout(Duration::from_secs(300)))
+                .build()
+                .context("configure S3 from the AWS_* environment")?;
+            (Arc::new(s3), prefix.trim_matches('/').to_string())
+        } else {
+            bail!("store URL must be s3://bucket/prefix or file:///path, got {url}");
+        };
         Ok(Self::new(inner, root))
     }
 
@@ -155,31 +160,67 @@ impl Store {
     }
 
     /// Downloads `rel` (`size` bytes) to `local` with parallel range requests, through a
-    /// `.part` file renamed into place.
-    pub async fn download(&self, rel: &str, size: u64, local: &Path) -> Result<()> {
+    /// `.part` file renamed into place, and returns the SHA-256 of what was written. The hash
+    /// is computed as the leading chunks land, so no second pass over the file follows.
+    pub async fn download(&self, rel: &str, size: u64, local: &Path) -> Result<String> {
         if let Some(dir) = local.parent() {
             std::fs::create_dir_all(dir)?;
         }
         let part = part(local);
-        let file = Arc::new(std::fs::File::create(&part)?);
+        let file = Arc::new(
+            std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&part)?,
+        );
         file.set_len(size)?;
+        let chunks = size.div_ceil(CHUNK);
+        let (done, mut landed) = tokio::sync::mpsc::unbounded_channel::<u64>();
+        let hasher = tokio::spawn({
+            let file = file.clone();
+            async move {
+                let mut ctx = ring::digest::Context::new(&ring::digest::SHA256);
+                let (mut pending, mut next) = (BTreeSet::new(), 0);
+                while next < chunks {
+                    pending.insert(landed.recv().await.context("download ended early")?);
+                    while pending.remove(&next) {
+                        let file = file.clone();
+                        let (start, end) = (next * CHUNK, ((next + 1) * CHUNK).min(size));
+                        ctx = tokio::task::spawn_blocking(move || {
+                            hash_range(&file, start, end, &mut ctx)?;
+                            anyhow::Ok(ctx)
+                        })
+                        .await??;
+                        next += 1;
+                    }
+                }
+                anyhow::Ok(hex(ctx.finish()))
+            }
+        });
         let mut tasks = JoinSet::new();
-        for start in (0..size).step_by(CHUNK as usize) {
-            let (store, rel, file) = (self.clone(), rel.to_string(), file.clone());
+        for i in 0..chunks {
+            let (store, rel, file, done) =
+                (self.clone(), rel.to_string(), file.clone(), done.clone());
             tasks.spawn(async move {
+                let start = i * CHUNK;
                 let bytes = store
                     .get_range(&rel, start..(start + CHUNK).min(size))
                     .await?;
                 tokio::task::spawn_blocking(move || file.write_all_at(&bytes, start)).await??;
+                let _ = done.send(i);
                 anyhow::Ok(())
             });
         }
+        drop(done);
         while let Some(r) = tasks.join_next().await {
             r??;
         }
-        file.sync_all()?;
+        let sha = hasher.await??;
+        // Not fsynced: the volume is disposable, and a torn file fails its hash on the next pull.
         std::fs::rename(&part, local)?;
-        Ok(())
+        Ok(sha)
     }
 
     /// Publishes every file under `dir` to `rel`, then `MANIFEST` and `_COMPLETE`. Lock files
@@ -215,22 +256,23 @@ impl Store {
             self.exists(&format!("{rel}/_COMPLETE")).await?,
             "{rel} is not complete"
         );
-        let manifest: Manifest =
+        let mut manifest: Manifest =
             serde_json::from_slice(&self.get(&format!("{rel}/MANIFEST")).await?)?;
+        // Largest first, so the biggest files' hashing overlaps the rest of the transfer.
+        manifest.files.sort_by_key(|e| std::cmp::Reverse(e.size));
         let mut tasks = JoinSet::new();
         for e in manifest.files {
             let (store, rel) = (self.clone(), rel.to_string());
             let local = dir.join(&e.path);
             tasks.spawn(async move {
                 if !matches(&local, &e).await? {
-                    store
+                    let sha = store
                         .download(&format!("{rel}/{}", e.path), e.size, &local)
                         .await?;
-                    ensure!(
-                        matches(&local, &e).await?,
-                        "{rel}/{} does not match its MANIFEST entry",
-                        e.path
-                    );
+                    if sha != e.sha256 {
+                        let _ = std::fs::remove_file(&local);
+                        bail!("{rel}/{} does not match its MANIFEST entry", e.path);
+                    }
                 }
                 anyhow::Ok(())
             });
@@ -300,24 +342,32 @@ pub async fn hash_all(dir: &Path, files: &[String]) -> Result<Vec<Entry>> {
     Ok(entries)
 }
 
-pub fn sha256(path: &Path) -> Result<String> {
-    use std::io::Read;
-    let mut file = std::fs::File::open(path)?;
-    let mut ctx = ring::digest::Context::new(&ring::digest::SHA256);
+fn hex(digest: ring::digest::Digest) -> String {
+    digest.as_ref().iter().map(|b| format!("{b:02x}")).collect()
+}
+
+fn hash_range(
+    file: &std::fs::File,
+    start: u64,
+    end: u64,
+    ctx: &mut ring::digest::Context,
+) -> Result<()> {
     let mut buf = vec![0; 1 << 20];
-    loop {
-        let n = file.read(&mut buf)?;
-        if n == 0 {
-            break;
-        }
+    let mut at = start;
+    while at < end {
+        let n = ((end - at) as usize).min(buf.len());
+        file.read_exact_at(&mut buf[..n], at)?;
         ctx.update(&buf[..n]);
+        at += n as u64;
     }
-    Ok(ctx
-        .finish()
-        .as_ref()
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect())
+    Ok(())
+}
+
+pub fn sha256(path: &Path) -> Result<String> {
+    let file = std::fs::File::open(path)?;
+    let mut ctx = ring::digest::Context::new(&ring::digest::SHA256);
+    hash_range(&file, 0, file.metadata()?.len(), &mut ctx)?;
+    Ok(hex(ctx.finish()))
 }
 
 #[cfg(test)]
@@ -333,6 +383,7 @@ mod tests {
         let big: Vec<u8> = (0..(CHUNK * 2 + 5)).map(|i| (i % 251) as u8).collect();
         std::fs::write(src.join("big.bin"), &big).unwrap();
         std::fs::write(src.join("nested/small.txt"), b"hello").unwrap();
+        std::fs::write(src.join("empty"), b"").unwrap();
         std::fs::write(src.join(".tantivy-meta.lock"), b"").unwrap();
         std::fs::write(src.join(".numbers-spill/0"), b"spill").unwrap();
         let store = Store::open(&format!("file://{}", bucket.display())).unwrap();
