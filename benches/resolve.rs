@@ -20,7 +20,7 @@ struct Row {
 
 static FIXTURE: LazyLock<Fixture> = LazyLock::new(|| {
     let dir = PathBuf::from(std::env::var_os("INDEX_DIR").expect("INDEX_DIR"));
-    let parser = Arc::new(Parser::setup().expect("libpostal models"));
+    let parser = Arc::new(Parser::setup_with_cache(0).expect("libpostal models"));
     let index = Index::open(&dir, parser.clone()).expect("index");
     let rows = include_str!("../tests/addresses.tsv")
         .lines()

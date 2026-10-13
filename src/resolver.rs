@@ -25,7 +25,11 @@ const ORDERS: [(&str, &[&str]); 4] = [
     ("just_city", &["country", "city"]),
 ];
 
-pub struct Resolver {
+pub struct Resolver(Arc<Core>);
+
+/// Everything runs on a blocking thread (libpostal and the index search block), so one request
+/// takes one hop to that pool instead of one per parse and search.
+struct Core {
     index: Arc<Index>,
     parser: Arc<Parser>,
 }
@@ -39,46 +43,65 @@ impl Resolver {
             "INDEX_DIR {} holds no build_index output",
             dir.display()
         );
-        let parser = Arc::new(Parser::setup()?);
-        let index = Arc::new(Index::open(dir, parser.clone())?);
-        Ok(Self { index, parser })
+        let cache = match std::env::var("PARSE_CACHE") {
+            Ok(v) => v.parse().context("PARSE_CACHE")?,
+            Err(_) => Parser::DEFAULT_CACHE,
+        };
+        let parser = Arc::new(Parser::unloaded(cache));
+        // the index doesn't parse while it opens, so the two loads overlap
+        let index = std::thread::scope(|scope| {
+            let models = scope.spawn(|| parser.load());
+            let index = Index::open(dir, parser.clone());
+            models.join().expect("libpostal setup thread panicked")?;
+            index
+        })?;
+        let index = Arc::new(index);
+        Ok(Self(Arc::new(Core { index, parser })))
     }
 
     pub fn index(&self) -> &Index {
-        &self.index
+        &self.0.index
+    }
+
+    pub fn regions(&self) -> Result<Vec<(String, Region)>> {
+        self.0.regions()
     }
 
     pub async fn parse(&self, query: &str) -> Result<ParsedAddress> {
-        let parser = self.parser.clone();
+        let core = self.0.clone();
         let query = query.to_owned();
-        Ok(tokio::task::spawn_blocking(move || parser.parse(&query))
-            .await??
-            .into_iter()
-            .collect())
+        tokio::task::spawn_blocking(move || core.parse(&query)).await?
     }
 
-    /// Index candidates for `query` with English names (Nominatim's `Accept-Language: en`).
-    pub async fn candidates(&self, query: &str) -> Result<Vec<Value>> {
-        Ok(self.search(query).await?.1)
+    pub async fn resolve(&self, query: &str) -> Result<FullAddress> {
+        let core = self.0.clone();
+        let query = query.to_owned();
+        tokio::task::spawn_blocking(move || core.resolve(&query)).await?
+    }
+
+    pub async fn reverse(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
+        let core = self.0.clone();
+        tokio::task::spawn_blocking(move || core.reverse(lat, lon)).await?
+    }
+}
+
+impl Core {
+    fn parse(&self, query: &str) -> Result<ParsedAddress> {
+        Ok(self.parser.parse(query)?.iter().cloned().collect())
     }
 
     /// The index's hits and their English rendering.
-    async fn search(&self, query: &str) -> Result<(Vec<crate::index::Hit>, Vec<Value>)> {
+    fn search(&self, query: &str) -> (Vec<crate::index::Hit>, Vec<Value>) {
         let query = query.trim_matches(whitespace);
         if query.is_empty() {
-            return Ok((vec![], vec![]));
+            return (vec![], vec![]);
         }
-        let index = self.index.clone();
-        let query = query.to_owned();
-        Ok(tokio::task::spawn_blocking(move || {
-            let hits = index.search(&query);
-            let english = hits.iter().map(|h| index.render(h, true)).collect();
-            (hits, english)
-        })
-        .await?)
+        let hits = self.index.search(query);
+        let english = hits.iter().map(|h| self.index.render(h, true)).collect();
+        (hits, english)
     }
 
-    pub async fn first_acceptable(
+    fn first_acceptable(
         &self,
         query: &str,
         address: &ParsedAddress,
@@ -101,7 +124,7 @@ impl Resolver {
         };
         let (hits, candidates) = {
             let _timer = METRICS.search.with_label_values(&[tier]).start_timer();
-            self.search(query).await?
+            self.search(query)
         };
         let english = candidates
             .iter()
@@ -207,7 +230,7 @@ impl Resolver {
         Ok(Some(english[viable[index].0].clone()))
     }
 
-    pub async fn resolve(&self, query: &str) -> Result<FullAddress> {
+    fn resolve(&self, query: &str) -> Result<FullAddress> {
         if query.is_empty() || query.chars().count() > 256 {
             return Ok(FullAddress::default());
         }
@@ -216,7 +239,7 @@ impl Resolver {
         if PLACEHOLDERS.contains(&query.trim_matches(whitespace).to_lowercase().as_str()) {
             return Ok(FullAddress::default());
         }
-        let mut address = self.parse(query).await?;
+        let mut address = self.parse(query)?;
         if part(&address, "country").is_empty() {
             let parts: Vec<_> = query
                 .split(',')
@@ -229,7 +252,7 @@ impl Resolver {
                     .copied()
                     .collect::<Vec<_>>()
                     .join(", ");
-                let rotated = self.parse(&rotated_query).await?;
+                let rotated = self.parse(&rotated_query)?;
                 if !part(&rotated, "country").is_empty() {
                     address = rotated;
                 }
@@ -249,9 +272,8 @@ impl Resolver {
         } else {
             part(&address, "postcode").into()
         };
-        if let Some(found) = self
-            .first_acceptable(query, &address, &country, &postcode, "raw", true)
-            .await?
+        if let Some(found) =
+            self.first_acceptable(query, &address, &country, &postcode, "raw", true)?
         {
             return Ok(accept(found, &address, &postcode, "raw", true));
         }
@@ -260,25 +282,22 @@ impl Resolver {
             if !useful_query(&structured, &postcode, &country) {
                 continue;
             }
-            if let Some(found) = self
-                .first_acceptable(&structured, &address, &country, &postcode, tier, true)
-                .await?
+            if let Some(found) =
+                self.first_acceptable(&structured, &address, &country, &postcode, tier, true)?
             {
                 return Ok(accept(found, &address, &postcode, tier, false));
             }
         }
         let stripped = without_country(query, &address);
         if !stripped.is_empty()
-            && let Some(found) = self
-                .first_acceptable(
-                    &stripped,
-                    &address,
-                    &country,
-                    &postcode,
-                    "without_stated_country",
-                    country.is_empty(),
-                )
-                .await?
+            && let Some(found) = self.first_acceptable(
+                &stripped,
+                &address,
+                &country,
+                &postcode,
+                "without_stated_country",
+                country.is_empty(),
+            )?
         {
             return Ok(accept(
                 found,
@@ -299,17 +318,14 @@ impl Resolver {
                 if !useful_query(&structured, &postcode, "") {
                     continue;
                 }
-                if let Some(found) = self
-                    .first_acceptable(
-                        &structured,
-                        &without,
-                        "",
-                        &postcode,
-                        &tier,
-                        country.is_empty(),
-                    )
-                    .await?
-                {
+                if let Some(found) = self.first_acceptable(
+                    &structured,
+                    &without,
+                    "",
+                    &postcode,
+                    &tier,
+                    country.is_empty(),
+                )? {
                     return Ok(accept(found, &address, &postcode, &tier, true));
                 }
             }
@@ -318,10 +334,8 @@ impl Resolver {
         Ok(FullAddress::default())
     }
 
-    pub async fn reverse(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
-        let index = self.index.clone();
-        let value =
-            tokio::task::spawn_blocking(move || index.reverse(lat as f64, lon as f64)).await?;
+    fn reverse(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
+        let value = self.index.reverse(lat as f64, lon as f64);
         if !truthy(&value["address"]) {
             return Ok(None);
         }
@@ -332,7 +346,7 @@ impl Resolver {
 
     /// Each ISO 3166-2 code the index knows with its region, as a search for `<cc>, <code>`
     /// renders it.
-    pub fn regions(&self) -> Result<Vec<(String, Region)>> {
+    fn regions(&self) -> Result<Vec<(String, Region)>> {
         let mut regions = vec![];
         for (code, place) in self.index.region_places() {
             let result = self.index.render(&crate::index::Hit::Place(place), true);

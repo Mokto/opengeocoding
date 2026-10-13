@@ -123,7 +123,7 @@ pub fn create(
     let index = Index::create_in_dir(out, schema).unwrap();
     index.tokenizers().register("fold", analyzer());
     let writer = index.writer_with_num_threads(threads, budget).unwrap();
-    // A single merged segment measured slower to query than the tens the writer produces.
+    // Segments are merged once at the end (build_index's FINAL_SEGMENTS), not while indexing.
     writer.set_merge_policy(Box::new(tantivy::merge_policy::NoMergePolicy));
     (index, writer, f)
 }
