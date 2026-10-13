@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --test rpc -- --ignored --nocapture
-//! SERVICE_IMAGE=geolocation LIBPOSTAL_MODELS=$PWD/models/libpostal CLICKHOUSE_URL=... cargo test --test rpc -- --ignored --nocapture
+//! SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS=$PWD/models/libpostal CLICKHOUSE_URL=... cargo test --test rpc -- --ignored --nocapture
 //! ```
 //!
 //! With grpcurl installed, legacy gRPC is exercised too; its known hang fails the test with a
@@ -17,7 +17,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use buffa::Message;
-use geolocation::{
+use opengeocoding::{
     proto::opengeocoding::{EmptyRequest, FullAddress, GeoCoordinates, SearchAddressTask},
     regions::python_repr,
 };
@@ -268,7 +268,7 @@ async fn start(env: &mut Env, index_port: u16, image: Option<&str>) -> Result<()
         command
     } else {
         let binary = std::env::var("SERVICE_BINARY")
-            .unwrap_or_else(|_| env!("CARGO_BIN_EXE_geolocation").into());
+            .unwrap_or_else(|_| env!("CARGO_BIN_EXE_opengeocoding").into());
         let mut command = Command::new(binary);
         command.envs(settings);
         command
@@ -566,11 +566,12 @@ async fn rpc_contracts() {
         client: reqwest::Client::new(),
         clickhouse: std::env::var("CLICKHOUSE_URL")
             .unwrap_or_else(|_| "http://127.0.0.1:8125".into()),
-        database: format!("geolocation_rpc_test_{}", std::process::id()),
+        database: format!("opengeocoding_rpc_test_{}", std::process::id()),
         child: None,
         rpc: String::new(),
         metrics: String::new(),
-        map_dir: std::env::temp_dir().join(format!("geolocation-rpc-test-{}", std::process::id())),
+        map_dir: std::env::temp_dir()
+            .join(format!("opengeocoding-rpc-test-{}", std::process::id())),
         fixture,
     };
     let outcome = match start(&mut env, index_port, image.as_deref()).await {

@@ -1,6 +1,6 @@
 use crate::score::{Expect, LEVELS, Summary, rank};
 use anyhow::{Context, Result, bail, ensure};
-use geolocation::eval::{ADDRESS_COLUMNS, holdout, read_tsv};
+use opengeocoding::eval::{ADDRESS_COLUMNS, holdout, read_tsv};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::{Path, PathBuf};

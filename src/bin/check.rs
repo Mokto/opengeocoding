@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use geolocation::{
+use opengeocoding::{
     matching::*,
     proto::opengeocoding::*,
     regions::{format_regions, python_repr},

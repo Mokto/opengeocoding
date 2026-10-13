@@ -1,6 +1,6 @@
 //! Candidate checks the service runs on every backend answer.
 use divan::black_box;
-use geolocation::{
+use opengeocoding::{
     matching::*,
     proto::opengeocoding::{AddressDetails, FullAddress},
     resolver::format_response,

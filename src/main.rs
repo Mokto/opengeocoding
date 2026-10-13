@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use axum::{Router, extract::Request, http::Uri, middleware::map_request, routing::get};
 use connectrpc::{Limits, Router as ConnectRouter};
 use connectrpc_reflection::{Reflector, install};
-use geolocation::{metrics::METRICS, regions::Regions, resolver::Resolver, service::Service};
+use opengeocoding::{metrics::METRICS, regions::Regions, resolver::Resolver, service::Service};
 use std::{borrow::Cow, sync::Arc, time::Duration};
 use tokio::sync::watch;
 
@@ -125,7 +125,7 @@ async fn main() -> Result<()> {
         .with_graceful_shutdown(shutdown(receiver))
         .await
     });
-    tracing::info!(rpc_port, metrics_port, "Geolocation service ready");
+    tracing::info!(rpc_port, metrics_port, "OpenGeocoding service ready");
     tokio::select! {
         result = &mut rpc_task => result.context("RPC task")??,
         result = &mut metrics_task => result.context("metrics task")??,

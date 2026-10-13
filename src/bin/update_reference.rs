@@ -3,7 +3,7 @@
 //! Requires network access and changes checked-in data; review the result as a data update.
 
 use anyhow::{Context, Result, bail};
-use geolocation::eval::sha256_hex;
+use opengeocoding::eval::sha256_hex;
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -124,7 +124,7 @@ async fn main() -> Result<()> {
     );
     let mut downloads = Downloads {
         client: reqwest::Client::builder()
-            .user_agent("geolocation-reference-builder")
+            .user_agent("opengeocoding-reference-builder")
             .timeout(std::time::Duration::from_secs(60))
             .build()?,
         sources: vec![],

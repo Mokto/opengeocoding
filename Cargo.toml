@@ -1,5 +1,5 @@
 [package]
-name = "geolocation"
+name = "opengeocoding"
 version = "0.1.0"
 edition = "2024"
 license = "FSL-1.1-Apache-2.0"

@@ -1,5 +1,5 @@
 use axum::{Json, Router, routing::get};
-use geolocation::resolver::{Resolver, check_index_status};
+use opengeocoding::resolver::{Resolver, check_index_status};
 use serde_json::json;
 
 #[tokio::test]
@@ -42,7 +42,7 @@ async fn only_serve_index_is_supported() {
         assert!(Resolver::new(url.into()).await.is_err());
     }
 
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_geolocation"))
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_opengeocoding"))
         .env_remove("INDEX_URL")
         .env("NOMINATIM_HOST", base)
         .env("SENTRY_DSN", "")

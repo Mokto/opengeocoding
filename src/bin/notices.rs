@@ -86,7 +86,7 @@ fn main() -> Result<()> {
                 .to_string(),
         );
         let name = field(package, "name");
-        if name == "geolocation" {
+        if name == env!("CARGO_PKG_NAME") {
             continue;
         }
         let directory = Path::new(package["manifest_path"].as_str().context("manifest_path")?)
