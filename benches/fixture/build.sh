@@ -5,14 +5,17 @@
 # resolves to, fed through `build_index`. Needs duckdb and a release build of build_index.
 # Overture drops releases after a few months, so the result is published once as a release
 # asset (see README.md); rebuild only when build_index changes the index format.
-# usage: build.sh OVERTURE_RELEASE_DIR OUT_DIR   (writes OUT_DIR/index and OUT_DIR/provenance.txt)
+# With OSM_DIR and OPENADDRESSES_DIR (the --osm and --openaddresses directories of build_index)
+# the same boxes are cut from those too, by slice_sources.py (needs osmium-tool and shapely).
+# usage: [OSM_DIR=.. OPENADDRESSES_DIR=..] build.sh OVERTURE_RELEASE_DIR OUT_DIR
+#   (writes OUT_DIR/index and OUT_DIR/provenance.txt)
 set -euo pipefail
 src=$(cd "$1" && pwd)
 mkdir -p "$2"
 out=$(cd "$2" && pwd)
 here=$(cd "$(dirname "$0")" && pwd)
 root=$(cd "$here/../.." && pwd)
-rm -rf "$out/slice" "$out/index" "$out/.tmp"
+rm -rf "$out/slice" "$out/index" "$out/.tmp" "$out/sources"
 
 # One duckdb process per file with its own temp directory: a single scan over the 67 GB of
 # segments spilled hundreds of GB, and processes sharing a temp directory corrupt each other.
@@ -30,9 +33,16 @@ for d in division division_area segment address; do
   ls "$src/$d" | xargs -P 4 -I{} bash -c "slice $d {}"
 done
 
-"$root/target/release/build_index" "$out/slice" "$out/index"
+extra=()
+if [ -n "${OSM_DIR:-}" ] && [ -n "${OPENADDRESSES_DIR:-}" ]; then
+  python3 "$here/slice_sources.py" "$here/boxes.txt" "$OSM_DIR" "$OPENADDRESSES_DIR" "$out/sources"
+  extra=(--osm "$out/sources/osm" --openaddresses "$out/sources/openaddresses")
+fi
+"$root/target/release/build_index" "$out/slice" "$out/index" ${extra[@]+"${extra[@]}"}
 {
   echo "overture_release=$(basename "$src")"
+  echo "osm_extracts=$(ls "$out/sources/osm" 2>/dev/null | wc -l | tr -d ' ')"
+  echo "openaddresses_layers=$(ls "$out/sources/openaddresses" 2>/dev/null | grep -c geojson.gz)"
   echo "boxes_sha256=$(shasum -a 256 "$here/boxes.txt" | cut -d' ' -f1)"
   echo "consumer_commit=$(git -C "$root" rev-parse HEAD)"
 } > "$out/provenance.txt"
