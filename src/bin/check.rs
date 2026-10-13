@@ -79,11 +79,10 @@ async fn main() -> Result<()> {
             }
             "parse" | "resolve" => {
                 if resolver.is_none() {
-                    resolver = Some(Resolver::new(
-                        std::env::var("NOMINATIM_HOST")
-                            .unwrap_or_else(|_| "http://127.0.0.1".into()),
-                        std::env::var("NOMINATIM_AUTHORITY").ok(),
-                    )?);
+                    resolver = Some(
+                        Resolver::new(std::env::var("INDEX_URL").context("INDEX_URL is required")?)
+                            .await?,
+                    );
                 }
                 let resolver = resolver.as_ref().context("parser initialized")?;
                 if string("op") == "parse" {

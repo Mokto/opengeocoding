@@ -7,6 +7,8 @@
 !src/**
 !tests/
 !tests/**
+!benches/
+!benches/**
 !proto/
 !proto/**
 !data/

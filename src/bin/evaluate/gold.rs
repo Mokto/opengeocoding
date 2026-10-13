@@ -1,6 +1,7 @@
 //! Builds `tests/gold.jsonl` from `tests/gold.seeds.jsonl`. Expected answers come only from
 //! licensed authoritative sources — Wikidata (CC0), Base Adresse Nationale (Licence Ouverte 2.0),
-//! PDOK/BAG (CC0), the US Census geocoder (public domain) and postcodes.io/ONSPD (OGL v3) —
+//! PDOK/BAG (CC0), the US Census geocoder (public domain), postcodes.io/ONSPD (OGL v3),
+//! Kartverket (CC BY 4.0), swisstopo (open use with attribution) and CartoCiudad (CC BY 4.0) —
 //! never from Nominatim or this service. Requires network access; review the diff as a data update.
 
 use crate::{report::sorted, run::utc_now};
@@ -98,6 +99,8 @@ fn license(source: &str) -> &'static str {
         "ban" => "etalab-2.0",
         "census" => "US-Government-Public-Domain",
         "postcodes.io" => "OGL-UK-3.0",
+        "kartverket" | "cartociudad" => "CC-BY-4.0",
+        "swisstopo" => "swisstopo-OGD",
         _ => "CC0-1.0",
     }
 }
@@ -111,6 +114,13 @@ fn source_url(source: &str, reference: &str) -> String {
         }
         "census" => format!("https://geocoding.geo.census.gov/ (TIGER line {reference})"),
         "postcodes.io" => format!("https://api.postcodes.io/postcodes/{reference}"),
+        "kartverket" => format!("https://ws.geonorge.no/adresser/v1/sok?sok={reference}"),
+        "swisstopo" => format!(
+            "https://api3.geo.admin.ch/rest/services/api/SearchServer?type=locations&searchText={reference}"
+        ),
+        "cartociudad" => {
+            format!("https://www.cartociudad.es/geocoder/api/geocoder/findJsonp?q={reference}")
+        }
         _ => String::new(),
     }
 }
@@ -224,6 +234,22 @@ impl Sources {
             {
                 let code = row["code"]["value"].as_str().unwrap_or("").to_uppercase();
                 found.entry(qid(&row)).or_default().codes.insert(code);
+            }
+            // Territories with their own ISO code (American Samoa, Åland, Réunion) answer as
+            // either that code or the sovereign country's.
+            for row in self
+                .sparql(&format!(
+                    "SELECT ?item ?iso WHERE {{ VALUES ?item {{ {values} }}
+                    ?item wdt:P131* ?area . ?area wdt:P297 ?iso }}"
+                ))
+                .await?
+            {
+                let iso = row["iso"]["value"].as_str().unwrap_or("").to_lowercase();
+                if let Some(item) = found.get_mut(&qid(&row))
+                    && !item.iso.is_empty()
+                {
+                    item.iso.insert(iso);
+                }
             }
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
@@ -409,6 +435,124 @@ impl Sources {
                 let postcode = r["postcode"].as_str().unwrap_or("").to_string();
                 Ok((found(point, &[("postcode", postcode.clone())]), postcode))
             }
+            "kartverket" => {
+                let (text, postcode) = query
+                    .split_once('|')
+                    .context("kartverket ref is ADDRESS|POSTCODE")?;
+                let result = self
+                    .get(
+                        "https://ws.geonorge.no/adresser/v1/sok",
+                        &[
+                            ("sok", text),
+                            ("postnummer", postcode),
+                            ("treffPerSide", "2"),
+                        ],
+                    )
+                    .await?;
+                let hits = result["adresser"].as_array().cloned().unwrap_or_default();
+                ensure!(hits.len() == 1, "Kartverket matches {hits:?}");
+                let a = &hits[0];
+                ensure!(
+                    a["adressetekst"].as_str().unwrap_or("").to_lowercase() == text.to_lowercase()
+                        && a["postnummer"] == postcode,
+                    "Kartverket match {a}"
+                );
+                let house = text.rsplit(' ').next().unwrap_or("").to_string();
+                let point = ["lat", "lon"]
+                    .map(|k| round6(a["representasjonspunkt"][k].as_f64().unwrap_or(f64::NAN)));
+                let id = format!(
+                    "{}-{}",
+                    a["kommunenummer"].as_str().unwrap_or(""),
+                    a["adressekode"]
+                );
+                let road = a["adressenavn"].as_str().unwrap_or("").to_string();
+                Ok((
+                    found(
+                        point,
+                        &[
+                            ("house_number", house),
+                            ("road", road),
+                            ("postcode", postcode.into()),
+                        ],
+                    ),
+                    format!("{id}-{}", a["nummer"]),
+                ))
+            }
+            "swisstopo" => {
+                let result = self
+                    .get(
+                        "https://api3.geo.admin.ch/rest/services/api/SearchServer",
+                        &[
+                            ("searchText", query),
+                            ("type", "locations"),
+                            ("origins", "address"),
+                            ("limit", "1"),
+                        ],
+                    )
+                    .await?;
+                let attrs = &result["results"][0]["attrs"];
+                let label = Regex::new("<[^>]+>")?
+                    .replace_all(attrs["label"].as_str().unwrap_or(""), "")
+                    .to_lowercase();
+                let words: Vec<&str> = query.split(' ').collect();
+                let postcode = first(r"\b\d{4}\b", query)?;
+                let at = words
+                    .iter()
+                    .position(|w| *w == postcode)
+                    .context("swisstopo postcode")?;
+                ensure!(
+                    label.starts_with(&(words[..=at].join(" ").to_lowercase() + " ")),
+                    "swisstopo match {attrs}"
+                );
+                let point = ["lat", "lon"].map(|k| round6(attrs[k].as_f64().unwrap_or(f64::NAN)));
+                let id = attrs["featureId"].as_str().unwrap_or("").to_string();
+                Ok((
+                    found(
+                        point,
+                        &[
+                            ("house_number", words[at - 1].into()),
+                            ("postcode", postcode),
+                        ],
+                    ),
+                    id,
+                ))
+            }
+            "cartociudad" => {
+                // the postcode stays out of the search text: it makes CartoCiudad miss
+                let (text, postcode) = query
+                    .split_once('|')
+                    .context("cartociudad ref is ADDRESS, TOWN|POSTCODE")?;
+                let result = self
+                    .client
+                    .get("https://www.cartociudad.es/geocoder/api/geocoder/findJsonp")
+                    .query(&[("q", text)])
+                    .send()
+                    .await?
+                    .error_for_status()?
+                    .text()
+                    .await?;
+                let body = result
+                    .trim()
+                    .trim_start_matches("callback(")
+                    .trim_end_matches(')');
+                let r: Value = serde_json::from_str(body)?;
+                let house = first(r"\d+\w*,", text)?.trim_end_matches(',').to_string();
+                let postcode = postcode.to_string();
+                ensure!(
+                    r["type"] == "portal"
+                        && r["portalNumber"]
+                            .as_u64()
+                            .is_some_and(|n| n.to_string() == house)
+                        && r["postalCode"] == postcode.as_str(),
+                    "CartoCiudad match {r}"
+                );
+                let point = ["lat", "lng"].map(|k| round6(r[k].as_f64().unwrap_or(f64::NAN)));
+                let id = r["id"].as_str().unwrap_or("").to_string();
+                Ok((
+                    found(point, &[("house_number", house), ("postcode", postcode)]),
+                    id,
+                ))
+            }
             other => bail!("unknown source {other}"),
         }
     }
@@ -443,7 +587,17 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
     let wd = sources.wikidata(&qids).await?;
     // Any listed code is acceptable: OSM tags different levels per country (FR-IDF and FR-75C, IE-L and IE-D).
     let region = |qid: Option<&str>, extra: &[String]| -> Vec<String> {
-        let mut codes: BTreeSet<String> = qid.map(|q| wd[q].codes.clone()).unwrap_or_default();
+        // Only ISO 3166-2 codes: Somaliland's "SL" sits on Sanaag's chain too.
+        let mut codes: BTreeSet<String> = qid
+            .map(|q| {
+                wd[q]
+                    .codes
+                    .iter()
+                    .filter(|c| c.contains('-'))
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default();
         codes.extend(extra.iter().cloned());
         codes.into_iter().collect()
     };
@@ -587,6 +741,9 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
                                 "ban" => "fr",
                                 "pdok" => "nl",
                                 "census" => "us",
+                                "kartverket" => "no",
+                                "swisstopo" => "ch",
+                                "cartociudad" => "es",
                                 _ => "gb",
                             };
                             (
@@ -608,7 +765,7 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
                         "radius_km": seed.radius_km.unwrap_or(0.15).max(floor),
                         "region": regions,
                         "components": components,
-                        "good_match": true,
+                        "good_match": good_match,
                     });
                     (
                         expect,

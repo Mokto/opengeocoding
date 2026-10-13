@@ -22,8 +22,9 @@ COPY proto proto
 COPY data data
 COPY src src
 COPY tests tests
+COPY benches benches
 ENV RUSTFLAGS="-L native=/usr/local/lib"
-RUN cargo build --locked --release --bin geolocation
+RUN cargo build --locked --release --bin geolocation --bin serve_index
 
 FROM build AS checks
 RUN ldconfig && rustup component add rustfmt clippy \
@@ -40,6 +41,7 @@ COPY --from=build /usr/local/lib/libpostal.so* /usr/local/lib/
 COPY --from=build /usr/local/lib/LICENSE.libpostal /usr/local/share/licenses/libpostal/LICENSE
 COPY --from=build /usr/local/bin/libpostal_data /usr/local/bin/libpostal_data
 COPY --from=build /source/target/release/geolocation /usr/local/bin/geolocation
+COPY --from=build /source/target/release/serve_index /usr/local/bin/serve_index
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.txt /usr/local/share/licenses/geolocation/
 COPY LICENSES /usr/local/share/licenses/geolocation/dependencies/
 RUN ldconfig && printf '{}' > /app/regions.json && chown 1000:1000 /app/regions.json

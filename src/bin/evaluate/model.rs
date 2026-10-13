@@ -145,11 +145,13 @@ pub fn load_corpus(path: &Path) -> Result<Vec<Case>> {
         .collect()
 }
 
-const LICENSES: [&str; 4] = [
+const LICENSES: [&str; 6] = [
     "CC0-1.0",
     "etalab-2.0",
     "US-Government-Public-Domain",
     "OGL-UK-3.0",
+    "CC-BY-4.0",
+    "swisstopo-OGD",
 ];
 
 /// Gold corpus integrity: provenance, licence, hold-out rule and well-formed expectations.

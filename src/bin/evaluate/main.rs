@@ -1,18 +1,18 @@
-//! Geographic-correctness evaluation against a real Nominatim backend.
+//! Geographic-correctness evaluation against serve_index.
 //!
 //! ```text
 //! evaluate run --suite smoke|gold|addresses --out DIR [--compare SNAPSHOT] [options]
 //! evaluate run --corpus FILE --out DIR       JSONL or TSV corpus (unscored cases: drift only)
-//! evaluate diff BASELINE CANDIDATE           run directories or .tsv snapshots
+//! evaluate diff BASELINE CANDIDATE           run directories or .tsv/.json snapshots
 //! evaluate snapshot RUN_DIR FILE.tsv         one row per case, plus FILE.manifest.json
+//! evaluate snapshot RUN_DIR FILE.json        manifest and full per-case results in one file
 //! evaluate report RUN_DIR [--rescore]        re-summarize a saved run, no network
 //! evaluate build-gold                        regenerate tests/gold.jsonl from tests/gold.seeds.jsonl
 //! evaluate check                             validate the corpora and snapshot, no network
 //! ```
 //!
 //! `run` starts the local service binary against a counting, rate-limited proxy and a fresh
-//! ClickHouse database, unless `--rpc` points at a running service. NOMINATIM_URL selects the
-//! backend (optionally NOMINATIM_AUTHORITY for a Host override).
+//! ClickHouse database, unless `--rpc` points at a running service. INDEX_URL selects the backend.
 
 mod gold;
 mod model;
@@ -30,7 +30,7 @@ run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare 
             [--fail-on-drift] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000]
             [--no-direct] [--resume] [--backend-label TEXT]
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift]
-snapshot    RUN_DIR FILE.tsv
+snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
 build-gold  [--seeds FILE] [--out FILE]
 check       validate tests/gold.jsonl, tests/addresses.tsv and its snapshot";
@@ -157,7 +157,7 @@ async fn command() -> Result<i32> {
         "snapshot" => {
             args.only_flags(&[])?;
             let [run_dir, out] = args.positional.as_slice() else {
-                bail!("snapshot needs RUN_DIR and FILE.tsv\n\n{USAGE}");
+                bail!("snapshot needs RUN_DIR and FILE.tsv or FILE.json\n\n{USAGE}");
             };
             report::snapshot(run_dir.as_ref(), out.as_ref())?;
             Ok(0)

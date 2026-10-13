@@ -3,7 +3,7 @@ name = "geolocation"
 version = "0.1.0"
 edition = "2024"
 license = "FSL-1.1-Apache-2.0"
-description = "Address resolution with libpostal, Nominatim, ClickHouse, Connect and gRPC"
+description = "Address resolution with libpostal, Overture indexes, ClickHouse, Connect and gRPC"
 repository = "https://github.com/Mokto/geolocation"
 rust-version = "1.99"
 
@@ -26,6 +26,15 @@ sentry = { version = "0.42", default-features = false, features = ["backtrace", 
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync", "fs", "io-util", "process", "time"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tantivy = "0.26"
+tantivy-fst = "0.5"
+rstar = "0.13"
+rayon = "1"
+arrow-array = "60"
+parquet = { version = "60", default-features = false, features = ["arrow", "zstd", "snap"] }
+mimalloc = { version = "0.1", default-features = false }
+osmpbf = "0.3"
+flate2 = "1"
 
 [build-dependencies]
 connectrpc-build = "0.9"
@@ -35,3 +44,19 @@ serde_json = "1"
 [profile.release]
 lto = "thin"
 strip = true
+
+# CodSpeed's profiles need symbols.
+[profile.bench]
+strip = false
+debug = true
+
+[dev-dependencies]
+divan = { package = "codspeed-divan-compat", version = "5.0.2" }
+
+[[bench]]
+name = "index"
+harness = false
+
+[[bench]]
+name = "matching"
+harness = false

@@ -1,9 +1,6 @@
 use crate::{matching::*, metrics::METRICS, proto::geolocation::*};
-use anyhow::{Context, Result, bail};
-use reqwest::{
-    Client, Url,
-    header::{HOST, HeaderMap, HeaderValue},
-};
+use anyhow::{Context, Result, bail, ensure};
+use reqwest::{Client, Url};
 use serde_json::{Value, json};
 use std::{borrow::Cow, sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
@@ -33,26 +30,34 @@ pub struct Resolver {
 }
 
 impl Resolver {
-    pub fn new(base: String, authority: Option<String>) -> Result<Self> {
+    pub async fn new(base: String) -> Result<Self> {
         let url = Url::parse(&base)?;
-        if !matches!(url.scheme(), "http" | "https") {
-            bail!("unsupported Nominatim URL scheme");
-        }
-        let mut headers = HeaderMap::new();
-        if let Some(host) = authority.filter(|s| !s.is_empty()) {
-            headers.insert(HOST, HeaderValue::from_str(&host)?);
-        }
-        let client = Client::builder()
-            .timeout(Duration::from_secs(10))
-            .default_headers(headers)
-            .build()?;
+        ensure!(
+            matches!(url.scheme(), "http" | "https")
+                && url.host_str().is_some()
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.query().is_none()
+                && url.fragment().is_none(),
+            "INDEX_URL must be an HTTP(S) base URL without credentials, query or fragment"
+        );
+        let base = base.trim_end_matches('/').to_string();
+        let client = Client::builder().timeout(Duration::from_secs(10)).build()?;
+        let status = client
+            .get(format!("{base}/status"))
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<Value>()
+            .await?;
+        check_index_status(&status)?;
         let postal = rustpostal::LibModules::Address;
         postal
             .setup()
             .map_err(|_| anyhow::anyhow!("libpostal model setup failed"))?;
         Ok(Self {
             client,
-            base: base.trim_end_matches('/').into(),
+            base,
             postal: Arc::new(postal),
             permits: Arc::new(Semaphore::new(1)),
         })
@@ -98,7 +103,7 @@ impl Resolver {
             match result {
                 Ok(value) => return Ok(value),
                 Err(error) if attempt < 4 => {
-                    tracing::warn!(attempt = attempt + 1, %error, "Retrying Nominatim");
+                    tracing::warn!(attempt = attempt + 1, %error, "Retrying serve_index");
                     tokio::time::sleep(Duration::from_millis((attempt + 1) * 500)).await;
                 }
                 Err(error) => return Err(error),
@@ -126,7 +131,7 @@ impl Resolver {
             .await?;
         match result {
             Value::Array(candidates) => Ok(candidates),
-            _ => bail!("Nominatim search response must be an array"),
+            _ => bail!("serve_index search response must be an array"),
         }
     }
 
@@ -231,7 +236,7 @@ impl Resolver {
                 .all(|key| part(address, key).is_empty())
         {
             // A bare place name means the settlement, not a same-named quarter, county or region
-            // that Nominatim may rank higher.
+            // that the index may rank higher.
             viable.sort_by_key(|(i, _)| match candidates[*i]["addresstype"].as_str() {
                 Some("city" | "town") => 0,
                 Some("municipality") => 1,
@@ -429,6 +434,15 @@ impl Resolver {
     }
 }
 
+pub fn check_index_status(status: &Value) -> Result<()> {
+    ensure!(
+        status["status"].as_u64() == Some(0)
+            && status["software_version"].as_str() == Some("overture-index"),
+        "INDEX_URL must point to a ready serve_index backend"
+    );
+    Ok(())
+}
+
 fn own_name<'a>(candidate: &'a Value, city: &str) -> Option<&'a str> {
     let names = candidate["namedetails"].as_object().into_iter().flatten();
     names
@@ -438,7 +452,7 @@ fn own_name<'a>(candidate: &'a Value, city: &str) -> Option<&'a str> {
         .find(|name| names_agree(city, name))
 }
 
-/// Missing-data placeholders that Nominatim would otherwise match to places named "n/a".
+/// Missing-data placeholders that would otherwise match to places named "n/a".
 const PLACEHOLDERS: &[&str] = &[
     "n/a", "n.a.", "na", "none", "null", "nil", "unknown", "-", "?",
 ];

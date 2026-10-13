@@ -1,0 +1,52 @@
+name: CodSpeed
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # lets CodSpeed backfill a baseline
+  workflow_dispatch:
+
+# Public repository: CodSpeed accepts results without a token.
+permissions:
+  contents: read
+
+env:
+  LIBPOSTAL_COMMIT: 25099c506612b34b23b1bfe286ca6321fcf06f35
+  LIBPOSTAL_PREFIX: /home/runner/libpostal
+  RUSTFLAGS: -L native=/home/runner/libpostal/lib
+  LD_LIBRARY_PATH: /home/runner/libpostal/lib
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        id: libpostal
+        with:
+          path: ${{ env.LIBPOSTAL_PREFIX }}
+          key: libpostal-${{ runner.os }}-${{ runner.arch }}-${{ env.LIBPOSTAL_COMMIT }}
+      # The benchmarks link libpostal but never load its models.
+      - name: Build libpostal
+        if: steps.libpostal.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends autoconf automake libtool pkg-config
+          mkdir /tmp/libpostal
+          curl -fsSL --retry 3 "https://github.com/openvenues/libpostal/archive/${LIBPOSTAL_COMMIT}.tar.gz" \
+            | tar -xz --strip-components=1 -C /tmp/libpostal
+          cd /tmp/libpostal && ./bootstrap.sh
+          CFLAGS="-std=gnu99" ./configure --prefix="$LIBPOSTAL_PREFIX" --disable-data-download
+          make -j4 && make install
+      - name: Install Buf, Rust and cargo-codspeed
+        run: |
+          curl -fsSL --retry 3 "https://github.com/bufbuild/buf/releases/download/v1.68.1/buf-Linux-x86_64" -o "$HOME/.cargo/bin/buf"
+          chmod +x "$HOME/.cargo/bin/buf"
+          rustup toolchain install 1.99.0 --profile minimal && rustup default 1.99.0
+          cargo install cargo-codspeed --locked --version 5.0.2
+      - name: Build the benchmarks
+        run: cargo codspeed build
+      - uses: CodSpeedHQ/action@f842b9a3ffe213dbb81768fd7f7eeb4dfcf1c369
+        with:
+          mode: simulation
+          run: cargo codspeed run

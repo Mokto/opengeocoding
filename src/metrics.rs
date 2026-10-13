@@ -24,7 +24,7 @@ pub static METRICS: LazyLock<Metrics> = LazyLock::new(|| {
     let search = HistogramVec::new(
         HistogramOpts::new(
             "nominatim_geolocation_search_candidates_seconds",
-            "Nominatim candidate search duration",
+            "Index candidate search duration",
         ),
         &["tier"],
     )
