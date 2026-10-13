@@ -1,8 +1,10 @@
 # `resolve` benchmark fixture
 
 `benches/resolve.rs` times libpostal parsing and `Index::search` over the non-held-out rows of
-`tests/addresses.tsv` for Denmark, the Netherlands, France, Switzerland, Norway and Spain. It
-needs libpostal's models and a small index, and does nothing when `INDEX_DIR` is unset.
+`tests/addresses.tsv`. Parsing needs no index data, so it covers all 808 rows (every country),
+split by target and a non-Latin group. Searches use only the rows for Denmark, the Netherlands,
+France, Switzerland, Norway and Spain, the countries the fixture covers. It needs libpostal's
+models and a small index, and does nothing when `INDEX_DIR` is unset.
 
 The index is built by `build.sh` from Overture release 2026-09-23.1: every row inside the 0.08°
 boxes of `boxes.txt` (77 boxes around the places those queries resolved to in a full index),

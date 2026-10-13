@@ -1,8 +1,8 @@
 //! Model-backed libpostal parsing and searches against a built index, over the non-held-out
 //! rows of `tests/addresses.tsv`. Needs libpostal's models and `INDEX_DIR`; without the
-//! index it runs nothing. Queries whose country the index lacks still parse, but miss.
-//! `BENCH_COUNTRIES` (comma-separated ISO codes) picks the rows; set it to the countries
-//! your index covers.
+//! index it runs nothing. Parsing uses every row, in every country and script. Searches use
+//! only the rows of `BENCH_COUNTRIES` (comma-separated ISO codes; set it to the countries
+//! your index covers), since elsewhere they would only measure the empty-result path.
 use divan::{Bencher, black_box};
 use opengeocoding::index::{Index, Parser};
 use std::{path::PathBuf, sync::Arc, sync::LazyLock};
@@ -12,7 +12,14 @@ const COUNTRIES: &str = "dk,nl,fr,ch,no,es";
 struct Fixture {
     parser: Arc<Parser>,
     index: Index,
-    queries: Vec<(String, String)>,
+    rows: Vec<Row>,
+}
+
+struct Row {
+    target: String,
+    script: String,
+    covered: bool,
+    query: String,
 }
 
 static FIXTURE: LazyLock<Fixture> = LazyLock::new(|| {
@@ -20,19 +27,23 @@ static FIXTURE: LazyLock<Fixture> = LazyLock::new(|| {
     let countries = std::env::var("BENCH_COUNTRIES").unwrap_or_else(|_| COUNTRIES.into());
     let parser = Arc::new(Parser::setup().expect("libpostal models"));
     let index = Index::open(&dir, parser.clone()).expect("index");
-    let queries = include_str!("../tests/addresses.tsv")
+    let rows = include_str!("../tests/addresses.tsv")
         .lines()
         .skip(1)
         .filter_map(|l| {
             let c: Vec<_> = l.split('\t').collect();
-            (c[6] == "0" && countries.split(',').any(|x| x == c[3]))
-                .then(|| (c[1].to_string(), c[8].to_string()))
+            (c[6] == "0").then(|| Row {
+                target: c[1].into(),
+                script: c[5].into(),
+                covered: countries.split(',').any(|x| x == c[3]),
+                query: c[8].into(),
+            })
         })
         .collect();
     Fixture {
         parser,
         index,
-        queries,
+        rows,
     }
 });
 
@@ -44,29 +55,56 @@ fn main() {
     divan::main();
 }
 
-fn queries(targets: &[&str]) -> Vec<String> {
+fn queries(keep: impl Fn(&Row) -> bool) -> Vec<String> {
     FIXTURE
-        .queries
+        .rows
         .iter()
-        .filter(|(t, _)| targets.contains(&t.as_str()))
-        .map(|(_, q)| q.clone())
+        .filter(|r| keep(r))
+        .map(|r| r.query.clone())
         .collect()
 }
 
-#[divan::bench]
-fn parse_all(bencher: Bencher) {
-    let all = queries(&[
-        "address", "street", "postcode", "city", "region", "country", "unparsed",
-    ]);
+fn parse(bencher: Bencher, qs: Vec<String>) {
     bencher.with_inputs(|| &*FIXTURE).bench_local_refs(|f| {
-        all.iter()
+        qs.iter()
             .map(|q| f.parser.parse(black_box(q)).unwrap().len())
             .sum::<usize>()
     });
 }
 
+#[divan::bench]
+fn parse_addresses(bencher: Bencher) {
+    parse(bencher, queries(|r| r.target == "address"));
+}
+
+#[divan::bench]
+fn parse_streets_and_postcodes(bencher: Bencher) {
+    parse(
+        bencher,
+        queries(|r| matches!(r.target.as_str(), "street" | "postcode")),
+    );
+}
+
+#[divan::bench]
+fn parse_places(bencher: Bencher) {
+    parse(
+        bencher,
+        queries(|r| matches!(r.target.as_str(), "city" | "region" | "country")),
+    );
+}
+
+#[divan::bench]
+fn parse_unparsed(bencher: Bencher) {
+    parse(bencher, queries(|r| r.target == "unparsed"));
+}
+
+#[divan::bench]
+fn parse_non_latin(bencher: Bencher) {
+    parse(bencher, queries(|r| r.script == "non_latin"));
+}
+
 fn search(bencher: Bencher, targets: &[&str]) {
-    let qs = queries(targets);
+    let qs = queries(|r| r.covered && targets.contains(&r.target.as_str()));
     bencher.with_inputs(|| &*FIXTURE).bench_local_refs(|f| {
         qs.iter()
             .map(|q| f.index.search(black_box(q)).len())
