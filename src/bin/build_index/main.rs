@@ -36,7 +36,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR] [--osm DIR] [--geonames-postal FILE]...";
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--geonames-postal FILE]...";
 const SHARDS: usize = 256;
 const MAX_POSTCODES: usize = 20;
 const MAX_CITIES: usize = 5;
@@ -1084,7 +1084,12 @@ fn main() {
         shared.rows.swap(0, Relaxed)
     ));
     for d in &oa_dirs {
-        let files = sources::openaddresses(Path::new(d), &shared);
+        let files = sources::openaddresses(
+            Path::new(d),
+            Path::new(out),
+            args.iter().any(|a| a == "--openaddresses-any-licence"),
+            &shared,
+        );
         lap(&format!(
             "openaddresses {d} ({files} files, {} rows)",
             shared.rows.swap(0, Relaxed)
