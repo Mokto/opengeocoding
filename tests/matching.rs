@@ -265,3 +265,60 @@ fn province_corroborates_region() {
     };
     assert!(region_agrees(&address, Some(&details)));
 }
+
+#[test]
+fn postcode_and_a_place_above_the_locality_corroborate_the_town() {
+    let at = |state: &str, suburb: &str, postcode: &str| FullAddress {
+        address_details: AddressDetails {
+            country_code: "de".into(),
+            city: "Mitte".into(),
+            state: state.into(),
+            suburb: suburb.into(),
+            postcode: postcode.into(),
+            ..Default::default()
+        }
+        .into(),
+        ..Default::default()
+    };
+    let berlin = parsed(&[
+        ("road", "unter den linden"),
+        ("postcode", "10117"),
+        ("city", "berlin"),
+    ]);
+    let house = at("Berlin", "", "10117");
+    assert!(!city_agrees(&berlin, house.address_details.as_option()));
+    assert!(postcode_place_agrees(
+        &berlin,
+        "10117",
+        house.address_details.as_option()
+    ));
+    // the postcode must be the stated one: a same-named state alone is no evidence
+    assert!(!postcode_place_agrees(
+        &berlin,
+        "10117",
+        at("Berlin", "", "12043").address_details.as_option()
+    ));
+    assert!(!postcode_place_agrees(
+        &berlin,
+        "",
+        house.address_details.as_option()
+    ));
+    assert!(!postcode_place_agrees(
+        &berlin,
+        "10117",
+        at("Bayern", "", "10117").address_details.as_option()
+    ));
+    // a Danish postal district letter is not part of the town
+    let copenhagen = parsed(&[("postcode", "1165"), ("city", "københavn k")]);
+    let k = at("Region Hovedstaden", "København", "1165");
+    assert!(postcode_place_agrees(
+        &copenhagen,
+        "1165",
+        k.address_details.as_option()
+    ));
+    assert!(!postcode_place_agrees(
+        &parsed(&[("city", "københavn k")]),
+        "1165",
+        at("", "Aarhus", "1165").address_details.as_option()
+    ));
+}
