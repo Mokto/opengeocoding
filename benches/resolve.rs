@@ -58,7 +58,12 @@ fn queries(keep: impl Fn(&Row) -> bool) -> Vec<String> {
         .collect()
 }
 
+// CodSpeed's simulation runs each benchmark once, cold: without this pass the page faults and
+// lazy loads of the first touch land in the measurement and are reported as system time.
 fn parse(bencher: Bencher, qs: Vec<String>) {
+    for q in &qs {
+        FIXTURE.parser.parse(q).unwrap();
+    }
     bencher.with_inputs(|| &*FIXTURE).bench_local_refs(|f| {
         qs.iter()
             .map(|q| f.parser.parse(black_box(q)).unwrap().len())
@@ -99,6 +104,9 @@ fn parse_non_latin(bencher: Bencher) {
 
 fn search(bencher: Bencher, targets: &[&str]) {
     let qs = queries(|r| targets.contains(&r.target.as_str()));
+    for q in &qs {
+        FIXTURE.index.search(q);
+    }
     bencher.with_inputs(|| &*FIXTURE).bench_local_refs(|f| {
         qs.iter()
             .map(|q| f.index.search(black_box(q)).len())
