@@ -59,11 +59,169 @@ struct Geometry {
 
 const OA_BLOCK: usize = 4 << 20;
 
+/// What an OpenAddresses source's licence lets a commercial geocoder do with its data.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Licence {
+    /// Public domain, or open with at most attribution.
+    Open,
+    /// ODbL: share-alike, but the index already carries ODbL through OSM.
+    Odbl,
+    /// Another share-alike licence, which may not combine with ODbL.
+    ShareAlike,
+    /// Forbids sale or commercial use.
+    Restricted,
+    /// No licence stated, or none recognised.
+    Unknown,
+}
+
+impl Licence {
+    pub fn usable(self) -> bool {
+        matches!(self, Licence::Open | Licence::Odbl)
+    }
+}
+
+/// Classifies the `license` of an OpenAddresses source layer: a string, or an object with `url`,
+/// `text` and `share-alike`.
+// ponytail: substring rules over free-text licences, conservative (unrecognised = Unknown). A
+// per-source allowlist reviewed by counsel is the upgrade path.
+pub fn classify(license: Option<&serde_json::Value>) -> Licence {
+    let Some(l) = license else {
+        return Licence::Unknown;
+    };
+    let field = |k: &str| l.get(k).and_then(|v| v.as_str()).unwrap_or("");
+    let t = match l.as_str() {
+        Some(s) => s.to_lowercase(),
+        None => format!("{} {}", field("url"), field("text")).to_lowercase(),
+    };
+    let any = |words: &[&str]| words.iter().any(|w| t.contains(w));
+    if any(&[
+        "non-commercial",
+        "noncommercial",
+        "non commercial",
+        "by-nc",
+        "by-nd",
+        "not for commercial",
+        "no commercial",
+        "shall sell",
+        "not be sold",
+        "may not sell",
+        "resale",
+        "resell",
+        "personal use only",
+        "internal use only",
+    ]) {
+        return Licence::Restricted;
+    }
+    if any(&["odbl", "opendatacommons.org/licenses/odbl"]) {
+        return Licence::Odbl;
+    }
+    if l.get("share-alike").and_then(|v| v.as_bool()) == Some(true)
+        || any(&["by-sa", "by sa", "iodl/1.0", "iodl 1.0"])
+    {
+        return Licence::ShareAlike;
+    }
+    if any(&[
+        "publicdomain",
+        "public-domain",
+        "public domain",
+        "pddl",
+        "cc0",
+        "cc 0",
+        "creativecommons.org/licenses/by/",
+        "creativecommons.org/licences/by/",
+        "cc by",
+        "cc-by",
+        "ccby",
+        "odc-by",
+        "opendatacommons.org/licenses/by",
+        "etalab",
+        "licence ouverte",
+        "open government licen",
+        "open data licen",
+        "public sector information",
+        "dati.gov.it/iodl/2.0",
+        "iodl 2.0",
+        "datos.gob.mx/libreusomx",
+        "licencia de datos abiertos",
+        "dl-de/by",
+        "dl-de-by",
+        "dl-de/zero",
+        "nlod",
+        "catastro.minhap.es",
+        "bev.gv.at",
+        "no restrictions",
+        "commercial",
+    ]) {
+        return Licence::Open;
+    }
+    Licence::Unknown
+}
+
+/// The licence of an OpenAddresses export, read from `<stem>.source.json` beside it: the source
+/// definition its batch job ran, whose `layers.addresses` entry named after the file's layer
+/// carries the licence (older definitions keep it at the top level).
+pub fn oa_licence(data: &Path) -> (Licence, String) {
+    let name = data.file_name().unwrap().to_string_lossy();
+    let stem = name.trim_end_matches(".geojson.gz");
+    let layer = stem.rsplit('-').next().unwrap_or("");
+    let Ok(text) = std::fs::read_to_string(data.with_file_name(format!("{stem}.source.json")))
+    else {
+        return (Licence::Unknown, "no source definition".into());
+    };
+    let Ok(src) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return (Licence::Unknown, "unreadable source definition".into());
+    };
+    let license = src["layers"]["addresses"]
+        .as_array()
+        .and_then(|ls| ls.iter().find(|l| l["name"] == layer))
+        .and_then(|l| l.get("license"))
+        .or(src.get("license"));
+    let shown = license.map_or(String::new(), |l| match l.as_str() {
+        Some(s) => s.to_string(),
+        None => [&l["url"], &l["text"], &l["attribution name"]]
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect::<Vec<_>>()
+            .join(" | "),
+    });
+    (classify(license), shown.replace(['\t', '\n', '\r'], " "))
+}
+
 /// `*.geojson.gz` files as published by OpenAddresses batch jobs, one Feature per line, named
 /// `<cc>_<rest of the source path>-<layer name>.geojson.gz`; the country comes from the name.
-/// Returns the number of files read.
-pub fn openaddresses(dir: &Path, shared: &Shared) -> usize {
-    let files = files(dir, ".geojson.gz");
+/// Unless `any_licence`, only files whose licence is `usable` are read. Every file's licence goes
+/// to `openaddresses.tsv` in `out`. Returns the number of files read.
+pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared) -> usize {
+    let mut report = String::from("file\tlicence\tread\tbytes\tlicense\n");
+    let mut skipped = std::collections::BTreeMap::<Licence, (usize, u64)>::new();
+    let files: Vec<PathBuf> = files(dir, ".geojson.gz")
+        .into_iter()
+        .filter(|path| {
+            let (class, shown) = oa_licence(path);
+            let read = any_licence || class.usable();
+            let bytes = std::fs::metadata(path).map_or(0, |m| m.len());
+            if !read {
+                let e = skipped.entry(class).or_default();
+                (e.0, e.1) = (e.0 + 1, e.1 + bytes);
+            }
+            let name = path.file_name().unwrap().to_string_lossy();
+            report += &format!("{name}\t{class:?}\t{read}\t{bytes}\t{shown}\n");
+            read
+        })
+        .collect();
+    let report_path = out.join("openaddresses.tsv");
+    let mut existing = std::fs::read_to_string(&report_path).unwrap_or_default();
+    if !existing.is_empty() {
+        report = report.split_once('\n').unwrap().1.to_string();
+    }
+    existing += &report;
+    std::fs::write(&report_path, existing).unwrap();
+    for (class, (n, bytes)) in &skipped {
+        println!(
+            "  skipped {n} OpenAddresses files ({:.2} GB), licence {class:?}",
+            *bytes as f64 / 1e9
+        );
+    }
     let bad = AtomicU64::new(0);
     files.par_iter().for_each(|path| {
         let name = path.file_name().unwrap().to_string_lossy();
@@ -600,6 +758,84 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn licences() {
+        let c = |v: serde_json::Value| classify(Some(&v));
+        assert_eq!(classify(None), Licence::Unknown);
+        assert_eq!(c(serde_json::json!("Unknown")), Licence::Unknown);
+        assert_eq!(
+            c(
+                serde_json::json!({"url": "https://creativecommons.org/licenses/by/4.0/", "text": "CC BY 4.0"})
+            ),
+            Licence::Open
+        );
+        assert_eq!(
+            c(
+                serde_json::json!({"url": "http://opendatacommons.org/licenses/odbl/1.0/", "share-alike": true})
+            ),
+            Licence::Odbl
+        );
+        assert_eq!(c(serde_json::json!("CC-BY-SA")), Licence::ShareAlike);
+        assert_eq!(
+            c(
+                serde_json::json!({"text": "RLIS Open Database End User License", "share-alike": true})
+            ),
+            Licence::ShareAlike
+        );
+        assert_eq!(
+            c(
+                serde_json::json!({"text": "No person shall sell, give, reproduce... any portion of the data"})
+            ),
+            Licence::Restricted
+        );
+        assert_eq!(
+            c(serde_json::json!({"text": "CC BY-NC 4.0, for non-commercial use"})),
+            Licence::Restricted
+        );
+        assert_eq!(
+            c(
+                serde_json::json!({"text": "license to exploit the Data for commercial and/or personal use"})
+            ),
+            Licence::Open
+        );
+        assert_eq!(
+            c(serde_json::json!({"url": "", "text": ""})),
+            Licence::Unknown
+        );
+        for usable in [Licence::Open, Licence::Odbl] {
+            assert!(usable.usable());
+        }
+        for unusable in [Licence::ShareAlike, Licence::Restricted, Licence::Unknown] {
+            assert!(!unusable.usable());
+        }
+    }
+
+    #[test]
+    fn licence_of_the_file_layer() {
+        let dir = std::env::temp_dir().join(format!("oa-licence-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let data = dir.join("us_xx_town-county.geojson.gz");
+        std::fs::write(
+            dir.join("us_xx_town-county.source.json"),
+            r#"{"layers":{"addresses":[
+                {"name":"city","license":"CC0"},
+                {"name":"county","license":{"text":"Not for resale"}}]}}"#,
+        )
+        .unwrap();
+        assert_eq!(oa_licence(&data).0, Licence::Restricted);
+        std::fs::write(
+            dir.join("us_xx_town-county.source.json"),
+            r#"{"license":"CC0"}"#,
+        )
+        .unwrap();
+        assert_eq!(oa_licence(&data).0, Licence::Open);
+        assert_eq!(
+            oa_licence(&dir.join("none-city.geojson.gz")).0,
+            Licence::Unknown
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn interpolation_spaces_numbers_along_the_way() {
