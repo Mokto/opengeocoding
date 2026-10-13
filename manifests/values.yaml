@@ -269,20 +269,6 @@ serving:
     enabled: true
     maxUnavailable: 1
 
-# The service keeps region names in ClickHouse, which it needs at startup.
-clickhouse:
-  # Required, for example http://clickhouse.clickhouse:8123
-  url: ""
-  database: opengeocoding
-  user: default
-  # Secret and key holding the password; empty for none.
-  passwordSecret:
-    name: ""
-    key: password
-  prefix: ""
-  # false selects clustered DDL.
-  singleNode: true
-
 service:
   type: ClusterIP
   port: 11121

@@ -34,6 +34,8 @@ env:
   LIBPOSTAL_MODELS: /home/runner/models
   LIBPOSTAL_DATA_DIR: /home/runner/models/libpostal
   INDEX_DIR: /home/runner/fixture/index
+  # Only the base side needs it, and only until the base commit no longer uses ClickHouse; then
+  # drop this and the clickhouse service below.
   CLICKHOUSE_URL: http://127.0.0.1:8125
 
 jobs:

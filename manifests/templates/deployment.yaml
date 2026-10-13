@@ -83,23 +83,6 @@ spec:
               value: {{ .Values.service.port | quote }}
             - name: METRICS_PORT
               value: {{ .Values.service.metricsPort | quote }}
-            - name: CLICKHOUSE_URL
-              value: {{ required "clickhouse.url is required" .Values.clickhouse.url | quote }}
-            - name: CLICKHOUSE_DATABASE
-              value: {{ .Values.clickhouse.database | quote }}
-            - name: CLICKHOUSE_USER
-              value: {{ .Values.clickhouse.user | quote }}
-            - name: CLICKHOUSE_PREFIX
-              value: {{ .Values.clickhouse.prefix | quote }}
-            - name: CLICKHOUSE_SINGLE_NODE
-              value: {{ ternary "1" "" .Values.clickhouse.singleNode | quote }}
-            {{- with .Values.clickhouse.passwordSecret.name }}
-            - name: CLICKHOUSE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ . }}
-                  key: {{ $.Values.clickhouse.passwordSecret.key }}
-            {{- end }}
             {{- with .Values.serving.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

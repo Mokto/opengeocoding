@@ -2,10 +2,10 @@
 
 [![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/Mokto/opengeocoding?utm_source=badge)
 
-A Rust service that combines libpostal address parsing, Overture-backed index lookups and ClickHouse-backed administrative regions.
+A Rust service that combines libpostal address parsing, Overture-backed index lookups and the administrative regions of that index.
 
 - Connect JSON and Connect protobuf; an experimental legacy gRPC surface.
-- Forward geocoding, reverse region resolution and region-map refresh/read APIs.
+- Forward geocoding, reverse region resolution and region-map read APIs (`RefreshRegionMap` remains for compatibility and changes nothing).
 - Country/region corroboration, local-language candidate matching (including each place's names in other languages and scripts), postcode-area safeguards and ordered fallback queries.
 - `goodMatch` is false for structured-fallback results and for street results that lack the requested house number.
 - Prometheus metrics, gRPC reflection and graceful shutdown.
@@ -40,7 +40,7 @@ docker run --rm --entrypoint libpostal_data \
 
 The resulting directory is `models/libpostal`. Keep it for subsequent runs.
 
-Build an index into `out/` (see the index section below), mount it read-only, and provide your own ClickHouse instance:
+Build an index into `out/` (see the index section below), and mount it read-only:
 
 ```sh
 docker run --rm \
@@ -48,13 +48,10 @@ docker run --rm \
   -v "$PWD/models/libpostal:/data/libpostal:ro" \
   -v "$PWD/out:/data/index:ro" \
   -e INDEX_DIR=/data/index \
-  -e CLICKHOUSE_URL=http://your-clickhouse:8123 \
-  -e CLICKHOUSE_USER=default \
-  -e CLICKHOUSE_PASSWORD=your-password \
   opengeocoding
 ```
 
-Addresses inside Docker must be reachable from the container; `localhost` refers to that container. The service creates its ClickHouse database/table and warms its region cache at startup.
+Addresses inside Docker must be reachable from the container; `localhost` refers to that container. The service needs nothing else at runtime: it derives its administrative regions from the index at startup.
 
 **Deploy behind a trusted network or authenticated proxy.** The RPCs, including region-map refresh, do not implement authentication. Do not expose them directly to the public internet.
 
@@ -75,7 +72,7 @@ The canonical RPC path is `/opengeocoding.Geolocation/*`. The Go package is `git
 
 ## Deploy on Kubernetes
 
-The Helm chart in `manifests/` builds the index in the cluster and serves it. It needs an S3-compatible bucket (AWS S3, MinIO, SeaweedFS, Ceph, R2 and the like) and a ClickHouse instance:
+The Helm chart in `manifests/` builds the index in the cluster and serves it. It needs an S3-compatible bucket (AWS S3, MinIO, SeaweedFS, Ceph, R2 and the like):
 
 ```sh
 kubectl create secret generic opengeocoding-s3 \
@@ -83,14 +80,13 @@ kubectl create secret generic opengeocoding-s3 \
 helm install geocoding oci://ghcr.io/mokto/charts/opengeocoding \
   --set store.url=s3://my-bucket/opengeocoding \
   --set store.endpoint=http://seaweedfs-s3.seaweedfs:8333 --set store.allowHttp=true \
-  --set store.credentialsSecret=opengeocoding-s3 \
-  --set clickhouse.url=http://clickhouse.clickhouse:8123
+  --set store.credentialsSecret=opengeocoding-s3
 ```
 
 `store.endpoint` is only for stores other than AWS S3; any other `AWS_*` setting, such as a web identity role, goes in `store.extraEnv`. See `manifests/values.yaml` for every setting.
 
 - **Build Job.** `build_index job` exits at once if the bucket already holds the index the chart names. Otherwise it fetches the sources and libpostal's models, builds, opens the result as the service would and resolves one of its places, then publishes it. Each source is copied into the bucket as it arrives, so a later build or a retried pod reads the bucket instead of upstream. A world build needs about 16 CPUs, 32 GiB of memory and 250 GiB of scratch (`build.*`), and about 140 GB of downloads the first time.
-- **Serving pods.** An init container (`build_index pull`) waits until the index is published, downloads it and the models to the pod's own disk and checks every file's SHA-256. The service then opens them read-only. The service itself never downloads anything. Each pod needs about 6 GiB of memory (16 GiB keeps a world index's page cache), 14 GB of disk for a world index, and ClickHouse at startup.
+- **Serving pods.** An init container (`build_index pull`) waits until the index is published, downloads it and the models to the pod's own disk and checks every file's SHA-256. The service then opens them read-only. The service itself never downloads anything. Each pod needs about 6 GiB of memory (16 GiB keeps a world index's page cache), and 14 GB of disk for a world index.
 - **Index names.** The chart names the index by `index.builderHash`, `index.modelsVersion` and `index.sources`, and passes the same name to the Job and the pods. `builderHash` hashes the builder's code (`build_index hash`), except the code that fetches sources and talks to the store (`fetch.rs`, `store.rs`): sources are sealed in the bucket and reused as they are, so that code can change without rebuilding. A fix to how sources are selected therefore takes effect only with a new `snapshot` label, or for Overture (stored by release) after deleting its directory in the bucket. `cargo test` fails until `manifests/values.yaml` matches the hash, so a builder change is a visible chart change. The Job refuses an image built from other builder code, and the service refuses an index whose `build.json` names another builder. `index.sources.snapshot` labels one fetch of the sources that only publish "latest" (OSM, OpenAddresses, GeoNames); a new label fetches them again.
 - **Upgrades.** A change that names a new index starts a new Job. New pods wait for the new index before old ones stop (`maxSurge: 1`, `maxUnavailable: 0`), so the old index keeps serving during the build; a first install's rollout stays in progress until the build ends. Rolling back the values rolls back to the old index, which is still in the bucket. Nothing deletes old sources or indexes.
 - **Regional builds.** `index.sources.bbox: [min lon, min lat, max lon, max lat]` builds only that area. Overture is then read only where its row groups meet the box (copied unchanged, without decoding), OpenAddresses layers are picked by their bounds, GeoNames by row, and the builder drops everything outside the box. Pick OSM extracts in `index.sources.osm` by hand. A regional index answers queries about other places with whatever it holds: "Paris, France" against a Liechtenstein index answered a Paris in Lombardy, with goodMatch true.
@@ -110,19 +106,13 @@ The initial model-backed integration run passes Connect JSON/protobuf, local-lan
 | Variable | Default |
 | --- | --- |
 | `INDEX_DIR` | Required; a `build_index` output directory, read-only |
-| `CLICKHOUSE_URL` | `http://127.0.0.1:8123` |
-| `CLICKHOUSE_DATABASE` | `geolocation` |
-| `CLICKHOUSE_USER` / `CLICKHOUSE_PASSWORD` | `default` / empty |
-| `CLICKHOUSE_PREFIX` | Empty; otherwise prefixes the table name |
-| `CLICKHOUSE_SINGLE_NODE` | Enabled; an empty value selects clustered DDL |
-| `REGION_MAP_PATH` | `regions.json` in the working directory |
 | `RPC_PORT` / `METRICS_PORT` | `11121` / `8000` |
 | `RUST_LOG` | `info` |
 | `SENTRY_DSN` / `ENV` | Optional |
 
 The service loads the index into its own process at startup: one process parses, looks addresses up and serves the RPCs, with no internal HTTP hop. Startup fails if `INDEX_DIR` holds no `build_index` output. The index files stay memory-mapped; the place table (about 2 GB for the world) and libpostal's models (about 2 GB) are read into memory, which took about 10 seconds from a warm disk. `INDEX_URL`, `NOMINATIM_HOST`, `NOMINATIM_URL` and `NOMINATIM_AUTHORITY` are no longer supported; there is no Nominatim fallback. Legacy RPC paths and metric prefixes remain for compatibility, not backend selection.
 
-Clustered ClickHouse needs the usual `cluster`, `shard` and `replica` macros. Region-map refresh uses atomic file replacement; its directory must be writable. The default container's `/app` directory belongs to uid/gid 1000.
+Regions come from the index, not from a database: at startup the service builds one row per ISO 3166-2 code the index names a region for (about 3,500 for the world), the same row a search for `<cc>, <code>` returns, and a complete `GetRegionMap` answer from them. Both are fixed for the life of the process and need no writable directory, so `RefreshRegionMap` changes nothing. A region code an address carries but the index has no region for (for example the four Irish provinces) is logged and left out of the answer, as before. Earlier versions kept rows in ClickHouse (`CLICKHOUSE_*`, `REGION_MAP_PATH`); those settings are ignored.
 
 `/healthz` reports readiness after initialization. Metrics are exposed at `/metrics` on port 8000.
 
@@ -140,17 +130,17 @@ cargo fmt --check
 docker build --target checks .
 ```
 
-`tests/rpc.rs` exercises Connect JSON/protobuf, both legacy routes, persistence, candidate safeguards, concurrent requests, metrics and shutdown against a real isolated ClickHouse database and a world index. It creates and removes its own database. It needs ClickHouse, an index and provisioned models, so it is ignored by default. Install `grpcurl` to include gRPC/reflection checks:
+`tests/rpc.rs` exercises Connect JSON/protobuf, both legacy routes, candidate safeguards, concurrent requests, metrics and shutdown against a world index. It needs an index and provisioned models, so it is ignored by default. Install `grpcurl` to include gRPC/reflection checks:
 
 ```sh
-INDEX_DIR=out CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --locked --test rpc -- --ignored --nocapture
+INDEX_DIR=out cargo test --locked --test rpc -- --ignored --nocapture
 ```
 
 To test the final container instead of a local binary:
 
 ```sh
 SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS="$PWD/models/libpostal" INDEX_DIR=out \
-  CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --locked --test rpc -- --ignored --nocapture
+  cargo test --locked --test rpc -- --ignored --nocapture
 ```
 
 CI builds and checks both amd64 and arm64 without downloading models. [CodSpeed](https://codspeed.io/) runs the `benches/` suites (the index analyzer and house-number keys; the service's candidate matching) in its simulation mode on pushes to `main` and on pull requests, and reports changes in instruction counts; run them locally with `cargo bench`, or `cargo codspeed build && cargo codspeed run`. `benches/resolve.rs` also times model-backed parsing and index searches against a small pinned index fixture; the workflow runs it only when the `BENCH_FIXTURE_URL` repository variable is set (see `benches/fixture/README.md`), and the other suites never load models. Regenerate `THIRD_PARTY_NOTICES.txt` with `cargo run --locked --bin notices` after dependency changes. Model-backed RPC tests run separately with provisioned models.
@@ -159,7 +149,7 @@ CI builds and checks both amd64 and arm64 without downloading models. [CodSpeed]
 
 The `benchmark` binary sends Connect JSON SearchAddress requests to running services. It first sends every query once to each service and counts differing responses, then times `--requests` calls per service and concurrency over keep-alive connections, rotating the service order between rounds and warming connections outside each timed batch. No failed request is retried. Its endpoint checks run in `cargo test`.
 
-Start release-built services on the same index and models, each with an isolated ClickHouse database whose administrative-region table holds the same rows. Benchmarking must not depend on production backends or databases.
+Start release-built services on the same index and models. Benchmarking must not depend on production backends or databases.
 
 ```sh
 cargo build --locked --release --bin opengeocoding --bin benchmark
@@ -219,13 +209,13 @@ cargo build --locked --release --bin opengeocoding --bin evaluate
 | Suite | Command | Needs |
 | --- | --- | --- |
 | PR (CI) | `cargo test --locked` (or `target/release/evaluate check`) | Nothing; scorer, diff gate, corpus and snapshot checks |
-| Smoke | `target/release/evaluate run --suite smoke --index out --out eval-results/smoke` | Index, models, ClickHouse |
+| Smoke | `target/release/evaluate run --suite smoke --index out --out eval-results/smoke` | Index, models |
 | Pre-release | `target/release/evaluate run --suite gold --index out --out eval-results/gold` | Same |
 | Address snapshots | `target/release/evaluate run --suite addresses --index out --out eval-results/addresses --compare tests/snapshots/addresses.tsv` | Same |
 | Compare | `target/release/evaluate diff BASELINE CANDIDATE` | Two saved runs or snapshots |
 | Re-score | `target/release/evaluate report RUN_DIR --rescore` | A saved run; lists cases whose class changed |
 
-`run` starts `target/release/opengeocoding` (or `SERVICE_BINARY`) on the index in `--index DIR` (or `INDEX_DIR`) with a fresh ClickHouse database at `CLICKHOUSE_URL` and an empty region map. It rate-limits its RPCs (`--max-rps`, default 20) and stops after a request budget (`--budget`, default 20,000). It counts each case's index searches from the service's `/metrics`, since cases run one at a time. For direct checks (`--no-direct` skips them) it loads the same index and its own libpostal parser, about 4 GB besides the service's. `--rpc URL` targets a running service instead; search counts and region-cache control are then unavailable, and direct checks run only with `--index`. Results are checkpointed per case (`--resume`); the database and process are removed on exit, including after Ctrl-C. No request is retried by the evaluator.
+`run` starts `target/release/opengeocoding` (or `SERVICE_BINARY`) on the index in `--index DIR` (or `INDEX_DIR`) with no other environment. It rate-limits its RPCs (`--max-rps`, default 20) and stops after a request budget (`--budget`, default 20,000). It counts each case's index searches from the service's `/metrics`, since cases run one at a time. For direct checks (`--no-direct` skips them) it loads the same index and its own libpostal parser, about 4 GB besides the service's. `--rpc URL` targets a running service instead; search counts are then unavailable, and direct checks run only with `--index`. Results are checkpointed per case (`--resume`); the process is stopped on exit, including after Ctrl-C. No request is retried by the evaluator.
 
 Each run writes `manifest.json` (a hash of the index's `meta.json`, which names its segments, consumer commit and binary hash, libpostal model and reference-data hashes, cache state and limits), `results.jsonl` (full responses, index search counts, direct-index evidence) and `report.md`. Label the backend with `--backend-label`, e.g. image digest and configuration. A code or configuration comparison requires the same built index; a data or import change is a separate experiment.
 
@@ -243,7 +233,7 @@ Cases are scored as `pass`, `confidence_mismatch`, `too_coarse` (a fallback neve
 
 `run` fails on a must-pass failure, an untriaged critical result or a transport regression. `diff` fails on any newly failing case, a worse failure class, a new critical result or a must-pass failure in the candidate. It lists newly passing cases for review and drift in unscored cases. Accept a backend change only when both gates pass on the same corpus, consumer, models, reference data and fresh region cache. Report cohort changes as case counts: with about 250 cases, aggregate rates carry several points of uncertainty and per-country rows are individual evidence, not rates.
 
-`.github/workflows/gold.yml` runs the gold suite on every pull request that touches the service, its data or the corpus: once with the base commit's service and once with the pull request's merge result, on the CodSpeed fixture index (`benches/fixture/README.md`), the same models, corpus, evaluator and a fresh ClickHouse database each, then `evaluate diff --relative`. It comments the newly failing and worse cases on the pull request (also in the job summary and the `gold-eval` artifact) and fails on any newly failing or worse case or new critical result. `--relative` leaves out must-pass cases that fail on both sides, which the fixture (Overture only, no OSM or OpenAddresses) cannot avoid, so the check shows change, not accuracy; pass rates on the fixture are lower than on a full index. Run it locally with `evaluate run` on each side, then `evaluate diff BASE HEAD --relative`.
+`.github/workflows/gold.yml` runs the gold suite on every pull request that touches the service, its data or the corpus: once with the base commit's service and once with the pull request's merge result, on the CodSpeed fixture index (`benches/fixture/README.md`), the same models, corpus and evaluator (a base commit that still needs ClickHouse gets a service container for it), then `evaluate diff --relative`. It comments the newly failing and worse cases on the pull request (also in the job summary and the `gold-eval` artifact) and fails on any newly failing or worse case or new critical result. `--relative` leaves out must-pass cases that fail on both sides, which the fixture (Overture only, no OSM or OpenAddresses) cannot avoid, so the check shows change, not accuracy; pass rates on the fixture are lower than on a full index. Run it locally with `evaluate run` on each side, then `evaluate diff BASE HEAD --relative`.
 
 ### Address snapshots
 

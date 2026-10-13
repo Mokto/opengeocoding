@@ -11,7 +11,6 @@ use buffa::Message;
 use opengeocoding::{
     index::{Index, Parser},
     proto::opengeocoding::{FullAddress, SearchAddressTask},
-    regions::python_repr,
 };
 use reqwest::Client;
 use serde_json::{Value, json};
@@ -355,12 +354,7 @@ impl Checker {
         }
     }
 
-    async fn transport(
-        &self,
-        cases: &[&Case],
-        map_path: Option<&Path>,
-        port: Option<u16>,
-    ) -> Value {
+    async fn transport(&self, cases: &[&Case], port: Option<u16>) -> Value {
         let mut mismatches = vec![];
         let checked = cases.iter().take(5).collect::<Vec<_>>();
         for case in &checked {
@@ -398,21 +392,9 @@ impl Checker {
         }
         let refreshed = rpc_json(&self.client, &self.base, "RefreshRegionMap", &json!({})).await;
         let current = rpc_json(&self.client, &self.base, "GetRegionMap", &json!({})).await;
-        let (map_ok, countries) = match (refreshed, current) {
-            (Ok(_), Ok(body)) => {
-                let served = text(&body, "regionMap");
-                match map_path.map(std::fs::read_to_string) {
-                    Some(Ok(stored)) => {
-                        let stored: Value = serde_json::from_str(&stored).unwrap_or(Value::Null);
-                        let countries = stored.as_object().map_or(0, |o| o.len());
-                        let same = python_repr(&stored).is_ok_and(|repr| repr == served);
-                        (same && countries > 0, countries)
-                    }
-                    Some(Err(_)) => (false, 0),
-                    None => (served.len() > 2, 0),
-                }
-            }
-            _ => (false, 0),
+        let map_ok = match (refreshed, current) {
+            (Ok(_), Ok(body)) => text(&body, "regionMap").len() > 2,
+            _ => false,
         };
         let grpcurl = match (port, which("grpcurl")) {
             (Some(port), true) => {
@@ -444,7 +426,7 @@ impl Checker {
         };
         json!({
             "connect_proto_matches_json": { "ok": mismatches.is_empty(), "checked": checked.len(), "mismatches": mismatches },
-            "region_map_refresh_and_read": { "ok": map_ok, "countries": countries },
+            "region_map_refresh_and_read": { "ok": map_ok },
             "grpcurl_search_address": grpcurl,
         })
     }
@@ -561,33 +543,9 @@ fn free_port() -> Result<u16> {
         .port())
 }
 
-async fn clickhouse(client: &Client, url: &str, query: &str) -> Result<()> {
-    let response = client
-        .post(url)
-        .basic_auth(
-            std::env::var("CLICKHOUSE_USER").unwrap_or_else(|_| "default".into()),
-            Some(std::env::var("CLICKHOUSE_PASSWORD").unwrap_or_default()),
-        )
-        .query(&[("query", query)])
-        .header(header::CONTENT_LENGTH, "0")
-        .send()
-        .await?;
-    let status = response.status();
-    if !status.is_success() {
-        bail!(
-            "ClickHouse returned {status}: {}",
-            response.text().await.unwrap_or_default()
-        );
-    }
-    Ok(())
-}
-
-/// The local service under test, with a fresh database and region map; removed by `stop`.
+/// The local service under test; stopped by `stop`.
 #[derive(Default)]
 struct Local {
-    clickhouse_url: String,
-    database: Option<String>,
-    map_dir: Option<PathBuf>,
     child: Option<Child>,
     port: Option<u16>,
     metrics: Option<u16>,
@@ -601,21 +559,6 @@ impl Local {
         out: &Path,
         binary: &Path,
     ) -> Result<String> {
-        self.clickhouse_url =
-            std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://127.0.0.1:8125".into());
-        let database = format!("opengeocoding_eval_{}", std::process::id());
-        clickhouse(
-            client,
-            &self.clickhouse_url,
-            &format!("CREATE DATABASE {database}"),
-        )
-        .await?;
-        self.database = Some(database.clone());
-        let map_dir =
-            std::env::temp_dir().join(format!("opengeocoding-eval-{}", std::process::id()));
-        std::fs::create_dir_all(&map_dir)?;
-        self.map_dir = Some(map_dir.clone());
-        std::fs::write(map_dir.join("regions.json"), "{}")?;
         let (port, metrics) = (free_port()?, free_port()?);
         self.port = Some(port);
         self.metrics = Some(metrics);
@@ -623,14 +566,6 @@ impl Local {
         let child = Command::new(binary)
             .envs([
                 ("INDEX_DIR", index.to_string_lossy().into()),
-                ("CLICKHOUSE_URL", self.clickhouse_url.clone()),
-                ("CLICKHOUSE_DATABASE", database),
-                ("CLICKHOUSE_PREFIX", String::new()),
-                ("CLICKHOUSE_SINGLE_NODE", "1".into()),
-                (
-                    "REGION_MAP_PATH",
-                    map_dir.join("regions.json").to_string_lossy().into(),
-                ),
                 ("RPC_PORT", port.to_string()),
                 ("METRICS_PORT", metrics.to_string()),
                 ("SENTRY_DSN", String::new()),
@@ -668,7 +603,7 @@ impl Local {
         bail!("service did not become ready")
     }
 
-    async fn stop(&mut self, client: &Client) {
+    async fn stop(&mut self) {
         if let Some(mut child) = self.child.take() {
             if let Some(pid) = child.id() {
                 let _ = std::process::Command::new("kill")
@@ -681,19 +616,6 @@ impl Local {
             {
                 let _ = child.kill().await;
             }
-        }
-        if let Some(database) = self.database.take()
-            && let Err(error) = clickhouse(
-                client,
-                &self.clickhouse_url,
-                &format!("DROP DATABASE IF EXISTS {database}"),
-            )
-            .await
-        {
-            eprintln!("WARNING: could not drop {database}: {error}");
-        }
-        if let Some(dir) = self.map_dir.take() {
-            let _ = std::fs::remove_dir_all(dir);
         }
     }
 }
@@ -799,8 +721,7 @@ pub async fn run(options: Options) -> Result<i32> {
         manifest["consumer"]["binary_sha256"] = json!(sha256_file(&binary)?);
         manifest["consumer"]["libpostal_models_sha256"] =
             json!(models.map(|d| models_digest(&d)).transpose()?);
-        manifest["consumer"]["region_cache"] =
-            json!("fresh empty ClickHouse database and region map");
+        manifest["consumer"]["region_cache"] = json!("none: regions come from the index");
         Ok::<_, anyhow::Error>(base)
     }
     .await;
@@ -825,7 +746,6 @@ pub async fn run(options: Options) -> Result<i32> {
                 metrics: local.metrics.map(|port| format!("http://127.0.0.1:{port}")),
                 index,
             };
-            let map_path = local.map_dir.as_ref().map(|d| d.join("regions.json"));
             run_cases(
                 &checker,
                 &cases,
@@ -833,14 +753,13 @@ pub async fn run(options: Options) -> Result<i32> {
                 &results_path,
                 &options,
                 &mut manifest,
-                map_path.as_deref(),
                 local.port,
             )
             .await
         }
         Err(error) => Err(error),
     };
-    local.stop(&client).await;
+    local.stop().await;
     outcome?;
     let results = crate::model::load_jsonl::<Record>(&results_path)?;
     let (report, failed) = summarize(&all_cases, &results, &manifest);
@@ -871,7 +790,6 @@ async fn run_cases(
     results_path: &Path,
     options: &Options,
     manifest: &mut Value,
-    map_path: Option<&Path>,
     port: Option<u16>,
 ) -> Result<()> {
     let write = |manifest: &Value| {
@@ -920,11 +838,7 @@ async fn run_cases(
             .filter(|c| c.must_pass && c.expect.as_ref().is_some_and(|e| e.error.is_none()))
             .collect();
         manifest["transport"] = checker
-            .transport(
-                if gating.is_empty() { cases } else { &gating },
-                map_path,
-                port,
-            )
+            .transport(if gating.is_empty() { cases } else { &gating }, port)
             .await;
     }
     manifest["finished_at"] = json!(utc_now());

@@ -3,233 +3,50 @@ use crate::{
     resolver::Resolver,
 };
 use anyhow::{Context, Result, ensure};
-use reqwest::Client;
 use serde_json::{Value, json};
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    sync::RwLock,
-    time::Duration,
-};
-use tokio::{io::AsyncWriteExt, sync::Mutex};
+use std::collections::{HashMap, HashSet};
 
+/// The administrative regions of the index, by ISO 3166-2 code, and the map of them
+/// `GetRegionMap` serves. Both are derived from the index when the service starts.
 pub struct Regions {
-    client: Client,
-    url: String,
-    user: String,
-    password: String,
-    table: String,
-    database: String,
-    single_node: bool,
-    cache: RwLock<HashMap<(String, String), Region>>,
-    map_path: PathBuf,
-    refresh: Mutex<()>,
-}
-
-fn identifier(value: &str) -> Result<&str> {
-    ensure!(
-        !value.is_empty()
-            && value
-                .chars()
-                .all(|ch| ch.is_ascii_alphanumeric() || ch == '_'),
-        "invalid ClickHouse identifier"
-    );
-    Ok(value)
+    by_code: HashMap<String, Region>,
+    map: String,
 }
 
 impl Regions {
-    pub fn from_env() -> Result<Self> {
-        let database =
-            std::env::var("CLICKHOUSE_DATABASE").unwrap_or_else(|_| "geolocation".into());
-        identifier(&database)?;
-        let prefix = std::env::var("CLICKHOUSE_PREFIX").unwrap_or_default();
-        let table = if prefix.is_empty() {
-            "administrative_levels".into()
-        } else {
-            format!("{}_administrative_levels", identifier(&prefix)?)
-        };
+    pub fn from_resolver(resolver: &Resolver) -> Result<Self> {
+        Self::from_rows(resolver.regions()?)
+    }
+
+    /// `rows` are each ISO 3166-2 code with its region.
+    pub fn from_rows(mut rows: Vec<(String, Region)>) -> Result<Self> {
+        rows.sort_by(|(_, a), (_, b)| {
+            (&a.country_code, &a.admin_code).cmp(&(&b.country_code, &b.admin_code))
+        });
+        let list: Vec<Region> = rows.iter().map(|(_, region)| region.clone()).collect();
         Ok(Self {
-            client: Client::builder()
-                .timeout(Duration::from_secs(120))
-                .connect_timeout(Duration::from_secs(60))
-                .read_timeout(Duration::from_secs(60))
-                .build()?,
-            url: std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://127.0.0.1:8123".into()),
-            user: std::env::var("CLICKHOUSE_USER").unwrap_or_else(|_| "default".into()),
-            password: std::env::var("CLICKHOUSE_PASSWORD").unwrap_or_default(),
-            table: format!("{database}.{table}"),
-            database,
-            single_node: std::env::var("CLICKHOUSE_SINGLE_NODE").map_or(true, |s| !s.is_empty()),
-            cache: RwLock::new(HashMap::new()),
-            map_path: std::env::var_os("REGION_MAP_PATH")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| "regions.json".into()),
-            refresh: Mutex::new(()),
+            map: python_repr(&format_regions(&list)?)?,
+            by_code: rows.into_iter().collect(),
         })
     }
 
-    async fn execute(&self, query: &str, params: &[(&str, String)]) -> Result<String> {
-        for attempt in 0..=4 {
-            let result = async {
-                let response = self
-                    .client
-                    .post(&self.url)
-                    .basic_auth(&self.user, Some(&self.password))
-                    .query(&[("query", query)])
-                    .query(params)
-                    .header(reqwest::header::CONTENT_LENGTH, "0")
-                    .send()
-                    .await?;
-                let status = response.status();
-                let text = response.text().await?;
-                ensure!(
-                    status.is_success(),
-                    "ClickHouse returned {status}: {}",
-                    text.chars().take(500).collect::<String>()
-                );
-                Ok(text)
-            }
-            .await;
-            match result {
-                Ok(text) => return Ok(text),
-                Err(error) if attempt < 4 => {
-                    tracing::warn!(attempt = attempt + 1, %error, "Retrying ClickHouse");
-                    tokio::time::sleep(Duration::from_millis((attempt + 1) * 500)).await;
-                }
-                Err(error) => return Err(error),
-            }
-        }
-        unreachable!()
+    pub fn len(&self) -> usize {
+        self.by_code.len()
     }
 
-    pub async fn initialize(&self) -> Result<()> {
-        let cluster = if self.single_node {
-            ""
-        } else {
-            " ON CLUSTER '{cluster}'"
-        };
-        self.execute(
-            &format!("CREATE DATABASE IF NOT EXISTS {}{cluster}", self.database),
-            &[],
-        )
-        .await?;
-        let engine = if self.single_node {
-            "ReplacingMergeTree"
-        } else {
-            "ReplicatedReplacingMergeTree('/clickhouse/tables/{shard}/{database}/{table}', '{replica}')"
-        };
-        self.execute(
-            &format!(
-                "CREATE TABLE IF NOT EXISTS {}{cluster} (
-            country_code String, country_name String, level UInt8, local_name String,
-            en_name String, admin_code String, updated_at Nullable(DateTime('UTC')),
-            parent_admin_code String
-        ) ENGINE = {engine} ORDER BY (country_code, admin_code)",
-                self.table
-            ),
-            &[],
-        )
-        .await?;
-        let rows = self.all().await?;
-        let warmed = rows
-            .into_iter()
-            .filter(|row| row.admin_level <= 10)
-            .map(|row| ((row.country_code.clone(), row.admin_code.clone()), row))
-            .collect();
-        *self
-            .cache
-            .write()
-            .map_err(|_| anyhow::anyhow!("region cache lock poisoned"))? = warmed;
-        tracing::info!(
-            regions = self
-                .cache
-                .read()
-                .map_err(|_| anyhow::anyhow!("region cache lock poisoned"))?
-                .len(),
-            "Region cache warmed"
-        );
-        Ok(())
+    pub fn is_empty(&self) -> bool {
+        self.by_code.is_empty()
     }
 
-    fn select(&self) -> String {
-        format!(
-            "SELECT country_code, country_name, level AS admin_level, local_name, en_name, admin_code, parent_admin_code FROM {}",
-            self.table
-        )
-    }
-
-    async fn rows(&self, query: &str, params: &[(&str, String)]) -> Result<Vec<Region>> {
-        let text = self.execute(query, params).await?;
-        text.lines()
-            .filter(|line| !line.is_empty())
-            .map(|line| serde_json::from_str(line).context("ClickHouse region row"))
-            .collect()
-    }
-
-    pub async fn all(&self) -> Result<Vec<Region>> {
-        self.rows(&format!("{} FORMAT JSONEachRow", self.select()), &[])
-            .await
-    }
-
-    pub async fn get(&self, country: &str, code: &str) -> Result<Option<Region>> {
-        let key = (country.to_owned(), code.to_owned());
-        if let Some(row) = self
-            .cache
-            .read()
-            .map_err(|_| anyhow::anyhow!("region cache lock poisoned"))?
-            .get(&key)
-            .cloned()
-        {
-            return Ok(Some(row));
-        }
-        let rows = self.rows(&format!("{} WHERE country_code = {{country:String}} AND admin_code = {{code:String}} LIMIT 1 FORMAT JSONEachRow", self.select()),
-            &[("param_country", country.into()), ("param_code", code.into())]).await?;
-        let Some(row) = rows.into_iter().next().filter(|row| row.admin_level <= 10) else {
-            return Ok(None);
-        };
-        self.cache
-            .write()
-            .map_err(|_| anyhow::anyhow!("region cache lock poisoned"))?
-            .insert(key, row.clone());
-        Ok(Some(row))
-    }
-
-    pub async fn insert(&self, row: &Region) -> Result<()> {
-        if row.admin_level > 10 {
-            return Ok(());
-        }
-        self.execute(&format!("INSERT INTO {} (country_code, country_name, level, local_name, en_name, admin_code, parent_admin_code, updated_at)
-            SELECT {{country:String}}, {{name:String}}, {{level:UInt8}}, {{local:String}}, {{en:String}}, {{code:String}}, {{parent:String}}, now('Europe/Copenhagen')", self.table),
-            &[("param_country", row.country_code.clone()), ("param_name", row.country_name.clone()),
-              ("param_level", row.admin_level.to_string()), ("param_local", row.local_name.clone()),
-              ("param_en", row.en_name.clone()), ("param_code", row.admin_code.clone()), ("param_parent", row.parent_admin_code.clone())]).await?;
-        self.cache
-            .write()
-            .map_err(|_| anyhow::anyhow!("region cache lock poisoned"))?
-            .insert(
-                (row.country_code.clone(), row.admin_code.clone()),
-                row.clone(),
-            );
-        Ok(())
-    }
-
-    pub async fn reformat(&self, resolver: &Resolver, codes: &[ISO3166_2]) -> Result<Vec<Region>> {
+    /// The regions of an address's ISO 3166-2 codes, lowest level first. A code the index has no
+    /// region for is reported and left out.
+    pub fn reformat(&self, codes: &[ISO3166_2]) -> Vec<Region> {
         let mut sorted: Vec<_> = codes.iter().collect();
         sorted.sort_by_key(|c| c.admin_level);
-        let mut previous = "";
         let mut result = vec![];
         for code in sorted {
-            let mut parts = code.code.split('-');
-            let country = parts.next().unwrap_or("").to_lowercase();
-            let admin = parts.collect::<Vec<_>>().join("_");
-            if let Some(region) = self.get(&country, &admin).await? {
-                result.push(region);
-            } else if let Some(mut region) =
-                resolver.state(&format!("{country}, {}", code.code)).await?
-            {
-                region.parent_admin_code = previous.into();
-                self.insert(&region).await?;
-                result.push(region);
+            if let Some(region) = self.by_code.get(&code.code.to_uppercase()) {
+                result.push(region.clone());
             } else {
                 tracing::warn!(
                     code = code.code,
@@ -238,29 +55,12 @@ impl Regions {
                 );
                 sentry::capture_message("No region found in the index", sentry::Level::Warning);
             }
-            previous = &code.code;
         }
-        Ok(result)
+        result
     }
 
-    pub async fn refresh_map(&self) -> Result<()> {
-        let _guard = self.refresh.lock().await;
-        let value = format_regions(&self.all().await?)?;
-        let bytes = serde_json::to_vec_pretty(&value)?;
-        let temporary = self
-            .map_path
-            .with_extension(format!("tmp.{}", std::process::id()));
-        let mut file = tokio::fs::File::create(&temporary).await?;
-        file.write_all(&bytes).await?;
-        file.sync_all().await?;
-        drop(file);
-        tokio::fs::rename(&temporary, &self.map_path).await?;
-        Ok(())
-    }
-
-    pub async fn read_map(&self) -> Result<String> {
-        let bytes = tokio::fs::read(&self.map_path).await?;
-        python_repr(&serde_json::from_slice(&bytes)?)
+    pub fn map(&self) -> &str {
+        &self.map
     }
 }
 

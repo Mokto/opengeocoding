@@ -1693,7 +1693,14 @@ impl Index {
         None
     }
 
-    /// `<cc>, <ISO 3166-2 code>`, as the service asks for an unknown region.
+    /// Every ISO 3166-2 code that names a region place, with that place.
+    pub fn region_places(&self) -> impl Iterator<Item = (&str, u32)> {
+        self.regions
+            .iter()
+            .map(|(code, &place)| (code.as_str(), place))
+    }
+
+    /// `<cc>, <ISO 3166-2 code>`, as a query for a region by its code.
     fn region_query(&self, q: &str) -> Option<u32> {
         let (cc, code) = q.split_once(", ")?;
         let code = code.trim().to_uppercase();
