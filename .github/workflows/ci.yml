@@ -28,7 +28,31 @@ jobs:
             test -w /app/regions.json
             test ! -e /usr/local/bin/python
             test -x /usr/local/bin/opengeocoding
+            test -x /usr/local/bin/build_index
+            test -x /usr/local/bin/libpostal_data
             test ! -e /usr/local/bin/serve_index
             test ! -e /usr/local/bin/geolocation
             ! ldd /usr/local/bin/opengeocoding | grep "not found"
+            ! ldd /usr/local/bin/build_index | grep "not found"
           '
+          test "$(docker run --rm --entrypoint build_index opengeocoding hash)" = "$(sed -n 's/^  builderHash: "\(.*\)"$/\1/p' manifests/values.yaml)"
+
+  chart:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Install Helm
+        run: |
+          curl -fsSLo helm.tgz https://get.helm.sh/helm-v3.22.0-linux-amd64.tar.gz
+          echo "1e4ab49e429626cf6c6958d914248b78c9730803c2751b87627e171dc800e7bb  helm.tgz" | sha256sum -c -
+          tar -xzf helm.tgz linux-amd64/helm
+          sudo install linux-amd64/helm /usr/local/bin/helm
+      - name: Lint and render the chart
+        run: |
+          set -- --set store.url=s3://bucket/prefix --set clickhouse.url=http://clickhouse:8123
+          helm lint --strict manifests "$@"
+          helm template t manifests "$@" > /dev/null
+          helm template t manifests "$@" --set serviceAccount.create=true \
+            --set serving.autoscaling.enabled=true --set serviceMonitor.enabled=true \
+            --set build.scratch.emptyDir=true --set 'index.sources.bbox={9.47,47.04,9.64,47.28}' > /dev/null
+          ! helm template t manifests > /dev/null 2>&1

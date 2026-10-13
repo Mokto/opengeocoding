@@ -23,8 +23,9 @@ COPY data data
 COPY src src
 COPY tests tests
 COPY benches benches
+COPY manifests manifests
 ENV RUSTFLAGS="-L native=/usr/local/lib"
-RUN cargo build --locked --release --bin opengeocoding
+RUN cargo build --locked --release --bin opengeocoding --bin build_index
 
 FROM build AS checks
 RUN ldconfig && rustup component add rustfmt clippy \
@@ -40,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=build /usr/local/lib/libpostal.so* /usr/local/lib/
 COPY --from=build /usr/local/lib/LICENSE.libpostal /usr/local/share/licenses/libpostal/LICENSE
 COPY --from=build /usr/local/bin/libpostal_data /usr/local/bin/libpostal_data
-COPY --from=build /source/target/release/opengeocoding /usr/local/bin/opengeocoding
+COPY --from=build /source/target/release/opengeocoding /source/target/release/build_index /usr/local/bin/
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.txt /usr/local/share/licenses/opengeocoding/
 COPY LICENSES /usr/local/share/licenses/opengeocoding/dependencies/
 RUN ldconfig && printf '{}' > /app/regions.json && chown 1000:1000 /app/regions.json

@@ -1,0 +1,295 @@
+image:
+  repository: ghcr.io/mokto/opengeocoding
+  # Defaults to the chart's appVersion. The image must come from the commit whose builder hash
+  # is index.builderHash: the build Job refuses any other.
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Where sources, models and built indexes are kept: any S3-compatible store. Credentials and
+# settings reach the pods as the standard AWS_* variables.
+store:
+  # Required: s3://bucket/optional/prefix
+  url: ""
+  # For stores other than AWS S3, such as http://minio.minio:9000
+  endpoint: ""
+  region: us-east-1
+  # Required for an http:// endpoint.
+  allowHttp: false
+  # Path-style requests (bucket in the path) work with most S3-compatible stores.
+  virtualHostedStyle: false
+  # Secret holding AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (and optionally
+  # AWS_SESSION_TOKEN). The build Job writes with it.
+  credentialsSecret: ""
+  # Read-only credentials for the serving pods; defaults to credentialsSecret.
+  readCredentialsSecret: ""
+  # More AWS_* variables, for example AWS_ROLE_ARN with a projected web identity token.
+  extraEnv: []
+
+serviceAccount:
+  create: false
+  # Defaults to the release name when created, else the namespace's default account.
+  name: ""
+  # For example eks.amazonaws.com/role-arn, to reach the store without static keys.
+  annotations: {}
+
+index:
+  # The hash of the index builder this chart was released with (`build_index hash`); `cargo
+  # test` fails when the code and this disagree. Changing it, or anything under sources or
+  # modelsVersion, names a new index: the build Job builds it while the running pods keep
+  # serving the old one.
+  builderHash: "7269be450a7eb18c"
+  modelsVersion: v1
+  sources:
+    overtureRelease: "2026-09-23.1"
+    # Labels one fetch of the sources that only publish "latest" (OSM, OpenAddresses, GeoNames).
+    # A new label fetches them again.
+    snapshot: "2026-10"
+    # [min lon, min lat, max lon, max lat] to build a regional index; empty for the world.
+    # Overture is then read only where its row groups meet the box.
+    bbox: []
+    # OpenAddresses layers that Overture doesn't carry. Only files whose licence is recognised
+    # as open or ODbL are read unless anyLicence; see the README.
+    openaddresses:
+      enabled: true
+      anyLicence: false
+    # GeoNames postal-code exports; earlier entries win for a postcode several define.
+    geonamesPostal:
+      - GB_full.csv
+      - CA_full.csv
+      - NL_full.csv
+      - allCountries
+    # Geofabrik extract ids (see https://download.geofabrik.de/index-v1-nogeom.json), for
+    # countries Overture's addresses miss or cover thinly.
+    osm:
+      - afghanistan
+      - albania
+      - algeria
+      - american-oceania
+      - andorra
+      - angola
+      - antarctica
+      - argentina
+      - armenia
+      - azerbaijan
+      - bahamas
+      - bangladesh
+      - bayern
+      - belarus
+      - belize
+      - benin
+      - bhutan
+      - bolivia
+      - bosnia-herzegovina
+      - botswana
+      - bulgaria
+      - burkina-faso
+      - burundi
+      - cambodia
+      - cameroon
+      - cape-verde
+      - central-african-republic
+      - chad
+      - china
+      - congo-brazzaville
+      - congo-democratic-republic
+      - cook-islands
+      - costa-rica
+      - cuba
+      - cyprus
+      - djibouti
+      - east-timor
+      - ecuador
+      - egypt
+      - el-salvador
+      - equatorial-guinea
+      - eritrea
+      - ethiopia
+      - fiji
+      - gabon
+      - gcc-states
+      - georgia
+      - ghana
+      - greece
+      - guatemala
+      - guinea
+      - guinea-bissau
+      - guyana
+      - guyane
+      - haiti-and-domrep
+      - honduras
+      - hungary
+      - ile-de-clipperton
+      - india
+      - indonesia
+      - iran
+      - iraq
+      - ireland-and-northern-ireland
+      - israel-and-palestine
+      - italy
+      - ivory-coast
+      - jamaica
+      - jordan
+      - kazakhstan
+      - kenya
+      - kiribati
+      - kyrgyzstan
+      - laos
+      - lebanon
+      - lesotho
+      - liberia
+      - libya
+      - macedonia
+      - madagascar
+      - malawi
+      - malaysia-singapore-brunei
+      - maldives
+      - mali
+      - malta
+      - marshall-islands
+      - mauritania
+      - mauritius
+      - micronesia
+      - moldova
+      - monaco
+      - mongolia
+      - montenegro
+      - morocco
+      - mozambique
+      - myanmar
+      - namibia
+      - nauru
+      - nepal
+      - nicaragua
+      - niger
+      - nigeria
+      - niue
+      - north-korea
+      - pakistan
+      - palau
+      - panama
+      - papua-new-guinea
+      - paraguay
+      - peru
+      - philippines
+      - pitcairn-islands
+      - polynesie-francaise
+      - romania
+      - russia
+      - rwanda
+      - saint-helena-ascension-and-tristan-da-cunha
+      - samoa
+      - sao-tome-and-principe
+      - senegal-and-gambia
+      - seychelles
+      - sierra-leone
+      - solomon-islands
+      - somalia
+      - south-africa
+      - south-korea
+      - south-sudan
+      - sri-lanka
+      - sudan
+      - suriname
+      - swaziland
+      - sweden
+      - syria
+      - tajikistan
+      - tanzania
+      - thailand
+      - togo
+      - tokelau
+      - tonga
+      - tunisia
+      - turkey
+      - turkmenistan
+      - tuvalu
+      - uganda
+      - ukraine
+      - united-kingdom
+      - us/puerto-rico
+      - us/us-virgin-islands
+      - uzbekistan
+      - vanuatu
+      - venezuela
+      - vietnam
+      - wallis-et-futuna
+      - yemen
+      - zambia
+      - zimbabwe
+
+build:
+  enabled: true
+  backoffLimit: 4
+  # A world build fetches about 140 GB the first time.
+  activeDeadlineSeconds: 172800
+  resources:
+    requests:
+      cpu: "16"
+      memory: 24Gi
+    limits:
+      memory: 32Gi
+  # Sources, the house-number spill and the output: about 160 GB for the world. A volume
+  # claimed for the pod from storageClassName (the default class when empty), or an emptyDir.
+  scratch:
+    size: 250Gi
+    storageClassName: ""
+    emptyDir: false
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+serving:
+  replicas: 2
+  resources:
+    requests:
+      cpu: "1"
+      memory: 6Gi
+    # The memory-mapped index's page cache counts against this limit: 16Gi keeps a world index
+    # (12 GB) cached; less works, with slower uncommon lookups.
+    limits:
+      memory: 16Gi
+  # emptyDir for the pulled index (12 GB for the world) and models (2 GB).
+  indexVolumeSize: 20Gi
+  # A first install waits for the build; its rollout stays in progress until then.
+  progressDeadlineSeconds: 172800
+  env: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  podAnnotations: {}
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    maxUnavailable: 1
+
+# The service keeps region names in ClickHouse, which it needs at startup.
+clickhouse:
+  # Required, for example http://clickhouse.clickhouse:8123
+  url: ""
+  database: opengeocoding
+  user: default
+  # Secret and key holding the password; empty for none.
+  passwordSecret:
+    name: ""
+    key: password
+  prefix: ""
+  # false selects clustered DDL.
+  singleNode: true
+
+service:
+  type: ClusterIP
+  port: 11121
+  metricsPort: 8000
+  annotations: {}
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  labels: {}

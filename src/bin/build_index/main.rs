@@ -1,9 +1,12 @@
 //! Builds the address index from a local Overture release directory (division, division_area,
 //! segment and address parquet), plus optional OSM extracts, OpenAddresses exports and GeoNames
 //! postcodes, without Nominatim. Only house numbers are spilled to disk.
+mod fetch;
 mod geo;
+mod job;
 mod mem;
 mod sources;
+mod store;
 
 use arrow_array::{
     Array, ArrayRef, RecordBatch, StringArray,
@@ -20,7 +23,7 @@ use parquet::arrow::{
 };
 use rayon::prelude::*;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::File,
     hash::{BuildHasher, BuildHasherDefault, DefaultHasher, Hash},
     path::{Path, PathBuf},
@@ -36,7 +39,10 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--geonames-postal FILE]...";
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--geonames-postal FILE]... [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+       build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1]
+       build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
+       build_index hash";
 const SHARDS: usize = 256;
 const MAX_POSTCODES: usize = 20;
 const MAX_CITIES: usize = 5;
@@ -760,6 +766,9 @@ impl<'s, 'a> Sink<'s, 'a> {
             self.flush();
         }
         let a = self.shared.assigner;
+        if !a.within(x, y) {
+            return;
+        }
         let mut place = None;
         let c = match cc {
             Some(c) => c,
@@ -1034,6 +1043,40 @@ fn geonames_postcodes(path: &str) -> HashMap<PcKey, PcAgg> {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    let run = match args.get(1).map(String::as_str) {
+        Some("hash") => {
+            println!("{}", job::BUILDER_HASH);
+            return;
+        }
+        Some("job") => job::job(args),
+        Some("pull") => job::pull(args),
+        _ => {
+            build(&args);
+            return;
+        }
+    };
+    if let Err(e) = run {
+        eprintln!("error: {e:#}");
+        std::process::exit(1);
+    }
+}
+
+/// Datasets that Overture's address rows cite: mostly OpenAddresses source names.
+fn overture_datasets(dir: &Path) -> HashSet<String> {
+    tasks(dir)
+        .par_iter()
+        .map(|t| {
+            let mut found = HashSet::new();
+            fetch::carried_datasets(read(t, &["sources.list.element.dataset"]), &mut found);
+            found
+        })
+        .reduce(HashSet::new, |mut a, b| {
+            a.extend(b);
+            a
+        })
+}
+
+fn build(args: &[String]) {
     let (Some(release), Some(out)) = (args.get(1), args.get(2)) else {
         eprintln!("{USAGE}");
         std::process::exit(2);
@@ -1071,7 +1114,14 @@ fn main() {
 
     let (places, idx) = load_places(&dir.join("division"), out);
     lap(&format!("places ({})", places.len()));
-    let assigner = load_assigner(&dir.join("division_area"), &places, &idx);
+    let mut assigner = load_assigner(&dir.join("division_area"), &places, &idx);
+    assigner.bbox = opt("--bbox").last().map(|b| {
+        let v: Vec<f64> = b.split(',').filter_map(|v| v.trim().parse().ok()).collect();
+        v.try_into().unwrap_or_else(|_| {
+            eprintln!("--bbox takes min lon,min lat,max lon,max lat");
+            std::process::exit(2)
+        })
+    });
     drop(idx);
     lap("polygons");
     let segs = pass_segments(&dir.join("segment"), &assigner);

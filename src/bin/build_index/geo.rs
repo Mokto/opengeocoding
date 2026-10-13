@@ -169,6 +169,8 @@ pub struct Assigner {
     polys: Vec<Poly>,
     tree: RTree<GeomWithData<Rectangle<[f64; 2]>, u32>>,
     towns: RTree<GeomWithData<[f64; 2], u32>>,
+    /// `[min x, min y, max x, max y]`: nothing outside is placed, so nothing outside is indexed.
+    pub bbox: Option<[f64; 4]>,
 }
 
 impl Assigner {
@@ -191,12 +193,25 @@ impl Assigner {
                 .map(|(p, i)| GeomWithData::new(p, i))
                 .collect(),
         );
-        Assigner { polys, tree, towns }
+        Assigner {
+            polys,
+            tree,
+            towns,
+            bbox: None,
+        }
+    }
+
+    pub fn within(&self, x: f64, y: f64) -> bool {
+        self.bbox
+            .is_none_or(|b| b[0] <= x && x <= b[2] && b[1] <= y && y <= b[3])
     }
 
     /// Containing locality polygon, else a locality point within 5 km, else the local admin
     /// area, else the county. Overlapping polygons of one kind resolve to the smallest.
     pub fn place(&self, x: f64, y: f64) -> Option<u32> {
+        if !self.within(x, y) {
+            return None;
+        }
         let mut pick: [Option<(f64, u32)>; 3] = [None; 3];
         for c in self.tree.locate_all_at_point([x, y]) {
             let p = &self.polys[c.data as usize];
