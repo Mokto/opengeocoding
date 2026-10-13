@@ -1,15 +1,7 @@
 //! The index analyzer and house-number keys: run per token at build time (about a billion rows)
-//! and per query by the shim. No libpostal or index files needed.
-// The included modules' test blocks compile here without their #[test] functions.
-#![allow(unused_imports)]
-#[allow(dead_code)]
-#[path = "../src/bin/build_index/canon.rs"]
-mod canon;
-#[allow(dead_code)]
-#[path = "../src/bin/build_index/index.rs"]
-mod index;
-
+//! and per query by the service. No libpostal models or index files needed.
 use divan::black_box;
+use opengeocoding::index::schema as index;
 
 const NAMES: [&str; 12] = [
     "Rue de Rivoli",

@@ -1,92 +1,27 @@
-//! Model-backed RPC integration test against a real, isolated ClickHouse database and a local
-//! serve_index fixture. It creates and removes its own database. Ignored by default:
+//! Model-backed RPC integration test against a real, isolated ClickHouse database and a
+//! `build_index` output with world coverage (Copenhagen, Munich, Paris). It creates and removes
+//! its own database. Ignored by default:
 //!
 //! ```text
-//! CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --test rpc -- --ignored --nocapture
-//! SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS=$PWD/models/libpostal CLICKHOUSE_URL=... cargo test --test rpc -- --ignored --nocapture
+//! INDEX_DIR=out CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --test rpc -- --ignored --nocapture
+//! SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS=$PWD/models/libpostal INDEX_DIR=out CLICKHOUSE_URL=... cargo test --test rpc -- --ignored --nocapture
 //! ```
 //!
 //! With grpcurl installed, legacy gRPC is exercised too; its known hang fails the test with a
 //! bounded timeout rather than being skipped (see README).
 
 use anyhow::{Context, Result, ensure};
-use axum::{
-    Router,
-    extract::{RawQuery, State},
-    http::{HeaderMap, StatusCode, Uri, header},
-    response::{IntoResponse, Response},
-};
 use buffa::Message;
 use opengeocoding::{
     proto::opengeocoding::{EmptyRequest, FullAddress, GeoCoordinates, SearchAddressTask},
     regions::python_repr,
 };
+use reqwest::{StatusCode, header};
 use serde_json::{Value, json};
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::process::{Child, Command};
 
 const SERVICE: &str = "opengeocoding.Geolocation";
-
-#[derive(Default)]
-struct Fixture {
-    failures: u32,
-    languages: Vec<String>,
-    mode: &'static str,
-}
-
-type Shared = Arc<Mutex<Fixture>>;
-
-async fn index_backend(
-    State(fixture): State<Shared>,
-    uri: Uri,
-    RawQuery(_): RawQuery,
-    headers: HeaderMap,
-) -> Response {
-    if uri.path() == "/status" {
-        return axum::Json(json!({"status": 0, "software_version": "overture-index"}))
-            .into_response();
-    }
-    let language = headers
-        .get(header::ACCEPT_LANGUAGE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-    let mode = {
-        let mut fixture = fixture.lock().expect("fixture lock");
-        fixture.languages.push(language.clone());
-        if fixture.failures > 0 {
-            fixture.failures -= 1;
-            return StatusCode::SERVICE_UNAVAILABLE.into_response();
-        }
-        fixture.mode
-    };
-    let address = match mode {
-        "wrong_postcode" => {
-            json!({"country": "United States", "country_code": "us", "city": "Paris", "postcode": "75460"})
-        }
-        "local" => json!({"country": "Germany", "country_code": "de",
-                          "city": if language.is_empty() { "München" } else { "Munich" }}),
-        _ => {
-            json!({"country": "Denmark", "country_code": "dk", "city": "Copenhagen", "ISO3166-2-lvl4": "DK-84"})
-        }
-    };
-    let value = json!({"display_name": address["city"], "address": address, "lat": "55.676098",
-                       "lon": "12.568337", "osm_id": 1, "osm_type": "node"});
-    let body = if uri.path().starts_with("/reverse") {
-        value
-    } else {
-        json!([value])
-    };
-    (
-        [(header::CONTENT_TYPE, "application/json")],
-        body.to_string(),
-    )
-        .into_response()
-}
 
 struct Env {
     client: reqwest::Client,
@@ -96,7 +31,7 @@ struct Env {
     rpc: String,
     metrics: String,
     map_dir: PathBuf,
-    fixture: Shared,
+    index: PathBuf,
 }
 
 impl Env {
@@ -158,10 +93,6 @@ impl Env {
         self.json("SearchAddress", json!({ "addressString": address }))
             .await
     }
-
-    fn set(&self, update: impl FnOnce(&mut Fixture)) {
-        update(&mut self.fixture.lock().expect("fixture lock"));
-    }
 }
 
 fn which(program: &str) -> bool {
@@ -187,7 +118,7 @@ async fn grpcurl(args: &[&str]) -> Result<String> {
     Ok(String::from_utf8(output.stdout)?)
 }
 
-async fn start(env: &mut Env, index_port: u16, image: Option<&str>) -> Result<()> {
+async fn start(env: &mut Env, image: Option<&str>) -> Result<()> {
     env.clickhouse(&format!("CREATE DATABASE {}", env.database))
         .await?;
     env.clickhouse(&format!(
@@ -210,7 +141,7 @@ async fn start(env: &mut Env, index_port: u16, image: Option<&str>) -> Result<()
     std::fs::create_dir_all(&env.map_dir)?;
     std::fs::write(env.map_dir.join("regions.json"), "{}")?;
     let mut settings = vec![
-        ("INDEX_URL", format!("http://127.0.0.1:{index_port}")),
+        ("INDEX_DIR", env.index.to_string_lossy().into()),
         ("CLICKHOUSE_URL", env.clickhouse.clone()),
         (
             "CLICKHOUSE_USER",
@@ -240,9 +171,8 @@ async fn start(env: &mut Env, index_port: u16, image: Option<&str>) -> Result<()
         )?;
         for (key, value) in &mut settings {
             match *key {
-                "INDEX_URL" | "CLICKHOUSE_URL" => {
-                    *value = value.replace("127.0.0.1", "host.docker.internal")
-                }
+                "INDEX_DIR" => *value = "/data/index".into(),
+                "CLICKHOUSE_URL" => *value = value.replace("127.0.0.1", "host.docker.internal"),
                 "REGION_MAP_PATH" => *value = "/region-map/regions.json".into(),
                 _ => {}
             }
@@ -256,7 +186,14 @@ async fn start(env: &mut Env, index_port: u16, image: Option<&str>) -> Result<()
             ])
             .args(["-p", &format!("127.0.0.1:{rpc_port}:{rpc_port}")])
             .args(["-p", &format!("127.0.0.1:{metrics_port}:{metrics_port}")])
-            .args(["-v", &format!("{}:/region-map", env.map_dir.display())]);
+            .args(["-v", &format!("{}:/region-map", env.map_dir.display())])
+            .args([
+                "-v",
+                &format!(
+                    "{}:/data/index:ro",
+                    std::fs::canonicalize(&env.index)?.display()
+                ),
+            ]);
         if let Some(models) = std::env::var_os("LIBPOSTAL_MODELS") {
             let models = std::fs::canonicalize(models)?;
             command.args(["-v", &format!("{}:/data/libpostal:ro", models.display())]);
@@ -274,7 +211,8 @@ async fn start(env: &mut Env, index_port: u16, image: Option<&str>) -> Result<()
         command
     };
     let child = env.child.insert(command.kill_on_drop(true).spawn()?);
-    for _ in 0..100 {
+    // loading the index and models takes seconds
+    for _ in 0..900 {
         if let Some(status) = child.try_wait()? {
             anyhow::bail!("service exited: {status}");
         }
@@ -415,19 +353,17 @@ async fn checks(env: &mut Env) -> Result<()> {
     }
     println!("PASS: both legacy RPC aliases match canonical JSON/protobuf responses and errors");
 
-    env.set(|f| {
-        f.mode = "local";
-        f.languages.clear();
-    });
     let found = env.search("München, Deutschland").await?;
     ensure!(found["addressDetails"]["city"] == "Munich", "{found}");
-    let languages = env.fixture.lock().expect("fixture lock").languages.clone();
-    ensure!(languages == ["en", ""], "{languages:?}");
-    env.set(|f| f.mode = "wrong_postcode");
     let found = env.search("Paris, France, 75001").await?;
+    ensure!(
+        found["addressDetails"]["countryCode"] == "fr"
+            && found["addressDetails"]["postcode"] == "75001",
+        "{found}"
+    );
+    let found = env.search("Qwertyuiop 12345").await?;
     ensure!(found == json!({}), "{found}");
-    env.set(|f| f.mode = "normal");
-    println!("PASS: local-language corroboration and postcode/country rejection");
+    println!("PASS: local-language corroboration, postcode match and unmatched-part rejection");
 
     let regions = env
         .json("ResolveRegion", json!({"lat": 55.676098, "lon": 12.568337}))
@@ -445,9 +381,6 @@ async fn checks(env: &mut Env) -> Result<()> {
     );
     println!("PASS: reverse lookup and atomic region-map refresh");
 
-    env.set(|f| f.failures = 1);
-    ensure!(env.search("Copenhagen, Denmark").await?["addressDetails"]["countryCode"] == "dk");
-    ensure!(env.fixture.lock().expect("fixture lock").failures == 0);
     for (method, payload) in [
         ("SearchAddress", json!({"addressString": "bad\u{0}address"})),
         ("ResolveRegion", json!({"lat": 100, "lon": 0})),
@@ -489,7 +422,7 @@ async fn checks(env: &mut Env) -> Result<()> {
     while let Some(result) = tasks.join_next().await {
         result??;
     }
-    println!("PASS: retry, invalid-input errors and 64 concurrent requests");
+    println!("PASS: invalid-input errors and 64 concurrent requests");
 
     if which("grpcurl") {
         let address = env.rpc.trim_start_matches("http://").to_string();
@@ -542,26 +475,9 @@ async fn checks(env: &mut Env) -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs ClickHouse (CLICKHOUSE_URL) and libpostal models; run with --ignored"]
+#[ignore = "needs ClickHouse (CLICKHOUSE_URL), an index (INDEX_DIR) and libpostal models; run with --ignored"]
 async fn rpc_contracts() {
     let image = std::env::var("SERVICE_IMAGE").ok();
-    let fixture: Shared = Arc::new(Mutex::new(Fixture {
-        mode: "normal",
-        ..Default::default()
-    }));
-    let bind = if image.is_some() {
-        "0.0.0.0:0"
-    } else {
-        "127.0.0.1:0"
-    };
-    let listener = tokio::net::TcpListener::bind(bind)
-        .await
-        .expect("bind fixture");
-    let index_port = listener.local_addr().expect("fixture address").port();
-    let app = Router::new()
-        .fallback(index_backend)
-        .with_state(fixture.clone());
-    let server = tokio::spawn(async move { axum::serve(listener, app).await });
     let mut env = Env {
         client: reqwest::Client::new(),
         clickhouse: std::env::var("CLICKHOUSE_URL")
@@ -572,16 +488,17 @@ async fn rpc_contracts() {
         metrics: String::new(),
         map_dir: std::env::temp_dir()
             .join(format!("opengeocoding-rpc-test-{}", std::process::id())),
-        fixture,
+        index: std::env::var_os("INDEX_DIR")
+            .expect("INDEX_DIR: a build_index output")
+            .into(),
     };
-    let outcome = match start(&mut env, index_port, image.as_deref()).await {
+    let outcome = match start(&mut env, image.as_deref()).await {
         Ok(()) => checks(&mut env).await,
         Err(error) => Err(error),
     };
     if let Some(mut child) = env.child.take() {
         let _ = child.kill().await;
     }
-    server.abort();
     let dropped = env
         .clickhouse(&format!("DROP DATABASE IF EXISTS {}", env.database))
         .await;

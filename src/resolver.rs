@@ -1,9 +1,12 @@
-use crate::{matching::*, metrics::METRICS, proto::opengeocoding::*};
-use anyhow::{Context, Result, bail, ensure};
-use reqwest::{Client, Url};
+use crate::{
+    index::{Index, Parser},
+    matching::*,
+    metrics::METRICS,
+    proto::opengeocoding::*,
+};
+use anyhow::{Context, Result};
 use serde_json::{Value, json};
-use std::{borrow::Cow, sync::Arc, time::Duration};
-use tokio::sync::Semaphore;
+use std::{borrow::Cow, path::Path, sync::Arc};
 
 const ORDERS: [(&str, &[&str]); 4] = [
     (
@@ -23,116 +26,56 @@ const ORDERS: [(&str, &[&str]); 4] = [
 ];
 
 pub struct Resolver {
-    client: Client,
-    base: String,
-    postal: Arc<rustpostal::LibModules>,
-    permits: Arc<Semaphore>,
+    index: Arc<Index>,
+    parser: Arc<Parser>,
 }
 
 impl Resolver {
-    pub async fn new(base: String) -> Result<Self> {
-        let url = Url::parse(&base)?;
-        ensure!(
-            matches!(url.scheme(), "http" | "https")
-                && url.host_str().is_some()
-                && url.username().is_empty()
-                && url.password().is_none()
-                && url.query().is_none()
-                && url.fragment().is_none(),
-            "INDEX_URL must be an HTTP(S) base URL without credentials, query or fragment"
+    /// Loads the libpostal models and the index in `dir`. Blocks for several seconds.
+    pub fn open(dir: &Path) -> Result<Self> {
+        // before the models load, which takes seconds
+        anyhow::ensure!(
+            dir.join("meta.json").is_file(),
+            "INDEX_DIR {} holds no build_index output",
+            dir.display()
         );
-        let base = base.trim_end_matches('/').to_string();
-        let client = Client::builder().timeout(Duration::from_secs(10)).build()?;
-        let status = client
-            .get(format!("{base}/status"))
-            .send()
-            .await?
-            .error_for_status()?
-            .json::<Value>()
-            .await?;
-        check_index_status(&status)?;
-        let postal = rustpostal::LibModules::Address;
-        postal
-            .setup()
-            .map_err(|_| anyhow::anyhow!("libpostal model setup failed"))?;
-        Ok(Self {
-            client,
-            base,
-            postal: Arc::new(postal),
-            permits: Arc::new(Semaphore::new(1)),
-        })
+        let parser = Arc::new(Parser::setup()?);
+        let index = Arc::new(Index::open(dir, parser.clone())?);
+        Ok(Self { index, parser })
+    }
+
+    pub fn index(&self) -> &Index {
+        &self.index
     }
 
     pub async fn parse(&self, query: &str) -> Result<ParsedAddress> {
-        // ponytail: serialize libpostal calls until a native thread-safety stress test permits a wider parsing pool.
-        let permit = self.permits.clone().acquire_owned().await?;
-        let postal = self.postal.clone();
+        let parser = self.parser.clone();
         let query = query.to_owned();
-        tokio::task::spawn_blocking(move || {
-            let (_permit, _postal) = (permit, postal);
-            Ok(rustpostal::address::parse_address(&query, None, None)?
-                .into_iter()
-                .collect())
-        })
-        .await?
+        Ok(tokio::task::spawn_blocking(move || parser.parse(&query))
+            .await??
+            .into_iter()
+            .collect())
     }
 
-    async fn get(
-        &self,
-        endpoint: &str,
-        params: &[(&str, String)],
-        language: Option<&str>,
-    ) -> Result<Value> {
-        for attempt in 0..=4 {
-            let result = async {
-                let mut request = self
-                    .client
-                    .get(format!("{}/{}", self.base, endpoint))
-                    .query(params);
-                if let Some(language) = language {
-                    request = request.header("Accept-Language", language);
-                }
-                Ok(request
-                    .send()
-                    .await?
-                    .error_for_status()?
-                    .json::<Value>()
-                    .await?)
-            }
-            .await;
-            match result {
-                Ok(value) => return Ok(value),
-                Err(error) if attempt < 4 => {
-                    tracing::warn!(attempt = attempt + 1, %error, "Retrying serve_index");
-                    tokio::time::sleep(Duration::from_millis((attempt + 1) * 500)).await;
-                }
-                Err(error) => return Err(error),
-            }
-        }
-        unreachable!()
+    /// Index candidates for `query` with English names (Nominatim's `Accept-Language: en`).
+    pub async fn candidates(&self, query: &str) -> Result<Vec<Value>> {
+        Ok(self.search(query).await?.1)
     }
 
-    pub async fn candidates(&self, query: &str, language: Option<&str>) -> Result<Vec<Value>> {
+    /// The index's hits and their English rendering.
+    async fn search(&self, query: &str) -> Result<(Vec<crate::index::Hit>, Vec<Value>)> {
         let query = query.trim_matches(whitespace);
         if query.is_empty() {
-            return Ok(vec![]);
+            return Ok((vec![], vec![]));
         }
-        let result = self
-            .get(
-                "search",
-                &[
-                    ("q", query.into()),
-                    ("format", "json".into()),
-                    ("addressdetails", "true".into()),
-                    ("namedetails", "true".into()),
-                ],
-                language,
-            )
-            .await?;
-        match result {
-            Value::Array(candidates) => Ok(candidates),
-            _ => bail!("serve_index search response must be an array"),
-        }
+        let index = self.index.clone();
+        let query = query.to_owned();
+        Ok(tokio::task::spawn_blocking(move || {
+            let hits = index.search(&query);
+            let english = hits.iter().map(|h| index.render(h, true)).collect();
+            (hits, english)
+        })
+        .await?)
     }
 
     pub async fn first_acceptable(
@@ -156,9 +99,9 @@ impl Resolver {
         } else {
             address
         };
-        let candidates = {
+        let (hits, candidates) = {
             let _timer = METRICS.search.with_label_values(&[tier]).start_timer();
-            self.candidates(query, Some("en")).await?
+            self.search(query).await?
         };
         let english = candidates
             .iter()
@@ -170,7 +113,8 @@ impl Resolver {
                 .iter()
                 .any(|f| city_agrees(address, f.address_details.as_option()))
         {
-            let local = self.candidates(query, None).await?;
+            // the same hits named in their own languages
+            let local: Vec<_> = hits.iter().map(|h| self.index.render(h, false)).collect();
             for (index, candidate) in candidates.iter().enumerate() {
                 if let Some(twin) = local.iter().rev().find(|hit| {
                     truthy(&hit["osm_id"])
@@ -374,18 +318,9 @@ impl Resolver {
     }
 
     pub async fn reverse(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
-        let value = self
-            .get(
-                "reverse",
-                &[
-                    ("lat", (lat as f64).to_string()),
-                    ("lon", (lon as f64).to_string()),
-                    ("format", "json".into()),
-                    ("addressdetails", "true".into()),
-                ],
-                Some("en"),
-            )
-            .await?;
+        let index = self.index.clone();
+        let value =
+            tokio::task::spawn_blocking(move || index.reverse(lat as f64, lon as f64)).await?;
         if !truthy(&value["address"]) {
             return Ok(None);
         }
@@ -395,24 +330,15 @@ impl Resolver {
     }
 
     pub async fn state(&self, query: &str) -> Result<Option<Region>> {
-        let Some(result) = self.candidates(query, Some("en")).await?.into_iter().next() else {
+        let Some(result) = self.candidates(query).await?.into_iter().next() else {
             return Ok(None);
         };
         if !truthy(&result["place_id"]) {
             return Ok(None);
         }
-        let place = result["place_id"].to_string();
         let details = self
-            .get(
-                "details",
-                &[
-                    ("format", "json".into()),
-                    ("addressdetails", "1".into()),
-                    ("place_id", place),
-                ],
-                None,
-            )
-            .await?;
+            .index
+            .details(result["place_id"].as_u64().unwrap_or(u64::MAX));
         let names = &details["names"];
         let en_name = ["name:en", "_place_name:en", "name"]
             .iter()
@@ -432,15 +358,6 @@ impl Resolver {
             ..Default::default()
         }))
     }
-}
-
-pub fn check_index_status(status: &Value) -> Result<()> {
-    ensure!(
-        status["status"].as_u64() == Some(0)
-            && status["software_version"].as_str() == Some("overture-index"),
-        "INDEX_URL must point to a ready serve_index backend"
-    );
-    Ok(())
 }
 
 fn own_name<'a>(candidate: &'a Value, city: &str) -> Option<&'a str> {

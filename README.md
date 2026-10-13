@@ -38,20 +38,14 @@ docker run --rm --entrypoint libpostal_data \
 
 The resulting directory is `models/libpostal`. Keep it for subsequent runs.
 
-Build an index into `out/` (see the index section below), start `serve_index`, and provide your own ClickHouse instance:
+Build an index into `out/` (see the index section below), mount it read-only, and provide your own ClickHouse instance:
 
 ```sh
-docker network create opengeocoding
-docker run -d --name opengeocoding-index --network opengeocoding \
-  --entrypoint serve_index \
-  -v "$PWD/out:/index:ro" \
-  -v "$PWD/models/libpostal:/data/libpostal:ro" \
-  opengeocoding /index 0.0.0.0:8099 overture-2026-09-23.1
-
-docker run --rm --network opengeocoding \
+docker run --rm \
   -p 11121:11121 -p 8000:8000 \
   -v "$PWD/models/libpostal:/data/libpostal:ro" \
-  -e INDEX_URL=http://opengeocoding-index:8099 \
+  -v "$PWD/out:/data/index:ro" \
+  -e INDEX_DIR=/data/index \
   -e CLICKHOUSE_URL=http://your-clickhouse:8123 \
   -e CLICKHOUSE_USER=default \
   -e CLICKHOUSE_PASSWORD=your-password \
@@ -60,7 +54,7 @@ docker run --rm --network opengeocoding \
 
 Addresses inside Docker must be reachable from the container; `localhost` refers to that container. The service creates its ClickHouse database/table and warms its region cache at startup.
 
-**Deploy behind a trusted network or authenticated proxy.** The RPCs, including region-map refresh, do not implement authentication. Do not expose them directly to the public internet. Keep `serve_index` on the same trusted network; its HTTP endpoints are also unauthenticated.
+**Deploy behind a trusted network or authenticated proxy.** The RPCs, including region-map refresh, do not implement authentication. Do not expose them directly to the public internet.
 
 Example request:
 
@@ -79,13 +73,13 @@ The canonical RPC path is `/opengeocoding.Geolocation/*`. The Go package is `git
 
 ## Known interoperability issue
 
-The initial model-backed integration run passes Connect JSON/protobuf, local-language corroboration, country/postcode rejection, reverse regions, map refresh, retry/error handling and 64 concurrent requests. However, grpcurl 1.9.4 can list services but its SearchAddress invocation hangs, both with reflection and an explicit proto file. The integration script fails with a bounded timeout rather than skipping that failure. Legacy gRPC interoperability is not signed off; do not treat this initial push as a production-ready replacement.
+The initial model-backed integration run passes Connect JSON/protobuf, local-language corroboration, country/postcode rejection, reverse regions, map refresh, error handling and 64 concurrent requests. However, grpcurl 1.9.4 can list services but its SearchAddress invocation hangs, both with reflection and an explicit proto file. The integration script fails with a bounded timeout rather than skipping that failure. Legacy gRPC interoperability is not signed off; do not treat this initial push as a production-ready replacement.
 
 ## Configuration
 
 | Variable | Default |
 | --- | --- |
-| `INDEX_URL` | Required; `serve_index` HTTP(S) base URL |
+| `INDEX_DIR` | Required; a `build_index` output directory, read-only |
 | `CLICKHOUSE_URL` | `http://127.0.0.1:8123` |
 | `CLICKHOUSE_DATABASE` | `geolocation` |
 | `CLICKHOUSE_USER` / `CLICKHOUSE_PASSWORD` | `default` / empty |
@@ -96,7 +90,7 @@ The initial model-backed integration run passes Connect JSON/protobuf, local-lan
 | `RUST_LOG` | `info` |
 | `SENTRY_DSN` / `ENV` | Optional |
 
-The service validates `/status` at startup and accepts only a ready `serve_index` backend (`software_version: overture-index`, `status: 0`). `NOMINATIM_HOST`, `NOMINATIM_URL` and `NOMINATIM_AUTHORITY` are no longer supported; there is no Nominatim fallback. Legacy RPC paths and metric prefixes remain for compatibility, not backend selection.
+The service loads the index into its own process at startup: one process parses, looks addresses up and serves the RPCs, with no internal HTTP hop. Startup fails if `INDEX_DIR` holds no `build_index` output. The index files stay memory-mapped; the place table (about 2 GB for the world) and libpostal's models (about 2 GB) are read into memory, which took about 10 seconds from a warm disk. `INDEX_URL`, `NOMINATIM_HOST`, `NOMINATIM_URL` and `NOMINATIM_AUTHORITY` are no longer supported; there is no Nominatim fallback. Legacy RPC paths and metric prefixes remain for compatibility, not backend selection.
 
 Clustered ClickHouse needs the usual `cluster`, `shard` and `replica` macros. Region-map refresh uses atomic file replacement; its directory must be writable. The default container's `/app` directory belongs to uid/gid 1000.
 
@@ -109,23 +103,23 @@ Clustered ClickHouse needs the usual `cluster`, `shard` and `replica` macros. Re
 Local builds require Rust 1.99+, Buf and a compiled libpostal installation. Native library/model paths are determined by libpostal's configure options. Nonstandard linker paths can be supplied through `RUSTFLAGS="-L native=/path/to/lib"`.
 
 ```sh
-cargo build --locked --bin opengeocoding --bin serve_index
+cargo build --locked --bin opengeocoding
 cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
 cargo fmt --check
 docker build --target checks .
 ```
 
-`tests/rpc.rs` exercises Connect JSON/protobuf, persistence, candidate safeguards, concurrent requests, metrics and shutdown against a real isolated ClickHouse database and a local HTTP fixture. It creates and removes its own database. It needs ClickHouse and provisioned models, so it is ignored by default. Install `grpcurl` to include gRPC/reflection checks:
+`tests/rpc.rs` exercises Connect JSON/protobuf, both legacy routes, persistence, candidate safeguards, concurrent requests, metrics and shutdown against a real isolated ClickHouse database and a world index. It creates and removes its own database. It needs ClickHouse, an index and provisioned models, so it is ignored by default. Install `grpcurl` to include gRPC/reflection checks:
 
 ```sh
-CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --locked --test rpc -- --ignored --nocapture
+INDEX_DIR=out CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --locked --test rpc -- --ignored --nocapture
 ```
 
 To test the final container instead of a local binary:
 
 ```sh
-SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS="$PWD/models/libpostal" \
+SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS="$PWD/models/libpostal" INDEX_DIR=out \
   CLICKHOUSE_URL=http://127.0.0.1:8125 cargo test --locked --test rpc -- --ignored --nocapture
 ```
 
@@ -133,39 +127,23 @@ CI builds and checks both amd64 and arm64 without downloading models. [CodSpeed]
 
 ## Local performance benchmark
 
-The `benchmark` binary provides a loopback `serve_index` mock and a Connect JSON benchmark. It compares full responses and checks that each implementation makes the same number of backend requests. No failed requests are retried. Its fixture and validation checks run in `cargo test`.
+The `benchmark` binary sends Connect JSON SearchAddress requests to running services. It first sends every query once to each service and counts differing responses, then times `--requests` calls per service and concurrency over keep-alive connections, rotating the service order between rounds and warming connections outside each timed batch. No failed request is retried. Its endpoint checks run in `cargo test`.
+
+Start release-built services on the same index and models, each with an isolated ClickHouse database whose administrative-region table holds the same rows. Benchmarking must not depend on production backends or databases.
 
 ```sh
 cargo build --locked --release --bin opengeocoding --bin benchmark
-target/release/benchmark --serve 18080
+target/release/benchmark --queries queries.txt \
+  --service base=http://127.0.0.1:18121 \
+  --service candidate=http://127.0.0.1:18122 \
+  --requests 2000 --rounds 3 --concurrency 1,8 > benchmark.jsonl
 ```
 
-Start release-built local services with `INDEX_URL=http://127.0.0.1:18080`, the same provisioned libpostal models, and isolated ClickHouse databases. Seed their administrative-region tables identically, then restart the services to warm their caches:
-
-| Country | Admin code | Level | Country name | Local name | English name |
-| --- | --- | --- | --- | --- | --- |
-| dk | 84 | 4 | Denmark | Hovedstaden | Capital Region |
-| de | BY | 4 | Germany | Bayern | Bavaria |
-| fr | IDF | 4 | France | Île-de-France | Ile-de-France |
-
-Use empty parent codes. Benchmarking must not depend on production backends or databases. The Python reference service is supplied separately; this repository does not bundle one.
-
-```sh
-target/release/benchmark \
-  --service rust=http://127.0.0.1:18121 \
-  --service reference=http://127.0.0.1:18122 \
-  --iterations 100 --rounds 3 > benchmark.jsonl
-```
-
-The default matrix covers 1/10/100 candidates, local-language corroboration, postcode fallback, concurrency 1/8, and backend delays of 0/10 ms. Service order rotates between rounds. Connections and caches are warmed outside each timed batch. Mock responses are pre-encoded and TCP delayed-ACK artifacts are disabled; injected delays still depend on operating-system scheduling.
-
-A benchmark service URL without a route uses `opengeocoding.Geolocation`; an explicit `/opengeocoding.Geolocation` suffix also works. To benchmark old clients, use `--service legacy=http://127.0.0.1:18121/geolocation.Geolocation` or `--service legacy=http://127.0.0.1:18121/nominatim_geolocation.NominatimGeolocation`. All three routes use the same index-backed resolver.
-
-Use at least one complete rotation of all service names. Keep timed batches below the servers' per-connection request limits. Compare release builds on the same machine. Results include the mock, client, HTTP transport, native parsing and RPC framework; they are not production throughput or accuracy guarantees.
+`queries.txt` holds one address per line, for example the `query` column of `tests/addresses.tsv`. A service URL without a route uses `opengeocoding.Geolocation`; to benchmark old clients, use `--service legacy=http://127.0.0.1:18121/geolocation.Geolocation` or `.../nominatim_geolocation.NominatimGeolocation`. All three routes use the same resolver. Results include the client, HTTP transport, parsing, index lookups and the RPC framework on one machine; they are not production throughput or accuracy guarantees.
 
 ## Overture address index
 
-`build_index` builds a Tantivy index and house-number tables from a local [Overture Maps](https://docs.overturemaps.org/) release, without Nominatim. `serve_index` serves that index and is the service's only supported lookup backend. The backend remains experimental; the coverage and reverse-lookup limitations below still apply.
+`build_index` builds a Tantivy index and house-number tables from a local [Overture Maps](https://docs.overturemaps.org/) release, without Nominatim. The service loads that index (`src/index/`) and it is its only supported lookup backend. The index remains experimental; the coverage and reverse-lookup limitations below still apply.
 
 Download the `division` and `division_area` (divisions theme), `segment` (transportation) and `address` (addresses) parquet files of one release into same-named directories, about 100 GB in total, for example:
 
@@ -183,32 +161,25 @@ Overture's address theme covers about 40 countries. The optional sources fill th
 - `--openaddresses DIR`: every `*.geojson.gz` in the directory, one OpenAddresses batch job output each, named `<cc>_<source path>-<layer>.geojson.gz` (the country comes from the prefix). List address layers with `batch.openaddresses.io/api/data` and download `v2.openaddresses.io/batch-prod/job/<job>/source.geojson.gz` for the sources Overture doesn't list (about 2,700 files, 13 GB in October 2026). Many overlap Overture's data; identical house numbers on the same street collapse, and in a sample 19% of US and 60% of Mexican OpenAddresses addresses were on a street the Overture-only index had without that number.
 - `--geonames-postal FILE`, repeatable: GeoNames postal-code dumps (`download.geonames.org/export/zip/`, CC-BY-4.0). `allCountries` has only outward codes for GB and 3-character codes for CA; `GB_full`, `CA_full` and `NL_full` hold full codes. A postcode is added only when the address data and earlier files lack it.
 
-The output holds places, streets (one per normalized name per place and 0.1° cell, merging road names with address streets) and postcodes in Tantivy, plus house numbers with coordinates in sharded FSTs. The cell keeps same-named streets of one large locality apart (Port Chalmers' and central Dunedin's Beach Street); a street crossing a cell edge is indexed in parts, and the shim answers the middle of the parts. Addresses without a street (Overture's Polish, Czech, Slovak and Baltic village addresses, OSM `addr:place`) are numbered on a street named after their village.
+The output holds places, streets (one per normalized name per place and 0.1° cell, merging road names with address streets) and postcodes in Tantivy, plus house numbers with coordinates in sharded FSTs. The cell keeps same-named streets of one large locality apart (Port Chalmers' and central Dunedin's Beach Street); a street crossing a cell edge is indexed in parts, and a lookup answers the middle of the parts. Addresses without a street (Overture's Polish, Czech, Slovak and Baltic village addresses, OSM `addr:place`) are numbered on a street named after their village.
 
-Names are folded by one analyzer at build and query time: Unicode tokens, lowercased, ASCII-folded, then street-name abbreviations canonicalized (`src/bin/build_index/canon.rs`: `Avenue`/`Ave`/`Avenida`/`Av.` → `av`, `Straße` and compounds → `str`, `Calle`/`C/` → `cl`, `Drottninggatan` → `drottningg` like `Drottningg.`, and so on for English, Spanish, Portuguese, French, German, Dutch, Nordic, Hungarian, Italian, Turkish, Polish, Russian and Ukrainian; Japanese chōme and Taiwanese section numerals read as digits, so `芝公園四丁目` and `芝公園4丁目` match). A query must use the same analyzer, including when correcting typos against the canonical vocabulary.
+Names are folded by one analyzer at build and query time: Unicode tokens, lowercased, ASCII-folded, then street-name abbreviations canonicalized (`src/index/canon.rs`: `Avenue`/`Ave`/`Avenida`/`Av.` → `av`, `Straße` and compounds → `str`, `Calle`/`C/` → `cl`, `Drottninggatan` → `drottningg` like `Drottningg.`, and so on for English, Spanish, Portuguese, French, German, Dutch, Nordic, Hungarian, Italian, Turkish, Polish, Russian and Ukrainian; Japanese chōme and Taiwanese section numerals read as digits, so `芝公園四丁目` and `芝公園4丁目` match). A query must use the same analyzer, including when correcting typos against the canonical vocabulary.
 
 Streets and addresses are assigned to the containing locality polygon, else a locality point within 5 km, else the local admin area or county. House numbers are spilled to `out/.numbers-spill` during the build (about 7 GB for the world) and removed afterwards. The builder reads available memory at startup (cgroup limit and usage, capped by the host's `MemAvailable`; `vm_stat` on macOS) and sizes the index writer and the number sort from the remaining headroom. One world release took about 100 seconds on an 18-core laptop with a 19 GB peak memory footprint; with all the OSM extracts, OpenAddresses and GeoNames files above it took about 300 seconds and 20 GB (OpenAddresses about 75 seconds, OSM about 105), for 563 million house numbers and 43 million streets in 12 GB. These are single measurements, not guarantees, and the build needs that memory regardless of the writer budget.
 
 Known limitations: outside Overture's address countries, house numbers are only as complete as OSM and OpenAddresses there (sparse in the UK, India and much of Africa and Asia); OSM ways and relations are placed at their first node; interpolated numbers assume even spacing; abbreviations outside that table (`MLK`, `CR 123` for County Road) still index as separate streets; house numbers are matched lowercased and without full-width forms or a trailing 号/號, otherwise exactly as written. Overture's divisions and transportation themes and OpenStreetMap are ODbL (attribution "© OpenStreetMap contributors", share-alike for a distributed derived database); OpenAddresses licenses vary per source and many state none; review them before distributing an index.
 
-### Evaluating the index through the service
+### Lookups
 
-`serve_index` answers `/search`, `/details`, `/reverse`, `/parse` and `/status` from a `build_index` output. Its JSON responses retain the existing candidate format; this does not make Nominatim a supported backend. Build and evaluate it through the service:
+Lookups return candidates in the JSON format the resolver reads (Nominatim's search, details and reverse fields); this does not make Nominatim a supported backend. The service renders one search's candidates in English and, when it needs to corroborate a town written in another language, in local names, without searching twice.
 
-```sh
-cargo build --locked --release --bin opengeocoding --bin serve_index --bin evaluate
-target/release/serve_index out/ 127.0.0.1:8099 overture-2026-09-23.1 &
-INDEX_URL=http://127.0.0.1:8099 target/release/evaluate run --suite gold --out eval-results/gold-index --max-rps 200
-target/release/evaluate diff BASELINE_GOLD_RUN eval-results/gold-index
-```
+It parses with the service's one libpostal parser (serialized), matches places, streets, postcodes and house numbers like Nominatim's all-terms search, and recognizes postcodes from the index when libpostal mislabels them. It reads Japanese block addresses (`東京都港区芝公園4-2-8` is chōme 4 of 芝公園, block 2, house 8) and Chinese road addresses itself, since libpostal splits them. Streets are looked up in the named town, then a same-named county, then a same-named city-province (Istanbul), then by postcode and near the postcode's centre. It reports each house's own postcode, as the source data gives it. It remains experimental: reverse lookup returns the nearest locality point, not a containing administrative polygon. It reads importance through cached per-segment fast-field columns and checks exact names against hashes folded at startup; Tantivy's `order_by_fast_field` reopened every segment's column per query and cost more than the search itself. The 12 GB index (Tantivy, house-number FSTs and `places.tsv`) is memory-mapped; in an earlier measurement 1.3 GB of it was resident after 20 seconds of load. On an 18-core laptop shared with other work (load average about 13), the service answered the 1,000 address samples at about 360 requests per second over one connection and 1,600 to 2,100 over eight (p99 39 ms). The same build calling a separate `serve_index` process over HTTP, on the same index, answered about 220 and 940 to 1,290 (p99 63 ms), with identical responses. The service's memory footprint was 3.5 GB, against 6.0 GB for the two processes, which each loaded libpostal's models. Per gold query it searched the index 1.8 times on average, where the HTTP version made 3.2 calls: one search now serves both languages. These are single measurements on one machine, not capacity guarantees.
 
-It parses with libpostal (serialized), matches places, streets, postcodes and house numbers like Nominatim's all-terms search, and recognizes postcodes from the index when libpostal mislabels them. It reads Japanese block addresses (`東京都港区芝公園4-2-8` is chōme 4 of 芝公園, block 2, house 8) and Chinese road addresses itself, since libpostal splits them. Streets are looked up in the named town, then a same-named county, then a same-named city-province (Istanbul), then by postcode and near the postcode's centre. It reports each house's own postcode, as the source data gives it. It remains experimental: `/reverse` returns the nearest locality point, not a containing administrative polygon. It reads importance through cached per-segment fast-field columns and checks exact names against hashes folded at startup; Tantivy's `order_by_fast_field` reopened every segment's column per query and cost more than the search itself. On an 18-core laptop shared with other work it answered about 1,100 of the service's recorded backend searches per second on one core and 6,500 on about 8 cores (p99 7 ms), with about 4 GB of private memory (libpostal about 2 GB, the place table about 2 GB). The 12 GB index (Tantivy, house-number FSTs and `places.tsv`) is memory-mapped; in an earlier measurement 1.3 GB of it was resident after 20 seconds of that load. The service in front of it handled 2,200 address requests per second from the production sample on about 7 cores in total (p99 23 ms) and 3,500 when the machine saturated. These are single measurements on one machine, not capacity guarantees.
-
-In one run against the October 2026 Overture release with the OSM, OpenAddresses and GeoNames sources above, the gold suite passed 1,038 of its first 1,280 cases (231 of the 286 held out), against 992 for the index and shim before the October 13 data and parsing work. On the 2,875-case version it passed 2,136 (433 of the 582 held out), including 545 of the 926 damaged addresses: a typo in the street (2 of 95) and a wrong postcode (10 of 95) were its weakest kinds, since streets then matched only on exact (canonicalized) words. `serve_index` now corrects a street with one misspelt word (within one edit, same first letter, or a misspelt street type) when a resolved town or postcode holds a street with the other words and the house number; the full suite has not been re-run with it. The service accepts a candidate whose postcode disagrees with the requested one when its house number, road and town all agree, after every candidate holding the postcode has been refused, and returns it with goodMatch false. Of the original 247 cases it passed 239; Nominatim 5.3.2 with January 2026 OSM data passed 227, and the only case Nominatim passed and the index did not is a Dubai boulevard whose street data names a smaller locality than Dubai. Of the 405 address cases (Wikidata landmarks in 90 countries and registry addresses from France, the Netherlands, the United States, Norway, Switzerland and Spain), it passed 286. Most remaining failures are data gaps (streets or villages missing in OSM-only countries) or the service rejecting the index's right first answer on libpostal's parse ("Addis Ababa, Ethiopia" parses as one city name); those critical ones are labelled in `tests/gold.seeds.jsonl`. On the 1,000 address samples, the index answered 827 (Nominatim 855) and 143 at house level (117). Where the sample's country is known, it chose the right country for 97.3% of its answers (Nominatim 97.5%) and claimed a good match in the wrong country 14 times (Nominatim 14). To keep wrong countries down, the shim answers a street with nothing to place it only when at most three same-named streets with that number exist, all in one country. It answers a place name without a country only on an exact name match, and a bare postcode without a country only when one country uses it. These are single runs on curated and sampled inputs, not production accuracy.
+In one run against the October 2026 Overture release with the OSM, OpenAddresses and GeoNames sources above, the gold suite passed 1,038 of its first 1,280 cases (231 of the 286 held out), against 992 for the index before the October 13 data and parsing work. On the 2,875-case version it passed 2,136 (433 of the 582 held out), including 545 of the 926 damaged addresses: a typo in the street (2 of 95) and a wrong postcode (10 of 95) were its weakest kinds, since streets then matched only on exact (canonicalized) words. Lookups now correct a street with one misspelt word (within one edit, same first letter, or a misspelt street type) when a resolved town or postcode holds a street with the other words and the house number. The service accepts a candidate whose postcode disagrees with the requested one when its house number, road and town all agree, after every candidate holding the postcode has been refused, and returns it with goodMatch false. With both, and 32 Census expectations corrected (their five-digit house numbers had been read as postcodes), the 2,875 cases passed 2,308 (459 of the 582 held out), including 701 of the 926 damaged addresses: 82 of 95 street typos and 73 of 95 wrong postcodes. One must-pass case regressed with them: "10 Rue de Rivoli, 75001 Paris, France" now answers number 10 of the same street in 75004. Of the original 247 cases it passed 239; Nominatim 5.3.2 with January 2026 OSM data passed 227, and the only case Nominatim passed and the index did not is a Dubai boulevard whose street data names a smaller locality than Dubai. Of the 405 address cases (Wikidata landmarks in 90 countries and registry addresses from France, the Netherlands, the United States, Norway, Switzerland and Spain), it passed 286. Most remaining failures are data gaps (streets or villages missing in OSM-only countries) or the service rejecting the index's right first answer on libpostal's parse ("Addis Ababa, Ethiopia" parses as one city name); those critical ones are labelled in `tests/gold.seeds.jsonl`. On the 1,000 address samples, the index answered 827 (Nominatim 855) and 143 at house level (117). Where the sample's country is known, it chose the right country for 97.3% of its answers (Nominatim 97.5%) and claimed a good match in the wrong country 14 times (Nominatim 14). To keep wrong countries down, a lookup answers a street with nothing to place it only when at most three same-named streets with that number exist, all in one country. It answers a place name without a country only on an exact name match, and a bare postcode without a country only when one country uses it. These are single runs on curated and sampled inputs, not production accuracy.
 
 ## Geographic evaluation
 
-The `evaluate` binary (`src/bin/evaluate`) measures geographic correctness against `serve_index` through this service's RPCs. It is for backend, data and consumer changes; it does not measure throughput. Build it with the service:
+The `evaluate` binary (`src/bin/evaluate`) measures geographic correctness of the service and its index through the service's RPCs. It is for backend, data and consumer changes; it does not measure throughput. Build it with the service:
 
 ```sh
 cargo build --locked --release --bin opengeocoding --bin evaluate
@@ -217,15 +188,15 @@ cargo build --locked --release --bin opengeocoding --bin evaluate
 | Suite | Command | Needs |
 | --- | --- | --- |
 | PR (CI) | `cargo test --locked` (or `target/release/evaluate check`) | Nothing; scorer, diff gate, corpus and snapshot checks |
-| Deployed smoke | `target/release/evaluate run --suite smoke --out eval-results/smoke` | Backend, models, ClickHouse |
-| Pre-release | `target/release/evaluate run --suite gold --out eval-results/gold` | Same |
-| Address snapshots | `target/release/evaluate run --suite addresses --out eval-results/addresses --compare tests/snapshots/addresses.tsv` | Same |
+| Smoke | `target/release/evaluate run --suite smoke --index out --out eval-results/smoke` | Index, models, ClickHouse |
+| Pre-release | `target/release/evaluate run --suite gold --index out --out eval-results/gold` | Same |
+| Address snapshots | `target/release/evaluate run --suite addresses --index out --out eval-results/addresses --compare tests/snapshots/addresses.tsv` | Same |
 | Compare | `target/release/evaluate diff BASELINE CANDIDATE` | Two saved runs or snapshots |
 | Re-score | `target/release/evaluate report RUN_DIR --rescore` | A saved run; lists cases whose class changed |
 
-Set `INDEX_URL` to a running `serve_index` backend. `run` starts `target/release/opengeocoding` (or `SERVICE_BINARY`) with a fresh ClickHouse database at `CLICKHOUSE_URL` and an empty region map. All backend traffic, including the service's own, goes through an in-process proxy. The proxy rate-limits it (`--max-rps`, default 20), enforces a request budget (`--budget`, default 20,000) and attributes calls to cases. `--rpc URL` targets a running service instead; backend counts and region-cache control are then unavailable. Results are checkpointed per case (`--resume`); the database, process and proxy are removed on exit, including after Ctrl-C. No request is retried by the evaluator.
+`run` starts `target/release/opengeocoding` (or `SERVICE_BINARY`) on the index in `--index DIR` (or `INDEX_DIR`) with a fresh ClickHouse database at `CLICKHOUSE_URL` and an empty region map. It rate-limits its RPCs (`--max-rps`, default 20) and stops after a request budget (`--budget`, default 20,000). It counts each case's index searches from the service's `/metrics`, since cases run one at a time. For direct checks (`--no-direct` skips them) it loads the same index and its own libpostal parser, about 4 GB besides the service's. `--rpc URL` targets a running service instead; search counts and region-cache control are then unavailable, and direct checks run only with `--index`. Results are checkpointed per case (`--resume`); the database and process are removed on exit, including after Ctrl-C. No request is retried by the evaluator.
 
-Each run writes `manifest.json` (index status and release label, a hashed endpoint, consumer commit and binary hash, libpostal model and reference-data hashes, cache state and limits), `results.jsonl` (full responses, backend traces, direct-backend evidence) and `report.md`. Label the backend with `--backend-label`, e.g. image digest and configuration. A code or configuration comparison requires the same built index; a data or import change is a separate experiment.
+Each run writes `manifest.json` (a hash of the index's `meta.json`, which names its segments, consumer commit and binary hash, libpostal model and reference-data hashes, cache state and limits), `results.jsonl` (full responses, index search counts, direct-index evidence) and `report.md`. Label the backend with `--backend-label`, e.g. image digest and configuration. A code or configuration comparison requires the same built index; a data or import change is a separate experiment.
 
 ### Gold corpus
 
@@ -258,7 +229,7 @@ The diff counts per target granularity which cases gained or lost a result, chan
 
 The sampler that queries production data is kept outside this repository; it reuses `opengeocoding::eval` for TSV escaping and hold-out assignment. Other corpora are JSONL in the gold format, or TSV with at least `id` and `query` columns, passed with `--corpus`. Private ones (e.g. replay sets with earlier production geocodes) use the same tooling; keep those and their runs out of this repository.
 
-GitHub-hosted runners cannot reach an IP-restricted backend and do not download models, so CI runs only the offline checks in `cargo test`. Run deployed suites locally or from a runner inside the trusted network.
+GitHub-hosted runners have neither a world index nor models, so CI runs only the offline checks in `cargo test`. Run the model-backed suites locally or on a runner with the index and models mounted.
 
 ## GHCR publishing
 

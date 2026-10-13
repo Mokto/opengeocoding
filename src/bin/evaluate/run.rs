@@ -1,33 +1,24 @@
 use crate::{
-    model::{Call, Case, DirectRaw, Record, root},
+    model::{Case, DirectRaw, Record, root},
     report::{diff, sorted, summarize},
     score::{
         Expect, details, from_index, rank, region_codes, region_flags, score, summary_of, text,
     },
 };
 use anyhow::{Context, Result, bail};
-use axum::{
-    Router,
-    extract::{Request, State},
-    http::{HeaderValue, StatusCode, header},
-    response::{IntoResponse, Response},
-};
+use axum::http::header;
 use buffa::Message;
 use opengeocoding::{
-    eval::sha256_hex,
+    index::{Index, Parser},
     proto::opengeocoding::{FullAddress, SearchAddressTask},
     regions::python_repr,
-    resolver::check_index_status,
 };
-use reqwest::{Client, Url};
+use reqwest::Client;
 use serde_json::{Value, json};
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::atomic::{AtomicUsize, Ordering},
     time::{Duration, Instant, SystemTime},
 };
 use tokio::process::{Child, Command};
@@ -38,6 +29,7 @@ pub struct Options {
     pub suite: String,
     pub corpus: Option<PathBuf>,
     pub out: PathBuf,
+    pub index: Option<PathBuf>,
     pub rpc: Option<String>,
     pub only: Option<regex::Regex>,
     pub max_rps: f64,
@@ -49,7 +41,7 @@ pub struct Options {
     pub fail_on_drift: bool,
 }
 
-/// One rate limit and request budget shared by the proxied service calls and direct backend checks.
+/// One rate limit and request budget for the RPCs sent to the service.
 struct Budget {
     interval: Duration,
     limit: usize,
@@ -74,115 +66,26 @@ impl Budget {
     }
 }
 
-struct Backend {
-    client: Client,
-    base: String,
-    budget: Budget,
-}
-
-impl Backend {
-    /// Status and body; HTTP error statuses are returned, transport failures are errors.
-    async fn get(&self, path_and_query: &str, language: Option<&str>) -> Result<(u16, Vec<u8>)> {
-        self.budget.take().await;
-        let mut request = self.client.get(format!(
-            "{}/{}",
-            self.base,
-            path_and_query.trim_start_matches('/')
-        ));
-        if let Some(language) = language {
-            request = request.header(header::ACCEPT_LANGUAGE, language);
-        }
-        let response = request.send().await?;
-        Ok((response.status().as_u16(), response.bytes().await?.to_vec()))
-    }
-
-    async fn json(&self, endpoint: &str, params: &[(&str, String)]) -> Result<Value> {
-        let mut url = Url::parse("http://placeholder/")?;
-        url.query_pairs_mut().extend_pairs(params);
-        let (status, body) = self
-            .get(
-                &format!("{endpoint}?{}", url.query().unwrap_or("")),
-                Some("en"),
-            )
-            .await?;
-        if status >= 400 {
-            bail!("serve_index {endpoint} returned HTTP {status}");
-        }
-        Ok(serde_json::from_slice(&body)?)
-    }
-}
-
-#[derive(Clone)]
-struct Proxy {
-    backend: Arc<Backend>,
-    calls: Arc<Mutex<Vec<Call>>>,
-}
-
-impl Proxy {
-    fn take(&self) -> Vec<Call> {
-        std::mem::take(&mut *self.calls.lock().expect("calls lock"))
-    }
-}
-
-/// Forwards the service's index calls and attributes them to the current case.
-async fn forward(State(proxy): State<Proxy>, request: Request) -> Response {
-    let path_and_query = request
-        .uri()
-        .path_and_query()
-        .map_or("/", |p| p.as_str())
-        .to_string();
-    let language = request
-        .headers()
-        .get(header::ACCEPT_LANGUAGE)
-        .and_then(|v| v.to_str().ok())
-        .map(String::from);
-    let started = Instant::now();
-    let (status, body) = match proxy
-        .backend
-        .get(&path_and_query, language.as_deref())
+/// Index searches the local service has made so far, from its metrics.
+async fn index_searches(client: &Client, metrics: &str) -> Option<f64> {
+    let text = client
+        .get(format!("{metrics}/metrics"))
+        .timeout(Duration::from_secs(5))
+        .send()
         .await
-    {
-        Ok(result) => result,
-        Err(error) => (
-            504,
-            json!({ "error": error.to_string() })
-                .to_string()
-                .into_bytes(),
-        ),
-    };
-    let url = Url::parse(&format!("http://proxy{path_and_query}")).ok();
-    let param = |name: &str| {
-        url.as_ref().and_then(|u| {
-            u.query_pairs()
-                .find(|(k, _)| k == name)
-                .map(|(_, v)| v.into_owned())
-        })
-    };
-    proxy.calls.lock().expect("calls lock").push(Call {
-        endpoint: url
-            .as_ref()
-            .map_or(String::new(), |u| u.path().trim_matches('/').to_string()),
-        q: param("q").or_else(|| param("place_id")).unwrap_or_else(|| {
-            format!(
-                "{},{}",
-                param("lat").unwrap_or_default(),
-                param("lon").unwrap_or_default()
-            )
-        }),
-        language: language.unwrap_or_default(),
-        status,
-        ms: started.elapsed().as_millis() as u64,
-    });
-    let mut response = (
-        StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY),
-        body,
-    )
-        .into_response();
-    response.headers_mut().insert(
-        header::CONTENT_TYPE,
-        HeaderValue::from_static("application/json"),
-    );
-    response
+        .ok()?
+        .text()
+        .await
+        .ok()?;
+    Some(searches_in(&text))
+}
+
+fn searches_in(metrics: &str) -> f64 {
+    metrics
+        .lines()
+        .filter(|l| l.starts_with("nominatim_geolocation_search_candidates_seconds_count"))
+        .filter_map(|l| l.rsplit(' ').next()?.parse::<f64>().ok())
+        .sum()
 }
 
 /// Ok(body) or Err(Connect error code / transport failure).
@@ -279,9 +182,11 @@ pub fn classify(case: &Case, outcome: Result<&Value, &str>, record: &mut Record)
 struct Checker {
     client: Client,
     base: String,
-    backend: Arc<Backend>,
-    proxy: Option<Proxy>,
-    direct: bool,
+    budget: Budget,
+    /// The local service's metrics endpoint, to count its index searches per case.
+    metrics: Option<String>,
+    /// The same index, loaded here for direct checks.
+    index: Option<Index>,
 }
 
 impl Checker {
@@ -291,9 +196,11 @@ impl Checker {
             query: case.query.clone(),
             ..Default::default()
         };
-        if let Some(proxy) = &self.proxy {
-            proxy.take();
-        }
+        let before = match &self.metrics {
+            Some(metrics) => index_searches(&self.client, metrics).await,
+            None => None,
+        };
+        self.budget.take().await;
         let started = Instant::now();
         let result = rpc_json(
             &self.client,
@@ -303,11 +210,10 @@ impl Checker {
         )
         .await;
         record.ms = Some(started.elapsed().as_millis() as u64);
-        if let Some(proxy) = &self.proxy {
-            let calls = proxy.take();
-            record.backend_calls = Some(calls.len());
-            record.backend_errors = Some(calls.iter().filter(|c| c.status >= 400).count());
-            record.backend_trace = calls;
+        if let (Some(metrics), Some(before)) = (&self.metrics, before)
+            && let Some(after) = index_searches(&self.client, metrics).await
+        {
+            record.backend_calls = Some((after - before).round() as usize);
         }
         let response = match result {
             Ok(response) => response,
@@ -319,9 +225,9 @@ impl Checker {
         classify(case, Ok(&response), &mut record);
         record.summary = Some(summary_of(&response));
         record.response = Some(response);
-        match &case.expect {
-            Some(expect) if self.direct && expect.error.is_none() => {
-                self.attribute(case, expect, &mut record).await?
+        match (&case.expect, &self.index) {
+            (Some(expect), Some(index)) if expect.error.is_none() => {
+                self.attribute(index, case, expect, &mut record).await
             }
             _ => {}
         }
@@ -329,23 +235,15 @@ impl Checker {
     }
 
     /// Direct backend checks attribute a failure to the backend or to the consumer.
-    async fn attribute(&self, case: &Case, expect: &Expect, record: &mut Record) -> Result<()> {
-        let backend = &self.backend;
-        let params = |pairs: &[(&'static str, String)]| {
-            let mut all = vec![
-                ("format", "json".to_string()),
-                ("addressdetails", "1".to_string()),
-            ];
-            all.extend_from_slice(pairs);
-            all
+    async fn attribute(&self, index: &Index, case: &Case, expect: &Expect, record: &mut Record) {
+        let search = |q: &str| -> Vec<Value> {
+            index
+                .search(q)
+                .iter()
+                .map(|h| index.render(h, true))
+                .collect()
         };
-        let raw = backend
-            .json(
-                "search",
-                &params(&[("q", case.query.trim().into()), ("limit", "10".into())]),
-            )
-            .await?;
-        let raw = raw.as_array().cloned().unwrap_or_default();
+        let raw = search(case.query.trim());
         let scored: Vec<_> = raw
             .iter()
             .map(|hit| score(Some(expect), &from_index(hit), false))
@@ -363,17 +261,20 @@ impl Checker {
                 alt.components.get("house_number"),
             )
         {
-            let mut pairs = vec![
-                ("street", format!("{house} {road}")),
-                ("limit", "5".into()),
-                ("countrycodes", alt.country.join(",")),
-            ];
-            if let Some(postcode) = alt.components.get("postcode") {
-                pairs.push(("postalcode", postcode.clone()));
-            }
-            let hits = backend.json("search", &params(&pairs)).await?;
+            // Nominatim's structured street and postalcode, written in order
+            let structured = [
+                Some(format!("{house} {road}")),
+                alt.components.get("postcode").cloned(),
+            ]
+            .into_iter()
+            .flatten()
+            .filter(|p| !p.trim().is_empty())
+            .map(|p| p.trim().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+            let hits = search(&structured);
             record.direct_structured = Some(
-                hits.get(0)
+                hits.first()
                     .map_or("abstain", |hit| {
                         score(Some(expect), &from_index(hit), false).class
                     })
@@ -385,12 +286,7 @@ impl Checker {
             && !alt.region.is_empty()
             && rank(&alt.level) >= rank("region")
         {
-            let hit = backend
-                .json(
-                    "reverse",
-                    &params(&[("lat", lat.to_string()), ("lon", lon.to_string())]),
-                )
-                .await?;
+            let hit = index.reverse(lat, lon);
             let reverse = if hit.get("address").is_some() {
                 from_index(&hit)
             } else {
@@ -401,6 +297,7 @@ impl Checker {
                 "country_ok": alt.country.contains(&text(details(&reverse), "countryCode").to_lowercase()),
                 "region_ok": alt.region.iter().any(|r| codes.contains(r)),
             }));
+            self.budget.take().await;
             record.rpc_resolve_region = Some(
                 match rpc_json(
                     &self.client,
@@ -434,13 +331,7 @@ impl Checker {
             && let Some(level) = alt.admin_level
             && let Some(first) = raw.first()
         {
-            let place = match &first["place_id"] {
-                Value::String(s) => s.clone(),
-                other => other.to_string(),
-            };
-            let info = backend
-                .json("details", &params(&[("place_id", place)]))
-                .await?;
+            let info = index.details(first["place_id"].as_u64().unwrap_or(u64::MAX));
             record.direct_details = Some(json!({
                 "admin_level": info["admin_level"],
                 "ok": info["admin_level"].as_u64() == Some(level)
@@ -462,7 +353,6 @@ impl Checker {
                 .into(),
             );
         }
-        Ok(())
     }
 
     async fn transport(
@@ -699,24 +589,18 @@ struct Local {
     database: Option<String>,
     map_dir: Option<PathBuf>,
     child: Option<Child>,
-    proxy_task: Option<tokio::task::JoinHandle<()>>,
     port: Option<u16>,
+    metrics: Option<u16>,
 }
 
 impl Local {
     async fn start(
         &mut self,
         client: &Client,
-        proxy: Proxy,
+        index: &Path,
         out: &Path,
         binary: &Path,
     ) -> Result<String> {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
-        let proxy_port = listener.local_addr()?.port();
-        let app = Router::new().fallback(forward).with_state(proxy);
-        self.proxy_task = Some(tokio::spawn(async move {
-            let _ = axum::serve(listener, app).await;
-        }));
         self.clickhouse_url =
             std::env::var("CLICKHOUSE_URL").unwrap_or_else(|_| "http://127.0.0.1:8125".into());
         let database = format!("opengeocoding_eval_{}", std::process::id());
@@ -734,10 +618,11 @@ impl Local {
         std::fs::write(map_dir.join("regions.json"), "{}")?;
         let (port, metrics) = (free_port()?, free_port()?);
         self.port = Some(port);
+        self.metrics = Some(metrics);
         let log = std::fs::File::create(out.join("service.log"))?;
         let child = Command::new(binary)
             .envs([
-                ("INDEX_URL", format!("http://127.0.0.1:{proxy_port}")),
+                ("INDEX_DIR", index.to_string_lossy().into()),
                 ("CLICKHOUSE_URL", self.clickhouse_url.clone()),
                 ("CLICKHOUSE_DATABASE", database),
                 ("CLICKHOUSE_PREFIX", String::new()),
@@ -761,7 +646,8 @@ impl Local {
             .with_context(|| format!("start {}", binary.display()))?;
         let child = self.child.insert(child);
         let base = format!("http://127.0.0.1:{port}");
-        for _ in 0..300 {
+        // loading the index and models takes seconds warm, longer from a cold disk
+        for _ in 0..900 {
             if let Some(status) = child.try_wait()? {
                 bail!(
                     "service exited with {status}; see {}",
@@ -796,9 +682,6 @@ impl Local {
                 let _ = child.kill().await;
             }
         }
-        if let Some(task) = self.proxy_task.take() {
-            task.abort();
-        }
         if let Some(database) = self.database.take()
             && let Err(error) = clickhouse(
                 client,
@@ -816,7 +699,6 @@ impl Local {
 }
 
 pub async fn run(options: Options) -> Result<i32> {
-    let url = std::env::var("INDEX_URL").context("INDEX_URL is required")?;
     let corpus = options.corpus.clone().unwrap_or_else(|| {
         if options.suite == "addresses" {
             crate::model::addresses()
@@ -842,18 +724,27 @@ pub async fn run(options: Options) -> Result<i32> {
         Default::default()
     };
     let client = Client::builder().build()?;
-    let backend = Arc::new(Backend {
-        client: Client::builder().timeout(Duration::from_secs(30)).build()?,
-        base: url.trim_end_matches('/').into(),
-        budget: Budget {
-            interval: Duration::from_secs_f64(1. / options.max_rps),
-            limit: options.budget,
-            used: AtomicUsize::new(0),
-            next: tokio::sync::Mutex::new(tokio::time::Instant::now()),
-        },
-    });
-    let status = backend.json("status", &[("format", "json".into())]).await?;
-    check_index_status(&status)?;
+    let budget = Budget {
+        interval: Duration::from_secs_f64(1. / options.max_rps),
+        limit: options.budget,
+        used: AtomicUsize::new(0),
+        next: tokio::sync::Mutex::new(tokio::time::Instant::now()),
+    };
+    let index_dir = options
+        .index
+        .clone()
+        .or_else(|| std::env::var_os("INDEX_DIR").map(PathBuf::from));
+    if options.rpc.is_none() && index_dir.is_none() {
+        bail!("--index DIR or INDEX_DIR is required to start the service");
+    }
+    // Identifies the build: Tantivy's meta.json lists its segments.
+    let status = match &index_dir {
+        Some(dir) => json!({
+            "software_version": "overture-index",
+            "data_updated": format!("index {}", &sha256_file(&dir.join("meta.json"))?[..12]),
+        }),
+        None => json!({ "software_version": "unknown (external service)" }),
+    };
     let relative = corpus.strip_prefix(root()).map_or_else(
         |_| {
             corpus
@@ -872,7 +763,6 @@ pub async fn run(options: Options) -> Result<i32> {
         "cases": cases.len(),
         "resumed": !done.is_empty(),
         "backend": {
-            "endpoint_sha256": &sha256_hex(url.as_bytes())[..16],
             "status": status,
             "label": options.backend_label,
         },
@@ -883,10 +773,6 @@ pub async fn run(options: Options) -> Result<i32> {
         "evaluator": env!("CARGO_PKG_VERSION"),
     });
     let mut local = Local::default();
-    let proxy = options.rpc.is_none().then(|| Proxy {
-        backend: backend.clone(),
-        calls: Default::default(),
-    });
     let started = async {
         if let Some(rpc) = &options.rpc {
             manifest["consumer"]["external_rpc"] = json!(true);
@@ -896,14 +782,8 @@ pub async fn run(options: Options) -> Result<i32> {
         let binary = std::env::var_os("SERVICE_BINARY")
             .map(PathBuf::from)
             .unwrap_or_else(|| root().join("target/release/opengeocoding"));
-        let base = local
-            .start(
-                &client,
-                proxy.clone().expect("proxy"),
-                &options.out,
-                &binary,
-            )
-            .await?;
+        let index = index_dir.as_deref().context("index directory")?;
+        let base = local.start(&client, index, &options.out, &binary).await?;
         let models = std::env::var_os("LIBPOSTAL_DATA_DIR")
             .map(PathBuf::from)
             .or_else(|| {
@@ -926,12 +806,24 @@ pub async fn run(options: Options) -> Result<i32> {
     .await;
     let outcome = match started {
         Ok(base) => {
+            let index = match &index_dir {
+                Some(dir) if options.direct => {
+                    let dir = dir.clone();
+                    Some(
+                        tokio::task::spawn_blocking(move || {
+                            Index::open(&dir, std::sync::Arc::new(Parser::setup()?))
+                        })
+                        .await??,
+                    )
+                }
+                _ => None,
+            };
             let checker = Checker {
                 client: client.clone(),
                 base,
-                backend: backend.clone(),
-                proxy,
-                direct: options.direct,
+                budget,
+                metrics: local.metrics.map(|port| format!("http://127.0.0.1:{port}")),
+                index,
             };
             let map_path = local.map_dir.as_ref().map(|d| d.join("regions.json"));
             run_cases(
@@ -999,7 +891,7 @@ async fn run_cases(
         if done.contains(&case.id) {
             continue;
         }
-        if checker.backend.budget.used() >= checker.backend.budget.limit {
+        if checker.budget.used() >= checker.budget.limit {
             stopped = Some("request budget exhausted");
             break;
         }
@@ -1035,7 +927,7 @@ async fn run_cases(
             .await;
     }
     manifest["finished_at"] = json!(utc_now());
-    manifest["backend_requests"] = json!(checker.backend.budget.used());
+    manifest["rpc_requests"] = json!(checker.budget.used());
     manifest["stopped"] = json!(stopped);
     write(manifest)?;
     Ok(())
@@ -1044,6 +936,16 @@ async fn run_cases(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn index_searches_sum_every_tier() {
+        let text = "# TYPE nominatim_geolocation_search_candidates_seconds histogram\n\
+            nominatim_geolocation_search_candidates_seconds_bucket{tier=\"raw\",le=\"0.005\"} 2\n\
+            nominatim_geolocation_search_candidates_seconds_count{tier=\"raw\"} 3\n\
+            nominatim_geolocation_search_candidates_seconds_count{tier=\"loose\"} 2\n\
+            nominatim_geolocation_query_tier_total{tier=\"raw\"} 1\n";
+        assert_eq!(searches_in(text), 5.);
+    }
 
     #[test]
     fn calendar_dates() {

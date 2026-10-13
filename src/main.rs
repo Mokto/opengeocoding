@@ -70,8 +70,14 @@ async fn main() -> Result<()> {
         release: sentry::release_name!(),
         ..Default::default()
     });
-    let resolver =
-        Resolver::new(std::env::var("INDEX_URL").context("INDEX_URL is required")?).await?;
+    let dir = std::env::var_os("INDEX_DIR").context("INDEX_DIR is required")?;
+    let started = std::time::Instant::now();
+    let resolver = tokio::task::spawn_blocking(move || Resolver::open(dir.as_ref())).await??;
+    tracing::info!(
+        places = resolver.index().places_loaded(),
+        seconds = started.elapsed().as_secs_f64(),
+        "Index loaded"
+    );
     let regions = Regions::from_env()?;
     regions.initialize().await?;
     let reflector = Reflector::from_descriptor_set_bytes(include_bytes!(concat!(

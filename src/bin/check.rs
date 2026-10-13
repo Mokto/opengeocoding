@@ -79,10 +79,11 @@ async fn main() -> Result<()> {
             }
             "parse" | "resolve" => {
                 if resolver.is_none() {
-                    resolver = Some(
-                        Resolver::new(std::env::var("INDEX_URL").context("INDEX_URL is required")?)
-                            .await?,
-                    );
+                    resolver = Some(Resolver::open(
+                        std::env::var_os("INDEX_DIR")
+                            .context("INDEX_DIR is required")?
+                            .as_ref(),
+                    )?);
                 }
                 let resolver = resolver.as_ref().context("parser initialized")?;
                 if string("op") == "parse" {

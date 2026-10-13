@@ -1,4 +1,4 @@
-use crate::canon::Canon;
+use super::canon::Canon;
 use rayon::prelude::*;
 use std::{
     fs,
@@ -166,7 +166,6 @@ pub fn postcode_slot(x: u32) -> u8 {
 }
 
 /// (longitude, latitude, postcode slot) of an FST value.
-#[allow(dead_code)] // read by serve_index
 pub fn unpack(v: u64) -> (f64, f64, u8) {
     let (x, y) = ((v >> 32) as u32, v as u32);
     let lon = (x & 0xff_ffff) as f64 / (1u64 << 24) as f64 * 360.0 - 180.0;
