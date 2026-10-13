@@ -72,7 +72,7 @@ docker build --target runtime -t opengeocoding .
 
 ## Licensing, data and models
 
-- Project source is FSL-1.1-Apache-2.0. Keep dependencies compatible with distribution under it and retain their required notices.
+- Project source is PolyForm Shield 1.0.0 (source-available, not OSI open source); earlier published versions also remain under FSL-1.1-ALv2. Keep dependencies compatible with distribution under it and retain their required notices.
 - Transliteration uses BSD-3-Clause `deunicode`. Do not copy or export GPL Unidecode tables to restore old outputs. Transliteration changes require multilingual accuracy checks.
 - CLDR and GeoNames data retain their separate licenses and attribution. Refresh `data/` through `cargo run --bin update_reference`; review dataset changes and provenance together. Changing the pinned Unicode version is a data update too.
 - Gold-corpus sources (Wikidata, BAN, PDOK/BAG, US Census, ONSPD via postcodes.io) are attributed in `NOTICE`; update it when adding a source. Do not add Google Maps or other restricted geocoder output to any corpus.
