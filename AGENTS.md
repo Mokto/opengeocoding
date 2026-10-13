@@ -12,14 +12,15 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 ## Repository map
 
 - `src/matching.rs`: normalization, country/region corroboration and candidate selection.
-- `src/resolver.rs`: native parsing, serve_index HTTP calls, candidate formatting and fallback ordering.
+- `src/resolver.rs`: parsing, index lookups, candidate formatting and fallback ordering.
+- `src/index/`: the in-process lookup over a `build_index` output (`mod.rs`), the shared libpostal `Parser`, and the analyzer, schema and house-number format shared with the builder (`canon.rs`, `schema.rs`); reverse lookup is still nearest-locality only.
 - `src/regions.rs`: ClickHouse persistence, cache and atomic region-map refresh.
 - `src/service.rs`, `src/main.rs`, `src/metrics.rs`: RPCs, process lifecycle and observability.
 - `proto/opengeocoding-v1.proto`, `build.rs`: the single wire contract and build-time generation.
 - `data/`, `src/bin/update_reference.rs`: public reference data and its generator.
 - `tests/matching.rs`, `tests/rpc.rs`: regression tests and the model-backed RPC integration test (ignored by default).
-- `src/bin/benchmark.rs`, `src/bin/notices.rs`: local mock benchmark and third-party notice generation.
-- `src/bin/build_index/`: experimental Overture-to-Tantivy index builder (polygon assignment, street merging, house-number FSTs; `sources.rs` reads OSM and OpenAddresses); `src/bin/serve_index/`: the service's only supported HTTP lookup backend over that index, selected by `INDEX_URL`; reverse lookup is still nearest-locality only.
+- `src/bin/benchmark.rs`, `src/bin/notices.rs`: SearchAddress benchmark across running services and third-party notice generation.
+- `src/bin/build_index/`: experimental offline Overture-to-Tantivy index builder (polygon assignment, street merging, house-number FSTs; `sources.rs` reads OSM and OpenAddresses). The service loads its output read-only from `INDEX_DIR`.
 - `src/bin/evaluate/`, `src/eval.rs`: geographic-correctness evaluator (scoring, runs, reports, snapshots, gold builder) and the TSV/hold-out helpers it shares with external samplers.
 - `tests/gold.seeds.jsonl`, `tests/gold.jsonl`: curated gold case list and the corpus generated from it.
 - `benches/`: CodSpeed benchmark suites (divan); `.github/workflows/codspeed.yml` runs them.
@@ -31,10 +32,10 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - The protobuf package is `opengeocoding`; the service is `Geolocation`. The Rust crate and service executable are `opengeocoding`. Messages, field numbers and types are unchanged from the earlier `geolocation.Geolocation` and `nominatim_geolocation.NominatimGeolocation` services, whose paths `src/main.rs` rewrites to the canonical ones. Preserve the contract and both legacy RPC paths for benchmarking. Modify `proto/` and regenerate through Cargo; never edit generated files under `target/`.
 - Preserve deliberate fallback ordering, country/region conflict guards, postcode-area compatibility, local-language candidate corroboration and `good_match` semantics (false for structured fallbacks and for a missing requested house number). Other-language names (`namedetails`) corroborate settlements, and regions only for bare place names; they never justify overriding a recognized stated country.
 - Coordinates use protobuf float32. `GetRegionMap` returns a Python-style dictionary string; the stored map is JSON. Neither is an accidental formatting choice.
-- Preserve both legacy RPC routes for benchmarking, but do not restore Nominatim backend configuration or fallback. Service startup checks that `INDEX_URL` reports a ready `serve_index` backend.
+- Preserve both legacy RPC routes for benchmarking, but do not restore Nominatim backend configuration or fallback. One process parses, looks up and serves; do not reintroduce an internal HTTP hop or a separate index server. Indexes and models come from read-only mounts; never download them at startup.
 - Validate input at trust boundaries. Do not expose backend details in RPC errors.
 - Region-map refresh must remain atomic. Test database changes against an isolated database, never a shared production instance.
-- libpostal is native C behind `rustpostal`, not a pure-Rust parser. Keep parsing off the async executor and serialized until native thread-safety testing supports widening concurrency.
+- libpostal is native C behind `rustpostal`, not a pure-Rust parser. The resolver and the index share one `index::Parser`; keep parsing and index lookups off the async executor and libpostal calls serialized until native thread-safety testing supports widening concurrency. Set up libpostal once per process.
 - The RPCs currently have no authentication. Do not present them as safe to expose publicly without an authenticated proxy or trusted network.
 
 ## Builds and checks
@@ -51,8 +52,8 @@ docker build --target runtime -t opengeocoding .
 
 - Leave a regression check for nontrivial logic. Run the relevant checks and report exactly what ran, including failures and unavailable prerequisites.
 - Do not skip tests, weaken assertions or add retries to disguise failures. Revert ineffective fixes before trying another approach.
-- Run `cargo test --test rpc -- --ignored --nocapture` with an isolated ClickHouse instance (`CLICKHOUSE_URL`) and provisioned models for parsing, RPC, persistence or lifecycle changes. Install `grpcurl` to exercise its gRPC checks; its known failure is documented in the README.
-- Evaluator and corpus checks run in `cargo test` (also `target/release/evaluate check`). After changing scoring or expectations, re-score saved runs with `evaluate report RUN_DIR --rescore` and explain every changed class. For changes to parsing, matching, fallbacks, reference data or the backend, also run the smoke or gold suite against an agreed backend (`INDEX_URL`) and compare snapshots with `--compare`; see the README's Geographic evaluation section.
+- Run `cargo test --test rpc -- --ignored --nocapture` with an isolated ClickHouse instance (`CLICKHOUSE_URL`), an index (`INDEX_DIR`) and provisioned models for parsing, RPC, persistence or lifecycle changes. Install `grpcurl` to exercise its gRPC checks; its known failure is documented in the README.
+- Evaluator and corpus checks run in `cargo test` (also `target/release/evaluate check`). After changing scoring or expectations, re-score saved runs with `evaluate report RUN_DIR --rescore` and explain every changed class. For changes to parsing, matching, fallbacks, reference data or the backend, also run the smoke or gold suite on an agreed index (`--index`) and compare snapshots with `--compare`; see the README's Geographic evaluation section.
 - Preserve amd64 and arm64 support. CI unit checks do not download models or establish model-backed accuracy.
 - Performance claims require comparable measurements and accuracy checks; synthetic CPU timings are not request-latency guarantees.
 

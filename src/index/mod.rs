@@ -1,26 +1,19 @@
-//! Serves search, details, reverse and status from a build_index output directory.
-//! The service and evaluator connect through INDEX_URL.
-#[path = "../build_index/canon.rs"]
-mod canon;
-#[allow(dead_code)]
-#[path = "../build_index/index.rs"]
-mod index;
+//! Address lookup over a `build_index` output directory, loaded into the service process.
+//! Responses keep the Nominatim-style JSON candidate format the resolver reads.
+pub mod canon;
+pub mod schema;
 
-use axum::{
-    Json, Router,
-    extract::{Query, State},
-    http::HeaderMap,
-    routing::get,
-};
-use index::{Fields, fold, pc_norm, schema};
+use anyhow::{Context, Result};
+use schema::{Fields, fold, pc_norm};
 use serde_json::{Map, Value, json};
 use std::{
     collections::HashMap,
     fs,
+    path::Path,
     sync::{Arc, LazyLock, Mutex},
 };
 use tantivy::{
-    DocAddress, Index, Searcher, Term,
+    DocAddress, Searcher, Term,
     query::{BooleanQuery, Occur, Query as TQuery, RangeQuery, TermQuery},
     schema::{Field, IndexRecordOption},
 };
@@ -108,9 +101,10 @@ impl Place {
     }
 }
 
-fn load_places(path: &str) -> Vec<Place> {
-    let text = fs::read_to_string(path).unwrap_or_else(|e| panic!("{path}: {e}"));
-    text.lines()
+fn load_places(path: &Path) -> Result<Vec<Place>> {
+    let text = fs::read_to_string(path).with_context(|| path.display().to_string())?;
+    Ok(text
+        .lines()
         .map(|l| {
             let c: Vec<&str> = l.split('\t').collect();
             let f = |i: usize| c.get(i).copied().unwrap_or("");
@@ -131,7 +125,7 @@ fn load_places(path: &str) -> Vec<Place> {
                 city_like: false,
             }
         })
-        .collect()
+        .collect())
 }
 
 struct Columns {
@@ -203,7 +197,7 @@ impl tantivy::collector::SegmentCollector for SegmentTop {
     }
 }
 
-struct App {
+pub struct Index {
     searcher: Searcher,
     /// Fast-field readers per segment, opened once: opening one parses its block index.
     columns: Vec<Columns>,
@@ -217,14 +211,13 @@ struct App {
     country_places: HashMap<String, u32>,
     /// ISO 3166-2 code -> its region place.
     regions: HashMap<String, u32>,
-    postal: Mutex<rustpostal::LibModules>,
-    release: String,
+    parser: Arc<Parser>,
     /// `terms_near` results: retried road and town splits ask for the same words.
     near: Mutex<HashMap<String, std::sync::Arc<[String]>>>,
 }
 
 #[derive(Clone)]
-enum Hit {
+pub enum Hit {
     Place(u32),
     Street {
         sid: u32,
@@ -655,30 +648,123 @@ fn must(q: Box<dyn TQuery>) -> (Occur, Box<dyn TQuery>) {
     (Occur::Must, q)
 }
 
-impl App {
-    fn open(dir: &str, release: String) -> App {
-        let index = Index::open_in_dir(dir).unwrap_or_else(|e| panic!("{dir}: {e}"));
-        index.tokenizers().register("fold", index::analyzer());
-        let searcher = index.reader().unwrap().searcher();
-        let (_, f) = schema();
-        let shards: usize = fs::read_to_string(format!("{dir}/numbers.shards"))
-            .unwrap()
+/// An index directory opened for reading only: Tantivy takes a lock file to open a reader, which
+/// a read-only mount refuses. Nothing writes to a served index, so there is nothing to lock out.
+#[derive(Clone, Debug)]
+struct ReadOnly(tantivy::directory::MmapDirectory);
+
+impl tantivy::Directory for ReadOnly {
+    fn get_file_handle(
+        &self,
+        path: &Path,
+    ) -> Result<Arc<dyn tantivy::directory::FileHandle>, tantivy::directory::error::OpenReadError>
+    {
+        self.0.get_file_handle(path)
+    }
+
+    fn delete(&self, path: &Path) -> Result<(), tantivy::directory::error::DeleteError> {
+        Err(tantivy::directory::error::DeleteError::IoError {
+            io_error: Arc::new(std::io::ErrorKind::ReadOnlyFilesystem.into()),
+            filepath: path.to_path_buf(),
+        })
+    }
+
+    fn exists(&self, path: &Path) -> Result<bool, tantivy::directory::error::OpenReadError> {
+        self.0.exists(path)
+    }
+
+    fn open_write(
+        &self,
+        path: &Path,
+    ) -> Result<tantivy::directory::WritePtr, tantivy::directory::error::OpenWriteError> {
+        Err(tantivy::directory::error::OpenWriteError::IoError {
+            io_error: Arc::new(std::io::ErrorKind::ReadOnlyFilesystem.into()),
+            filepath: path.to_path_buf(),
+        })
+    }
+
+    fn atomic_read(
+        &self,
+        path: &Path,
+    ) -> Result<Vec<u8>, tantivy::directory::error::OpenReadError> {
+        self.0.atomic_read(path)
+    }
+
+    fn atomic_write(&self, _: &Path, _: &[u8]) -> std::io::Result<()> {
+        Err(std::io::ErrorKind::ReadOnlyFilesystem.into())
+    }
+
+    fn sync_directory(&self) -> std::io::Result<()> {
+        Ok(())
+    }
+
+    fn acquire_lock(
+        &self,
+        _: &tantivy::directory::Lock,
+    ) -> Result<tantivy::directory::DirectoryLock, tantivy::directory::error::LockError> {
+        Ok(tantivy::directory::DirectoryLock::from(Box::new(())))
+    }
+
+    fn watch(
+        &self,
+        callback: tantivy::directory::WatchCallback,
+    ) -> tantivy::Result<tantivy::directory::WatchHandle> {
+        self.0.watch(callback)
+    }
+}
+
+/// The process's one libpostal parser.
+pub struct Parser(Mutex<rustpostal::LibModules>);
+
+impl Parser {
+    /// Loads the models; once per process, shared by the resolver and the index.
+    pub fn setup() -> Result<Self> {
+        let postal = rustpostal::LibModules::Address;
+        postal
+            .setup()
+            .map_err(|_| anyhow::anyhow!("libpostal model setup failed"))?;
+        Ok(Self(Mutex::new(postal)))
+    }
+
+    /// Blocks: call it off the async executor.
+    // ponytail: one lock serializes every libpostal call until a native thread-safety stress
+    // test permits a wider parsing pool.
+    pub fn parse(&self, q: &str) -> Result<Vec<(String, String)>> {
+        let _guard = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        Ok(rustpostal::address::parse_address(q, None, None)?
+            .into_iter()
+            .collect())
+    }
+}
+
+impl Index {
+    /// Blocks for several seconds: the place table is read into memory.
+    pub fn open(dir: &Path, parser: Arc<Parser>) -> Result<Index> {
+        let mmap = tantivy::directory::MmapDirectory::open(dir)?;
+        let index = tantivy::Index::open(ReadOnly(mmap.clone()))
+            .with_context(|| format!("open index {}", dir.display()))?;
+        index.tokenizers().register("fold", schema::analyzer());
+        let searcher = index
+            .reader_builder()
+            .reload_policy(tantivy::ReloadPolicy::Manual)
+            .try_into()?
+            .searcher();
+        let (_, f) = schema::schema();
+        let shards: usize = fs::read_to_string(dir.join("numbers.shards"))
+            .context("numbers.shards")?
             .trim()
             .parse()
-            .unwrap();
-        let mmap = tantivy::directory::MmapDirectory::open(dir).unwrap();
+            .context("numbers.shards")?;
         let numbers = (0..shards)
             .map(|s| {
                 use tantivy::directory::Directory;
-                let file = mmap
-                    .open_read(std::path::Path::new(&format!("numbers-{s:02}.fst")))
-                    .unwrap();
-                tantivy_fst::Map::from(
-                    tantivy_fst::raw::Fst::new(file.read_bytes().unwrap()).unwrap(),
-                )
+                let file = mmap.open_read(Path::new(&format!("numbers-{s:02}.fst")))?;
+                Ok(tantivy_fst::Map::from(tantivy_fst::raw::Fst::new(
+                    file.read_bytes()?,
+                )?))
             })
-            .collect();
-        let mut places = load_places(&format!("{dir}/places.tsv"));
+            .collect::<Result<_>>()?;
+        let mut places = load_places(&dir.join("places.tsv"))?;
         {
             use rayon::prelude::*;
             places.par_iter_mut().for_each(|p| {
@@ -724,7 +810,7 @@ impl App {
             }
         }
         let reference: Value =
-            serde_json::from_str(include_str!("../../../data/reference.json")).unwrap();
+            serde_json::from_str(include_str!("../../data/reference.json")).unwrap();
         for (name, cc) in reference["countries"].as_object().into_iter().flatten() {
             if let Some(cc) = cc.as_str() {
                 countries
@@ -733,23 +819,21 @@ impl App {
             }
         }
         countries.entry("uae".into()).or_insert_with(|| "ae".into());
-        let postal = rustpostal::LibModules::Address;
-        postal.setup().expect("libpostal model setup failed");
         let columns = searcher
             .segment_readers()
             .iter()
             .map(|r| {
                 let f = r.fast_fields();
-                Columns {
-                    id: f.u64("id").unwrap(),
-                    place: f.u64("place").unwrap(),
-                    x: f.f64("x").unwrap(),
-                    y: f.f64("y").unwrap(),
-                    importance: f.u64("importance").unwrap(),
-                }
+                Ok(Columns {
+                    id: f.u64("id")?,
+                    place: f.u64("place")?,
+                    x: f.f64("x")?,
+                    y: f.f64("y")?,
+                    importance: f.u64("importance")?,
+                })
             })
-            .collect();
-        App {
+            .collect::<Result<_>>()?;
+        Ok(Index {
             searcher,
             columns,
             f,
@@ -758,26 +842,25 @@ impl App {
             countries,
             country_places,
             regions,
-            postal: Mutex::new(postal),
-            release,
+            parser,
             near: Mutex::default(),
-        }
+        })
+    }
+
+    pub fn places_loaded(&self) -> usize {
+        self.places.len()
     }
 
     fn parse(&self, q: &str) -> Vec<(String, String)> {
-        let _guard = self.postal.lock().unwrap();
         // libpostal returns "İ" decomposed; the tokenizer would split at the combining dot
         let clean = |t: &str| {
             t.chars()
                 .filter(|c| !('\u{300}'..='\u{36f}').contains(c))
                 .collect()
         };
-        rustpostal::address::parse_address(q, None, None)
-            .map(|v| {
-                v.into_iter()
-                    .map(|(l, t)| (l.to_string(), clean(&t)))
-                    .collect()
-            })
+        self.parser
+            .parse(q)
+            .map(|v| v.into_iter().map(|(l, t)| (l, clean(&t))).collect())
             .unwrap_or_default()
     }
 
@@ -1267,7 +1350,7 @@ impl App {
             }
             _ => Default::default(),
         };
-        let number = number.map(index::number_key);
+        let number = number.map(schema::number_key);
         // Streets that hold the requested postcode report it, as Nominatim reports an address's.
         let with_postcode: std::collections::HashSet<DocAddress> =
             match postcode.map(pc_norm).filter(|p| !p.is_empty()) {
@@ -1428,7 +1511,7 @@ impl App {
                     key.extend_from_slice(&sid.to_be_bytes());
                     key.extend_from_slice(n.as_bytes());
                     if let Some(v) = self.numbers[sid as usize % self.numbers.len()].get(&key) {
-                        let (x, y, own) = index::unpack(v);
+                        let (x, y, own) = schema::unpack(v);
                         // The town and the postcode disagree: when the house in the town has
                         // another postcode and the requested postcode holds the same street and
                         // number, the postcode is taken to be right and the town wrong.
@@ -1438,7 +1521,7 @@ impl App {
                             && own_postcode(a, own).is_some_and(|o| o != *wanted)
                             && let Some((b, (x, y, own))) = with_postcode
                                 .iter()
-                                .filter_map(|&b| Some((b, index::unpack(lookup(b, n)?))))
+                                .filter_map(|&b| Some((b, schema::unpack(lookup(b, n)?))))
                                 .find(|&(b, (_, _, own))| {
                                     own_postcode(b, own).as_ref() == Some(wanted)
                                 })
@@ -1600,7 +1683,9 @@ impl App {
             .flatten()
     }
 
-    fn search(&self, q: &str, en: bool) -> Vec<Value> {
+    /// Candidates for a free-text query, best first; at most ten. Blocks: call it off the
+    /// async executor.
+    pub fn search(&self, q: &str) -> Vec<Hit> {
         let q = q.trim();
         if q.is_empty() {
             return vec![];
@@ -1621,7 +1706,7 @@ impl App {
                 )
             };
             if let Some(h) = hits.iter().find(|h| housed(h)) {
-                return vec![self.json(h, en)];
+                return vec![h.clone()];
             }
             if chome.is_none() && street.ends_with("丁目") {
                 chome = hits.into_iter().next();
@@ -1629,10 +1714,10 @@ impl App {
         }
         // the block's chōme when the house isn't in the data
         if let Some(h) = chome {
-            return vec![self.json(&h, en)];
+            return vec![h];
         }
         if let Some(p) = self.region_query(q) {
-            return vec![self.json(&Hit::Place(p), en)];
+            return vec![Hit::Place(p)];
         }
         // "Birmingham, Birmingham, United Kingdom, United Kingdom": repeated parts parse as one
         // doubled value ("united kingdom united kingdom") that names nothing.
@@ -1684,9 +1769,9 @@ impl App {
         {
             let town = |p: &Place| matches!(&*p.subtype, "locality" | "localadmin");
             if repeated && let (places, true) = self.places_exact(q, Some(&c), None, &town) {
-                return places.iter().take(1).map(|h| self.json(h, en)).collect();
+                return places.into_iter().take(1).collect();
             }
-            return vec![self.json(&Hit::Place(p), en)];
+            return vec![Hit::Place(p)];
         }
         // Chinese road addresses ("上海市虹口区中山北一路295号"): libpostal splits the road
         // from its number; read them here, scoped by the written district or city.
@@ -1704,14 +1789,14 @@ impl App {
                         }
                     )
                 }) {
-                    return vec![self.json(h, en)];
+                    return vec![h.clone()];
                 }
                 if street.is_none() {
                     street = hits.into_iter().next();
                 }
             }
             if let Some(h) = street {
-                return vec![self.json(&h, en)];
+                return vec![h];
             }
         }
         let mut hits = vec![];
@@ -1799,7 +1884,7 @@ impl App {
                     }
                 )
             }) {
-                return vec![self.json(&h, en)];
+                return vec![h];
             }
         }
         let road_as_place = hits.is_empty() && get("house_number").is_none();
@@ -1920,7 +2005,8 @@ impl App {
                 }
             }
         }
-        hits.iter().take(10).map(|h| self.json(h, en)).collect()
+        hits.truncate(10);
+        hits
     }
 
     fn address(&self, place: u32, en: bool, a: &mut Map<String, Value>, display: &mut Vec<String>) {
@@ -1957,7 +2043,8 @@ impl App {
         }
     }
 
-    fn json(&self, hit: &Hit, en: bool) -> Value {
+    /// A candidate as Nominatim-style JSON, with English names when `en`.
+    pub fn render(&self, hit: &Hit, en: bool) -> Value {
         let mut a = Map::new();
         let mut display: Vec<String> = vec![];
         let (id, osm_type, class, typ, addresstype, x, y, bbox, namedetails) = match hit {
@@ -2098,7 +2185,7 @@ impl App {
         })
     }
 
-    fn details(&self, id: u64) -> Value {
+    pub fn details(&self, id: u64) -> Value {
         let Some(pl) = (id < STREET)
             .then(|| self.places.get(id as usize))
             .flatten()
@@ -2120,7 +2207,7 @@ impl App {
     }
 
     /// Nearest locality point within about 50 km.
-    fn reverse(&self, lat: f64, lon: f64) -> Value {
+    pub fn reverse(&self, lat: f64, lon: f64) -> Value {
         for d in [0.05, 0.5] {
             let range = |f: Field, v: f64| -> Box<dyn TQuery> {
                 Box::new(RangeQuery::new(
@@ -2146,94 +2233,57 @@ impl App {
                     dist(a).total_cmp(&dist(b))
                 });
             if let Some(p) = best {
-                return self.json(&Hit::Place(p), true);
+                return self.render(&Hit::Place(p), true);
             }
         }
         json!({"error": "Unable to geocode"})
     }
 }
 
-type Params = Query<HashMap<String, String>>;
-
-fn english(headers: &HeaderMap) -> bool {
-    headers
-        .get("accept-language")
-        .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| v.starts_with("en"))
-}
-
-#[tokio::main]
-async fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let (Some(dir), Some(addr)) = (args.get(1), args.get(2)) else {
-        eprintln!("usage: serve_index <index-dir> <listen-addr> [release-label]");
-        std::process::exit(2);
-    };
-    let release = args.get(3).cloned().unwrap_or_else(|| "unknown".into());
-    let t = std::time::Instant::now();
-    let app = Arc::new(App::open(dir, release));
-    eprintln!(
-        "loaded {} places in {:.1}s",
-        app.places.len(),
-        t.elapsed().as_secs_f64()
-    );
-    let blocking = |f: fn(&App, &HashMap<String, String>, bool) -> Value| {
-        move |State(app): State<Arc<App>>, headers: HeaderMap, Query(p): Params| async move {
-            let en = english(&headers);
-            Json(
-                tokio::task::spawn_blocking(move || f(&app, &p, en))
-                    .await
-                    .unwrap(),
-            )
-        }
-    };
-    let router = Router::new()
-        .route(
-            "/search",
-            get(blocking(|app, p, en| {
-                // Nominatim's structured form reads as the same parts written in order.
-                let structured = || {
-                    ["amenity", "street", "city", "county", "state", "postalcode", "country"]
-                        .iter()
-                        .filter_map(|k| p.get(*k).map(|v| v.trim()).filter(|v| !v.is_empty()))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                };
-                let q = p.get("q").cloned().unwrap_or_else(structured);
-                Value::Array(app.search(&q, en))
-            })),
-        )
-        .route("/details", get(blocking(|app, p, _| app.details(p.get("place_id").and_then(|v| v.parse().ok()).unwrap_or(u64::MAX)))))
-        .route(
-            "/reverse",
-            get(blocking(|app, p, _| {
-                let f = |k: &str| p.get(k).and_then(|v| v.parse::<f64>().ok());
-                match (f("lat"), f("lon")) {
-                    (Some(lat), Some(lon)) => app.reverse(lat, lon),
-                    _ => json!({"error": "lat and lon required"}),
-                }
-            })),
-        )
-        .route(
-            "/parse",
-            get(blocking(|app, p, _| {
-                json!(app.parse(p.get("q").map(String::as_str).unwrap_or("")))
-            })),
-        )
-        .route(
-            "/status",
-            get(blocking(|app, _, _| {
-                json!({"status": 0, "message": "OK", "data_updated": app.release, "software_version": "overture-index", "database_version": "experimental"})
-            })),
-        )
-        .with_state(app);
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, router).await.unwrap();
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn opens_without_writing_a_lock() {
+        let dir = std::env::temp_dir().join(format!("read-only-index-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let index = tantivy::Index::create_in_dir(&dir, schema::schema().0).unwrap();
+        index
+            .writer::<tantivy::TantivyDocument>(15_000_000)
+            .unwrap()
+            .commit()
+            .unwrap();
+        drop(index);
+        let locks = || {
+            std::fs::read_dir(&dir)
+                .unwrap()
+                .filter(|e| {
+                    e.as_ref()
+                        .unwrap()
+                        .file_name()
+                        .to_string_lossy()
+                        .ends_with(".lock")
+                })
+                .count()
+        };
+        for e in std::fs::read_dir(&dir).unwrap() {
+            let path = e.unwrap().path();
+            if path.to_string_lossy().ends_with(".lock") {
+                std::fs::remove_file(path).unwrap();
+            }
+        }
+        let mmap = tantivy::directory::MmapDirectory::open(&dir).unwrap();
+        let reader = tantivy::Index::open(ReadOnly(mmap))
+            .unwrap()
+            .reader_builder()
+            .reload_policy(tantivy::ReloadPolicy::Manual)
+            .try_into()
+            .unwrap();
+        assert_eq!(reader.searcher().num_docs(), 0);
+        assert_eq!(locks(), 0);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn one_edit_apart() {

@@ -1,9 +1,7 @@
 //! Builds the address index from a local Overture release directory (division, division_area,
 //! segment and address parquet), plus optional OSM extracts, OpenAddresses exports and GeoNames
 //! postcodes, without Nominatim. Only house numbers are spilled to disk.
-mod canon;
 mod geo;
-mod index;
 mod mem;
 mod sources;
 
@@ -13,8 +11,8 @@ use arrow_array::{
     types::{Float64Type, Int32Type},
 };
 use geo::{Assigner, KINDS, Poly, wkb_point, wkb_polygons};
-use index::{
-    Bucket, Num, NumberSpill, fold, fold_into, pack, pc_norm, postcode_slot, with_postcode,
+use opengeocoding::index::schema::{
+    self, Bucket, Num, NumberSpill, fold, fold_into, pack, pc_norm, postcode_slot, with_postcode,
 };
 use parquet::arrow::{
     ProjectionMask,
@@ -841,7 +839,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             .filter(|n| !n.is_empty())
         {
             self.lower.clear();
-            self.lower.push_str(&index::number_key(n));
+            self.lower.push_str(&schema::number_key(n));
             // slot = 1-based position in this task's list for the street; remapped on flush
             let slot = pc_id
                 .and_then(|id| e.pcs.iter().position(|&p| p == id))
@@ -1163,7 +1161,7 @@ fn main() {
         budget as f64 / GB,
         headroom.min(1 << 50) as f64 / GB
     );
-    let (index, writer, f) = index::create(out, threads, budget);
+    let (index, writer, f) = schema::create(out, threads, budget);
     places
         .par_iter()
         .enumerate()

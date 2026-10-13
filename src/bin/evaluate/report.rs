@@ -506,7 +506,7 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
     if !calls.is_empty() {
         let _ = writeln!(
             out,
-            "- Backend requests per SearchAddress: mean {:.2}, p50 {}, p95 {}, max {}; backend error responses {}.",
+            "- Index searches per SearchAddress: mean {:.2}, p50 {}, p95 {}, max {}; backend error responses {}.",
             calls.iter().sum::<usize>() as f64 / calls.len() as f64,
             percentile(&calls, 0.5),
             percentile(&calls, 0.95),
@@ -797,7 +797,7 @@ pub fn diff(
         if !calls.is_empty() {
             let _ = writeln!(
                 report,
-                "\n- {name} backend requests per query: mean {:.2}, max {}",
+                "\n- {name} index searches per query: mean {:.2}, max {}",
                 calls.iter().sum::<usize>() as f64 / calls.len() as f64,
                 calls.iter().max().unwrap_or(&0)
             );

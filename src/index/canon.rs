@@ -179,7 +179,6 @@ pub fn canon(t: &str) -> Option<&'static str> {
 }
 
 /// Whether `t` is the canonical short form of some variant ("rd", "st").
-#[allow(dead_code)]
 pub fn is_canonical(t: &str) -> bool {
     thread_local! {
         static SHORT: std::collections::HashSet<&'static str> = VARIANTS.iter().map(|(_, c)| *c).collect();

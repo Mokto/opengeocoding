@@ -1,4 +1,4 @@
-//! Geographic-correctness evaluation against serve_index.
+//! Geographic-correctness evaluation of the service and its index.
 //!
 //! ```text
 //! evaluate run --suite smoke|gold|addresses --out DIR [--compare SNAPSHOT] [options]
@@ -11,8 +11,9 @@
 //! evaluate check                             validate the corpora and snapshot, no network
 //! ```
 //!
-//! `run` starts the local service binary against a counting, rate-limited proxy and a fresh
-//! ClickHouse database, unless `--rpc` points at a running service. INDEX_URL selects the backend.
+//! `run` starts the local service binary on the index in `--index` (or INDEX_DIR) with a fresh
+//! ClickHouse database, unless `--rpc` points at a running service. Direct checks load the same
+//! index into the evaluator; they need it too.
 
 mod gold;
 mod model;
@@ -27,7 +28,7 @@ use std::{collections::HashMap, path::PathBuf};
 const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|check> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
-            [--fail-on-drift] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000]
+            [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000]
             [--no-direct] [--resume] [--backend-label TEXT]
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift]
 snapshot    RUN_DIR FILE.tsv|FILE.json
@@ -108,6 +109,7 @@ async fn command() -> Result<i32> {
         "suite",
         "corpus",
         "out",
+        "index",
         "rpc",
         "only",
         "max-rps",
@@ -128,6 +130,7 @@ async fn command() -> Result<i32> {
                 suite,
                 corpus: args.path("corpus"),
                 out: args.path("out").context("--out is required")?,
+                index: args.path("index"),
                 rpc: args.value("rpc").map(String::from),
                 only: args.value("only").map(regex::Regex::new).transpose()?,
                 max_rps: args.value("max-rps").map_or(Ok(20.), str::parse)?,

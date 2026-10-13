@@ -28,7 +28,7 @@ jobs:
             test -w /app/regions.json
             test ! -e /usr/local/bin/python
             test -x /usr/local/bin/opengeocoding
-            test -x /usr/local/bin/serve_index
+            test ! -e /usr/local/bin/serve_index
             test ! -e /usr/local/bin/geolocation
             ! ldd /usr/local/bin/opengeocoding | grep "not found"
           '
