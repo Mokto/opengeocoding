@@ -73,11 +73,9 @@ curl http://localhost:11121/opengeocoding.Geolocation/SearchAddress \
 
 The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `Geolocation`. The four methods are `SearchAddress`, `ResolveRegion`, `RefreshRegionMap` and `GetRegionMap`.
 
-### Client migration
+The canonical RPC path is `/opengeocoding.Geolocation/*`. The Go package is `github.com/Mokto/opengeocoding/gen/opengeocoding`; the Rust crate remains `geolocation`, with generated types under `geolocation::proto::opengeocoding`.
 
-Regenerate clients from `proto/opengeocoding-v1.proto` and use `/opengeocoding.Geolocation/*`. The Go package is `github.com/Mokto/opengeocoding/gen/opengeocoding`; the Rust crate remains `geolocation`, with generated types under `geolocation::proto::opengeocoding`.
-
-Existing clients can continue using `/geolocation.Geolocation/*` and `/nominatim_geolocation.NominatimGeolocation/*`. Both are compatibility aliases for every method, with unchanged message fields, numbers and types. Keep these aliases until callers have migrated; they do not enable a Nominatim backend. gRPC reflection advertises only `opengeocoding.Geolocation`, and the `grpc_service` metric label uses this canonical name on all routes.
+`/geolocation.Geolocation/*` and `/nominatim_geolocation.NominatimGeolocation/*` remain aliases for every method, including for benchmarking. Message fields, numbers and types are unchanged. These aliases do not enable a Nominatim backend. gRPC reflection advertises only `opengeocoding.Geolocation`, and the `grpc_service` metric label uses this canonical name on all routes.
 
 ## Known interoperability issue
 
