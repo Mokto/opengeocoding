@@ -115,25 +115,54 @@ pub fn job(args: Vec<String>) -> Result<()> {
     Ok(())
 }
 
-/// Opens the built index the way the service does and resolves one of its own places.
+/// Places asked for by their own name, and the share that must come back non-empty. A place
+/// can legitimately miss itself (about 3% did in a world index), so one miss must not fail a
+/// build that takes half an hour; a broken index misses most of them.
+const VERIFY_SAMPLE: usize = 200;
+const VERIFY_MIN_PERCENT: usize = 80;
+
+/// Evenly spaced place names from `places.tsv`, skipping names too short to search for.
+fn sample_names(places: &str) -> Vec<&str> {
+    let names: Vec<&str> = places
+        .lines()
+        .filter_map(|l| l.split('\t').nth(13))
+        .filter(|n| n.len() > 3)
+        .collect();
+    let step = (names.len() / VERIFY_SAMPLE).max(1);
+    names
+        .into_iter()
+        .step_by(step)
+        .take(VERIFY_SAMPLE)
+        .collect()
+}
+
+/// Opens the built index the way the service does and resolves a sample of its own places.
 fn verify(dir: &Path) -> Result<()> {
     use opengeocoding::index::{Index, Parser};
     let parser = std::sync::Arc::new(Parser::setup()?);
     let index = Index::open(dir, parser)?;
     ensure!(index.places_loaded() > 0, "the index holds no places");
     let places = std::fs::read_to_string(dir.join("places.tsv"))?;
-    let name = places
-        .lines()
-        .filter_map(|l| l.split('\t').nth(13))
-        .find(|n| n.len() > 3)
-        .context("places.tsv names no place")?;
+    let sample = sample_names(&places);
+    ensure!(!sample.is_empty(), "places.tsv names no place");
+    let misses: Vec<&str> = sample
+        .iter()
+        .copied()
+        .filter(|n| index.search(n).is_empty())
+        .collect();
+    let found = sample.len() - misses.len();
     ensure!(
-        !index.search(name).is_empty(),
-        "the index finds nothing for its own place {name:?}"
+        found * 100 >= sample.len() * VERIFY_MIN_PERCENT,
+        "the index finds only {found} of {} sampled places by their own name; missing, for \
+         example: {:?}",
+        sample.len(),
+        &misses[..misses.len().min(10)]
     );
     println!(
-        "verified: {} places; {name:?} resolves",
-        index.places_loaded()
+        "verified: {} places; {found} of {} sampled resolve; missing: {:?}",
+        index.places_loaded(),
+        sample.len(),
+        &misses[..misses.len().min(10)]
     );
     Ok(())
 }
@@ -188,4 +217,36 @@ pub fn pull(args: Vec<String>) -> Result<()> {
     })?;
     println!("pulled {rel}");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sample_is_spread_capped_and_skips_short_names() {
+        let row = |n: &str| format!("a\tb\tc\td\te\tf\tg\th\ti\tj\tk\tl\tm\t{n}\tx");
+        let places: Vec<String> = (0..1000)
+            .map(|i| {
+                row(&if i % 10 == 0 {
+                    "ab".into()
+                } else {
+                    format!("place {i}")
+                })
+            })
+            .collect();
+        let all = places.join("\n");
+        let sample = sample_names(&all);
+        assert_eq!(sample.len(), VERIFY_SAMPLE);
+        assert!(sample.iter().all(|n| n.len() > 3));
+        assert!(
+            sample
+                .last()
+                .unwrap()
+                .ends_with(|c: char| c.is_ascii_digit())
+        );
+        let small = places[..5].join("\n");
+        assert_eq!(sample_names(&small).len(), 4);
+        assert!(sample_names("").is_empty());
+    }
 }
