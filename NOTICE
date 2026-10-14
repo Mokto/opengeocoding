@@ -17,6 +17,8 @@ licensed under Creative Commons Attribution 4.0 International.
 See https://www.geonames.org/ and LICENSES/CC-BY-4.0.txt.
 Names have been normalized, grouped and filtered. Dataset URLs, revision
 and download hashes are recorded in data/sources.json.
+The Wikidata items listed under iso3166_2 in data/reference.json (their ISO
+3166-2 codes) come from Wikidata, released under CC0-1.0 (https://www.wikidata.org/).
 
 libpostal and rustpostal are MIT-licensed. Their notices remain applicable.
 See https://github.com/openvenues/libpostal and https://github.com/kodemartin/rustpostal
