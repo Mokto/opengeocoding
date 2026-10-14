@@ -13,15 +13,18 @@ pub fn gold() -> PathBuf {
     root().join("tests/gold.jsonl")
 }
 
-/// Registry-first corpora (`tests/registry/*.jsonl`, generated from the `*.seeds.jsonl` beside them).
+/// Registry-first corpora (`tests/registry/*.jsonl`, generated from the `*.seeds.jsonl` (and `*.labels.jsonl`) beside them).
 pub fn registry_corpora() -> Vec<PathBuf> {
     let mut found: Vec<_> = std::fs::read_dir(root().join("tests/registry"))
         .into_iter()
         .flatten()
         .filter_map(|e| Some(e.ok()?.path()))
         .filter(|p| {
-            p.to_str()
-                .is_some_and(|p| p.ends_with(".jsonl") && !p.ends_with(".seeds.jsonl"))
+            p.to_str().is_some_and(|p| {
+                p.ends_with(".jsonl")
+                    && !p.ends_with(".seeds.jsonl")
+                    && !p.ends_with(".labels.jsonl")
+            })
         })
         .collect();
     found.sort();
@@ -82,7 +85,7 @@ pub struct Record {
     pub query: String,
     pub class: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ms: Option<f64>,
+    pub ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend_calls: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
