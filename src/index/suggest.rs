@@ -18,6 +18,9 @@ const MAX_WORK_IN_TOWN: u64 = 400_000;
 /// that few documents share.
 const MAX_PLACE_WORK: u64 = 20_000;
 const MAX_TEXT: usize = 200;
+/// Entries of each prefix cache: a place entry is at most 400 candidates of 16 bytes, so the
+/// caches stay under about 150 MB however much is typed.
+const MAX_CACHED: usize = 20_000;
 const MAX_NUMBER: usize = 10;
 /// Words of a postcode needed before suggesting one: "75" matches thousands.
 const MIN_POSTCODE: usize = 3;
@@ -307,7 +310,7 @@ impl Index {
             .collect();
         let mut cache = self.prefixes.lock().unwrap();
         // ponytail: dropped whole when full, not LRU; the short prefixes that cost most refill first
-        if cache.len() >= 100_000 {
+        if cache.len() >= MAX_CACHED {
             cache.clear();
         }
         cache.insert(key, (terms.clone(), docs));
@@ -441,7 +444,7 @@ impl Index {
         let all: Candidates = all.into();
         let mut cache = self.place_prefixes.lock().unwrap();
         // ponytail: dropped whole when full, not LRU
-        if cache.len() >= 100_000 {
+        if cache.len() >= MAX_CACHED {
             cache.clear();
         }
         cache.insert(key, all.clone());
