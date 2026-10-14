@@ -1,5 +1,5 @@
 use crate::{
-    index::{Index, Parser},
+    index::{Index, Parser, canon::canon},
     matching::*,
     metrics::METRICS,
     proto::opengeocoding::*,
@@ -363,6 +363,9 @@ impl Core {
             .filter(|(_, f)| {
                 let details = f.address_details.as_option();
                 (!overriding || state_consistent(&stated_state, details))
+                    && (!state_code_conflict(address, details)
+                        || road_agrees(address, details)
+                        || postcode_agrees(postcode, details))
                     && (postcode_matches(postcode, details) || house_road_city(address, details))
                     && (part(address, "city").is_empty()
                         || city_agrees(address, details)
@@ -452,6 +455,29 @@ impl Core {
     }
 
     fn resolve(&self, query: &str) -> Result<FullAddress> {
+        let found = self.resolve_once(query)?;
+        if !found.display_name.is_empty() {
+            return Ok(found);
+        }
+        // the parser's slips that the query itself can mend: no comma before the country, and
+        // parenthesised remarks
+        for retry in [
+            comma_before_country(query),
+            without_parentheses(query, true),
+            without_parentheses(query, false),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            let found = self.resolve_once(&retry)?;
+            if !found.display_name.is_empty() {
+                return Ok(found);
+            }
+        }
+        Ok(found)
+    }
+
+    fn resolve_once(&self, query: &str) -> Result<FullAddress> {
         if query.is_empty() || query.chars().count() > 256 {
             return Ok(FullAddress::default());
         }
@@ -479,6 +505,15 @@ impl Core {
                 }
             }
         }
+        let stray = part(&address, "road").to_owned();
+        tidy(&mut address);
+        let unstrayed;
+        let query = if !stray.is_empty() && part(&address, "road").is_empty() {
+            unstrayed = without_word(query, &stray);
+            unstrayed.as_str()
+        } else {
+            query
+        };
         // Repeated fields ("Karnataka, India, India") reach the parser as one "india india".
         if let Some(stated) = address.get_mut("country") {
             let words: Vec<_> = stated.split(' ').collect();
@@ -550,8 +585,158 @@ impl Core {
         if let Some(chosen) = weak {
             return Ok(accept(chosen.found, &address, &postcode, "weak", false));
         }
+        if let Some(found) = self.settlement(query, stated_address, &stated_country, &postcode)? {
+            return Ok(found);
+        }
         METRICS.tiers.with_label_values(&["unresolved"]).inc();
         Ok(FullAddress::default())
+    }
+
+    /// Last resort: the stated town (or lone region) on its own, when something else in the query
+    /// (a postcode the data files elsewhere or not at all, a street it lacks) kept every candidate
+    /// out. The town is a better answer than none, and never a confident one.
+    fn settlement(
+        &self,
+        query: &str,
+        address: &ParsedAddress,
+        country: &str,
+        postcode: &str,
+    ) -> Result<Option<FullAddress>> {
+        let in_country = Some(country).filter(|c| !c.is_empty());
+        let mut city = part(address, "city").to_owned();
+        if city.is_empty()
+            && ["state", "state_district", "country_region"]
+                .iter()
+                .all(|k| part(address, k).is_empty())
+        {
+            // "Mississauaga, Canada": the parser files a lone name and its country as one house
+            let stated = normalize_place(part(address, "country"));
+            let rest: Vec<&str> = query
+                .split(',')
+                .map(|p| p.trim_matches(whitespace))
+                .filter(|p| !p.is_empty() && normalize_place(p) != stated)
+                .collect();
+            if let [only] = rest[..]
+                && only.split(whitespace).count() <= 3
+                && !only.chars().any(|c| c.is_numeric())
+            {
+                city = only.to_owned();
+            }
+        }
+        // "Beyoğlu/İstanbul": either side may be the town; a name one edit off may be a typo
+        let mut towns = vec![city.clone()];
+        if city.contains('/') {
+            towns.extend(
+                city.rsplit('/')
+                    .map(|t| t.trim().to_owned())
+                    .filter(|t| !t.is_empty()),
+            );
+        }
+        if !city.is_empty()
+            && !self.index.names_place(&city, in_country)
+            && let Some(similar) = self.index.similar_place(&city, in_country)
+        {
+            towns.push(similar);
+        }
+        for town in towns {
+            // "West Shady Lane" is a street the parser took for a town
+            let street = town.split(whitespace).next_back().map(normalize_place);
+            if town.contains(' ')
+                && street
+                    .as_deref()
+                    .is_some_and(|w| w.len() > 2 && canon(w).is_some())
+            {
+                continue;
+            }
+            let mut place = ParsedAddress::new();
+            for key in ["state", "state_district", "country_region", "country"] {
+                if let Some(value) = address.get(key) {
+                    place.insert(key.into(), value.clone());
+                }
+            }
+            if !town.is_empty() {
+                place.insert("city".into(), town.clone());
+            }
+            let structured = create_query(&place, &["city", "state", "country"]);
+            if place.keys().all(|key| key == "country") || !useful_query(&structured, "", country) {
+                continue;
+            }
+            let Some(chosen) = self.first_acceptable(
+                &structured,
+                &place,
+                (country, ""),
+                "settlement",
+                true,
+                None,
+            )?
+            else {
+                continue;
+            };
+            // only a settlement named as stated: a region, province or country of that name is
+            // another place, and a postcode is not a town
+            if !chosen.anchor() || chosen.kind == "postcode" || !chosen.named_by(&town) {
+                continue;
+            }
+            // with no country stated, the region and the postcode have to fit the one the town
+            // is in ("Novallas, Zaragoza" is not in the Philippines), and a postcode the data
+            // does place has to be near the town
+            let details = chosen.found.address_details.as_option();
+            let fits = (!country.is_empty()
+                || (state_consistent(&place, details)
+                    && details
+                        .is_none_or(|d| postcode_shape(&d.country_code, postcode) != Some(false))))
+                && !self.postcode_elsewhere(postcode, &chosen.found);
+            if fits && !self.ambiguous(&structured, &place, country, &chosen.found) {
+                return Ok(Some(accept(chosen.found, address, "", "settlement", false)));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Another place the query names equally well lies far from `found` ("Austrheim" in two
+    /// counties): with nothing to choose between them, the first would be a guess.
+    fn ambiguous(
+        &self,
+        structured: &str,
+        place: &ParsedAddress,
+        country: &str,
+        found: &FullAddress,
+    ) -> bool {
+        let Some(at) = found.geo_coordinates.as_option() else {
+            return false;
+        };
+        self.search(structured)
+            .1
+            .iter()
+            .filter_map(|v| format_response(v).ok())
+            .filter(|f| {
+                let details = f.address_details.as_option();
+                city_agrees(place, details)
+                    && country_matches(country, details)
+                    && state_consistent(place, details)
+            })
+            .filter_map(|f| f.geo_coordinates.into_option())
+            .any(|g| km_between(at.lat, at.lon, g.lat, g.lon) > 50.0)
+    }
+
+    /// The data places `postcode` (in the country of `found`), but nowhere near `found`: the
+    /// postcode and the town contradict each other, and neither is the better guess.
+    fn postcode_elsewhere(&self, postcode: &str, found: &FullAddress) -> bool {
+        let (Some(at), Some(details)) = (
+            found.geo_coordinates.as_option(),
+            found.address_details.as_option(),
+        ) else {
+            return false;
+        };
+        let cc = Some(details.country_code.as_str()).filter(|c| !c.is_empty());
+        let hits = self.index.postcode_hits(postcode, cc);
+        let near = |hit: &crate::index::Hit| {
+            format_response(&self.index.render(hit, true))
+                .ok()
+                .and_then(|f| f.geo_coordinates.into_option())
+                .is_none_or(|g| km_between(at.lat, at.lon, g.lat, g.lon) < 30.0)
+        };
+        !postcode.is_empty() && !hits.is_empty() && !hits.iter().take(8).any(near)
     }
 
     /// Structured re-queries of the parsed fields, loosest last.
@@ -611,6 +796,33 @@ impl Core {
                     country.is_empty(),
                     None,
                 )? {
+                    // A recognized country is not overridden by a bare name: Malta's "St
+                    // Julians" is not the one in Wales. A street, number or postcode in the
+                    // query has to place it elsewhere.
+                    let details = chosen.found.address_details.as_option();
+                    let stated = normalize_place(part(address, "country"));
+                    let corroborated = country.is_empty()
+                        || !part(address, "road").is_empty()
+                        || query.chars().any(|c| c.is_ascii_digit())
+                        || details.is_some_and(|d| {
+                            !d.country.is_empty()
+                                && normalize_place(query).contains(&normalize_place(&d.country))
+                        })
+                        || postcode_agrees(postcode, details)
+                        || details.is_some_and(|d| {
+                            [
+                                &d.state,
+                                &d.county,
+                                &d.state_district,
+                                &d.province,
+                                &d.region,
+                            ]
+                            .iter()
+                            .any(|name| !name.is_empty() && normalize_place(name) == stated)
+                        });
+                    if !corroborated {
+                        continue;
+                    }
                     return Ok(Some(accept(chosen.found, address, postcode, &tier, true)));
                 }
             }

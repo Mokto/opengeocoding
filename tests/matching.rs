@@ -610,3 +610,81 @@ fn a_po_box_is_told_from_a_misfiled_town() {
         assert!(!is_po_box(text), "{text}");
     }
 }
+
+#[test]
+fn tidy_repairs_parser_slips_that_cost_the_whole_lookup() {
+    let mut address = parsed(&[("postcode", "se-262 73"), ("city", "ängelholm")]);
+    tidy(&mut address);
+    assert_eq!(part(&address, "postcode"), "262 73");
+    // Latvian postcodes are stored with their plate
+    let mut address = parsed(&[("postcode", "lv-1002")]);
+    tidy(&mut address);
+    assert_eq!(part(&address, "postcode"), "lv-1002");
+    let mut address = parsed(&[("city", "l-1855"), ("country", "luxemburg")]);
+    tidy(&mut address);
+    assert_eq!(part(&address, "postcode"), "1855");
+    assert_eq!(part(&address, "city"), "");
+    let mut address = parsed(&[("city", "st julians stj1000"), ("country", "malta")]);
+    tidy(&mut address);
+    assert_eq!(part(&address, "city"), "st julians");
+    assert_eq!(part(&address, "postcode"), "stj1000");
+    let mut address = parsed(&[("city", "г. воронеж"), ("road", "ул.")]);
+    tidy(&mut address);
+    assert_eq!(part(&address, "city"), "воронеж");
+    assert_eq!(part(&address, "road"), "");
+    // a street named like a type is a street
+    let mut address = parsed(&[("road", "burg"), ("city", "bruges")]);
+    tidy(&mut address);
+    assert_eq!(part(&address, "road"), "burg");
+}
+
+#[test]
+fn a_state_code_the_candidate_contradicts_is_a_conflict() {
+    let coded = |country: &str, code: &str| FullAddress {
+        address_details: AddressDetails {
+            country_code: country.into(),
+            region_codes: vec![ISO3166_2 {
+                admin_level: 4,
+                code: code.into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }
+        .into(),
+        ..Default::default()
+    };
+    let address = parsed(&[("city", "dorchester"), ("state", "ma")]);
+    let conflicts = |f: &FullAddress| state_code_conflict(&address, f.address_details.as_option());
+    assert!(conflicts(&coded("gb", "GB-ENG")));
+    assert!(conflicts(&coded("us", "US-WI")));
+    assert!(!conflicts(&coded("us", "US-MA")));
+    assert!(!conflicts(&candidate("gb", "Dorchester", "", "")));
+    // a state written out is not a code
+    let named = parsed(&[("state", "massachusetts")]);
+    assert!(!state_code_conflict(
+        &named,
+        coded("us", "US-WI").address_details.as_option()
+    ));
+}
+
+#[test]
+fn a_country_ending_the_query_without_a_comma_gets_one() {
+    for (query, expected) in [
+        ("Dublin 2 Ireland", Some("Dublin 2, Ireland")),
+        ("Paris France", Some("Paris, France")),
+        ("12 Rue X, Paris France", Some("12 Rue X, Paris, France")),
+        ("Santa Fe New Mexico", None),
+        ("Dublin 2, Ireland", None),
+        ("Dublin", None),
+    ] {
+        assert_eq!(comma_before_country(query).as_deref(), expected, "{query}");
+    }
+}
+
+#[test]
+fn a_stray_word_is_removed_from_the_query() {
+    assert_eq!(
+        without_word("Dr. Nikiski, AK 99611", "dr."),
+        "Nikiski, AK 99611"
+    );
+}
