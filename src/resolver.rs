@@ -554,14 +554,27 @@ impl Core {
             None => (&address, country.clone()),
         };
         let mut weak = None;
-        if let Some(chosen) = self.first_acceptable(
+        let raw = self.first_acceptable(
             query,
             stated_address,
             (&stated_country, &postcode),
             "raw",
             true,
             None,
-        )? {
+        )?;
+        // Without a house of its own, the raw answer is the stated town or nothing.
+        if raw.as_ref().is_none_or(|chosen| {
+            chosen
+                .found
+                .address_details
+                .as_option()
+                .is_none_or(|d| d.house_number.is_empty())
+        }) && let Some(found) =
+            self.house_despite_town(stated_address, &stated_country, &postcode)?
+        {
+            return Ok(found);
+        }
+        if let Some(chosen) = raw {
             let (explained, total) = chosen.explained(query, stated_address);
             // A place that names a few words of a long query is a guess: "Twin City Shopping
             // Centre, Burgersfort" is not Thuin. A street or house answer was checked against its
@@ -601,6 +614,72 @@ impl Core {
         }
         METRICS.tiers.with_label_values(&["unresolved"]).inc();
         Ok(FullAddress::default())
+    }
+
+    /// A town that contradicts the rest ("8 Ayr Court, Yonkers, NY 10901" for a house in the next
+    /// town over): the house is looked up without the town, and answered only when its number,
+    /// road and postcode are the stated ones, which two places rarely share. Never a confident
+    /// answer, because the input contradicts itself.
+    fn house_despite_town(
+        &self,
+        address: &ParsedAddress,
+        country: &str,
+        postcode: &str,
+    ) -> Result<Option<FullAddress>> {
+        if ["house_number", "road", "city"]
+            .iter()
+            .any(|key| part(address, key).is_empty())
+            || postcode.is_empty()
+        {
+            return Ok(None);
+        }
+        let mut without = address.clone();
+        for key in ["city", "suburb", "city_district", "state_district"] {
+            without.shift_remove(key);
+        }
+        // The street lookup is scoped by a town or by the postcode's own streets, and a common
+        // street name misses without either: the postcode's places stand in for the stated town.
+        let cc = Some(country).filter(|c| !c.is_empty());
+        let mut towns = vec![String::new()];
+        for hit in self.index.postcode_hits(postcode, cc).iter().take(5) {
+            if let Ok(place) = format_response(&self.index.render(hit, true))
+                && let Some(d) = place.address_details.as_option()
+                && let Some(town) = [&d.city, &d.town, &d.village, &d.municipality]
+                    .into_iter()
+                    .find(|t| !t.is_empty())
+                && !towns.contains(town)
+            {
+                towns.push(town.clone());
+            }
+        }
+        for town in towns {
+            if !town.is_empty() {
+                without.insert("city".into(), town);
+            }
+            let query = format!(
+                "{} {}, {}",
+                part(address, "house_number"),
+                part(address, "road"),
+                create_query(&without, &["city", "state", "postcode", "country"])
+            );
+            for candidate in self.search(&query).1 {
+                let found = format_response(&candidate)?;
+                let details = found.address_details.as_option();
+                if house_road_postcode(address, postcode, details)
+                    && country_matches(country, details)
+                    && state_consistent(address, details)
+                {
+                    return Ok(Some(accept(
+                        found,
+                        address,
+                        postcode,
+                        "house_postcode",
+                        false,
+                    )));
+                }
+            }
+        }
+        Ok(None)
     }
 
     /// Last resort: the stated town (or lone region) on its own, when something else in the query
