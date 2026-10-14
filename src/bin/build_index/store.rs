@@ -265,14 +265,21 @@ impl Store {
     }
 
     /// Downloads a sealed directory into `dir`, keeping files that already match, and checks
-    /// every file against `MANIFEST`.
+    /// every file against `MANIFEST`. Once a pass completes, a marker beside `dir` records the
+    /// `MANIFEST` it verified; while that still names the current `MANIFEST`, a file of the right
+    /// size is kept without rehashing it.
     pub async fn fetch(&self, rel: &str, dir: &Path) -> Result<()> {
         ensure!(
             self.exists(&format!("{rel}/_COMPLETE")).await?,
             "{rel} is not complete"
         );
-        let mut manifest: Manifest =
-            serde_json::from_slice(&self.get(&format!("{rel}/MANIFEST")).await?)?;
+        let raw = self.get(&format!("{rel}/MANIFEST")).await?;
+        let digest = hex(ring::digest::digest(&ring::digest::SHA256, &raw));
+        let marker = marker(dir);
+        let trusted = marker
+            .as_ref()
+            .is_some_and(|m| std::fs::read_to_string(m).is_ok_and(|d| d == digest));
+        let mut manifest: Manifest = serde_json::from_slice(&raw)?;
         // Largest first, so the biggest files' hashing overlaps the rest of the transfer.
         manifest.files.sort_by_key(|e| std::cmp::Reverse(e.size));
         let mut tasks = JoinSet::new();
@@ -280,7 +287,7 @@ impl Store {
             let (store, rel) = (self.clone(), rel.to_string());
             let local = dir.join(&e.path);
             tasks.spawn(async move {
-                if !matches(&local, &e).await? {
+                if !matches(&local, &e, trusted).await? {
                     let sha = store
                         .download(&format!("{rel}/{}", e.path), e.size, &local)
                         .await?;
@@ -295,8 +302,18 @@ impl Store {
         while let Some(r) = tasks.join_next().await {
             r??;
         }
+        // Best effort: without the marker the next fetch only rehashes.
+        if let Some(m) = marker {
+            let _ = std::fs::write(m, digest);
+        }
         Ok(())
     }
+}
+
+/// Beside `dir`, not in it: the directory's readers and `walk` must not see it.
+fn marker(dir: &Path) -> Option<PathBuf> {
+    let name = dir.file_name()?.to_string_lossy();
+    Some(dir.with_file_name(format!(".{name}.verified")))
 }
 
 pub fn part(path: &Path) -> PathBuf {
@@ -305,9 +322,12 @@ pub fn part(path: &Path) -> PathBuf {
     path.with_file_name(name)
 }
 
-async fn matches(local: &Path, e: &Entry) -> Result<bool> {
+async fn matches(local: &Path, e: &Entry, trusted: bool) -> Result<bool> {
     if std::fs::metadata(local).map_or(true, |m| m.len() != e.size) {
         return Ok(false);
+    }
+    if trusted {
+        return Ok(true);
     }
     let local = local.to_path_buf();
     Ok(tokio::task::spawn_blocking(move || sha256(&local)).await?? == e.sha256)
@@ -412,6 +432,18 @@ mod tests {
         );
         assert!(!dst.join(".tantivy-meta.lock").exists());
         assert!(!dst.join(".numbers-spill").exists());
+        // a verified directory is trusted by size: same-size damage survives until the marker goes
+        let kept = dst.join("nested/small.txt");
+        std::fs::write(&kept, b"HELLO").unwrap();
+        store.fetch("indexes/x", &dst).await.unwrap();
+        assert_eq!(std::fs::read(&kept).unwrap(), b"HELLO");
+        std::fs::remove_file(base.join(".dst.verified")).unwrap();
+        store.fetch("indexes/x", &dst).await.unwrap();
+        assert_eq!(std::fs::read(&kept).unwrap(), b"hello");
+        // a size change is repaired even with the marker
+        std::fs::write(&kept, b"hi").unwrap();
+        store.fetch("indexes/x", &dst).await.unwrap();
+        assert_eq!(std::fs::read(&kept).unwrap(), b"hello");
         // a corrupted object fails the check instead of being served
         std::fs::write(bucket.join("indexes/x/nested/small.txt"), b"HELLO").unwrap();
         std::fs::remove_file(dst.join("nested/small.txt")).unwrap();
