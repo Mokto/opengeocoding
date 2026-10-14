@@ -274,6 +274,12 @@ fn rescore(cases: &[Case], results: &mut [Record]) {
         let Some(case) = by_id.get(record.id.as_str()) else {
             continue;
         };
+        let suggest_before = record.suggest.clone();
+        run::rescore_suggest(case, record);
+        if record.suggest != suggest_before {
+            changed += 1;
+            eprintln!("rescored {}: suggestions re-ranked", record.id);
+        }
         let before = record.class.clone();
         let response = record.response.clone();
         let error = record.error.clone();

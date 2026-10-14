@@ -1,6 +1,9 @@
 use crate::{
-    model::{Case, Record, load_jsonl},
-    score::{CLASSES, DRIFT_KINDS, Summary, critical, drift, haversine, severity, snapshot_point},
+    model::{Case, Record, SuggestCheck, load_jsonl},
+    score::{
+        CLASSES, DRIFT_KINDS, SUGGEST_CLASSES, Summary, critical, drift, haversine, severity,
+        snapshot_point, suggest_class, suggest_severity,
+    },
 };
 use anyhow::{Context, Result};
 use indexmap::IndexMap;
@@ -429,6 +432,7 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
     if others.is_empty() {
         out += "None.\n";
     }
+    suggest_section(&mut out, &results, &|r| case(r).cohort.clone());
     let unscored: Vec<_> = results.iter().filter(|r| r.class == "unscored").collect();
     if !unscored.is_empty() {
         let referenced = unscored.iter().any(|r| {
@@ -617,6 +621,60 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
         if failed { "FAIL" } else { "pass" }
     );
     (out, failed)
+}
+
+/// Where the expected place came, and what came first.
+fn suggest_label(check: &SuggestCheck) -> String {
+    let first = check.found.first().map_or("nothing".into(), |s| {
+        format!("{} {} [{}]", s.kind, clip(&s.name, 60), s.country)
+    });
+    match (check.rank, &check.error) {
+        (_, Some(error)) => format!("error {error}"),
+        (Some(rank), _) => format!("rank {rank} (want <= {}); first {first}", check.want),
+        (None, _) => format!("missing (want <= {}); first {first}", check.want),
+    }
+}
+
+fn suggest_section(out: &mut String, results: &[&Record], cohort: &dyn Fn(&Record) -> String) {
+    let mut groups: BTreeMap<(&str, String), Vec<usize>> = BTreeMap::new();
+    for r in results {
+        for (name, check) in &r.suggest {
+            groups
+                .entry((name, cohort(r)))
+                .or_insert_with(|| vec![0; SUGGEST_CLASSES.len()])
+                [suggest_severity(suggest_class(check))] += 1;
+        }
+    }
+    if groups.is_empty() {
+        return;
+    }
+    let _ = write!(
+        out,
+        "\n## SuggestAddress (reported, not gated)\n\n`full` types the query; `name` types the place's name alone, which must come no later than the places of that name with more population (Wikidata).\n\n| Check | Cohort | {} |\n|---|---|{}\n",
+        SUGGEST_CLASSES.join(" | "),
+        "---:|".repeat(SUGGEST_CLASSES.len())
+    );
+    for ((name, cohort), counts) in &groups {
+        let cells: Vec<_> = counts.iter().map(usize::to_string).collect();
+        let _ = writeln!(out, "| {name} | {cohort} | {} |", cells.join(" | "));
+    }
+    *out += "\n### Names out of population order\n\n";
+    let mut none = true;
+    for r in results {
+        if let Some(check) = r.suggest.get("name").filter(|c| suggest_class(c) != "pass") {
+            none = false;
+            let _ = writeln!(
+                out,
+                "- `{}` {:?}: {}",
+                r.id,
+                check.text,
+                suggest_label(check)
+            );
+        }
+    }
+    if none {
+        *out += "None.\n";
+    }
 }
 
 fn side_line(name: &str, manifest: &Value) -> String {
@@ -811,6 +869,27 @@ pub fn diff(
                 label(a),
                 label(b)
             ));
+        }
+        for (name, sb) in &b.suggest {
+            let Some(sa) = a.suggest.get(name) else {
+                continue;
+            };
+            scored = true;
+            let (ca, cb) = (suggest_class(sa), suggest_class(sb));
+            let line = format!(
+                "- `{id}` suggest {name} {ca} -> {cb}: {:?} -> {}",
+                sb.text,
+                suggest_label(sb)
+            );
+            if ca == "pass" && cb != "pass" {
+                newly_failing.push(line);
+            } else if ca != "pass" && cb == "pass" {
+                newly_passing.push(line);
+            } else if suggest_severity(cb) > suggest_severity(ca) {
+                worse.push(line);
+            } else if suggest_severity(cb) < suggest_severity(ca) {
+                better.push(line);
+            }
         }
         if a.class == "unscored" || b.class == "unscored" {
             continue;
@@ -1121,6 +1200,45 @@ mod tests {
         let new = dir.join("new");
         assert!(diff(&must_pass, &new, &new, None, false, false).unwrap());
         assert!(!diff(&must_pass, &new, &new, None, false, true).unwrap());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_suggestion_ranked_lower_fails_the_diff() {
+        let dir = std::env::temp_dir().join(format!("eval-suggest-{}", std::process::id()));
+        let cases = [Case {
+            id: "a".into(),
+            ..Default::default()
+        }];
+        for (side, rank) in [("old", 1), ("new", 2)] {
+            let check = SuggestCheck {
+                text: "Paris".into(),
+                want: 1,
+                rank: Some(rank),
+                ..Default::default()
+            };
+            let record = Record {
+                id: "a".into(),
+                class: "pass".into(),
+                suggest: [("name".into(), check)].into(),
+                ..Default::default()
+            };
+            std::fs::create_dir_all(dir.join(side)).unwrap();
+            std::fs::write(dir.join(side).join("manifest.json"), "{}").unwrap();
+            std::fs::write(
+                dir.join(side).join("results.jsonl"),
+                serde_json::to_string(&record).unwrap(),
+            )
+            .unwrap();
+        }
+        let (old, new, out) = (dir.join("old"), dir.join("new"), dir.join("diff.md"));
+        assert!(diff(&cases, &old, &new, Some(&out), false, true).unwrap());
+        let report = std::fs::read_to_string(&out).unwrap();
+        assert!(
+            report.contains("`a` suggest name pass -> ranked_low"),
+            "{report}"
+        );
+        assert!(!diff(&cases, &old, &old, None, false, true).unwrap());
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
