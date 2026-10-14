@@ -882,25 +882,38 @@ pub fn comma_aligned(
 ) -> Option<Vec<(String, String)>> {
     let only =
         |a: &[(String, String)], keys: &[&str]| a.iter().all(|(k, _)| keys.contains(&k.as_str()));
-    let middle = middle.trim().to_lowercase();
-    if middle.is_empty()
-        || middle.chars().any(|c| c.is_ascii_digit())
-        || !field(whole, "country").is_empty()
-        || field(whole, "city").is_empty()
-        || !field(whole, "suburb").is_empty()
-        || !field(whole, "city_district").is_empty()
-        || field(whole, "city") == middle
-        || field(head, "road").is_empty()
-        || !only(head, &["house_number", "road"])
+    if !alignable(middle, whole)
+        || !head_aligns(head)
         || field(tail, "postcode").is_empty()
         || !only(tail, &["state", "postcode"])
     {
         return None;
     }
+    let middle = middle.trim().to_lowercase();
     let mut aligned = head.to_vec();
     aligned.push(("city".into(), middle));
     aligned.extend(tail.iter().cloned());
     Some(aligned)
+}
+
+/// The checks of [`comma_aligned`] that need no parse of the outer parts, so the two extra
+/// libpostal calls are made only for the few queries that can still pass.
+fn alignable(middle: &str, whole: &[(String, String)]) -> bool {
+    let middle = middle.trim().to_lowercase();
+    !middle.is_empty()
+        && !middle.chars().any(|c| c.is_ascii_digit())
+        && field(whole, "country").is_empty()
+        && !field(whole, "city").is_empty()
+        && field(whole, "suburb").is_empty()
+        && field(whole, "city_district").is_empty()
+        && field(whole, "city") != middle
+}
+
+fn head_aligns(head: &[(String, String)]) -> bool {
+    !field(head, "road").is_empty()
+        && head
+            .iter()
+            .all(|(k, _)| matches!(k.as_str(), "house_number" | "road"))
 }
 
 /// The process's one libpostal parser.
@@ -963,18 +976,16 @@ impl Parser {
                     .collect())
             };
             let whole = libpostal(q)?;
-            let town = field(&whole, "city");
-            match q.split(',').collect::<Vec<_>>()[..] {
-                [head, middle, tail]
-                    if !town.is_empty() && town != middle.trim().to_lowercase() =>
-                {
-                    comma_aligned(&libpostal(head)?, middle, &libpostal(tail)?, &whole)
+            let mut aligned = None;
+            if let [head, middle, tail] = q.split(',').collect::<Vec<_>>()[..]
+                && alignable(middle, &whole)
+            {
+                let head = libpostal(head)?;
+                if head_aligns(&head) {
+                    aligned = comma_aligned(&head, middle, &libpostal(tail)?, &whole);
                 }
-                _ => None,
             }
-            .unwrap_or(whole)
-            .into_iter()
-            .collect()
+            aligned.unwrap_or(whole).into_iter().collect()
         };
         if self.capacity > 0 {
             let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
