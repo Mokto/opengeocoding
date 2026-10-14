@@ -4,6 +4,16 @@ on:
   push:
     branches: [main]
   pull_request:
+    paths:
+      - src/**
+      - benches/**
+      - data/**
+      - proto/**
+      - build.rs
+      - Cargo.toml
+      - Cargo.lock
+      - .github/workflows/codspeed.yml
+      - .github/actions/bench-env/**
   # lets CodSpeed backfill a baseline
   workflow_dispatch:
 
