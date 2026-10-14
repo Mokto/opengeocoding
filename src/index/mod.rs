@@ -296,6 +296,7 @@ pub struct Index {
     place_names: tantivy_fst::Map<Vec<u8>>,
     /// `name_candidates` results, by folded text and whether it is a prefix.
     place_prefixes: Mutex<HashMap<(Box<str>, bool), suggest::Candidates>>,
+    suggest: suggest::Caches,
 }
 
 #[derive(Clone)]
@@ -1001,6 +1002,7 @@ impl Index {
             prefixes: Mutex::default(),
             place_names,
             place_prefixes: Mutex::default(),
+            suggest: Default::default(),
         })
     }
 
