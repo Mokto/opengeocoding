@@ -335,20 +335,25 @@ impl Core {
             let hits = self
                 .index
                 .postcode_hits(postcode, Some(country).filter(|c| !c.is_empty()));
-            hits.first()
-                .and_then(|h| format_response(&self.index.render(h, true)).ok())
-                .is_none_or(|f| {
-                    place_agrees(&f)
-                        || f.address_details.as_option().is_some_and(|d| {
-                            [&d.county, &d.state_district, &d.suburb, &d.city_district]
-                                .iter()
-                                .any(|name| {
-                                    !name.is_empty()
-                                        && !part(address, "city").is_empty()
-                                        && names_agree(part(address, "city"), name)
-                                })
-                        })
-                })
+            let vouches = |h| {
+                format_response(&self.index.render(h, true))
+                    .ok()
+                    .is_none_or(|f| {
+                        place_agrees(&f)
+                            || f.address_details.as_option().is_some_and(|d| {
+                                [&d.county, &d.state_district, &d.suburb, &d.city_district]
+                                    .iter()
+                                    .any(|name| {
+                                        !name.is_empty()
+                                            && !part(address, "city").is_empty()
+                                            && names_agree(part(address, "city"), name)
+                                    })
+                            })
+                    })
+            };
+            // a postcode spans several places ("14727" is Cuba's and Hinsdale's): any may be
+            // the postal town
+            hits.is_empty() || hits.iter().any(vouches)
         });
         let overriding = tier.ends_with("without_stated_country");
         // libpostal files fragments ("province of") as a state district; only a state is vouched
@@ -372,7 +377,8 @@ impl Core {
                         || (same_postcode_country(country, postcode, details)
                             && (locality(details) || *postcode_vouches))
                         || postcode_place_agrees(address, postcode, details)
-                        || (house_road_postcode(address, postcode, details) && junk_city)
+                        || (house_road_postcode(address, postcode, details)
+                            && (junk_city || *postcode_vouches))
                         || house_road_city(address, details)
                         || finer_near(f))
             })
@@ -487,7 +493,12 @@ impl Core {
             return Ok(FullAddress::default());
         }
         let mut address = self.parse(query)?;
-        if part(&address, "country").is_empty() {
+        // A complete address with a town that is also a country ("Cuba, NY 14727") would
+        // otherwise be rotated into one whose country is that town.
+        let complete = ["house_number", "road", "postcode"]
+            .iter()
+            .all(|key| !part(&address, key).is_empty());
+        if part(&address, "country").is_empty() && !complete {
             let parts: Vec<_> = query
                 .split(',')
                 .map(|s| s.trim_matches(whitespace))
@@ -543,14 +554,27 @@ impl Core {
             None => (&address, country.clone()),
         };
         let mut weak = None;
-        if let Some(chosen) = self.first_acceptable(
+        let raw = self.first_acceptable(
             query,
             stated_address,
             (&stated_country, &postcode),
             "raw",
             true,
             None,
-        )? {
+        )?;
+        // Without a house of its own, the raw answer is the stated town or nothing.
+        if raw.as_ref().is_none_or(|chosen| {
+            chosen
+                .found
+                .address_details
+                .as_option()
+                .is_none_or(|d| d.house_number.is_empty())
+        }) && let Some(found) =
+            self.house_despite_town(stated_address, &stated_country, &postcode)?
+        {
+            return Ok(found);
+        }
+        if let Some(chosen) = raw {
             let (explained, total) = chosen.explained(query, stated_address);
             // A place that names a few words of a long query is a guess: "Twin City Shopping
             // Centre, Burgersfort" is not Thuin. A street or house answer was checked against its
@@ -590,6 +614,72 @@ impl Core {
         }
         METRICS.tiers.with_label_values(&["unresolved"]).inc();
         Ok(FullAddress::default())
+    }
+
+    /// A town that contradicts the rest ("8 Ayr Court, Yonkers, NY 10901" for a house in the next
+    /// town over): the house is looked up without the town, and answered only when its number,
+    /// road and postcode are the stated ones, which two places rarely share. Never a confident
+    /// answer, because the input contradicts itself.
+    fn house_despite_town(
+        &self,
+        address: &ParsedAddress,
+        country: &str,
+        postcode: &str,
+    ) -> Result<Option<FullAddress>> {
+        if ["house_number", "road", "city"]
+            .iter()
+            .any(|key| part(address, key).is_empty())
+            || postcode.is_empty()
+        {
+            return Ok(None);
+        }
+        let mut without = address.clone();
+        for key in ["city", "suburb", "city_district", "state_district"] {
+            without.shift_remove(key);
+        }
+        // The street lookup is scoped by a town or by the postcode's own streets, and a common
+        // street name misses without either: the postcode's places stand in for the stated town.
+        let cc = Some(country).filter(|c| !c.is_empty());
+        let mut towns = vec![String::new()];
+        for hit in self.index.postcode_hits(postcode, cc).iter().take(5) {
+            if let Ok(place) = format_response(&self.index.render(hit, true))
+                && let Some(d) = place.address_details.as_option()
+                && let Some(town) = [&d.city, &d.town, &d.village, &d.municipality]
+                    .into_iter()
+                    .find(|t| !t.is_empty())
+                && !towns.contains(town)
+            {
+                towns.push(town.clone());
+            }
+        }
+        for town in towns {
+            if !town.is_empty() {
+                without.insert("city".into(), town);
+            }
+            let query = format!(
+                "{} {}, {}",
+                part(address, "house_number"),
+                part(address, "road"),
+                create_query(&without, &["city", "state", "postcode", "country"])
+            );
+            for candidate in self.search(&query).1 {
+                let found = format_response(&candidate)?;
+                let details = found.address_details.as_option();
+                if house_road_postcode(address, postcode, details)
+                    && country_matches(country, details)
+                    && state_consistent(address, details)
+                {
+                    return Ok(Some(accept(
+                        found,
+                        address,
+                        postcode,
+                        "house_postcode",
+                        false,
+                    )));
+                }
+            }
+        }
+        Ok(None)
     }
 
     /// Last resort: the stated town (or lone region) on its own, when something else in the query

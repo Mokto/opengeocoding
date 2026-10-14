@@ -669,8 +669,9 @@ fn label(record: &Record) -> String {
     format!("{} {text} [{}] {lat},{lon}", s.level, s.country)
 }
 
-/// SearchAddress latency on both sides, in aggregate only and never gated: two runs of one
-/// binary differ by tens of percent overall and several times on single cases.
+/// SearchAddress latency on both sides, in aggregate only and never gated. Three runs of one
+/// binary on a cluster node agreed within 2% in total and 5% at each percentile, but single cases
+/// moved by 30% either way; on a laptop even the totals moved by tens of percent.
 fn latency(
     shared: &[&String],
     old: &IndexMap<String, Record>,
