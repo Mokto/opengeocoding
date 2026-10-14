@@ -2,6 +2,8 @@ name: Publish Docker image
 
 on:
   push:
+    # main builds without pushing, to keep the default-branch build cache warm for release tags.
+    branches: [main]
     tags: ["v*"]
 
 permissions:
@@ -25,7 +27,7 @@ jobs:
       id-token: write
     with:
       output: image
-      push: true
+      push: ${{ github.ref_type == 'tag' }}
       target: runtime
       platforms: linux/amd64,linux/arm64
       cache: true
@@ -45,6 +47,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
   verify:
+    if: github.ref_type == 'tag'
     needs: publish
     runs-on: ubuntu-24.04
     permissions:
