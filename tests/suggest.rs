@@ -133,8 +133,13 @@ fn latency() {
         "1012 JS",
     ];
     let index = open();
-    // the first pass reads each short prefix from the term dictionary; later ones find it kept
-    for pass in ["cold", "warm"] {
+    // as the service does after startup
+    let started = Instant::now();
+    index.warm_suggest();
+    eprintln!("warm-up: {:?}", started.elapsed());
+    // the first pass reads what the warm-up did not (three-letter prefixes, the ancestors of
+    // towns); the second finds it kept
+    for pass in ["first", "repeat"] {
         let mut micros = vec![];
         for text in TYPED {
             let chars: Vec<char> = text.chars().collect();
@@ -164,7 +169,7 @@ fn report(pass: &str, mut micros: Vec<(u128, String)>) {
         micros.last().unwrap().0,
         micros.last().unwrap().1
     );
-    if pass == "warm" {
+    if pass == "repeat" {
         assert!(at(0.99) < 20_000, "p99 {} µs", at(0.99));
     }
 }

@@ -78,6 +78,7 @@ async fn main() -> Result<()> {
         seconds = started.elapsed().as_secs_f64(),
         "Index loaded"
     );
+    resolver.warm_suggestions();
     let regions = Regions::from_resolver(&resolver)?;
     tracing::info!(regions = regions.len(), "Regions derived from the index");
     let reflector = Reflector::from_descriptor_set_bytes(include_bytes!(concat!(

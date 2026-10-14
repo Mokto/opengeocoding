@@ -119,6 +119,20 @@ impl Resolver {
         Ok(Self(Arc::new(Core { index, parser })))
     }
 
+    /// Warms the suggestion caches on a thread of its own, so the first people to type a short
+    /// prefix do not pay for reading it. Does not delay anything.
+    pub fn warm_suggestions(&self) {
+        let core = self.0.clone();
+        std::thread::spawn(move || {
+            let started = std::time::Instant::now();
+            core.index.warm_suggest();
+            tracing::info!(
+                seconds = started.elapsed().as_secs_f64(),
+                "Suggestion caches warmed"
+            );
+        });
+    }
+
     pub fn index(&self) -> &Index {
         &self.0.index
     }

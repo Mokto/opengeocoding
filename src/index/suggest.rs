@@ -5,6 +5,9 @@ use super::*;
 use std::{cmp::Reverse, collections::BinaryHeap};
 use tantivy_fst::{IntoStreamer, Streamer};
 
+/// Documents times terms a prefix search may check: its terms are cut to fit, as far as `MIN_TERMS`.
+const TERM_WORK: u64 = 200_000;
+const MIN_TERMS: u64 = 4;
 /// Terms a prefix expands to, most common first: each is a posting list to walk.
 const PREFIX_TERMS: usize = 32;
 /// Candidate places fetched before a qualifier ("Springfield, IL") filters them.
@@ -12,7 +15,7 @@ const POOL: usize = 400;
 /// A street search whose rarest word is in more documents than this walks too many postings to
 /// answer in time. Without a town its answer would be arbitrary as well ("rue de", "main st"),
 /// so it is held to less than one in a town.
-const MAX_WORK: u64 = 60_000;
+const MAX_WORK: u64 = 20_000;
 const MAX_WORK_IN_TOWN: u64 = 400_000;
 /// The same for the long tail of places the name index does not hold: found by an exact word
 /// that few documents share.
@@ -25,10 +28,35 @@ const MAX_NUMBER: usize = 10;
 /// Words of a postcode needed before suggesting one: "75" matches thousands.
 const MIN_POSTCODE: usize = 3;
 
-/// A prefix's most common terms and the documents they are in.
-pub(super) type PrefixTerms = (Arc<[String]>, u64);
+/// A prefix's most common terms and the documents each is in, most first.
+pub(super) type PrefixTerms = Arc<[(String, u32)]>;
 /// Place, fit and score of each place a name may mean.
 pub(super) type Candidates = Arc<[(u32, u8, u64)]>;
+/// What suggestions look up again and again: a place's English name and its address line, which
+/// `Place::name` finds by scanning the place's names in every language.
+#[derive(Default)]
+pub(super) struct Caches {
+    /// Folded name and folded English name, by place.
+    folded: Mutex<HashMap<u32, Arc<[String; 2]>>>,
+    labels: Mutex<HashMap<u32, Arc<str>>>,
+    /// Every folded country name and its code, sorted.
+    country_names: std::sync::OnceLock<Vec<(String, String)>>,
+}
+
+fn remember<V: Clone>(cache: &Mutex<HashMap<u32, V>>, id: u32, make: impl FnOnce() -> V) -> V {
+    if let Some(hit) = cache.lock().unwrap().get(&id) {
+        return hit.clone();
+    }
+    let made = make();
+    let mut cache = cache.lock().unwrap();
+    // ponytail: dropped whole when full, not LRU
+    if cache.len() >= MAX_CACHED {
+        cache.clear();
+    }
+    cache.insert(id, made.clone());
+    made
+}
+
 type Clauses = Vec<(Occur, Box<dyn TQuery>)>;
 
 pub struct Suggestion {
@@ -145,6 +173,8 @@ fn place_kind(p: &Place) -> &'static str {
 const MIN_WEIGHT: u64 = 5_000;
 /// Candidates kept for a prefix: enough for a qualifier ("Springfield, IL") to pick from.
 const CANDIDATES: usize = 400;
+/// Of those, how many a qualifier is checked against: each reads its places' ancestors.
+const EXAMINED: usize = 150;
 /// How much a name's fit counts: the name itself, its main name starts with the text, another
 /// language's does.
 const FIT: [u64; 3] = [100, 20, 5];
@@ -208,6 +238,30 @@ impl Typed {
 }
 
 impl Index {
+    /// Reads what the first person to type a short prefix would otherwise wait for: the places
+    /// and terms of one and two letters, and the names of countries and regions. One thread, once,
+    /// after startup; blocks for some seconds.
+    pub fn warm_suggest(&self) {
+        let letters = 'a'..='z';
+        for a in letters.clone() {
+            self.name_candidates(&a.to_string(), true);
+            for b in letters.clone() {
+                let pair = format!("{a}{b}");
+                self.name_candidates(&pair, true);
+                self.prefix_terms(self.f.names, &pair);
+            }
+        }
+        for (id, pl) in self.places.iter().enumerate() {
+            if matches!(
+                &*pl.subtype,
+                "country" | "dependency" | "region" | "macroregion"
+            ) {
+                self.folded_names(id as u32);
+                self.label(id as u32);
+            }
+        }
+    }
+
     /// Up to `limit` completions of `text`, best first. Blocks: call it off the async executor.
     pub fn suggest(&self, text: &str, limit: usize, cc: Option<&str>) -> Vec<Suggestion> {
         let text = text.trim_start();
@@ -259,11 +313,11 @@ impl Index {
         out
     }
 
-    /// The most common terms of `field` starting with `prefix`, summed over segments, and the
-    /// documents they are in. Reading them is the cost of a short prefix, so the answer is kept.
+    /// The most common terms of `field` starting with `prefix`, summed over segments, with the
+    /// documents each is in. Reading them is the cost of a short prefix, so the answer is kept.
     fn prefix_terms(&self, field: Field, prefix: &str) -> PrefixTerms {
         if prefix.is_empty() || prefix.len() > MAX_WORD {
-            return (Arc::new([]), 0);
+            return Arc::new([]);
         }
         let key = (field.field_id(), Box::<str>::from(prefix));
         if let Some(hit) = self.prefixes.lock().unwrap().get(&key) {
@@ -303,18 +357,17 @@ impl Index {
         let mut sum: Vec<_> = sum.into_iter().collect();
         sum.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
         sum.truncate(PREFIX_TERMS);
-        let docs = sum.iter().map(|(_, df)| *df as u64).sum();
-        let terms: Arc<[String]> = sum
+        let terms: PrefixTerms = sum
             .into_iter()
-            .filter_map(|(t, _)| String::from_utf8(t).ok())
+            .filter_map(|(t, df)| Some((String::from_utf8(t).ok()?, df)))
             .collect();
         let mut cache = self.prefixes.lock().unwrap();
         // ponytail: dropped whole when full, not LRU; the short prefixes that cost most refill first
         if cache.len() >= MAX_CACHED {
             cache.clear();
         }
-        cache.insert(key, (terms.clone(), docs));
-        (terms, docs)
+        cache.insert(key, terms.clone());
+        terms
     }
 
     fn docs_with(&self, field: Field, term_text: &str) -> u64 {
@@ -345,8 +398,13 @@ impl Index {
             cl.push(must(term(field, last)));
             return Some((cl, rarest.min(self.docs_with(field, last))));
         }
-        let (found, mut docs) = self.prefix_terms(field, last);
-        let mut terms = found.to_vec();
+        let found = self.prefix_terms(field, last);
+        // Every document of the other words is checked against every term: when they are many,
+        // only the commonest terms are worth it.
+        let cap = (TERM_WORK / rarest.max(1)).clamp(MIN_TERMS, PREFIX_TERMS as u64) as usize;
+        let found = &found[..found.len().min(cap)];
+        let mut docs: u64 = found.iter().map(|t| t.1 as u64).sum();
+        let mut terms: Vec<String> = found.iter().map(|t| t.0.clone()).collect();
         // "aven" is the start of "avenue", which the index holds as "av"
         if last.len() >= 2 {
             for (full, short) in canon::VARIANTS {
@@ -371,10 +429,19 @@ impl Index {
 
     /// Country codes of the countries a qualifier names, or starts to.
     fn countries_named(&self, q: &str, open: bool) -> Vec<&str> {
-        let mut out: Vec<&str> = self
-            .countries
+        let names = self.suggest.country_names.get_or_init(|| {
+            let mut all: Vec<_> = self
+                .countries
+                .iter()
+                .map(|(n, cc)| (n.clone(), cc.clone()))
+                .collect();
+            all.sort_unstable();
+            all
+        });
+        let from = names.partition_point(|(n, _)| n.as_str() < q);
+        let mut out: Vec<&str> = names[from..]
             .iter()
-            .filter(|(name, _)| *name == q || (open && q.len() >= 3 && name.starts_with(q)))
+            .take_while(|(n, _)| n == q || (open && q.len() >= 3 && n.starts_with(q)))
             .map(|(_, cc)| cc.as_str())
             .collect();
         out.sort_unstable();
@@ -382,25 +449,47 @@ impl Index {
         out
     }
 
+    /// A place's folded name and folded English name.
+    fn folded_names(&self, id: u32) -> Arc<[String; 2]> {
+        remember(&self.suggest.folded, id, || {
+            let pl = &self.places[id as usize];
+            Arc::new([fold(&pl.primary), fold(pl.name(true))])
+        })
+    }
+
+    /// The place's name and what it lies in, as an address line: "Paris, Ile-de-France, France".
+    fn label(&self, id: u32) -> Arc<str> {
+        remember(&self.suggest.labels, id, || {
+            let mut keys: Vec<&str> = vec![];
+            let mut parts: Vec<&str> = vec![];
+            for p in self.chain(id) {
+                let pl = &self.places[p as usize];
+                if !keys.contains(&pl.key()) {
+                    keys.push(pl.key());
+                    parts.push(pl.name(true));
+                }
+            }
+            parts.join(", ").into()
+        })
+    }
+
     /// Whether `place` lies in what each qualifier names: a country, a region by name or code,
     /// or any larger place around it.
     fn qualifies(&self, place: u32, quals: &[(String, Vec<&str>)], open_last: bool) -> bool {
         let pl = &self.places[place as usize];
         let chain = self.chain(place);
-        let matches = |name: &str, q: &str, open: bool| {
-            let n = fold(name);
-            n == q || (open && q.len() >= 3 && n.starts_with(q))
-        };
+        let matches =
+            |n: &str, q: &str, open: bool| n == q || (open && q.len() >= 3 && n.starts_with(q));
         quals.iter().enumerate().all(|(i, (q, ccs))| {
             let open = open_last && i + 1 == quals.len();
             let code = format!("-{}", q.to_uppercase());
             ccs.contains(&&*pl.cc)
                 || (q.len() <= 3 && pl.region.ends_with(&code))
                 || chain.iter().skip(1).any(|&a| {
-                    let anc = &self.places[a as usize];
-                    matches(&anc.primary, q, open)
-                        || matches(anc.name(true), q, open)
-                        || (q.len() <= 3 && anc.region.ends_with(&code))
+                    let names = self.folded_names(a);
+                    matches(&names[0], q, open)
+                        || matches(&names[1], q, open)
+                        || (q.len() <= 3 && self.places[a as usize].region.ends_with(&code))
                 })
         })
     }
@@ -483,6 +572,11 @@ impl Index {
             } else {
                 parts[1..].iter().map(|p| fold(p)).collect()
             };
+            // a qualifier of one letter says nothing yet, and no place matches it
+            let quals: Vec<String> = quals
+                .into_iter()
+                .filter(|q| !(open && q.chars().count() < 2))
+                .collect();
             let head = &all[..split];
             let head_open = open && quals.is_empty();
             let pool = if quals.is_empty() {
@@ -516,8 +610,8 @@ impl Index {
             }
             candidates.sort_unstable_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
             // candidates come best first, so the first `want` that qualify are the best
-            for (id, fit, score) in candidates {
-                if ranked.len() >= want {
+            for (examined, (id, fit, score)) in candidates.into_iter().enumerate() {
+                if ranked.len() >= want || examined >= EXAMINED {
                     break;
                 }
                 if !found.iter().any(|f| f.0 == id)
@@ -578,12 +672,9 @@ impl Index {
 
     fn place_suggestion(&self, id: u32) -> Suggestion {
         let pl = &self.places[id as usize];
-        let mut a = Map::new();
-        let mut display = vec![];
-        self.address(id, true, &mut a, &mut display);
         Suggestion {
             id: format!("p{id}"),
-            display_name: display.join(", "),
+            display_name: self.label(id).to_string(),
             kind: place_kind(pl),
             country_code: pl.cc.to_string(),
             x: pl.x as f64,
@@ -626,10 +717,9 @@ impl Index {
                 );
                 let code = stored(&doc, self.f.name);
                 let mut display = vec![code];
-                let mut details = Map::new();
                 let mut country_code = String::new();
                 if place != NONE {
-                    self.address(place, true, &mut details, &mut display);
+                    display.push(self.label(place).to_string());
                     country_code = self.places[place as usize].cc.to_string();
                 }
                 Some(Suggestion {
@@ -688,7 +778,7 @@ impl Index {
                 let mut split = road_words.len();
                 while split > 1 && road_words.len() - split < 3 && found.len() < want {
                     split -= 1;
-                    let ids = self.scope(&[road_words[split..].join(" ")], road_open, cc);
+                    let ids = self.scope(&[road_words[split..].join(" ")], road_open, cc, false);
                     if ids.is_empty() {
                         continue;
                     }
@@ -713,7 +803,7 @@ impl Index {
                 ));
                 found
             } else {
-                let ids = self.scope(&typed.parts[1..], typed.open, cc);
+                let ids = self.scope(&typed.parts[1..], typed.open, cc, true);
                 if ids.is_empty() {
                     vec![]
                 } else {
@@ -730,7 +820,7 @@ impl Index {
     }
 
     /// Ids of the places the parts name, to scope streets to: those places and all inside them.
-    fn scope(&self, parts: &[String], open: bool, cc: Option<&str>) -> Vec<u32> {
+    fn scope(&self, parts: &[String], open: bool, cc: Option<&str>, codes: bool) -> Vec<u32> {
         // two letters of a name are too many places to scope streets to
         let short = open && parts.len() == 1 && parts[0].chars().count() < 3;
         let mut ids: Vec<u32> = if short {
@@ -741,8 +831,9 @@ impl Index {
                 .map(|(id, _)| id)
                 .collect()
         };
-        // "main st, il" and "10 downing st, uk": a region's code, a country's name or code
-        if let [one] = parts {
+        // "main st, il" and "10 downing st, uk": a region's code, a country's name or code. Only
+        // after a comma: in "main st" the "st" is a word being typed.
+        if let ([one], true) = (parts, codes) {
             let q = fold(one);
             if (2..=3).contains(&q.len()) {
                 let suffix = format!("-{}", q.to_uppercase());
@@ -894,8 +985,7 @@ impl Index {
         display.push(name.to_string());
         let mut country_code = String::new();
         if place != NONE {
-            let mut details = Map::new();
-            self.address(place, true, &mut details, &mut display);
+            display.push(self.label(place).to_string());
             country_code = self.places[place as usize].cc.to_string();
         }
         Suggestion {
@@ -1121,6 +1211,9 @@ mod tests {
     #[test]
     fn completes_places_by_name_start_and_weight() {
         let (index, dir) = tiny();
+        let cold = names(&index.suggest("par", 5, None)).join("|");
+        index.warm_suggest();
+        assert_eq!(names(&index.suggest("par", 5, None)).join("|"), cold);
         let found = index.suggest("par", 5, None);
         assert_eq!(found[0].id, "p2");
         assert_eq!(
