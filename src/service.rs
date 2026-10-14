@@ -141,4 +141,18 @@ impl Geolocation for Service {
         })
         .await
     }
+
+    async fn list_regions<'a>(
+        &'a self,
+        ctx: RequestContext,
+        _: ServiceRequest<'_, EmptyRequest>,
+    ) -> ServiceResult<impl connectrpc::Encodable<RegionsResponse> + Send + use<'a>> {
+        self.run(&ctx, "ListRegions", async {
+            Ok(RegionsResponse {
+                regions: self.regions.list().to_vec(),
+                ..Default::default()
+            })
+        })
+        .await
+    }
 }

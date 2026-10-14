@@ -10,6 +10,7 @@ use std::collections::{HashMap, HashSet};
 /// `GetRegionMap` serves. Both are derived from the index when the service starts.
 pub struct Regions {
     by_code: HashMap<String, Region>,
+    list: Vec<Region>,
     map: String,
 }
 
@@ -27,6 +28,7 @@ impl Regions {
         Ok(Self {
             map: python_repr(&format_regions(&list)?)?,
             by_code: rows.into_iter().collect(),
+            list,
         })
     }
 
@@ -57,6 +59,11 @@ impl Regions {
             }
         }
         result
+    }
+
+    /// Every region, ordered by country then admin code.
+    pub fn list(&self) -> &[Region] {
+        &self.list
     }
 
     pub fn map(&self) -> &str {

@@ -98,6 +98,7 @@ async fn main() -> Result<()> {
         "ResolveRegion",
         "RefreshRegionMap",
         "GetRegionMap",
+        "ListRegions",
     ] {
         connect = connect.with_route_limits(
             &format!("opengeocoding.Geolocation/{method}"),
@@ -164,6 +165,7 @@ mod tests {
                 "ResolveRegion",
                 "RefreshRegionMap",
                 "GetRegionMap",
+                "ListRegions",
             ] {
                 let request = Request::builder()
                     .uri(format!(

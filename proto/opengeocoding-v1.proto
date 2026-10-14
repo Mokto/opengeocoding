@@ -8,6 +8,7 @@ service Geolocation {
   rpc ResolveRegion(GeoCoordinates) returns (RegionsResponse) {}
   rpc RefreshRegionMap(EmptyRequest) returns (EmptyResponse) {}
   rpc GetRegionMap(EmptyRequest) returns (RegionMap) {}
+  rpc ListRegions(EmptyRequest) returns (RegionsResponse) {}
 }
 
 message EmptyRequest {}

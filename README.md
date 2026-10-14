@@ -64,7 +64,7 @@ curl http://localhost:11121/opengeocoding.Geolocation/SearchAddress \
   -d '{"addressString":"Copenhagen, Denmark"}'
 ```
 
-The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `Geolocation`. The four methods are `SearchAddress`, `ResolveRegion`, `RefreshRegionMap` and `GetRegionMap`.
+The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `Geolocation`. The methods are `SearchAddress`, `ResolveRegion`, `RefreshRegionMap`, `GetRegionMap` and `ListRegions`.
 
 The canonical RPC path is `/opengeocoding.Geolocation/*`. The Go package is `github.com/Mokto/opengeocoding/gen/opengeocoding`; the Rust crate is `opengeocoding`, with generated types under `opengeocoding::proto::opengeocoding`.
 

@@ -267,6 +267,15 @@ fn regions_come_from_codes_and_serve_one_stable_map() {
     // the map does not depend on the order the index listed the regions in
     let reversed = Regions::from_rows(rows.into_iter().rev().collect()).unwrap();
     assert_eq!(regions.map(), reversed.map());
+    assert_eq!(regions.list(), reversed.list());
+    assert_eq!(
+        regions
+            .list()
+            .iter()
+            .map(|r| (r.country_code.as_str(), r.admin_code.as_str()))
+            .collect::<Vec<_>>(),
+        [("dk", "82"), ("dk", "84"), ("ie", "D")]
+    );
     assert!(
         regions
             .map()
