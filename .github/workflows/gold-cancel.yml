@@ -1,0 +1,33 @@
+name: Cancel the checks of a closed pull request
+
+# A pull request that is closed or merged has no use for its staging build or its full-index gold
+# run. Each job below only takes the concurrency group that the work uses, with cancel-in-progress,
+# which cancels it: the gold job then runs its own cleanup step, which deletes the run in the
+# cluster. pull_request_target runs this file from the default branch, so it works for forks, and
+# it executes nothing from the pull request.
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: staging-build-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - run: echo "Cancelled any staging build of #$PR"
+        env:
+          PR: ${{ github.event.pull_request.number }}
+
+  gold:
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: gold-full-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - run: echo "Cancelled any full-index gold run of #$PR"
+        env:
+          PR: ${{ github.event.pull_request.number }}
