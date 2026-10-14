@@ -433,6 +433,22 @@ async fn checks(env: &mut Env) -> Result<()> {
     }
     println!("PASS: reverse lookup and region list");
 
+    let reversed = env
+        .json(
+            "ReverseGeocode",
+            json!({"lat": 55.676098, "lon": 12.568337, "size": 3}),
+        )
+        .await?;
+    let results = reversed["results"].as_array().filter(|r| !r.is_empty());
+    ensure!(
+        results.is_some_and(|r| r.iter().all(|r| {
+            r["address"]["addressDetails"]["countryCode"] == "dk"
+                && ["address", "locality"].contains(&r["layer"].as_str().unwrap_or_default())
+        })),
+        "{reversed}"
+    );
+    println!("PASS: reverse geocoding");
+
     let suggested = env
         .json("SuggestAddress", json!({"text": "copenha", "limit": 3}))
         .await?;
@@ -451,6 +467,7 @@ async fn checks(env: &mut Env) -> Result<()> {
     for (method, payload) in [
         ("SearchAddress", json!({"addressString": "bad\u{0}address"})),
         ("ResolveRegion", json!({"lat": 100, "lon": 0})),
+        ("ReverseGeocode", json!({"lat": 0, "lon": 181})),
         ("SuggestAddress", json!({"text": "bad\u{0}text"})),
         (
             "SuggestAddress",

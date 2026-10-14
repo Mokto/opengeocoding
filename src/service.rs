@@ -11,6 +11,11 @@ fn valid_coordinates(lat: f32, lon: f32) -> bool {
     (-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon)
 }
 
+const REVERSE_RADIUS_DEFAULT: u32 = 500;
+const REVERSE_RADIUS_MAX: u32 = 2000;
+const REVERSE_DEFAULT: usize = 1;
+const REVERSE_MAX: usize = 10;
+
 pub struct Service {
     pub resolver: Resolver,
     pub regions: Regions,
@@ -172,6 +177,49 @@ impl Geolocation for Service {
                         ..Default::default()
                     })
                     .collect(),
+                ..Default::default()
+            })
+        })
+        .await
+    }
+
+    async fn reverse_geocode<'a>(
+        &'a self,
+        ctx: RequestContext,
+        request: ServiceRequest<'_, ReverseGeocodeRequest>,
+    ) -> ServiceResult<impl connectrpc::Encodable<ReverseGeocodeResponse> + Send + use<'a>> {
+        self.run(&ctx, "ReverseGeocode", async {
+            if !valid_coordinates(request.lat, request.lon) {
+                return Err(ConnectError::invalid_argument(
+                    "Enter valid latitude and longitude coordinates.",
+                )
+                .into());
+            }
+            let radius = match request.radius_m {
+                0 => REVERSE_RADIUS_DEFAULT,
+                n => n.min(REVERSE_RADIUS_MAX),
+            };
+            let size = match request.size {
+                0 => REVERSE_DEFAULT,
+                n => (n as usize).min(REVERSE_MAX),
+            };
+            let mut results = self
+                .resolver
+                .reverse_search(request.lat, request.lon, radius as f64, size)
+                .await?;
+            for result in &mut results {
+                if let Some(details) = result
+                    .address
+                    .as_option_mut()
+                    .and_then(|a| a.address_details.as_option_mut())
+                {
+                    details
+                        .regions
+                        .extend(self.regions.reformat(&details.region_codes));
+                }
+            }
+            Ok(ReverseGeocodeResponse {
+                results,
                 ..Default::default()
             })
         })

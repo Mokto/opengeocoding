@@ -1,6 +1,7 @@
 //! Address lookup over a `build_index` output directory, loaded into the service process.
 //! Responses keep the Nominatim-style JSON candidate format the resolver reads.
 pub mod canon;
+pub mod reverse;
 pub mod schema;
 
 use anyhow::{Context, Result};
@@ -313,6 +314,8 @@ pub struct Index {
     f: Fields,
     /// Memory-mapped, so cold parts stay in the page cache instead of private memory.
     numbers: Vec<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
+    /// Absent from hand-built indexes, which then answer reverse lookups with a locality only.
+    reverse: Option<reverse::Reverse>,
     places: Vec<Place>,
     /// Folded country names and ISO codes -> lowercase country code.
     countries: HashMap<String, String>,
@@ -969,6 +972,13 @@ impl Index {
                 )?))
             })
             .collect::<Result<_>>()?;
+        let reverse = if dir.join(reverse::FILE).exists() {
+            use tantivy::directory::Directory;
+            let file = mmap.open_read(Path::new(reverse::FILE))?;
+            Some(reverse::Reverse::new(file.read_bytes()?)?)
+        } else {
+            None
+        };
         let reference: Value =
             serde_json::from_str(include_str!("../../data/reference.json")).unwrap();
         let (mut places, own) = load_places(&dir.join("places.tsv"), &iso_by_item(&reference))?;
@@ -1047,6 +1057,7 @@ impl Index {
             columns,
             f,
             numbers,
+            reverse,
             places,
             countries,
             country_places,
@@ -2472,6 +2483,117 @@ impl Index {
         })
     }
 
+    /// The houses within `radius_m` of a point, nearest first, each with its distance in metres.
+    /// Streets are looked up by the grid cells their houses occupy, then their houses by distance.
+    // ponytail: rings of cells grow in every direction by the smaller cell side, so a high-latitude
+    // search reads more cells than it needs, and cells past the antimeridian or poles aren't
+    // searched. Upgrade: per-axis ring counts and wrapped columns.
+    fn reverse_houses(&self, lat: f64, lon: f64, radius_m: f64, size: usize) -> Vec<(Value, f64)> {
+        use tantivy::schema::Value as _;
+        use tantivy_fst::{IntoStreamer, Streamer};
+        let Some(rev) = &self.reverse else {
+            return vec![];
+        };
+        let (cx, cy) = reverse::cell_at(lon, lat);
+        let cos = lat.to_radians().cos().max(0.01);
+        let cell_m = reverse::CELL_LAT_M.min(reverse::CELL_LON_M * cos);
+        let meters = |x: f64, y: f64| ((x - lon) * cos).hypot(y - lat) * 111_195.0;
+        // (distance, street document, number, x, y, postcode slot)
+        let mut found: Vec<(f64, DocAddress, String, f64, f64, u8)> = vec![];
+        let (mut seen, mut docs) = (std::collections::HashSet::new(), vec![]);
+        for ring in 0..=(radius_m / cell_m).ceil() as i64 {
+            docs.clear();
+            for dy in -ring..=ring {
+                let step = if dy.abs() == ring { 1 } else { 2 * ring };
+                for dx in (-ring..=ring).step_by(step as usize) {
+                    rev.docs(cx + dx, cy + dy, &mut docs);
+                }
+            }
+            for &packed in &docs {
+                if !seen.insert(packed) {
+                    continue;
+                }
+                let (segment, doc) = reverse::unpack_doc(packed);
+                let a = DocAddress::new(segment, doc);
+                let sid = self.fast(a, "id") as u32;
+                let mut range = self.numbers[sid as usize % self.numbers.len()]
+                    .range()
+                    .ge(sid.to_be_bytes());
+                if let Some(next) = sid.checked_add(1) {
+                    range = range.lt(next.to_be_bytes());
+                }
+                let mut houses = range.into_stream();
+                while let Some((key, value)) = houses.next() {
+                    let (x, y, own) = schema::unpack(value);
+                    let m = meters(x, y);
+                    if m <= radius_m {
+                        let number = String::from_utf8_lossy(&key[4..]).into_owned();
+                        found.push((m, a, number, x, y, own));
+                    }
+                }
+            }
+            found.sort_by(|p, q| {
+                p.0.total_cmp(&q.0).then_with(|| {
+                    (p.1.segment_ord, p.1.doc_id, &p.2).cmp(&(q.1.segment_ord, q.1.doc_id, &q.2))
+                })
+            });
+            found.truncate(size);
+            // everything within `ring` cells' width of the point has been read
+            if found.len() == size && found[size - 1].0 <= ring as f64 * cell_m {
+                break;
+            }
+        }
+        found
+            .into_iter()
+            .filter_map(|(m, a, number, x, y, own)| {
+                let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
+                let postcode = (own > 0)
+                    .then(|| {
+                        doc.get_all(self.f.pcode)
+                            .nth(own as usize - 1)?
+                            .as_str()
+                            .map(pc_norm)
+                    })
+                    .flatten();
+                let hit = Hit::Street {
+                    sid: self.fast(a, "id") as u32,
+                    place: self.fast(a, "place") as u32,
+                    name: stored(&doc, self.f.name),
+                    x,
+                    y,
+                    number: Some(number),
+                    postcode,
+                    city: None,
+                    cc: String::new(),
+                };
+                Some((self.render(&hit, true), m))
+            })
+            .collect()
+    }
+
+    /// Up to `size` results for a point: the houses within `radius_m`, nearest first, as
+    /// ("address", ...) or, with none, the nearest locality ("locality", ...) wherever it is within
+    /// about 50 km. Each result comes with its distance in metres.
+    pub fn reverse_search(
+        &self,
+        lat: f64,
+        lon: f64,
+        radius_m: f64,
+        size: usize,
+    ) -> Vec<(&'static str, Value, f64)> {
+        let houses = self.reverse_houses(lat, lon, radius_m, size);
+        if !houses.is_empty() {
+            return houses.into_iter().map(|(v, m)| ("address", v, m)).collect();
+        }
+        let place = self.reverse(lat, lon);
+        let coordinate = |key: &str| place[key].as_str().and_then(|s| s.parse::<f64>().ok());
+        let (Some(y), Some(x)) = (coordinate("lat"), coordinate("lon")) else {
+            return vec![];
+        };
+        let m = ((x - lon) * lat.to_radians().cos()).hypot(y - lat) * 111_195.0;
+        vec![("locality", place, m)]
+    }
+
     /// Nearest locality point within about 50 km.
     pub fn reverse(&self, lat: f64, lon: f64) -> Value {
         for d in [0.05, 0.5] {
@@ -2526,6 +2648,105 @@ mod tests {
         check_builder(&dir).unwrap();
         write("0000000000000000");
         assert!(check_builder(&dir).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Builds a tiny index through the builder's own number and reverse writers, then reads houses
+    /// back by distance: nearest first, only within the radius, across streets, with postcodes.
+    #[test]
+    fn reverse_finds_the_nearest_houses() {
+        let dir = std::env::temp_dir().join(format!("reverse-houses-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let (schema, f) = schema::schema();
+        let tantivy_index = tantivy::Index::create_in_dir(&dir, schema).unwrap();
+        tantivy_index
+            .tokenizers()
+            .register("fold", schema::analyzer());
+        let mut writer: tantivy::IndexWriter = tantivy_index
+            .writer_with_num_threads(1, 15_000_000)
+            .unwrap();
+        for (sid, name, pcode) in [(1000u64, "Oak Street", "12345"), (1001, "Elm Street", "")] {
+            let mut d = tantivy::doc!(
+                f.kind => "s", f.names => name.to_lowercase(), f.country => "US", f.id => sid,
+                f.place => 0u64, f.importance => 1u64, f.x => 10.0, f.y => 50.0, f.name => name
+            );
+            if !pcode.is_empty() {
+                d.add_text(f.pcode, pcode);
+            }
+            writer.add_document(d).unwrap();
+        }
+        writer.commit().unwrap();
+        drop(writer);
+        let at = |sid, number: &str, lon, lat, own| {
+            let (x, y) = schema::pack(lon, lat, own);
+            schema::Num::new(sid, number, x, y).ok().unwrap()
+        };
+        let spill = schema::NumberSpill::new(dir.join(".numbers-spill"), 1);
+        spill.add(vec![schema::Bucket {
+            short: vec![
+                at(1000, "1", 10.0, 50.0, 1),
+                at(1000, "2", 10.0002, 50.0, 0),
+                at(1001, "7", 10.0003, 50.0004, 0),
+                at(1001, "9", 10.05, 50.0, 0),
+            ],
+            long: vec![],
+        }]);
+        spill.write_fsts(dir.to_str().unwrap(), 1);
+        assert_eq!(
+            reverse::build(&dir, &tantivy_index, f.kind).unwrap(),
+            // Oak's two houses share a cell; Elm's two are in two
+            3
+        );
+        std::fs::write(
+            dir.join("places.tsv"),
+            "country\t\tUS\t\t\t0\t0\t0\t0\t0\t0\t0\t\tUnited States\ten=United States\n",
+        )
+        .unwrap();
+        let index = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
+        let find = |lat, lon, radius, size| {
+            index
+                .reverse_search(lat, lon, radius, size)
+                .into_iter()
+                .map(|(layer, v, m)| {
+                    let a = &v["address"];
+                    let number = a["house_number"].as_str().unwrap_or_default().to_string();
+                    (
+                        layer,
+                        a["road"].as_str().unwrap_or_default().to_string(),
+                        number,
+                        m,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        let hits = find(50.0, 10.00005, 500.0, 2);
+        let named: Vec<_> = hits
+            .iter()
+            .map(|h| (h.0, h.1.as_str(), h.2.as_str()))
+            .collect();
+        assert_eq!(
+            named,
+            [
+                ("address", "Oak Street", "1"),
+                ("address", "Oak Street", "2")
+            ]
+        );
+        assert!(hits[0].3 < 5.0 && hits[0].3 < hits[1].3, "{hits:?}");
+        let postcode =
+            index.reverse_search(50.0, 10.0, 500.0, 1)[0].1["address"]["postcode"].clone();
+        assert_eq!(postcode, "12345");
+        // 100 m takes in the first three houses of two streets, not the one 3 km away
+        let numbers: Vec<_> = find(50.0, 10.0, 100.0, 10)
+            .into_iter()
+            .map(|h| h.2)
+            .collect();
+        assert_eq!(numbers, ["1", "2", "7"]);
+        // beyond a ring of cells the nearest house is still found, from another street
+        let far = find(50.0, 10.05, 500.0, 1);
+        assert_eq!((far[0].1.as_str(), far[0].2.as_str()), ("Elm Street", "9"));
+        // no house and no locality in range
+        assert!(find(51.0, 11.0, 500.0, 1).is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
