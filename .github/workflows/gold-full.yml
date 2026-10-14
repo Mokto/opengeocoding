@@ -1,7 +1,8 @@
 name: Gold check (full index)
 
 # Runs the gold suite on a full index in a private cluster: both commits' staging images (built
-# and published by staging-build.yml and staging-publish.yml) are evaluated there on the same index,
+# and published by staging-build.yml and staging-publish.yml, which calls this once the images are
+# pushed, so github.event is still the build run's) are evaluated there on the same index,
 # and the report comes back through an authenticated endpoint. No code from the pull request runs
 # here and the cluster holds no GitHub credentials; this workflow only sends two commit hashes.
 #
@@ -10,9 +11,7 @@ name: Gold check (full index)
 # only accept workflows from main and hold the endpoint key (GOLD_GATEWAY_KEY) and URL
 # (GOLD_GATEWAY_URL).
 on:
-  workflow_run:
-    workflows: [Staging image publish]
-    types: [completed]
+  workflow_call:
 
 permissions: {}
 
