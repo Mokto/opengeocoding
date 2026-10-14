@@ -291,6 +291,86 @@ async fn checks(env: &mut Env) -> Result<()> {
     ensure!(found == json!({}), "{found}");
     println!("PASS: local-language corroboration, postcode match and unmatched-part rejection");
 
+    // Production queries that once got a wrong answer, a confident wrong one, or none.
+    for (query, country, good) in [
+        // a place named by a few words of a long query is a guess, not Thuin in Belgium
+        (
+            "Shop 35, Pietersburg Rd, Twin City Shopping Centre, Burgersfort, Lebowokgomo",
+            "za",
+            false,
+        ),
+        // the country the parser filed as a house
+        (
+            "7th Flr. Al Zamel Building, Manama. P.O. Box 54482, Kingdom of Bahrain",
+            "bh",
+            false,
+        ),
+        ("Pier 83 Midtown", "", false),
+        ("P.O. Box 21, Mt. Gretna, PA, 17064", "us", false),
+        ("Mt. Gretna, PA 17064", "us", true),
+        ("Taman Intan, 41300, Klang, Selangor", "my", false),
+        ("Launde, Lincs, LN4 3JG", "gb", false),
+        ("coulsdon, london", "gb", true),
+        ("Hegelstraße 8, 63628 Bad Soden-Salmünster", "de", true),
+        ("567 S 5th Street, West Dundee, IL 60118 IDX", "us", true),
+        (
+            "1236 Somerset Avenue, Taunton, MA 02780, Canada",
+            "us",
+            true,
+        ),
+        // a territory answers under its sovereign, as the services this replaced did
+        ("San Juan, Puerto Rico", "us", true),
+        ("Saint-Denis, Réunion", "fr", true),
+    ] {
+        let found = env.search(query).await?;
+        let details = &found["addressDetails"];
+        ensure!(
+            (country.is_empty() || details["countryCode"] == country)
+                && found["goodMatch"].as_bool().unwrap_or(false) == good,
+            "{query}: {found}"
+        );
+    }
+    let found = env
+        .search("Hegelstraße 8, 63628 Bad Soden-Salmünster")
+        .await?;
+    ensure!(found["addressDetails"]["houseNumber"] == "8", "{found}");
+    // a street the data lacks is never answered by another street, or with confidence
+    let found = env.search("Шарикоподшипниковская ул., 4, Москва").await?;
+    ensure!(
+        found["addressDetails"]["houseNumber"].is_null()
+            && found["addressDetails"]["road"].is_null()
+            && found["goodMatch"].as_bool() != Some(true),
+        "{found}"
+    );
+    // postcodes as the country writes them, with a country even for a street filed under no town
+    for (query, country, postcode) in [
+        ("Damrak 1, Amsterdam", "nl", "1012 LG"),
+        ("Pointe-Claire, QC H9R 5Z5", "ca", "H9R 5Z5"),
+        (
+            "Monument House, 1st Floor 215 Marsh Road Pinner ha5 5ne",
+            "gb",
+            "HA5 5NE",
+        ),
+        (
+            "U Krčské vodárny 1133/61, 140 00, Praha 4 – Krč, Česká republika",
+            "cz",
+            "140 00",
+        ),
+    ] {
+        let found = env.search(query).await?;
+        let details = &found["addressDetails"];
+        ensure!(
+            details["countryCode"] == country && details["postcode"] == postcode,
+            "{query}: {found}"
+        );
+    }
+    // no part of a display name repeats the one before it
+    let found = env.search("10 Rue de Rivoli, Paris, France").await?;
+    let display = found["displayName"].as_str().unwrap_or("");
+    let parts: Vec<_> = display.split(", ").collect();
+    ensure!(parts.windows(2).all(|w| w[0] != w[1]), "{found}");
+    println!("PASS: noisy, ambiguous and unmatched queries, postcode formats, territories");
+
     let regions = env
         .json("ResolveRegion", json!({"lat": 55.676098, "lon": 12.568337}))
         .await?;

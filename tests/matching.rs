@@ -336,3 +336,277 @@ fn postcode_and_a_place_above_the_locality_corroborate_the_town() {
         at("", "Aarhus", "1165").address_details.as_option()
     ));
 }
+
+fn at(country: &str, road: &str, house: &str, city: &str, postcode: &str) -> FullAddress {
+    FullAddress {
+        address_details: AddressDetails {
+            country_code: country.into(),
+            road: road.into(),
+            house_number: house.into(),
+            city: city.into(),
+            postcode: postcode.into(),
+            ..Default::default()
+        }
+        .into(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn place_names_agree_across_abbreviations() {
+    for (expected, actual) in [
+        ("Mt. Gretna", "Mount Gretna"),
+        ("St. Louis", "Saint Louis"),
+        ("Ft Wayne", "Fort Wayne"),
+        ("Sankt Gallen", "St. Gallen"),
+    ] {
+        assert!(names_agree(expected, actual), "{expected} vs {actual}");
+    }
+    assert!(!names_agree("Mt. Gretna", "Mount Pleasant"));
+}
+
+#[test]
+fn a_junk_or_merged_town_does_not_outweigh_house_road_and_postcode() {
+    let street = at("us", "South 5th Street", "567", "West Dundee", "60118");
+    let stated = |city: &str| {
+        parsed(&[
+            ("house_number", "567"),
+            ("road", "s 5th street"),
+            ("city", city),
+            ("postcode", "60118"),
+        ])
+    };
+    let details = street.address_details.as_option();
+    assert!(!city_agrees(&stated("idx"), details));
+    assert!(house_road_postcode(&stated("idx"), "60118", details));
+    assert!(!house_road_postcode(&stated("idx"), "60119", details));
+    assert!(!house_road_postcode(
+        &parsed(&[("house_number", "568"), ("road", "s 5th street")]),
+        "60118",
+        details
+    ));
+    // a merged municipality's name holds its old village's: only beside the exact house and road
+    let village = at("de", "Hegelstraße", "8", "Bad Soden", "");
+    let merged = parsed(&[
+        ("house_number", "8"),
+        ("road", "hegelstraße"),
+        ("city", "bad soden-salmünster"),
+    ]);
+    assert!(house_road_city(
+        &merged,
+        village.address_details.as_option()
+    ));
+    let other_house = parsed(&[
+        ("house_number", "9"),
+        ("road", "hegelstraße"),
+        ("city", "bad soden-salmünster"),
+    ]);
+    assert!(!house_road_city(
+        &other_house,
+        village.address_details.as_option()
+    ));
+}
+
+#[test]
+fn a_town_without_postcodes_accepts_the_stated_one_but_not_a_contradicting_one() {
+    let address = parsed(&[
+        ("city", "mt. gretna"),
+        ("state", "pa"),
+        ("postcode", "17064"),
+    ]);
+    let held = |postcode: &str, state: &str, code: &str| FullAddress {
+        address_details: AddressDetails {
+            country_code: "us".into(),
+            city: "Mount Gretna".into(),
+            state: state.into(),
+            postcode: postcode.into(),
+            region_codes: vec![ISO3166_2 {
+                admin_level: 4,
+                code: code.into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }
+        .into(),
+        ..Default::default()
+    };
+    let pa = held("", "Pennsylvania", "US-PA");
+    assert_eq!(
+        unpostcoded_candidate(&address, "us", "17064", std::slice::from_ref(&pa), |_| {
+            false
+        }),
+        Some(0)
+    );
+    // a postcode the town holds is judged by choose_candidate, not this
+    assert_eq!(
+        unpostcoded_candidate(
+            &address,
+            "us",
+            "17064",
+            &[held("17042", "Pennsylvania", "US-PA")],
+            |_| false
+        ),
+        None
+    );
+    // another state's town of that name
+    assert_eq!(
+        unpostcoded_candidate(
+            &address,
+            "us",
+            "17064",
+            &[held("", "Ohio", "US-OH")],
+            |_| false
+        ),
+        None
+    );
+    // a US ZIP is no Canadian postcode: "Taunton, MA 02780, Canada" is not Taunton, Ontario
+    let ontario = FullAddress {
+        address_details: AddressDetails {
+            country_code: "ca".into(),
+            city: "Taunton".into(),
+            ..Default::default()
+        }
+        .into(),
+        ..Default::default()
+    };
+    let taunton = parsed(&[
+        ("city", "taunton"),
+        ("postcode", "02780"),
+        ("country", "canada"),
+    ]);
+    assert_eq!(
+        unpostcoded_candidate(&taunton, "ca", "02780", &[ontario], |_| false),
+        None
+    );
+    // nor does a country whose postcodes are unknown to us vouch for one
+    let congo = FullAddress {
+        address_details: AddressDetails {
+            country_code: "cd".into(),
+            city: "Avenue".into(),
+            ..Default::default()
+        }
+        .into(),
+        ..Default::default()
+    };
+    let avenue = parsed(&[("city", "avenue"), ("postcode", "45229")]);
+    assert_eq!(
+        unpostcoded_candidate(&avenue, "", "45229", &[congo], |_| false),
+        None
+    );
+    // the data knows the postcode, so the town it names there is another one
+    assert_eq!(
+        unpostcoded_candidate(&address, "us", "17064", &[pa], |cc| cc == "us"),
+        None
+    );
+    assert!(postcode_fits("ca", "H9R 5Z5") && !postcode_fits("ca", "02780"));
+    assert!(postcode_fits("xx", "anything"));
+}
+
+#[test]
+fn a_country_written_as_the_last_part_is_found_when_the_parser_missed_it() {
+    let missed = parsed(&[("house", "kingdom of bahrain")]);
+    assert_eq!(
+        country_in_tail(
+            "7th Flr. Al Zamel Building, Manama. P.O. Box 54482, Kingdom of Bahrain",
+            &missed
+        )
+        .as_deref(),
+        Some("Kingdom of Bahrain")
+    );
+    // a state code, a state the parser labelled, a lone part and a numbered part are no country
+    assert_eq!(
+        country_in_tail("287 Traffic Road, VA 23924", &parsed(&[])),
+        None
+    );
+    assert_eq!(country_in_tail("Springfield, VA", &parsed(&[])), None);
+    assert_eq!(
+        country_in_tail("Atlanta, Georgia", &parsed(&[("state", "georgia")])),
+        None
+    );
+    assert_eq!(country_in_tail("Bahrain", &parsed(&[])), None);
+}
+
+#[test]
+fn coverage_counts_the_query_words_a_candidate_explains() {
+    let thuin = ["Thuin, Hainaut, Wallonia, Belgium", "Twin"];
+    let (explained, total) = coverage(
+        "Shop 35, Pietersburg Rd, Twin City Shopping Centre, Burgersfort, Lebowokgomo",
+        thuin,
+    );
+    assert!(total >= 6 && explained * 2 < total, "{explained}/{total}");
+    let burgersfort = ["Burgersfort, Sekhukhune District Municipality, Limpopo, South Africa"];
+    let (explained, _) = coverage(
+        "Shop 35, Pietersburg Rd, Twin City Shopping Centre, Burgersfort, Lebowokgomo",
+        burgersfort,
+    );
+    assert_eq!(explained, 1);
+    // a postcode written with a space is the candidate's unspaced one
+    let toronto = ["M3J3G8, North York, Toronto, Ontario, Canada"];
+    assert_eq!(coverage("Toronto, Ontario, M3J 3G8", toronto), (4, 4));
+    // a repeated word counts once, and single letters and street types say nothing
+    assert_eq!(coverage("Afrique, Afrique", ["Paris"]), (0, 1));
+    assert_eq!(coverage("A, St", ["Paris"]), (0, 0));
+}
+
+#[test]
+fn postcodes_are_written_as_the_country_writes_them() {
+    for (country, input, expected) in [
+        ("nl", "1012LG", "1012 LG"),
+        ("nl", "1012 lg", "1012 LG"),
+        ("ca", "H9R5Z5", "H9R 5Z5"),
+        ("ca", "v2y 3b3", "V2Y 3B3"),
+        ("gb", "ha5 5ne", "HA5 5NE"),
+        ("gb", "SW1A2AA", "SW1A 2AA"),
+        ("gb", "EC4", "EC4"),
+        ("gb", "rh14", "RH14"),
+        ("gb", "N12 0Dr", "N12 0DR"),
+        ("ie", "d02af30", "D02 AF30"),
+        ("cz", "14000", "140 00"),
+        ("pl", "00926", "00-926"),
+        ("pt", "7040303", "7040-303"),
+        ("br", "04815050", "04815-050"),
+        ("us", "606011234", "60601-1234"),
+        ("us", "60601", "60601"),
+        // not ours to rewrite: another alphabet, a prefix, an unknown country, an odd shape
+        ("lv", "LV-1050", "LV-1050"),
+        ("de", "63628", "63628"),
+        ("gb", "12345", "12345"),
+        ("", "1012LG", "1012LG"),
+    ] {
+        assert_eq!(
+            format_postcode(country, input),
+            expected,
+            "{country} {input}"
+        );
+    }
+}
+
+#[test]
+fn a_territory_named_as_the_country_matches_its_sovereign() {
+    let us = at("us", "", "", "San Juan", "");
+    let pr = at("pr", "", "", "San Juan", "");
+    assert!(country_matches("pr", us.address_details.as_option()));
+    assert!(country_matches("pr", pr.address_details.as_option()));
+    assert!(!country_matches("us", pr.address_details.as_option()));
+    assert!(!country_matches(
+        "gl",
+        at("dk", "", "", "", "").address_details.as_option()
+    ));
+}
+
+#[test]
+fn a_po_box_is_told_from_a_misfiled_town() {
+    for text in [
+        "p.o. box 21",
+        "PO Box 9103",
+        "Postbus 12",
+        "apartado 33",
+        "BP 177",
+        "box 4",
+    ] {
+        assert!(is_po_box(text), "{text}");
+    }
+    for text in ["", "cc baarle-nassau", "boxtel"] {
+        assert!(!is_po_box(text), "{text}");
+    }
+}

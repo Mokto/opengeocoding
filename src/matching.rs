@@ -1,4 +1,7 @@
-use crate::proto::opengeocoding::{AddressDetails, FullAddress};
+use crate::{
+    index::{canon::canon, schema::fold},
+    proto::opengeocoding::{AddressDetails, FullAddress},
+};
 use indexmap::IndexMap;
 use regex::Regex;
 use serde::Deserialize;
@@ -83,6 +86,8 @@ pub fn normalize_postcode(value: &str) -> String {
 /// Words that qualify a place name rather than identify it ("Valga city", "Town of Cambridge",
 /// "Special Capital Region of Jakarta").
 const QUALIFIERS: &[&str] = &[
+    "and",
+    "borough",
     "capital",
     "city",
     "district",
@@ -122,7 +127,14 @@ fn place_keys(value: &str) -> (String, String) {
         .map_or(start, |i| i + 1);
     // Spacing differs between transliterations (Hà Nội/Hanoi, 上海/Shanghai); Danish and Norwegian
     // "aa" is the older spelling of "å" (Aarhus/Århus).
-    let compact = |words: &[&str]| words.concat().replace("aa", "a");
+    // "Mt. Gretna" is "Mount Gretna": the index's street-type canonicalization, applied to both.
+    let compact = |words: &[&str]| {
+        words
+            .iter()
+            .map(|w| canon(w).unwrap_or(w))
+            .collect::<String>()
+            .replace("aa", "a")
+    };
     (compact(&words), compact(&words[start..end.max(start)]))
 }
 
@@ -135,9 +147,20 @@ pub fn names_agree(expected: &str, actual: &str) -> bool {
 }
 
 pub fn expected_country(address: &ParsedAddress) -> String {
-    REFERENCE
-        .countries
-        .get(&clean(part(address, "country"), false))
+    let stated = clean(part(address, "country"), false);
+    // "Kingdom of Bahrain", "Republic of Korea": the form of state is not the name
+    const FORMS: &[&str] = &[
+        "kingdom of ",
+        "republic of ",
+        "state of ",
+        "sultanate of ",
+        "emirate of ",
+        "commonwealth of ",
+        "the ",
+    ];
+    std::iter::once(stated.as_str())
+        .chain(FORMS.iter().filter_map(|f| stated.strip_prefix(f)))
+        .find_map(|name| REFERENCE.countries.get(name))
         .cloned()
         .unwrap_or_default()
 }
@@ -234,7 +257,12 @@ pub fn eircode(query: &str) -> String {
 }
 
 pub fn country_matches(expected: &str, details: Option<&AddressDetails>) -> bool {
-    expected.is_empty() || details.is_some_and(|d| d.country_code.to_lowercase() == expected)
+    expected.is_empty()
+        || details.is_some_and(|d| {
+            let actual = d.country_code.to_lowercase();
+            // a territory named as the country is answered under its sovereign
+            actual == expected || crate::index::sovereign(expected) == Some(actual.as_str())
+        })
 }
 
 pub fn postcode_agrees(expected: &str, details: Option<&AddressDetails>) -> bool {
@@ -335,12 +363,38 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
         && !house.is_empty()
         && !d.road.is_empty()
         && !d.house_number.is_empty()
-        && normalize_place(road) == normalize_place(&d.road)
+        && road_key(road) == road_key(&d.road)
         && house.split(whitespace).collect::<String>().to_lowercase()
             == d.house_number
                 .split(whitespace)
                 .collect::<String>()
                 .to_lowercase()
+}
+
+/// A road name with its type and direction words canonicalized ("S 5th Street" and "South 5th
+/// Street" are one road).
+fn road_key(road: &str) -> String {
+    normalize_place(road)
+        .split(' ')
+        .map(|w| canon(w).unwrap_or(w))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// The stated house, road and postcode all equal the candidate's. A town the input names
+/// wrongly or not at all (a trailing "IDX", a merged municipality's old village) can't outweigh
+/// that.
+pub fn house_road_postcode(
+    address: &ParsedAddress,
+    postcode: &str,
+    details: Option<&AddressDetails>,
+) -> bool {
+    road_agrees(address, details)
+        && details.is_some_and(|d| {
+            !postcode.is_empty()
+                && !d.postcode.is_empty()
+                && normalize_postcode(postcode) == normalize_postcode(&d.postcode)
+        })
 }
 
 pub fn same_postcode_country(
@@ -376,7 +430,13 @@ pub fn choose_candidate(
             .map(|i| (i, "country"))
             .or_else(|| {
                 if !contradicts {
-                    hits.first().copied().map(|i| (i, tier))
+                    // another country's place of that name, in the region stated (or none)
+                    hits.iter()
+                        .copied()
+                        .find(|&i| {
+                            state_consistent(address, candidates[i].address_details.as_option())
+                        })
+                        .map(|i| (i, tier))
                 } else {
                     hits.iter()
                         .copied()
@@ -463,9 +523,32 @@ pub fn choose_candidate(
     None
 }
 
-/// House number, road and town all agree with the parsed address.
+/// House number, road and town all agree with the parsed address. Beside an exact house and
+/// road, a town that is the candidate's with more words ("Bad Soden-Salmünster" for the village
+/// Bad Soden it merged) counts too.
 pub fn house_road_city(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
-    road_agrees(address, details) && city_agrees(address, details)
+    road_agrees(address, details)
+        && (city_agrees(address, details) || city_related(address, details))
+}
+
+/// One of the town names is the other's first words.
+fn city_related(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
+    let expected = normalize_place(part(address, "city"));
+    let Some(d) = details else {
+        return false;
+    };
+    let within = |long: &str, short: &str| {
+        short.len() >= 5
+            && long
+                .strip_prefix(short)
+                .is_some_and(|rest| rest.starts_with(' '))
+    };
+    !expected.is_empty()
+        && [&d.city, &d.town, &d.village, &d.municipality]
+            .iter()
+            .filter(|s| !s.is_empty())
+            .map(|s| normalize_place(s))
+            .any(|actual| within(&expected, &actual) || within(&actual, &expected))
 }
 
 pub fn without_country(query: &str, address: &ParsedAddress) -> String {
@@ -484,4 +567,269 @@ pub fn without_country(query: &str, address: &ParsedAddress) -> String {
     } else {
         stripped
     }
+}
+
+/// The part of a multi-part query that names a country when the parser labelled it something
+/// else ("Manama. P.O. Box 54482, Kingdom of Bahrain" gives house "kingdom of bahrain"). A part
+/// the parser took for a region or town is left alone: "Georgia" after a town is a US state.
+pub fn country_in_tail(query: &str, address: &ParsedAddress) -> Option<String> {
+    let parts: Vec<_> = query
+        .split(',')
+        .map(|s| s.trim_matches(whitespace))
+        .filter(|s| !s.is_empty())
+        .collect();
+    // A two-letter part is a state ("VA", "IN", "CA") more often than a country code, and no
+    // country is written with digits.
+    let last = *parts.last().filter(|l| {
+        parts.len() >= 2 && l.chars().count() > 2 && !l.chars().any(|c| c.is_numeric())
+    })?;
+    let labelled = |label: &str| normalize_place(part(address, label)) == normalize_place(last);
+    let places = [
+        "city",
+        "city_district",
+        "suburb",
+        "state",
+        "state_district",
+        "country_region",
+    ];
+    if places.iter().any(|label| labelled(label)) {
+        return None;
+    }
+    let candidate = parsed_country(last);
+    (!expected_country(&candidate).is_empty()).then(|| last.to_owned())
+}
+
+fn parsed_country(text: &str) -> ParsedAddress {
+    ParsedAddress::from_iter([("country".to_owned(), text.to_owned())])
+}
+
+/// How many of the query's content words the candidate's texts account for, and how many there
+/// are: a word is accounted for when it, or it joined to a neighbour ("M3J 3G8" is "M3J3G8"),
+/// is one of the texts' words. Single letters and street-type words say nothing about a place.
+pub fn coverage<'a>(query: &str, texts: impl IntoIterator<Item = &'a str>) -> (usize, usize) {
+    let known: std::collections::HashSet<String> = texts
+        .into_iter()
+        .flat_map(|t| fold(t).split(' ').map(str::to_owned).collect::<Vec<_>>())
+        .collect();
+    let words: Vec<String> = fold(query)
+        .split(' ')
+        .map(str::to_owned)
+        .filter(|w| !w.is_empty())
+        .collect();
+    let content = |w: &String| {
+        w.chars().any(|c| c.is_ascii_digit()) || (w.chars().count() >= 3 && !is_street_word(w))
+    };
+    let mut explained = 0;
+    let mut total = 0;
+    let mut seen = std::collections::HashSet::new();
+    for (i, word) in words.iter().enumerate().filter(|(_, w)| content(w)) {
+        if !seen.insert(word) {
+            continue;
+        }
+        total += 1;
+        let joined_next = words.get(i + 1).map(|n| format!("{word}{n}"));
+        let joined_prev = i.checked_sub(1).map(|p| format!("{}{word}", words[p]));
+        if known.contains(word)
+            || joined_next.is_some_and(|j| known.contains(&j))
+            || joined_prev.is_some_and(|j| known.contains(&j))
+        {
+            explained += 1;
+        }
+    }
+    (explained, total)
+}
+
+/// Words that type a street or an administrative area in some language, and so say nothing of
+/// which one: "Kota Bandung" would otherwise account for the "Kota" of "Kota Jkt Utara".
+fn is_street_word(word: &str) -> bool {
+    const TYPES: &[&str] = &[
+        "kota",
+        "kab",
+        "kabupaten",
+        "kec",
+        "kecamatan",
+        "kel",
+        "kelurahan",
+        "desa",
+        "jalan",
+        "provinsi",
+        "city",
+        "town",
+        "village",
+        "district",
+        "county",
+        "province",
+        "region",
+        "state",
+        "municipality",
+    ];
+    crate::index::canon::is_canonical(word) || TYPES.contains(&word)
+}
+
+/// A postcode written as the country writes it: "1012LG" is "1012 LG", "h9r5z5" "H9R 5Z5". An
+/// unrecognised shape is returned as it came.
+pub fn format_postcode(country_code: &str, postcode: &str) -> String {
+    static SHAPES: LazyLock<Vec<(&str, Regex, &str)>> = LazyLock::new(|| {
+        [
+            ("gb", r"^([A-Z]{1,2}\d[A-Z\d]?)(\d[A-Z]{2})$", "$1 $2"),
+            ("nl", r"^(\d{4})([A-Z]{2})$", "$1 $2"),
+            ("ca", r"^([A-Z]\d[A-Z])(\d[A-Z]\d)$", "$1 $2"),
+            ("ie", r"^([A-Z]\d{2}|D6W)([0-9A-Z]{4})$", "$1 $2"),
+            ("pl", r"^(\d{2})(\d{3})$", "$1-$2"),
+            ("pt", r"^(\d{4})(\d{3})$", "$1-$2"),
+            ("br", r"^(\d{5})(\d{3})$", "$1-$2"),
+            ("jp", r"^(\d{3})(\d{4})$", "$1-$2"),
+            ("us", r"^(\d{5})(\d{4})$", "$1-$2"),
+            ("se", r"^(\d{3})(\d{2})$", "$1 $2"),
+            ("cz", r"^(\d{3})(\d{2})$", "$1 $2"),
+            ("sk", r"^(\d{3})(\d{2})$", "$1 $2"),
+            ("gr", r"^(\d{3})(\d{2})$", "$1 $2"),
+        ]
+        .into_iter()
+        .map(|(cc, re, to)| (cc, Regex::new(re).unwrap(), to))
+        .collect()
+    });
+    let country_code = country_code.to_lowercase();
+    let compact: String = postcode
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_uppercase();
+    // a different alphabet or punctuation ("LV-1050") is not ours to rewrite
+    if compact.is_empty()
+        || postcode
+            .chars()
+            .any(|c| !c.is_ascii_alphanumeric() && !" -".contains(c))
+    {
+        return postcode.to_owned();
+    }
+    SHAPES
+        .iter()
+        .find(|(cc, re, _)| *cc == country_code && re.is_match(&compact))
+        .map(|(_, re, to)| re.replace(&compact, *to).into_owned())
+        // an outcode or routing key ("rh14") still has the case the country writes
+        .or_else(|| {
+            (["gb", "ca", "nl", "ie"].contains(&country_code.as_str())
+                && postcode_shape(&country_code, &compact) == Some(true))
+            .then(|| postcode.trim().to_uppercase())
+        })
+        .unwrap_or_else(|| postcode.to_owned())
+}
+
+/// Whether `postcode` could be one of the country's: a US ZIP is no Canadian postcode. A country
+/// whose shape isn't listed fits anything.
+pub fn postcode_fits(country_code: &str, postcode: &str) -> bool {
+    postcode_shape(country_code, postcode).is_none_or(|fits| fits)
+}
+
+/// Whether `postcode` fits the country's shape, or None when the shape isn't known.
+pub fn postcode_shape(country_code: &str, postcode: &str) -> Option<bool> {
+    static SHAPES: LazyLock<Vec<(&str, Regex)>> = LazyLock::new(|| {
+        [
+            ("gb", r"^[A-Z]{1,2}\d[A-Z\d]?(\d[A-Z]{2})?$"),
+            ("nl", r"^\d{4}([A-Z]{2})?$"),
+            ("ca", r"^[A-Z]\d[A-Z](\d[A-Z]\d)?$"),
+            ("ie", r"^[A-Z]\d{2}([0-9A-Z]{4})?$"),
+            ("pt", r"^\d{4}(\d{3})?$"),
+            ("br", r"^\d{5}(\d{3})?$"),
+            ("jp", r"^\d{3}(\d{4})?$"),
+            ("us", r"^\d{5}(\d{4})?$"),
+            ("at", r"^\d{4}$"),
+            ("be", r"^\d{4}$"),
+            ("ch", r"^\d{4}$"),
+            ("dk", r"^\d{4}$"),
+            ("no", r"^\d{4}$"),
+            ("de", r"^\d{5}$"),
+            ("es", r"^\d{5}$"),
+            ("fi", r"^\d{5}$"),
+            ("fr", r"^\d{5}$"),
+            ("it", r"^\d{5}$"),
+            ("pl", r"^\d{5}$"),
+            ("se", r"^\d{5}$"),
+        ]
+        .into_iter()
+        .map(|(cc, re)| (cc, Regex::new(re).unwrap()))
+        .collect()
+    });
+    let country_code = country_code.to_lowercase();
+    let compact = postcode
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_uppercase();
+    SHAPES
+        .iter()
+        .find(|(cc, _)| *cc == country_code)
+        .map(|(_, re)| re.is_match(&compact))
+}
+
+/// The stated region is the candidate's, by name or by ISO 3166-2 code ("PA" for Pennsylvania),
+/// or none is stated.
+pub fn state_consistent(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
+    let stated: Vec<_> = ["state", "state_district", "country_region"]
+        .iter()
+        .map(|key| part(address, key))
+        .filter(|s| !s.is_empty())
+        .collect();
+    if stated.is_empty() {
+        return true;
+    }
+    region_agrees(address, details)
+        || details.is_some_and(|d| {
+            d.region_codes.iter().any(|c| {
+                c.code
+                    .rsplit('-')
+                    .next()
+                    .is_some_and(|suffix| stated.iter().any(|s| s.eq_ignore_ascii_case(suffix)))
+            })
+        })
+}
+
+/// A town the data holds no postcodes for ("Mt. Gretna, PA 17064") answers a postcode it can't
+/// confirm when nothing contradicts it: the data doesn't know the postcode at all (`holds_postcode`
+/// takes the country code), it has the shape of the town's country, and the stated region is
+/// the town's.
+pub fn unpostcoded_candidate(
+    address: &ParsedAddress,
+    country: &str,
+    postcode: &str,
+    candidates: &[FullAddress],
+    holds_postcode: impl Fn(&str) -> bool,
+) -> Option<usize> {
+    candidates.iter().position(|item| {
+        let details = item.address_details.as_option();
+        !postcode.is_empty()
+            && !details.is_some_and(|d| holds_postcode(&d.country_code))
+            && country_matches(country, details)
+            && details.is_some_and(|d| {
+                d.postcode.is_empty() && postcode_shape(&d.country_code, postcode) == Some(true)
+            })
+            && city_agrees(address, details)
+            && state_consistent(address, details)
+    })
+}
+
+/// Whether the parser's `po_box` text is one: libpostal also files "CC Baarle-Nassau" there.
+pub fn is_po_box(text: &str) -> bool {
+    const MARKERS: &[&str] = &[
+        "box",
+        "po",
+        "pobox",
+        "postbus",
+        "postfach",
+        "apartado",
+        "apdo",
+        "casilla",
+        "casella",
+        "bp",
+        "cp",
+        "caixa",
+        "boite",
+        "boîte",
+        "postboks",
+        "postlåda",
+    ];
+    text.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .any(|w| MARKERS.contains(&w))
 }
