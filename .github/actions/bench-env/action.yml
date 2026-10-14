@@ -26,7 +26,7 @@ runs:
         curl -fsSL --retry 3 "https://github.com/openvenues/libpostal/archive/${LIBPOSTAL_COMMIT}.tar.gz" \
           | tar -xz --strip-components=1 -C /tmp/libpostal
         cd /tmp/libpostal && ./bootstrap.sh
-        CFLAGS="-std=gnu99" ./configure --prefix="$LIBPOSTAL_PREFIX" --datadir="$LIBPOSTAL_MODELS" --disable-data-download
+        CFLAGS="-std=gnu99" ./configure --prefix="$LIBPOSTAL_PREFIX" --datadir="$LIBPOSTAL_MODELS" --disable-data-download ${{ runner.arch == 'ARM64' && '--disable-sse2' || '' }}
         make -j4 && make install
     - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       id: models

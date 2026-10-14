@@ -9,7 +9,37 @@ permissions:
   contents: read
 
 jobs:
-  rust:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    env:
+      LIBPOSTAL_COMMIT: 25099c506612b34b23b1bfe286ca6321fcf06f35
+      LIBPOSTAL_PREFIX: /home/runner/libpostal
+      LIBPOSTAL_MODELS: /home/runner/models
+      RUSTFLAGS: -L native=/home/runner/libpostal/lib
+      LD_LIBRARY_PATH: /home/runner/libpostal/lib
+      CARGO_PROFILE_DEV_DEBUG: 0
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: ./.github/actions/bench-env
+      - name: Install Rust and Buf
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy && rustup default 1.99.0
+          curl -fsSL --retry 3 "https://github.com/bufbuild/buf/releases/download/v1.68.1/buf-Linux-$(uname -m)" -o "$HOME/.cargo/bin/buf"
+          chmod +x "$HOME/.cargo/bin/buf"
+      # Only main writes caches: PRs and release tags can read the default branch's entries,
+      # and per-PR copies would evict them from the repository's 10 GB quota.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
+
+  runtime:
     strategy:
       fail-fast: false
       matrix:
@@ -18,15 +48,6 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-      # Only main writes the cache: PRs and release tags can read the default branch's entries,
-      # and per-PR copies would evict them from the repository's 10 GB quota.
-      - name: Check formatting, lint and regression tests
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          target: checks
-          cache-from: type=gha,scope=checks-${{ matrix.runner }}
-          cache-to: ${{ github.ref == 'refs/heads/main' && format('type=gha,mode=max,ignore-error=true,scope=checks-{0}', matrix.runner) || '' }}
       - name: Build the runtime
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
