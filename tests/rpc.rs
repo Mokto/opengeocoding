@@ -304,9 +304,29 @@ async fn checks(env: &mut Env) -> Result<()> {
     );
     println!("PASS: reverse lookup and region list");
 
+    let suggested = env
+        .json("SuggestAddress", json!({"text": "copenha", "limit": 3}))
+        .await?;
+    let first = &suggested["suggestions"][0];
+    ensure!(
+        first["countryCode"] == "dk"
+            && first["type"] == "city"
+            && first["id"].as_str().is_some_and(|id| !id.is_empty())
+            && first["geoCoordinates"]["lat"]
+                .as_f64()
+                .is_some_and(|lat| (lat - 55.68).abs() < 0.2),
+        "{suggested}"
+    );
+    println!("PASS: address suggestions");
+
     for (method, payload) in [
         ("SearchAddress", json!({"addressString": "bad\u{0}address"})),
         ("ResolveRegion", json!({"lat": 100, "lon": 0})),
+        ("SuggestAddress", json!({"text": "bad\u{0}text"})),
+        (
+            "SuggestAddress",
+            json!({"text": "paris", "countryCode": "USA"}),
+        ),
     ] {
         let (status, body) = env
             .rpc(method, payload.to_string().into_bytes(), false)

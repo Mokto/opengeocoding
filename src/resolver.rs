@@ -79,6 +79,22 @@ impl Resolver {
         tokio::task::spawn_blocking(move || core.resolve(&query)).await?
     }
 
+    /// Completions of a partly typed address; see `Index::suggest`.
+    pub async fn suggest(
+        &self,
+        text: &str,
+        limit: usize,
+        country_code: &str,
+    ) -> Result<Vec<crate::index::Suggestion>> {
+        let core = self.0.clone();
+        let (text, cc) = (text.to_owned(), country_code.to_owned());
+        Ok(tokio::task::spawn_blocking(move || {
+            core.index
+                .suggest(&text, limit, Some(cc.as_str()).filter(|c| !c.is_empty()))
+        })
+        .await?)
+    }
+
     pub async fn reverse(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
         let core = self.0.clone();
         tokio::task::spawn_blocking(move || core.reverse(lat, lon)).await?

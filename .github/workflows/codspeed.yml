@@ -35,7 +35,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
-      # benches/resolve.rs needs models and an index; without BENCH_FIXTURE_URL it is skipped.
+      # benches/resolve.rs and benches/suggest.rs need an index (resolve also the models); without
+      # BENCH_FIXTURE_URL they are skipped.
       # The fixture is described in benches/fixture/README.md.
       - uses: ./.github/actions/bench-env
         with:

@@ -7,6 +7,7 @@ service Geolocation {
   rpc SearchAddress(SearchAddressTask) returns (FullAddress) {}
   rpc ResolveRegion(GeoCoordinates) returns (RegionsResponse) {}
   rpc ListRegions(EmptyRequest) returns (RegionsResponse) {}
+  rpc SuggestAddress(SuggestAddressRequest) returns (SuggestAddressResponse) {}
 }
 
 message EmptyRequest {}
@@ -117,4 +118,29 @@ message Region {
 
 message RegionsResponse {
   repeated Region regions = 1;
+}
+
+// Completes an address or place as it is typed: the last word of `text` may be unfinished.
+message SuggestAddressRequest {
+  string text = 1;
+  // Default 5, at most 15.
+  uint32 limit = 2;
+  // Optional ISO 3166-1 alpha-2 code: only suggestions in that country.
+  string country_code = 3;
+}
+
+message Suggestion {
+  // Stable for one index, and opaque: a place, street, house or postcode.
+  string id = 1;
+  string display_name = 2;
+  // The point of the place, street, house or postcode. Places also carry their bounding box.
+  GeoCoordinates geo_coordinates = 3;
+  // country, region, county, municipality, city, town, village, neighbourhood, street, address
+  // or postcode.
+  string type = 4;
+  string country_code = 5;
+}
+
+message SuggestAddressResponse {
+  repeated Suggestion suggestions = 1;
 }

@@ -64,11 +64,27 @@ curl http://localhost:11121/opengeocoding.Geolocation/SearchAddress \
   -d '{"addressString":"Copenhagen, Denmark"}'
 ```
 
-The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `Geolocation`. The methods are `SearchAddress`, `ResolveRegion` and `ListRegions`. `RefreshRegionMap` and `GetRegionMap` (a Python-style dictionary string) were removed; `ListRegions` returns the same regions as typed messages.
+The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `Geolocation`. The methods are `SearchAddress`, `ResolveRegion`, `ListRegions` and `SuggestAddress`. `RefreshRegionMap` and `GetRegionMap` (a Python-style dictionary string) were removed; `ListRegions` returns the same regions as typed messages.
 
 The canonical RPC path is `/opengeocoding.Geolocation/*`. The Go package is `github.com/Mokto/opengeocoding/gen/opengeocoding`; the Rust crate is `opengeocoding`, with generated types under `opengeocoding::proto::opengeocoding`.
 
 `/geolocation.Geolocation/*` and `/nominatim_geolocation.NominatimGeolocation/*` remain aliases for every method, including for benchmarking. Message fields, numbers and types are unchanged. These aliases do not enable a Nominatim backend. gRPC reflection advertises only `opengeocoding.Geolocation`, and the `grpc_service` metric label uses this canonical name on all routes.
+
+## Address suggestions
+
+`SuggestAddress` completes text as it is typed and returns up to `limit` (default 5, at most 15) suggestions, each with an opaque `id` (stable for one index), a `display_name`, a point (places also a bounding box when they have an extent), a `type` and a `country_code`. `country_code` restricts the answer to one country. There is no second lookup call: the point is in the suggestion.
+
+```sh
+curl http://localhost:11121/opengeocoding.Geolocation/SuggestAddress \
+  -H 'Content-Type: application/json' -H 'Connect-Protocol-Version: 1' \
+  -d '{"text":"10 downing street, lon","limit":3}'
+```
+
+It does not call libpostal, which misreads half-typed words. The commas say where the road ends and the town starts (`12 rue de rivoli, par`), and without commas the end of the text may still name the town (`main st spri`). The last word may be unfinished unless the text ends in a space or comma. Places come from an in-memory FST of the folded names, in every language, of the places whose weight (population, or a guess by kind) is at least 5,000, built at startup (25 MB and about 0.6 s more on the world index, plus about 100 MB briefly while it is built); ranking is that weight times how much of the name was typed, so `londo` is London, not the hamlet named Londo, and `ma` lists countries. Smaller places, streets, house numbers (typed last, the numbers that start with them, up to four per street) and postcodes (three characters or more) come from the index's terms. A street search over words that many streets share is not run: without a town it would walk millions of postings to give an arbitrary street, so `main st` waits for a town, which can be a country or region code (`main st, il`). Place order and the weights are hand-set heuristics.
+
+Not supported: typo tolerance, a bias towards the user's position, and completing a word in the middle of a name (only its start). One or two letters of a lone street word are not completed.
+
+`tests/suggest.rs` checks 25 golden cases (each place's country and coordinates are public facts, not this service's answers) and times every prefix of 29 typed strings against a world index (`INDEX_DIR=out cargo test --release --test suggest -- --ignored --nocapture`). On an 18-core laptop with a 10 GB world index, 380 typed prefixes took, warm, p50 0.3 ms, p90 2.9 ms and p99 8.8 ms in the index (max 10 ms), and cold p99 11 ms (max 18 ms): the first time a short prefix is typed its term list is read and kept. The two prefix caches hold at most 20,000 entries each, under about 150 MB. A request over Connect took 24 ms by `curl`, including the connection. These are one machine's numbers on public strings, not capacity or request-latency guarantees.
 
 ## Deploy on Kubernetes
 
@@ -144,7 +160,7 @@ SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS="$PWD/models/libpostal" INDEX_DIR=o
   cargo test --locked --test rpc -- --ignored --nocapture
 ```
 
-CI builds and checks both amd64 and arm64 without downloading models. [CodSpeed](https://codspeed.io/) runs the `benches/` suites (the index analyzer and house-number keys; the service's candidate matching) in its simulation mode on pushes to `main` and on pull requests, and reports changes in instruction counts; run them locally with `cargo bench`, or `cargo codspeed build && cargo codspeed run`. `benches/resolve.rs` also times model-backed parsing and index searches against a small pinned index fixture; the workflow runs it only when the `BENCH_FIXTURE_URL` repository variable is set (see `benches/fixture/README.md`), and the other suites never load models. Regenerate `THIRD_PARTY_NOTICES.txt` with `cargo run --locked --bin notices` after dependency changes. Model-backed RPC tests run separately with provisioned models.
+CI builds and checks both amd64 and arm64 without downloading models. [CodSpeed](https://codspeed.io/) runs the `benches/` suites (the index analyzer and house-number keys; the service's candidate matching) in its simulation mode on pushes to `main` and on pull requests, and reports changes in instruction counts; run them locally with `cargo bench`, or `cargo codspeed build && cargo codspeed run`. `benches/resolve.rs` also times model-backed parsing and index searches, and `benches/suggest.rs` suggestions for the same queries cut as if typed (no models), against a small pinned index fixture; the workflow runs them only when the `BENCH_FIXTURE_URL` repository variable is set (see `benches/fixture/README.md`), and the other suites never load models or an index. Regenerate `THIRD_PARTY_NOTICES.txt` with `cargo run --locked --bin notices` after dependency changes. Model-backed RPC tests run separately with provisioned models.
 
 ## Local performance benchmark
 
