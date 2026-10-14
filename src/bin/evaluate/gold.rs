@@ -999,6 +999,7 @@ pub async fn build(seeds_path: &Path, out: &Path, nad: Option<&Path>) -> Result<
             cases.push(case);
         }
     }
+    apply_labels(&mut cases, seeds_path)?;
     let lines: Vec<_> = cases
         .into_iter()
         .map(|c| serde_json::to_string(&sorted(c)))
@@ -1018,6 +1019,45 @@ pub async fn build(seeds_path: &Path, out: &Path, nad: Option<&Path>) -> Result<
         locations.len(),
         out.display()
     );
+    Ok(())
+}
+
+/// Triage labels for generated seeds, which are rewritten on every resample: `NAME.labels.jsonl`
+/// beside `NAME.seeds.jsonl`, one `{"ref", "query", "known_failure"}` per case. A label that no
+/// longer matches a case is an error, so labels cannot silently rot.
+fn apply_labels(cases: &mut [Value], seeds_path: &Path) -> Result<()> {
+    let Some(name) = seeds_path
+        .to_str()
+        .and_then(|p| p.strip_suffix(".seeds.jsonl"))
+    else {
+        return Ok(());
+    };
+    let path = std::path::PathBuf::from(format!("{name}.labels.jsonl"));
+    if !path.exists() {
+        return Ok(());
+    }
+    for (n, label) in crate::model::load_jsonl::<Value>(&path)?.iter().enumerate() {
+        let (reference, query) = (label["ref"].as_str(), label["query"].as_str());
+        let known = label["known_failure"].as_str().filter(|k| !k.is_empty());
+        let (Some(reference), Some(query), Some(known)) = (reference, query, known) else {
+            bail!(
+                "{}:{}: needs ref, query and known_failure",
+                path.display(),
+                n + 1
+            );
+        };
+        let case = cases
+            .iter_mut()
+            .find(|c| c["source"]["ref"] == reference && c["query"] == query)
+            .with_context(|| {
+                format!(
+                    "{}:{}: no case for {reference} {query:?}",
+                    path.display(),
+                    n + 1
+                )
+            })?;
+        case["known_failure"] = json!(known);
+    }
     Ok(())
 }
 
@@ -1045,6 +1085,33 @@ mod tests {
         );
         assert_eq!(slug("   "), "blank");
         assert!(NON_LATIN.is_match("京都, Japan") && !NON_LATIN.is_match("Łódź, Poland"));
+    }
+
+    #[test]
+    fn labels_attach_by_ref_and_query_and_stale_ones_fail() {
+        let dir = std::env::temp_dir().join(format!("labels-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let seeds = dir.join("x.seeds.jsonl");
+        let mut cases = vec![
+            json!({"source": {"ref": "{A}"}, "query": "1 Main St"}),
+            json!({"source": {"ref": "{A}"}, "query": "1 MAIN ST"}),
+        ];
+        let labels = dir.join("x.labels.jsonl");
+        std::fs::write(
+            &labels,
+            "{\"ref\":\"{A}\",\"query\":\"1 MAIN ST\",\"known_failure\":\"why\"}\n",
+        )
+        .unwrap();
+        apply_labels(&mut cases, &seeds).unwrap();
+        assert!(cases[0].get("known_failure").is_none());
+        assert_eq!(cases[1]["known_failure"], "why");
+        std::fs::write(
+            &labels,
+            "{\"ref\":\"{B}\",\"query\":\"1 MAIN ST\",\"known_failure\":\"why\"}\n",
+        )
+        .unwrap();
+        assert!(apply_labels(&mut cases, &seeds).is_err());
+        std::fs::remove_dir_all(dir).ok();
     }
 
     #[test]
