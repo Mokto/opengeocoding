@@ -1,0 +1,34 @@
+name: Staging image publish
+
+# Runs from the default branch after staging-build.yml, with write access to the staging
+# package. It never checks out or runs the pull request's code: it only copies the image the
+# build produced, tagged with the commit the build ran for. The image is untrusted: run it only
+# in an isolated environment.
+on:
+  workflow_run:
+    workflows: [Staging image build]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  publish:
+    if: github.repository == 'Mokto/opengeocoding' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: staging-image
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Push the image
+        env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          echo "$TOKEN" | skopeo login ghcr.io --username "$ACTOR" --password-stdin
+          skopeo copy docker-archive:image.tar "docker://ghcr.io/mokto/opengeocoding-staging:sha-$SHA"
