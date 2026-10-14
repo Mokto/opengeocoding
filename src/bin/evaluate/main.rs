@@ -8,6 +8,7 @@
 //! evaluate snapshot RUN_DIR FILE.json        manifest and full per-case results in one file
 //! evaluate report RUN_DIR [--rescore]        re-summarize a saved run, no network
 //! evaluate build-gold                        regenerate tests/gold.jsonl from tests/gold.seeds.jsonl
+//! evaluate sample-us --nad FILE --seed TEXT --out FILE   draw US cases from a NAD release, registry-first
 //! evaluate check                             validate the corpora and snapshot, no network
 //! ```
 //!
@@ -17,6 +18,7 @@
 
 mod gold;
 mod model;
+mod nad;
 mod report;
 mod run;
 mod score;
@@ -25,7 +27,7 @@ use anyhow::{Context, Result, bail};
 use model::{Case, Record, load_corpus, load_jsonl};
 use std::{collections::HashMap, path::PathBuf};
 
-const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|check> [options]
+const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|check> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000]
@@ -33,8 +35,9 @@ run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare 
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
-build-gold  [--seeds FILE] [--out FILE]
-check       validate tests/gold.jsonl, tests/addresses.tsv and its snapshot";
+build-gold  [--seeds FILE] [--out FILE] [--nad FILE]
+sample-us   --nad FILE --seed TEXT --out FILE
+check       validate tests/gold.jsonl, tests/registry/*.jsonl, tests/addresses.tsv and its snapshot";
 
 struct Args {
     positional: Vec<String>,
@@ -118,6 +121,8 @@ async fn command() -> Result<i32> {
         "compare",
         "repeat",
         "seeds",
+        "nad",
+        "seed",
     ];
     let args = Args::parse(raw, &valued)?;
     match command.as_str() {
@@ -201,17 +206,41 @@ async fn command() -> Result<i32> {
             let seeds = args
                 .path("seeds")
                 .unwrap_or_else(|| model::root().join("tests/gold.seeds.jsonl"));
-            gold::build(&seeds, &args.path("out").unwrap_or_else(model::gold)).await?;
+            gold::build(
+                &seeds,
+                &args.path("out").unwrap_or_else(model::gold),
+                args.path("nad").as_deref(),
+            )
+            .await?;
+            Ok(0)
+        }
+        "sample-us" => {
+            args.only_flags(&[])?;
+            let nad = args.path("nad").context("--nad is required")?;
+            let lines = nad::sample(&nad, args.value("seed").context("--seed is required")?)?;
+            let out = args.path("out").context("--out is required")?;
+            let text: Vec<_> = lines
+                .iter()
+                .map(serde_json::to_string)
+                .collect::<Result<_, _>>()?;
+            std::fs::write(&out, text.join("\n") + "\n")?;
+            eprintln!("{} seed lines -> {}", lines.len(), out.display());
             Ok(0)
         }
         "check" => {
             args.only_flags(&[])?;
             let cases = load_corpus(&model::gold())?;
             model::validate_gold(&cases)?;
+            let mut registry = 0;
+            for path in model::registry_corpora() {
+                let cases = load_corpus(&path)?;
+                model::validate_gold(&cases).with_context(|| path.display().to_string())?;
+                registry += cases.len();
+            }
             let addresses =
                 model::validate_addresses(&model::addresses(), &model::address_snapshot())?;
             println!(
-                "{} gold cases and {addresses} address cases validated",
+                "{} gold cases, {registry} registry cases and {addresses} address cases validated",
                 cases.len()
             );
             Ok(0)

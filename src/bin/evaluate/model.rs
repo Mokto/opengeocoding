@@ -13,6 +13,21 @@ pub fn gold() -> PathBuf {
     root().join("tests/gold.jsonl")
 }
 
+/// Registry-first corpora (`tests/registry/*.jsonl`, generated from the `*.seeds.jsonl` beside them).
+pub fn registry_corpora() -> Vec<PathBuf> {
+    let mut found: Vec<_> = std::fs::read_dir(root().join("tests/registry"))
+        .into_iter()
+        .flatten()
+        .filter_map(|e| Some(e.ok()?.path()))
+        .filter(|p| {
+            p.to_str()
+                .is_some_and(|p| p.ends_with(".jsonl") && !p.ends_with(".seeds.jsonl"))
+        })
+        .collect();
+    found.sort();
+    found
+}
+
 pub fn addresses() -> PathBuf {
     root().join("tests/addresses.tsv")
 }
@@ -264,6 +279,15 @@ mod tests {
         let cases = load_corpus(&gold()).unwrap();
         assert!(cases.len() >= 100);
         validate_gold(&cases).unwrap();
+    }
+
+    #[test]
+    fn registry_corpora_are_well_formed() {
+        for path in registry_corpora() {
+            let cases = load_corpus(&path).unwrap();
+            assert!(!cases.is_empty(), "{}", path.display());
+            validate_gold(&cases).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        }
     }
 
     #[test]

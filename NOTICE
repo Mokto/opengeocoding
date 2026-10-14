@@ -39,6 +39,11 @@ coordinates, administrative codes and addresses derived from:
 Per-case sources and retrieval dates are recorded in the corpus; `evaluate build-gold` regenerates it
 from tests/gold.seeds.jsonl.
 
+The registry-first sample tests/registry/us.jsonl contains addresses and coordinates from the US
+Department of Transportation's National Address Database (release r24), a work of the United States
+government in the public domain. The data is provided as is, without warranty of accuracy, and is
+not for use as a mailing list.
+
 tests/snapshots/addresses.tsv contains geocoding results derived from OpenStreetMap
 data via Nominatim. Data © OpenStreetMap contributors, available under the Open
 Database License (ODbL) 1.0: https://www.openstreetmap.org/copyright
