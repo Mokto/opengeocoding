@@ -85,7 +85,7 @@ pub struct Record {
     pub query: String,
     pub class: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ms: Option<u64>,
+    pub ms: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend_calls: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
