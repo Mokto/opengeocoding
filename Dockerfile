@@ -19,9 +19,12 @@ RUN arch="$(uname -m)" && curl -fsSL --retry 3 \
 WORKDIR /source
 ENV RUSTFLAGS="-L native=/usr/local/lib"
 
-# Empty stand-ins for every source file, so dependencies compile in a layer that only a change
-# to Cargo.toml, Cargo.lock, build.rs, proto/ or data/ invalidates.
+# Empty stand-ins for every source file and a zeroed package version, so dependencies compile in a
+# layer that only a change to dependencies, build.rs, proto/ or data/ invalidates, not a release bump.
 FROM build AS stubs
+COPY Cargo.toml Cargo.lock /stubs/
+RUN sed -i '0,/^version = .*/s//version = "0.0.0"/' /stubs/Cargo.toml \
+    && sed -i '/^name = "opengeocoding"$/{n;s/^version = .*/version = "0.0.0"/}' /stubs/Cargo.lock
 COPY src src
 COPY benches benches
 RUN find src benches -name '*.rs' | while read -r f; do \
@@ -33,7 +36,7 @@ RUN find src benches -name '*.rs' | while read -r f; do \
     done
 
 FROM build AS manifest
-COPY Cargo.toml Cargo.lock build.rs buf.yaml ./
+COPY build.rs buf.yaml ./
 COPY proto proto
 COPY data data
 COPY --from=stubs /stubs ./
@@ -42,6 +45,7 @@ FROM manifest AS deps
 RUN cargo build --locked --release --bin opengeocoding --bin build_index
 
 FROM deps AS compiled
+COPY Cargo.toml Cargo.lock ./
 COPY src src
 COPY tests tests
 COPY benches benches
@@ -56,6 +60,7 @@ RUN ldconfig && rustup component add rustfmt clippy \
     && cargo test --locked --no-run
 
 FROM check-deps AS checks
+COPY Cargo.toml Cargo.lock ./
 COPY src src
 COPY tests tests
 COPY benches benches
