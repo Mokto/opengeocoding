@@ -95,3 +95,5 @@ ENTRYPOINT ["/usr/local/bin/opengeocoding"]
 FROM runtime AS eval
 COPY --from=evaluate-compiled /source/target/release/evaluate /usr/local/bin/
 COPY tests/gold.jsonl /app/tests/gold.jsonl
+# The evaluator hashes the reference data from its build directory for the run manifest.
+COPY data/reference.json /source/data/reference.json
