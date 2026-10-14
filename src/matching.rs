@@ -181,6 +181,88 @@ pub fn part<'a>(address: &'a ParsedAddress, key: &str) -> &'a str {
     address.get(key).map(String::as_str).unwrap_or("")
 }
 
+/// Repairs what libpostal gets wrong in a way that costs the whole lookup: a country-plate
+/// prefix on a postcode ("SE-262 73", "L-1855"), a postcode glued to the town ("St Julians
+/// STJ1000"), a locality abbreviation in front of the town ("г. Воронеж"), and a road that is
+/// only a street type ("Dr." in "Dr. Nikiski", which would otherwise match any drive there).
+pub fn tidy(address: &mut ParsedAddress) {
+    static PLATE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[A-Za-z]{1,2}\s?-\s?(\d)").unwrap());
+    static GLUED: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[a-z]{1,3}\d{2,}[a-z]*$").unwrap());
+    static PLATE_ONLY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[A-Za-z]{1,2}\s?-\s?\d{3,5}$").unwrap());
+    // Only plates the data does not keep: Latvian postcodes are stored as "LV-1002".
+    const PLATE_DROPPED: &[&str] = &[
+        "se", "dk", "no", "fi", "de", "d-", "d ", "at", "a-", "a ", "ch", "lu", "l-", "l ", "be",
+        "b-", "b ", "nl", "fr", "f-", "f ", "es", "it", "i-", "pl", "cz", "sk", "hu", "ro", "bg",
+        "hr", "si", "pt", "gr", "ie",
+    ];
+    const LOCALITY: &[&str] = &["г.", "г", "гор.", "пос.", "пгт", "смт", "м."];
+    const STREET_TYPES: &[&str] = &[
+        "dr",
+        "st",
+        "rd",
+        "ave",
+        "blvd",
+        "ln",
+        "ct",
+        "pl",
+        "hwy",
+        "ул",
+        "улица",
+        "вул",
+        "вулиця",
+        "пер",
+        "просп",
+        "пр-т",
+        "наб",
+        "ш",
+    ];
+    // "L-1855" taken for the town
+    if part(address, "postcode").is_empty()
+        && let Some(city) = address
+            .get("city")
+            .filter(|c| PLATE_ONLY.is_match(c))
+            .cloned()
+    {
+        address.shift_remove("city");
+        address.insert("postcode".into(), city);
+    }
+    if let Some(code) = address.get_mut("postcode")
+        && PLATE_DROPPED
+            .iter()
+            .any(|p| code.to_lowercase().starts_with(p))
+    {
+        *code = PLATE.replace(code, "$1").into_owned();
+    }
+    if let Some(city) = address.get("city").cloned() {
+        let mut words: Vec<&str> = city.split(whitespace).filter(|w| !w.is_empty()).collect();
+        if words.len() > 1 && LOCALITY.contains(&words[0]) {
+            words.remove(0);
+        }
+        if words.len() > 1
+            && part(address, "postcode").is_empty()
+            && words.last().is_some_and(|w| GLUED.is_match(w))
+        {
+            let glued = words.pop().unwrap_or_default().to_owned();
+            address.insert("postcode".into(), glued);
+        }
+        address.insert("city".into(), words.join(" "));
+    }
+    let only_type = |road: &str| {
+        let words: Vec<String> = road
+            .split(whitespace)
+            .map(|w| w.trim_matches('.').to_lowercase())
+            .filter(|w| !w.is_empty())
+            .collect();
+        !words.is_empty() && words.iter().all(|w| STREET_TYPES.contains(&w.as_str()))
+    };
+    if only_type(part(address, "road")) {
+        address.shift_remove("road");
+    }
+}
+
 pub fn create_query(address: &ParsedAddress, order: &[&str]) -> String {
     if order.is_empty() {
         return address.values().cloned().collect::<Vec<_>>().join(", ");
@@ -551,6 +633,58 @@ fn city_related(address: &ParsedAddress, details: Option<&AddressDetails>) -> bo
             .any(|actual| within(&expected, &actual) || within(&actual, &expected))
 }
 
+/// `query` without the whitespace-separated words equal to `word` (case and dots aside).
+pub fn without_word(query: &str, word: &str) -> String {
+    let key = word.trim_matches('.').to_lowercase();
+    query
+        .split(whitespace)
+        .filter(|t| t.trim_matches(['.', ',']).to_lowercase() != key)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// `query` with each parenthesised remark ("Waldbronn (Reichenbach)", "Runkel-Dehrn (Germany)")
+/// turned into a comma-separated part, or dropped when `keep` is false; None without one. The
+/// parser files the remark inside the neighbouring field and then nothing matches.
+pub fn without_parentheses(query: &str, keep: bool) -> Option<String> {
+    static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s*\(([^()]*)\)").unwrap());
+    RE.is_match(query).then(|| {
+        RE.replace_all(query, |c: &regex::Captures| {
+            if keep {
+                format!(", {}", c[1].trim())
+            } else {
+                String::new()
+            }
+        })
+        .into_owned()
+    })
+}
+
+/// `query` with a comma put before a country named at its end without one ("Dublin 2 Ireland"),
+/// which libpostal reads as a house and a town; None when no country ends it that way.
+pub fn comma_before_country(query: &str) -> Option<String> {
+    const ADJECTIVES: &[&str] = &["new", "south", "north", "west", "east", "republic", "of"];
+    let (head, tail) = query.rsplit_once(',').unwrap_or(("", query));
+    let words: Vec<&str> = tail.split(whitespace).filter(|w| !w.is_empty()).collect();
+    (1..words.len().min(4)).rev().find_map(|n| {
+        let (rest, country) = words.split_at(words.len() - n);
+        let country = country.join(" ");
+        let named = !country.chars().any(char::is_numeric)
+            && !expected_country(&parsed_country(&country)).is_empty()
+            && !ADJECTIVES.contains(&rest[rest.len() - 1].to_lowercase().as_str());
+        let head = if head.is_empty() {
+            String::new()
+        } else {
+            format!("{head},")
+        };
+        named.then(|| {
+            format!("{head} {}, {country}", rest.join(" "))
+                .trim()
+                .to_owned()
+        })
+    })
+}
+
 pub fn without_country(query: &str, address: &ParsedAddress) -> String {
     let country = normalize_place(part(address, "country"));
     if country.is_empty() {
@@ -782,6 +916,25 @@ pub fn state_consistent(address: &ParsedAddress, details: Option<&AddressDetails
                     .next()
                     .is_some_and(|suffix| stated.iter().any(|s| s.eq_ignore_ascii_case(suffix)))
             })
+        })
+}
+
+/// The stated state is a two-letter code ("MA") that the candidate's own ISO 3166-2 codes
+/// contradict: "Dorchester, MA" is not Dorchester in Dorset or in Wisconsin. A state named in
+/// full, or a candidate with no codes, says nothing.
+pub fn state_code_conflict(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
+    let stated = part(address, "state");
+    stated.len() == 2
+        && stated.chars().all(|c| c.is_ascii_alphabetic())
+        && details.is_some_and(|d| {
+            !d.region_codes.is_empty()
+                && !d.region_codes.iter().any(|c| {
+                    c.code
+                        .rsplit('-')
+                        .next()
+                        .is_some_and(|suffix| suffix.eq_ignore_ascii_case(stated))
+                })
+                && !region_agrees(address, Some(d))
         })
 }
 

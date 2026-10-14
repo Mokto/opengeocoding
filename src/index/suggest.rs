@@ -494,6 +494,50 @@ impl Index {
         })
     }
 
+    /// The English or primary name of the best-known place whose name is one edit from `text`
+    /// ("Mississauaga", "Soihull") when `text` names nothing, with its first two letters right.
+    /// None when no place, or several equally well known, is that close.
+    pub fn similar_place(&self, text: &str, cc: Option<&str>) -> Option<String> {
+        let key = fold(text);
+        if key.chars().count() < 5 || !key.chars().all(|c| c.is_alphabetic() || c == ' ') {
+            return None;
+        }
+        let head: String = key.chars().take(2).collect();
+        let mut to = head.as_bytes().to_vec();
+        *to.last_mut()? += 1;
+        let mut best: Option<(u64, u32)> = None;
+        let mut tied = false;
+        let mut range = self
+            .place_names
+            .range()
+            .ge(head.as_bytes())
+            .lt(&to)
+            .into_stream();
+        while let Some((k, w)) = range.next() {
+            let at = k.len() - 6;
+            let id = u32::from_be_bytes(k[at + 2..].try_into().ok()?);
+            let Ok(name) = std::str::from_utf8(&k[..at]) else {
+                continue;
+            };
+            if name == key
+                || !super::one_edit(&key, name)
+                || !cc.is_none_or(|c| self.places[id as usize].cc.eq_ignore_ascii_case(c))
+            {
+                continue;
+            }
+            match best {
+                Some((bw, bid)) if bid != id && w == bw => tied = true,
+                Some((bw, _)) if w <= bw => {}
+                _ => {
+                    best = Some((w, id));
+                    tied = false;
+                }
+            }
+        }
+        let (_, id) = best.filter(|_| !tied)?;
+        Some(self.places[id as usize].name(true).to_owned())
+    }
+
     /// The places of `place_names` whose name is `text`, or starts with it when `open`, best
     /// first: place, fit (0 the name itself, 1 its main name starts with the text, 2 another
     /// language's does) and weight. Reading a short prefix's range is the cost, so it is kept.
@@ -1237,6 +1281,25 @@ mod tests {
         assert!(index.suggest("p", 5, None).is_empty());
         assert!(index.suggest("  ,, ", 5, None).is_empty());
         assert!(index.suggest("zzzzz", 5, None).is_empty());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_name_one_edit_off_finds_the_best_known_place() {
+        let (index, dir) = tiny();
+        assert_eq!(
+            index.similar_place("Pariss", None).as_deref(),
+            Some("Paris")
+        );
+        assert_eq!(
+            index.similar_place("Parris", Some("us")).as_deref(),
+            Some("Paris")
+        );
+        // the name itself, a different one, a short one and one in another country
+        assert_eq!(index.similar_place("Paris", None), None);
+        assert_eq!(index.similar_place("Lyonn", None), None);
+        assert_eq!(index.similar_place("Pari", None), None);
+        assert_eq!(index.similar_place("Pariss", Some("gb")), None);
         std::fs::remove_dir_all(dir).unwrap();
     }
 
