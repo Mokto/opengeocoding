@@ -265,6 +265,28 @@ Cases are scored as `pass`, `confidence_mismatch`, `too_coarse` (a fallback neve
 
 `known_failure` labels record triaged baseline failures with their attribution. They stay visible in every report, and a label is only removed after a fix is verified. Do not weaken expectations or regenerate them from a run.
 
+### Registry-first samples
+
+The gold seeds above were picked from Overture, the index's own data, and then checked against a registry, so a registry address the index lacks was never sampled and recall cannot be measured. `tests/registry/` holds samples drawn from the registry first. `evaluate check` and `cargo test` validate each `tests/registry/*.jsonl`; `run --corpus tests/registry/us.jsonl` scores one. They are not yet part of the gold gate or the CI run.
+
+**United States** (`us.seeds.jsonl`, `us.jsonl`): the USDOT National Address Database, release r24 (public domain, a work of the federal government; the USDOT disclaims accuracy and the data is not for mailing lists). The 8.5 GB download is a Deflate64 zip that Apple's `unzip` and Python cannot read; use 7-Zip. The text file is 42 GB and 99 million rows, 89.6 million of them plain, live addresses with a house number, street, five-digit ZIP and a city.
+
+```sh
+target/release/evaluate sample-us --nad NAD_r24.txt --seed us-2026-10 --out tests/registry/us.seeds.jsonl
+target/release/evaluate build-gold --seeds tests/registry/us.seeds.jsonl --out tests/registry/us.jsonl --nad NAD_r24.txt
+```
+
+The draw keeps each row's rank by `sha256(seed|uuid)`, so it does not depend on file order, and rerunning it on the same release gives the same seeds byte for byte (about 4 to 8 minutes; `build-gold` about 80 seconds). `build-gold` finds every sampled UUID in the file again and copies its point, house number and ZIP, and fails if one is gone (a new release needs a new sample). The sample:
+
+- 300 house addresses and 100 units (`Apt 4B`) whose placement the registry states as building, entrance, interior, site, access or parcel centroid, in three density strata (`urban`, `suburban`, `rural`: 10,000 or more, 2,000 or more, fewer address points in the ZIP). Density is an address-count proxy per ZIP, not a census measure, and partly mirrors how completely a state contributed.
+- 150 `us_broad` house addresses of any other placement, scored at 0.5 km instead of 0.15 km (0.3 km for a parcel centroid), reported apart: 72% of the release has placement "Unknown", and nearly all of Texas, California and Florida are in it.
+- One address per street and at most three per ZIP. A street field holding a unit or only a direction is dropped.
+- A damaged variant for half the locations, one of: no postcode, country added, typo in the street or town, wrong postcode, another town in the same state, parts reversed, upper or lower case, abbreviated street type or direction, no commas, the state spelled out, ZIP+4, and for units `#4B` or `Unit 4B`. Variants share their location key and expect goodMatch true when the edit is consistent, either value when it contradicts itself.
+
+Limits to repeat with any number from it: the 400 trusted-placement locations come from only 22 states and are concentrated in a few (Massachusetts, New York and Virginia hold 222), and with the broad sample the locations cover 37; NAD is aggregated from state and local data of uneven coverage (Florida and Georgia are almost absent); registry rows are public address points of any building, not occupants; and the index itself is built from sources derived from the same state and local registers, so a pass measures fidelity to the register, not independent truth.
+
+One local run against a world index built from the October 2026 sources (single run, consumer commit `d22cc31`, repeating it gave zero drift): 526 of 550 locations passed (95.6%, Wilson 95% interval 93.6 to 97.1), 384 of 400 with trusted placement (96.0%, 93.6 to 97.5), 212 of 273 damaged variants (77.7%, 72.3 to 82.2). For 534 of the 550 locations the index's raw search returned an acceptable candidate in its top ten, and the service answered correctly for 526 of those; the other 16 have no acceptable raw candidate ("backend/data or query" in the report). One critical result: "1103 Turock Drive, Cuba, NY 14727" answers the country Cuba. These are a development run, not a published accuracy claim.
+
 ### Gates
 
 `run` fails on a must-pass failure, an untriaged critical result or a transport regression. `diff` fails on any newly failing case, a worse failure class, a new critical result or a must-pass failure in the candidate. It lists newly passing cases for review and drift in unscored cases. Accept a backend change only when both gates pass on the same corpus, consumer, models, reference data and fresh region cache. Report cohort changes as case counts: with about 250 cases, aggregate rates carry several points of uncertainty and per-country rows are individual evidence, not rates.

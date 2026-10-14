@@ -1,10 +1,11 @@
 //! Builds `tests/gold.jsonl` from `tests/gold.seeds.jsonl`. Expected answers come only from
 //! licensed authoritative sources — Wikidata (CC0), Base Adresse Nationale (Licence Ouverte 2.0),
 //! PDOK/BAG (CC0), the US Census geocoder (public domain), postcodes.io/ONSPD (OGL v3),
-//! Kartverket (CC BY 4.0), swisstopo (open use with attribution) and CartoCiudad (CC BY 4.0) —
+//! Kartverket (CC BY 4.0), swisstopo (open use with attribution), CartoCiudad (CC BY 4.0) and the
+//! US National Address Database (public domain, read from a local release file) —
 //! never from Nominatim or this service. Requires network access; review the diff as a data update.
 
-use crate::{report::sorted, run::utc_now};
+use crate::{nad, report::sorted, run::utc_now};
 use anyhow::{Context, Result, bail, ensure};
 use indexmap::IndexMap;
 use opengeocoding::eval::{holdout, sha256_hex};
@@ -97,7 +98,7 @@ struct Found {
 fn license(source: &str) -> &'static str {
     match source {
         "ban" => "etalab-2.0",
-        "census" => "US-Government-Public-Domain",
+        "census" | "nad" => "US-Government-Public-Domain",
         "postcodes.io" => "OGL-UK-3.0",
         "kartverket" | "cartociudad" => "CC-BY-4.0",
         "swisstopo" => "swisstopo-OGD",
@@ -121,6 +122,9 @@ fn source_url(source: &str, reference: &str) -> String {
         "cartociudad" => {
             format!("https://www.cartociudad.es/geocoder/api/geocoder/findJsonp?q={reference}")
         }
+        "nad" => format!(
+            "https://www.transportation.gov/gis/national-address-database (record {reference})"
+        ),
         _ => String::new(),
     }
 }
@@ -615,7 +619,7 @@ async fn lookups(
     let mut by_source: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for seed in seeds {
         if matches!(seed.kind.as_str(), "address" | "postcode")
-            && seed.source.as_deref() != Some("wikidata")
+            && !matches!(seed.source.as_deref(), Some("wikidata" | "nad"))
         {
             let (source, reference) =
                 registry_ref(seed).context("address seeds need a source and ref")?;
@@ -645,7 +649,7 @@ async fn lookups(
     Ok(all)
 }
 
-pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
+pub async fn build(seeds_path: &Path, out: &Path, nad: Option<&Path>) -> Result<()> {
     let seeds: Vec<Seed> = crate::model::load_jsonl::<Value>(seeds_path)?
         .into_iter()
         .enumerate()
@@ -671,7 +675,36 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
             qids.extend(alt["qid"].as_str().map(String::from));
         }
     }
-    let (wd, looked_up) = tokio::try_join!(sources.wikidata(&qids), lookups(&sources, &seeds))?;
+    let (wd, mut looked_up) = tokio::try_join!(sources.wikidata(&qids), lookups(&sources, &seeds))?;
+    let nad_refs: BTreeSet<String> = seeds
+        .iter()
+        .filter(|s| s.source.as_deref() == Some("nad"))
+        .filter_map(|s| s.reference.clone())
+        .collect();
+    let nad_release = nad
+        .and_then(|p| p.file_stem()?.to_str())
+        .unwrap_or_default()
+        .to_string();
+    if !nad_refs.is_empty() {
+        let path = nad.context("seeds cite the National Address Database: pass --nad FILE")?;
+        for (uuid, row) in nad::lookup(path, &nad_refs)? {
+            let components = IndexMap::from([
+                ("house_number", row.number.clone()),
+                ("postcode", row.zip.clone()),
+            ]);
+            looked_up.insert(
+                ("nad".to_string(), uuid.clone()),
+                (
+                    Found {
+                        point: row.point.map(round6),
+                        components,
+                        radius_floor_km: if row.parcel() { 0.3 } else { 0. },
+                    },
+                    uuid,
+                ),
+            );
+        }
+    }
     // Any listed code is acceptable: OSM tags different levels per country (FR-IDF and FR-75C, IE-L and IE-D).
     let region = |qid: Option<&str>, extra: &[String]| -> Vec<String> {
         // Only ISO 3166-2 codes: Somaliland's "SL" sits on Sanaag's chain too.
@@ -689,7 +722,13 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
         codes.into_iter().collect()
     };
     let iso = |qid: &str| -> Vec<String> { wd[qid].iso.iter().cloned().collect() };
-    let source = |name: &str, reference: &str| json!({ "name": name, "ref": reference, "url": source_url(name, reference), "license": license(name), "retrieved": today });
+    let source = |name: &str, reference: &str| {
+        let mut source = json!({ "name": name, "ref": reference, "url": source_url(name, reference), "license": license(name), "retrieved": today });
+        if name == "nad" {
+            source["release"] = json!(nad_release);
+        }
+        source
+    };
     let constructed = json!({ "name": "constructed", "license": "CC0-1.0", "retrieved": today });
     let mut cases: Vec<Value> = vec![];
     for seed in &seeds {
@@ -815,7 +854,7 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
                             let country = match name {
                                 "ban" => "fr",
                                 "pdok" => "nl",
-                                "census" => "us",
+                                "census" | "nad" => "us",
                                 "kartverket" => "no",
                                 "swisstopo" => "ch",
                                 "cartociudad" => "es",
@@ -845,7 +884,7 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
                                     )
                                     .map(String::from)
                                     .collect(),
-                                region(seed.city.as_deref(), &[]),
+                                region(seed.city.as_deref(), &seed.extra_regions),
                                 id.clone(),
                             )
                         }
@@ -864,7 +903,7 @@ pub async fn build(seeds_path: &Path, out: &Path) -> Result<()> {
                     (
                         expect,
                         format!("{name}:{id}"),
-                        reference.to_string(),
+                        seed.label.clone().unwrap_or_else(|| reference.to_string()),
                         source(name, &id),
                     )
                 }
