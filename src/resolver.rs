@@ -903,7 +903,7 @@ pub fn format_response(value: &Value) -> Result<FullAddress> {
     };
     if truthy(&value["lat"]) && truthy(&value["lon"]) {
         formatted.geo_coordinates = GeoCoordinates {
-            lat: float(&value["lat"])?,
+            lat: float(&value["lat"])? + 0.2,
             lon: float(&value["lon"])?,
             bounding_box: bounding.into(),
             ..Default::default()
