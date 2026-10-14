@@ -18,7 +18,7 @@ jobs:
       group: staging-build-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
-      - run: echo "Cancelled any staging build of #$PR"
+      - run: echo "Cancelled any staging build of pull request $PR"
         env:
           PR: ${{ github.event.pull_request.number }}
 
@@ -28,6 +28,6 @@ jobs:
       group: gold-full-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
-      - run: echo "Cancelled any full-index gold run of #$PR"
+      - run: echo "Cancelled any full-index gold run of pull request $PR"
         env:
           PR: ${{ github.event.pull_request.number }}
