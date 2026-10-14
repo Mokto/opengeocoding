@@ -88,3 +88,24 @@ jobs:
           helm package manifests --version "$version" --app-version "$version"
           echo "$TOKEN" | helm registry login ghcr.io --username "$ACTOR" --password-stdin
           helm push "opengeocoding-$version.tgz" oci://ghcr.io/mokto/charts
+
+  deploy:
+    needs: chart
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      # DISPATCH_TARGET is the full workflow_dispatch URL of the deploying workflow, DISPATCH_TOKEN a token for it.
+      - name: Dispatch the deployment of this release's chart
+        env:
+          TARGET: ${{ secrets.DISPATCH_TARGET }}
+          TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$TARGET" ] || [ -z "$TOKEN" ]; then
+            echo "::notice::DISPATCH_TARGET or DISPATCH_TOKEN is not set; skipping the deployment dispatch"
+            exit 0
+          fi
+          version="${GITHUB_REF#refs/tags/v}"
+          curl -fsS --retry 3 -X POST "$TARGET" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d "{\"ref\":\"main\",\"inputs\":{\"version\":\"$version\"}}"
