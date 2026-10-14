@@ -85,7 +85,10 @@ spec:
         - name: tmp
           emptyDir: {}
         - name: scratch
-          {{- if .Values.build.scratch.emptyDir }}
+          {{- if .Values.build.scratch.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.build.scratch.existingClaim | quote }}
+          {{- else if .Values.build.scratch.emptyDir }}
           emptyDir:
             sizeLimit: {{ .Values.build.scratch.size }}
           {{- else }}
