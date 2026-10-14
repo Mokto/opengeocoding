@@ -12,7 +12,7 @@
 use anyhow::{Context, Result, ensure};
 use buffa::Message;
 use opengeocoding::proto::opengeocoding::{
-    EmptyRequest, FullAddress, GeoCoordinates, SearchAddressTask,
+    EmptyRequest, FullAddress, GeoCoordinates, RegionsResponse, SearchAddressTask,
 };
 use reqwest::{StatusCode, header};
 use serde_json::{Value, json};
@@ -382,6 +382,55 @@ async fn checks(env: &mut Env) -> Result<()> {
             .any(|r| r["adminCode"] == "84" && r["localName"] == local_name)),
         "{listed}"
     );
+    let listed = listed["regions"].as_array().unwrap();
+    for (lat, lon, country, admin_code) in [
+        (55.676098, 12.568337, "dk", "84"),
+        (48.1374, 11.5755, "de", "BY"),
+        (48.8566, 2.3522, "fr", "IDF"),
+    ] {
+        let found = env
+            .json("ResolveRegion", json!({"lat": lat, "lon": lon}))
+            .await?;
+        let found = found["regions"].as_array().context("regions")?;
+        ensure!(
+            found
+                .iter()
+                .any(|r| r["countryCode"] == country && r["adminCode"] == admin_code),
+            "{lat},{lon}: {found:?}"
+        );
+        // every region it names is one ListRegions serves
+        ensure!(
+            found.iter().all(|r| listed.contains(r)),
+            "{lat},{lon}: {found:?}"
+        );
+    }
+    // far from any locality (mid-Atlantic) and the poles are valid questions with no answer
+    for (lat, lon) in [(0., -30.), (90., 180.), (-90., -180.)] {
+        for proto in [false, true] {
+            let body = if proto {
+                GeoCoordinates {
+                    lat,
+                    lon,
+                    ..Default::default()
+                }
+                .encode_to_vec()
+            } else {
+                json!({"lat": lat, "lon": lon}).to_string().into_bytes()
+            };
+            let (status, body) = env.rpc("ResolveRegion", body, proto).await?;
+            ensure!(status.is_success(), "{lat},{lon}: {status}");
+            let empty = if proto {
+                RegionsResponse::decode_from_slice(&body)?
+                    .regions
+                    .is_empty()
+            } else {
+                serde_json::from_slice::<Value>(&body)?["regions"]
+                    .as_array()
+                    .is_none_or(|r| r.is_empty())
+            };
+            ensure!(empty, "{lat},{lon}: {}", String::from_utf8_lossy(&body));
+        }
+    }
     println!("PASS: reverse lookup and region list");
 
     let suggested = env
@@ -407,6 +456,8 @@ async fn checks(env: &mut Env) -> Result<()> {
             "SuggestAddress",
             json!({"text": "paris", "countryCode": "USA"}),
         ),
+        ("ResolveRegion", json!({"lat": 0, "lon": -180.5})),
+        ("ResolveRegion", json!({"lat": -90.5, "lon": 0})),
     ] {
         let (status, body) = env
             .rpc(method, payload.to_string().into_bytes(), false)
@@ -416,6 +467,21 @@ async fn checks(env: &mut Env) -> Result<()> {
             "{method} accepted invalid input"
         );
         ensure!(serde_json::from_slice::<Value>(&body)?["code"] == "invalid_argument");
+    }
+    // JSON cannot carry these; protobuf can
+    for (lat, lon) in [(f32::NAN, 0.), (0., f32::INFINITY)] {
+        let body = GeoCoordinates {
+            lat,
+            lon,
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let (status, body) = env.rpc("ResolveRegion", body, true).await?;
+        ensure!(
+            status == StatusCode::BAD_REQUEST,
+            "ResolveRegion accepted {lat},{lon}: {}",
+            String::from_utf8_lossy(&body)
+        );
     }
     let shared = Arc::new(tokio::sync::Semaphore::new(16));
     let mut tasks = tokio::task::JoinSet::new();

@@ -7,6 +7,9 @@ use connectrpc::{ConnectError, RequestContext, Response, ServiceRequest, Service
 
 const SUGGEST_DEFAULT: usize = 5;
 const SUGGEST_MAX: usize = 15;
+fn valid_coordinates(lat: f32, lon: f32) -> bool {
+    (-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon)
+}
 
 pub struct Service {
     pub resolver: Resolver,
@@ -96,11 +99,7 @@ impl Geolocation for Service {
         request: ServiceRequest<'_, GeoCoordinates>,
     ) -> ServiceResult<impl connectrpc::Encodable<RegionsResponse> + Send + use<'a>> {
         self.run(&ctx, "ResolveRegion", async {
-            if !request.lat.is_finite()
-                || !request.lon.is_finite()
-                || !(-90.0..=90.0).contains(&request.lat)
-                || !(-180.0..=180.0).contains(&request.lon)
-            {
+            if !valid_coordinates(request.lat, request.lon) {
                 return Err(ConnectError::invalid_argument(
                     "Enter valid latitude and longitude coordinates.",
                 )
@@ -191,5 +190,30 @@ impl Geolocation for Service {
             })
         })
         .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::valid_coordinates;
+
+    #[test]
+    fn coordinates_must_be_on_the_globe() {
+        for (lat, lon) in [(0., 0.), (90., 180.), (-90., -180.), (55.676098, 12.568337)] {
+            assert!(valid_coordinates(lat, lon), "{lat} {lon}");
+        }
+        for (lat, lon) in [
+            (90.01, 0.),
+            (-90.01, 0.),
+            (0., 180.01),
+            (0., -180.01),
+            (f32::NAN, 0.),
+            (0., f32::NAN),
+            (f32::INFINITY, 0.),
+            (0., f32::NEG_INFINITY),
+            (f32::MAX, f32::MAX),
+        ] {
+            assert!(!valid_coordinates(lat, lon), "{lat} {lon}");
+        }
     }
 }

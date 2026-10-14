@@ -2599,6 +2599,81 @@ mod tests {
     }
 
     #[test]
+    fn reverse_returns_the_nearest_locality_within_the_search_box() {
+        let dir = std::env::temp_dir().join(format!("reverse-index-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (schema, f) = schema::schema();
+        let tantivy_index = tantivy::Index::create_in_dir(&dir, schema).unwrap();
+        tantivy_index
+            .tokenizers()
+            .register("fold", schema::analyzer());
+        let mut writer: tantivy::IndexWriter = tantivy_index
+            .writer_with_num_threads(1, 15_000_000)
+            .unwrap();
+        // id, subtype, country, region, x, y, parent, name: a place's row number is its id
+        let places = [
+            (0, "country", "DK", "", 0.0, 0.0, "", "Denmark"),
+            (1, "region", "DK", "DK-84", 0.0, 0.0, "0", "Hovedstaden"),
+            (2, "locality", "DK", "", 12.5683, 55.6761, "1", "Copenhagen"),
+            (3, "locality", "DK", "", 12.0803, 55.6415, "1", "Roskilde"),
+            (4, "neighborhood", "DK", "", 12.55, 55.69, "2", "Norrebro"),
+            (5, "region", "DK", "DK-82", 0.0, 0.0, "0", "Midtjylland"),
+            (6, "locality", "DK", "", 10.2039, 56.1629, "5", "Aarhus"),
+        ];
+        let mut tsv = String::new();
+        for (id, subtype, cc, region, x, y, parent, name) in places {
+            let class = if subtype == "locality" { "city" } else { "" };
+            tsv += &format!(
+                "{subtype}\t{class}\t{cc}\t{region}\t\t0\t{x}\t{y}\t0\t0\t0\t0\t{parent}\t{name}\t\n"
+            );
+            if x != 0.0 {
+                writer
+                    .add_document(tantivy::doc!(
+                        f.kind => "p", f.country => cc, f.id => id as u64, f.importance => 1u64,
+                        f.x => x, f.y => y
+                    ))
+                    .unwrap();
+            }
+        }
+        writer.commit().unwrap();
+        drop(writer);
+        std::fs::write(dir.join("numbers.shards"), "1").unwrap();
+        std::fs::write(
+            dir.join("numbers-00.fst"),
+            tantivy_fst::MapBuilder::memory().into_inner().unwrap(),
+        )
+        .unwrap();
+        std::fs::write(dir.join("places.tsv"), tsv).unwrap();
+        let index = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
+        let city_and_region = |lat: f64, lon: f64| {
+            let found = index.reverse(lat, lon);
+            let address = &found["address"];
+            (
+                address["city"].as_str().map(String::from),
+                address["ISO3166-2-lvl4"].as_str().map(String::from),
+            )
+        };
+        let found = |city: &str, region: &str| (Some(city.to_string()), Some(region.to_string()));
+        assert_eq!(
+            city_and_region(55.6761, 12.5683),
+            found("Copenhagen", "DK-84")
+        );
+        // a neighbourhood is never the answer; its town is
+        assert_eq!(city_and_region(55.69, 12.55), found("Copenhagen", "DK-84"));
+        assert_eq!(city_and_region(55.64, 12.09), found("Roskilde", "DK-84"));
+        // nothing within 0.05 degrees: the nearest of the localities within 0.5
+        assert_eq!(city_and_region(55.65, 12.3), found("Roskilde", "DK-84"));
+        assert_eq!(city_and_region(56.1, 10.5), found("Aarhus", "DK-82"));
+        // beyond the box, or at sea
+        for (lat, lon) in [(55.64, 11.3), (56.0, 3.0), (0.0, 0.0), (-90.0, 180.0)] {
+            let found = index.reverse(lat, lon);
+            assert_eq!(found["error"], "Unable to geocode", "{lat} {lon}: {found}");
+            assert!(found.get("address").is_none());
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn opens_without_writing_a_lock() {
         let dir = std::env::temp_dir().join(format!("read-only-index-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
