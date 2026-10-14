@@ -26,7 +26,10 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with:
@@ -37,15 +40,14 @@ jobs:
         with:
           context: .
           target: eval
-          platforms: linux/amd64
           outputs: type=docker,dest=${{ runner.temp }}/image.tar
           labels: |
             org.opencontainers.image.source=https://github.com/Mokto/opengeocoding
             org.opencontainers.image.licenses=LicenseRef-PolyForm-Shield-1.0.0
-          cache-from: type=gha,scope=runtime-ubuntu-24.04
+          cache-from: type=gha,scope=runtime-${{ matrix.runner }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: staging-image
+          name: staging-image-${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}
           path: ${{ runner.temp }}/image.tar
           retention-days: 1
           compression-level: 0
