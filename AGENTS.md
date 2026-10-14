@@ -14,6 +14,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - `src/matching.rs`: normalization, country/region corroboration and candidate selection.
 - `src/resolver.rs`: parsing, index lookups, candidate formatting and fallback ordering.
 - `src/index/`: the in-process lookup over a `build_index` output (`mod.rs`), the shared libpostal `Parser`, and the analyzer, schema and house-number format shared with the builder (`canon.rs`, `schema.rs`); `ResolveRegion`'s reverse lookup is still nearest-locality only.
+- `src/index/locality.rs`: the startup-built grid of locality points behind `Index::reverse` (not part of the index files, so it does not change the builder hash).
 - `src/index/reverse.rs`: `reverse.bin`, the street-by-grid-cell file `ReverseGeocode` reads (the builder writes it after the final segment merge, from per-shard spills of `schema.rs`'s number pass); houses themselves stay in the number FSTs.
 - `src/index/suggest.rs`: `SuggestAddress` completion of a half-typed place, street, house or postcode; reads the term dictionary and a name FST built at startup, never libpostal.
 - `src/regions.rs`: the regions and region map derived from the index at startup.

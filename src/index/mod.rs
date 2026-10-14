@@ -1,6 +1,7 @@
 //! Address lookup over a `build_index` output directory, loaded into the service process.
 //! Responses keep the Nominatim-style JSON candidate format the resolver reads.
 pub mod canon;
+mod locality;
 pub mod reverse;
 pub mod schema;
 
@@ -15,7 +16,7 @@ use std::{
 };
 use tantivy::{
     DocAddress, Searcher, Term,
-    query::{BooleanQuery, Occur, Query as TQuery, RangeQuery, TermQuery},
+    query::{BooleanQuery, Occur, Query as TQuery, TermQuery},
     schema::{Field, IndexRecordOption},
 };
 
@@ -317,6 +318,8 @@ pub struct Index {
     /// Absent from hand-built indexes, which then answer reverse lookups with a locality only.
     reverse: Option<reverse::Reverse>,
     places: Vec<Place>,
+    /// Locality points by position, for reverse lookups; built at startup from `places`.
+    localities: locality::Localities,
     /// Folded country names and ISO codes -> lowercase country code.
     countries: HashMap<String, String>,
     /// Lowercase country code -> its country place.
@@ -1004,6 +1007,13 @@ impl Index {
                 places[*c as usize].city_like = true;
             }
         }
+        let localities = locality::Localities::new(
+            places
+                .iter()
+                .enumerate()
+                .filter(|(_, p)| p.subtype.as_ref() == "locality")
+                .map(|(i, p)| (i as u32, p.x as f64, p.y as f64)),
+        );
         let mut countries = HashMap::new();
         let mut regions: HashMap<String, u32> = HashMap::new();
         let mut country_places: HashMap<String, u32> = HashMap::new();
@@ -1059,6 +1069,7 @@ impl Index {
             numbers,
             reverse,
             places,
+            localities,
             countries,
             country_places,
             regions,
@@ -2596,37 +2607,21 @@ impl Index {
 
     /// Nearest locality point within about 50 km.
     pub fn reverse(&self, lat: f64, lon: f64) -> Value {
-        for d in [0.05, 0.5] {
-            let range = |f: Field, v: f64| -> Box<dyn TQuery> {
-                Box::new(RangeQuery::new(
-                    std::ops::Bound::Included(Term::from_field_f64(f, v - d)),
-                    std::ops::Bound::Included(Term::from_field_f64(f, v + d)),
-                ))
-            };
-            let q = BooleanQuery::new(vec![
-                must(term(self.f.kind, "p")),
-                must(range(self.f.x, lon)),
-                must(range(self.f.y, lat)),
-            ]);
-            let best = self
-                .top(&q, 500, None)
-                .into_iter()
-                .map(|a| self.fast(a, "id") as u32)
-                .filter(|&p| self.places[p as usize].subtype.as_ref() == "locality")
-                .min_by(|&a, &b| {
-                    let dist = |p: u32| {
-                        let pl = &self.places[p as usize];
-                        (pl.x as f64 - lon).powi(2) + (pl.y as f64 - lat).powi(2)
-                    };
-                    dist(a).total_cmp(&dist(b))
-                });
-            if let Some(p) = best {
-                return self.render(&Hit::Place(p), true);
-            }
+        match self.nearest_locality(lat, lon) {
+            Some(p) => self.render(&Hit::Place(p), true),
+            None => json!({"error": "Unable to geocode"}),
         }
-        json!({"error": "Unable to geocode"})
+    }
+
+    fn nearest_locality(&self, lat: f64, lon: f64) -> Option<u32> {
+        self.localities.nearest(lat, lon, NEAR_LOCALITY_M, |p| {
+            let pl = &self.places[p as usize];
+            (pl.x as f64, pl.y as f64)
+        })
     }
 }
+
+const NEAR_LOCALITY_M: f64 = 50_000.0;
 
 #[cfg(test)]
 mod tests {
@@ -2820,7 +2815,7 @@ mod tests {
     }
 
     #[test]
-    fn reverse_returns_the_nearest_locality_within_the_search_box() {
+    fn reverse_returns_the_nearest_locality_within_50_km() {
         let dir = std::env::temp_dir().join(format!("reverse-index-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let (schema, f) = schema::schema();
@@ -2882,11 +2877,11 @@ mod tests {
         // a neighbourhood is never the answer; its town is
         assert_eq!(city_and_region(55.69, 12.55), found("Copenhagen", "DK-84"));
         assert_eq!(city_and_region(55.64, 12.09), found("Roskilde", "DK-84"));
-        // nothing within 0.05 degrees: the nearest of the localities within 0.5
+        // no locality within 5 km: the nearest within 50
         assert_eq!(city_and_region(55.65, 12.3), found("Roskilde", "DK-84"));
         assert_eq!(city_and_region(56.1, 10.5), found("Aarhus", "DK-82"));
-        // beyond the box, or at sea
-        for (lat, lon) in [(55.64, 11.3), (56.0, 3.0), (0.0, 0.0), (-90.0, 180.0)] {
+        // beyond 50 km (Roskilde is 61 km away), or at sea
+        for (lat, lon) in [(55.64, 11.1), (56.0, 3.0), (0.0, 0.0), (-90.0, 180.0)] {
             let found = index.reverse(lat, lon);
             assert_eq!(found["error"], "Unable to geocode", "{lat} {lon}: {found}");
             assert!(found.get("address").is_none());
