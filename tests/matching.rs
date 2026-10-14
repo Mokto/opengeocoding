@@ -153,6 +153,54 @@ fn mistyped_postcode_is_overruled_by_house_road_and_town() {
     assert_eq!(choose_candidate(&address, "", "02423", &[house]), None);
 }
 
+fn pairs(values: &[(&str, &str)]) -> Vec<(String, String)> {
+    values
+        .iter()
+        .map(|(key, value)| (key.to_string(), value.to_string()))
+        .collect()
+}
+
+#[test]
+fn commas_bound_the_town_in_street_town_state_postcode() {
+    use opengeocoding::index::comma_aligned;
+    let head = pairs(&[("house_number", "14"), ("road", "breezewood common")]);
+    let tail = pairs(&[("state", "ny"), ("postcode", "14051")]);
+    // libpostal moved "east" into the road
+    let whole = pairs(&[
+        ("house_number", "14"),
+        ("road", "breezewood common east"),
+        ("city", "amherst"),
+        ("state", "ny"),
+        ("postcode", "14051"),
+    ]);
+    let aligned = comma_aligned(&head, " East Amherst", &tail, &whole).unwrap();
+    assert_eq!(
+        aligned,
+        pairs(&[
+            ("house_number", "14"),
+            ("road", "breezewood common"),
+            ("city", "east amherst"),
+            ("state", "ny"),
+            ("postcode", "14051"),
+        ])
+    );
+    // already agreeing, a country stated, a middle that is no town, or outer parts that carry
+    // more than the street and the region leave the parse alone
+    let agreeing = pairs(&[("city", "east amherst")]);
+    assert!(comma_aligned(&head, "East Amherst", &tail, &agreeing).is_none());
+    let mut with_country = whole.clone();
+    with_country.push(("country".into(), "usa".into()));
+    assert!(comma_aligned(&head, "East Amherst", &tail, &with_country).is_none());
+    assert!(comma_aligned(&head, "Unit 4", &tail, &whole).is_none());
+    let no_town: Vec<_> = whole.iter().filter(|(k, _)| k != "city").cloned().collect();
+    assert!(comma_aligned(&head, "Bronx", &tail, &no_town).is_none());
+    let mut split = whole.clone();
+    split.push(("suburb".into(), "avondale".into()));
+    assert!(comma_aligned(&head, "Avondale Goodyear", &tail, &split).is_none());
+    let town_in_tail = pairs(&[("city", "ithaca"), ("state", "ny"), ("postcode", "14850")]);
+    assert!(comma_aligned(&head, "East Amherst", &town_in_tail, &whole).is_none());
+}
+
 #[test]
 fn postcode_missing_is_eligible_for_backfill() {
     assert!(postcode_matches("75001", Some(&AddressDetails::default())));

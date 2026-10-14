@@ -860,6 +860,49 @@ impl tantivy::Directory for ReadOnly {
 /// Parsed address components, shared between callers and the cache.
 pub type Parsed = Arc<[(String, String)]>;
 
+fn field<'a>(parsed: &'a [(String, String)], key: &str) -> &'a str {
+    parsed
+        .iter()
+        .find(|(k, _)| k == key)
+        .map_or("", |(_, v)| v.as_str())
+}
+
+/// "street, town, STATE ZIP" read with its commas as the boundaries. libpostal reads across them:
+/// "14 Breezewood Common, East Amherst, NY 14051" puts "East" in the road, and "3 Canterbury
+/// Street, Egg Harbor Township, NJ 08234" splits the town. Each outer part parses cleanly alone
+/// (`head` as only a house number and road, `tail` as only a state and postcode), so when the
+/// parse of the `whole` query names a different town, the middle part is the town. A whole parse
+/// without a town is left alone (the town check it then skips would be a new, stricter one), and
+/// so is one that splits the middle into a suburb and a town ("Avondale Goodyear").
+pub fn comma_aligned(
+    head: &[(String, String)],
+    middle: &str,
+    tail: &[(String, String)],
+    whole: &[(String, String)],
+) -> Option<Vec<(String, String)>> {
+    let only =
+        |a: &[(String, String)], keys: &[&str]| a.iter().all(|(k, _)| keys.contains(&k.as_str()));
+    let middle = middle.trim().to_lowercase();
+    if middle.is_empty()
+        || middle.chars().any(|c| c.is_ascii_digit())
+        || !field(whole, "country").is_empty()
+        || field(whole, "city").is_empty()
+        || !field(whole, "suburb").is_empty()
+        || !field(whole, "city_district").is_empty()
+        || field(whole, "city") == middle
+        || field(head, "road").is_empty()
+        || !only(head, &["house_number", "road"])
+        || field(tail, "postcode").is_empty()
+        || !only(tail, &["state", "postcode"])
+    {
+        return None;
+    }
+    let mut aligned = head.to_vec();
+    aligned.push(("city".into(), middle));
+    aligned.extend(tail.iter().cloned());
+    Some(aligned)
+}
+
 /// The process's one libpostal parser.
 pub struct Parser {
     postal: Mutex<rustpostal::LibModules>,
@@ -914,9 +957,24 @@ impl Parser {
         }
         let parsed: Parsed = {
             let _guard = self.postal.lock().unwrap_or_else(|e| e.into_inner());
-            rustpostal::address::parse_address(q, None, None)?
-                .into_iter()
-                .collect()
+            let libpostal = |text: &str| -> Result<Vec<(String, String)>> {
+                Ok(rustpostal::address::parse_address(text, None, None)?
+                    .into_iter()
+                    .collect())
+            };
+            let whole = libpostal(q)?;
+            let town = field(&whole, "city");
+            match q.split(',').collect::<Vec<_>>()[..] {
+                [head, middle, tail]
+                    if !town.is_empty() && town != middle.trim().to_lowercase() =>
+                {
+                    comma_aligned(&libpostal(head)?, middle, &libpostal(tail)?, &whole)
+                }
+                _ => None,
+            }
+            .unwrap_or(whole)
+            .into_iter()
+            .collect()
         };
         if self.capacity > 0 {
             let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
