@@ -80,11 +80,16 @@ jobs:
           EVENT: ${{ github.event.workflow_run.event }}
         run: |
           set -euo pipefail
+          status() {
+            for context in gold-full gold-speed; do
+              gh api -X POST "repos/$REPO/statuses/$HEAD_SHA" -f state="$1" -f context="$context" \
+                -f description="$2" -f target_url="$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" > /dev/null
+            done
+          }
           skip() {
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::Skipped: $1"
-            gh api -X POST "repos/$REPO/statuses/$HEAD_SHA" -f state=success -f context=gold-full \
-              -f description="Skipped: $1" -f target_url="$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" > /dev/null
+            status success "Skipped: $1"
             exit 0
           }
           pr=""
@@ -115,9 +120,7 @@ jobs:
             echo "event=$EVENT"
             echo "skip=false"
           } >> "$GITHUB_OUTPUT"
-          gh api -X POST "repos/$REPO/statuses/$HEAD_SHA" -f state=pending -f context=gold-full \
-            -f description="Waiting for the full-index run ($environment)" \
-            -f target_url="$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" > /dev/null
+          status pending "Waiting for the full-index run ($environment)"
 
   gold:
     needs: prepare
@@ -181,40 +184,78 @@ jobs:
       - name: Report
         run: |
           set -euo pipefail
+          # evaluate diff puts the speed comparison between these two lines; it gets its own comment
+          # and status so a slowdown is not buried in, or confused with, the correctness report.
+          sed -n '/^<!-- speed: /,/^<!-- speed end -->/p' report.md > speed.md
+          sed '/^<!-- speed: /,/^<!-- speed end -->/d' report.md > gold.md
+          speed=$(sed -n 's/^<!-- speed: \([a-z]*\) -->$/\1/p' speed.md)
+          headline=$(sed -n 's/^## Speed: //p' speed.md)
+          echo "SPEED=${speed:-none}" >> "$GITHUB_ENV"
+          echo "SPEED_HEADLINE=${headline:-not measured by the evaluator of this head commit}" >> "$GITHUB_ENV"
           {
             echo "<!-- gold-full -->"
             echo "## Gold check, full index: $([ "$EXIT" = 1 ] && echo regressions || echo no regressions)"
             echo
             echo "Base \`${BASE_SHA:0:7}\` → \`${HEAD_SHA:0:7}\` on the same full index, both through their staging images. Passing cases (base → head) are on the first line below; \`--relative\` leaves out must-pass cases that fail on both sides, so this shows change, not accuracy."
             echo
-            cat report.md
+            cat gold.md
           } > comment.md
-          cp comment.md "$GITHUB_STEP_SUMMARY"
-          if [ -n "$PR" ]; then
+          {
+            echo "<!-- gold-speed -->"
+            if [ -s speed.md ]; then
+              sed -e '/^<!-- speed/d' -e "s/^## Speed: /## Speed, full index: /" speed.md
+              echo
+              echo "Base \`${BASE_SHA:0:7}\` → \`${HEAD_SHA:0:7}\`, one after the other in one pod on the same node and index."
+            else
+              echo "## Speed, full index: not measured"
+            fi
+          } > speed-comment.md
+          cat speed-comment.md comment.md > "$GITHUB_STEP_SUMMARY"
+          upsert() {
+            local id
             id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
-              -q '.[] | select(.body | startswith("<!-- gold-full -->")) | .id')
+              -q ".[] | select(.body | startswith(\"<!-- $1 -->\")) | .id")
             id=${id%%$'\n'*}
             if [ -n "$id" ]; then
-              gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@comment.md > /dev/null
+              gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$2" > /dev/null
             else
-              gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@comment.md > /dev/null
+              gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@"$2" > /dev/null
             fi
+          }
+          if [ -n "$PR" ]; then
+            upsert gold-speed speed-comment.md
+            upsert gold-full comment.md
           fi
-      - name: Set the commit status
+      - name: Set the commit statuses
         if: always()
         env:
           JOB_STATUS: ${{ job.status }}
         run: |
+          status() {
+            gh api -X POST "repos/$REPO/statuses/$HEAD_SHA" -f state="$2" -f context="$1" \
+              -f description="${3:0:140}" -f target_url="$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" > /dev/null
+          }
           state=error; description="The run did not finish"
           if [ "$JOB_STATUS" = cancelled ]; then state=error; description="Cancelled"
           elif [ "${EXIT:-}" = 0 ]; then state=success; description="No regressions on the full index"
           elif [ "${EXIT:-}" = 1 ]; then state=failure; description="Regressions on the full index"; fi
-          gh api -X POST "repos/$REPO/statuses/$HEAD_SHA" -f state="$state" -f context=gold-full \
-            -f description="$description" -f target_url="$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID" > /dev/null
+          status gold-full "$state" "$description"
+          case "${SPEED:-}" in
+            pass|skip|none) status gold-speed success "$SPEED_HEADLINE" ;;
+            fail) status gold-speed failure "$SPEED_HEADLINE" ;;
+            *) status gold-speed "$state" "$description" ;;
+          esac
       - name: Cancel the run
         if: cancelled() && env.RUN_ID != ''
         run: |
           curl -sS -m 30 -X DELETE -H "Authorization: Bearer $KEY" "$URL/runs/$RUN_ID" > /dev/null
       - name: Fail on regressions
         if: env.EXIT == '1'
-        run: exit 1
+        run: |
+          echo "::error title=Gold regressions::Newly failing or worse cases on the full index; see the gold-full comment"
+          exit 1
+      - name: Fail on a slowdown
+        if: ${{ !cancelled() && env.SPEED == 'fail' }}
+        run: |
+          echo "::error title=SearchAddress slowdown::$SPEED_HEADLINE"
+          exit 1

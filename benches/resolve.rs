@@ -1,14 +1,12 @@
-//! Model-backed libpostal parsing and searches against a built index, over the non-held-out
-//! rows of `tests/addresses.tsv`. Needs libpostal's models and `INDEX_DIR`; without the
-//! index it runs nothing. Every row is used; the fixture index (benches/fixture) covers the
-//! area around each one, so searches do not just measure the empty-result path.
+//! Model-backed libpostal parsing of the non-held-out rows of `tests/addresses.tsv`. Runs only
+//! where CI sets up the fixture and models (`INDEX_DIR`). Index searches are timed end to end by
+//! the full-index gold check instead (`gold-speed`).
 use divan::{Bencher, black_box};
-use opengeocoding::index::{Index, Parser};
-use std::{path::PathBuf, sync::Arc, sync::LazyLock};
+use opengeocoding::index::Parser;
+use std::{sync::Arc, sync::LazyLock};
 
 struct Fixture {
     parser: Arc<Parser>,
-    index: Index,
     rows: Vec<Row>,
 }
 
@@ -19,9 +17,7 @@ struct Row {
 }
 
 static FIXTURE: LazyLock<Fixture> = LazyLock::new(|| {
-    let dir = PathBuf::from(std::env::var_os("INDEX_DIR").expect("INDEX_DIR"));
     let parser = Arc::new(Parser::setup_with_cache(0).expect("libpostal models"));
-    let index = Index::open(&dir, parser.clone()).expect("index");
     let rows = include_str!("../tests/addresses.tsv")
         .lines()
         .skip(1)
@@ -34,11 +30,7 @@ static FIXTURE: LazyLock<Fixture> = LazyLock::new(|| {
             })
         })
         .collect();
-    Fixture {
-        parser,
-        index,
-        rows,
-    }
+    Fixture { parser, rows }
 });
 
 fn main() {
@@ -100,36 +92,4 @@ fn parse_unparsed(bencher: Bencher) {
 #[divan::bench]
 fn parse_non_latin(bencher: Bencher) {
     parse(bencher, queries(|r| r.script == "non_latin"));
-}
-
-fn search(bencher: Bencher, targets: &[&str]) {
-    let qs = queries(|r| targets.contains(&r.target.as_str()));
-    for q in &qs {
-        FIXTURE.index.search(q);
-    }
-    bencher.with_inputs(|| &*FIXTURE).bench_local_refs(|f| {
-        qs.iter()
-            .map(|q| f.index.search(black_box(q)).len())
-            .sum::<usize>()
-    });
-}
-
-#[divan::bench]
-fn search_addresses(bencher: Bencher) {
-    search(bencher, &["address"]);
-}
-
-#[divan::bench]
-fn search_streets(bencher: Bencher) {
-    search(bencher, &["street"]);
-}
-
-#[divan::bench]
-fn search_postcodes(bencher: Bencher) {
-    search(bencher, &["postcode"]);
-}
-
-#[divan::bench]
-fn search_places(bencher: Bencher) {
-    search(bencher, &["city", "region", "country"]);
 }
