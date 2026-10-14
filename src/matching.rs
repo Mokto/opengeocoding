@@ -140,10 +140,17 @@ fn place_keys(value: &str) -> (String, String) {
 
 /// Whether two names denote the same place, ignoring qualifiers, spacing and script.
 pub fn names_agree(expected: &str, actual: &str) -> bool {
+    agrees_with(expected)(actual)
+}
+
+/// `names_agree` with `expected` folded once, for comparing it with many names.
+pub fn agrees_with(expected: &str) -> impl Fn(&str) -> bool {
     let (expected, expected_core) = place_keys(expected);
-    let (actual, actual_core) = place_keys(actual);
-    !expected.is_empty()
-        && (expected == actual || (!expected_core.is_empty() && expected_core == actual_core))
+    move |actual| {
+        let (actual, actual_core) = place_keys(actual);
+        !expected.is_empty()
+            && (expected == actual || (!expected_core.is_empty() && expected_core == actual_core))
+    }
 }
 
 pub fn expected_country(address: &ParsedAddress) -> String {
@@ -367,10 +374,11 @@ pub fn city_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
     let Some(d) = details else {
         return false;
     };
+    let agrees = agrees_with(expected);
     [&d.city, &d.town, &d.village, &d.municipality]
         .iter()
         .filter(|s| !s.is_empty())
-        .any(|s| names_agree(expected, s))
+        .any(|s| agrees(s))
 }
 
 /// The stated postcode is the candidate's and the stated town names a place above the
@@ -741,8 +749,11 @@ fn parsed_country(text: &str) -> ParsedAddress {
 /// are: a word is accounted for when it, or it joined to a neighbour ("M3J 3G8" is "M3J3G8"),
 /// is one of the texts' words. Single letters and street-type words say nothing about a place.
 pub fn coverage<'a>(query: &str, texts: impl IntoIterator<Item = &'a str>) -> (usize, usize) {
+    // a candidate's English and local renderings repeat its names, and folding them dominates
+    let mut distinct = std::collections::HashSet::new();
     let known: std::collections::HashSet<String> = texts
         .into_iter()
+        .filter(|t| distinct.insert(*t))
         .flat_map(|t| fold(t).split(' ').map(str::to_owned).collect::<Vec<_>>())
         .collect();
     let words: Vec<String> = fold(query)

@@ -30,6 +30,12 @@ const HOUSE: u64 = 2 << 40;
 const POSTCODE: u64 = 3 << 40;
 const STREET_CANDIDATES: usize = 20;
 
+thread_local! {
+    /// `Index::matching` results by query, while `Index::memoized` runs on this thread.
+    static MEMO: std::cell::RefCell<Option<HashMap<String, Vec<DocAddress>>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 struct Place {
     subtype: Box<str>,
     class: Box<str>,
@@ -43,6 +49,9 @@ struct Place {
     primary: Box<str>,
     /// `language=name` pairs joined by SEP.
     names: Box<str>,
+    /// Where the English name starts in `names` (NONE: none): a country's names run to
+    /// thousands of bytes, and every rendered address names its country.
+    en: u32,
     /// Sorted `name_key` hashes of all names, so exact-name checks don't re-fold them.
     keys: Box<[u64]>,
     /// A county that is a city in all but name: Overture has Birmingham only as a county with
@@ -56,13 +65,21 @@ impl Place {
     }
 
     fn name(&self, en: bool) -> &str {
-        en.then(|| self.lang("en"))
-            .flatten()
-            .unwrap_or(&self.primary)
+        match self.en {
+            at if en && at != NONE => self.names[at as usize..].split(SEP).next().unwrap_or(""),
+            _ => &self.primary,
+        }
     }
 
-    fn lang(&self, lang: &str) -> Option<&str> {
-        self.pairs().find(|(l, _)| *l == lang).map(|(_, n)| n)
+    fn english(names: &str) -> u32 {
+        let mut at = 0;
+        for pair in names.split(SEP) {
+            if pair.split_once('=').is_some_and(|(l, _)| l == "en") {
+                return (at + "en=".len()) as u32;
+            }
+            at += pair.len() + SEP.len_utf8();
+        }
+        NONE
     }
 
     fn pairs(&self) -> impl Iterator<Item = (&str, &str)> {
@@ -194,6 +211,7 @@ fn load_places(path: &Path, iso: &HashMap<&str, &str>) -> Result<(Vec<Place>, Ow
                 parent: f(12).parse().unwrap_or(NONE),
                 primary: f(13).into(),
                 names: f(14).into(),
+                en: Place::english(f(14)),
                 keys: Box::default(),
                 city_like: false,
             };
@@ -213,13 +231,70 @@ struct Columns {
     x: tantivy::columnar::Column<f64>,
     y: tantivy::columnar::Column<f64>,
     importance: tantivy::columnar::Column<u64>,
+    /// The doc ranges of each kind, by `Kind as usize`. The builder writes each kind in long runs
+    /// (10 to 20 per segment of a world index), so a lookup seeks its kind's runs and skips the
+    /// postings of the others: a place's name words also match millions of streets.
+    runs: [Vec<std::ops::Range<u32>>; 3],
+    /// Each document's `country` term, numbered in `Index::country_codes` (0: none). A country
+    /// term has millions of postings that tantivy's skip list walks one block at a time in every
+    /// lookup it intersects; this costs 2 bytes per document instead.
+    countries: Box<[u16]>,
+}
+
+impl Columns {
+    fn open(
+        reader: &tantivy::SegmentReader,
+        country: Field,
+        codes: &mut HashMap<String, u16>,
+    ) -> Result<Columns> {
+        use tantivy::DocSet;
+        let mut countries = vec![0u16; reader.max_doc() as usize];
+        let inverted = reader.inverted_index(country)?;
+        let mut terms = inverted.terms().stream()?;
+        while terms.advance() {
+            let next = u16::try_from(codes.len() + 1).context("too many country terms")?;
+            let code = *codes
+                .entry(String::from_utf8_lossy(terms.key()).into_owned())
+                .or_insert(next);
+            let mut postings =
+                inverted.read_postings_from_terminfo(terms.value(), IndexRecordOption::Basic)?;
+            let mut doc = postings.doc();
+            while doc != tantivy::TERMINATED {
+                countries[doc as usize] = code;
+                doc = postings.advance();
+            }
+        }
+        let f = reader.fast_fields();
+        let (id, place) = (f.u64("id")?, f.u64("place")?);
+        let mut runs: [Vec<std::ops::Range<u32>>; 3] = Default::default();
+        for doc in 0..reader.max_doc() {
+            let kind = match (place.index.has_value(doc), id.index.has_value(doc)) {
+                (false, _) => Kind::Place,
+                (true, true) => Kind::Street,
+                (true, false) => Kind::Postcode,
+            } as usize;
+            match runs[kind].last_mut() {
+                Some(run) if run.end == doc => run.end += 1,
+                _ => runs[kind].push(doc..doc + 1),
+            }
+        }
+        Ok(Columns {
+            id,
+            place,
+            x: f.f64("x")?,
+            y: f.f64("y")?,
+            importance: f.u64("importance")?,
+            runs,
+            countries: countries.into(),
+        })
+    }
 }
 
 /// The kind of a document: `kind` is a string field whose terms (about 40 million street
 /// documents in a world index) are far longer than any name's, and intersecting with them walks
 /// postings the query needs none of. The fast columns tell the kinds apart as well: places have
 /// no `place`, streets have both `place` and `id`, postcodes have only `place`.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Kind {
     Place,
     Street,
@@ -228,17 +303,17 @@ enum Kind {
 
 struct ByImportance<'a> {
     n: usize,
-    kind: Option<Kind>,
+    kind: Kind,
+    country: Option<u16>,
+    /// Stop at the first match: whether there is one, not which is most important.
+    any: bool,
     columns: &'a [Columns],
 }
 
 struct SegmentTop {
     segment: u32,
     n: usize,
-    kind: Option<Kind>,
     importance: tantivy::columnar::Column<u64>,
-    id: tantivy::columnar::Column<u64>,
-    place: tantivy::columnar::Column<u64>,
     heap: std::collections::BinaryHeap<std::cmp::Reverse<(u64, u32)>>,
 }
 
@@ -247,20 +322,52 @@ impl tantivy::collector::Collector for ByImportance<'_> {
     type Child = SegmentTop;
 
     fn for_segment(&self, segment: u32, _: &tantivy::SegmentReader) -> tantivy::Result<SegmentTop> {
-        let columns = &self.columns[segment as usize];
         Ok(SegmentTop {
             segment,
             n: self.n,
-            kind: self.kind,
-            importance: columns.importance.clone(),
-            id: columns.id.clone(),
-            place: columns.place.clone(),
+            importance: self.columns[segment as usize].importance.clone(),
             heap: Default::default(),
         })
     }
 
     fn requires_scoring(&self) -> bool {
         false
+    }
+
+    fn collect_segment(
+        &self,
+        weight: &dyn tantivy::query::Weight,
+        segment: u32,
+        reader: &tantivy::SegmentReader,
+    ) -> tantivy::Result<Vec<(u64, DocAddress)>> {
+        use tantivy::{DocSet, collector::SegmentCollector};
+        let mut top = self.for_segment(segment, reader)?;
+        let alive = reader.alive_bitset();
+        let mut scorer = weight.scorer(reader, 1.0)?;
+        let columns = &self.columns[segment as usize];
+        for run in &columns.runs[self.kind as usize] {
+            let mut doc = scorer.doc();
+            if doc < run.start {
+                doc = scorer.seek(run.start);
+            }
+            while doc < run.end {
+                if alive.is_none_or(|a| a.is_alive(doc))
+                    && self
+                        .country
+                        .is_none_or(|c| columns.countries[doc as usize] == c)
+                {
+                    top.collect(doc, 0.0);
+                    if self.any {
+                        return Ok(top.harvest());
+                    }
+                }
+                doc = scorer.advance();
+            }
+            if doc == tantivy::TERMINATED {
+                break;
+            }
+        }
+        Ok(top.harvest())
     }
 
     fn merge_fruits(
@@ -277,23 +384,11 @@ impl tantivy::collector::SegmentCollector for SegmentTop {
     type Fruit = Vec<(u64, DocAddress)>;
 
     fn collect(&mut self, doc: u32, _: tantivy::Score) {
-        // cheapest test first: most matches are too unimportant to matter
         let v = self.importance.first(doc).unwrap_or(0);
-        if self.heap.len() >= self.n && self.heap.peek().is_some_and(|m| m.0.0 >= v) {
-            return;
-        }
-        if let Some(kind) = self.kind {
-            let placed = self.place.first(doc).is_some();
-            let wanted = match kind {
-                Kind::Place => !placed,
-                Kind::Street => placed && self.id.first(doc).is_some(),
-                Kind::Postcode => placed && self.id.first(doc).is_none(),
-            };
-            if !wanted {
+        if self.heap.len() >= self.n {
+            if self.heap.peek().is_some_and(|m| m.0.0 >= v) {
                 return;
             }
-        }
-        if self.heap.len() >= self.n {
             self.heap.pop();
         }
         self.heap.push(std::cmp::Reverse((v, doc)));
@@ -312,6 +407,8 @@ pub struct Index {
     searcher: Searcher,
     /// Fast-field readers per segment, opened once: opening one parses its block index.
     columns: Vec<Columns>,
+    /// Uppercase `country` terms -> their number in `Columns::countries`.
+    country_codes: HashMap<String, u16>,
     f: Fields,
     /// Memory-mapped, so cold parts stay in the page cache instead of private memory.
     numbers: Vec<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
@@ -482,6 +579,14 @@ fn cjk_stem(name: &str) -> Option<&str> {
         "군",
     ];
     let name = name.trim();
+    // every suffix ends in a Han or Hangul syllable
+    if !name
+        .chars()
+        .next_back()
+        .is_some_and(|c| matches!(c, '\u{4e00}'..='\u{9fff}' | '\u{ac00}'..='\u{d7af}'))
+    {
+        return None;
+    }
     SUFFIXES.iter().find_map(|s| {
         name.strip_suffix(s)
             .filter(|stem| !stem.is_empty() && !stem.is_ascii())
@@ -491,16 +596,18 @@ fn cjk_stem(name: &str) -> Option<&str> {
 /// Nominatim-style keys (`name:fr`, `alt_name`, `short_name:ja`); repeated keys join with ';'.
 /// A CJK name with an administrative suffix also gives its stem as a short name (東京都 -> 東京).
 fn namedetails(pl: &Place, names: &mut Map<String, Value>) {
-    let mut add = |k: String, n: &str| match names.get_mut(&k) {
-        Some(Value::String(v)) => {
-            if !v.split(';').any(|x| x == n) {
+    use serde_json::map::Entry;
+    let mut add = |k: String, n: &str| match names.entry(k) {
+        Entry::Occupied(mut e) => {
+            if let Value::String(v) = e.get_mut()
+                && !v.split(';').any(|x| x == n)
+            {
                 v.push(';');
                 v.push_str(n);
             }
         }
-        Some(_) => {}
-        None => {
-            names.insert(k, n.into());
+        Entry::Vacant(e) => {
+            e.insert(n.into());
         }
     };
     for (l, n) in pl.pairs() {
@@ -1117,23 +1224,16 @@ impl Index {
         }
         countries.entry("uae".into()).or_insert_with(|| "ae".into());
         let place_names = suggest::place_names(&places)?;
+        let mut country_codes = HashMap::new();
         let columns: Vec<Columns> = searcher
             .segment_readers()
             .iter()
-            .map(|r| {
-                let f = r.fast_fields();
-                Ok(Columns {
-                    id: f.u64("id")?,
-                    place: f.u64("place")?,
-                    x: f.f64("x")?,
-                    y: f.f64("y")?,
-                    importance: f.u64("importance")?,
-                })
-            })
+            .map(|r| Columns::open(r, f.country, &mut country_codes))
             .collect::<Result<_>>()?;
         Ok(Index {
             searcher,
             columns,
+            country_codes,
             f,
             numbers,
             reverse,
@@ -1191,33 +1291,77 @@ impl Index {
         .unwrap_or(0.0)
     }
 
-    /// The `n` most important matches, of `kind` when given. TopDocs' fast-field ordering reopens
-    /// the column of every segment on every query, which cost more than the search itself.
-    fn top(&self, q: &dyn TQuery, n: usize, kind: Option<Kind>) -> Vec<DocAddress> {
-        let by = ByImportance {
-            n,
-            kind,
-            columns: &self.columns,
-        };
-        self.searcher.search(q, &by).unwrap()
+    /// The `n` most important documents of `kind` (and of country `cc`, if given) that match
+    /// `cl`; with no other required clause, all of them. TopDocs' fast-field ordering reopens the
+    /// column of every segment on every query, which cost more than the search itself.
+    fn top_of(
+        &self,
+        kind: Kind,
+        cc: Option<&str>,
+        cl: Vec<(Occur, Box<dyn TQuery>)>,
+        n: usize,
+    ) -> Vec<DocAddress> {
+        self.matching(kind, cc, cl, n, false)
     }
 
-    /// `top` over documents of `kind` (and of country `cc`, if given) that match `cl`; with no
-    /// other required clause, all of them.
-    fn top_of(
+    /// Whether `top_of` would find anything, without looking for the most important match.
+    fn any_of(&self, kind: Kind, cc: Option<&str>, cl: Vec<(Occur, Box<dyn TQuery>)>) -> bool {
+        !self.matching(kind, cc, cl, 1, true).is_empty()
+    }
+
+    fn matching(
         &self,
         kind: Kind,
         cc: Option<&str>,
         mut cl: Vec<(Occur, Box<dyn TQuery>)>,
         n: usize,
+        any: bool,
     ) -> Vec<DocAddress> {
-        if let Some(cc) = cc {
-            cl.push(must(term(self.f.country, &cc.to_uppercase())));
-        }
+        let country = match cc.map(|cc| self.country_codes.get(&cc.to_uppercase())) {
+            Some(None) => return vec![],
+            found => found.flatten().copied(),
+        };
         if cl.iter().all(|(occur, _)| *occur != Occur::Must) {
             cl.push(must(Box::new(tantivy::query::AllQuery)));
         }
-        self.top(&BooleanQuery::new(cl), n, Some(kind))
+        let key = MEMO
+            .with_borrow(Option::is_some)
+            .then(|| format!("{kind:?} {country:?} {n} {any} {cl:?}"));
+        if let Some(found) = key.as_ref().and_then(|key| {
+            MEMO.with_borrow(|memo| memo.as_ref().and_then(|m| m.get(key).cloned()))
+        }) {
+            return found;
+        }
+        let by = ByImportance {
+            n,
+            kind,
+            country,
+            any,
+            columns: &self.columns,
+        };
+        let found = self.searcher.search(&BooleanQuery::new(cl), &by).unwrap();
+        if let Some(key) = key {
+            MEMO.with_borrow_mut(|memo| memo.as_mut().map(|m| m.insert(key, found.clone())));
+        }
+        found
+    }
+
+    /// Runs `f` with lookups remembered until it returns. One request repeats a lookup several
+    /// times (the same town for each fallback and street scope): over half of a sample's lookups
+    /// were repeats. Nothing is kept across requests.
+    pub fn memoized<T>(&self, f: impl FnOnce() -> T) -> T {
+        struct Forget;
+        impl Drop for Forget {
+            fn drop(&mut self) {
+                MEMO.set(None);
+            }
+        }
+        if MEMO.with_borrow(Option::is_some) {
+            return f();
+        }
+        MEMO.set(Some(HashMap::new()));
+        let _forget = Forget;
+        f()
     }
 
     fn musts(&self, field: Field, text: &str) -> Vec<(Occur, Box<dyn TQuery>)> {
@@ -1466,21 +1610,20 @@ impl Index {
         if scope.is_empty() {
             return None;
         }
-        let first = |mut cl: Vec<(Occur, Box<dyn TQuery>)>| {
+        let scoped = |mut cl: Vec<(Occur, Box<dyn TQuery>)>| {
             cl.push(must(Box::new(BooleanQuery::new(
                 scope.iter().map(|(o, q)| (*o, q.box_clone())).collect(),
             ))));
-            self.top_of(Kind::Street, cc, cl, 1).into_iter().next()
+            cl
         };
         let words: Vec<String> = fold(road)
             .split(' ')
             .filter(|t| !t.is_empty())
             .map(String::from)
             .collect();
-        let mut missing = words
-            .iter()
-            .enumerate()
-            .filter(|(_, w)| first(vec![must(term(self.f.names, w))]).is_none());
+        let mut missing = words.iter().enumerate().filter(|(_, w)| {
+            !self.any_of(Kind::Street, cc, scoped(vec![must(term(self.f.names, w))]))
+        });
         let (wrong, word) = missing.next()?;
         if missing.next().is_some() || !fuzzable(word) {
             return None;
@@ -1513,7 +1656,11 @@ impl Index {
                 .map(|w| (Occur::Should, term(self.f.names, w)))
                 .collect(),
         ))));
-        let doc: tantivy::TantivyDocument = self.searcher.doc(first(cl)?).ok()?;
+        let best = self
+            .top_of(Kind::Street, cc, scoped(cl), 1)
+            .into_iter()
+            .next()?;
+        let doc: tantivy::TantivyDocument = self.searcher.doc(best).ok()?;
         let mut respelt = words.clone();
         let name = best_name(&doc, self.f.name, road);
         // the street's own spelling of the word, so the exact search finds it
@@ -1958,7 +2105,7 @@ impl Index {
 
     fn postcode_exists(&self, pc: &str, cc: Option<&str>) -> bool {
         let cl = vec![must(term(self.f.pcode, &pc_norm(pc)))];
-        !self.top_of(Kind::Postcode, cc, cl, 1).is_empty()
+        self.any_of(Kind::Postcode, cc, cl)
     }
 
     /// A one- or two-word postcode within a comma-separated part of `q`, and `q` without it.
@@ -2815,7 +2962,7 @@ mod tests {
     }
 
     /// Documents of each kind share terms; `top_of` must return only the asked kind and country,
-    /// without a `kind` clause, across segments.
+    /// without a `kind` clause, across segments and with the kinds interleaved in one.
     #[test]
     fn top_of_separates_kinds_and_countries() {
         let dir = std::env::temp_dir().join(format!("kinds-index-{}", std::process::id()));
@@ -2833,10 +2980,12 @@ mod tests {
             tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "US", f.pcode => "12345", f.id => 8u64, f.place => 7u64, f.importance => 2u64),
             tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "DK", f.id => 9u64, f.place => 7u64, f.importance => 3u64),
             tantivy::doc!(f.kind => "z", f.pcode => "12345", f.country => "US", f.place => 7u64, f.importance => 4u64),
+            tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "DK", f.id => 11u64, f.place => 7u64, f.importance => 1u64),
+            tantivy::doc!(f.kind => "p", f.names => "oak", f.country => "DK", f.id => 10u64, f.importance => 5u64),
         ];
         for (i, doc) in docs.into_iter().enumerate() {
             writer.add_document(doc).unwrap();
-            if i % 2 == 1 {
+            if i == 3 || i == 5 {
                 writer.commit().unwrap();
             }
         }
@@ -2859,17 +3008,38 @@ mod tests {
             ids.sort();
             ids
         };
-        assert_eq!(ids(index.top_of(Kind::Place, None, names(), 10)), [7]);
-        assert_eq!(ids(index.top_of(Kind::Street, None, names(), 10)), [8, 9]);
+        assert_eq!(index.columns.len(), 2);
+        assert_eq!(ids(index.top_of(Kind::Place, None, names(), 10)), [7, 10]);
+        assert_eq!(ids(index.top_of(Kind::Place, None, names(), 1)), [10]);
+        assert_eq!(ids(index.top_of(Kind::Place, Some("us"), names(), 10)), [7]);
+        assert_eq!(
+            ids(index.top_of(Kind::Street, None, names(), 10)),
+            [8, 9, 11]
+        );
         assert_eq!(
             ids(index.top_of(Kind::Street, Some("us"), names(), 10)),
             [8]
         );
         assert_eq!(
             ids(index.top_of(Kind::Street, Some("dk"), names(), 10)),
-            [9]
+            [9, 11]
         );
-        assert_eq!(ids(index.top_of(Kind::Street, None, vec![], 10)), [8, 9]);
+        assert_eq!(ids(index.top_of(Kind::Street, Some("dk"), names(), 1)), [9]);
+        assert!(
+            index
+                .top_of(Kind::Street, Some("fr"), names(), 10)
+                .is_empty()
+        );
+        assert_eq!(
+            ids(index.top_of(Kind::Street, None, vec![], 10)),
+            [8, 9, 11]
+        );
+        assert!(index.any_of(Kind::Street, Some("dk"), names()));
+        assert!(!index.any_of(Kind::Place, Some("fr"), names()));
+        assert!(!index.any_of(Kind::Postcode, None, names()));
+        let twice = index
+            .memoized(|| [0, 1].map(|_| ids(index.top_of(Kind::Street, Some("dk"), names(), 10))));
+        assert_eq!(twice, [vec![9, 11], vec![9, 11]]);
         let pcode = || vec![must(term(index.f.pcode, "12345"))];
         let hits = index.top_of(Kind::Postcode, None, pcode(), 10);
         assert_eq!(hits.len(), 1);
@@ -2879,8 +3049,27 @@ mod tests {
                 .first(hits[0].doc_id)
                 .is_none()
         );
-        assert_eq!(index.top_of(Kind::Street, None, names(), 1).len(), 1);
+        assert_eq!(ids(index.top_of(Kind::Street, None, names(), 1)), [9]);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn english_name_is_found_among_the_pairs() {
+        let at = |names: &str| match Place::english(names) {
+            NONE => None,
+            at => names[at as usize..].split(SEP).next().map(str::to_owned),
+        };
+        assert_eq!(at("en=London").as_deref(), Some("London"));
+        assert_eq!(
+            at("fr=Londres\u{1f}en=London\u{1f}de=London").as_deref(),
+            Some("London")
+        );
+        assert_eq!(at("fr=Londres\u{1f}en_x=London"), None);
+        assert_eq!(
+            at("alt_name=en=x\u{1f}en=London").as_deref(),
+            Some("London")
+        );
+        assert_eq!(at(""), None);
     }
 
     #[test]
