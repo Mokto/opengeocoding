@@ -93,13 +93,7 @@ async fn main() -> Result<()> {
         ConnectRouter::new().add_service(Arc::new(Service { resolver, regions })),
         reflector,
     );
-    for method in [
-        "SearchAddress",
-        "ResolveRegion",
-        "RefreshRegionMap",
-        "GetRegionMap",
-        "ListRegions",
-    ] {
+    for method in ["SearchAddress", "ResolveRegion", "ListRegions"] {
         connect = connect.with_route_limits(
             &format!("opengeocoding.Geolocation/{method}"),
             Limits::unlimited(),
@@ -160,13 +154,7 @@ mod tests {
             "geolocation.Geolocation",
             "nominatim_geolocation.NominatimGeolocation",
         ] {
-            for method in [
-                "SearchAddress",
-                "ResolveRegion",
-                "RefreshRegionMap",
-                "GetRegionMap",
-                "ListRegions",
-            ] {
+            for method in ["SearchAddress", "ResolveRegion", "ListRegions"] {
                 let request = Request::builder()
                     .uri(format!(
                         "http://localhost/{service}/{method}?key=%2Fvalue&key=other"

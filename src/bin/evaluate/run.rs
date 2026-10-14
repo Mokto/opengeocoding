@@ -390,12 +390,9 @@ impl Checker {
                 (a, b) => mismatches.push(json!({ "id": case.id, "error": [a.err(), b.err()] })),
             }
         }
-        let refreshed = rpc_json(&self.client, &self.base, "RefreshRegionMap", &json!({})).await;
-        let current = rpc_json(&self.client, &self.base, "GetRegionMap", &json!({})).await;
-        let map_ok = match (refreshed, current) {
-            (Ok(_), Ok(body)) => text(&body, "regionMap").len() > 2,
-            _ => false,
-        };
+        let regions_ok = rpc_json(&self.client, &self.base, "ListRegions", &json!({}))
+            .await
+            .is_ok_and(|body| body["regions"].as_array().is_some_and(|r| !r.is_empty()));
         let grpcurl = match (port, which("grpcurl")) {
             (Some(port), true) => {
                 let output = tokio::time::timeout(
@@ -426,7 +423,7 @@ impl Checker {
         };
         json!({
             "connect_proto_matches_json": { "ok": mismatches.is_empty(), "checked": checked.len(), "mismatches": mismatches },
-            "region_map_refresh_and_read": { "ok": map_ok },
+            "list_regions": { "ok": regions_ok },
             "grpcurl_search_address": grpcurl,
         })
     }

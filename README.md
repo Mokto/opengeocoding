@@ -5,7 +5,7 @@
 A Rust service that combines libpostal address parsing, Overture-backed index lookups and the administrative regions of that index.
 
 - Connect JSON and Connect protobuf; an experimental legacy gRPC surface.
-- Forward geocoding, reverse region resolution and region-map read APIs (`RefreshRegionMap` remains for compatibility and changes nothing).
+- Forward geocoding, reverse region resolution and a list of the regions the index knows.
 - Country/region corroboration, local-language candidate matching (including each place's names in other languages and scripts), postcode-area safeguards and ordered fallback queries.
 - `goodMatch` is false for structured-fallback results and for street results that lack the requested house number.
 - Prometheus metrics, gRPC reflection and graceful shutdown.
@@ -64,7 +64,7 @@ curl http://localhost:11121/opengeocoding.Geolocation/SearchAddress \
   -d '{"addressString":"Copenhagen, Denmark"}'
 ```
 
-The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `Geolocation`. The methods are `SearchAddress`, `ResolveRegion`, `RefreshRegionMap`, `GetRegionMap` and `ListRegions`.
+The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `Geolocation`. The methods are `SearchAddress`, `ResolveRegion` and `ListRegions`. `RefreshRegionMap` and `GetRegionMap` (a Python-style dictionary string) were removed; `ListRegions` returns the same regions as typed messages.
 
 The canonical RPC path is `/opengeocoding.Geolocation/*`. The Go package is `github.com/Mokto/opengeocoding/gen/opengeocoding`; the Rust crate is `opengeocoding`, with generated types under `opengeocoding::proto::opengeocoding`.
 
@@ -113,11 +113,11 @@ The initial model-backed integration run passes Connect JSON/protobuf, local-lan
 
 The service loads the index into its own process at startup: one process parses, looks addresses up and serves the RPCs, with no internal HTTP hop. Startup fails if `INDEX_DIR` holds no `build_index` output. The index files stay memory-mapped; the place table (about 2 GB for the world) and libpostal's models (about 2 GB) are read into memory, which took about 10 seconds from a warm disk. `INDEX_URL`, `NOMINATIM_HOST`, `NOMINATIM_URL` and `NOMINATIM_AUTHORITY` are no longer supported; there is no Nominatim fallback. Legacy RPC paths and metric prefixes remain for compatibility, not backend selection.
 
-Overture's `region` column carries an ISO 3166-2 code for its regions only. Subdivisions it does not code (Ugandan, Czech and Nauruan districts, Palestinian governorates, overseas territories such as `US-PR` and `FR-971`; 180 in all) are named in `data/reference.json` under `iso3166_2`, by the Wikidata item Overture gives the division. The list of codes is a policy kept in that file, one entry per subdivision that consumers expect; `update_reference` refreshes only their items. The builder writes each place's Wikidata item as the last `places.tsv` column and the service gives the matching place that code: it becomes a region row and the address's `ISO3166-2-lvl4` code, ahead of the code Overture gives the places inside it (`UG-108` rather than `UG-C`). A code Overture supplies itself wins. Still without regions: Cyprus, Monaco, Madagascar and Singapore (Overture has no divisions with those codes' Wikidata items) and 29 Vietnamese provinces that Overture does not carry. Regions come from the index, not from a database: at startup the service builds one row per ISO 3166-2 code the index names a region for (about 3,700 for the world), the same row a search for `<cc>, <code>` returns, and a complete `GetRegionMap` answer from them. Both are fixed for the life of the process and need no writable directory, so `RefreshRegionMap` changes nothing. A region code an address carries but the index has no region for (for example the four Irish provinces) is logged and left out of the answer, as before. Earlier versions kept rows in ClickHouse (`CLICKHOUSE_*`, `REGION_MAP_PATH`); those settings are ignored.
+Overture's `region` column carries an ISO 3166-2 code for its regions only. Subdivisions it does not code (Ugandan, Czech and Nauruan districts, Palestinian governorates, overseas territories such as `US-PR` and `FR-971`; 180 in all) are named in `data/reference.json` under `iso3166_2`, by the Wikidata item Overture gives the division. The list of codes is a policy kept in that file, one entry per subdivision that consumers expect; `update_reference` refreshes only their items. The builder writes each place's Wikidata item as the last `places.tsv` column and the service gives the matching place that code: it becomes a region row and the address's `ISO3166-2-lvl4` code, ahead of the code Overture gives the places inside it (`UG-108` rather than `UG-C`). A code Overture supplies itself wins. Still without regions: Cyprus, Monaco, Madagascar and Singapore (Overture has no divisions with those codes' Wikidata items) and 29 Vietnamese provinces that Overture does not carry. Regions come from the index, not from a database: at startup the service builds one row per ISO 3166-2 code the index names a region for (about 3,700 for the world), the same row a search for `<cc>, <code>` returns, and serves them from `ListRegions` (`RegionsResponse`, ordered by country and admin code). The rows are fixed for the life of the process and need no writable directory. A region code an address carries but the index has no region for (for example the four Irish provinces) is logged and left out of the answer, as before. Earlier versions kept rows in ClickHouse (`CLICKHOUSE_*`, `REGION_MAP_PATH`); those settings are ignored.
 
 `/healthz` reports readiness after initialization. Metrics are exposed at `/metrics` on port 8000.
 
-`GetRegionMap` returns a Python-style dictionary string for wire compatibility; the stored file is JSON. Coordinates use protobuf float32. Postcode compatibility deliberately includes shared outward/area codes for supported national schemes; it is not a promise of an exact street-level postcode match.
+Coordinates use protobuf float32. Postcode compatibility deliberately includes shared outward/area codes for supported national schemes; it is not a promise of an exact street-level postcode match.
 
 ## Build and test
 

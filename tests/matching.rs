@@ -1,8 +1,5 @@
 use opengeocoding::{
-    matching::*,
-    proto::opengeocoding::*,
-    regions::{Regions, format_regions, python_repr},
-    resolver::format_response,
+    matching::*, proto::opengeocoding::*, regions::Regions, resolver::format_response,
 };
 use serde_json::json;
 
@@ -195,40 +192,7 @@ fn index_response_and_region_code_filtering() {
 }
 
 #[test]
-fn region_hierarchy_and_python_representation() {
-    let rows = vec![
-        Region {
-            country_code: "dk".into(),
-            country_name: "Denmark".into(),
-            admin_code: "84".into(),
-            admin_level: 4,
-            local_name: "Hovedstaden".into(),
-            en_name: "Capital Region".into(),
-            ..Default::default()
-        },
-        Region {
-            country_code: "dk".into(),
-            country_name: "Denmark".into(),
-            admin_code: "84_101".into(),
-            admin_level: 6,
-            local_name: "København".into(),
-            en_name: "Copenhagen".into(),
-            parent_admin_code: "DK-84".into(),
-            ..Default::default()
-        },
-    ];
-    let tree = format_regions(&rows).unwrap();
-    let representation = python_repr(&tree).unwrap();
-    assert!(representation.contains("Denmark"));
-    assert!(representation.contains("København"));
-    assert_eq!(
-        python_repr(&json!({"key": "line\n\u{1c}"})).unwrap(),
-        "{'key': 'line\\n\\x1c'}"
-    );
-}
-
-#[test]
-fn regions_come_from_codes_and_serve_one_stable_map() {
+fn regions_come_from_codes_and_list_in_a_stable_order() {
     let region = |country: &str, code: &str, level: u32, name: &str| {
         (
             format!("{}-{code}", country.to_uppercase()),
@@ -253,7 +217,7 @@ fn regions_come_from_codes_and_serve_one_stable_map() {
         region("ie", "D", 4, "County Dublin"),
         region("dk", "82", 4, "Midtjylland"),
     ];
-    let regions = Regions::from_rows(rows.clone()).unwrap();
+    let regions = Regions::from_rows(rows.clone());
     assert_eq!(regions.len(), 3);
     let found = regions.reformat(&[code("DK-84", 4), code("DK-XX", 5), code("dk-82", 3)]);
     // lowest admin level first; a code with no region is left out; case does not matter
@@ -264,9 +228,8 @@ fn regions_come_from_codes_and_serve_one_stable_map() {
             .collect::<Vec<_>>(),
         ["Midtjylland", "Hovedstaden"]
     );
-    // the map does not depend on the order the index listed the regions in
-    let reversed = Regions::from_rows(rows.into_iter().rev().collect()).unwrap();
-    assert_eq!(regions.map(), reversed.map());
+    // the list does not depend on the order the index listed the regions in
+    let reversed = Regions::from_rows(rows.into_iter().rev().collect());
     assert_eq!(regions.list(), reversed.list());
     assert_eq!(
         regions
@@ -275,11 +238,6 @@ fn regions_come_from_codes_and_serve_one_stable_map() {
             .map(|r| (r.country_code.as_str(), r.admin_code.as_str()))
             .collect::<Vec<_>>(),
         [("dk", "82"), ("dk", "84"), ("ie", "D")]
-    );
-    assert!(
-        regions
-            .map()
-            .starts_with("{'dk': {'country_name': 'DK', '82': ")
     );
 }
 
