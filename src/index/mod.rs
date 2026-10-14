@@ -101,15 +101,19 @@ impl Place {
     }
 }
 
+/// Reads `places.tsv` on all cores (about 5 million lines for the world), hashing each place's
+/// names as it goes.
 fn load_places(path: &Path) -> Result<Vec<Place>> {
+    use rayon::prelude::*;
     let text = fs::read_to_string(path).with_context(|| path.display().to_string())?;
-    Ok(text
-        .lines()
+    let lines: Vec<&str> = text.lines().collect();
+    Ok(lines
+        .par_iter()
         .map(|l| {
             let c: Vec<&str> = l.split('\t').collect();
             let f = |i: usize| c.get(i).copied().unwrap_or("");
             let num = |i: usize| f(i).parse::<f32>().unwrap_or(f32::NAN);
-            Place {
+            let mut place = Place {
                 subtype: f(0).into(),
                 class: f(1).into(),
                 cc: f(2).to_lowercase().into(),
@@ -123,7 +127,12 @@ fn load_places(path: &Path) -> Result<Vec<Place>> {
                 names: f(14).into(),
                 keys: Box::default(),
                 city_like: false,
-            }
+            };
+            let mut keys: Vec<u64> = place.all_names().map(name_key).collect();
+            keys.sort_unstable();
+            keys.dedup();
+            place.keys = keys.into();
+            place
         })
         .collect())
 }
@@ -136,27 +145,46 @@ struct Columns {
     importance: tantivy::columnar::Column<u64>,
 }
 
-struct ByImportance {
+/// The kind of a document: `kind` is a string field whose terms (about 40 million street
+/// documents in a world index) are far longer than any name's, and intersecting with them walks
+/// postings the query needs none of. The fast columns tell the kinds apart as well: places have
+/// no `place`, streets have both `place` and `id`, postcodes have only `place`.
+#[derive(Clone, Copy)]
+enum Kind {
+    Place,
+    Street,
+    Postcode,
+}
+
+struct ByImportance<'a> {
     n: usize,
-    columns: Vec<tantivy::columnar::Column<u64>>,
+    kind: Option<Kind>,
+    columns: &'a [Columns],
 }
 
 struct SegmentTop {
     segment: u32,
     n: usize,
-    column: tantivy::columnar::Column<u64>,
+    kind: Option<Kind>,
+    importance: tantivy::columnar::Column<u64>,
+    id: tantivy::columnar::Column<u64>,
+    place: tantivy::columnar::Column<u64>,
     heap: std::collections::BinaryHeap<std::cmp::Reverse<(u64, u32)>>,
 }
 
-impl tantivy::collector::Collector for ByImportance {
+impl tantivy::collector::Collector for ByImportance<'_> {
     type Fruit = Vec<DocAddress>;
     type Child = SegmentTop;
 
     fn for_segment(&self, segment: u32, _: &tantivy::SegmentReader) -> tantivy::Result<SegmentTop> {
+        let columns = &self.columns[segment as usize];
         Ok(SegmentTop {
             segment,
             n: self.n,
-            column: self.columns[segment as usize].clone(),
+            kind: self.kind,
+            importance: columns.importance.clone(),
+            id: columns.id.clone(),
+            place: columns.place.clone(),
             heap: Default::default(),
         })
     }
@@ -179,13 +207,26 @@ impl tantivy::collector::SegmentCollector for SegmentTop {
     type Fruit = Vec<(u64, DocAddress)>;
 
     fn collect(&mut self, doc: u32, _: tantivy::Score) {
-        let v = self.column.first(doc).unwrap_or(0);
-        if self.heap.len() < self.n {
-            self.heap.push(std::cmp::Reverse((v, doc)));
-        } else if self.heap.peek().is_some_and(|m| m.0.0 < v) {
-            self.heap.pop();
-            self.heap.push(std::cmp::Reverse((v, doc)));
+        // cheapest test first: most matches are too unimportant to matter
+        let v = self.importance.first(doc).unwrap_or(0);
+        if self.heap.len() >= self.n && self.heap.peek().is_some_and(|m| m.0.0 >= v) {
+            return;
         }
+        if let Some(kind) = self.kind {
+            let placed = self.place.first(doc).is_some();
+            let wanted = match kind {
+                Kind::Place => !placed,
+                Kind::Street => placed && self.id.first(doc).is_some(),
+                Kind::Postcode => placed && self.id.first(doc).is_none(),
+            };
+            if !wanted {
+                return;
+            }
+        }
+        if self.heap.len() >= self.n {
+            self.heap.pop();
+        }
+        self.heap.push(std::cmp::Reverse((v, doc)));
     }
 
     fn harvest(self) -> Self::Fruit {
@@ -713,27 +754,75 @@ impl tantivy::Directory for ReadOnly {
     }
 }
 
+/// Parsed address components, shared between callers and the cache.
+pub type Parsed = Arc<[(String, String)]>;
+
 /// The process's one libpostal parser.
-pub struct Parser(Mutex<rustpostal::LibModules>);
+pub struct Parser {
+    postal: Mutex<rustpostal::LibModules>,
+    cache: Mutex<HashMap<Box<str>, Parsed>>,
+    capacity: usize,
+}
 
 impl Parser {
-    /// Loads the models; once per process, shared by the resolver and the index.
+    /// Parses kept by default: a resolve parses its query twice (resolver, then index) and
+    /// libpostal's single lock is the service's throughput limit.
+    pub const DEFAULT_CACHE: usize = 65_536;
+
+    /// Loads the models, caching [`Self::DEFAULT_CACHE`] parses.
     pub fn setup() -> Result<Self> {
-        let postal = rustpostal::LibModules::Address;
+        Self::setup_with_cache(Self::DEFAULT_CACHE)
+    }
+
+    /// Loads the models; once per process, shared by the resolver and the index. `cache` is the
+    /// number of parses kept; 0 parses every call.
+    pub fn setup_with_cache(cache: usize) -> Result<Self> {
+        let parser = Self::unloaded(cache);
+        parser.load()?;
+        Ok(parser)
+    }
+
+    /// A parser whose models are not loaded: [`Self::load`] it before the first `parse`. Lets
+    /// the several seconds of model loading overlap other startup work.
+    pub fn unloaded(cache: usize) -> Self {
+        Self {
+            postal: Mutex::new(rustpostal::LibModules::Address),
+            cache: Mutex::default(),
+            capacity: cache,
+        }
+    }
+
+    /// Loads the models; once per process.
+    pub fn load(&self) -> Result<()> {
+        let postal = self.postal.lock().unwrap_or_else(|e| e.into_inner());
         postal
             .setup()
-            .map_err(|_| anyhow::anyhow!("libpostal model setup failed"))?;
-        Ok(Self(Mutex::new(postal)))
+            .map_err(|_| anyhow::anyhow!("libpostal model setup failed"))
     }
 
     /// Blocks: call it off the async executor.
-    // ponytail: one lock serializes every libpostal call until a native thread-safety stress
-    // test permits a wider parsing pool.
-    pub fn parse(&self, q: &str) -> Result<Vec<(String, String)>> {
-        let _guard = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        Ok(rustpostal::address::parse_address(q, None, None)?
-            .into_iter()
-            .collect())
+    // ponytail: one lock serializes every libpostal call (the parser keeps one scratch context
+    // in native state, so parses cannot overlap). The cache is emptied when full, not an LRU.
+    pub fn parse(&self, q: &str) -> Result<Parsed> {
+        if self.capacity > 0
+            && let Some(hit) = self.cache.lock().unwrap_or_else(|e| e.into_inner()).get(q)
+        {
+            return Ok(hit.clone());
+        }
+        let parsed: Parsed = {
+            let _guard = self.postal.lock().unwrap_or_else(|e| e.into_inner());
+            rustpostal::address::parse_address(q, None, None)?
+                .into_iter()
+                .collect()
+        };
+        if self.capacity > 0 {
+            let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
+            if cache.len() >= self.capacity {
+                cache.clear();
+            }
+            cache.insert(q.into(), parsed.clone());
+        }
+        Ok(parsed)
     }
 }
 
@@ -785,27 +874,22 @@ impl Index {
             .collect::<Result<_>>()?;
         let mut places = load_places(&dir.join("places.tsv"))?;
         {
-            use rayon::prelude::*;
-            places.par_iter_mut().for_each(|p| {
-                let mut keys: Vec<u64> = p.all_names().map(name_key).collect();
-                keys.sort_unstable();
-                keys.dedup();
-                p.keys = keys.into();
-            });
             // counties containing a same-named neighbourhood, minus those with such a locality
             let mut hood_named: std::collections::HashSet<u32> = Default::default();
             let mut town_named: std::collections::HashSet<u32> = Default::default();
             for p in &places {
                 let parent = p.parent;
-                if parent == NONE || places[parent as usize].subtype.as_ref() != "county" {
-                    continue;
-                }
-                let same = name_key(&p.primary) == name_key(&places[parent as usize].primary);
-                match &*p.subtype {
-                    "neighborhood" | "macrohood" if same => hood_named.insert(parent),
-                    "locality" | "localadmin" if same => town_named.insert(parent),
-                    _ => false,
+                let named = match &*p.subtype {
+                    "neighborhood" | "macrohood" => &mut hood_named,
+                    "locality" | "localadmin" => &mut town_named,
+                    _ => continue,
                 };
+                if parent != NONE
+                    && places[parent as usize].subtype.as_ref() == "county"
+                    && name_key(&p.primary) == name_key(&places[parent as usize].primary)
+                {
+                    named.insert(parent);
+                }
             }
             for c in hood_named.difference(&town_named) {
                 places[*c as usize].city_like = true;
@@ -838,7 +922,7 @@ impl Index {
             }
         }
         countries.entry("uae".into()).or_insert_with(|| "ae".into());
-        let columns = searcher
+        let columns: Vec<Columns> = searcher
             .segment_readers()
             .iter()
             .map(|r| {
@@ -879,7 +963,7 @@ impl Index {
         };
         self.parser
             .parse(q)
-            .map(|v| v.into_iter().map(|(l, t)| (l, clean(&t))).collect())
+            .map(|v| v.iter().map(|(l, t)| (l.clone(), clean(t))).collect())
             .unwrap_or_default()
     }
 
@@ -905,14 +989,33 @@ impl Index {
         .unwrap_or(0.0)
     }
 
-    /// The `n` most important matches. TopDocs' fast-field ordering reopens the column of every
-    /// segment on every query, which cost more than the search itself.
-    fn top(&self, q: &dyn TQuery, n: usize) -> Vec<DocAddress> {
+    /// The `n` most important matches, of `kind` when given. TopDocs' fast-field ordering reopens
+    /// the column of every segment on every query, which cost more than the search itself.
+    fn top(&self, q: &dyn TQuery, n: usize, kind: Option<Kind>) -> Vec<DocAddress> {
         let by = ByImportance {
             n,
-            columns: self.columns.iter().map(|c| c.importance.clone()).collect(),
+            kind,
+            columns: &self.columns,
         };
         self.searcher.search(q, &by).unwrap()
+    }
+
+    /// `top` over documents of `kind` (and of country `cc`, if given) that match `cl`; with no
+    /// other required clause, all of them.
+    fn top_of(
+        &self,
+        kind: Kind,
+        cc: Option<&str>,
+        mut cl: Vec<(Occur, Box<dyn TQuery>)>,
+        n: usize,
+    ) -> Vec<DocAddress> {
+        if let Some(cc) = cc {
+            cl.push(must(term(self.f.country, &cc.to_uppercase())));
+        }
+        if cl.iter().all(|(occur, _)| *occur != Occur::Must) {
+            cl.push(must(Box::new(tantivy::query::AllQuery)));
+        }
+        self.top(&BooleanQuery::new(cl), n, Some(kind))
     }
 
     fn musts(&self, field: Field, text: &str) -> Vec<(Occur, Box<dyn TQuery>)> {
@@ -990,13 +1093,9 @@ impl Index {
         ok: &dyn Fn(&Place) -> bool,
         area_named: bool,
     ) -> (Vec<Hit>, bool) {
-        let mut cl = self.musts(self.f.names, text);
+        let cl = self.musts(self.f.names, text);
         if cl.is_empty() {
             return (vec![], false);
-        }
-        cl.push(must(term(self.f.kind, "p")));
-        if let Some(cc) = cc {
-            cl.push(must(term(self.f.country, &cc.to_uppercase())));
         }
         let want = name_key(text);
         // "Cauca Department" is named "Cauca"
@@ -1012,7 +1111,7 @@ impl Index {
             .map(|w| name_key(&w))
             .collect();
         let ids: Vec<(usize, u32)> = self
-            .top(&BooleanQuery::new(cl), 100)
+            .top_of(Kind::Place, cc, cl, 100)
             .into_iter()
             .enumerate()
             .map(|(rank, a)| (rank, self.fast(a, "id") as u32))
@@ -1165,11 +1264,7 @@ impl Index {
             cl.push(must(Box::new(BooleanQuery::new(
                 scope.iter().map(|(o, q)| (*o, q.box_clone())).collect(),
             ))));
-            cl.push(must(term(self.f.kind, "s")));
-            if let Some(cc) = cc {
-                cl.push(must(term(self.f.country, &cc.to_uppercase())));
-            }
-            self.top(&BooleanQuery::new(cl), 1).into_iter().next()
+            self.top_of(Kind::Street, cc, cl, 1).into_iter().next()
         };
         let words: Vec<String> = fold(road)
             .split(' ')
@@ -1262,14 +1357,7 @@ impl Index {
         postcode: Option<&str>,
         cc: Option<&str>,
     ) -> Vec<Hit> {
-        let base = || {
-            let mut cl = self.musts(self.f.names, road);
-            cl.push(must(term(self.f.kind, "s")));
-            if let Some(cc) = cc {
-                cl.push(must(term(self.f.country, &cc.to_uppercase())));
-            }
-            cl
-        };
+        let base = || self.musts(self.f.names, road);
         if self.musts(self.f.names, road).is_empty() {
             return vec![];
         }
@@ -1365,7 +1453,9 @@ impl Index {
                 cl.push(must(Box::new(BooleanQuery::new(
                     self.musts(self.f.city, c),
                 ))));
-                self.top(&BooleanQuery::new(cl), 1000).into_iter().collect()
+                self.top_of(Kind::Street, cc, cl, 1000)
+                    .into_iter()
+                    .collect()
             }
             _ => Default::default(),
         };
@@ -1376,7 +1466,9 @@ impl Index {
                 Some(pc) => {
                     let mut cl = base();
                     cl.push(must(term(self.f.pcode, &pc)));
-                    self.top(&BooleanQuery::new(cl), 1000).into_iter().collect()
+                    self.top_of(Kind::Street, cc, cl, 1000)
+                        .into_iter()
+                        .collect()
                 }
                 None => Default::default(),
             };
@@ -1391,7 +1483,7 @@ impl Index {
             }
             let mut top = match near {
                 Some((px, py)) if near_scope && i + 1 == scope_count => self
-                    .top(&BooleanQuery::new(cl), 1000)
+                    .top_of(Kind::Street, cc, cl, 1000)
                     .into_iter()
                     .filter(|&a| {
                         let (x, y) = (self.fast_f64(a, "x"), self.fast_f64(a, "y"));
@@ -1399,7 +1491,7 @@ impl Index {
                     })
                     .take(STREET_CANDIDATES)
                     .collect(),
-                _ => self.top(&BooleanQuery::new(cl), STREET_CANDIDATES),
+                _ => self.top_of(Kind::Street, cc, cl, STREET_CANDIDATES),
             };
             if top.is_empty() {
                 continue;
@@ -1585,11 +1677,7 @@ impl Index {
         if pc.is_empty() {
             return vec![];
         }
-        let mut cl = vec![must(term(self.f.kind, "z")), must(term(self.f.pcode, &pc))];
-        if let Some(cc) = cc {
-            cl.push(must(term(self.f.country, &cc.to_uppercase())));
-        }
-        self.top(&BooleanQuery::new(cl), 5)
+        self.top_of(Kind::Postcode, cc, vec![must(term(self.f.pcode, &pc))], 5)
             .into_iter()
             .map(|a| {
                 let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
@@ -1607,11 +1695,8 @@ impl Index {
 
     /// A normalized postcode as the data writes it ("SW1A2AA" -> "SW1A 2AA").
     fn postcode_display(&self, norm: &str, cc: Option<&str>) -> String {
-        let mut cl = vec![must(term(self.f.kind, "z")), must(term(self.f.pcode, norm))];
-        if let Some(cc) = cc {
-            cl.push(must(term(self.f.country, &cc.to_uppercase())));
-        }
-        match self.top(&BooleanQuery::new(cl), 1).first() {
+        let cl = vec![must(term(self.f.pcode, norm))];
+        match self.top_of(Kind::Postcode, cc, cl, 1).first() {
             Some(&a) => stored(&self.searcher.doc(a).unwrap(), self.f.name),
             None => norm.to_string(),
         }
@@ -1642,17 +1727,8 @@ impl Index {
     }
 
     fn postcode_exists(&self, pc: &str, cc: Option<&str>) -> bool {
-        let mut cl = vec![
-            must(term(self.f.kind, "z")),
-            must(term(self.f.pcode, &pc_norm(pc))),
-        ];
-        if let Some(cc) = cc {
-            cl.push(must(term(self.f.country, &cc.to_uppercase())));
-        }
-        self.searcher
-            .search(&BooleanQuery::new(cl), &tantivy::collector::Count)
-            .unwrap_or(0)
-            > 0
+        let cl = vec![must(term(self.f.pcode, &pc_norm(pc)))];
+        !self.top_of(Kind::Postcode, cc, cl, 1).is_empty()
     }
 
     /// A one- or two-word postcode within a comma-separated part of `q`, and `q` without it.
@@ -2247,7 +2323,7 @@ impl Index {
                 must(range(self.f.y, lat)),
             ]);
             let best = self
-                .top(&q, 500)
+                .top(&q, 500, None)
                 .into_iter()
                 .map(|a| self.fast(a, "id") as u32)
                 .filter(|&p| self.places[p as usize].subtype.as_ref() == "locality")
@@ -2286,6 +2362,75 @@ mod tests {
         check_builder(&dir).unwrap();
         write("0000000000000000");
         assert!(check_builder(&dir).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Documents of each kind share terms; `top_of` must return only the asked kind and country,
+    /// without a `kind` clause, across segments.
+    #[test]
+    fn top_of_separates_kinds_and_countries() {
+        let dir = std::env::temp_dir().join(format!("kinds-index-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (schema, f) = schema::schema();
+        let tantivy_index = tantivy::Index::create_in_dir(&dir, schema).unwrap();
+        tantivy_index
+            .tokenizers()
+            .register("fold", schema::analyzer());
+        let mut writer: tantivy::IndexWriter = tantivy_index
+            .writer_with_num_threads(1, 15_000_000)
+            .unwrap();
+        let docs = [
+            tantivy::doc!(f.kind => "p", f.names => "oak", f.country => "US", f.id => 7u64, f.importance => 1u64),
+            tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "US", f.pcode => "12345", f.id => 8u64, f.place => 7u64, f.importance => 2u64),
+            tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "DK", f.id => 9u64, f.place => 7u64, f.importance => 3u64),
+            tantivy::doc!(f.kind => "z", f.pcode => "12345", f.country => "US", f.place => 7u64, f.importance => 4u64),
+        ];
+        for (i, doc) in docs.into_iter().enumerate() {
+            writer.add_document(doc).unwrap();
+            if i % 2 == 1 {
+                writer.commit().unwrap();
+            }
+        }
+        drop(writer);
+        std::fs::write(dir.join("numbers.shards"), "1").unwrap();
+        std::fs::write(
+            dir.join("numbers-00.fst"),
+            tantivy_fst::MapBuilder::memory().into_inner().unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("places.tsv"),
+            "country\t\tUS\t\t\t0\t0\t0\t0\t0\t0\t0\t\tUnited States\ten=United States\n",
+        )
+        .unwrap();
+        let index = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
+        let names = || index.musts(index.f.names, "oak");
+        let ids = |hits: Vec<DocAddress>| {
+            let mut ids: Vec<u64> = hits.into_iter().map(|a| index.fast(a, "id")).collect();
+            ids.sort();
+            ids
+        };
+        assert_eq!(ids(index.top_of(Kind::Place, None, names(), 10)), [7]);
+        assert_eq!(ids(index.top_of(Kind::Street, None, names(), 10)), [8, 9]);
+        assert_eq!(
+            ids(index.top_of(Kind::Street, Some("us"), names(), 10)),
+            [8]
+        );
+        assert_eq!(
+            ids(index.top_of(Kind::Street, Some("dk"), names(), 10)),
+            [9]
+        );
+        assert_eq!(ids(index.top_of(Kind::Street, None, vec![], 10)), [8, 9]);
+        let pcode = || vec![must(term(index.f.pcode, "12345"))];
+        let hits = index.top_of(Kind::Postcode, None, pcode(), 10);
+        assert_eq!(hits.len(), 1);
+        assert!(
+            index.columns[hits[0].segment_ord as usize]
+                .id
+                .first(hits[0].doc_id)
+                .is_none()
+        );
+        assert_eq!(index.top_of(Kind::Street, None, names(), 1).len(), 1);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

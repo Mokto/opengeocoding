@@ -49,6 +49,11 @@ const MAX_CITIES: usize = 5;
 const MAX_ALT_NAMES: usize = 64;
 const NUMBER_SHARDS: usize = 16;
 const MAX_WRITER_THREADS: usize = 16;
+/// Segments left after the final merge. The writer leaves one per arena flush (319 for a world
+/// index); each query looks its terms up in every segment, so queries cost about that many
+/// times more. Merging in four parallel groups took 40 s for the world index; one segment took
+/// 140 s and queried no faster.
+const FINAL_SEGMENTS: usize = 4;
 const NAME_SEP: char = '\u{1f}';
 const GB: f64 = (1u64 << 30) as f64;
 
@@ -1041,6 +1046,17 @@ fn geonames_postcodes(path: &str) -> HashMap<PcKey, PcAgg> {
     agg
 }
 
+/// `items` (weight, value), heaviest first, dealt into `n` groups of near-equal total weight.
+fn balanced<T>(items: Vec<(u64, T)>, n: usize) -> Vec<Vec<T>> {
+    let mut groups: Vec<(u64, Vec<T>)> = (0..n).map(|_| (0, vec![])).collect();
+    for (weight, item) in items {
+        let lightest = groups.iter_mut().min_by_key(|g| g.0).expect("n > 0");
+        lightest.0 += weight;
+        lightest.1.push(item);
+    }
+    groups.into_iter().map(|g| g.1).collect()
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let run = match args.get(1).map(String::as_str) {
@@ -1370,5 +1386,40 @@ fn build(args: &[String]) {
         "index commit ({} segments)",
         index.searchable_segment_ids().unwrap().len()
     ));
+    let mut segments: Vec<_> = index
+        .searchable_segment_metas()
+        .unwrap()
+        .iter()
+        .map(|m| (m.max_doc() as u64, m.id()))
+        .collect();
+    segments.sort_by_key(|s| std::cmp::Reverse(s.0));
+    let merges: Vec<_> = balanced(segments, FINAL_SEGMENTS)
+        .iter()
+        .filter(|ids| ids.len() > 1)
+        .map(|ids| writer.merge(ids))
+        .collect();
+    for merge in merges {
+        merge.wait().unwrap();
+    }
+    // the merged-away files, or the sealed index would carry both copies
+    writer.garbage_collect_files().wait().unwrap();
+    lap(&format!(
+        "segment merge ({} segments)",
+        index.searchable_segment_ids().unwrap().len()
+    ));
     println!("total: {:.1}s", t0.elapsed().as_secs_f64());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::balanced;
+
+    #[test]
+    fn balanced_groups_split_the_weight_evenly() {
+        let items = [9, 7, 5, 4, 3, 2, 1].map(|w| (w, w)).to_vec();
+        let weights: Vec<u64> = balanced(items, 3).iter().map(|g| g.iter().sum()).collect();
+        assert_eq!(weights.iter().sum::<u64>(), 31);
+        assert!(weights.iter().all(|w| (10..=11).contains(w)), "{weights:?}");
+        assert_eq!(balanced(vec![(1, 'a')], 4).iter().flatten().count(), 1);
+    }
 }
