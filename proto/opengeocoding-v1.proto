@@ -6,13 +6,10 @@ option go_package = "github.com/Mokto/opengeocoding/gen/opengeocoding";
 service Geolocation {
   rpc SearchAddress(SearchAddressTask) returns (FullAddress) {}
   rpc ResolveRegion(GeoCoordinates) returns (RegionsResponse) {}
-  rpc RefreshRegionMap(EmptyRequest) returns (EmptyResponse) {}
-  rpc GetRegionMap(EmptyRequest) returns (RegionMap) {}
+  rpc ListRegions(EmptyRequest) returns (RegionsResponse) {}
 }
 
 message EmptyRequest {}
-
-message EmptyResponse {}
 
 message SearchAddressTask {
   string address_string = 1;
@@ -120,8 +117,4 @@ message Region {
 
 message RegionsResponse {
   repeated Region regions = 1;
-}
-
-message RegionMap {
-  string region_map = 1;
 }

@@ -117,25 +117,14 @@ impl Geolocation for Service {
         .await
     }
 
-    async fn refresh_region_map<'a>(
+    async fn list_regions<'a>(
         &'a self,
         ctx: RequestContext,
         _: ServiceRequest<'_, EmptyRequest>,
-    ) -> ServiceResult<impl connectrpc::Encodable<EmptyResponse> + Send + use<'a>> {
-        self.run(&ctx, "RefreshRegionMap", async {
-            Ok(EmptyResponse::default())
-        })
-        .await
-    }
-
-    async fn get_region_map<'a>(
-        &'a self,
-        ctx: RequestContext,
-        _: ServiceRequest<'_, EmptyRequest>,
-    ) -> ServiceResult<impl connectrpc::Encodable<RegionMap> + Send + use<'a>> {
-        self.run(&ctx, "GetRegionMap", async {
-            Ok(RegionMap {
-                region_map: self.regions.map().to_owned(),
+    ) -> ServiceResult<impl connectrpc::Encodable<RegionsResponse> + Send + use<'a>> {
+        self.run(&ctx, "ListRegions", async {
+            Ok(RegionsResponse {
+                regions: self.regions.list().to_vec(),
                 ..Default::default()
             })
         })

@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use opengeocoding::{
     matching::*,
     proto::opengeocoding::*,
-    regions::{format_regions, python_repr},
     resolver::{Resolver, format_response},
 };
 use serde_json::{Value, json};
@@ -32,15 +31,6 @@ async fn main() -> Result<()> {
             "eircode" => json!(eircode(string("value"))),
             "without_country" => json!(without_country(string("value"), &address)),
             "format" => serde_json::to_value(format_response(&input["value"])?)?,
-            "benchmark_regions" => {
-                let rows: Vec<Region> = serde_json::from_value(input["value"].clone())?;
-                let iterations = input["iterations"].as_u64().context("iterations")?;
-                let start = std::time::Instant::now();
-                for _ in 0..iterations {
-                    std::hint::black_box(format_regions(&rows)?);
-                }
-                json!(start.elapsed().as_secs_f64())
-            }
             "benchmark_choose" => {
                 let candidates: Vec<FullAddress> =
                     serde_json::from_value(input["candidates"].clone())?;
@@ -56,10 +46,6 @@ async fn main() -> Result<()> {
                 }
                 json!(start.elapsed().as_secs_f64())
             }
-            "regions" => format_regions(&serde_json::from_value::<Vec<Region>>(
-                input["value"].clone(),
-            )?)?,
-            "repr" => json!(python_repr(&input["value"])?),
             "override" => serde_json::to_value(search_override(string("value")))?,
             "query" => {
                 let order: Vec<String> = serde_json::from_value(input["order"].clone())?;

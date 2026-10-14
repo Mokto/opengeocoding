@@ -208,12 +208,7 @@ async fn checks(env: &mut Env) -> Result<()> {
             .encode_to_vec(),
         ),
         (
-            "RefreshRegionMap",
-            json!({}),
-            EmptyRequest::default().encode_to_vec(),
-        ),
-        (
-            "GetRegionMap",
+            "ListRegions",
             json!({}),
             EmptyRequest::default().encode_to_vec(),
         ),
@@ -300,15 +295,14 @@ async fn checks(env: &mut Env) -> Result<()> {
         .json("ResolveRegion", json!({"lat": 55.676098, "lon": 12.568337}))
         .await?;
     ensure!(regions["regions"][0]["adminCode"] == "84", "{regions}");
-    ensure!(env.json("RefreshRegionMap", json!({})).await? == json!({}));
-    let served = env.json("GetRegionMap", json!({})).await?;
-    let served = served["regionMap"].as_str().unwrap_or("");
-    ensure!(served.contains(&local_name), "{served}");
+    let listed = env.json("ListRegions", json!({})).await?;
     ensure!(
-        env.json("GetRegionMap", json!({})).await?["regionMap"] == served,
-        "the region map changed between reads"
+        listed["regions"].as_array().is_some_and(|r| r
+            .iter()
+            .any(|r| r["adminCode"] == "84" && r["localName"] == local_name)),
+        "{listed}"
     );
-    println!("PASS: reverse lookup and region map");
+    println!("PASS: reverse lookup and region list");
 
     for (method, payload) in [
         ("SearchAddress", json!({"addressString": "bad\u{0}address"})),
