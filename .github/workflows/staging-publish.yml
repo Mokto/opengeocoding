@@ -41,3 +41,11 @@ jobs:
             skopeo copy "docker-archive:staging-image-$arch/image.tar" "docker://$image:sha-$SHA-$arch"
           done
           docker buildx imagetools create --tag "$image:sha-$SHA" "$image:sha-$SHA-amd64" "$image:sha-$SHA-arm64"
+
+  gold:
+    needs: publish
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    uses: ./.github/workflows/gold-full.yml
