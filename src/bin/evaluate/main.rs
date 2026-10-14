@@ -29,7 +29,7 @@ const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|check>
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000]
-            [--no-direct] [--resume] [--backend-label TEXT]
+            [--no-direct] [--resume] [--backend-label TEXT] [--repeat 3]
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
@@ -116,6 +116,7 @@ async fn command() -> Result<i32> {
         "budget",
         "backend-label",
         "compare",
+        "repeat",
         "seeds",
     ];
     let args = Args::parse(raw, &valued)?;
@@ -126,12 +127,23 @@ async fn command() -> Result<i32> {
             if !["smoke", "gold", "addresses"].contains(&suite.as_str()) {
                 bail!("--suite must be smoke, gold or addresses");
             }
+            let rpc = args.value("rpc").map(String::from);
+            if rpc.is_some() && args.value("repeat").is_some() {
+                bail!(
+                    "--repeat times the local service only; it would bypass --max-rps with --rpc"
+                );
+            }
             let options = run::Options {
                 suite,
                 corpus: args.path("corpus"),
                 out: args.path("out").context("--out is required")?,
                 index: args.path("index"),
-                rpc: args.value("rpc").map(String::from),
+                repeat: match &rpc {
+                    Some(_) => 1,
+                    None => args.value("repeat").map_or(Ok(3), str::parse)?,
+                }
+                .max(1),
+                rpc,
                 only: args.value("only").map(regex::Regex::new).transpose()?,
                 max_rps: args.value("max-rps").map_or(Ok(20.), str::parse)?,
                 budget: args.value("budget").map_or(Ok(20_000), str::parse)?,

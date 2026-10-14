@@ -38,6 +38,7 @@ pub struct Options {
     pub backend_label: String,
     pub compare: Option<PathBuf>,
     pub fail_on_drift: bool,
+    pub repeat: usize,
 }
 
 /// One rate limit and request budget for the RPCs sent to the service.
@@ -186,6 +187,8 @@ struct Checker {
     metrics: Option<String>,
     /// The same index, loaded here for direct checks.
     index: Option<Index>,
+    /// Requests per case; `ms` is the fastest. Only for the local service, so outside the budget.
+    repeat: usize,
 }
 
 impl Checker {
@@ -208,12 +211,24 @@ impl Checker {
             &json!({ "addressString": case.query }),
         )
         .await;
-        record.ms = Some(started.elapsed().as_millis() as u64);
+        let mut elapsed = started.elapsed();
         if let (Some(metrics), Some(before)) = (&self.metrics, before)
             && let Some(after) = index_searches(&self.client, metrics).await
         {
             record.backend_calls = Some((after - before).round() as usize);
         }
+        for _ in 1..self.repeat {
+            let started = Instant::now();
+            let _ = rpc_json(
+                &self.client,
+                &self.base,
+                "SearchAddress",
+                &json!({ "addressString": case.query }),
+            )
+            .await;
+            elapsed = elapsed.min(started.elapsed());
+        }
+        record.ms = Some((elapsed.as_secs_f64() * 1e6).round() / 1e3);
         let response = match result {
             Ok(response) => response,
             Err(error) => {
@@ -566,6 +581,8 @@ impl Local {
                 ("RPC_PORT", port.to_string()),
                 ("METRICS_PORT", metrics.to_string()),
                 ("SENTRY_DSN", String::new()),
+                // Repeated queries would otherwise skip parsing and time only the lookup.
+                ("PARSE_CACHE", "0".into()),
                 (
                     "RUST_LOG",
                     std::env::var("RUST_LOG").unwrap_or_else(|_| "warn".into()),
@@ -688,6 +705,7 @@ pub async fn run(options: Options) -> Result<i32> {
         "consumer": { "git": git(&["rev-parse", "HEAD"]), "dirty": !git(&["status", "--porcelain", "--untracked-files=no"]).is_empty() },
         "reference_data_sha256": sha256_file(&root().join("data/reference.json"))?,
         "max_rps": options.max_rps,
+        "repeat": options.repeat,
         "budget": options.budget,
         "evaluator": env!("CARGO_PKG_VERSION"),
     });
@@ -742,6 +760,7 @@ pub async fn run(options: Options) -> Result<i32> {
                 budget,
                 metrics: local.metrics.map(|port| format!("http://127.0.0.1:{port}")),
                 index,
+                repeat: options.repeat,
             };
             run_cases(
                 &checker,

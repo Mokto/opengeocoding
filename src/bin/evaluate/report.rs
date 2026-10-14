@@ -196,9 +196,9 @@ pub fn sorted(value: Value) -> Value {
     }
 }
 
-fn percentile(values: &[usize], q: f64) -> usize {
+fn percentile<T: Copy + PartialOrd>(values: &[T], q: f64) -> T {
     let mut ordered = values.to_vec();
-    ordered.sort_unstable();
+    ordered.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let index = ((q * ordered.len() as f64).ceil() as usize).saturating_sub(1);
     ordered[index.min(ordered.len() - 1)]
 }
@@ -669,6 +669,53 @@ fn label(record: &Record) -> String {
     format!("{} {text} [{}] {lat},{lon}", s.level, s.country)
 }
 
+/// SearchAddress latency on both sides, in aggregate only and never gated: two runs of one
+/// binary differ by tens of percent overall and several times on single cases.
+fn latency(
+    shared: &[&String],
+    old: &IndexMap<String, Record>,
+    new: &IndexMap<String, Record>,
+    manifests: [&Value; 2],
+) -> String {
+    let (old_ms, new_ms): (Vec<f64>, Vec<f64>) = shared
+        .iter()
+        .filter_map(|id| Some((old[*id].ms?, new[*id].ms?)))
+        .unzip();
+    if old_ms.is_empty() {
+        return String::new();
+    }
+    let mut report = format!(
+        "\n## SearchAddress latency ({} cases, ms, not gated)\n\n| | Total | p50 | p90 | p99 | Max |\n|---|---:|---:|---:|---:|---:|\n",
+        old_ms.len()
+    );
+    let mut stats = vec![];
+    for (name, ms) in [("baseline", &old_ms), ("candidate", &new_ms)] {
+        let row = [
+            ms.iter().sum(),
+            percentile(ms, 0.5),
+            percentile(ms, 0.9),
+            percentile(ms, 0.99),
+            percentile(ms, 1.),
+        ];
+        let cells: Vec<_> = row.iter().map(|v| format!("{v:.1}")).collect();
+        let _ = writeln!(report, "| {name} | {} |", cells.join(" | "));
+        stats.push(row);
+    }
+    let change: Vec<_> = stats[0]
+        .iter()
+        .zip(&stats[1])
+        .map(|(a, b)| format!("{:+.0}%", (b / a.max(1e-3) - 1.) * 100.))
+        .collect();
+    let _ = writeln!(report, "| change | {} |", change.join(" | "));
+    let repeats = manifests.map(|m| m["repeat"].as_u64().unwrap_or(1));
+    let _ = writeln!(
+        report,
+        "\nEach case is the fastest of {} (baseline) and {} (candidate) requests.",
+        repeats[0], repeats[1]
+    );
+    report
+}
+
 /// Baseline vs candidate report; returns whether the comparison gate failed.
 pub fn diff(
     cases: &[Case],
@@ -804,6 +851,7 @@ pub fn diff(
     if total == 0 {
         report += "\nNone.\n";
     }
+    report += &latency(&shared, &old, &new, [&old_manifest, &new_manifest]);
     for (name, records) in [("baseline", &old), ("candidate", &new)] {
         let calls: Vec<_> = records.values().filter_map(|r| r.backend_calls).collect();
         if !calls.is_empty() {
@@ -867,6 +915,36 @@ mod tests {
         let text = std::fs::read_to_string(&out).unwrap();
         assert!(text.contains(r#""classes": {"#) && text.contains(r#""pass": 2"#));
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn latency_compares_shared_timed_cases() {
+        let side = |times: &[(&str, Option<f64>)]| -> IndexMap<String, Record> {
+            times
+                .iter()
+                .map(|(id, ms)| {
+                    let record = Record {
+                        id: id.to_string(),
+                        ms: *ms,
+                        ..Default::default()
+                    };
+                    (id.to_string(), record)
+                })
+                .collect()
+        };
+        let old = side(&[("a", Some(1.)), ("b", Some(3.)), ("c", None)]);
+        let new = side(&[("a", Some(2.)), ("b", Some(6.)), ("c", Some(9.))]);
+        let ids: Vec<_> = old.keys().collect();
+        let report = latency(&ids, &old, &new, [&json!({}), &json!({"repeat": 3})]);
+        assert!(report.contains("(2 cases"), "{report}");
+        assert!(
+            report.contains("| baseline | 4.0 | 1.0 | 3.0 | 3.0 | 3.0 |"),
+            "{report}"
+        );
+        assert!(report.contains("| change | +100% | +100% |"), "{report}");
+        assert!(report.contains("fastest of 1 (baseline) and 3 (candidate)"));
+        let untimed = side(&[("a", None), ("b", None), ("c", None)]);
+        assert!(latency(&ids, &old, &untimed, [&json!({}), &json!({})]).is_empty());
     }
 
     #[test]
