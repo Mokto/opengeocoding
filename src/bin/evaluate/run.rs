@@ -456,15 +456,28 @@ fn which(program: &str) -> bool {
 }
 
 pub fn sha256_file(path: &Path) -> Result<String> {
+    sha256_files(&[path.to_path_buf()])
+}
+
+/// Hash of the files read one after another, each ended by a newline as `gold-corpus` writes them.
+pub fn sha256_files(paths: &[PathBuf]) -> Result<String> {
     let mut context = ring::digest::Context::new(&ring::digest::SHA256);
-    let mut file = std::fs::File::open(path).with_context(|| format!("open {}", path.display()))?;
-    let mut buffer = vec![0; 1 << 20];
-    loop {
-        let read = file.read(&mut buffer)?;
-        if read == 0 {
-            break;
+    for path in paths {
+        let mut file =
+            std::fs::File::open(path).with_context(|| format!("open {}", path.display()))?;
+        let mut buffer = vec![0; 1 << 20];
+        let mut last = b'\n';
+        loop {
+            let read = file.read(&mut buffer)?;
+            if read == 0 {
+                break;
+            }
+            last = buffer[read - 1];
+            context.update(&buffer[..read]);
         }
-        context.update(&buffer[..read]);
+        if paths.len() > 1 && last != b'\n' {
+            context.update(b"\n");
+        }
     }
     Ok(hex(context.finish().as_ref()))
 }
@@ -635,14 +648,15 @@ impl Local {
 }
 
 pub async fn run(options: Options) -> Result<i32> {
-    let corpus = options.corpus.clone().unwrap_or_else(|| {
-        if options.suite == "addresses" {
-            crate::model::addresses()
-        } else {
-            crate::model::gold()
-        }
-    });
-    let all_cases = crate::model::load_corpus(&corpus)?;
+    let files = match (&options.corpus, options.suite.as_str()) {
+        (Some(path), _) => vec![path.clone()],
+        (None, "addresses") => vec![crate::model::addresses()],
+        (None, _) => crate::model::suite(),
+    };
+    let mut all_cases = vec![];
+    for file in &files {
+        all_cases.extend(crate::model::load_corpus(file)?);
+    }
     let cases: Vec<_> = all_cases
         .iter()
         .filter(|c| options.suite != "smoke" || c.must_pass)
@@ -681,20 +695,26 @@ pub async fn run(options: Options) -> Result<i32> {
         }),
         None => json!({ "software_version": "unknown (external service)" }),
     };
-    let relative = corpus.strip_prefix(root()).map_or_else(
-        |_| {
-            corpus
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into_owned()
-        },
-        |p| p.to_string_lossy().into_owned(),
-    );
+    // several files hash as their concatenation, which is also what `gold-corpus` writes
+    let relative = files
+        .iter()
+        .map(|file| {
+            file.strip_prefix(root()).map_or_else(
+                |_| {
+                    file.file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned()
+                },
+                |p| p.to_string_lossy().into_owned(),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" + ");
     let mut manifest = json!({
         "started_at": utc_now(),
         "corpus": relative,
-        "corpus_sha256": sha256_file(&corpus)?,
+        "corpus_sha256": sha256_files(&files)?,
         "suite": options.suite,
         "cases": cases.len(),
         "resumed": !done.is_empty(),
@@ -866,6 +886,18 @@ async fn run_cases(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_manifest_hash_of_the_suite_is_the_hash_of_the_combined_file() {
+        let combined = std::env::temp_dir().join(format!("suite-{}.jsonl", std::process::id()));
+        crate::model::write_suite(&combined).unwrap();
+        assert!(crate::model::suite().len() > 1);
+        assert_eq!(
+            sha256_files(&crate::model::suite()).unwrap(),
+            sha256_file(&combined).unwrap()
+        );
+        std::fs::remove_file(combined).ok();
+    }
+
     use super::*;
 
     #[test]

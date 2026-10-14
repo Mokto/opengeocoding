@@ -31,6 +31,35 @@ pub fn registry_corpora() -> Vec<PathBuf> {
     found
 }
 
+/// The gold suite: the curated corpus, then every registry-first corpus.
+pub fn suite() -> Vec<PathBuf> {
+    let mut files = vec![gold()];
+    files.extend(registry_corpora());
+    files
+}
+
+/// The suite as one file: each corpus ended by exactly one newline, so hashing the files in order
+/// gives the hash of this file (see `run::sha256_files`).
+pub fn write_suite(out: &Path) -> Result<()> {
+    let mut text = String::new();
+    for path in suite() {
+        let file =
+            std::fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+        text += file.trim_end_matches('\n');
+        text += "\n";
+    }
+    std::fs::write(out, text)?;
+    Ok(())
+}
+
+pub fn load_suite() -> Result<Vec<Case>> {
+    let mut cases = vec![];
+    for path in suite() {
+        cases.extend(load_corpus(&path)?);
+    }
+    Ok(cases)
+}
+
 pub fn addresses() -> PathBuf {
     root().join("tests/addresses.tsv")
 }
@@ -281,6 +310,13 @@ mod tests {
     fn gold_corpus_is_well_formed() {
         let cases = load_corpus(&gold()).unwrap();
         assert!(cases.len() >= 100);
+        validate_gold(&cases).unwrap();
+    }
+
+    #[test]
+    fn the_gold_suite_has_unique_ids_and_queries_across_its_files() {
+        let cases = load_suite().unwrap();
+        assert!(cases.len() > load_corpus(&gold()).unwrap().len());
         validate_gold(&cases).unwrap();
     }
 

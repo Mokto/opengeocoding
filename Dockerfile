@@ -94,6 +94,12 @@ ENTRYPOINT ["/usr/local/bin/opengeocoding"]
 # evaluator otherwise reads the corpus from its build directory). Not a release image.
 FROM runtime AS eval
 COPY --from=evaluate-compiled /source/target/release/evaluate /usr/local/bin/
-COPY tests/gold.jsonl /app/tests/gold.jsonl
+# The gold suite as one file, written by the evaluator so the image and `evaluate run` agree: the
+# curated corpus, then tests/registry/*.jsonl. The evaluator finds both under its build directory.
+COPY tests/gold.jsonl /source/tests/gold.jsonl
+COPY tests/registry /source/tests/registry
+USER root
+RUN mkdir -p /app/tests && evaluate gold-corpus --out /app/tests/gold.jsonl
+USER 1000:1000
 # The evaluator hashes the reference data from its build directory for the run manifest.
 COPY data/reference.json /source/data/reference.json

@@ -28,6 +28,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - `src/bin/evaluate/`, `src/eval.rs`: geographic-correctness evaluator (scoring, runs, reports, snapshots, gold builder) and the TSV/hold-out helpers it shares with external samplers.
 - `tests/suggest.rs`, `tests/suggest.gold.tsv`: `SuggestAddress` golden cases (public facts, never this service's answers) and a typed-prefix latency run; both need `INDEX_DIR` and are ignored by default.
 - `tests/gold.seeds.jsonl`, `tests/gold.jsonl`: curated gold case list and the corpus generated from it.
+- `tests/registry/`, `src/bin/evaluate/nad.rs`: registry-first corpora (`*.seeds.jsonl` drawn from a registry release, `*.labels.jsonl` triage labels, the generated `*.jsonl`) and the US National Address Database sampler. They are part of the gold suite; regenerate with `evaluate sample-us` and `build-gold --nad`, never hand-edit.
 - `benches/`: CodSpeed benchmark suites (divan); `.github/workflows/codspeed.yml` runs them.
 - `tests/addresses.tsv`, `tests/snapshots/addresses.tsv`: unscored real-address corpus and its accepted snapshot for change detection.
 - `Dockerfile`, `.github/workflows/`: runtime packaging, CI and GHCR publishing.
