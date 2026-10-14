@@ -87,5 +87,5 @@ docker build --target runtime -t opengeocoding .
 - Use feature branches and pull requests; never push directly to `main` or continue a branch whose PR has merged.
 - Keep public PR descriptions accurate after every push and free of internal references.
 - Pin GitHub Actions and reusable workflows by commit SHA. Keep publishing credentials out of pull-request jobs.
-- Pushes to `main`, `v*` tag pushes and manual dispatch trigger checked, multi-platform image publishing to `ghcr.io/mokto/opengeocoding`. Only `main` updates `latest`; branch, SHA and version tags are separate. The Helm chart is published to `oci://ghcr.io/mokto/charts` after the image, pinned to it.
-- Do not merge, create release tags, publish crates or change package visibility without explicit authorization. GHCR publication already configured by this repository runs automatically on pushes to `main` and `v*` tags.
+- Only `v*` tag pushes trigger checked, multi-platform image publishing to `ghcr.io/mokto/opengeocoding`; the tag also updates `latest`. release-please creates the tags when its Release PR is merged; commit titles must be conventional (`feat:`, `fix:`, `perf:`, `!`) to cause a release. The Helm chart is published to `oci://ghcr.io/mokto/charts` after the image, pinned to it.
+- Do not merge, create release tags, publish crates or change package visibility without explicit authorization. GHCR publication already configured by this repository runs automatically on `v*` tags.
