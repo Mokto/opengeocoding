@@ -69,6 +69,7 @@ jobs:
       head: ${{ steps.pick.outputs.head }}
       base: ${{ steps.pick.outputs.base }}
       pr: ${{ steps.pick.outputs.pr }}
+      event: ${{ steps.pick.outputs.event }}
       environment: ${{ steps.pick.outputs.environment }}
       skip: ${{ steps.pick.outputs.skip }}
     steps:
@@ -111,6 +112,7 @@ jobs:
             echo "base=$base"
             echo "pr=$pr"
             echo "environment=$environment"
+            echo "event=$EVENT"
             echo "skip=false"
           } >> "$GITHUB_OUTPUT"
           gh api -X POST "repos/$REPO/statuses/$HEAD_SHA" -f state=pending -f context=gold-full \
@@ -135,6 +137,7 @@ jobs:
       HEAD_SHA: ${{ needs.prepare.outputs.head }}
       BASE_SHA: ${{ needs.prepare.outputs.base }}
       PR: ${{ needs.prepare.outputs.pr }}
+      EVENT: ${{ needs.prepare.outputs.event }}
       URL: ${{ vars.GOLD_GATEWAY_URL }}
       KEY: ${{ secrets.GOLD_GATEWAY_KEY }}
       GH_TOKEN: ${{ github.token }}
@@ -142,11 +145,13 @@ jobs:
       - name: Start the run
         run: |
           set -euo pipefail
-          # The cluster runs one evaluation at a time; wait for a free slot.
+          # The cluster runs two evaluations at a time; wait for a free slot. A commit already on main
+          # (push event) has its results kept, so later pull requests find their merge base cached.
           deadline=$((SECONDS + 5 * 3600))
           while :; do
             code=$(curl -sS -m 30 -o start.json -w '%{http_code}' -X POST -H "Authorization: Bearer $KEY" \
-              -d "$(jq -nc --arg h "$HEAD_SHA" --arg b "$BASE_SHA" '{head_sha: $h, base_sha: $b}')" "$URL/runs")
+              -d "$(jq -nc --arg h "$HEAD_SHA" --arg b "$BASE_SHA" --arg e "$EVENT" \
+                   '{head_sha: $h, base_sha: $b, cache_head: ($e == "push")}')" "$URL/runs")
             case "$code" in
               202) break ;;
               409) [ "$SECONDS" -lt "$deadline" ] || { echo "No free slot after 5 hours"; exit 1; }
