@@ -104,6 +104,41 @@ impl Place {
     }
 }
 
+/// Territories Nominatim files under their sovereign's country in an address (Puerto Rico under
+/// the United States, Réunion under France), as the services this one replaces answered. The
+/// Danish, British and New Zealand territories keep their own.
+pub fn sovereign(territory: &str) -> Option<&'static str> {
+    const SOVEREIGNS: &[(&str, &str)] = &[
+        ("pr", "us"),
+        ("gu", "us"),
+        ("vi", "us"),
+        ("as", "us"),
+        ("mp", "us"),
+        ("re", "fr"),
+        ("gp", "fr"),
+        ("mq", "fr"),
+        ("gf", "fr"),
+        ("yt", "fr"),
+        ("nc", "fr"),
+        ("pf", "fr"),
+        ("pm", "fr"),
+        ("wf", "fr"),
+        ("bl", "fr"),
+        ("mf", "fr"),
+        ("sj", "no"),
+        ("aw", "nl"),
+        ("cw", "nl"),
+        ("sx", "nl"),
+        ("bq", "nl"),
+        ("hk", "cn"),
+        ("mo", "cn"),
+    ];
+    SOVEREIGNS
+        .iter()
+        .find(|(t, _)| *t == territory)
+        .map(|(_, s)| *s)
+}
+
 /// Place number and ISO 3166-2 code of the places that stand for a subdivision.
 type OwnCodes = Vec<(u32, String)>;
 
@@ -311,6 +346,9 @@ pub enum Hit {
         postcode: Option<String>,
         /// The requested city, when the street matched it only through its postal city.
         city: Option<String>,
+        /// The country the search was scoped to; a street the data files under no place is
+        /// otherwise of no country.
+        cc: String,
     },
     Postcode {
         display: String,
@@ -724,6 +762,23 @@ fn best_name(doc: &tantivy::TantivyDocument, f: Field, query: &str) -> String {
         }
     }
     best.1
+}
+
+/// Words the analyzer drops for their length (40 bytes: any Cyrillic word of 20 letters), so
+/// they are in no index term and a query silently loses them.
+fn long_words(text: &str) -> Vec<String> {
+    text.split(|c: char| !c.is_alphanumeric())
+        .filter(|w| w.len() >= 40)
+        .map(str::to_lowercase)
+        .collect()
+}
+
+/// Whether some name holds every one of `words`.
+fn names_hold<'a>(mut names: impl Iterator<Item = &'a str>, words: &[String]) -> bool {
+    names.any(|n| {
+        let n = n.to_lowercase();
+        words.iter().all(|w| n.contains(w.as_str()))
+    })
 }
 
 fn must(q: Box<dyn TQuery>) -> (Occur, Box<dyn TQuery>) {
@@ -1152,6 +1207,7 @@ impl Index {
             return (vec![], false);
         }
         let want = name_key(text);
+        let long = long_words(text);
         // "Cauca Department" is named "Cauca"
         // a region written as its code ("Elmwood Park, NJ"): the "-NJ" of US-NJ
         let within_code = within
@@ -1170,6 +1226,9 @@ impl Index {
             .enumerate()
             .map(|(rank, a)| (rank, self.fast(a, "id") as u32))
             .filter(|(_, id)| ok(&self.places[*id as usize]))
+            .filter(|(_, id)| {
+                long.is_empty() || names_hold(self.places[*id as usize].all_names(), &long)
+            })
             .collect();
         // The most important exact match among administrative areas, and the population of the
         // largest exact-named settlement: only that settlement may outrank the area.
@@ -1412,6 +1471,7 @@ impl Index {
         cc: Option<&str>,
     ) -> Vec<Hit> {
         let base = || self.musts(self.f.names, road);
+        let long = long_words(road);
         if self.musts(self.f.names, road).is_empty() {
             return vec![];
         }
@@ -1547,6 +1607,13 @@ impl Index {
                     .collect(),
                 _ => self.top_of(Kind::Street, cc, cl, STREET_CANDIDATES),
             };
+            if !long.is_empty() {
+                top.retain(|&a| {
+                    use tantivy::schema::Value as _;
+                    let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
+                    names_hold(doc.get_all(self.f.name).filter_map(|v| v.as_str()), &long)
+                });
+            }
             if top.is_empty() {
                 continue;
             }
@@ -1620,6 +1687,7 @@ impl Index {
                     number,
                     postcode,
                     city,
+                    cc: cc.unwrap_or_default().to_string(),
                 }
             };
             let own_postcode = |a: DocAddress, own: u8| {
@@ -1778,6 +1846,21 @@ impl Index {
         tries
             .into_iter()
             .find(|t| !self.places(t, cc, None, &local).is_empty())
+    }
+
+    /// The postcode's own places, as hits to render.
+    pub fn postcode_hits(&self, pc: &str, cc: Option<&str>) -> Vec<Hit> {
+        self.postcodes(pc, cc)
+    }
+
+    /// Whether the data holds this postcode (in country `cc`, if given).
+    pub fn knows_postcode(&self, pc: &str, cc: Option<&str>) -> bool {
+        self.postcode_exists(pc, cc)
+    }
+
+    /// Whether `text`, or its last words, names a place in the data (in country `cc`, if given).
+    pub fn names_place(&self, text: &str, cc: Option<&str>) -> bool {
+        self.resolve_place(text, cc).is_some()
     }
 
     fn postcode_exists(&self, pc: &str, cc: Option<&str>) -> bool {
@@ -2197,6 +2280,16 @@ impl Index {
             a.entry("state")
                 .or_insert_with(|| self.places[dep as usize].name(en).into());
         }
+        let sovereign = a
+            .get("country_code")
+            .and_then(Value::as_str)
+            .and_then(sovereign)
+            .and_then(|cc| Some((cc, self.country_name(cc)?)));
+        if let Some((cc, name)) = sovereign {
+            a.insert("country_code".into(), cc.into());
+            a.insert("country".into(), name.into());
+            display.push(name.into());
+        }
         // The lowest subdivision the data names itself beats the region code Overture gives the
         // places inside it (the district over its region).
         let own = chain.iter().find_map(|p| self.own_codes.get(p));
@@ -2249,6 +2342,7 @@ impl Index {
                 number,
                 postcode,
                 city,
+                cc,
             } => {
                 if let Some(pc) = postcode {
                     a.insert("postcode".into(), pc.clone().into());
@@ -2261,6 +2355,10 @@ impl Index {
                 display.push(name.clone());
                 if *place != NONE {
                     self.address(*place, en, &mut a, &mut display);
+                } else if let Some(country) = self.country_name(cc) {
+                    a.insert("country_code".into(), cc.clone().into());
+                    a.insert("country".into(), country.into());
+                    display.push(country.into());
                 }
                 if let Some(c) = city {
                     // Nominatim names the postal city and lists the smaller locality as suburb.
@@ -2334,6 +2432,7 @@ impl Index {
             }
         };
         let [x0, y0, x1, y1] = bbox;
+        display.dedup();
         json!({
             "place_id": id,
             "osm_type": osm_type,

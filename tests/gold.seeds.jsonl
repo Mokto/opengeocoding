@@ -715,7 +715,7 @@
 {"kind": "place", "cohort": "city", "qid": "Q5672060", "queries": ["El Dividive, Trujillo, Venezuela"], "radius_km": 6, "tags": ["geonames-sample", "ve"]}
 {"kind": "place", "cohort": "rural", "qid": "Q179431", "queries": ["Road Town, British Virgin Islands"], "radius_km": 6, "tags": ["geonames-sample", "vg"]}
 {"kind": "place", "cohort": "rural", "qid": "Q9340035", "queries": ["Spanish Town, British Virgin Islands"], "radius_km": 6, "tags": ["geonames-sample", "vg"]}
-{"kind": "place", "cohort": "city", "qid": "Q51681", "queries": ["Charlotte Amalie, Saint Thomas Island, U.S. Virgin Islands"], "radius_km": 6, "tags": ["geonames-sample", "vi"]}
+{"kind": "place", "cohort": "city", "qid": "Q51681", "queries": ["Charlotte Amalie, Saint Thomas Island, U.S. Virgin Islands"], "radius_km": 6, "tags": ["geonames-sample", "vi"], "country": ["us", "vi"]}
 {"kind": "place", "cohort": "city", "qid": "Q642481", "queries": ["Saint Croix, Saint Croix Island, U.S. Virgin Islands"], "radius_km": 6, "tags": ["geonames-sample", "vi"]}
 {"kind": "place", "cohort": "city", "qid": "Q797431", "queries": ["Ba Chúc, An Giang, Vietnam"], "radius_km": 6, "tags": ["geonames-sample", "vn"]}
 {"kind": "place", "cohort": "city", "qid": "Q37806", "queries": ["Port-Vila, Shefa, Vanuatu"], "radius_km": 6, "tags": ["geonames-sample", "vu"]}
@@ -1639,7 +1639,7 @@
 {"kind": "place", "cohort": "city", "qid": "Q2020432", "queries": ["Bubanza, Burundi"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "bi"]}
 {"kind": "place", "cohort": "city", "qid": "Q959156", "queries": ["Sakété, Plateau, Benin"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "bj"]}
 {"kind": "place", "cohort": "city", "qid": "Q990706", "queries": ["Montero, Santa Cruz Department, Bolivia"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "bo"]}
-{"kind": "place", "cohort": "rural", "qid": "Q217610", "queries": ["Oranjestad, Sint Eustatius, Bonaire, Saint Eustatius and Saba "], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "bq"]}
+{"kind": "place", "cohort": "rural", "qid": "Q217610", "queries": ["Oranjestad, Sint Eustatius, Bonaire, Saint Eustatius and Saba "], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "bq"], "country": ["nl", "bq"]}
 {"kind": "place", "cohort": "city", "qid": "Q22059591", "queries": ["Itapipoca, Brazil"], "radius_km": 10, "tags": ["geonames-sample", "geonames-2", "br"]}
 {"kind": "place", "cohort": "city", "qid": "Q22047427", "queries": ["Carambeí, Paraná, Brazil"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "br"]}
 {"kind": "place", "cohort": "rural", "qid": "Q1771794", "queries": ["Dunmore Town, Harbour Island, Bahamas"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "bs"]}
@@ -2849,3 +2849,20 @@
 {"kind": "address", "source": "census", "ref": "704 Rosewood, Ardmore, OK 73401", "queries": ["704 Rosewood, Ardomre, OK 73401"], "tags": ["variant", "degraded", "typo_town", "us"], "good_match": null, "cohort": "degraded"}
 {"kind": "address", "source": "census", "ref": "10430 FAIRWAY RIDGE Road, Charlotte, NC 28277", "queries": ["10430 FAIRWAY RIDGE Road, Charlotte, NC 28277, United States"], "tags": ["variant", "degraded", "with_country", "us"], "cohort": "degraded"}
 {"kind": "address", "source": "census", "ref": "10430 FAIRWAY RIDGE Road, Charlotte, NC 28277", "queries": ["10430 FAIRWAY RIDGE Road, Tucson, NC 28277"], "tags": ["variant", "degraded", "wrong_town", "us"], "good_match": null, "cohort": "degraded"}
+{"kind": "place", "cohort": "fallback", "qid": "Q3642183", "queries": ["Shop 35, Pietersburg Rd, Twin City Shopping Centre, Burgersfort, Lebowokgomo"], "label": "Burgersfort", "radius_km": 15, "good_match": false, "tags": ["noisy", "unmatched_words", "za"]}
+{"kind": "place", "cohort": "fallback", "qid": "Q3882", "queries": ["7th Flr. Al Zamel Building, Manama. P.O. Box 54482, Kingdom of Bahrain"], "label": "Manama", "radius_km": 15, "good_match": false, "tags": ["noisy", "unmatched_words", "country_not_labelled", "bh"]}
+{"kind": "place", "cohort": "fallback", "qid": "Q5091147", "queries": ["Shizhou, Chencun, ซุ่นเต๋อ, ฝอซาน, กวางตุ้ง 528313, จีน"], "label": "Chencun", "radius_km": 40, "good_match": false, "tags": ["noisy", "unmatched_words", "th_script", "cn"], "known_failure": "far_miss: the index returns ten candidates for \"Chencun\" and the Shunde town is not among them; the answer is gm false, in the right province (2026-10-14)"}
+{"kind": "place", "cohort": "fallback", "qid": "Q1154", "queries": ["Industrial Zone, Plot No. 3543, \"H\" Bhagyoday Road, Phase-3, Dared, G.I.D.C., Jamnagar"], "label": "Jamnagar", "radius_km": 30, "good_match": false, "tags": ["noisy", "unmatched_words", "in"]}
+{"kind": "place", "cohort": "fallback", "qid": "Q856003", "queries": ["Taman Intan, 41300, Klang, Selangor"], "label": "Klang", "radius_km": 15, "good_match": false, "tags": ["noisy", "unmatched_words", "my"]}
+{"kind": "place", "cohort": "fallback", "qid": "Q478516", "queries": ["P.O. Box 21, Mt. Gretna, PA, 17064"], "label": "Mount Gretna with a P.O. box", "radius_km": 8, "good_match": false, "tags": ["noisy", "po_box", "us"]}
+{"kind": "place", "cohort": "city", "qid": "Q478516", "queries": ["Mt. Gretna, PA 17064", "Mount Gretna, PA 17064"], "label": "Mount Gretna", "radius_km": 8, "tags": ["variant", "abbreviated", "postcode_unknown", "us"]}
+{"kind": "place", "cohort": "city", "qid": "Q2463831", "queries": ["coulsdon, london"], "label": "Coulsdon", "radius_km": 6, "tags": ["suburb_in_town", "gb"]}
+{"kind": "place", "cohort": "fallback", "qid": "Q558600", "queries": ["Hegelstraße 8, 63628 Bad Soden-Salmünster", "Hegelstraße 8, 63628 Bad Soden‒, Salmünster"], "label": "Bad Soden-Salmünster", "radius_km": 8, "good_match": null, "tags": ["merged_municipality", "de"]}
+{"kind": "place", "cohort": "fallback", "qid": "Q649", "queries": ["Шарикоподшипниковская ул., 4, Москва"], "label": "Moscow, street not in the data", "radius_km": 40, "max_level": "locality", "good_match": false, "tags": ["long_word", "ru"]}
+{"kind": "place", "cohort": "city", "qid": "Q1598808", "queries": ["00683, San Germán, Puerto Rico, United States"], "label": "San Germán", "radius_km": 10, "tags": ["territory", "pr"]}
+{"kind": "any_of", "cohort": "ambiguous", "queries": ["Pier 83 Midtown"], "label": "bare ambiguous name with a stray word", "any_of": [{"level": "none"}, {"qid": "Q60", "level": "locality", "max_level": "house", "radius_km": 20, "good_match": false}, {"qid": "Q270", "level": "locality", "max_level": "house", "radius_km": 20, "good_match": false}]}
+{"kind": "postcode", "source": "postcodes.io", "ref": "LN43JG", "queries": ["Launde, Lincs, LN4 3JG"], "city": "Q4804731", "radius_km": 1.5, "good_match": false, "tags": ["noisy", "unmatched_words", "gb"]}
+{"kind": "address", "source": "pdok", "ref": "Damrak 1 1012LG Amsterdam", "queries": ["Damrak 1, Amsterdam"], "city": "Q727", "tags": ["no_postcode", "nl"]}
+{"kind": "address", "source": "census", "ref": "567 S 5th Street, West Dundee, IL 60118", "queries": ["567 S 5th Street, West Dundee, IL 60118 IDX"], "cohort": "degraded", "tags": ["variant", "degraded", "junk_suffix", "us"]}
+{"kind": "address", "source": "census", "ref": "161 Polaris Drive, Lake In The Hills, IL 60156", "queries": ["161 Polaris Drive, Lake In The Hills, IL 60156 IDX"], "cohort": "degraded", "tags": ["variant", "degraded", "junk_suffix", "us"]}
+{"kind": "address", "source": "census", "ref": "3881 Parsons Road, Carpentersville, IL 60110", "queries": ["3881 Parsons Road, Carpentersville, IL 60110 IDX"], "cohort": "degraded", "tags": ["variant", "degraded", "junk_suffix", "us"]}
