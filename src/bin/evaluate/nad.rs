@@ -5,6 +5,7 @@
 //! never on file order. `lookup` re-reads the same release for `build-gold`, which copies the
 //! expectation from the registry row.
 
+use crate::score::haversine;
 use anyhow::{Context, Result, bail, ensure};
 use opengeocoding::eval::sha256_hex;
 use serde_json::{Value, json};
@@ -98,8 +99,10 @@ const TARGETS: [(&str, &str, usize); 7] = [
     ("broad", "any", 150),
 ];
 
-/// Candidates kept per kind: a uniform random subset, since rows are kept by smallest hash.
-const POOL: usize = 30_000;
+/// Candidates kept per kind and state: a uniform random subset, since rows are kept by smallest
+/// hash. Each cell then takes one location per state in turn, so a state's share does not follow
+/// how many rows it contributed (New York holds 6.5 million trusted rows, Pennsylvania 0.1).
+const POOL: usize = 3_000;
 const MAX_PER_ZIP: usize = 3;
 
 const TYPES: [(&str, &str); 12] = [
@@ -220,14 +223,12 @@ fn address(columns: &Columns, fields: &[Cow<'_, str>]) -> Option<Address> {
     if !street_name(street) {
         return None;
     }
-    let city = [
+    let city = town([
         get("Post_City"),
         get("Inc_Muni"),
         get("Uninc_Comm"),
         get("Census_Plc"),
-    ]
-    .into_iter()
-    .find(|c| usable_city(c))?;
+    ])?;
     let (lon, lat) = (
         get("Longitude").parse::<f64>().ok()?,
         get("Latitude").parse::<f64>().ok()?,
@@ -248,6 +249,43 @@ fn address(columns: &Columns, fields: &[Cow<'_, str>]) -> Option<Address> {
         point: [lat, lon],
         placement: get("Placement").to_string(),
     })
+}
+
+/// The first usable town, as people write it: without the Census suffix of a designated place
+/// ("Salcha CDP", Utah's "Duck Creek Village CPU") or Wisconsin's "City of" and "Town of", and
+/// passing over a three-letter postal code (Atlanta's "ATL" and "ADK") when a later column names
+/// the town.
+fn town(columns: [&str; 4]) -> Option<&str> {
+    fn strip<'a>(c: &'a str, affix: &str, front: bool) -> Option<&'a str> {
+        let at = if front {
+            affix.len()
+        } else {
+            c.len().checked_sub(affix.len())?
+        };
+        let (head, tail) = (c.get(..at)?, c.get(at..)?);
+        let (cut, rest) = if front { (head, tail) } else { (tail, head) };
+        cut.eq_ignore_ascii_case(affix).then_some(rest)
+    }
+    let towns: Vec<&str> = columns
+        .into_iter()
+        .map(|c| {
+            [
+                (" cdp", false),
+                (" cpu", false),
+                ("city of ", true),
+                ("town of ", true),
+            ]
+            .into_iter()
+            .find_map(|(affix, front)| strip(c, affix, front))
+            .unwrap_or(c)
+        })
+        .filter(|c| usable_city(c))
+        .collect();
+    towns
+        .iter()
+        .find(|t| t.chars().count() > 3)
+        .or(towns.first())
+        .copied()
 }
 
 /// Registries put placeholders and county names where a town should be; nobody types those.
@@ -360,6 +398,21 @@ fn density(zip_rows: usize) -> &'static str {
         10_000.. => "urban",
         2_000.. => "suburban",
         _ => "rural",
+    }
+}
+
+/// Rows that state the same address; the registry repeats an address when several authorities
+/// submit it.
+fn same_address(a: &Address) -> String {
+    format!("{}|{}|{}|{}|{}", a.state, a.zip, a.number, a.street, a.unit).to_lowercase()
+}
+
+/// The tolerance `build-gold` gives the case: 0.15 km, 0.3 for a parcel centroid, 0.5 broad.
+fn radius_km(kind: &str, a: &Address) -> f64 {
+    match kind {
+        "broad" => 0.5,
+        _ if a.parcel() => 0.3,
+        _ => 0.15,
     }
 }
 
@@ -509,8 +562,14 @@ fn ensure_plus4(plus4: &str) -> Option<()> {
     (plus4.len() == 4 && plus4.bytes().all(|b| b.is_ascii_digit())).then_some(())
 }
 
+/// A unit number or letter, not a word some registries put there ("Office", "Rear", "Suite1").
 fn plain(unit: &str) -> bool {
-    !unit.is_empty() && unit.len() <= 6 && unit.chars().all(|c| c.is_ascii_alphanumeric())
+    !unit.is_empty()
+        && unit.len() <= 6
+        && unit.chars().all(|c| c.is_ascii_alphanumeric())
+        && unit
+            .split(|c: char| c.is_ascii_digit())
+            .all(|letters| letters.len() <= 2)
 }
 
 struct Candidate {
@@ -543,7 +602,8 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
         .context("NAD file name")?
         .to_lowercase();
     let mut zip_rows: HashMap<String, usize> = HashMap::new();
-    let mut pools: BTreeMap<&str, BinaryHeap<Candidate>> = BTreeMap::new();
+    let mut zip_states: HashMap<(String, String), usize> = HashMap::new();
+    let mut pools: BTreeMap<(&str, String), BinaryHeap<Candidate>> = BTreeMap::new();
     let (mut rows, mut trusted) = (0usize, 0usize);
     for_each_row(path, |columns, fields| {
         let Some(a) = address(columns, fields) else {
@@ -551,6 +611,9 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
         };
         rows += 1;
         *zip_rows.entry(a.zip.clone()).or_default() += 1;
+        *zip_states
+            .entry((a.zip.clone(), a.state.clone()))
+            .or_default() += 1;
         let kind = match (TRUSTED.contains(&a.placement.as_str()), plain(&a.unit)) {
             (true, true) => "unit",
             (true, false) if a.unit.is_empty() => "house",
@@ -558,7 +621,7 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
             _ => return,
         };
         trusted += usize::from(kind != "broad");
-        let pool = pools.entry(kind).or_default();
+        let pool = pools.entry((kind, a.state.clone())).or_default();
         let k = key(seed, "pick", &a.uuid);
         if pool.len() < POOL || pool.peek().is_some_and(|worst| k < worst.key) {
             pool.push(Candidate { key: k, address: a });
@@ -571,11 +634,51 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
         "{rows} usable rows, {trusted} with a trusted placement, {} ZIPs",
         zip_rows.len()
     );
+    // A county's export can carry the neighbouring state's code: Lee County, Virginia, filed under
+    // Tennessee with Virginia ZIPs. A row whose state holds fewer of its ZIP's rows than another is
+    // left out.
+    let mut zip_main: HashMap<&str, (usize, &str)> = HashMap::new();
+    for ((zip, state), &n) in &zip_states {
+        let main = zip_main.entry(zip).or_insert((n, state));
+        if n > main.0 {
+            *main = (n, state);
+        }
+    }
+    let mut misfiled = 0;
     // Ascending by hash: the smallest first, so a prefix of each list is a uniform draw.
-    let ordered: BTreeMap<&str, Vec<Candidate>> = pools
+    let ordered: BTreeMap<(&str, String), Vec<Candidate>> = pools
         .into_iter()
-        .map(|(kind, pool)| (kind, pool.into_sorted_vec()))
+        .map(|(cell, pool)| {
+            let mut list = pool.into_sorted_vec();
+            let before = list.len();
+            list.retain(|c| {
+                zip_states[&(c.address.zip.clone(), c.address.state.clone())]
+                    >= zip_main[c.address.zip.as_str()].0
+            });
+            misfiled += before - list.len();
+            (cell, list)
+        })
         .collect();
+    eprintln!("{misfiled} pooled rows left out: their state is not their ZIP's main state");
+    // An address the registry places twice, further apart than the case's tolerance, has no one
+    // right answer.
+    let mut copies: HashMap<String, Vec<[f64; 2]>> = ordered
+        .values()
+        .flatten()
+        .map(|c| (same_address(&c.address), vec![]))
+        .collect();
+    for_each_row(path, |columns, fields| {
+        if let Some(a) = address(columns, fields)
+            && let Some(points) = copies.get_mut(&same_address(&a))
+        {
+            points.push(a.point);
+        }
+    })?;
+    let contradicted = |kind: &str, a: &Address| {
+        copies[&same_address(a)]
+            .iter()
+            .any(|p| haversine(*p, a.point) > radius_km(kind, a))
+    };
     let mut zips_by_state: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut cities_by_state: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for c in ordered.values().flatten() {
@@ -591,25 +694,46 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
     let mut lines = vec![];
     let mut taken_streets = HashSet::new();
     let mut taken_zips: HashMap<String, usize> = HashMap::new();
+    let mut dropped = 0;
     for (kind, bucket, target) in TARGETS {
-        let candidates = ordered.get(kind).map_or(&[][..], Vec::as_slice);
-        let mut done = 0;
-        let mut i = 0;
-        while done < target && i < candidates.len() {
-            let a = &candidates[i].address;
-            i += 1;
-            if bucket != "any" && density(zip_rows[&a.zip]) != bucket {
-                continue;
-            }
-            let street = format!("{}|{}|{}", a.state, a.city, a.street).to_lowercase();
-            if taken_streets.contains(&street)
-                || taken_zips.get(&a.zip).copied() >= Some(MAX_PER_ZIP)
-            {
-                continue;
-            }
-            taken_streets.insert(street);
-            *taken_zips.entry(a.zip.clone()).or_default() += 1;
-            done += 1;
+        // States in an order drawn from the seed, so the ones that get a remainder vary by seed.
+        let mut states: Vec<_> = ordered
+            .iter()
+            .filter(|((k, _), _)| *k == kind)
+            .map(|((_, state), list)| (key(seed, "state", state), list.iter()))
+            .collect();
+        states.sort_by_key(|(k, _)| *k);
+        let mut picked = vec![];
+        while picked.len() < target && !states.is_empty() {
+            states.retain_mut(|(_, candidates)| {
+                if picked.len() >= target {
+                    return true;
+                }
+                for c in candidates.by_ref() {
+                    let a = &c.address;
+                    if bucket != "any" && density(zip_rows[&a.zip]) != bucket {
+                        continue;
+                    }
+                    let street = format!("{}|{}|{}", a.state, a.city, a.street).to_lowercase();
+                    if taken_streets.contains(&street)
+                        || taken_zips.get(&a.zip).copied() >= Some(MAX_PER_ZIP)
+                    {
+                        continue;
+                    }
+                    if contradicted(kind, a) {
+                        dropped += 1;
+                        continue;
+                    }
+                    taken_streets.insert(street);
+                    *taken_zips.entry(a.zip.clone()).or_default() += 1;
+                    picked.push(a);
+                    return true;
+                }
+                false
+            });
+        }
+        let done = picked.len();
+        for a in picked {
             let tags = |extra: &[&str]| {
                 let mut tags = vec![
                     "registry-sample".to_string(),
@@ -660,11 +784,17 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
                 let h = key(seed, "kind", &a.uuid);
                 let zips = &zips_by_state[&a.state];
                 let cities = &cities_by_state[&a.state];
-                let found = (0..kinds.len()).find_map(|n| {
-                    let kind = kinds[(h as usize + n) % kinds.len()];
-                    mutate(kind, a, h, zips, cities).map(|(q, good)| (kind, q, good))
-                });
-                if let Some((mutation, text, good)) = found {
+                // Drawn among the edits that apply, so one that rarely applies (ZIP+4, units)
+                // does not hand its share to the next in the list.
+                let mut found: Vec<_> = kinds
+                    .iter()
+                    .filter_map(|kind| {
+                        mutate(kind, a, h, zips, cities).map(|(q, good)| (*kind, q, good))
+                    })
+                    .collect();
+                if !found.is_empty() {
+                    let (mutation, text, good) =
+                        found.swap_remove(key(seed, "which", &a.uuid) as usize % found.len());
                     let mut line = json!({
                         "kind": "address", "source": "nad", "ref": a.uuid, "cohort": "us_degraded",
                         "queries": [text], "tags": tags(&["variant", "degraded", mutation]),
@@ -679,6 +809,9 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
         }
         eprintln!("{kind}/{bucket}: {done} of {target}");
     }
+    eprintln!(
+        "{dropped} candidates skipped: the registry places them twice, further apart than the tolerance"
+    );
     Ok(lines)
 }
 
@@ -726,6 +859,15 @@ mod tests {
         assert!(!usable_city("UNINCORPORATED"));
         assert!(!usable_city("Not stated"));
         assert!(!usable_city("Denton County"));
+        assert_eq!(town(["Not stated", "", "", "Salcha CDP"]), Some("Salcha"));
+        assert_eq!(town(["ADK", "ATLANTA", "", ""]), Some("ATLANTA"));
+        assert_eq!(
+            town(["Not stated", "Town of Wausau", "", ""]),
+            Some("Wausau")
+        );
+        assert_eq!(town(["Rye", "", "", ""]), Some("Rye"));
+        assert!(plain("4B") && plain("PH") && plain("PM5") && plain("A16"));
+        assert!(!plain("Office") && !plain("Unit") && !plain("Suite1"));
     }
 
     #[test]
@@ -761,6 +903,48 @@ mod tests {
             mutate("abbreviated", &a, 7, &zips, &cities).unwrap().0,
             "417 Foxtail Lily Dr Apt 4B, Holly Springs, NC 27540"
         );
+    }
+
+    /// A state with few rows is not crowded out by one with many; an address the registry places
+    /// twice, far apart, or under a state that is not its ZIP's, is never drawn.
+    #[test]
+    fn sampling_takes_states_in_turn_and_skips_contradicted_addresses() {
+        let header =
+            "AddNo_Full,StNam_Full,Unit,Inc_Muni,State,Zip_Code,UUID,Longitude,Latitude,Placement";
+        let mut rows: Vec<String> = (0..400)
+            .map(|i| {
+                format!(
+                    "{i},Main{i} Road,,Town,TX,{:05},{{T{i}}},-97.5,30.5,Site",
+                    75000 + i % 200
+                )
+            })
+            .collect();
+        rows.extend((0..10).map(|i| {
+            format!(
+                "{i},Elm{i} Street,,Town,RI,{:05},{{R{i}}},-71.4,41.8,Site",
+                2800 + i
+            )
+        }));
+        // Tennessee's code on a row in a Texas ZIP
+        rows.push("5,Oak Lane,,Town,TN,75000,{N0},-97.5,30.5,Site".into());
+        // a second authority places 0 Elm0 Street a kilometre away
+        rows.push("0,Elm0 Street,,Town,RI,02800,{R0b},-71.4,41.809,Site".into());
+        let path = std::env::temp_dir().join(format!("nad-states-{}.txt", std::process::id()));
+        std::fs::write(&path, format!("{header}\n{}\n", rows.join("\n"))).unwrap();
+        let lines = sample(&path, "s").unwrap();
+        std::fs::remove_file(&path).ok();
+        let refs: BTreeSet<&str> = lines
+            .iter()
+            .filter(|l| l["cohort"] != "us_degraded")
+            .map(|l| l["ref"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            refs.iter().filter(|r| r.starts_with("{R")).count(),
+            9,
+            "{refs:?}"
+        );
+        assert!(!refs.contains("{R0}") && !refs.contains("{R0b}") && !refs.contains("{N0}"));
+        assert_eq!(refs.len(), 90);
     }
 
     /// A small synthetic release: the draw must not depend on row order, and must keep one
