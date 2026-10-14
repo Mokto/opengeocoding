@@ -9,6 +9,7 @@
 //! evaluate report RUN_DIR [--rescore]        re-summarize a saved run, no network
 //! evaluate build-gold                        regenerate tests/gold.jsonl from tests/gold.seeds.jsonl
 //! evaluate sample-us --nad FILE --seed TEXT --out FILE   draw US cases from a NAD release, registry-first
+//! evaluate gold-corpus --out FILE            the gold suite as one file, for images
 //! evaluate check                             validate the corpora and snapshot, no network
 //! ```
 //!
@@ -27,7 +28,7 @@ use anyhow::{Context, Result, bail};
 use model::{Case, Record, load_corpus, load_jsonl};
 use std::{collections::HashMap, path::PathBuf};
 
-const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|check> [options]
+const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|gold-corpus|check> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000]
@@ -37,6 +38,7 @@ snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
 build-gold  [--seeds FILE] [--out FILE] [--nad FILE]
 sample-us   --nad FILE --seed TEXT --out FILE
+gold-corpus --out FILE      write the gold suite as one file (the curated corpus, then tests/registry/*.jsonl)
 check       validate tests/gold.jsonl, tests/registry/*.jsonl, tests/addresses.tsv and its snapshot";
 
 struct Args {
@@ -90,8 +92,12 @@ impl Args {
     }
 }
 
+/// `--corpus FILE`, else the gold suite (the curated corpus and the registry-first ones).
 fn corpus(args: &Args) -> Result<Vec<Case>> {
-    load_corpus(&args.path("corpus").unwrap_or_else(model::gold))
+    match args.path("corpus") {
+        Some(path) => load_corpus(&path),
+        None => model::load_suite(),
+    }
 }
 
 #[tokio::main]
@@ -214,6 +220,11 @@ async fn command() -> Result<i32> {
             .await?;
             Ok(0)
         }
+        "gold-corpus" => {
+            args.only_flags(&[])?;
+            model::write_suite(&args.path("out").context("--out is required")?)?;
+            Ok(0)
+        }
         "sample-us" => {
             args.only_flags(&[])?;
             let nad = args.path("nad").context("--nad is required")?;
@@ -237,6 +248,8 @@ async fn command() -> Result<i32> {
                 model::validate_gold(&cases).with_context(|| path.display().to_string())?;
                 registry += cases.len();
             }
+            // the suite runs them together: ids and queries must not repeat across files
+            model::validate_gold(&model::load_suite()?)?;
             let addresses =
                 model::validate_addresses(&model::addresses(), &model::address_snapshot())?;
             println!(
