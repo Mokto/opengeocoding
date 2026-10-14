@@ -2655,7 +2655,7 @@ mod tests {
     /// back by distance: nearest first, only within the radius, across streets, with postcodes.
     #[test]
     fn reverse_finds_the_nearest_houses() {
-        let dir = std::env::temp_dir().join(format!("reverse-index-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("reverse-houses-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let (schema, f) = schema::schema();
