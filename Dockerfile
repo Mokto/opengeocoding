@@ -54,6 +54,9 @@ COPY manifests manifests
 RUN find src benches -name '*.rs' -exec touch {} + \
     && cargo build --locked --release --bin opengeocoding --bin build_index
 
+FROM compiled AS evaluate-compiled
+RUN cargo build --locked --release --bin evaluate
+
 FROM manifest AS check-deps
 RUN ldconfig && rustup component add rustfmt clippy \
     && cargo clippy --locked --all-targets \
@@ -86,3 +89,9 @@ WORKDIR /app
 USER 1000:1000
 EXPOSE 11121 8000
 ENTRYPOINT ["/usr/local/bin/opengeocoding"]
+
+# The runtime image plus the evaluator and the gold corpus, for evaluation environments (the
+# evaluator otherwise reads the corpus from its build directory). Not a release image.
+FROM runtime AS eval
+COPY --from=evaluate-compiled /source/target/release/evaluate /usr/local/bin/
+COPY tests/gold.jsonl /app/tests/gold.jsonl
