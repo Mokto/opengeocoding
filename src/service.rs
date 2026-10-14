@@ -5,6 +5,9 @@ use crate::{
 use anyhow::Result;
 use connectrpc::{ConnectError, RequestContext, Response, ServiceRequest, ServiceResult};
 
+const SUGGEST_DEFAULT: usize = 5;
+const SUGGEST_MAX: usize = 15;
+
 pub struct Service {
     pub resolver: Resolver,
     pub regions: Regions,
@@ -111,6 +114,65 @@ impl Geolocation for Service {
             };
             Ok(RegionsResponse {
                 regions: self.regions.reformat(&details.region_codes),
+                ..Default::default()
+            })
+        })
+        .await
+    }
+
+    async fn suggest_address<'a>(
+        &'a self,
+        ctx: RequestContext,
+        request: ServiceRequest<'_, SuggestAddressRequest>,
+    ) -> ServiceResult<impl connectrpc::Encodable<SuggestAddressResponse> + Send + use<'a>> {
+        self.run(&ctx, "SuggestAddress", async {
+            if request.text.contains('\0') {
+                return Err(ConnectError::invalid_argument(
+                    "The text contains an invalid character.",
+                )
+                .into());
+            }
+            let country = request.country_code;
+            if !(country.is_empty()
+                || country.len() == 2 && country.bytes().all(|b| b.is_ascii_alphabetic()))
+            {
+                return Err(ConnectError::invalid_argument(
+                    "The country code must be two letters or empty.",
+                )
+                .into());
+            }
+            let limit = match request.limit {
+                0 => SUGGEST_DEFAULT,
+                n => (n as usize).min(SUGGEST_MAX),
+            };
+            let found = self.resolver.suggest(request.text, limit, country).await?;
+            Ok(SuggestAddressResponse {
+                suggestions: found
+                    .into_iter()
+                    .map(|s| Suggestion {
+                        id: s.id,
+                        display_name: s.display_name,
+                        geo_coordinates: GeoCoordinates {
+                            lat: s.y as f32,
+                            lon: s.x as f32,
+                            bounding_box: s
+                                .bbox
+                                .map(|[min_lon, min_lat, max_lon, max_lat]| BoundingBox {
+                                    min_lat,
+                                    max_lat,
+                                    min_lon,
+                                    max_lon,
+                                    ..Default::default()
+                                })
+                                .into(),
+                            ..Default::default()
+                        }
+                        .into(),
+                        r#type: s.kind.into(),
+                        country_code: s.country_code,
+                        ..Default::default()
+                    })
+                    .collect(),
                 ..Default::default()
             })
         })

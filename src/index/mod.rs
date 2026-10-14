@@ -18,6 +18,9 @@ use tantivy::{
     schema::{Field, IndexRecordOption},
 };
 
+mod suggest;
+pub use suggest::Suggestion;
+
 const SEP: char = '\u{1f}';
 const NONE: u32 = u32::MAX;
 const STREET: u64 = 1 << 40;
@@ -287,6 +290,12 @@ pub struct Index {
     parser: Arc<Parser>,
     /// `terms_near` results: retried road and town splits ask for the same words.
     near: Mutex<HashMap<String, std::sync::Arc<[String]>>>,
+    /// `prefix_terms` results, by field and prefix.
+    prefixes: Mutex<HashMap<(u32, Box<str>), suggest::PrefixTerms>>,
+    /// Folded names of the places a completion most likely wants; see `suggest`.
+    place_names: tantivy_fst::Map<Vec<u8>>,
+    /// `name_candidates` results, by folded text and whether it is a prefix.
+    place_prefixes: Mutex<HashMap<(Box<str>, bool), suggest::Candidates>>,
 }
 
 #[derive(Clone)]
@@ -962,6 +971,7 @@ impl Index {
             }
         }
         countries.entry("uae".into()).or_insert_with(|| "ae".into());
+        let place_names = suggest::place_names(&places)?;
         let columns: Vec<Columns> = searcher
             .segment_readers()
             .iter()
@@ -988,6 +998,9 @@ impl Index {
             own_codes,
             parser,
             near: Mutex::default(),
+            prefixes: Mutex::default(),
+            place_names,
+            place_prefixes: Mutex::default(),
         })
     }
 

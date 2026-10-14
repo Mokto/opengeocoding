@@ -1,0 +1,26 @@
+query	country	rank	kind	cc	lat	lon	km
+londo		1	city	gb	51.507	-0.128	25
+paris		1	city	fr	48.857	2.352	20
+new york		1	city	us	40.713	-74.006	30
+san fran		1		us	37.775	-122.419	25
+copenhag		1	city	dk	55.676	12.568	20
+munchen		1	city	de	48.137	11.575	20
+tokyo		1	city	jp	35.689	139.692	40
+東京		1		jp	35.689	139.692	40
+sydney		1	city	au	-33.869	151.209	30
+mexico c		1		mx	19.433	-99.133	40
+sao pau		1	city	br	-23.551	-46.633	40
+california		1	region	us	36.778	-119.418	500
+germany		1	country	de	51.1	10.4	800
+springfield, il		1	city	us	39.80	-89.65	20
+paris, tx		1	town	us	33.66	-95.56	20
+paris, france		1	city	fr	48.857	2.352	20
+london	ca	1	city	ca	42.984	-81.246	20
+rotterdam		1	city	nl	51.92	4.48	20
+10 downing street, london		1	address	gb	51.5034	-0.1276	1
+350 5th avenue, new york		1	address	us	40.7484	-73.9857	1
+1600 pennsylvania ave nw, washington		1	address	us	38.8977	-77.0365	1
+5 avenue anatole france, paris		1	address	fr	48.8584	2.2945	1
+unter den linden 77, berlin		1	address	de	52.5160	13.3790	1
+sw1a 2aa		1	postcode	gb	51.5035	-0.1277	1
+75001		2	postcode	fr	48.8625	2.3364	3

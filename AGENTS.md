@@ -14,6 +14,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - `src/matching.rs`: normalization, country/region corroboration and candidate selection.
 - `src/resolver.rs`: parsing, index lookups, candidate formatting and fallback ordering.
 - `src/index/`: the in-process lookup over a `build_index` output (`mod.rs`), the shared libpostal `Parser`, and the analyzer, schema and house-number format shared with the builder (`canon.rs`, `schema.rs`); reverse lookup is still nearest-locality only.
+- `src/index/suggest.rs`: `SuggestAddress` completion of a half-typed place, street, house or postcode; reads the term dictionary and a name FST built at startup, never libpostal.
 - `src/regions.rs`: the regions and region map derived from the index at startup.
 - `src/service.rs`, `src/main.rs`, `src/metrics.rs`: RPCs, process lifecycle and observability.
 - `proto/opengeocoding-v1.proto`, `build.rs`: the single wire contract and build-time generation.
@@ -23,6 +24,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - `src/bin/build_index/`: experimental offline Overture-to-Tantivy index builder (polygon assignment, street merging, house-number FSTs; `sources.rs` reads OSM and OpenAddresses), plus `job`/`pull`/`hash` subcommands (`job.rs`): fetching and mirroring sources (`fetch.rs`) and publishing and pulling sealed directories in any S3-compatible store (`store.rs`). The service loads its output read-only from `INDEX_DIR`.
 - `manifests/`: the Helm chart (build Job, serving Deployment with a `pull` init container); `tests/chart.rs` checks that it pins this code's builder hash.
 - `src/bin/evaluate/`, `src/eval.rs`: geographic-correctness evaluator (scoring, runs, reports, snapshots, gold builder) and the TSV/hold-out helpers it shares with external samplers.
+- `tests/suggest.rs`, `tests/suggest.gold.tsv`: `SuggestAddress` golden cases (public facts, never this service's answers) and a typed-prefix latency run; both need `INDEX_DIR` and are ignored by default.
 - `tests/gold.seeds.jsonl`, `tests/gold.jsonl`: curated gold case list and the corpus generated from it.
 - `benches/`: CodSpeed benchmark suites (divan); `.github/workflows/codspeed.yml` runs them.
 - `tests/addresses.tsv`, `tests/snapshots/addresses.tsv`: unscored real-address corpus and its accepted snapshot for change detection.
@@ -57,6 +59,10 @@ docker build --target runtime -t opengeocoding .
 - Evaluator and corpus checks run in `cargo test` (also `target/release/evaluate check`). After changing scoring or expectations, re-score saved runs with `evaluate report RUN_DIR --rescore` and explain every changed class. For changes to parsing, matching, fallbacks, reference data or the backend, also run the smoke or gold suite on an agreed index (`--index`) and compare snapshots with `--compare`; see the README's Geographic evaluation section.
 - Preserve amd64 and arm64 support. CI unit checks do not download models or establish model-backed accuracy.
 - Performance claims require comparable measurements and accuracy checks; synthetic CPU timings are not request-latency guarantees.
+
+## Local test index
+
+A world index built by this repository's builder is kept in `~/opengeocoding-index/out`, with `builder.hash.txt` holding the `build_index hash` it was built with and `build.sh` the exact build. Look there before building anything: if `build_index hash` equals `builder.hash.txt`, use `INDEX_DIR=~/opengeocoding-index/out` as it is. Rebuild (`~/opengeocoding-index/build.sh`, about 6 minutes and 20 GB of memory) only when the hash differs, and update `builder.hash.txt`. The service and `tests/suggest.rs` need no libpostal models beyond what the service itself loads.
 
 ## Evaluation corpora
 
