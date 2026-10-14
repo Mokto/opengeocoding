@@ -4,7 +4,10 @@
 `tests/addresses.tsv`, split by target. It needs libpostal's models and a small index, and does
 nothing when `INDEX_DIR` is unset. `benches/suggest.rs` times `Index::suggest` over the same rows
 cut as if typed (half, three quarters and all of each query) and needs the index but not the
-models.
+models. `benches/reverse.rs` times `Index::reverse_search` from points the index itself yields (houses,
+localities without a house in range, empty cells) and likewise needs no models. Its house benchmarks
+run only when the index has `reverse.bin`, which `bench-fixture-v4` predates: rebuild and republish
+the fixture to include them.
 
 The index is built by `build.sh` from Overture release 2026-09-23.1, the OSM country extracts
 the OpenAddresses layers `build_index` accepts by licence and the GeoNames `GB_full`, `CA_full` and
@@ -30,6 +33,7 @@ OSM_DIR=~/geodata/osm OPENADDRESSES_DIR=~/geodata/openaddresses GEONAMES_DIR=~/g
 tar --zstd -cf fixture.tar.zst -C /tmp/fixture index provenance.txt ATTRIBUTION.txt   # ATTRIBUTION.txt: see the release
 INDEX_DIR=/tmp/fixture/index cargo bench --bench resolve   # wall-clock locally
 INDEX_DIR=/tmp/fixture/index cargo bench --bench suggest
+INDEX_DIR=/tmp/fixture/index cargo bench --bench reverse
 ```
 
 Licensing: Overture's divisions and transportation themes and OSM are ODbL ("© OpenStreetMap
