@@ -655,7 +655,7 @@ impl Core {
                 }
             }
             if !town.is_empty() {
-                place.insert("city".into(), town);
+                place.insert("city".into(), town.clone());
             }
             let structured = create_query(&place, &["city", "state", "country"]);
             if place.keys().all(|key| key == "country") || !useful_query(&structured, "", country) {
@@ -672,7 +672,9 @@ impl Core {
             else {
                 continue;
             };
-            if chosen.kind == "country" {
+            // only a settlement named as stated: a region, province or country of that name is
+            // another place, and a postcode is not a town
+            if !chosen.anchor() || chosen.kind == "postcode" || !chosen.named_by(&town) {
                 continue;
             }
             // with no country stated, the region and the postcode have to fit the one the town
@@ -684,11 +686,37 @@ impl Core {
                     && details
                         .is_none_or(|d| postcode_shape(&d.country_code, postcode) != Some(false))))
                 && !self.postcode_elsewhere(postcode, &chosen.found);
-            if fits {
+            if fits && !self.ambiguous(&structured, &place, country, &chosen.found) {
                 return Ok(Some(accept(chosen.found, address, "", "settlement", false)));
             }
         }
         Ok(None)
+    }
+
+    /// Another place the query names equally well lies far from `found` ("Austrheim" in two
+    /// counties): with nothing to choose between them, the first would be a guess.
+    fn ambiguous(
+        &self,
+        structured: &str,
+        place: &ParsedAddress,
+        country: &str,
+        found: &FullAddress,
+    ) -> bool {
+        let Some(at) = found.geo_coordinates.as_option() else {
+            return false;
+        };
+        self.search(structured)
+            .1
+            .iter()
+            .filter_map(|v| format_response(v).ok())
+            .filter(|f| {
+                let details = f.address_details.as_option();
+                city_agrees(place, details)
+                    && country_matches(country, details)
+                    && state_consistent(place, details)
+            })
+            .filter_map(|f| f.geo_coordinates.into_option())
+            .any(|g| km_between(at.lat, at.lon, g.lat, g.lon) > 50.0)
     }
 
     /// The data places `postcode` (in the country of `found`), but nowhere near `found`: the
