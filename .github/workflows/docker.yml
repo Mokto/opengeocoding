@@ -2,9 +2,7 @@ name: Publish Docker image
 
 on:
   push:
-    branches: [main]
     tags: ["v*"]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -35,10 +33,8 @@ jobs:
       meta-images: ghcr.io/mokto/opengeocoding
       meta-flavor: latest=false
       meta-tags: |
-        type=sha,prefix=sha-,format=long
-        type=ref,event=branch
         type=semver,pattern={{version}}
-        type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+        type=raw,value=latest
       set-meta-labels: true
       meta-labels: |
         org.opencontainers.image.licenses=LicenseRef-PolyForm-Shield-1.0.0
@@ -80,16 +76,12 @@ jobs:
           echo "1e4ab49e429626cf6c6958d914248b78c9730803c2751b87627e171dc800e7bb  helm.tgz" | sha256sum -c -
           tar -xzf helm.tgz linux-amd64/helm
           sudo install linux-amd64/helm /usr/local/bin/helm
-      - name: Publish the chart, pinned to this commit's image
+      - name: Publish the chart, pinned to this release's image
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ACTOR: ${{ github.actor }}
         run: |
-          base="$(sed -n 's/^version: //p' manifests/Chart.yaml)"
-          case "$GITHUB_REF" in
-            refs/tags/v*) version="${GITHUB_REF#refs/tags/v}"; app="$version" ;;
-            *) version="$base-g${GITHUB_SHA::12}"; app="sha-$GITHUB_SHA" ;;
-          esac
-          helm package manifests --version "$version" --app-version "$app"
+          version="${GITHUB_REF#refs/tags/v}"
+          helm package manifests --version "$version" --app-version "$version"
           echo "$TOKEN" | helm registry login ghcr.io --username "$ACTOR" --password-stdin
           helm push "opengeocoding-$version.tgz" oci://ghcr.io/mokto/charts

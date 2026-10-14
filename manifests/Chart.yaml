@@ -5,7 +5,8 @@ type: application
 home: https://github.com/Mokto/opengeocoding
 sources:
   - https://github.com/Mokto/opengeocoding
-# Published charts set both from the release: version from the tag, appVersion (the image tag)
-# from the commit.
+# Published charts set both from the release tag; appVersion is the image tag.
+# x-release-please-start-version
 version: 0.1.0
+# x-release-please-end
 appVersion: latest
