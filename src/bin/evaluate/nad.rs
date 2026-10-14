@@ -227,7 +227,7 @@ fn address(columns: &Columns, fields: &[Cow<'_, str>]) -> Option<Address> {
         get("Census_Plc"),
     ]
     .into_iter()
-    .find(|c| !c.is_empty() && !c.eq_ignore_ascii_case("Not stated"))?;
+    .find(|c| usable_city(c))?;
     let (lon, lat) = (
         get("Longitude").parse::<f64>().ok()?,
         get("Latitude").parse::<f64>().ok()?,
@@ -248,6 +248,22 @@ fn address(columns: &Columns, fields: &[Cow<'_, str>]) -> Option<Address> {
         point: [lat, lon],
         placement: get("Placement").to_string(),
     })
+}
+
+/// Registries put placeholders and county names where a town should be; nobody types those.
+fn usable_city(city: &str) -> bool {
+    let lower = city.to_lowercase();
+    !lower.is_empty()
+        && ![
+            "not stated",
+            "unincorporated",
+            "unknown",
+            "none",
+            "n/a",
+            "na",
+        ]
+        .contains(&lower.as_str())
+        && !lower.ends_with(" county")
 }
 
 /// Some jurisdictions load a unit or a bare direction into the street field; a query built from
@@ -271,6 +287,12 @@ fn street_name(street: &str) -> bool {
         && !street.contains('#')
         && !words.iter().any(|w| NOT_STREET.contains(&w.as_str()))
         && !(words.len() == 1 && generic(&words[0]))
+        && !words.windows(2).any(|pair| {
+            TYPES.iter().chain(DIRECTIONS.iter()).any(|(full, short)| {
+                let (full, short) = (full.to_lowercase(), short.to_lowercase());
+                (pair[0] == full && pair[1] == short) || (pair[0] == short && pair[1] == full)
+            })
+        })
 }
 
 fn for_each_row(path: &Path, mut f: impl FnMut(&Columns, &[Cow<'_, str>])) -> Result<()> {
@@ -693,6 +715,17 @@ mod tests {
         assert!(!street_name("Southwest"));
         assert!(!street_name("Main St #4"));
         assert!(!street_name("X"));
+        // a direction or type written twice, in full and abbreviated
+        assert!(!street_name("West W Red Oak St Street"));
+        assert!(street_name("North West Street"));
+    }
+
+    #[test]
+    fn rejects_placeholder_towns() {
+        assert!(usable_city("Cuba"));
+        assert!(!usable_city("UNINCORPORATED"));
+        assert!(!usable_city("Not stated"));
+        assert!(!usable_city("Denton County"));
     }
 
     #[test]
