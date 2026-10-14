@@ -5,11 +5,13 @@
 //! `_COMPLETE`; readers trust nothing without `_COMPLETE` and check every file against `MANIFEST`.
 use anyhow::{Context, Result, bail, ensure};
 use object_store::{
-    ClientOptions, ObjectStore, ObjectStoreExt, PutPayload, WriteMultipart, aws::AmazonS3Builder,
-    local::LocalFileSystem, path::Path as Key,
+    ClientConfigKey, ObjectStore, ObjectStoreExt, PutPayload, WriteMultipart,
+    aws::{AmazonS3Builder, AmazonS3ConfigKey},
+    local::LocalFileSystem,
+    path::Path as Key,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, time::Duration};
+use std::collections::BTreeSet;
 use std::{
     os::unix::fs::FileExt,
     path::{Path, PathBuf},
@@ -41,28 +43,29 @@ pub struct Manifest {
 
 impl Store {
     pub fn open(url: &str) -> Result<Self> {
-        let (inner, root): (Arc<dyn ObjectStore>, String) = if let Some(dir) =
-            url.strip_prefix("file://")
-        {
-            std::fs::create_dir_all(dir).with_context(|| format!("create {dir}"))?;
-            (
-                Arc::new(LocalFileSystem::new_with_prefix(dir)?),
-                String::new(),
-            )
-        } else if let Some(rest) = url.strip_prefix("s3://") {
-            let (bucket, prefix) = rest.split_once('/').unwrap_or((rest, ""));
-            ensure!(!bucket.is_empty(), "store URL {url} names no bucket");
-            let s3 = AmazonS3Builder::from_env()
-                .with_bucket_name(bucket)
-                // The default 30 s covers the whole body: too short for a 32 MiB range when
-                // many parallel ranges share the pod's bandwidth.
-                .with_client_options(ClientOptions::new().with_timeout(Duration::from_secs(300)))
-                .build()
-                .context("configure S3 from the AWS_* environment")?;
-            (Arc::new(s3), prefix.trim_matches('/').to_string())
-        } else {
-            bail!("store URL must be s3://bucket/prefix or file:///path, got {url}");
-        };
+        let (inner, root): (Arc<dyn ObjectStore>, String) =
+            if let Some(dir) = url.strip_prefix("file://") {
+                std::fs::create_dir_all(dir).with_context(|| format!("create {dir}"))?;
+                (
+                    Arc::new(LocalFileSystem::new_with_prefix(dir)?),
+                    String::new(),
+                )
+            } else if let Some(rest) = url.strip_prefix("s3://") {
+                let (bucket, prefix) = rest.split_once('/').unwrap_or((rest, ""));
+                ensure!(!bucket.is_empty(), "store URL {url} names no bucket");
+                let s3 = AmazonS3Builder::from_env()
+                    .with_bucket_name(bucket)
+                    // The default 30 s covers the whole body: too short for a 32 MiB range when
+                    // many parallel ranges share the pod's bandwidth. Set the key, not
+                    // with_client_options: that replaces the options from_env read, including
+                    // AWS_ALLOW_HTTP, and plain-http endpoints then fail with "URL scheme is not allowed".
+                    .with_config(AmazonS3ConfigKey::Client(ClientConfigKey::Timeout), "300s")
+                    .build()
+                    .context("configure S3 from the AWS_* environment")?;
+                (Arc::new(s3), prefix.trim_matches('/').to_string())
+            } else {
+                bail!("store URL must be s3://bucket/prefix or file:///path, got {url}");
+            };
         Ok(Self::new(inner, root))
     }
 
@@ -402,5 +405,28 @@ mod tests {
         std::fs::remove_file(dst.join("nested/small.txt")).unwrap();
         assert!(store.fetch("indexes/x", &dst).await.is_err());
         std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn s3_store_honours_aws_allow_http() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            for mut conn in listener.incoming().flatten() {
+                let _ = conn.read(&mut [0; 4096]);
+                let _ = conn.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n");
+            }
+        });
+        // SAFETY: no other test in this binary reads or writes the environment.
+        unsafe {
+            std::env::set_var("AWS_ENDPOINT", endpoint);
+            std::env::set_var("AWS_ALLOW_HTTP", "true");
+            std::env::set_var("AWS_ACCESS_KEY_ID", "k");
+            std::env::set_var("AWS_SECRET_ACCESS_KEY", "s");
+            std::env::set_var("AWS_DEFAULT_REGION", "us-east-1");
+        }
+        let store = Store::open("s3://bucket").unwrap();
+        assert!(!store.exists("indexes/x/_COMPLETE").await.unwrap());
     }
 }
