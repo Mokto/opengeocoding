@@ -1,7 +1,7 @@
 use std::{collections::HashSet, path::PathBuf};
 
-/// Hashes what decides an index's contents: the builder's code, the schema and analyzer it shares
-/// with the service, and the locked versions of the crates that write or fold it. The chart pins
+/// Hashes what decides an index's contents: the builder's code, the schema, analyzer and
+/// reverse-lookup layout it shares with the service, and the locked versions of the crates that write or fold it. The chart pins
 /// the result, so a change here is a visible chart bump that triggers a rebuild.
 /// fetch.rs and store.rs are left out: they only move sources into the store, and an index is
 /// built from sealed source directories, which are reused as they are.
@@ -10,7 +10,14 @@ fn builder_hash() -> String {
         .expect("src/bin/build_index")
         .map(|e| e.expect("builder source").path())
         .filter(|p| !p.ends_with("fetch.rs") && !p.ends_with("store.rs"))
-        .chain(["src/index/schema.rs".into(), "src/index/canon.rs".into()])
+        .chain(
+            [
+                "src/index/schema.rs",
+                "src/index/canon.rs",
+                "src/index/reverse.rs",
+            ]
+            .map(PathBuf::from),
+        )
         .collect();
     files.sort();
     let mut ctx = ring::digest::Context::new(&ring::digest::SHA256);

@@ -1411,6 +1411,8 @@ fn build(args: &[String]) {
         "segment merge ({} segments)",
         index.searchable_segment_ids().unwrap().len()
     ));
+    let n = opengeocoding::index::reverse::build(Path::new(out), &index, f.kind).unwrap();
+    lap(&format!("reverse lookup ({n} records)"));
     println!("total: {:.1}s", t0.elapsed().as_secs_f64());
 }
 

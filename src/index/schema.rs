@@ -324,6 +324,7 @@ fn shard(out: &str, s: usize, dir: &std::path::Path, long: Vec<LongNum>) -> u64 
     let (mut i, mut j, mut n) = (0, 0, 0u64);
     let mut last: Vec<u8> = vec![];
     let mut key = Vec::with_capacity(64);
+    let (mut posts, mut run, mut run_sid) = (vec![], vec![], 0);
     while i < a.len() || j < b.len() {
         let take_a = j == b.len()
             || (i < a.len() && (a[i].sid, a[i].bytes()) <= (b[j].sid, b[j].num.as_bytes()));
@@ -347,9 +348,20 @@ fn shard(out: &str, s: usize, dir: &std::path::Path, long: Vec<LongNum>) -> u64 
         }
         fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
         n += 1;
+        if sid != run_sid {
+            super::reverse::street_postings(&mut run, run_sid, &mut posts);
+            run_sid = sid;
+        }
+        run.push(super::reverse::key(x, y));
         std::mem::swap(&mut key, &mut last);
     }
     fst.finish().unwrap();
+    super::reverse::street_postings(&mut run, run_sid, &mut posts);
+    super::reverse::write_spill(
+        &std::path::Path::new(out).join(super::reverse::SPILL),
+        s,
+        posts,
+    );
     n
 }
 

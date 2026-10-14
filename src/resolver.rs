@@ -173,6 +173,34 @@ impl Resolver {
         let core = self.0.clone();
         tokio::task::spawn_blocking(move || core.reverse(lat, lon)).await?
     }
+
+    /// The addresses nearest a point; see `Index::reverse_search`.
+    pub async fn reverse_search(
+        &self,
+        lat: f32,
+        lon: f32,
+        radius_m: f64,
+        size: usize,
+    ) -> Result<Vec<ReverseResult>> {
+        let core = self.0.clone();
+        tokio::task::spawn_blocking(move || {
+            core.index
+                .reverse_search(lat as f64, lon as f64, radius_m, size)
+                .into_iter()
+                .map(|(layer, value, meters)| {
+                    let mut address = format_response(&value)?;
+                    address.good_match = true;
+                    Ok(ReverseResult {
+                        address: address.into(),
+                        distance_m: meters as f32,
+                        layer: layer.into(),
+                        ..Default::default()
+                    })
+                })
+                .collect()
+        })
+        .await?
+    }
 }
 
 impl Core {
