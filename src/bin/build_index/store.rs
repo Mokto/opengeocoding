@@ -217,8 +217,20 @@ impl Store {
             });
         }
         drop(done);
+        let mut landed_chunks = 0;
         while let Some(r) = tasks.join_next().await {
             r??;
+            landed_chunks += 1;
+            // Single-chunk files finish at once; a line each would only be noise.
+            if chunks > 1 && landed_chunks * 10 / chunks > (landed_chunks - 1) * 10 / chunks {
+                let got = (landed_chunks * CHUNK).min(size);
+                println!(
+                    "{rel}: {}% ({} of {} MiB)",
+                    landed_chunks * 100 / chunks,
+                    got >> 20,
+                    size >> 20
+                );
+            }
         }
         let sha = hasher.await??;
         // Not fsynced: the volume is disposable, and a torn file fails its hash on the next pull.
