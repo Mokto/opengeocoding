@@ -18,7 +18,7 @@ This is an initial implementation, not a production accuracy or throughput guara
 Build the image locally:
 
 ```sh
-docker build -t opengeocoding .
+docker build --target runtime -t opengeocoding .
 ```
 
 Or pull a published image:
