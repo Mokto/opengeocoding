@@ -356,14 +356,23 @@ impl Core {
                 .iter()
                 .find_map(|name| names[*name].as_str().filter(|s| !s.is_empty()))
                 .unwrap_or("");
-            let Some((_, admin_code)) = code.split_once('-') else {
+            let Some((prefix, admin_code)) = code.split_once('-') else {
                 continue;
+            };
+            // A territory's own code names its sovereign (US-PR), not the territory.
+            let country_code = prefix.to_lowercase();
+            let country_name = if country_code == string(&details["country_code"]) {
+                string(&result["address"]["country"])
+            } else {
+                self.index
+                    .country_name(&country_code)
+                    .unwrap_or_else(|| string(&result["address"]["country"]))
             };
             regions.push((
                 code.to_uppercase(),
                 Region {
-                    country_code: string(&details["country_code"]).into(),
-                    country_name: string(&result["address"]["country"]).into(),
+                    country_code,
+                    country_name: country_name.into(),
                     admin_level: integer(&details["admin_level"])?,
                     local_name: string(&details["localname"]).into(),
                     en_name: en_name.into(),

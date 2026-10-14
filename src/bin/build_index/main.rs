@@ -263,7 +263,7 @@ fn cell(s: &str) -> std::borrow::Cow<'_, str> {
 
 /// Also writes `places.tsv`, one row per place id: subtype, class, country, ISO 3166-2 region,
 /// admin level, population, x, y, bbox (xmin, ymin, xmax, ymax), parent place id (or empty),
-/// primary name, and `language=name` pairs joined by NAME_SEP.
+/// primary name, `language=name` pairs joined by NAME_SEP, and the Wikidata item (or empty).
 fn load_places(dir: &Path, out: &str) -> (Vec<Place>, HashMap<Str, u32>) {
     let mut places: Vec<Place> = tasks(dir)
         .par_iter()
@@ -286,12 +286,14 @@ fn load_places(dir: &Path, out: &str) -> (Vec<Place>, HashMap<Str, u32>) {
                     "admin_level",
                     "parent_division_id",
                     "bbox",
+                    "wikidata",
                 ],
             ) {
-                let (class, region, parent) = (
+                let (class, region, parent, wikidata) = (
                     col(&b, "class").as_string::<i32>(),
                     col(&b, "region").as_string::<i32>(),
                     col(&b, "parent_division_id").as_string::<i32>(),
+                    col(&b, "wikidata").as_string::<i32>(),
                 );
                 let level = col(&b, "admin_level").as_primitive::<Int32Type>();
                 let bbox = col(&b, "bbox").as_struct();
@@ -415,6 +417,8 @@ fn load_places(dir: &Path, out: &str) -> (Vec<Place>, HashMap<Str, u32>) {
                             }
                             let _ = write!(row, "{}={}", cell(k), cell(name));
                         }
+                        row.push('\t');
+                        row.push_str(&cell(text(wikidata, i).unwrap_or("")));
                     }
                     out.push(Place {
                         parent: text(parent, i).map(Str::from),

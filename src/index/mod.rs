@@ -101,13 +101,42 @@ impl Place {
     }
 }
 
+/// Place number and ISO 3166-2 code of the places that stand for a subdivision.
+type OwnCodes = Vec<(u32, String)>;
+
+/// ISO 3166-2 code by Wikidata item, from `data/reference.json`: the subdivisions that
+/// Overture's `region` column lacks (Ugandan districts, overseas territories) and that
+/// consumers expect.
+fn iso_by_item(reference: &Value) -> HashMap<&str, &str> {
+    reference["iso3166_2"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .flat_map(|(code, items)| {
+            let items = items.as_array().into_iter().flatten();
+            items
+                .filter_map(Value::as_str)
+                .map(move |item| (item, code.as_str()))
+        })
+        .collect()
+}
+
 /// Reads `places.tsv` on all cores (about 5 million lines for the world), hashing each place's
-/// names as it goes.
-fn load_places(path: &Path) -> Result<Vec<Place>> {
+/// names as it goes, and the places whose Wikidata item (the last column) has an ISO 3166-2
+/// code in `iso`, by place number.
+fn load_places(path: &Path, iso: &HashMap<&str, &str>) -> Result<(Vec<Place>, OwnCodes)> {
     use rayon::prelude::*;
     let text = fs::read_to_string(path).with_context(|| path.display().to_string())?;
     let lines: Vec<&str> = text.lines().collect();
-    Ok(lines
+    let own = lines
+        .par_iter()
+        .enumerate()
+        .filter_map(|(i, l)| {
+            let code = iso.get(l.split('\t').nth(15)?)?;
+            Some((i as u32, code.to_string()))
+        })
+        .collect();
+    let places = lines
         .par_iter()
         .map(|l| {
             let c: Vec<&str> = l.split('\t').collect();
@@ -134,7 +163,8 @@ fn load_places(path: &Path) -> Result<Vec<Place>> {
             place.keys = keys.into();
             place
         })
-        .collect())
+        .collect();
+    Ok((places, own))
 }
 
 struct Columns {
@@ -252,6 +282,8 @@ pub struct Index {
     country_places: HashMap<String, u32>,
     /// ISO 3166-2 code -> its region place.
     regions: HashMap<String, u32>,
+    /// Places that stand for an ISO 3166-2 subdivision Overture has no region for -> its code.
+    own_codes: HashMap<u32, Box<str>>,
     parser: Arc<Parser>,
     /// `terms_near` results: retried road and town splits ask for the same words.
     near: Mutex<HashMap<String, std::sync::Arc<[String]>>>,
@@ -872,7 +904,9 @@ impl Index {
                 )?))
             })
             .collect::<Result<_>>()?;
-        let mut places = load_places(&dir.join("places.tsv"))?;
+        let reference: Value =
+            serde_json::from_str(include_str!("../../data/reference.json")).unwrap();
+        let (mut places, own) = load_places(&dir.join("places.tsv"), &iso_by_item(&reference))?;
         {
             // counties containing a same-named neighbourhood, minus those with such a locality
             let mut hood_named: std::collections::HashSet<u32> = Default::default();
@@ -912,8 +946,14 @@ impl Index {
                 regions.entry(p.region.to_string()).or_insert(i as u32);
             }
         }
-        let reference: Value =
-            serde_json::from_str(include_str!("../../data/reference.json")).unwrap();
+        // A code Overture does supply wins, so a later release that names it needs no data change.
+        let mut own_codes = HashMap::new();
+        for (place, code) in own {
+            if let std::collections::hash_map::Entry::Vacant(entry) = regions.entry(code) {
+                own_codes.insert(place, entry.key().as_str().into());
+                entry.insert(place);
+            }
+        }
         for (name, cc) in reference["countries"].as_object().into_iter().flatten() {
             if let Some(cc) = cc.as_str() {
                 countries
@@ -945,6 +985,7 @@ impl Index {
             countries,
             country_places,
             regions,
+            own_codes,
             parser,
             near: Mutex::default(),
         })
@@ -1769,6 +1810,12 @@ impl Index {
         None
     }
 
+    /// The English name of a country's place.
+    pub fn country_name(&self, cc: &str) -> Option<&str> {
+        let place = self.country_places.get(cc)?;
+        Some(self.places[*place as usize].name(true))
+    }
+
     /// Every ISO 3166-2 code that names a region place, with that place.
     pub fn region_places(&self) -> impl Iterator<Item = (&str, u32)> {
         self.regions
@@ -2112,8 +2159,9 @@ impl Index {
     }
 
     fn address(&self, place: u32, en: bool, a: &mut Map<String, Value>, display: &mut Vec<String>) {
+        let chain = self.chain(place);
         let mut code = None;
-        for p in self.chain(place) {
+        for &p in &chain {
             let pl = &self.places[p as usize];
             let key = pl.key();
             if !a.contains_key(key) {
@@ -2129,15 +2177,17 @@ impl Index {
             }
         }
         // Nominatim lists a dependency (Svalbard, Puerto Rico) as a state as well.
-        if let Some(dep) = self
-            .chain(place)
-            .into_iter()
-            .find(|&p| self.places[p as usize].subtype.as_ref() == "dependency")
+        if let Some(&dep) = chain
+            .iter()
+            .find(|&&p| self.places[p as usize].subtype.as_ref() == "dependency")
         {
             a.entry("state")
                 .or_insert_with(|| self.places[dep as usize].name(en).into());
         }
-        if let Some(code) = code {
+        // The lowest subdivision the data names itself beats the region code Overture gives the
+        // places inside it (the district over its region).
+        let own = chain.iter().find_map(|p| self.own_codes.get(p));
+        if let Some(code) = own.map(|c| c.to_string()).or(code) {
             if let Some(province) = irish_province(&code) {
                 a.insert("ISO3166-2-lvl5".into(), province.into());
             }
@@ -2599,5 +2649,44 @@ mod tests {
         assert_eq!(irish_province("IE-D"), Some("IE-L"));
         assert_eq!(irish_province("GB-ENG"), None);
         assert_eq!(title("københavn v"), "København V");
+    }
+
+    #[test]
+    fn subdivisions_are_named_by_the_item_in_the_last_column() {
+        let reference: Value =
+            serde_json::from_str(include_str!("../../data/reference.json")).unwrap();
+        let iso = iso_by_item(&reference);
+        let listed: usize = reference["iso3166_2"]
+            .as_object()
+            .unwrap()
+            .values()
+            .map(|items| items.as_array().unwrap().len())
+            .sum();
+        assert_eq!(iso.len(), listed, "an item names two codes");
+        for (item, code) in &iso {
+            assert!(
+                item.strip_prefix('Q')
+                    .is_some_and(|n| n.parse::<u64>().is_ok())
+            );
+            assert!(
+                code.split_once('-')
+                    .is_some_and(|(cc, rest)| cc.len() == 2 && !rest.is_empty())
+            );
+        }
+        let path = std::env::temp_dir().join(format!("places-test-{}.tsv", std::process::id()));
+        let (item, code) = iso.iter().next().unwrap();
+        // 15 columns, then the item; a place with no names still has its names column
+        std::fs::write(
+            &path,
+            format!(
+                "county\t\tUG\tUG-C\t2\t0\t1\t2\t1\t2\t1\t2\t\tKampala\t\t{item}\n\
+                 county\t\tUG\tUG-C\t2\t0\t1\t2\t1\t2\t1\t2\t\tMpigi\ten=Mpigi\tQ0\n"
+            ),
+        )
+        .unwrap();
+        let (places, own) = load_places(&path, &iso).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(places.len(), 2);
+        assert_eq!(own, [(0, code.to_string())]);
     }
 }

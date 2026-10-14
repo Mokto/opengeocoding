@@ -89,6 +89,16 @@
       "url": "https://download.geonames.org/export/dump/admin1CodesASCII.txt",
       "sha256": "1da92a6323a5fec3176f3f743bf4cf4040fd56a876da55e46fbca23c863aa60a",
       "license": "CC-BY-4.0"
+    },
+    {
+      "url": "https://query.wikidata.org/sparql?format=json&query=SELECT%20%3Fcode%20%3Fitem%20WHERE%20%7B%20%3Fitem%20wdt%3AP300%20%3Fcode%20%7D%20ORDER%20BY%20%3Fcode%20%3Fitem",
+      "sha256": "8d692253f1de5f99ce9e15f640c7222e5430c6ce11aebc25736335c198e2d995",
+      "license": "CC0-1.0"
+    },
+    {
+      "url": "https://www.unicode.org/Public/16.0.0/ucd/UnicodeData.txt",
+      "sha256": "ff58e5823bd095166564a006e47d111130813dcf8bf234ef79fa51a870edb48f",
+      "license": "Unicode-3.0"
     }
   ],
   "unicode_version": "16.0.0"

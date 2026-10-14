@@ -1,5 +1,5 @@
-//! Regenerates data/reference.json and data/sources.json from public CLDR, GeoNames and
-//! Unicode Character Database files: `cargo run --bin update_reference [-- OUT_DIR]`.
+//! Regenerates data/reference.json and data/sources.json from public CLDR, GeoNames,
+//! Wikidata and Unicode Character Database files: `cargo run --bin update_reference [-- OUT_DIR]`.
 //! Requires network access and changes checked-in data; review the result as a data update.
 
 use anyhow::{Context, Result, bail};
@@ -13,6 +13,8 @@ use std::{
 const CLDR_COMMIT: &str = "91c267402229a59e3ef2774544f001bf959e8809";
 /// Pinned so character classes do not silently follow whichever toolchain runs the generator.
 const UNICODE_VERSION: &str = "16.0.0";
+/// Every Wikidata item with an ISO 3166-2 code (P300), ordered so the response is stable.
+const WIKIDATA_ISO_3166_2: &str = "https://query.wikidata.org/sparql?format=json&query=SELECT%20%3Fcode%20%3Fitem%20WHERE%20%7B%20%3Fitem%20wdt%3AP300%20%3Fcode%20%7D%20ORDER%20BY%20%3Fcode%20%3Fitem";
 const LANGUAGES: [&str; 16] = [
     "en", "de", "fr", "es", "da", "pt", "it", "nl", "pl", "ru", "el", "tr", "ar", "zh", "ja", "ko",
 ];
@@ -200,12 +202,50 @@ async fn main() -> Result<()> {
         .filter(|(_, codes)| codes.len() == 1)
         .map(|(name, codes)| (name, codes.into_iter().next().unwrap_or_default()))
         .collect();
+    // The codes are a policy kept in reference.json itself (the ISO 3166-2 subdivisions that
+    // Overture's `region` column lacks and consumers expect); only their Wikidata items are
+    // refreshed here. Add a code with an empty list to have it filled in.
+    let wanted: Vec<String> = std::fs::read_to_string(out.join("reference.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        .and_then(|reference| {
+            reference["iso3166_2"]
+                .as_object()
+                .map(|codes| codes.keys().cloned().collect())
+        })
+        .unwrap_or_default();
+    let wikidata: Value =
+        serde_json::from_str(&downloads.get(WIKIDATA_ISO_3166_2, "CC0-1.0").await?)?;
+    let mut items: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for row in wikidata["results"]["bindings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+    {
+        let (Some(code), Some(item)) =
+            (row["code"]["value"].as_str(), row["item"]["value"].as_str())
+        else {
+            continue;
+        };
+        items
+            .entry(code)
+            .or_default()
+            .push(item.rsplit('/').next().unwrap_or(item));
+    }
+    let mut iso3166_2 = BTreeMap::new();
+    for code in &wanted {
+        let Some(found) = items.get(code.as_str()) else {
+            bail!("Wikidata has no item for ISO 3166-2 code {code}");
+        };
+        iso3166_2.insert(code.clone(), found.clone());
+    }
     std::fs::create_dir_all(&out)?;
     std::fs::write(
         out.join("reference.json"),
         pretty(&json!({
             "countries": countries,
             "region_countries": regions,
+            "iso3166_2": iso3166_2,
             "overrides": {},
             "alpha_ranges": categories.ranges(|c| categories.alpha(c)),
             "printable_ranges": categories.ranges(|c| categories.printable(c)),
@@ -220,9 +260,10 @@ async fn main() -> Result<()> {
         serde_json::to_string_pretty(&sources)? + "\n",
     )?;
     println!(
-        "Wrote {} country aliases and {} region names",
+        "Wrote {} country aliases, {} region names and {} ISO 3166-2 codes",
         countries.len(),
-        regions.len()
+        regions.len(),
+        iso3166_2.len()
     );
     Ok(())
 }
