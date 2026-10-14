@@ -335,20 +335,25 @@ impl Core {
             let hits = self
                 .index
                 .postcode_hits(postcode, Some(country).filter(|c| !c.is_empty()));
-            hits.first()
-                .and_then(|h| format_response(&self.index.render(h, true)).ok())
-                .is_none_or(|f| {
-                    place_agrees(&f)
-                        || f.address_details.as_option().is_some_and(|d| {
-                            [&d.county, &d.state_district, &d.suburb, &d.city_district]
-                                .iter()
-                                .any(|name| {
-                                    !name.is_empty()
-                                        && !part(address, "city").is_empty()
-                                        && names_agree(part(address, "city"), name)
-                                })
-                        })
-                })
+            let vouches = |h| {
+                format_response(&self.index.render(h, true))
+                    .ok()
+                    .is_none_or(|f| {
+                        place_agrees(&f)
+                            || f.address_details.as_option().is_some_and(|d| {
+                                [&d.county, &d.state_district, &d.suburb, &d.city_district]
+                                    .iter()
+                                    .any(|name| {
+                                        !name.is_empty()
+                                            && !part(address, "city").is_empty()
+                                            && names_agree(part(address, "city"), name)
+                                    })
+                            })
+                    })
+            };
+            // a postcode spans several places ("14727" is Cuba's and Hinsdale's): any may be
+            // the postal town
+            hits.is_empty() || hits.iter().any(vouches)
         });
         let overriding = tier.ends_with("without_stated_country");
         // libpostal files fragments ("province of") as a state district; only a state is vouched
@@ -372,7 +377,8 @@ impl Core {
                         || (same_postcode_country(country, postcode, details)
                             && (locality(details) || *postcode_vouches))
                         || postcode_place_agrees(address, postcode, details)
-                        || (house_road_postcode(address, postcode, details) && junk_city)
+                        || (house_road_postcode(address, postcode, details)
+                            && (junk_city || *postcode_vouches))
                         || house_road_city(address, details)
                         || finer_near(f))
             })
@@ -487,7 +493,12 @@ impl Core {
             return Ok(FullAddress::default());
         }
         let mut address = self.parse(query)?;
-        if part(&address, "country").is_empty() {
+        // A complete address with a town that is also a country ("Cuba, NY 14727") would
+        // otherwise be rotated into one whose country is that town.
+        let complete = ["house_number", "road", "postcode"]
+            .iter()
+            .all(|key| !part(&address, key).is_empty());
+        if part(&address, "country").is_empty() && !complete {
             let parts: Vec<_> = query
                 .split(',')
                 .map(|s| s.trim_matches(whitespace))
