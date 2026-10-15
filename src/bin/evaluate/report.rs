@@ -809,6 +809,15 @@ fn latency(
     )
 }
 
+/// A collapsed (or `open`) section; the blank lines let GitHub render the markdown inside.
+fn fold(title: &str, body: &str, open: bool) -> String {
+    format!(
+        "\n<details{}>\n<summary><b>{title}</b></summary>\n\n{}\n</details>\n",
+        if open { " open" } else { "" },
+        body.trim_end()
+    )
+}
+
 /// Baseline vs candidate report; returns whether the comparison gate failed.
 pub fn diff(
     cases: &[Case],
@@ -828,18 +837,29 @@ pub fn diff(
         "# Baseline vs candidate ({} shared cases)\n\n",
         shared.len()
     );
-    report += &side_line("baseline", &old_manifest);
-    report += "\n";
-    report += &side_line("candidate", &new_manifest);
-    report += "\n";
+    let mut runs = side_line("baseline", &old_manifest) + "\n";
+    runs += &side_line("candidate", &new_manifest);
+    runs += "\n";
     let missing = old.keys().filter(|k| !new.contains_key(*k)).count()
         + new.keys().filter(|k| !old.contains_key(*k)).count();
     if missing > 0 {
         let _ = writeln!(
-            report,
+            runs,
             "- {missing} case ids are present on only one side and not compared."
         );
     }
+    for (name, records) in [("baseline", &old), ("candidate", &new)] {
+        let calls: Vec<_> = records.values().filter_map(|r| r.backend_calls).collect();
+        if !calls.is_empty() {
+            let _ = writeln!(
+                runs,
+                "- {name} index searches per query: mean {:.2}, max {}",
+                calls.iter().sum::<usize>() as f64 / calls.len() as f64,
+                calls.iter().max().unwrap_or(&0)
+            );
+        }
+    }
+    report += &fold("Runs", &runs, false);
     report += &latency(&shared, &old, &new, [&old_manifest, &new_manifest]);
     let (mut newly_failing, mut newly_passing, mut worse, mut better) =
         (vec![], vec![], vec![], vec![]);
@@ -921,61 +941,82 @@ pub fn diff(
         && new.iter().any(|(id, r)| {
             cases.get(id.as_str()).is_some_and(|c| c.must_pass) && r.class != "pass"
         });
-    let _ = write!(
-        report,
-        "\n## Changes by cohort\n\n| Cohort | Cases | Changed | {} |\n|---|{}\n",
-        DRIFT_KINDS.join(" | "),
-        "---:|".repeat(DRIFT_KINDS.len() + 2)
-    );
-    for (cohort, counts) in &by_cohort {
-        let cells: Vec<_> = ["cases", "changed"]
-            .iter()
-            .chain(DRIFT_KINDS.iter())
-            .map(|k| counts.get(k).copied().unwrap_or(0).to_string())
-            .collect();
-        let _ = writeln!(report, "| {cohort} | {} |", cells.join(" | "));
+    let kinds: Vec<_> = DRIFT_KINDS
+        .iter()
+        .filter(|k| by_cohort.values().any(|c| c.contains_key(*k)))
+        .collect();
+    let rows: Vec<_> = by_cohort
+        .iter()
+        .filter(|(_, counts)| counts.contains_key("changed"))
+        .collect();
+    report += "\n## Changes by cohort\n\n";
+    if rows.is_empty() {
+        report += "No case changed.\n";
+    } else {
+        let _ = write!(
+            report,
+            "| Cohort | Cases | Changed |{}\n|---|---:|---:|{}\n",
+            kinds.iter().map(|k| format!(" {k} |")).collect::<String>(),
+            "---:|".repeat(kinds.len())
+        );
+        for (cohort, counts) in rows {
+            let cells: Vec<_> = ["cases", "changed"]
+                .iter()
+                .chain(kinds.iter().map(|k| &**k))
+                .map(|k| counts.get(k).copied().unwrap_or(0).to_string())
+                .collect();
+            let _ = writeln!(report, "| {cohort} | {} |", cells.join(" | "));
+        }
+        report += "\nOnly cohorts with a change and kinds that occur are shown. gained/lost: a result appeared/disappeared; finer/coarser: resolution level; moved: >1 km; nudged: <1 km but visible at 3 decimals.\n";
     }
-    report += "\ngained/lost: a result appeared/disappeared; finer/coarser: resolution level; moved: >1 km; nudged: <1 km but visible at 3 decimals.\n";
     if scored {
-        for (title, items) in [
-            ("Newly failing", &newly_failing),
-            ("Worse failure class", &worse),
-            ("Newly passing (verify before relabelling)", &newly_passing),
-            ("Better failure class", &better),
+        let mut none = vec![];
+        // Gating lists stay open; the lists to review are folded.
+        for (title, items, open) in [
+            ("Newly failing", &newly_failing, true),
+            ("Worse failure class", &worse, true),
+            (
+                "Newly passing (verify before relabelling)",
+                &newly_passing,
+                false,
+            ),
+            ("Better failure class", &better, false),
         ] {
-            let _ = write!(report, "\n## {title} ({})\n\n", items.len());
-            report += &if items.is_empty() {
-                "None.\n".into()
+            if items.is_empty() {
+                none.push(title);
+            } else if open {
+                let _ = write!(
+                    report,
+                    "\n## {title} ({})\n\n{}\n",
+                    items.len(),
+                    items.join("\n")
+                );
             } else {
-                items.join("\n") + "\n"
-            };
+                report += &fold(
+                    &format!("{title} ({})", items.len()),
+                    &items.join("\n"),
+                    false,
+                );
+            }
+        }
+        if !none.is_empty() {
+            let _ = write!(report, "\nNone: {}.\n", none.join(", ").to_lowercase());
         }
     }
     let total: usize = changed.values().map(Vec::len).sum();
-    let _ = write!(report, "\n## Changed cases ({total})\n");
-    for kind in DRIFT_KINDS {
-        if let Some(items) = changed.get(kind) {
-            let _ = write!(
-                report,
-                "\n### {kind} ({})\n\n{}\n",
-                items.len(),
-                items.join("\n")
-            );
+    if total > 0 {
+        let mut body = String::new();
+        for kind in DRIFT_KINDS {
+            if let Some(items) = changed.get(kind) {
+                let _ = write!(
+                    body,
+                    "\n### {kind} ({})\n\n{}\n",
+                    items.len(),
+                    items.join("\n")
+                );
+            }
         }
-    }
-    if total == 0 {
-        report += "\nNone.\n";
-    }
-    for (name, records) in [("baseline", &old), ("candidate", &new)] {
-        let calls: Vec<_> = records.values().filter_map(|r| r.backend_calls).collect();
-        if !calls.is_empty() {
-            let _ = writeln!(
-                report,
-                "\n- {name} index searches per query: mean {:.2}, max {}",
-                calls.iter().sum::<usize>() as f64 / calls.len() as f64,
-                calls.iter().max().unwrap_or(&0)
-            );
-        }
+        report += &fold(&format!("Changed cases ({total})"), &body, false);
     }
     let failed = !newly_failing.is_empty()
         || !worse.is_empty()
@@ -1176,7 +1217,10 @@ mod tests {
                 );
                 let report = std::fs::read_to_string(&out).unwrap();
                 assert!(report.contains("## Newly failing (1)"), "{report}");
-                assert!(report.contains("## Newly passing (verify before relabelling) (1)"));
+                assert!(
+                    report.contains("<b>Newly passing (verify before relabelling) (1)</b>"),
+                    "{report}"
+                );
                 assert!(
                     report.contains("### finer (1)") && report.contains("| c | 4 | 3 |"),
                     "{report}"
@@ -1238,7 +1282,11 @@ mod tests {
             report.contains("`a` suggest name pass -> ranked_low"),
             "{report}"
         );
-        assert!(!diff(&cases, &old, &old, None, false, true).unwrap());
+        assert!(!diff(&cases, &old, &old, Some(&out), false, true).unwrap());
+        let report = std::fs::read_to_string(&out).unwrap();
+        assert!(report.contains("No case changed."), "{report}");
+        assert!(report.contains("None: newly failing, worse failure class"));
+        assert!(!report.contains("| Cohort") && !report.contains("Changed cases"));
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
