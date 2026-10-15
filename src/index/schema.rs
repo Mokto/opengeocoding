@@ -272,7 +272,8 @@ impl NumberSpill {
     }
 
     /// One FST per shard, `parallel` shards at a time to bound memory. Key = sid (u32 BE) ++
-    /// number; value = x and y as f32 bits. Duplicate keys keep the first.
+    /// number; value = x and y as f32 bits. Of duplicate keys the first keeps its place, and takes
+    /// the postcode slot of a later one when it has none.
     pub fn write_fsts(self, out: &str, parallel: usize) -> u64 {
         let n_shards = self.files.len();
         for f in self.files {
@@ -322,9 +323,20 @@ fn shard(out: &str, s: usize, dir: &std::path::Path, long: Vec<LongNum>) -> u64 
     );
     let mut fst = tantivy_fst::MapBuilder::new(w).unwrap();
     let (mut i, mut j, mut n) = (0, 0, 0u64);
-    let mut last: Vec<u8> = vec![];
     let mut key = Vec::with_capacity(64);
     let (mut posts, mut run, mut run_sid) = (vec![], vec![], 0);
+    // The house kept for the current key. A source without postcodes must not shadow another
+    // source's copy of the same house, so a later duplicate lends its postcode slot.
+    let mut pending: Option<(u32, Vec<u8>, u32, u32)> = None;
+    let mut emit = |(sid, key, x, y): (u32, Vec<u8>, u32, u32)| {
+        fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
+        n += 1;
+        if sid != run_sid {
+            super::reverse::street_postings(&mut run, run_sid, &mut posts);
+            run_sid = sid;
+        }
+        run.push(super::reverse::key(x, y));
+    };
     while i < a.len() || j < b.len() {
         let take_a = j == b.len()
             || (i < a.len() && (a[i].sid, a[i].bytes()) <= (b[j].sid, b[j].num.as_bytes()));
@@ -343,17 +355,21 @@ fn shard(out: &str, s: usize, dir: &std::path::Path, long: Vec<LongNum>) -> u64 
         key.clear();
         key.extend_from_slice(&sid.to_be_bytes());
         key.extend_from_slice(num);
-        if key <= last {
-            continue;
+        match &mut pending {
+            Some((_, kept, px, _)) if *kept == key => {
+                if postcode_slot(*px) == 0 {
+                    *px = with_postcode(*px, postcode_slot(x));
+                }
+            }
+            _ => {
+                if let Some(done) = pending.replace((sid, key.clone(), x, y)) {
+                    emit(done);
+                }
+            }
         }
-        fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
-        n += 1;
-        if sid != run_sid {
-            super::reverse::street_postings(&mut run, run_sid, &mut posts);
-            run_sid = sid;
-        }
-        run.push(super::reverse::key(x, y));
-        std::mem::swap(&mut key, &mut last);
+    }
+    if let Some(done) = pending.take() {
+        emit(done);
     }
     fst.finish().unwrap();
     super::reverse::street_postings(&mut run, run_sid, &mut posts);
@@ -460,6 +476,35 @@ mod tests {
             (x as u64) << 32 | y as u64
         });
         assert!((lon + 179.99999).abs() < 3e-5 && (lat - 89.99999).abs() < 1e-6 && pc == 255);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_duplicate_house_keeps_its_postcode() {
+        let dir = std::env::temp_dir().join(format!("numbers-pc-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let out = dir.to_str().unwrap();
+        let spill = NumberSpill::new(dir.join("spill"), 1);
+        let long = "1-very-long-number";
+        // the copy without a postcode comes first, as one source's file can
+        for slot in [0, 4] {
+            let mut bucket = Bucket::default();
+            for num in ["418", long] {
+                let (x, y) = pack(1.0, 2.0, slot);
+                match Num::new(7, num, x, y) {
+                    Ok(n) => bucket.short.push(n),
+                    Err(l) => bucket.long.push(l),
+                }
+            }
+            spill.add(vec![bucket]);
+        }
+        assert_eq!(spill.write_fsts(out, 1), 2);
+        let fst = tantivy_fst::Map::from_bytes(fs::read(format!("{out}/numbers-00.fst")).unwrap())
+            .unwrap();
+        for num in ["418", long] {
+            let key = [&7u32.to_be_bytes()[..], num.as_bytes()].concat();
+            assert_eq!(unpack(fst.get(key).unwrap()).2, 4, "{num}");
+        }
         fs::remove_dir_all(&dir).unwrap();
     }
 }

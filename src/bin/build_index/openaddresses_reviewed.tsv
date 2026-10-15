@@ -1,0 +1,38 @@
+# OpenAddresses sources whose definition states no licence (or none the classifier recognises)
+# and that were read against the publisher's own terms (October 2026). The builder reads a file
+# listed here as open; the second column is the licence or terms found, the third the party to
+# credit, the fourth where they were read. A source that the classifier reads as restricted or
+# share-alike is never overridden by this list. Not legal advice: re-read a source's terms before
+# adding it.
+#
+# Read and not allowed (add one only after the publisher grants the use):
+#   AZ statewide  "may not modify or alter this dataset without permission" (ADOA 9-1-1 Program)
+#   RI statewide  "not intended for any other purpose" than RI E 9-1-1 mapping software
+#   King County WA  "no one is permitted to sell this information" without a written agreement
+#   Oregon Metro (RLIS), Spokane County WA, Bucks County PA, CAPCOG TX  limited, non-commercial or share-alike
+#   Omaha NE  every distribution must carry the End User Agreement unaltered
+#   Howard County MD  "public domain" is only the contributor's note; the county's terms were not found
+#   WY statewide  a parcel viewer whose county sources state nothing
+#   FL statewide (three files)  commercial vendors (Mapwise, Loveland) or no terms (Revenue); NH parcel points (vendor data)
+#   WA, SC, IA, MO, MI statewide  contributor uploads of a state file; the state's terms were not found
+#   AR, MD, DE, SD, AK, MS, ID, WV, TX statewide  no terms found
+#   files whose licence is only "Indemnification" or a presumed attribution say nothing about use
+us_ky_statewide-state	CC0 1.0	Kentucky Division of Geographic Information and the Kentucky 911 Services Board	https://creativecommons.org/publicdomain/zero/1.0/ (item licence of "Kentucky 911 Site Structure Address Points")
+us_dc_statewide-city	CC BY 4.0	Office of the Chief Technology Officer, District of Columbia	https://opendata.dc.gov/datasets/DCGIS::address-points/about
+us_fl_city_of_miami-city	CC BY 4.0	City of Miami, Department of Innovation and Technology	https://datahub-miamigis.opendata.arcgis.com/datasets/f12e4de69f2a474a8c29c8e8664f75c2
+us_co_douglas-state	open data, no licence requirement or restriction on use	Douglas County, Colorado	https://www.douglasco.gov/documents/open-data-guidelines.pdf
+us_in_statewide-state	citation requested, not required; no use restriction	Indiana Geographic Information Office and local governments	https://www.indianamap.org/datasets/9b222d07cc164eb384a24742cbf1d274_0
+us_nj_statewide-state	acknowledgement requested; warranty disclaimer only	NJ Office of Information Technology, Office of GIS (NJOGIS)	https://njogis-newjersey.opendata.arcgis.com/datasets/c4b6cb9caad94a569e40541457fd45f6
+us_ny_statewide-state	warranty disclaimer only	New York State Office of Information Technology Services, GIS Program Office	https://data.gis.ny.gov/datasets/sharegisny::nys-address-points
+us_nc_statewide-state	public domain, freely redistributable; a sale must not imply endorsement	NC OneMap, Center for Geographic Information and Analysis	https://www.nconemap.gov/pages/terms
+us_tn_statewide-state	warranty disclaimer only	State of Tennessee, Tennessee Emergency Communications Board and 911 districts	https://tnmap.tn.gov/ (item licence of "Tennessee NG911 Address Points")
+us_ne_statewide-state	warranty disclaimer only; acknowledgement appreciated	Nebraska Public Service Commission	https://www.nebraskamap.gov/datasets/nebraska::address-points/about
+us_ks_statewide-state	warranty disclaimer only	Kansas Data Access and Support Center and NG911 partners	https://hub.kansasgis.org/datasets/6df0cfed393e4fca8d6c7b500c311728_0/about
+us_nd_statewide-state	warranty disclaimer only	North Dakota local addressing authorities and North Dakota GIS Hub	https://gishubdata-ndgov.hub.arcgis.com/datasets/GOcSXpzwBHyk2nog::ndgishub-site-structure-address-points/about
+us_mt_statewide-state	warranty disclaimer only	Montana State Library and Montana counties	https://mslservices.mt.gov/Geographic_Information/Data/DataList/datalist_Details.aspx?did={E8C6A50B-EBC9-4625-93FC-B798179A8C04}
+us_vt_statewide-state	warranty disclaimer only	Vermont Center for Geographic Information (VCGI) and Vermont E911	https://geodata.vermont.gov/datasets/VCGI::vt-data-e911-site-locations-address-points-1/about
+us_oh_statewide-county-gis	warranty disclaimer only	State of Ohio, Ohio Geographically Referenced Information Program	https://geohio.maps.arcgis.com/home/item.html?id=c1991902e44941a0a2535e86d6e43021
+us_mi_semcog-county	licence to use, reproduce, modify, distribute and make derivative works with the copyright notice	Copyright (c) 2024 SEMCOG	https://maps-semcog.opendata.arcgis.com/pages/copyright-license-agreement
+us_mi_semcog-condos	licence to use, reproduce, modify, distribute and make derivative works with the copyright notice	Copyright (c) 2024 SEMCOG	https://maps-semcog.opendata.arcgis.com/pages/copyright-license-agreement
+us_md_montgomery-county	open data portal terms; warranty disclaimer only	Montgomery County, Maryland	https://data.montgomerycountymd.gov/terms-of-use
+us_mo_city_of_kansas_city-city	open data portal terms; warranty disclaimer only	City of Kansas City, Missouri	https://data.kcmo.org/terms
