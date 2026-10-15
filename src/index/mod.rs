@@ -3222,11 +3222,9 @@ mod tests {
         }
         writer.commit().unwrap();
         drop(writer);
-        // the postcode id stands for its slot
-        let at = |sid, number: &str, lon, lat, own: u32| {
-            let (x, y) = schema::pack(lon, lat, 0);
-            let pc = if own == 0 { schema::NO_POSTCODE } else { own };
-            schema::Num::new(sid, number, x, y, pc).ok().unwrap()
+        let at = |sid, number: &str, lon, lat, own| {
+            let (x, y) = schema::pack(lon, lat, own);
+            schema::Num::new(sid, number, x, y).ok().unwrap()
         };
         let spill = schema::NumberSpill::new(dir.join(".numbers-spill"), 1);
         spill.add(vec![schema::Bucket {
@@ -3238,17 +3236,7 @@ mod tests {
             ],
             long: vec![],
         }]);
-        let slot = |sid, pc| {
-            (
-                sid,
-                if pc == schema::NO_POSTCODE {
-                    0
-                } else {
-                    pc as u8
-                },
-            )
-        };
-        spill.write_fsts(dir.to_str().unwrap(), 1, &slot);
+        spill.write_fsts(dir.to_str().unwrap(), 1, &|sid, slot| (sid, slot));
         assert_eq!(
             reverse::build(&dir, &tantivy_index, f.kind).unwrap(),
             // Oak's two houses share a cell; Elm's two are in two

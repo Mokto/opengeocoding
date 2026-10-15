@@ -140,9 +140,6 @@ pub struct Num {
     pub x: u32,
     /// `pack`ed: latitude.
     pub y: u32,
-    /// The house's postcode as an id the builder interned, or `NO_POSTCODE`. It becomes the
-    /// slot in `x` only when the FSTs are written, against the street's final postcode list.
-    pub pc: u32,
 }
 
 pub struct LongNum {
@@ -150,10 +147,7 @@ pub struct LongNum {
     pub num: String,
     pub x: u32,
     pub y: u32,
-    pub pc: u32,
 }
-
-pub const NO_POSTCODE: u32 = u32::MAX;
 
 /// Where a house came from, in the two top bits of its packed longitude while the builder holds
 /// it (a postcode slot stays under 64): 0 Overture, 1 OpenAddresses, 2 OSM. When sources give
@@ -164,9 +158,19 @@ pub fn with_rank(x: u32, rank: u8) -> u32 {
     x | (rank as u32) << RANK_SHIFT
 }
 
-/// Maps a house's street id and postcode id, as the builder first numbered them, to the street's
-/// final id (which must keep the id's remainder modulo the shard count) and the postcode slot.
-pub type Resolve<'a> = &'a (dyn Fn(u32, u32) -> (u32, u8) + Sync);
+/// Maps a house's street id and postcode slot, as the builder first numbered them, to the
+/// street's final id (which must keep the id's remainder modulo the shard count) and slot.
+pub type Resolve<'a> = &'a (dyn Fn(u32, u8) -> (u32, u8) + Sync);
+
+/// A postcode slot while the builder holds it: 6 bits of the packed longitude's top byte, under
+/// the source rank.
+pub fn held_slot(x: u32) -> u8 {
+    ((x >> 24) & 0x3f) as u8
+}
+
+fn with_held_slot(x: u32, slot: u8) -> u32 {
+    (x & 0xc0ff_ffff) | (slot as u32) << 24
+}
 
 /// An FST value: longitude in 24 bits (about 2 m), the house's postcode as a 1-based index into
 /// its street's stored `pcode` list (0 = none) in 8 bits, then latitude in 32 bits.
@@ -193,25 +197,18 @@ pub fn unpack(v: u64) -> (f64, f64, u8) {
 }
 
 impl Num {
-    pub fn new(sid: u32, num: &str, x: u32, y: u32, pc: u32) -> Result<Num, LongNum> {
+    pub fn new(sid: u32, num: &str, x: u32, y: u32) -> Result<Num, LongNum> {
         if num.len() > INLINE || num.as_bytes().contains(&0) {
             return Err(LongNum {
                 sid,
                 num: num.to_string(),
                 x,
                 y,
-                pc,
             });
         }
         let mut b = [0u8; INLINE];
         b[..num.len()].copy_from_slice(num.as_bytes());
-        Ok(Num {
-            sid,
-            num: b,
-            x,
-            y,
-            pc,
-        })
+        Ok(Num { sid, num: b, x, y })
     }
     fn bytes(&self) -> &[u8] {
         &self.num[..self.num.iter().position(|&c| c == 0).unwrap_or(INLINE)]
@@ -224,7 +221,7 @@ pub struct Bucket {
     pub long: Vec<LongNum>,
 }
 
-const RECORD: usize = 4 + INLINE + 4 + 4 + 4;
+const RECORD: usize = 4 + INLINE + 4 + 4;
 
 impl Num {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -232,7 +229,6 @@ impl Num {
         out.extend_from_slice(&self.num);
         out.extend_from_slice(&self.x.to_le_bytes());
         out.extend_from_slice(&self.y.to_le_bytes());
-        out.extend_from_slice(&self.pc.to_le_bytes());
     }
     fn decode(r: &[u8; RECORD]) -> Num {
         let f = |i: usize| r[i..i + 4].try_into().unwrap();
@@ -241,7 +237,6 @@ impl Num {
             num: r[4..4 + INLINE].try_into().unwrap(),
             x: u32::from_le_bytes(f(4 + INLINE)),
             y: u32::from_le_bytes(f(8 + INLINE)),
-            pc: u32::from_le_bytes(f(12 + INLINE)),
         }
     }
 }
@@ -346,24 +341,18 @@ fn shard(
     for _ in 0..len / RECORD {
         r.read_exact(&mut rec).unwrap();
         let mut n = Num::decode(&rec);
-        let (sid, slot) = resolve(n.sid, n.pc);
+        let (sid, slot) = resolve(n.sid, held_slot(n.x));
         debug_assert_eq!(sid as usize % n_shards, s);
         debug_assert!(slot < 64);
-        (n.sid, n.x) = (
-            sid,
-            with_postcode(n.x, slot) | (n.x >> RANK_SHIFT) << RANK_SHIFT,
-        );
+        (n.sid, n.x) = (sid, with_held_slot(n.x, slot));
         short.push(n);
     }
     drop(r);
     fs::remove_file(&path).unwrap();
     for n in &mut long {
-        let (sid, slot) = resolve(n.sid, n.pc);
+        let (sid, slot) = resolve(n.sid, held_slot(n.x));
         debug_assert!(slot < 64);
-        (n.sid, n.x) = (
-            sid,
-            with_postcode(n.x, slot) | (n.x >> RANK_SHIFT) << RANK_SHIFT,
-        );
+        (n.sid, n.x) = (sid, with_held_slot(n.x, slot));
     }
     // Duplicates sort by source rank, then by everything they hold, so the one kept does not
     // depend on arrival order.
@@ -483,12 +472,19 @@ mod tests {
         assert_eq!(fold("二十一丁目"), fold("21丁目"));
     }
 
-    /// street id, number, longitude, postcode id, source rank
-    type Row<'a> = (u32, &'a str, f64, u32, u8);
+    /// street id, number, longitude, postcode slot, source rank
+    type Row<'a> = (u32, &'a str, f64, u8, u8);
 
-    /// Slot = 1 + the postcode id; a street keeps its id.
-    fn by_id(sid: u32, pc: u32) -> (u32, u8) {
-        (sid, if pc == NO_POSTCODE { 0 } else { pc as u8 + 1 })
+    #[test]
+    fn a_spill_record_stays_20_bytes() {
+        // The cluster's scratch volume is sized for 20 bytes per house (500 million for the
+        // world); a wider record ran the build out of disk.
+        assert_eq!(RECORD, 20);
+    }
+
+    /// A street keeps its id and its slots.
+    fn same(sid: u32, slot: u8) -> (u32, u8) {
+        (sid, slot)
     }
 
     fn write(dir: &std::path::Path, name: &str, tasks: Vec<Vec<Row>>) -> (String, Vec<u8>) {
@@ -498,16 +494,16 @@ mod tests {
         let spill = NumberSpill::new(dir.join(format!("spill-{name}")), 2);
         for task in tasks {
             let mut buckets: Vec<Bucket> = (0..2).map(|_| Bucket::default()).collect();
-            for (sid, num, lon, pc, rank) in task {
-                let (x, y) = pack(lon, 2.0, 0);
-                match Num::new(sid, num, with_rank(x, rank), y, pc) {
+            for (sid, num, lon, slot, rank) in task {
+                let (x, y) = pack(lon, 2.0, slot);
+                match Num::new(sid, num, with_rank(x, rank), y) {
                     Ok(n) => buckets[sid as usize % 2].short.push(n),
                     Err(l) => buckets[sid as usize % 2].long.push(l),
                 }
             }
             spill.add(buckets);
         }
-        spill.write_fsts(&out, 1, &by_id);
+        spill.write_fsts(&out, 1, &same);
         let bytes = [0, 1]
             .iter()
             .flat_map(|s| fs::read(format!("{out}/numbers-{s:02}.fst")).unwrap())
@@ -549,7 +545,7 @@ mod tests {
         for n in ["1", long, "1a", "12"] {
             let (lon, lat, slot) = lookup(&out, 1, 7, n).expect(n);
             assert!(
-                (lon - 7.0).abs() < 1e-4 && (lat - 2.0).abs() < 1e-6 && slot == 4,
+                (lon - 7.0).abs() < 1e-4 && (lat - 2.0).abs() < 1e-6 && slot == 3,
                 "{n}: {lon} {lat} {slot}"
             );
         }
@@ -567,7 +563,7 @@ mod tests {
         // copy without a postcode, two others at other points with other postcodes.
         let copies = [
             (7, 1.5, 4, 0),
-            (7, 1.0, NO_POSTCODE, 1),
+            (7, 1.0, 0, 1),
             (7, 1.2, 2, 1),
             (7, 1.0, 3, 2),
         ];
@@ -575,8 +571,8 @@ mod tests {
             order
                 .iter()
                 .map(|&i| {
-                    let (sid, lon, pc, rank) = copies[i];
-                    vec![(sid, "418", lon, pc, rank), (sid, long, lon, pc, rank)]
+                    let (sid, lon, slot, rank) = copies[i];
+                    vec![(sid, "418", lon, slot, rank), (sid, long, lon, slot, rank)]
                 })
                 .collect()
         };
@@ -586,7 +582,7 @@ mod tests {
         for n in ["418", long] {
             // the best-ranked source's copy and its postcode, though it is not the westernmost
             let (lon, _, slot) = lookup(&out, 1, 7, n).unwrap();
-            assert!((lon - 1.5).abs() < 1e-4 && slot == 5, "{n}: {lon} {slot}");
+            assert!((lon - 1.5).abs() < 1e-4 && slot == 4, "{n}: {lon} {slot}");
         }
         fs::remove_dir_all(&dir).unwrap();
     }

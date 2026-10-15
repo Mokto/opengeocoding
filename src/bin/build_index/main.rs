@@ -16,7 +16,7 @@ use arrow_array::{
 };
 use geo::{Assigner, KINDS, Poly, wkb_point, wkb_polygons};
 use opengeocoding::index::schema::{
-    self, Bucket, NO_POSTCODE, Num, NumberSpill, fold, fold_into, pack, pc_norm, with_rank,
+    self, Bucket, Num, NumberSpill, fold, fold_into, held_slot, pack, pc_norm, with_rank,
 };
 use parquet::arrow::{
     ProjectionMask,
@@ -47,6 +47,9 @@ const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--open
        build_index hash";
 const SHARDS: usize = 256;
 const MAX_POSTCODES: usize = 20;
+/// Postcodes a street holds while it is built: a house's slot is 6 bits, under its source rank.
+/// Only the first `MAX_POSTCODES` by text are kept in the end; no street comes near this many.
+const MAX_HELD_POSTCODES: usize = 63;
 const MAX_CITIES: usize = 5;
 const MAX_ALT_NAMES: usize = 64;
 const NUMBER_SHARDS: usize = 16;
@@ -172,6 +175,14 @@ fn country_str(c: &[u8; 2]) -> &str {
 fn insert_sorted<T: Ord>(v: &mut Vec<T>, x: T) {
     if let Err(i) = v.binary_search(&x) {
         v.insert(i, x);
+    }
+}
+
+/// Appends to a list whose positions are stored elsewhere (a house names its postcode by the
+/// position in its street's list), so they must not shift while it is built.
+fn push_unique<T: PartialEq>(v: &mut Vec<T>, x: T, max: usize) {
+    if v.len() < max && !v.contains(&x) {
+        v.push(x);
     }
 }
 
@@ -658,8 +669,9 @@ fn pass_segments(dir: &Path, a: &Assigner) -> Vec<Mutex<HashMap<SegKey, SegAgg>>
 #[derive(Default)]
 struct AddrAgg {
     name: Str,
-    /// Interned normalized postcodes and postal city names: sorted by id, then, once every source
-    /// is read, by text and cut to `MAX_POSTCODES` and `MAX_CITIES`.
+    /// Interned normalized postcodes, in arrival order (houses refer to positions), and postal city
+    /// names, sorted by id. Once every source is read both are sorted by text and cut to
+    /// `MAX_POSTCODES` and `MAX_CITIES`.
     pcs: Vec<u32>,
     cities: Vec<u32>,
     sx: i64,
@@ -673,7 +685,7 @@ impl AddrAgg {
             self.name = other.name;
         }
         for p in other.pcs {
-            insert_sorted(&mut self.pcs, p);
+            push_unique(&mut self.pcs, p, MAX_HELD_POSTCODES);
         }
         for c in other.cities {
             insert_sorted(&mut self.cities, c);
@@ -890,7 +902,7 @@ impl<'s, 'a> Sink<'s, 'a> {
         let pc_id = (pc.is_some() && !self.pcn.is_empty())
             .then(|| self.shared.strings.cached(&mut self.cache, &self.pcn));
         if let Some(id) = pc_id {
-            insert_sorted(&mut e.pcs, id);
+            push_unique(&mut e.pcs, id, MAX_HELD_POSTCODES);
         }
         if let Some(city) = nonempty(city) {
             let id = self.shared.strings.cached(&mut self.cache, city);
@@ -905,14 +917,12 @@ impl<'s, 'a> Sink<'s, 'a> {
         {
             self.lower.clear();
             self.lower.push_str(&schema::number_key(n));
-            let (px, py) = pack(x, y, 0);
-            match Num::new(
-                li,
-                &self.lower,
-                with_rank(px, self.rank),
-                py,
-                pc_id.unwrap_or(NO_POSTCODE),
-            ) {
+            // slot = 1-based position in this task's list for the street; remapped on flush
+            let slot = pc_id
+                .and_then(|id| e.pcs.iter().position(|&p| p == id))
+                .map_or(0, |i| i as u8 + 1);
+            let (px, py) = pack(x, y, slot);
+            match Num::new(li, &self.lower, with_rank(px, self.rank), py) {
                 Ok(v) => self.nums.short.push(v),
                 Err(v) => self.nums.long.push(v),
             }
@@ -923,10 +933,13 @@ impl<'s, 'a> Sink<'s, 'a> {
         let sh = self.shared;
         sh.rows.fetch_add(std::mem::take(&mut self.rows), Relaxed);
         let mut remap = vec![0u32; self.aggs.len()];
+        // per local street: its local postcode slots -> slots in the merged street's list
+        let mut slots: Vec<Vec<u8>> = vec![vec![]; self.aggs.len()];
         for ((c, place), m) in self.local.drain() {
             for (k, li) in m {
                 let key: AddrKey = (c, place, k);
                 let agg = std::mem::take(&mut self.aggs[li as usize]);
+                let local_pcs = agg.pcs.clone();
                 let shard_ix = shard(&key);
                 let mut s = sh.streets[shard_ix].lock().unwrap();
                 let pos = match s.ids.get(&key) {
@@ -942,6 +955,16 @@ impl<'s, 'a> Sink<'s, 'a> {
                     }
                 };
                 assert!(pos < 1 << 24, "too many streets in one shard");
+                let merged = &s.streets[pos as usize].pcs;
+                slots[li as usize] = local_pcs
+                    .iter()
+                    .map(|id| {
+                        merged
+                            .iter()
+                            .position(|m| m == id)
+                            .map_or(0, |i| i as u8 + 1)
+                    })
+                    .collect();
                 remap[li as usize] = (pos << 8) | shard_ix as u32;
             }
         }
@@ -956,11 +979,20 @@ impl<'s, 'a> Sink<'s, 'a> {
         let shards = sh.numbers.shards();
         let mut out: Vec<Bucket> = (0..shards).map(|_| Bucket::default()).collect();
         let nums = std::mem::take(&mut self.nums);
+        let slot = |li: u32, x: u32| match held_slot(x) {
+            0 => x,
+            k => {
+                let merged = slots[li as usize].get(k as usize - 1).copied().unwrap_or(0);
+                (x & 0xc0ff_ffff) | (merged as u32) << 24
+            }
+        };
         for mut n in nums.short {
+            n.x = slot(n.sid, n.x);
             n.sid = remap[n.sid as usize];
             out[n.sid as usize % shards].short.push(n);
         }
         for mut n in nums.long {
+            n.x = slot(n.sid, n.x);
             n.sid = remap[n.sid as usize];
             out[n.sid as usize % shards].long.push(n);
         }
@@ -1048,38 +1080,69 @@ fn place_weight(subtype: &str) -> u64 {
 /// A shard's streets in key order.
 type Streets = Vec<(AddrKey, AddrAgg)>;
 
-/// Every shard's streets in key order, so a street's id depends on the street and not on when it
-/// arrived, with their postcodes and cities sorted by text and cut to their limits. Also, per
-/// shard, each street's new position by its old one.
-fn canonical_streets(
-    shards: Vec<Mutex<AddrShard>>,
-    strings: &Strings,
-) -> (Vec<Streets>, Vec<Vec<u32>>) {
+/// The streets in their final form.
+struct Canon {
+    /// Per shard, in key order, so a street's id depends on the street and not on when it arrived.
+    /// Postcodes and cities are sorted by text and cut to their limits.
+    streets: Vec<Streets>,
+    /// Per shard, each street's final position by its first one.
+    renumber: Vec<Vec<u32>>,
+    /// Per shard, for each street (by first position) with two or more postcodes, where each of
+    /// its first postcode slots went (0: cut). A street with fewer keeps its slots.
+    slots: Vec<HashMap<u32, Box<[u8]>>>,
+}
+
+fn canonical_streets(shards: Vec<Mutex<AddrShard>>, strings: &Strings) -> Canon {
     let by_text = |ids: &mut Vec<u32>, max: usize| {
         ids.sort_unstable_by(|&a, &b| strings.get(a).cmp(strings.get(b)));
         ids.truncate(max);
     };
-    shards
+    let per_shard: Vec<_> = shards
         .into_par_iter()
         .map(|m| {
             let AddrShard { ids, mut streets } = m.into_inner().unwrap();
             let mut keys: Vec<(AddrKey, u32)> = ids.into_iter().collect();
             keys.sort_unstable();
             let mut renumber = vec![0; keys.len()];
+            let mut slots = HashMap::new();
             let sorted = keys
                 .into_iter()
                 .enumerate()
                 .map(|(new, (key, old))| {
                     renumber[old as usize] = new as u32;
                     let mut agg = std::mem::take(&mut streets[old as usize]);
-                    by_text(&mut agg.pcs, MAX_POSTCODES);
+                    if agg.pcs.len() > 1 {
+                        let first = agg.pcs.clone();
+                        by_text(&mut agg.pcs, MAX_POSTCODES);
+                        let moved = first
+                            .iter()
+                            .map(|id| {
+                                agg.pcs
+                                    .iter()
+                                    .position(|p| p == id)
+                                    .map_or(0, |i| i as u8 + 1)
+                            })
+                            .collect();
+                        slots.insert(old, moved);
+                    }
                     by_text(&mut agg.cities, MAX_CITIES);
                     (key, agg)
                 })
                 .collect();
-            (sorted, renumber)
+            (sorted, renumber, slots)
         })
-        .unzip()
+        .collect();
+    let mut canon = Canon {
+        streets: vec![],
+        renumber: vec![],
+        slots: vec![],
+    };
+    for (streets, renumber, slots) in per_shard {
+        canon.streets.push(streets);
+        canon.renumber.push(renumber);
+        canon.slots.push(slots);
+    }
+    canon
 }
 
 /// GeoNames postal-code dump rows, averaged per (country, normalized code).
@@ -1247,7 +1310,11 @@ fn build(args: &[String]) {
         ..
     } = shared;
     let strings = strings.table();
-    let (streets, renumber) = canonical_streets(streets, &strings);
+    let Canon {
+        streets,
+        renumber,
+        slots,
+    } = canonical_streets(streets, &strings);
     let mut postcodes: HashMap<PcKey, PcAgg> = postcodes
         .into_iter()
         .flat_map(|m| m.into_inner().unwrap())
@@ -1285,25 +1352,19 @@ fn build(args: &[String]) {
     let shard_bytes = spill.bytes() / NUMBER_SHARDS as u64;
     let parallel = (headroom() / 2 / shard_bytes.max(1)).clamp(1, NUMBER_SHARDS as u64) as usize;
     println!("  sorting {parallel} of {NUMBER_SHARDS} house-number shards at a time");
-    // A house names its street and postcode as first numbered; the street's final number and
+    // A house names its street and postcode slot as first numbered; the street's final number and
     // postcode list are known only now.
-    let resolve = |sid: u32, pc: u32| -> (u32, u8) {
+    let resolve = |sid: u32, slot: u8| -> (u32, u8) {
         let shard = (sid & 0xff) as usize;
-        let pos = renumber[shard][(sid >> 8) as usize];
-        let slot = if pc == NO_POSTCODE {
-            0
-        } else {
-            let street = &streets[shard][pos as usize].1;
-            street
-                .pcs
-                .iter()
-                .position(|&p| p == pc)
-                .map_or(0, |i| i as u8 + 1)
+        let old = sid >> 8;
+        let moved = match slots[shard].get(&old) {
+            Some(moved) if slot > 0 => moved.get(slot as usize - 1).copied().unwrap_or(0),
+            _ => slot,
         };
-        ((pos << 8) | shard as u32, slot)
+        (((renumber[shard][old as usize]) << 8) | shard as u32, moved)
     };
     let n = spill.write_fsts(out, parallel, &resolve);
-    drop(renumber);
+    drop((renumber, slots));
     lap(&format!("house numbers ({n})"));
 
     let headroom = headroom();
@@ -1519,6 +1580,41 @@ fn build(args: &[String]) {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn postcodes_sort_by_text_and_slots_follow() {
+        let interner = Interner::new();
+        let ids: Vec<u32> = (0..25)
+            .rev()
+            .map(|i| interner.id(&format!("{i:02}")))
+            .collect();
+        let strings = interner.table();
+        let mut shard = AddrShard::default();
+        // street 0 holds its postcodes in arrival order "24", "23", ... "00"; street 1 holds one
+        for pcs in [ids.clone(), vec![ids[3]]] {
+            let key: AddrKey = (*b"us", 0, format!("s{}", shard.streets.len()).into());
+            shard.ids.insert(key, shard.streets.len() as u32);
+            shard.streets.push(AddrAgg {
+                pcs,
+                ..Default::default()
+            });
+        }
+        let canon = canonical_streets(vec![Mutex::new(shard)], &strings);
+        let (street, _) = (&canon.streets[0][0].1, 0);
+        let text: Vec<&str> = street.pcs.iter().map(|&p| strings.get(p)).collect();
+        assert_eq!(text.len(), MAX_POSTCODES);
+        assert_eq!((text[0], text[19]), ("00", "19"));
+        // "24" was first in arrival order and is cut; "00" was last (slot 25) and is now first
+        let moved = &canon.slots[0][&0];
+        assert_eq!((moved[0], moved[24]), (0, 1));
+        assert_eq!(moved[24 - 19], 20);
+        assert!(
+            !canon.slots[0].contains_key(&1),
+            "one postcode keeps its slot"
+        );
+    }
+
     use super::balanced;
 
     #[test]
