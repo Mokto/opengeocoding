@@ -157,12 +157,34 @@ pub fn classify(license: Option<&serde_json::Value>) -> Licence {
     Licence::Unknown
 }
 
+/// Sources reviewed against their publisher's terms: file stem, terms, who to credit, where read.
+const REVIEWED: &str = include_str!("openaddresses_reviewed.tsv");
+
+fn reviewed(stem: &str) -> Option<String> {
+    REVIEWED
+        .lines()
+        .filter(|l| !l.starts_with('#'))
+        .find_map(|l| l.strip_prefix(stem)?.strip_prefix('\t'))
+        .map(|rest| format!("reviewed: {}", rest.replace('\t', " | ")))
+}
+
 /// The licence of an OpenAddresses export, read from `<stem>.source.json` beside it: the source
 /// definition its batch job ran, whose `layers.addresses` entry named after the file's layer
 /// carries the licence (older definitions keep it at the top level).
 pub fn oa_licence(data: &Path) -> (Licence, String) {
     let name = data.file_name().unwrap().to_string_lossy();
     let stem = name.trim_end_matches(".geojson.gz");
+    let (class, shown) = stated_licence(data, stem);
+    // Only an unstated licence is overridden; a recognised ban or share-alike stands.
+    if class == Licence::Unknown
+        && let Some(shown) = reviewed(stem)
+    {
+        return (Licence::Open, shown);
+    }
+    (class, shown)
+}
+
+fn stated_licence(data: &Path, stem: &str) -> (Licence, String) {
     let layer = stem.rsplit('-').next().unwrap_or("");
     let Ok(text) = std::fs::read_to_string(data.with_file_name(format!("{stem}.source.json")))
     else {
@@ -258,7 +280,7 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
                 drop(tx);
             });
             rx.into_iter().par_bridge().for_each_init(
-                || Sink::new(shared),
+                || Sink::new(shared).ranked(1),
                 |sink, block| {
                     for line in block.lines() {
                         let Ok(f) = serde_json::from_str::<Feature>(line) else {
@@ -656,7 +678,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             path,
             &offsets,
             nodes,
-            || (Sink::new(shared), Collect(vec![], &ended)),
+            || (Sink::new(shared).ranked(2), Collect(vec![], &ended)),
             |(sink, end), block| {
                 for g in block.groups() {
                     let (lo, hi) = g.dense_nodes().fold((i64::MAX, i64::MIN), |(lo, hi), n| {
@@ -699,7 +721,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             path,
             &offsets,
             ways,
-            || Sink::new(shared),
+            || Sink::new(shared).ranked(2),
             |sink, block| {
                 for w in block.groups().flat_map(|g| g.ways()) {
                     let Some(a) = Addr::from(w.tags()) else {
@@ -722,7 +744,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             let v = coords[k].load(Relaxed);
             (v != u64::MAX).then(|| unpack(v))
         };
-        let mut sink = Sink::new(shared);
+        let mut sink = Sink::new(shared).ranked(2);
         for i in &interps {
             let line: Vec<Option<(f64, f64)>> = i.refs.iter().map(|&r| coord(r)).collect();
             let end = |r: i64| {
@@ -835,6 +857,41 @@ mod tests {
             Licence::Unknown
         );
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn reviewed_sources_open_only_unstated_licences() {
+        let dir = std::env::temp_dir().join(format!("oa-reviewed-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let data = dir.join("us_ky_statewide-state.geojson.gz");
+        assert_eq!(
+            oa_licence(&dir.join("us_xx_town-county.geojson.gz")).0,
+            Licence::Unknown
+        );
+        std::fs::write(dir.join("us_ky_statewide-state.source.json"), "{}").unwrap();
+        let (class, shown) = oa_licence(&data);
+        assert_eq!(class, Licence::Open);
+        assert!(shown.starts_with("reviewed: CC0 1.0 | "), "{shown}");
+        std::fs::write(
+            dir.join("us_ky_statewide-state.source.json"),
+            r#"{"license":"CC BY-NC"}"#,
+        )
+        .unwrap();
+        assert_eq!(oa_licence(&data).0, Licence::Restricted);
+        assert!(reviewed("us_xx_town-county").is_none());
+        std::fs::remove_dir_all(&dir).unwrap();
+        let stems: Vec<_> = REVIEWED
+            .lines()
+            .filter(|l| !l.starts_with('#'))
+            .map(|l| {
+                let f: Vec<_> = l.split('\t').collect();
+                assert_eq!(f.len(), 4, "{l}");
+                assert!(f[3].starts_with("http"), "{l}");
+                f[0]
+            })
+            .collect();
+        let unique: std::collections::HashSet<_> = stems.iter().collect();
+        assert_eq!(stems.len(), unique.len());
     }
 
     #[test]

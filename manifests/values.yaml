@@ -38,7 +38,7 @@ index:
   # test` fails when the code and this disagree. Changing it, or anything under sources or
   # modelsVersion, names a new index: the build Job builds it while the running pods keep
   # serving the old one.
-  builderHash: "030e57735b14b3fb"
+  builderHash: "51e5bc0c8443e3d5"
   modelsVersion: v1
   sources:
     overtureRelease: "2026-09-23.1"
@@ -49,7 +49,8 @@ index:
     # Overture is then read only where its row groups meet the box.
     bbox: []
     # OpenAddresses layers that Overture doesn't carry. Only files whose licence is recognised
-    # as open or ODbL are read unless anyLicence; see the README.
+    # as open or ODbL, or listed in src/bin/build_index/openaddresses_reviewed.tsv, are read unless
+    # anyLicence; see the README.
     openaddresses:
       enabled: true
       anyLicence: false
