@@ -100,6 +100,7 @@ const QUALIFIERS: &[&str] = &[
     "taluka",
     "tehsil",
     "town",
+    "township",
     "village",
 ];
 /// CJK administrative suffixes: 大阪市 is Osaka, 京都府 is Kyoto Prefecture.
@@ -453,12 +454,24 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
         && !house.is_empty()
         && !d.road.is_empty()
         && !d.house_number.is_empty()
-        && road_key(road) == road_key(&d.road)
+        && roads_agree(road, &d.road)
         && house.split(whitespace).collect::<String>().to_lowercase()
             == d.house_number
                 .split(whitespace)
                 .collect::<String>()
                 .to_lowercase()
+}
+
+/// One road, or one with a single word misspelt as the index corrects it: "West 54th Srteet" is
+/// the candidate's "West 54th Street" when the index found it by that correction.
+fn roads_agree(typed: &str, found: &str) -> bool {
+    let (typed, found) = (road_key(typed), road_key(found));
+    if typed == found {
+        return true;
+    }
+    let (a, b): (Vec<&str>, Vec<&str>) = (typed.split(' ').collect(), found.split(' ').collect());
+    let differing: Vec<_> = a.iter().zip(&b).filter(|(x, y)| x != y).collect();
+    a.len() == b.len() && matches!(&differing[..], [(x, y)] if crate::index::misspelt_word(x, y))
 }
 
 /// A road name with its type and direction words canonicalized ("S 5th Street" and "South 5th

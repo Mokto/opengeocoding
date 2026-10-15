@@ -539,7 +539,13 @@ impl Sources {
                     .replace_all(attrs["label"].as_str().unwrap_or(""), "")
                     .to_lowercase();
                 let words: Vec<&str> = query.split(' ').collect();
-                let postcode = first(r"\b\d{4}\b", query)?;
+                // the last four digits: a house number can have four too ("Chieberg 1526 3855")
+                let postcode = Regex::new(r"\b\d{4}\b")?
+                    .find_iter(query)
+                    .last()
+                    .context("swisstopo postcode")?
+                    .as_str()
+                    .to_string();
                 let at = words
                     .iter()
                     .position(|w| *w == postcode)

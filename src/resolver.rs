@@ -368,8 +368,9 @@ impl Core {
             .filter(|(_, f)| {
                 let details = f.address_details.as_option();
                 (!overriding || state_consistent(&stated_state, details))
+                    // a road alone doesn't outweigh the state: "10 Elm Street, MA" is not Newark's
                     && (!state_code_conflict(address, details)
-                        || road_agrees(address, details)
+                        || (road_agrees(address, details) && city_agrees(address, details))
                         || postcode_agrees(postcode, details))
                     && (postcode_matches(postcode, details) || house_road_city(address, details))
                     && (part(address, "city").is_empty()
@@ -492,6 +493,8 @@ impl Core {
         if PLACEHOLDERS.contains(&query.trim_matches(whitespace).to_lowercase().as_str()) {
             return Ok(FullAddress::default());
         }
+        let turned = self.parser.reordered(query)?;
+        let query = turned.as_deref().unwrap_or(query);
         let mut address = self.parse(query)?;
         // A complete address with a town that is also a country ("Cuba, NY 14727") would
         // otherwise be rotated into one whose country is that town.
@@ -518,6 +521,7 @@ impl Core {
         }
         let stray = part(&address, "road").to_owned();
         tidy(&mut address);
+        self.state_not_country(&mut address);
         let unstrayed;
         let query = if !stray.is_empty() && part(&address, "road").is_empty() {
             unstrayed = without_word(query, &stray);
@@ -574,6 +578,52 @@ impl Core {
         {
             return Ok(found);
         }
+        if raw.as_ref().is_none_or(|chosen| {
+            chosen
+                .found
+                .address_details
+                .as_option()
+                .is_none_or(|d| d.house_number.is_empty())
+        }) && let Some(found) = self.house_despite_postcode(stated_address, &postcode)?
+        {
+            return Ok(found);
+        }
+        // "715 Meehan St, Santa Maria, CA 93454, Canada": no house in the stated country, but the
+        // query without the country finds one whose number, road and postcode are the stated ones.
+        if raw.as_ref().is_none_or(|chosen| {
+            chosen
+                .found
+                .address_details
+                .as_option()
+                .is_none_or(|d| d.house_number.is_empty())
+        }) && !stated_country.is_empty()
+            && !part(stated_address, "house_number").is_empty()
+        {
+            let stripped = without_country(query, stated_address);
+            let mut without = stated_address.clone();
+            without.shift_remove("country");
+            if !stripped.is_empty()
+                && let Some(better) = self.first_acceptable(
+                    &stripped,
+                    &without,
+                    ("", &postcode),
+                    "without_stated_country",
+                    false,
+                    None,
+                )?
+                && let Some(d) = better.found.address_details.as_option()
+                && !d.house_number.is_empty()
+                && house_road_postcode(stated_address, &postcode, Some(d))
+            {
+                return Ok(accept(
+                    better.found,
+                    &address,
+                    &postcode,
+                    "house_without_stated_country",
+                    true,
+                ));
+            }
+        }
         if let Some(chosen) = raw {
             let (explained, total) = chosen.explained(query, stated_address);
             // A place that names a few words of a long query is a guess: "Twin City Shopping
@@ -616,10 +666,68 @@ impl Core {
         Ok(FullAddress::default())
     }
 
+    /// A ZIP that contradicts a street with no town ("7413 Janes Ranch Road, TX 78747"): the
+    /// house is looked up by its state alone, which the index answers only when the state holds
+    /// that number on one street of that name. Never a confident answer.
+    fn house_despite_postcode(
+        &self,
+        address: &ParsedAddress,
+        postcode: &str,
+    ) -> Result<Option<FullAddress>> {
+        let (number, road, state) = (
+            part(address, "house_number"),
+            part(address, "road"),
+            part(address, "state"),
+        );
+        if [number, road, state].iter().any(|p| p.is_empty())
+            || postcode.is_empty()
+            || !part(address, "city").is_empty()
+        {
+            return Ok(None);
+        }
+        for candidate in self.search(&format!("{number} {road}, {state}")).1 {
+            let found = format_response(&candidate)?;
+            let details = found.address_details.as_option();
+            if road_agrees(address, details) && state_consistent(address, details) {
+                return Ok(Some(accept(
+                    found,
+                    address,
+                    postcode,
+                    "house_without_postcode",
+                    false,
+                )));
+            }
+        }
+        Ok(None)
+    }
+
+    /// "Dover, DE 19901": a US state code that libpostal took for a country (Delaware for
+    /// Germany), before a ZIP the index knows in the US and not in that country.
+    fn state_not_country(&self, address: &mut ParsedAddress) {
+        const US_STATES: [&str; 51] = [
+            "al", "ak", "az", "ar", "ca", "co", "ct", "de", "dc", "fl", "ga", "hi", "id", "il",
+            "in", "ia", "ks", "ky", "la", "me", "md", "ma", "mi", "mn", "ms", "mo", "mt", "ne",
+            "nv", "nh", "nj", "nm", "ny", "nc", "nd", "oh", "ok", "or", "pa", "ri", "sc", "sd",
+            "tn", "tx", "ut", "vt", "va", "wa", "wv", "wi", "wy",
+        ];
+        let code = part(address, "country").to_lowercase();
+        let zip = part(address, "postcode");
+        if part(address, "state").is_empty()
+            && US_STATES.contains(&code.as_str())
+            && zip.len() == 5
+            && zip.bytes().all(|b| b.is_ascii_digit())
+            && self.index.knows_postcode(zip, Some("us"))
+            && !self.index.knows_postcode(zip, Some(&code))
+        {
+            address.shift_remove("country");
+            address.insert("state".into(), code);
+        }
+    }
+
     /// A town that contradicts the rest ("8 Ayr Court, Yonkers, NY 10901" for a house in the next
     /// town over): the house is looked up without the town, and answered only when its number,
-    /// road and postcode are the stated ones, which two places rarely share. Never a confident
-    /// answer, because the input contradicts itself.
+    /// road and postcode are the stated ones, which two places rarely share. A confident answer
+    /// only when the stated town is within 10 km of the house, as a postal town is.
     fn house_despite_town(
         &self,
         address: &ParsedAddress,
@@ -669,12 +777,18 @@ impl Core {
                     && country_matches(country, details)
                     && state_consistent(address, details)
                 {
+                    // A postal town names its post office, often the next place over (Salcha for
+                    // a house the data files under Aurora Lodge): near the house it agrees.
+                    let postal = found.geo_coordinates.as_option().is_some_and(|g| {
+                        self.index
+                            .place_near(part(address, "city"), cc, g.lat, g.lon, 10.0)
+                    });
                     return Ok(Some(accept(
                         found,
                         address,
                         postcode,
                         "house_postcode",
-                        false,
+                        postal,
                     )));
                 }
             }
@@ -837,6 +951,13 @@ impl Core {
         country: &str,
         postcode: &str,
     ) -> Result<Option<FullAddress>> {
+        // a structured re-query can't place a street in a stated state that no town or postcode
+        // does ("100 Main Street, OH"), and a stated state ("MA") is not the country of the same
+        // code (Morocco)
+        let unplaced = part(address, "city").is_empty()
+            && postcode.is_empty()
+            && !part(address, "state").is_empty();
+        let state_only = part(address, "country").is_empty() && !part(address, "state").is_empty();
         for (tier, order) in ORDERS {
             let structured = create_query(address, order);
             if !useful_query(&structured, postcode, country) {
@@ -844,6 +965,13 @@ impl Core {
             }
             if let Some(chosen) =
                 self.first_acceptable(&structured, address, (country, postcode), tier, true, None)?
+                && !(unplaced
+                    && chosen
+                        .found
+                        .address_details
+                        .as_option()
+                        .is_some_and(|d| !d.road.is_empty()))
+                && !(state_only && chosen.kind == "country")
             {
                 return Ok(Some(accept(chosen.found, address, postcode, tier, false)));
             }
