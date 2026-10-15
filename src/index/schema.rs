@@ -172,6 +172,10 @@ fn with_held_slot(x: u32, slot: u8) -> u32 {
     (x & 0xc0ff_ffff) | (slot as u32) << 24
 }
 
+/// Copies of a house this close to the first (about 300 m) are one house, averaged.
+const NEAR_X: u32 = 186;
+const NEAR_Y: u32 = 71_583;
+
 /// An FST value: longitude in 24 bits (about 2 m), the house's postcode as a 1-based index into
 /// its street's stored `pcode` list (0 = none) in 8 bits, then latitude in 32 bits.
 pub fn pack(lon: f64, lat: f64, postcode: u8) -> (u32, u32) {
@@ -371,18 +375,25 @@ fn shard(
     let mut key = Vec::with_capacity(64);
     let (mut posts, mut run, mut run_sid) = (vec![], vec![], 0);
     // The house kept for the current key. A source without postcodes must not shadow another
-    // source's copy of the same house, so a later duplicate lends its postcode slot.
-    let mut pending: Option<(u32, Vec<u8>, u32, u32)> = None;
-    let mut emit = |(sid, key, x, y): (u32, Vec<u8>, u32, u32)| {
-        let x = x & ((1 << RANK_SHIFT) - 1);
-        fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
-        n += 1;
-        if sid != run_sid {
-            super::reverse::street_postings(&mut run, run_sid, &mut posts);
-            run_sid = sid;
-        }
-        run.push(super::reverse::key(x, y));
-    };
+    // source's copy of the same house, so a later duplicate lends its postcode slot. Copies from
+    // the best source within `NEAR` of the first are averaged: a building with units has one
+    // point per unit, and the middle of them beats an edge. `(copies, sum x, sum y)` counts them.
+    let mut pending: Option<(u32, Vec<u8>, u32, u32, (u64, u64, u64))> = None;
+    let mut emit =
+        |(sid, key, mut x, mut y, (copies, sx, sy)): (u32, Vec<u8>, u32, u32, (u64, u64, u64))| {
+            if copies > 1 {
+                x = (x & !0xff_ffff) | (sx / copies) as u32;
+                y = (sy / copies) as u32;
+            }
+            let x = x & ((1 << RANK_SHIFT) - 1);
+            fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
+            n += 1;
+            if sid != run_sid {
+                super::reverse::street_postings(&mut run, run_sid, &mut posts);
+                run_sid = sid;
+            }
+            run.push(super::reverse::key(x, y));
+        };
     while i < a.len() || j < b.len() {
         let take_a = j == b.len()
             || (i < a.len() && (a[i].sid, a[i].bytes()) <= (b[j].sid, b[j].num.as_bytes()));
@@ -402,14 +413,22 @@ fn shard(
         key.extend_from_slice(&sid.to_be_bytes());
         key.extend_from_slice(num);
         match &mut pending {
-            Some((_, kept, px, _)) if *kept == key => {
+            Some((_, kept, px, py, (n, sx, sy))) if *kept == key => {
                 let slot = |x: u32| (x >> 24) & 0x3f;
                 if slot(*px) == 0 {
                     *px |= slot(x) << 24;
                 }
+                let near = (x >> RANK_SHIFT == *px >> RANK_SHIFT)
+                    && (x & 0xff_ffff).abs_diff(*px & 0xff_ffff) <= NEAR_X
+                    && y.abs_diff(*py) <= NEAR_Y;
+                if near {
+                    (*n, *sx, *sy) = (*n + 1, *sx + (x & 0xff_ffff) as u64, *sy + y as u64);
+                }
             }
             _ => {
-                if let Some(done) = pending.replace((sid, key.clone(), x, y)) {
+                let first = ((x & 0xff_ffff) as u64, y as u64);
+                if let Some(done) = pending.replace((sid, key.clone(), x, y, (1, first.0, first.1)))
+                {
                     emit(done);
                 }
             }
@@ -552,6 +571,34 @@ mod tests {
         let (x, y) = pack(-179.99999, 89.99999, 255);
         let (lon, lat, slot) = unpack((x as u64) << 32 | y as u64);
         assert!((lon + 179.99999).abs() < 3e-5 && (lat - 89.99999).abs() < 1e-6 && slot == 255);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn near_copies_of_a_house_are_averaged() {
+        let dir = std::env::temp_dir().join(format!("numbers-mean-test-{}", std::process::id()));
+        // Two unit points of one building (about 100 m apart), a copy of the same number a
+        // degree away, and an OpenAddresses copy next to the first.
+        let copies = [
+            (7, 2.0, 1, 0),
+            (7, 2.001, 1, 0),
+            (7, 3.0, 1, 0),
+            (7, 2.0005, 1, 1),
+        ];
+        let rows = |order: [usize; 4]| -> Vec<Vec<Row>> {
+            order
+                .iter()
+                .map(|&i| {
+                    let (sid, lon, slot, rank) = copies[i];
+                    vec![(sid, "9", lon, slot, rank)]
+                })
+                .collect()
+        };
+        let (out, one) = write(&dir, "a", rows([0, 1, 2, 3]));
+        let (_, other) = write(&dir, "b", rows([2, 3, 1, 0]));
+        assert_eq!(one, other);
+        let (lon, _, _) = lookup(&out, 1, 7, "9").unwrap();
+        assert!((lon - 2.0005).abs() < 3e-5, "{lon}");
         fs::remove_dir_all(&dir).unwrap();
     }
 
