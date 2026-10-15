@@ -31,7 +31,7 @@ use std::{collections::HashMap, path::PathBuf};
 const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|gold-corpus|check> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
-            [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000]
+            [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
             [--no-direct] [--resume] [--backend-label TEXT] [--repeat 3]
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
@@ -144,6 +144,8 @@ async fn command() -> Result<i32> {
                     "--repeat times the local service only; it would bypass --max-rps with --rpc"
                 );
             }
+            // Limits protect an external backend; the spawned local service needs none.
+            let local = rpc.is_none();
             let options = run::Options {
                 suite,
                 corpus: args.path("corpus"),
@@ -156,8 +158,12 @@ async fn command() -> Result<i32> {
                 .max(1),
                 rpc,
                 only: args.value("only").map(regex::Regex::new).transpose()?,
-                max_rps: args.value("max-rps").map_or(Ok(20.), str::parse)?,
-                budget: args.value("budget").map_or(Ok(20_000), str::parse)?,
+                max_rps: args
+                    .value("max-rps")
+                    .map_or(Ok(if local { 1e6 } else { 20. }), str::parse)?,
+                budget: args
+                    .value("budget")
+                    .map_or(Ok(if local { usize::MAX } else { 20_000 }), str::parse)?,
                 direct: !args.flag("no-direct"),
                 resume: args.flag("resume"),
                 backend_label: args.value("backend-label").unwrap_or_default().into(),

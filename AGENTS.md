@@ -81,7 +81,7 @@ A world index built by this repository's builder is kept in `~/opengeocoding-ind
 - Address cases measure change, not accuracy. Keep snapshots as one TSV row per case with the manifest in a separate file, so a PR diff shows only changed answers. Replace `tests/snapshots/addresses.tsv` only after reviewing the diff, and say in the PR which changes were accepted and why. Do not regenerate the snapshot to silence drift.
 - Other corpora with production metadata (earlier geocodes, source labels) and their runs stay private and out of this repository.
 - Use the same consumer binary, models and reference data on both sides of a comparison. Confirm a zero-drift rerun before trusting a diff. Treat a code/configuration change and a data/import change as separate experiments.
-- Respect the backend's request budget and rate (`--max-rps`, `--budget`). Do not add evaluator retries. Load testing needs an approved isolated backend.
+- Do not add evaluator retries. Load testing needs an approved isolated backend.
 - The grpcurl SearchAddress hang remains a known failure even if a run reports it passing; it reproduces on a fresh service.
 
 ## Licensing, data and models
