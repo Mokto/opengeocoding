@@ -310,11 +310,31 @@ struct ByImportance<'a> {
     columns: &'a [Columns],
 }
 
+/// What separates documents of equal importance: their id, then their coordinates. Document
+/// order in an index depends on how many threads wrote it, so it must not decide which of two
+/// equally important places a lookup finds first.
+type Tie = (u64, u64, u64);
+
+type Ranked = (u64, std::cmp::Reverse<Tie>, u32);
+
 struct SegmentTop {
     segment: u32,
     n: usize,
     importance: tantivy::columnar::Column<u64>,
-    heap: std::collections::BinaryHeap<std::cmp::Reverse<(u64, u32)>>,
+    id: tantivy::columnar::Column<u64>,
+    x: tantivy::columnar::Column<f64>,
+    y: tantivy::columnar::Column<f64>,
+    heap: std::collections::BinaryHeap<std::cmp::Reverse<Ranked>>,
+}
+
+impl SegmentTop {
+    fn tie(&self, doc: u32) -> Tie {
+        (
+            self.id.first(doc).unwrap_or(0),
+            self.x.first(doc).map_or(0, f64::to_bits),
+            self.y.first(doc).map_or(0, f64::to_bits),
+        )
+    }
 }
 
 impl tantivy::collector::Collector for ByImportance<'_> {
@@ -322,10 +342,14 @@ impl tantivy::collector::Collector for ByImportance<'_> {
     type Child = SegmentTop;
 
     fn for_segment(&self, segment: u32, _: &tantivy::SegmentReader) -> tantivy::Result<SegmentTop> {
+        let c = &self.columns[segment as usize];
         Ok(SegmentTop {
             segment,
             n: self.n,
-            importance: self.columns[segment as usize].importance.clone(),
+            importance: c.importance.clone(),
+            id: c.id.clone(),
+            x: c.x.clone(),
+            y: c.y.clone(),
             heap: Default::default(),
         })
     }
@@ -339,7 +363,7 @@ impl tantivy::collector::Collector for ByImportance<'_> {
         weight: &dyn tantivy::query::Weight,
         segment: u32,
         reader: &tantivy::SegmentReader,
-    ) -> tantivy::Result<Vec<(u64, DocAddress)>> {
+    ) -> tantivy::Result<Vec<(u64, Tie, DocAddress)>> {
         use tantivy::{DocSet, collector::SegmentCollector};
         let mut top = self.for_segment(segment, reader)?;
         let alive = reader.alive_bitset();
@@ -372,33 +396,41 @@ impl tantivy::collector::Collector for ByImportance<'_> {
 
     fn merge_fruits(
         &self,
-        fruits: Vec<Vec<(u64, DocAddress)>>,
+        fruits: Vec<Vec<(u64, Tie, DocAddress)>>,
     ) -> tantivy::Result<Vec<DocAddress>> {
-        let mut all: Vec<(u64, DocAddress)> = fruits.into_iter().flatten().collect();
-        all.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-        Ok(all.into_iter().take(self.n).map(|(_, a)| a).collect())
+        let mut all: Vec<(u64, Tie, DocAddress)> = fruits.into_iter().flatten().collect();
+        all.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+        Ok(all.into_iter().take(self.n).map(|(_, _, a)| a).collect())
     }
 }
 
 impl tantivy::collector::SegmentCollector for SegmentTop {
-    type Fruit = Vec<(u64, DocAddress)>;
+    type Fruit = Vec<(u64, Tie, DocAddress)>;
 
     fn collect(&mut self, doc: u32, _: tantivy::Score) {
         let v = self.importance.first(doc).unwrap_or(0);
-        if self.heap.len() >= self.n {
-            if self.heap.peek().is_some_and(|m| m.0.0 >= v) {
+        let full = self.heap.len() >= self.n;
+        // a less important document needs no tie-break
+        if full && self.heap.peek().is_some_and(|m| m.0.0 > v) {
+            return;
+        }
+        let ranked = std::cmp::Reverse((v, std::cmp::Reverse(self.tie(doc)), doc));
+        if full {
+            if self.heap.peek().is_some_and(|m| *m <= ranked) {
                 return;
             }
             self.heap.pop();
         }
-        self.heap.push(std::cmp::Reverse((v, doc)));
+        self.heap.push(ranked);
     }
 
     fn harvest(self) -> Self::Fruit {
         let segment = self.segment;
         self.heap
             .into_iter()
-            .map(|std::cmp::Reverse((v, doc))| (v, DocAddress::new(segment, doc)))
+            .map(|std::cmp::Reverse((v, std::cmp::Reverse(tie), doc))| {
+                (v, tie, DocAddress::new(segment, doc))
+            })
             .collect()
     }
 }
@@ -3185,9 +3217,11 @@ mod tests {
         }
         writer.commit().unwrap();
         drop(writer);
-        let at = |sid, number: &str, lon, lat, own| {
-            let (x, y) = schema::pack(lon, lat, own);
-            schema::Num::new(sid, number, x, y).ok().unwrap()
+        // the postcode id stands for its slot
+        let at = |sid, number: &str, lon, lat, own: u32| {
+            let (x, y) = schema::pack(lon, lat, 0);
+            let pc = if own == 0 { schema::NO_POSTCODE } else { own };
+            schema::Num::new(sid, number, x, y, pc).ok().unwrap()
         };
         let spill = schema::NumberSpill::new(dir.join(".numbers-spill"), 1);
         spill.add(vec![schema::Bucket {
@@ -3199,7 +3233,17 @@ mod tests {
             ],
             long: vec![],
         }]);
-        spill.write_fsts(dir.to_str().unwrap(), 1);
+        let slot = |sid, pc| {
+            (
+                sid,
+                if pc == schema::NO_POSTCODE {
+                    0
+                } else {
+                    pc as u8
+                },
+            )
+        };
+        spill.write_fsts(dir.to_str().unwrap(), 1, &slot);
         assert_eq!(
             reverse::build(&dir, &tantivy_index, f.kind).unwrap(),
             // Oak's two houses share a cell; Elm's two are in two
@@ -3259,6 +3303,69 @@ mod tests {
 
     /// Documents of each kind share terms; `top_of` must return only the asked kind and country,
     /// without a `kind` clause, across segments and with the kinds interleaved in one.
+    #[test]
+    fn equally_important_hits_come_in_the_same_order_whatever_the_document_order() {
+        let found = |name: &str, order: [u64; 4], commit_after: usize| {
+            let dir =
+                std::env::temp_dir().join(format!("ties-index-{name}-{}", std::process::id()));
+            std::fs::create_dir_all(&dir).unwrap();
+            let (schema, f) = schema::schema();
+            let tantivy_index = tantivy::Index::create_in_dir(&dir, schema).unwrap();
+            tantivy_index
+                .tokenizers()
+                .register("fold", schema::analyzer());
+            let mut writer: tantivy::IndexWriter = tantivy_index
+                .writer_with_num_threads(1, 15_000_000)
+                .unwrap();
+            for (i, id) in order.into_iter().enumerate() {
+                writer
+                    .add_document(tantivy::doc!(
+                        f.kind => "s", f.names => "oak", f.country => "US", f.id => id,
+                        f.place => 7u64, f.importance => 5u64, f.x => id as f64, f.y => 0.0
+                    ))
+                    .unwrap();
+                if i == commit_after {
+                    writer.commit().unwrap();
+                }
+            }
+            writer.commit().unwrap();
+            drop(writer);
+            std::fs::write(dir.join("numbers.shards"), "1").unwrap();
+            std::fs::write(
+                dir.join("numbers-00.fst"),
+                tantivy_fst::MapBuilder::memory().into_inner().unwrap(),
+            )
+            .unwrap();
+            std::fs::write(
+                dir.join("places.tsv"),
+                "country\t\tUS\t\t\t0\t0\t0\t0\t0\t0\t0\t\tUnited States\ten=United States\n",
+            )
+            .unwrap();
+            let index = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
+            let names = index.musts(index.f.names, "oak");
+            let top = |n| -> Vec<u64> {
+                index
+                    .top_of(
+                        Kind::Street,
+                        None,
+                        names.iter().map(|(o, q)| (*o, q.box_clone())).collect(),
+                        n,
+                    )
+                    .into_iter()
+                    .map(|a| index.fast(a, "id"))
+                    .collect()
+            };
+            let all = (top(10), top(2));
+            drop(index);
+            std::fs::remove_dir_all(&dir).unwrap();
+            all
+        };
+        let expected = (vec![1, 2, 3, 4], vec![1, 2]);
+        assert_eq!(found("a", [3, 1, 4, 2], 1), expected);
+        assert_eq!(found("b", [2, 4, 1, 3], 0), expected);
+        assert_eq!(found("c", [1, 2, 3, 4], 2), expected);
+    }
+
     #[test]
     fn top_of_separates_kinds_and_countries() {
         let dir = std::env::temp_dir().join(format!("kinds-index-{}", std::process::id()));
