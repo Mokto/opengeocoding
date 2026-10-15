@@ -200,14 +200,21 @@ jobs:
               split($2, b, "="); split($3, h, "="); d = h[2] - b[2]
               pct = b[2] > 0 ? sprintf(", %+.1f%%", 100 * d / b[2]) : ""
               change = d == 0 ? "no change" : sprintf("%+d%s", d, pct)
-              printf " — %d → %d passing of %d (%s)", b[2], h[2], $5, change }')
+              printf " — SearchAddress %d → %d passing of %d (%s)", b[2], h[2], $5, change }')
             sed -i '/^pass base=[0-9]* head=[0-9]* of [0-9]*/d' gold.md
+          fi
+          # The speed table has its own comment; its numbers go into this one in a line.
+          speedline=""
+          if [ -s speed.md ]; then
+            changes=$(sed -n 's/^| change | \(.*\) |$/\1/p' speed.md | head -1 | awk -F' [|] ' 'NF >= 4 { printf "total %s, p50 %s, p90 %s, p99 %s", $1, $2, $3, $4 }')
+            speedline="SearchAddress speed: ${headline}${changes:+ ($changes)}, table in the speed comment."
           fi
           {
             echo "<!-- gold-full -->"
             echo "## Gold check, full index: $([ "$EXIT" = 1 ] && echo regressions || echo no regressions)$passing"
             echo
             echo "Base \`${BASE_SHA:0:7}\` → \`${HEAD_SHA:0:7}\`, same full index, both staging images. Must-pass cases failing on both sides are left out."
+            [ -z "$speedline" ] || { echo; echo "$speedline"; }
             cat gold.md
           } > comment.md
           {

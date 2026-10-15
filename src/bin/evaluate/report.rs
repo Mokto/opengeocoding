@@ -993,9 +993,9 @@ pub fn diff(
         .iter()
         .filter(|(_, counts)| counts.contains_key("changed"))
         .collect();
-    report += "\n## Changes by cohort\n\n";
+    report += "\n## SearchAddress: changes by cohort\n\n";
     if rows.is_empty() {
-        report += "No case changed.\n";
+        report += "No SearchAddress result changed.\n";
     } else {
         let _ = write!(
             report,
@@ -1077,7 +1077,11 @@ pub fn diff(
                 );
             }
         }
-        report += &fold(&format!("Changed cases ({total})"), &body, false);
+        report += &fold(
+            &format!("SearchAddress: changed cases ({total})"),
+            &body,
+            false,
+        );
     }
     let failed = !newly_failing.is_empty()
         || !worse.is_empty()
@@ -1355,9 +1359,12 @@ mod tests {
         assert!(speed.contains("| change | +100% |"), "{speed}");
         assert!(!diff(&cases, &old, &old, Some(&out), false, true).unwrap());
         let report = std::fs::read_to_string(&out).unwrap();
-        assert!(report.contains("No case changed."), "{report}");
+        assert!(
+            report.contains("No SearchAddress result changed."),
+            "{report}"
+        );
         assert!(report.contains("None: newly failing, worse failure class"));
-        assert!(!report.contains("| Cohort") && !report.contains("Changed cases"));
+        assert!(!report.contains("| Cohort") && !report.contains("changed cases"));
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
