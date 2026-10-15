@@ -828,3 +828,206 @@ fn a_road_the_index_respelt_agrees() {
     assert!(!agrees("Bowood Dr", "Dowood Drive"));
     assert!(!agrees("Boxwood Dr", "Boxwood Court"));
 }
+
+#[test]
+fn a_part_that_repeats_another_is_collapsed() {
+    for (query, expected) in [
+        // a country by its code beside its name
+        (
+            "San Francisco, US, United States",
+            "San Francisco, United States",
+        ),
+        ("Delhi, IN, India", "Delhi, India"),
+        ("Madrid, ES, Spain", "Madrid, Spain"),
+        ("Taipei, Taipei 10462, TW, Taiwan", "Taipei 10462, Taiwan"),
+        // the same text twice; the later copy goes, except a country that ends the address
+        ("Kyiv, Kyiv, Ukraine", "Kyiv, Ukraine"),
+        ("Chile, Chile", "Chile"),
+        (
+            "New York, United States, New York, United States",
+            "New York, United States",
+        ),
+        (
+            "ENCINO, California, United States, ENCINO, United States",
+            "ENCINO, California, United States",
+        ),
+        ("Mexico, Mexico City, Mexico", "Mexico City, Mexico"),
+        // a town beside the same town with its postcode
+        ("Madrid, Madrid 28007, ES, Spain", "Madrid 28007, Spain"),
+    ] {
+        assert_eq!(
+            without_redundant_parts(query).as_deref(),
+            Some(expected),
+            "{query}"
+        );
+    }
+    // no part repeats: a state code that is not the country's, a street named as its town
+    for query in [
+        "Paris, Texas",
+        "Atlanta, GA, United States",
+        "Dover, DE 19901",
+        "12 Main Street, Springfield, IL 62701",
+        "Rue de Paris, Paris, France",
+        "Berlin",
+        // "México" is the state, "Mexico" the country: two names, not a code and its name
+        "Calimaya, México, Mexico",
+        // the same name in another script is left to the parser
+        "Варна, бул. Приморски полк 43, 9000 Varna, Bulgaria",
+    ] {
+        assert_eq!(without_redundant_parts(query), None, "{query}");
+    }
+}
+
+#[test]
+fn a_region_that_only_repeats_the_town_does_not_outweigh_the_stated_country() {
+    // "Tokyo" is a city and a prefecture, "Delhi" a city and a union territory
+    let found_in_japan = candidate("jp", "Tokyo", "Tokyo", "");
+    let tokyo = parsed(&[
+        ("city", "tokyo"),
+        ("state", "tokyo"),
+        ("country", "united states"),
+    ]);
+    assert_eq!(
+        choose_candidate(&tokyo, "us", "", std::slice::from_ref(&found_in_japan)),
+        None
+    );
+    let delhi = parsed(&[("city", "delhi"), ("state", "delhi"), ("country", "canada")]);
+    let india = candidate("in", "Delhi", "Delhi", "");
+    let ontario = candidate("ca", "Delhi", "Ontario", "");
+    assert_eq!(
+        choose_candidate(&delhi, "ca", "", std::slice::from_ref(&india)),
+        None
+    );
+    assert_eq!(
+        choose_candidate(&delhi, "ca", "", &[india, ontario]).map(|(i, _)| i),
+        Some(1)
+    );
+    // a region stated beside the town still places it, and a lone region is the region
+    let paris = parsed(&[("city", "paris"), ("state", "texas")]);
+    let found = [
+        candidate("fr", "Paris", "Île-de-France", ""),
+        candidate("us", "Paris", "Texas", ""),
+    ];
+    assert_eq!(
+        choose_candidate(&paris, "", "", &found).map(|(i, _)| i),
+        Some(1)
+    );
+    let california = parsed(&[
+        ("state", "california"),
+        ("city", "california"),
+        ("country", "united states"),
+    ]);
+    let state = candidate("us", "", "California", "");
+    assert!(choose_candidate(&california, "us", "", &[state]).is_some());
+}
+
+#[test]
+fn a_suburb_is_its_own_town_only_when_no_road_narrows_it() {
+    // Blairgowrie is a suburb the index files under Johannesburg
+    let suburb = AddressDetails {
+        suburb: "Blairgowrie".into(),
+        country_code: "za".into(),
+        ..Default::default()
+    };
+    let address = parsed(&[("city", "blairgowrie")]);
+    assert!(city_agrees(&address, Some(&suburb)));
+    let on_a_road = AddressDetails {
+        road: "Conrad Drive".into(),
+        ..suburb
+    };
+    assert!(!city_agrees(&address, Some(&on_a_road)));
+    // a fragment of a few letters names no suburb
+    let lettered = AddressDetails {
+        suburb: "C".into(),
+        ..Default::default()
+    };
+    assert!(!city_agrees(&parsed(&[("city", "c")]), Some(&lettered)));
+}
+
+#[test]
+fn a_postal_district_after_the_town_is_the_town() {
+    for (key, value) in [("city_district", "dublin 4"), ("postcode", "dublin 4")] {
+        let mut address = parsed(&[
+            ("road", "barrow street"),
+            (key, value),
+            ("country", "ireland"),
+        ]);
+        tidy(&mut address);
+        assert_eq!(part(&address, "city"), "dublin", "{key}");
+        assert_eq!(part(&address, key), "", "{key}");
+    }
+    // real postcodes and a town that has its own are left alone
+    for address in [
+        parsed(&[("postcode", "k1a 0b1")]),
+        parsed(&[("postcode", "1234 ab")]),
+        parsed(&[("city", "paris"), ("city_district", "paris 15")]),
+    ] {
+        let mut tidied = address.clone();
+        tidy(&mut tidied);
+        assert_eq!(tidied, address);
+    }
+}
+
+#[test]
+fn a_region_code_after_the_first_part_is_the_region_name() {
+    let region = |code: &str| match code {
+        "BCS" => Some("Baja California Sur".to_string()),
+        "NSW" => Some("New South Wales".to_string()),
+        _ => None,
+    };
+    for (query, expected) in [
+        ("La Paz, B.C.S", "La Paz, Baja California Sur"),
+        ("La Paz, BCS, Mexico", "La Paz, Baja California Sur, Mexico"),
+        ("St Peters, NSW", "St Peters, New South Wales"),
+    ] {
+        assert_eq!(with_region_names(query, region).as_deref(), Some(expected));
+    }
+    // the first part is the place, a word is not a code, two letters are the parser's, and
+    // a code the data does not know stays
+    for query in [
+        "BCS, Mexico",
+        "La Paz, Bcs",
+        "La Paz, BC",
+        "La Paz, XYZ",
+        "La Paz, Mexico",
+    ] {
+        assert_eq!(with_region_names(query, region), None, "{query}");
+    }
+}
+
+#[test]
+fn a_country_override_needs_more_than_a_street_or_a_digit() {
+    // a postcode in the shape of the found country's and not of the stated one's
+    assert!(postcode_shaped_for(
+        "Molenweg 5, 5757 BD Liessel, Belgium",
+        "be",
+        "nl"
+    ));
+    assert!(!postcode_shaped_for(
+        "Molenweg 5, 2000 Liessel, Belgium",
+        "be",
+        "nl"
+    ));
+    assert!(!postcode_shaped_for(
+        "99 Conrad Drive, 2194, Blairgowrie, South Africa",
+        "za",
+        "au"
+    ));
+    // a road that is only the stated state's name with a street type is no answer to it
+    let road = |road: &str| AddressDetails {
+        road: road.into(),
+        ..Default::default()
+    };
+    let state = parsed(&[("city", "la paz"), ("state", "baja california sur")]);
+    assert!(road_named_for_place(
+        &state,
+        Some(&road("Calle Baja California Sur"))
+    ));
+    assert!(!road_named_for_place(&state, Some(&road("Calle Abasolo"))));
+    assert!(!road_named_for_place(&state, None));
+    // one country named more than once is the town of that name, or the country
+    assert!(is_repeated_country("Luxembourg, Luxembourg"));
+    assert!(is_repeated_country("Chile, Chile"));
+    assert!(!is_repeated_country("Kyiv, Kyiv"));
+    assert!(!is_repeated_country("Paris, France"));
+}

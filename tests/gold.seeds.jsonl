@@ -2881,3 +2881,180 @@
 {"kind": "place", "cohort": "fallback", "qid": "Q3426", "queries": ["г. Воронеж, ул. Кольцовская, д.35 ТЦ Галерея Чижова"], "location": "fallback:г--воронеж--ул--кольцовская--д-35-тц-галерея-чижова", "level": "locality", "max_level": "house", "radius_km": 20, "good_match": null, "tags": ["production_query"], "label": "Cyrillic locality abbreviation"}
 {"kind": "place", "cohort": "fallback", "qid": "Q406", "queries": ["İstiklal Cd. No:187, 34433 Beyoğlu/İstanbul"], "location": "fallback:i-stiklal-cd--no-187--34433-beyoğlu-i-stanbul", "level": "locality", "max_level": "house", "radius_km": 25, "good_match": null, "tags": ["production_query"], "label": "district/city written with a slash"}
 {"kind": "place", "cohort": "fallback", "qid": "Q1024037", "queries": ["Dorchester, MA"], "location": "fallback:dorchester-ma", "level": "locality", "max_level": "locality", "radius_km": 8, "good_match": null, "tags": ["production_query"], "label": "US state code must not resolve to Dorchester, Dorset", "known_failure": "abstain: Dorset's Dorchester is refused, but the data has no Dorchester in Massachusetts (2026-10-14)"}
+{"kind": "place", "cohort": "city", "qid": "Q62", "queries": ["San Francisco, US, United States", "San Francisco, United States, United States"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q40269", "queries": ["Porto Alegre, BR, Brazil"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q2807", "queries": ["Madrid, ES, Spain"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q2807", "queries": ["Madrid 28007, Spain", "Madrid, Madrid 28007, ES, Spain"], "radius_km": 20, "tags": ["variant", "redundant_token"], "good_match": null, "known_failure": "abstain: the index files Spanish postcodes (28007 among them) under places in Niger and Chad, so no town fits the postcode and the settlement fallback refuses it (2026-10-15)"}
+{"kind": "place", "cohort": "city", "qid": "Q60", "queries": ["New York, United States", "New York, United States, New York, United States"], "radius_km": 25, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1899", "queries": ["Kyiv, Kyiv, Ukraine"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1867", "queries": ["Taipei, Taipei 10462, TW, Taiwan"], "radius_km": 20, "tags": ["variant", "redundant_token"], "good_match": null}
+{"kind": "place", "cohort": "city", "qid": "Q1353", "queries": ["Delhi, IN, India", "Delhi, Delhi, India"], "radius_km": 25, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q8660", "queries": ["Karachi, PK, Pakistan", "Karachi, Karachi, Pakistan"], "radius_km": 25, "tags": ["variant", "redundant_token"]}
+{"kind": "country", "qid": "Q298", "queries": ["Chile, Chile"], "country": ["cl"], "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1748", "queries": ["Copenhagen, DK, Denmark", "Copenhagen, Copenhagen, Denmark"], "radius_km": 10, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1754", "queries": ["Stockholm, SE, Sweden", "Stockholm, Stockholm, Sweden"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q585", "queries": ["Oslo, NO, Norway", "Oslo, Oslo, Norway"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1757", "queries": ["Helsinki, FI, Finland", "Helsinki, Helsinki, Finland"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q90", "queries": ["Paris, FR, France", "Paris, Paris, France"], "radius_km": 10, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q64", "queries": ["Berlin, DE, Germany", "Berlin, Berlin, Germany"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q727", "queries": ["Amsterdam, NL, Netherlands", "Amsterdam, Amsterdam, Netherlands"], "radius_km": 10, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q597", "queries": ["Lisbon, PT, Portugal", "Lisbon, Lisbon, Portugal"], "radius_km": 10, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q220", "queries": ["Rome, IT, Italy", "Rome, Rome, Italy"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1524", "queries": ["Athens, GR, Greece", "Athens, Athens, Greece"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q270", "queries": ["Warsaw, PL, Poland", "Warsaw, Warsaw, Poland"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1781", "queries": ["Budapest, HU, Hungary", "Budapest, Budapest, Hungary"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1741", "queries": ["Vienna, AT, Austria", "Vienna, Vienna, Austria"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q172", "queries": ["Toronto, CA, Canada", "Toronto, Toronto, Canada"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3130", "queries": ["Sydney, AU, Australia", "Sydney, Sydney, Australia"], "radius_km": 25, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1490", "queries": ["Tokyo, JP, Japan", "Tokyo, Tokyo, Japan"], "radius_km": 30, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q8684", "queries": ["Seoul, KR, South Korea", "Seoul, Seoul, South Korea"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q85", "queries": ["Cairo, EG, Egypt", "Cairo, Cairo, Egypt"], "radius_km": 25, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3870", "queries": ["Nairobi, KE, Kenya", "Nairobi, Nairobi, Kenya"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1486", "queries": ["Buenos Aires, AR, Argentina", "Buenos Aires, Buenos Aires, Argentina"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q5465", "queries": ["Cape Town, ZA, South Africa", "Cape Town, Cape Town, South Africa"], "radius_km": 25, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q37100", "queries": ["Auckland, NZ, New Zealand", "Auckland, Auckland, New Zealand"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1761", "queries": ["Dublin, IE, Ireland", "Dublin, Dublin, Ireland"], "radius_km": 10, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1156", "queries": ["Mumbai, IN, India", "Mumbai, Mumbai, India"], "radius_km": 25, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3630", "queries": ["Jakarta, ID, Indonesia", "Jakarta, Jakarta, Indonesia"], "radius_km": 25, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1461", "queries": ["Manila, PH, Philippines", "Manila, Manila, Philippines"], "radius_km": 10, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "rural", "qid": "Q4924207", "queries": ["Blairgowrie, South Africa"], "radius_km": 5, "must_pass": true}
+{"kind": "place", "cohort": "rural", "qid": "Q4924207", "queries": ["99 Conrad Drive, 2194, Blairgowrie, South Africa"], "radius_km": 5, "tags": ["variant", "street_not_in_index"], "good_match": false, "level": "locality", "max_level": "locality"}
+{"kind": "place", "cohort": "rural", "qid": "Q2014213", "queries": ["Rush, Dublin, IE, Ireland"], "radius_km": 8, "tags": ["variant", "redundant_token"]}
+{"kind": "any_of", "cohort": "ambiguous", "queries": ["Hayestown; Rush; Dublin, IE, Ireland"], "label": "townland Hayestown (not in Wikidata for Rush): Rush, or Dublin", "tags": ["variant", "redundant_token"], "any_of": [{"qid": "Q2014213", "level": "locality", "max_level": "house", "radius_km": 15, "good_match": null}, {"qid": "Q1761", "level": "locality", "max_level": "house", "radius_km": 30, "good_match": null}]}
+{"kind": "any_of", "cohort": "ambiguous", "queries": ["Delhi, United States"], "label": "a US place named Delhi, or no answer; never India", "any_of": [{"qid": "Q2571544", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}, {"qid": "Q5253725", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}, {"qid": "Q3021594", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}, {"qid": "Q2205368", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}, {"qid": "Q1917804", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}, {"qid": "Q1924781", "level": "locality", "max_level": "house", "radius_km": 12, "good_match": null}, {"level": "none"}]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q79867", "queries": ["Birmingham, Alabama, United States"], "radius_km": 15, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q988937", "queries": ["Dublin, Ohio, United States"], "radius_km": 10, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q350", "queries": ["Cambridge, United Kingdom"], "radius_km": 10, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q49111", "queries": ["Cambridge, Massachusetts, United States"], "radius_km": 10, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q3183", "queries": ["Perth, Australia"], "radius_km": 20, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q203000", "queries": ["Perth, Scotland, United Kingdom"], "radius_km": 8, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q92561", "queries": ["London, Ontario, Canada"], "radius_km": 15, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q48370", "queries": ["Manchester, New Hampshire, United States"], "radius_km": 10, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q100", "queries": ["Boston, United States"], "radius_km": 15, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q311975", "queries": ["Boston, United Kingdom"], "radius_km": 8, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q203263", "queries": ["Athens, Georgia, United States"], "radius_km": 10, "tags": ["same_name_elsewhere"], "known_failure": "near_miss: Atlanta carries the Slovak name (name:sk) \"Athens\", so it outranks Athens-Clarke County by importance (2026-10-15)"}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q88", "queries": ["Alexandria, Virginia, United States"], "radius_km": 10, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q499927", "queries": ["Moscow, Idaho, United States"], "radius_km": 8, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q5818", "queries": ["Córdoba, Spain"], "radius_km": 10, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q43421", "queries": ["Richmond, Virginia, United States"], "radius_km": 10, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q236837", "queries": ["Richmond, British Columbia, Canada"], "radius_km": 10, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q1425428", "queries": ["Newcastle upon Tyne, United Kingdom"], "radius_km": 10, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q57278", "queries": ["Newcastle, New South Wales, Australia"], "radius_km": 15, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q182625", "queries": ["Windsor, Ontario, Canada"], "radius_km": 10, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q464955", "queries": ["Windsor, Berkshire, United Kingdom"], "radius_km": 8, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "ambiguous", "qid": "Q932261", "queries": ["Sydney, Nova Scotia, Canada"], "radius_km": 10, "tags": ["same_name_elsewhere"]}
+{"kind": "place", "cohort": "city", "qid": "Q1190590", "queries": ["ENCINO, California, United States, ENCINO, United States"], "radius_km": 8, "tags": ["variant", "redundant_token", "region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q1190590", "queries": ["Encino, California, United States"], "radius_km": 8, "tags": ["region_evidence"], "must_pass": true}
+{"kind": "place", "cohort": "city", "qid": "Q6272400", "queries": ["St Peters, New South Wales, Australia, St Peters, Australia"], "radius_km": 6, "tags": ["variant", "redundant_token", "region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q6272400", "queries": ["St Peters, New South Wales, Australia"], "radius_km": 6, "tags": ["region_evidence"], "must_pass": true}
+{"kind": "place", "cohort": "city", "qid": "Q7595375", "queries": ["St Peters, South Australia, Australia"], "radius_km": 6, "tags": ["region_evidence"], "must_pass": true}
+{"kind": "place", "cohort": "city", "qid": "Q214215", "queries": ["La Paz, B.C.S", "La Paz, BCS, Mexico"], "radius_km": 12, "tags": ["variant", "region_evidence", "abbreviation"]}
+{"kind": "place", "cohort": "city", "qid": "Q214215", "queries": ["La Paz, Baja California Sur, Mexico"], "radius_km": 12, "tags": ["region_evidence"], "must_pass": true}
+{"kind": "place", "cohort": "city", "qid": "Q1491", "queries": ["La Paz, Bolivia"], "radius_km": 12, "tags": ["same_name_elsewhere"], "must_pass": true}
+{"kind": "place", "cohort": "rural", "qid": "Q3709258", "queries": ["Temple, PA 19560"], "radius_km": 8, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "rural", "qid": "Q3709258", "queries": ["Temple, Pennsylvania, United States"], "radius_km": 8, "tags": ["region_evidence"], "must_pass": true}
+{"kind": "place", "cohort": "rural", "qid": "Q13209", "queries": ["Nidau 2560", "2560 Nidau, Switzerland"], "radius_km": 5, "tags": ["variant", "postcode_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q185453", "queries": ["Multan, 66000, Multan, Punjab, Pakistan"], "radius_km": 15, "tags": ["variant", "redundant_token", "region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q185453", "queries": ["Multan, Punjab, Pakistan"], "radius_km": 15, "tags": ["region_evidence"], "must_pass": true}
+{"kind": "place", "cohort": "city", "qid": "Q5310807", "queries": ["Barrow Street, Dublin 4, Ireland"], "radius_km": 5, "tags": ["variant", "district_number", "german_country_name"], "level": "locality", "max_level": "street"}
+{"kind": "place", "cohort": "city", "qid": "Q5310807", "queries": ["Barrow Street, Dublin 4, Irland", "Gordon House, Barrow Street, Dublin 4, Irland"], "radius_km": 5, "tags": ["variant", "district_number", "german_country_name"], "level": "locality", "max_level": "street", "good_match": null}
+{"kind": "address", "source": "swisstopo", "ref": "Hauptstrasse 82 2560 Nidau", "queries": ["Hauptstrasse 82, 2560 Nidau, Switzerland", "Hauptstrasse 82, 2560 Nidau"], "tags": ["postcode_evidence", "ch"]}
+{"kind": "place", "cohort": "rural", "qid": "Q993523", "queries": ["Lebanon, NH 03766"], "radius_km": 10, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "rural", "qid": "Q993523", "queries": ["Lebanon, New Hampshire, United States"], "radius_km": 10, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q984264", "queries": ["Franklin, TN 37064"], "radius_km": 12, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q984264", "queries": ["Franklin, Tennessee, United States"], "radius_km": 12, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q49201", "queries": ["Portland, ME 04101"], "radius_km": 10, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q49201", "queries": ["Portland, Maine, United States"], "radius_km": 10, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q49279759", "queries": ["Arlington, VA 22201"], "radius_km": 10, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q49279759", "queries": ["Arlington, Virginia, United States"], "radius_km": 10, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q43421", "queries": ["Richmond, VA 23219"], "radius_km": 12, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q22595", "queries": ["Aurora, IL 60505"], "radius_km": 12, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q22595", "queries": ["Aurora, Illinois, United States"], "radius_km": 12, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q239870", "queries": ["Columbus, GA 31901"], "radius_km": 12, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q239870", "queries": ["Columbus, Georgia, United States"], "radius_km": 12, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q51682", "queries": ["Glendale, AZ 85301"], "radius_km": 12, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q51682", "queries": ["Glendale, Arizona, United States"], "radius_km": 12, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q320514", "queries": ["Lancaster, PA 17602"], "radius_km": 8, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q320514", "queries": ["Lancaster, Pennsylvania, United States"], "radius_km": 8, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "rural", "qid": "Q755420", "queries": ["Athens, OH 45701"], "radius_km": 8, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "rural", "qid": "Q755420", "queries": ["Athens, Ohio, United States"], "radius_km": 8, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q43919", "queries": ["Salem, OR 97301"], "radius_km": 12, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q43919", "queries": ["Salem, Oregon, United States"], "radius_km": 12, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q234053", "queries": ["Vancouver, WA 98660"], "radius_km": 12, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q234053", "queries": ["Vancouver, Washington, United States"], "radius_km": 12, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q949779", "queries": ["Melbourne, FL 32901"], "radius_km": 12, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q949779", "queries": ["Melbourne, Florida, United States"], "radius_km": 12, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q990898", "queries": ["Georgetown, TX 78626"], "radius_km": 10, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q990898", "queries": ["Georgetown, Texas, United States"], "radius_km": 10, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q159232", "queries": ["Santa Cruz, CA 95060"], "radius_km": 10, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q159232", "queries": ["Santa Cruz, California, United States"], "radius_km": 10, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q79728", "queries": ["Auburn, AL 36830"], "radius_km": 10, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q79728", "queries": ["Auburn, Alabama, United States"], "radius_km": 10, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q48370", "queries": ["Manchester, NH 03101"], "radius_km": 10, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "city", "qid": "Q133116", "queries": ["Hamilton, Ontario, Canada"], "radius_km": 15, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q202973", "queries": ["Kingston, Ontario, Canada"], "radius_km": 8, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q1028279", "queries": ["Cambridge, Ontario, Canada"], "radius_km": 10, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q2132", "queries": ["Victoria, British Columbia, Canada"], "radius_km": 10, "tags": ["region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q5838", "queries": ["Kabul, AF, Afghanistan"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3777", "queries": ["Ouagadougou, BF, Burkina Faso"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1519", "queries": ["Abu Dhabi, AE, United Arab Emirates"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q2280", "queries": ["Minsk, BY, Belarus"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q170478", "queries": ["Bournemouth, GB, United Kingdom"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q2833", "queries": ["Freiburg, DE, Germany"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q133073", "queries": ["Dunedin, NZ, New Zealand"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q131546626", "queries": ["Managua, NI, Nicaragua"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q994", "queries": ["Tbilisi, GE, Georgia"], "radius_km": 15.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q18569", "queries": ["Douglas, IM, Isle of Man"], "radius_km": 6.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q40921", "queries": ["Honiara, SB, Solomon Islands"], "radius_km": 6.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1530", "queries": ["Baghdad, IQ, Iraq"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q126805", "queries": ["St. Catharines, CA, Canada"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q49755125", "queries": ["Dushanbe, TJ, Tajikistan"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3718", "queries": ["Dakar, SN, Senegal"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1475", "queries": ["Quezon City, PH, Philippines"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3915", "queries": ["Antananarivo, MG, Madagascar"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3604570", "queries": ["Acilia-Castel Fusano-Ostia Antica, IT, Italy"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3935", "queries": ["Windhoek, NA, Namibia"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3748", "queries": ["Monrovia, LR, Liberia"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q25410", "queries": ["Aalborg, DK, Denmark"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q288", "queries": ["Tours, FR, France"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1085", "queries": ["Prague, CZ, Czechia"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1354", "queries": ["Dhaka, BD, Bangladesh"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q23436", "queries": ["Edinburgh, GB, Scotland"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3114", "queries": ["Canberra, AU, Australia"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q34600", "queries": ["Kyoto, JP, Japan"], "radius_km": 15.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q995911", "queries": ["Hoofddorp, NL, The Netherlands"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1858", "queries": ["Hanoi, VN, Vietnam"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q9978", "queries": ["Zaanstad, NL, The Netherlands"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3882", "queries": ["Manama, BH, Bahrain"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q26772254", "queries": ["Kristiansand, NO, Norway"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1863", "queries": ["Andorra la Vella, AD, Andorra"], "radius_km": 6.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q21197", "queries": ["Chisinau, MD, Moldova"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q84", "queries": ["London, GB, United Kingdom"], "radius_km": 25.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q34820", "queries": ["Santo Domingo, DO, Dominican Republic"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q56759", "queries": ["Olongapo, PH, Philippines"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3766", "queries": ["Damascus, SY, Syria"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q594209", "queries": ["Bintulu, MY, Malaysia"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3805", "queries": ["Amman, JO, Jordan"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q18013", "queries": ["Sacramento, US, United States"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q134287", "queries": ["Tarsus, TR, Turkey"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3739", "queries": ["Bissau, GW, Guinea-Bissau"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3780", "queries": ["Freetown, SL, Sierra Leone"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q33716195", "queries": ["Siracusa, IT, Italy"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q19689", "queries": ["Tirana, AL, Albania"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q44162", "queries": ["Catamarca, AR, Argentina"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q167551", "queries": ["Gitega, BI, Burundi"], "radius_km": 6.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1963", "queries": ["Khartoum, SD, Sudan"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q2868", "queries": ["Lima, PE, Peru"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3921", "queries": ["Harare, ZW, Zimbabwe"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q437", "queries": ["Ljubljana, SI, Slovenia"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q25390", "queries": ["Leeuwarden, NL, The Netherlands"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1930", "queries": ["Ottawa, CA, Canada"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q1850", "queries": ["Phnom Penh, KH, Cambodia"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3692", "queries": ["Riyadh, SA, Saudi Arabia"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q985521", "queries": ["Heroica Guaymas, MX, Mexico"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3838", "queries": ["Kinshasa, CD, Democratic Republic of the Congo"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3640", "queries": ["Ankara, TR, Turkey"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q23696223", "queries": ["Cali, CO, Colombia"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q124739", "queries": ["Tijuana, MX, Mexico"], "radius_km": 20.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q3832", "queries": ["Bangui, CF, Central African Republic"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}
+{"kind": "place", "cohort": "city", "qid": "Q12193", "queries": ["Brest, FR, France"], "radius_km": 10.0, "tags": ["variant", "redundant_token"]}

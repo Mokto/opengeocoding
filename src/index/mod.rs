@@ -1253,6 +1253,34 @@ impl Parser {
                         &inner,
                     );
                 }
+                // "New York, United States": the comma ends the place, but libpostal splits it
+                // into a town "new" and a state "york" when the country follows
+                [head, tail]
+                    if whole.last().is_some_and(|(k, v)| {
+                        k == "country" && *v == tail.trim().to_lowercase()
+                    }) =>
+                {
+                    let split = whole[..whole.len() - 1]
+                        .iter()
+                        .map(|(_, v)| v.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    // only a name split into places: a postcode or house number is its own field
+                    let places = whole[..whole.len() - 1].iter().all(|(k, _)| {
+                        matches!(
+                            k.as_str(),
+                            "city" | "state" | "state_district" | "suburb" | "city_district"
+                        )
+                    });
+                    if let [(k, v)] = &libpostal(head.trim())?[..]
+                        && whole.len() > 2
+                        && places
+                        && *v == split
+                    {
+                        aligned =
+                            Some(vec![(k.clone(), v.clone()), whole[whole.len() - 1].clone()]);
+                    }
+                }
                 // "street, county, town, STATE ZIP": the parts between the street and the town
                 // are the county
                 [head, ref extras @ .., middle, tail] if alignable(middle, extras, &inner) => {
@@ -1579,6 +1607,38 @@ impl Index {
             .flatten()
     }
 
+    /// The countries a stated region may be in: those with an ISO 3166-2 code that ends in a
+    /// written code ("PA", "BCS"), or the one whose region has that name.
+    fn region_countries(&self, region: &str) -> Vec<String> {
+        let code: String = region
+            .chars()
+            .filter(|c| c.is_ascii_alphabetic())
+            .collect::<String>()
+            .to_uppercase();
+        let mut found = vec![];
+        if (2..=3).contains(&code.len())
+            && code.len() == region.chars().filter(|c| *c != '.').count()
+        {
+            let suffix = format!("-{code}");
+            found.extend(
+                self.regions
+                    .keys()
+                    .filter_map(|k| k.strip_suffix(&suffix)?.to_lowercase().into()),
+            );
+        }
+        let named = crate::matching::implied_country(
+            &[("state".to_string(), region.to_string())]
+                .into_iter()
+                .collect(),
+        );
+        if !named.is_empty() {
+            found.push(named);
+        }
+        found.sort();
+        found.dedup();
+        found
+    }
+
     fn chain(&self, mut p: u32) -> Vec<u32> {
         let mut out = vec![];
         while p != NONE && out.len() < 16 {
@@ -1634,6 +1694,7 @@ impl Index {
         if cl.is_empty() {
             return (vec![], false);
         }
+        let within_text = within;
         let want = name_key(text);
         let long = long_words(text);
         // "Cauca Department" is named "Cauca"
@@ -1648,8 +1709,26 @@ impl Index {
             .flat_map(|w| std::iter::once(w.to_string()).chain(without_admin_word(w)))
             .map(|w| name_key(&w))
             .collect();
-        let ids: Vec<(usize, u32)> = self
-            .top_of(Kind::Place, cc, cl, 100)
+        let mut ranked = self.top_of(Kind::Place, cc, cl, 100);
+        // The stated region places a small town among many of its name ("Temple, PA"): look in
+        // the countries that have such a region as well, or it drops out of the top 100.
+        if cc.is_none()
+            && let Some(region) = within_text
+        {
+            for country in self.region_countries(region) {
+                for a in self.top_of(
+                    Kind::Place,
+                    Some(&country),
+                    self.musts(self.f.names, text),
+                    100,
+                ) {
+                    if !ranked.contains(&a) {
+                        ranked.push(a);
+                    }
+                }
+            }
+        }
+        let ids: Vec<(usize, u32)> = ranked
             .into_iter()
             .enumerate()
             .map(|(rank, a)| (rank, self.fast(a, "id") as u32))
@@ -2410,6 +2489,22 @@ impl Index {
         .find_map(|h| match h {
             Hit::Place(id) => Some(id),
             _ => None,
+        })
+    }
+
+    /// `query` with a part that is a region's ISO 3166-2 code ("B.C.S" for Baja California Sur)
+    /// replaced by the region's name; see [`crate::matching::with_region_names`].
+    pub fn with_region_names(&self, query: &str) -> Option<String> {
+        crate::matching::with_region_names(query, |code| {
+            if self.country(code).is_some() {
+                return None;
+            }
+            let suffix = format!("-{code}");
+            let mut named = self.regions.iter().filter(|(k, _)| k.ends_with(&suffix));
+            match (named.next(), named.next()) {
+                (Some((_, &id)), None) => Some(self.places[id as usize].primary.to_string()),
+                _ => None,
+            }
         })
     }
 
