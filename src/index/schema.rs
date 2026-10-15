@@ -149,6 +149,36 @@ pub struct LongNum {
     pub y: u32,
 }
 
+/// Where a house came from, in the two top bits of its packed longitude while the builder holds
+/// it (a postcode slot stays under 64): 0 Overture, 1 OpenAddresses, 2 OSM. When sources give
+/// the same house, the better-ranked one is kept.
+pub const RANK_SHIFT: u32 = 30;
+
+pub fn with_rank(x: u32, rank: u8) -> u32 {
+    x | (rank as u32) << RANK_SHIFT
+}
+
+/// Maps a house's street id and postcode slot, as the builder first numbered them, to the
+/// street's final id (which must keep the id's remainder modulo the shard count) and slot.
+pub type Resolve<'a> = &'a (dyn Fn(u32, u8) -> (u32, u8) + Sync);
+
+/// A postcode slot while the builder holds it: 6 bits of the packed longitude's top byte, under
+/// the source rank.
+pub fn held_slot(x: u32) -> u8 {
+    ((x >> 24) & 0x3f) as u8
+}
+
+fn with_held_slot(x: u32, slot: u8) -> u32 {
+    (x & 0xc0ff_ffff) | (slot as u32) << 24
+}
+
+/// Copies of a house this close to the first (about 300 m) are one house, averaged.
+const NEAR_X: u32 = 186;
+const NEAR_Y: u32 = 71_583;
+
+/// A house being written: street, key, packed point, and the copies averaged into it.
+type Kept = (u32, Vec<u8>, u32, u32, (u64, u64, u64));
+
 /// An FST value: longitude in 24 bits (about 2 m), the house's postcode as a 1-based index into
 /// its street's stored `pcode` list (0 = none) in 8 bits, then latitude in 32 bits.
 pub fn pack(lon: f64, lat: f64, postcode: u8) -> (u32, u32) {
@@ -272,8 +302,10 @@ impl NumberSpill {
     }
 
     /// One FST per shard, `parallel` shards at a time to bound memory. Key = sid (u32 BE) ++
-    /// number; value = x and y as f32 bits. Duplicate keys keep the first.
-    pub fn write_fsts(self, out: &str, parallel: usize) -> u64 {
+    /// number; value = x and y as f32 bits. Of duplicate keys, the one with the smallest
+    /// coordinates is kept, with the postcode slot of the first duplicate that has one when it has
+    /// none, so the result does not depend on the order the rows arrived in.
+    pub fn write_fsts(self, out: &str, parallel: usize, resolve: Resolve) -> u64 {
         let n_shards = self.files.len();
         for f in self.files {
             f.into_inner().unwrap().flush().unwrap();
@@ -291,7 +323,7 @@ impl NumberSpill {
                 .collect();
             n += jobs
                 .into_par_iter()
-                .map(|(s, long)| self::shard(out, s, &self.dir, long))
+                .map(|(s, long)| self::shard(out, s, n_shards, &self.dir, long, resolve))
                 .sum::<u64>();
         }
         fs::remove_dir_all(&self.dir).unwrap();
@@ -300,7 +332,14 @@ impl NumberSpill {
     }
 }
 
-fn shard(out: &str, s: usize, dir: &std::path::Path, long: Vec<LongNum>) -> u64 {
+fn shard(
+    out: &str,
+    s: usize,
+    n_shards: usize,
+    dir: &std::path::Path,
+    mut long: Vec<LongNum>,
+    resolve: Resolve,
+) -> u64 {
     let path = dir.join(format!("{s:02}"));
     let len = fs::metadata(&path).unwrap().len() as usize;
     let mut short = Vec::with_capacity(len / RECORD);
@@ -308,13 +347,27 @@ fn shard(out: &str, s: usize, dir: &std::path::Path, long: Vec<LongNum>) -> u64 
     let mut rec = [0u8; RECORD];
     for _ in 0..len / RECORD {
         r.read_exact(&mut rec).unwrap();
-        short.push(Num::decode(&rec));
+        let mut n = Num::decode(&rec);
+        let (sid, slot) = resolve(n.sid, held_slot(n.x));
+        debug_assert_eq!(sid as usize % n_shards, s);
+        debug_assert!(slot < 64);
+        (n.sid, n.x) = (sid, with_held_slot(n.x, slot));
+        short.push(n);
     }
     drop(r);
     fs::remove_file(&path).unwrap();
-    short.par_sort_unstable_by_key(|p| (p.sid, p.num));
-    let mut long = long;
-    long.sort_unstable_by(|p, q| (p.sid, p.num.as_bytes()).cmp(&(q.sid, q.num.as_bytes())));
+    for n in &mut long {
+        let (sid, slot) = resolve(n.sid, held_slot(n.x));
+        debug_assert!(slot < 64);
+        (n.sid, n.x) = (sid, with_held_slot(n.x, slot));
+    }
+    // Duplicates sort by source rank, then by everything they hold, so the one kept does not
+    // depend on arrival order.
+    let order = |x: u32, y: u32| (x >> RANK_SHIFT, x & 0xff_ffff, y, (x >> 24) & 0x3f);
+    short.par_sort_unstable_by_key(|p| (p.sid, p.num, order(p.x, p.y)));
+    long.sort_unstable_by(|p, q| {
+        (p.sid, p.num.as_bytes(), order(p.x, p.y)).cmp(&(q.sid, q.num.as_bytes(), order(q.x, q.y)))
+    });
     let (a, b) = (short, long);
     let w = BufWriter::with_capacity(
         1 << 22,
@@ -322,9 +375,27 @@ fn shard(out: &str, s: usize, dir: &std::path::Path, long: Vec<LongNum>) -> u64 
     );
     let mut fst = tantivy_fst::MapBuilder::new(w).unwrap();
     let (mut i, mut j, mut n) = (0, 0, 0u64);
-    let mut last: Vec<u8> = vec![];
     let mut key = Vec::with_capacity(64);
     let (mut posts, mut run, mut run_sid) = (vec![], vec![], 0);
+    // The house kept for the current key. A source without postcodes must not shadow another
+    // source's copy of the same house, so a later duplicate lends its postcode slot. Copies from
+    // the best source within `NEAR` of the first are averaged: a building with units has one
+    // point per unit, and the middle of them beats an edge. `(copies, sum x, sum y)` counts them.
+    let mut pending: Option<Kept> = None;
+    let mut emit = |(sid, key, mut x, mut y, (copies, sx, sy)): Kept| {
+        if copies > 1 {
+            x = (x & !0xff_ffff) | (sx / copies) as u32;
+            y = (sy / copies) as u32;
+        }
+        let x = x & ((1 << RANK_SHIFT) - 1);
+        fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
+        n += 1;
+        if sid != run_sid {
+            super::reverse::street_postings(&mut run, run_sid, &mut posts);
+            run_sid = sid;
+        }
+        run.push(super::reverse::key(x, y));
+    };
     while i < a.len() || j < b.len() {
         let take_a = j == b.len()
             || (i < a.len() && (a[i].sid, a[i].bytes()) <= (b[j].sid, b[j].num.as_bytes()));
@@ -343,17 +414,30 @@ fn shard(out: &str, s: usize, dir: &std::path::Path, long: Vec<LongNum>) -> u64 
         key.clear();
         key.extend_from_slice(&sid.to_be_bytes());
         key.extend_from_slice(num);
-        if key <= last {
-            continue;
+        match &mut pending {
+            Some((_, kept, px, py, (n, sx, sy))) if *kept == key => {
+                let slot = |x: u32| (x >> 24) & 0x3f;
+                if slot(*px) == 0 {
+                    *px |= slot(x) << 24;
+                }
+                let near = (x >> RANK_SHIFT == *px >> RANK_SHIFT)
+                    && (x & 0xff_ffff).abs_diff(*px & 0xff_ffff) <= NEAR_X
+                    && y.abs_diff(*py) <= NEAR_Y;
+                if near {
+                    (*n, *sx, *sy) = (*n + 1, *sx + (x & 0xff_ffff) as u64, *sy + y as u64);
+                }
+            }
+            _ => {
+                let first = ((x & 0xff_ffff) as u64, y as u64);
+                if let Some(done) = pending.replace((sid, key.clone(), x, y, (1, first.0, first.1)))
+                {
+                    emit(done);
+                }
+            }
         }
-        fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
-        n += 1;
-        if sid != run_sid {
-            super::reverse::street_postings(&mut run, run_sid, &mut posts);
-            run_sid = sid;
-        }
-        run.push(super::reverse::key(x, y));
-        std::mem::swap(&mut key, &mut last);
+    }
+    if let Some(done) = pending.take() {
+        emit(done);
     }
     fst.finish().unwrap();
     super::reverse::street_postings(&mut run, run_sid, &mut posts);
@@ -409,57 +493,146 @@ mod tests {
         assert_eq!(fold("二十一丁目"), fold("21丁目"));
     }
 
+    /// street id, number, longitude, postcode slot, source rank
+    type Row<'a> = (u32, &'a str, f64, u8, u8);
+
     #[test]
-    fn numbers_merge_inline_and_long_in_byte_order() {
-        let dir = std::env::temp_dir().join(format!("numbers-test-{}", std::process::id()));
-        fs::create_dir_all(&dir).unwrap();
-        let out = dir.to_str().unwrap();
-        let spill = NumberSpill::new(dir.join("spill"), 2);
-        let mut nums = [
-            (7, "12"),
-            (7, "1"),
-            (7, "12"),
-            (7, "1a"),
-            (2, "9"),
-            (7, "1-very-long-number"),
-        ]
-        .into_iter();
-        // two tasks
-        for task in [nums.by_ref().take(3).collect::<Vec<_>>(), nums.collect()] {
+    fn a_spill_record_stays_20_bytes() {
+        // The cluster's scratch volume is sized for 20 bytes per house (500 million for the
+        // world); a wider record ran the build out of disk.
+        assert_eq!(RECORD, 20);
+    }
+
+    /// A street keeps its id and its slots.
+    fn same(sid: u32, slot: u8) -> (u32, u8) {
+        (sid, slot)
+    }
+
+    fn write(dir: &std::path::Path, name: &str, tasks: Vec<Vec<Row>>) -> (String, Vec<u8>) {
+        let out = dir.join(name);
+        fs::create_dir_all(&out).unwrap();
+        let out = out.to_str().unwrap().to_string();
+        let spill = NumberSpill::new(dir.join(format!("spill-{name}")), 2);
+        for task in tasks {
             let mut buckets: Vec<Bucket> = (0..2).map(|_| Bucket::default()).collect();
-            for (sid, num) in task {
-                let b = &mut buckets[sid as usize % 2];
-                let (x, y) = pack(sid as f64, num.len() as f64, 3);
-                match Num::new(sid, num, x, y) {
-                    Ok(n) => b.short.push(n),
-                    Err(l) => b.long.push(l),
+            for (sid, num, lon, slot, rank) in task {
+                let (x, y) = pack(lon, 2.0, slot);
+                match Num::new(sid, num, with_rank(x, rank), y) {
+                    Ok(n) => buckets[sid as usize % 2].short.push(n),
+                    Err(l) => buckets[sid as usize % 2].long.push(l),
                 }
             }
             spill.add(buckets);
         }
-        assert_eq!(spill.write_fsts(out, 1), 5, "duplicate (7, 12) dropped");
-        assert!(!dir.join("spill").exists());
-        let shard = |s: usize| {
-            tantivy_fst::Map::from_bytes(fs::read(format!("{out}/numbers-{s:02}.fst")).unwrap())
-                .unwrap()
-        };
-        let key = |sid: u32, n: &str| [&sid.to_be_bytes()[..], n.as_bytes()].concat();
-        assert!(shard(0).get(key(2, "9")).is_some());
-        let s1 = shard(1);
-        for n in ["1", "1-very-long-number", "1a", "12"] {
-            assert!(s1.get(key(7, n)).is_some(), "{n}");
-        }
-        let v = s1.get(key(7, "1a")).unwrap();
-        let (lon, lat, pc) = unpack(v);
-        assert!(
-            (lon - 7.0).abs() < 1e-4 && (lat - 2.0).abs() < 1e-6 && pc == 3,
-            "{lon} {lat} {pc}"
+        spill.write_fsts(&out, 1, &same);
+        let bytes = [0, 1]
+            .iter()
+            .flat_map(|s| fs::read(format!("{out}/numbers-{s:02}.fst")).unwrap())
+            .collect();
+        (out, bytes)
+    }
+
+    fn lookup(out: &str, shard: usize, sid: u32, num: &str) -> Option<(f64, f64, u8)> {
+        let map = tantivy_fst::Map::from_bytes(
+            fs::read(format!("{out}/numbers-{shard:02}.fst")).unwrap(),
+        )
+        .unwrap();
+        map.get([&sid.to_be_bytes()[..], num.as_bytes()].concat())
+            .map(unpack)
+    }
+
+    #[test]
+    fn numbers_merge_inline_and_long_in_byte_order() {
+        let dir = std::env::temp_dir().join(format!("numbers-test-{}", std::process::id()));
+        let long = "1-very-long-number";
+        let (out, _) = write(
+            &dir,
+            "a",
+            vec![
+                vec![
+                    (7, "12", 7.0, 3, 0),
+                    (7, "1", 7.0, 3, 0),
+                    (7, "12", 7.0, 3, 0),
+                ],
+                vec![
+                    (7, "1a", 7.0, 3, 0),
+                    (2, "9", 2.0, 3, 0),
+                    (7, long, 7.0, 3, 0),
+                ],
+            ],
         );
-        let (lon, lat, pc) = unpack({
-            let (x, y) = pack(-179.99999, 89.99999, 255);
-            (x as u64) << 32 | y as u64
-        });
-        assert!((lon + 179.99999).abs() < 3e-5 && (lat - 89.99999).abs() < 1e-6 && pc == 255);
+        assert!(!dir.join("spill-a").exists());
+        assert!(lookup(&out, 0, 2, "9").is_some());
+        for n in ["1", long, "1a", "12"] {
+            let (lon, lat, slot) = lookup(&out, 1, 7, n).expect(n);
+            assert!(
+                (lon - 7.0).abs() < 1e-4 && (lat - 2.0).abs() < 1e-6 && slot == 3,
+                "{n}: {lon} {lat} {slot}"
+            );
+        }
+        let (x, y) = pack(-179.99999, 89.99999, 255);
+        let (lon, lat, slot) = unpack((x as u64) << 32 | y as u64);
+        assert!((lon + 179.99999).abs() < 3e-5 && (lat - 89.99999).abs() < 1e-6 && slot == 255);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn near_copies_of_a_house_are_averaged() {
+        let dir = std::env::temp_dir().join(format!("numbers-mean-test-{}", std::process::id()));
+        // Two unit points of one building (about 100 m apart), a copy of the same number a
+        // degree away, and an OpenAddresses copy next to the first.
+        let copies = [
+            (7, 2.0, 1, 0),
+            (7, 2.001, 1, 0),
+            (7, 3.0, 1, 0),
+            (7, 2.0005, 1, 1),
+        ];
+        let rows = |order: [usize; 4]| -> Vec<Vec<Row>> {
+            order
+                .iter()
+                .map(|&i| {
+                    let (sid, lon, slot, rank) = copies[i];
+                    vec![(sid, "9", lon, slot, rank)]
+                })
+                .collect()
+        };
+        let (out, one) = write(&dir, "a", rows([0, 1, 2, 3]));
+        let (_, other) = write(&dir, "b", rows([2, 3, 1, 0]));
+        assert_eq!(one, other);
+        let (lon, _, _) = lookup(&out, 1, 7, "9").unwrap();
+        assert!((lon - 2.0005).abs() < 3e-5, "{lon}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn duplicate_houses_do_not_depend_on_arrival_order() {
+        let dir = std::env::temp_dir().join(format!("numbers-dup-test-{}", std::process::id()));
+        let long = "1-very-long-number";
+        // The same house from four sources: Overture's at the easternmost point, one OpenAddresses
+        // copy without a postcode, two others at other points with other postcodes.
+        let copies = [
+            (7, 1.5, 4, 0),
+            (7, 1.0, 0, 1),
+            (7, 1.2, 2, 1),
+            (7, 1.0, 3, 2),
+        ];
+        let rows = |order: [usize; 4]| -> Vec<Vec<Row>> {
+            order
+                .iter()
+                .map(|&i| {
+                    let (sid, lon, slot, rank) = copies[i];
+                    vec![(sid, "418", lon, slot, rank), (sid, long, lon, slot, rank)]
+                })
+                .collect()
+        };
+        let (out, one) = write(&dir, "a", rows([0, 1, 2, 3]));
+        let (_, other) = write(&dir, "b", rows([3, 2, 0, 1]));
+        assert_eq!(one, other);
+        for n in ["418", long] {
+            // the best-ranked source's copy and its postcode, though it is not the westernmost
+            let (lon, _, slot) = lookup(&out, 1, 7, n).unwrap();
+            assert!((lon - 1.5).abs() < 1e-4 && slot == 4, "{n}: {lon} {slot}");
+        }
         fs::remove_dir_all(&dir).unwrap();
     }
 }
