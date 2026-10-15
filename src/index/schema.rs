@@ -155,6 +155,15 @@ pub struct LongNum {
 
 pub const NO_POSTCODE: u32 = u32::MAX;
 
+/// Where a house came from, in the two top bits of its packed longitude while the builder holds
+/// it (a postcode slot stays under 64): 0 Overture, 1 OpenAddresses, 2 OSM. When sources give
+/// the same house, the better-ranked one is kept.
+pub const RANK_SHIFT: u32 = 30;
+
+pub fn with_rank(x: u32, rank: u8) -> u32 {
+    x | (rank as u32) << RANK_SHIFT
+}
+
 /// Maps a house's street id and postcode id, as the builder first numbered them, to the street's
 /// final id (which must keep the id's remainder modulo the shard count) and the postcode slot.
 pub type Resolve<'a> = &'a (dyn Fn(u32, u32) -> (u32, u8) + Sync);
@@ -339,17 +348,26 @@ fn shard(
         let mut n = Num::decode(&rec);
         let (sid, slot) = resolve(n.sid, n.pc);
         debug_assert_eq!(sid as usize % n_shards, s);
-        (n.sid, n.x) = (sid, with_postcode(n.x, slot));
+        debug_assert!(slot < 64);
+        (n.sid, n.x) = (
+            sid,
+            with_postcode(n.x, slot) | (n.x >> RANK_SHIFT) << RANK_SHIFT,
+        );
         short.push(n);
     }
     drop(r);
     fs::remove_file(&path).unwrap();
     for n in &mut long {
         let (sid, slot) = resolve(n.sid, n.pc);
-        (n.sid, n.x) = (sid, with_postcode(n.x, slot));
+        debug_assert!(slot < 64);
+        (n.sid, n.x) = (
+            sid,
+            with_postcode(n.x, slot) | (n.x >> RANK_SHIFT) << RANK_SHIFT,
+        );
     }
-    // Duplicates sort by everything they hold, so the one kept does not depend on arrival order.
-    let order = |x: u32, y: u32| (x & 0xff_ffff, y, x >> 24);
+    // Duplicates sort by source rank, then by everything they hold, so the one kept does not
+    // depend on arrival order.
+    let order = |x: u32, y: u32| (x >> RANK_SHIFT, x & 0xff_ffff, y, (x >> 24) & 0x3f);
     short.par_sort_unstable_by_key(|p| (p.sid, p.num, order(p.x, p.y)));
     long.sort_unstable_by(|p, q| {
         (p.sid, p.num.as_bytes(), order(p.x, p.y)).cmp(&(q.sid, q.num.as_bytes(), order(q.x, q.y)))
@@ -367,6 +385,7 @@ fn shard(
     // source's copy of the same house, so a later duplicate lends its postcode slot.
     let mut pending: Option<(u32, Vec<u8>, u32, u32)> = None;
     let mut emit = |(sid, key, x, y): (u32, Vec<u8>, u32, u32)| {
+        let x = x & ((1 << RANK_SHIFT) - 1);
         fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
         n += 1;
         if sid != run_sid {
@@ -395,8 +414,9 @@ fn shard(
         key.extend_from_slice(num);
         match &mut pending {
             Some((_, kept, px, _)) if *kept == key => {
-                if postcode_slot(*px) == 0 {
-                    *px = with_postcode(*px, postcode_slot(x));
+                let slot = |x: u32| (x >> 24) & 0x3f;
+                if slot(*px) == 0 {
+                    *px |= slot(x) << 24;
                 }
             }
             _ => {
@@ -463,25 +483,24 @@ mod tests {
         assert_eq!(fold("二十一丁目"), fold("21丁目"));
     }
 
+    /// street id, number, longitude, postcode id, source rank
+    type Row<'a> = (u32, &'a str, f64, u32, u8);
+
     /// Slot = 1 + the postcode id; a street keeps its id.
     fn by_id(sid: u32, pc: u32) -> (u32, u8) {
         (sid, if pc == NO_POSTCODE { 0 } else { pc as u8 + 1 })
     }
 
-    fn write(
-        dir: &std::path::Path,
-        name: &str,
-        tasks: Vec<Vec<(u32, &str, f64, u32)>>,
-    ) -> (String, Vec<u8>) {
+    fn write(dir: &std::path::Path, name: &str, tasks: Vec<Vec<Row>>) -> (String, Vec<u8>) {
         let out = dir.join(name);
         fs::create_dir_all(&out).unwrap();
         let out = out.to_str().unwrap().to_string();
         let spill = NumberSpill::new(dir.join(format!("spill-{name}")), 2);
         for task in tasks {
             let mut buckets: Vec<Bucket> = (0..2).map(|_| Bucket::default()).collect();
-            for (sid, num, lon, pc) in task {
+            for (sid, num, lon, pc, rank) in task {
                 let (x, y) = pack(lon, 2.0, 0);
-                match Num::new(sid, num, x, y, pc) {
+                match Num::new(sid, num, with_rank(x, rank), y, pc) {
                     Ok(n) => buckets[sid as usize % 2].short.push(n),
                     Err(l) => buckets[sid as usize % 2].long.push(l),
                 }
@@ -513,8 +532,16 @@ mod tests {
             &dir,
             "a",
             vec![
-                vec![(7, "12", 7.0, 3), (7, "1", 7.0, 3), (7, "12", 7.0, 3)],
-                vec![(7, "1a", 7.0, 3), (2, "9", 2.0, 3), (7, long, 7.0, 3)],
+                vec![
+                    (7, "12", 7.0, 3, 0),
+                    (7, "1", 7.0, 3, 0),
+                    (7, "12", 7.0, 3, 0),
+                ],
+                vec![
+                    (7, "1a", 7.0, 3, 0),
+                    (2, "9", 2.0, 3, 0),
+                    (7, long, 7.0, 3, 0),
+                ],
             ],
         );
         assert!(!dir.join("spill-a").exists());
@@ -536,25 +563,30 @@ mod tests {
     fn duplicate_houses_do_not_depend_on_arrival_order() {
         let dir = std::env::temp_dir().join(format!("numbers-dup-test-{}", std::process::id()));
         let long = "1-very-long-number";
-        // The same house from three sources: one without a postcode, two at slightly different
-        // points with different postcodes.
-        let copies = [(7, 1.0, NO_POSTCODE), (7, 1.5, 4), (7, 1.0, 2)];
-        let rows = |order: [usize; 3]| -> Vec<Vec<(u32, &str, f64, u32)>> {
+        // The same house from four sources: Overture's at the easternmost point, one OpenAddresses
+        // copy without a postcode, two others at other points with other postcodes.
+        let copies = [
+            (7, 1.5, 4, 0),
+            (7, 1.0, NO_POSTCODE, 1),
+            (7, 1.2, 2, 1),
+            (7, 1.0, 3, 2),
+        ];
+        let rows = |order: [usize; 4]| -> Vec<Vec<Row>> {
             order
                 .iter()
                 .map(|&i| {
-                    let (sid, lon, pc) = copies[i];
-                    vec![(sid, "418", lon, pc), (sid, long, lon, pc)]
+                    let (sid, lon, pc, rank) = copies[i];
+                    vec![(sid, "418", lon, pc, rank), (sid, long, lon, pc, rank)]
                 })
                 .collect()
         };
-        let (out, one) = write(&dir, "a", rows([0, 1, 2]));
-        let (_, other) = write(&dir, "b", rows([2, 0, 1]));
+        let (out, one) = write(&dir, "a", rows([0, 1, 2, 3]));
+        let (_, other) = write(&dir, "b", rows([3, 2, 0, 1]));
         assert_eq!(one, other);
         for n in ["418", long] {
-            // the westernmost copy, which lends the slot of the first duplicate with a postcode
+            // the best-ranked source's copy and its postcode, though it is not the westernmost
             let (lon, _, slot) = lookup(&out, 1, 7, n).unwrap();
-            assert!((lon - 1.0).abs() < 1e-4 && slot == 3, "{n}: {lon} {slot}");
+            assert!((lon - 1.5).abs() < 1e-4 && slot == 5, "{n}: {lon} {slot}");
         }
         fs::remove_dir_all(&dir).unwrap();
     }

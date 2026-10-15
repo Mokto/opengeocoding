@@ -16,7 +16,7 @@ use arrow_array::{
 };
 use geo::{Assigner, KINDS, Poly, wkb_point, wkb_polygons};
 use opengeocoding::index::schema::{
-    self, Bucket, NO_POSTCODE, Num, NumberSpill, fold, fold_into, pack, pc_norm,
+    self, Bucket, NO_POSTCODE, Num, NumberSpill, fold, fold_into, pack, pc_norm, with_rank,
 };
 use parquet::arrow::{
     ProjectionMask,
@@ -769,6 +769,8 @@ struct Sink<'s, 'a> {
     lower: String,
     cell_key: String,
     pcn: String,
+    /// Which source these rows come from: see `schema::with_rank`.
+    rank: u8,
 }
 
 fn nonempty(s: Option<&str>) -> Option<&str> {
@@ -790,7 +792,13 @@ impl<'s, 'a> Sink<'s, 'a> {
             lower: String::new(),
             cell_key: String::new(),
             pcn: String::new(),
+            rank: 0,
         }
+    }
+
+    fn ranked(mut self, rank: u8) -> Self {
+        self.rank = rank;
+        self
     }
 
     /// One address. Without a country, the containing place's is used. `number` may list
@@ -898,7 +906,13 @@ impl<'s, 'a> Sink<'s, 'a> {
             self.lower.clear();
             self.lower.push_str(&schema::number_key(n));
             let (px, py) = pack(x, y, 0);
-            match Num::new(li, &self.lower, px, py, pc_id.unwrap_or(NO_POSTCODE)) {
+            match Num::new(
+                li,
+                &self.lower,
+                with_rank(px, self.rank),
+                py,
+                pc_id.unwrap_or(NO_POSTCODE),
+            ) {
                 Ok(v) => self.nums.short.push(v),
                 Err(v) => self.nums.long.push(v),
             }

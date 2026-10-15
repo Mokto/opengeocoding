@@ -280,7 +280,7 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
                 drop(tx);
             });
             rx.into_iter().par_bridge().for_each_init(
-                || Sink::new(shared),
+                || Sink::new(shared).ranked(1),
                 |sink, block| {
                     for line in block.lines() {
                         let Ok(f) = serde_json::from_str::<Feature>(line) else {
@@ -678,7 +678,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             path,
             &offsets,
             nodes,
-            || (Sink::new(shared), Collect(vec![], &ended)),
+            || (Sink::new(shared).ranked(2), Collect(vec![], &ended)),
             |(sink, end), block| {
                 for g in block.groups() {
                     let (lo, hi) = g.dense_nodes().fold((i64::MAX, i64::MIN), |(lo, hi), n| {
@@ -721,7 +721,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             path,
             &offsets,
             ways,
-            || Sink::new(shared),
+            || Sink::new(shared).ranked(2),
             |sink, block| {
                 for w in block.groups().flat_map(|g| g.ways()) {
                     let Some(a) = Addr::from(w.tags()) else {
@@ -744,7 +744,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             let v = coords[k].load(Relaxed);
             (v != u64::MAX).then(|| unpack(v))
         };
-        let mut sink = Sink::new(shared);
+        let mut sink = Sink::new(shared).ranked(2);
         for i in &interps {
             let line: Vec<Option<(f64, f64)>> = i.refs.iter().map(|&r| coord(r)).collect();
             let end = |r: i64| {
