@@ -176,6 +176,9 @@ fn with_held_slot(x: u32, slot: u8) -> u32 {
 const NEAR_X: u32 = 186;
 const NEAR_Y: u32 = 71_583;
 
+/// A house being written: street, key, packed point, and the copies averaged into it.
+type Kept = (u32, Vec<u8>, u32, u32, (u64, u64, u64));
+
 /// An FST value: longitude in 24 bits (about 2 m), the house's postcode as a 1-based index into
 /// its street's stored `pcode` list (0 = none) in 8 bits, then latitude in 32 bits.
 pub fn pack(lon: f64, lat: f64, postcode: u8) -> (u32, u32) {
@@ -378,22 +381,21 @@ fn shard(
     // source's copy of the same house, so a later duplicate lends its postcode slot. Copies from
     // the best source within `NEAR` of the first are averaged: a building with units has one
     // point per unit, and the middle of them beats an edge. `(copies, sum x, sum y)` counts them.
-    let mut pending: Option<(u32, Vec<u8>, u32, u32, (u64, u64, u64))> = None;
-    let mut emit =
-        |(sid, key, mut x, mut y, (copies, sx, sy)): (u32, Vec<u8>, u32, u32, (u64, u64, u64))| {
-            if copies > 1 {
-                x = (x & !0xff_ffff) | (sx / copies) as u32;
-                y = (sy / copies) as u32;
-            }
-            let x = x & ((1 << RANK_SHIFT) - 1);
-            fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
-            n += 1;
-            if sid != run_sid {
-                super::reverse::street_postings(&mut run, run_sid, &mut posts);
-                run_sid = sid;
-            }
-            run.push(super::reverse::key(x, y));
-        };
+    let mut pending: Option<Kept> = None;
+    let mut emit = |(sid, key, mut x, mut y, (copies, sx, sy)): Kept| {
+        if copies > 1 {
+            x = (x & !0xff_ffff) | (sx / copies) as u32;
+            y = (sy / copies) as u32;
+        }
+        let x = x & ((1 << RANK_SHIFT) - 1);
+        fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
+        n += 1;
+        if sid != run_sid {
+            super::reverse::street_postings(&mut run, run_sid, &mut posts);
+            run_sid = sid;
+        }
+        run.push(super::reverse::key(x, y));
+    };
     while i < a.len() || j < b.len() {
         let take_a = j == b.len()
             || (i < a.len() && (a[i].sid, a[i].bytes()) <= (b[j].sid, b[j].num.as_bytes()));
