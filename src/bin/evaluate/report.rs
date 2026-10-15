@@ -834,10 +834,22 @@ fn latency(
         )
     };
     format!(
-        "\n<!-- speed: {verdict} -->\n## Speed: {headline}\n\nSearchAddress time in ms over {} cases, each the fastest of {} requests.\n\n{table}\nFails when the total, p50, p90 or p99 is more than {limit:.0}% slower. Runs of one binary differ by up to 5%; the max is one case and only reported.\n<!-- speed end -->\n",
+        "\n<!-- speed: {verdict} -->\n## Speed: {headline}\n\n### SearchAddress\n\nTime in ms over {} cases, each the fastest of {} requests.\n\n{table}\nFails when the total, p50, p90 or p99 is more than {limit:.0}% slower. Runs of one binary differ by up to 5%; the max is one case and only reported.\n<!-- speed end -->\n",
         old_ms.len(),
         repeats[1]
     )
+}
+
+/// "SearchAddress 3340 → 3342 of 3759 passing (+2, +0.1%)", or "... 3342 of 3759 passing, unchanged".
+fn passing(name: &str, [base, head]: [usize; 2], total: usize) -> String {
+    if base == head {
+        return format!("{name} {head} of {total} passing, unchanged");
+    }
+    let (delta, pct) = (
+        head as i64 - base as i64,
+        100. * (head as f64 / base.max(1) as f64 - 1.),
+    );
+    format!("{name} {base} → {head} of {total} passing ({delta:+}, {pct:+.1}%)")
 }
 
 /// A collapsed (or `open`) section; the blank lines let GitHub render the markdown inside.
@@ -890,6 +902,7 @@ pub fn diff(
             );
         }
     }
+    let headline_at = report.len();
     report += &fold("Runs", &runs, false);
     let speed = latency(&shared, &old, &new, [&old_manifest, &new_manifest]);
     report += &speed.replace(
@@ -901,10 +914,13 @@ pub fn diff(
     let mut changed: IndexMap<&str, Vec<String>> = IndexMap::new();
     let mut by_cohort: BTreeMap<String, BTreeMap<&str, usize>> = BTreeMap::new();
     let mut scored = false;
+    let mut search_pass = [0; 2];
     // Per check kind: checked, base passing, head passing, head's other classes.
     let mut suggest_counts: BTreeMap<&str, [usize; 6]> = BTreeMap::new();
     for id in &shared {
         let (a, b) = (&old[*id], &new[*id]);
+        search_pass[0] += usize::from(a.class == "pass");
+        search_pass[1] += usize::from(b.class == "pass");
         let cohort = cases
             .get(id.as_str())
             .map_or("?".into(), |c| c.cohort.clone());
@@ -1013,6 +1029,17 @@ pub fn diff(
         }
         report += "\nOnly cohorts with a change and kinds that occur are shown. gained/lost: a result appeared/disappeared; finer/coarser: resolution level; moved: >1 km; nudged: <1 km but visible at 3 decimals.\n";
     }
+    let mut headline = vec![passing("SearchAddress", search_pass, shared.len())];
+    if !suggest_counts.is_empty() {
+        let sums = suggest_counts
+            .values()
+            .fold([0; 3], |t, c| [t[0] + c[0], t[1] + c[1], t[2] + c[2]]);
+        headline.push(passing("SuggestAddress", [sums[1], sums[2]], sums[0]));
+    }
+    report.insert_str(
+        headline_at,
+        &format!("<!-- headline: {} -->\n", headline.join(" · ")),
+    );
     if !suggest_counts.is_empty() {
         report += "\n## SuggestAddress\n\n| Check | Checked | Pass base | Pass head | Change | ranked_low | missing | error |\n|---|---:|---:|---:|---:|---:|---:|---:|\n";
         for (name, c) in &suggest_counts {
@@ -1351,6 +1378,14 @@ mod tests {
         assert!(
             report.contains("| name | 1 | 1 | 0 | -1 | 1 | 0 | 0 |"),
             "{report}"
+        );
+        assert!(
+            report.contains("\n<!-- headline: SearchAddress 1 of 1 passing, unchanged · SuggestAddress 1 → 0 of 1 passing (-1, -100.0%) -->\n"),
+            "{report}"
+        );
+        assert_eq!(
+            passing("SearchAddress", [3340, 3342], 3759),
+            "SearchAddress 3340 → 3342 of 3759 passing (+2, +0.1%)"
         );
         let (a, b) = (load_side(&old).unwrap().1, load_side(&new).unwrap().1);
         let ids: Vec<_> = a.keys().collect();
