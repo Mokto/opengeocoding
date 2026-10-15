@@ -118,6 +118,9 @@ pub struct SuggestCheck {
     pub error: Option<String>,
     #[serde(default)]
     pub found: Vec<Suggested>,
+    /// The fastest of `repeat` requests, as for a SearchAddress case.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ms: Option<f64>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
