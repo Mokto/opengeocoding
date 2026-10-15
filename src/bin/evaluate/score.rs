@@ -371,7 +371,14 @@ fn score_one(expect: &Expect, response: &Value, confidence: bool) -> Score {
             _ => continue,
         };
         let actual = text(d, field);
-        if !actual.is_empty() && compact(actual) != compact(value) {
+        // a ZIP+4 is its ZIP, more precisely
+        let plus4 = key == "postcode"
+            && actual.split_once('-').is_some_and(|(zip, four)| {
+                compact(zip) == compact(value)
+                    && four.len() == 4
+                    && four.bytes().all(|b| b.is_ascii_digit())
+            });
+        if !actual.is_empty() && compact(actual) != compact(value) && !plus4 {
             result.flags.push(format!("{key}={actual:?}"));
             return done(result, "wrong_component");
         }
@@ -693,6 +700,16 @@ mod tests {
         assert_eq!(
             class(&house, &full("us", 40.7479, -73.9851, true, right_house)),
             "pass"
+        );
+        let zip4 = json!({"houseNumber": "350", "road": "5th Avenue", "postcode": "10118-0110"});
+        assert_eq!(
+            class(&house, &full("us", 40.7479, -73.9851, true, zip4)),
+            "pass"
+        );
+        let other = json!({"houseNumber": "350", "road": "5th Avenue", "postcode": "10119-0110"});
+        assert_eq!(
+            class(&house, &full("us", 40.7479, -73.9851, true, other)),
+            "wrong_component"
         );
 
         let mut capped = kyoto.clone();

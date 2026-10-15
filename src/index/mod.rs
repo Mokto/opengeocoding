@@ -521,6 +521,39 @@ impl tantivy_fst::Automaton for OneEdit<'_> {
     }
 }
 
+/// A house's own postcode against the stated one. A street typed wrongly and a postcode the
+/// house contradicts are two doubts at once, so the respelt street answers only without the second.
+fn postcode_not_contradicted(own: Option<&str>, stated: Option<&str>) -> bool {
+    match (own.map(pc_norm), stated.map(pc_norm)) {
+        (Some(o), Some(s)) if !o.is_empty() && !s.is_empty() => o == s,
+        _ => true,
+    }
+}
+
+/// A typed street word that the index would correct to `indexed`: a name word within one edit
+/// and with the same first letter ("whte" for "white"), or a misspelt street type or direction
+/// ("srteet" for "st").
+pub fn misspelt_word(typed: &str, indexed: &str) -> bool {
+    (fuzzable(typed) && typed.chars().next() == indexed.chars().next() && one_edit(typed, indexed))
+        || misspelt_kind(typed).iter().any(|k| k == indexed)
+}
+
+/// The canonical forms of every street type or direction within an edit of `word`:
+/// "southewst" is as near "southeast" as "southwest", and only the street tells which.
+fn misspelt_kind(word: &str) -> Vec<String> {
+    if canon::is_canonical(word) {
+        return vec![];
+    }
+    let mut kinds: Vec<String> = canon::VARIANTS
+        .iter()
+        .filter(|(full, _)| one_edit(word, full))
+        .map(|(_, short)| short.to_string())
+        .collect();
+    kinds.sort_unstable();
+    kinds.dedup();
+    kinds
+}
+
 /// Within one insertion, deletion, substitution or transposition of adjacent letters.
 fn one_edit(a: &str, b: &str) -> bool {
     let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
@@ -765,7 +798,7 @@ fn japanese(q: &str) -> Vec<(String, String, String)> {
 /// "Vas County" -> "Vas", "Departamento de Santa Cruz" -> "Santa Cruz": words that classify a
 /// region rather than name it, which the data's names mostly leave out.
 fn without_admin_word(text: &str) -> Option<String> {
-    const WORDS: [&str; 30] = [
+    const WORDS: [&str; 33] = [
         "county",
         "department",
         "departement",
@@ -796,8 +829,13 @@ fn without_admin_word(text: &str) -> Option<String> {
         "raion",
         "voivodeship",
         "city",
+        // US municipalities as registries write them: "Irvington Township", "Lemoyne Borough",
+        // "Christiansburg Town", "City and Borough of Juneau"
+        "township",
+        "borough",
+        "town",
     ];
-    const LINKS: [&str; 6] = ["of", "de", "del", "di", "du", "do"];
+    const LINKS: [&str; 7] = ["of", "de", "del", "di", "du", "do", "and"];
     let words: Vec<&str> = text.split_whitespace().collect();
     let kept: Vec<&str> = words
         .iter()
@@ -978,18 +1016,24 @@ fn field<'a>(parsed: &'a [(String, String)], key: &str) -> &'a str {
 /// "14 Breezewood Common, East Amherst, NY 14051" puts "East" in the road, and "3 Canterbury
 /// Street, Egg Harbor Township, NJ 08234" splits the town. Each outer part parses cleanly alone
 /// (`head` as only a house number and road, `tail` as only a state and postcode), so when the
-/// parse of the `whole` query names a different town, the middle part is the town. A whole parse
-/// without a town is left alone (the town check it then skips would be a new, stricter one), and
-/// so is one that splits the middle into a suburb and a town ("Avondale Goodyear").
+/// parse of the `whole` query names a different town, or none because its road swallowed the
+/// middle part ("4724 3rd Place Northwest, Washingotn, DC"), the middle part is the town. A whole
+/// parse without a town whose road is its own is left alone (the town check it then skips would be
+/// a new, stricter one), and so is one that splits the middle into a suburb and a town ("Avondale
+/// Goodyear").
 pub fn comma_aligned(
     head: &[(String, String)],
+    extras: &[&str],
     middle: &str,
     tail: &[(String, String)],
     whole: &[(String, String)],
 ) -> Option<Vec<(String, String)>> {
     let only =
         |a: &[(String, String)], keys: &[&str]| a.iter().all(|(k, _)| keys.contains(&k.as_str()));
-    if !alignable(middle, whole)
+    if !alignable(middle, extras, whole)
+        || extras
+            .iter()
+            .any(|e| e.trim().is_empty() || e.chars().any(|c| c.is_ascii_digit()))
         || !head_aligns(head)
         || field(tail, "postcode").is_empty()
         || !only(tail, &["state", "postcode"])
@@ -998,6 +1042,11 @@ pub fn comma_aligned(
     }
     let middle = middle.trim().to_lowercase();
     let mut aligned = head.to_vec();
+    aligned.extend(
+        extras
+            .iter()
+            .map(|e| ("state_district".to_string(), e.trim().to_lowercase())),
+    );
     aligned.push(("city".into(), middle));
     aligned.extend(tail.iter().cloned());
     Some(aligned)
@@ -1005,22 +1054,115 @@ pub fn comma_aligned(
 
 /// The checks of [`comma_aligned`] that need no parse of the outer parts, so the two extra
 /// libpostal calls are made only for the few queries that can still pass.
-fn alignable(middle: &str, whole: &[(String, String)]) -> bool {
+fn alignable(middle: &str, extras: &[&str], whole: &[(String, String)]) -> bool {
     let middle = middle.trim().to_lowercase();
+    let (city, road, suburb) = (
+        field(whole, "city"),
+        field(whole, "road"),
+        field(whole, "suburb"),
+    );
+    // a road read as a suburb ("2219 Pacific Coast Highway, Lomita")
+    let road_as_suburb = road.is_empty() && !suburb.is_empty();
+    // a county part read into the road ("15 Westervelt Place, Essex, Irvington Township")
+    let county_in_road = extras.iter().any(|e| {
+        let e = e.trim().to_lowercase();
+        !e.is_empty() && road.contains(&e)
+    });
     !middle.is_empty()
         && !middle.chars().any(|c| c.is_ascii_digit())
         && field(whole, "country").is_empty()
-        && !field(whole, "city").is_empty()
-        && field(whole, "suburb").is_empty()
+        && (!city.is_empty() || road.contains(&middle))
+        && (suburb.is_empty() || road_as_suburb)
         && field(whole, "city_district").is_empty()
-        && field(whole, "city") != middle
+        && (city != middle || road_as_suburb || county_in_road)
+}
+
+/// "701 GREENWOOD Avenue, OH 45229": with no town, libpostal takes the street type for one
+/// ("road=greenwood", "city=avenue"), or the state for part of the road ("1516 RUTH Avenue, OH"
+/// gives "road=ruth avenue oh"). When the street part alone parses as a house on a road, and the
+/// state part as a state, those are the parse.
+pub fn street_aligned(
+    head: &[(String, String)],
+    head_text: &str,
+    tail: &[(String, String)],
+    whole: &[(String, String)],
+) -> Option<Vec<(String, String)>> {
+    let city = field(whole, "city");
+    let misread = (!city.is_empty() && head_text.to_lowercase().contains(city))
+        || field(whole, "state").is_empty();
+    let only = tail
+        .iter()
+        .all(|(k, _)| matches!(k.as_str(), "state" | "postcode"));
+    (misread && head_aligns(head) && only && !field(tail, "state").is_empty())
+        .then(|| head.iter().chain(tail).cloned().collect())
+}
+
+/// A US state code, alone or before a ZIP: the second part of "street, STATE ZIP".
+fn state_part(part: &str) -> bool {
+    static STATE: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"^[A-Za-z]{2}(\s+\d{5}(-\d{4})?)?$").unwrap());
+    STATE.is_match(part.trim())
 }
 
 fn head_aligns(head: &[(String, String)]) -> bool {
     !field(head, "road").is_empty()
         && head
             .iter()
-            .all(|(k, _)| matches!(k.as_str(), "house_number" | "road"))
+            .all(|(k, _)| matches!(k.as_str(), "house_number" | "road" | "unit"))
+}
+
+/// "Country, STATE ZIP, town, number street": libpostal reads such a reversed address front to
+/// back and finds two roads ("road=shawnee", "road=south dixon avenue") or takes the country for
+/// a district, or with the state as one road ("road=united states wy"). When the first part is
+/// the country, the parts in the usual order, if they parse into one house on one road.
+fn reversed(
+    q: &str,
+    whole: &[(String, String)],
+    libpostal: impl Fn(&str) -> Result<Vec<(String, String)>>,
+) -> Result<Option<String>> {
+    let parts: Vec<&str> = q.split(',').map(str::trim).collect();
+    if parts.len() < 3 {
+        return Ok(None);
+    }
+    let labelled = whole.first().is_some_and(|(k, v)| {
+        matches!(k.as_str(), "country" | "state_district") && *v == parts[0].to_lowercase()
+    });
+    let repeats = whole
+        .iter()
+        .enumerate()
+        .any(|(i, (k, _))| whole[..i].iter().any(|(seen, _)| seen == k));
+    let country_first =
+        labelled || (repeats && matches!(&libpostal(parts[0])?[..], [(k, _)] if k == "country"));
+    Ok(country_first.then(|| parts.into_iter().rev().collect::<Vec<_>>().join(", ")))
+}
+
+fn one_house(parsed: &[(String, String)]) -> bool {
+    ["house_number", "road"]
+        .iter()
+        .all(|key| parsed.iter().filter(|(k, _)| k == key).count() == 1)
+}
+
+/// A unit libpostal left at the end of the road ("south fillmore street #b", "201st avenue
+/// souhtwest apt 10a"), moved to its own field. The unit has a digit or is one letter, so "Ste
+/// Foy" and "Rue Sainte Anne" keep theirs.
+fn unit_from_road(parsed: &mut Vec<(String, String)>) {
+    static UNIT: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+            r"^(.+?)\s+((?:#\s*|(?:apt|apartment|unit|suite|ste)\.?\s+#?)(?:[a-z]|[a-z]{0,3}\d[a-z0-9-]{0,4}))$",
+        )
+        .unwrap()
+    });
+    if parsed.iter().any(|(k, _)| k == "unit") {
+        return;
+    }
+    let Some(at) = parsed.iter().position(|(k, _)| k == "road") else {
+        return;
+    };
+    if let Some(c) = UNIT.captures(&parsed[at].1) {
+        let (road, unit) = (c[1].to_string(), c[2].to_string());
+        parsed[at].1 = road;
+        parsed.insert(at + 1, ("unit".into(), unit));
+    }
 }
 
 /// The process's one libpostal parser.
@@ -1083,16 +1225,54 @@ impl Parser {
                     .collect())
             };
             let whole = libpostal(q)?;
-            let mut aligned = None;
-            if let [head, middle, tail] = q.split(',').collect::<Vec<_>>()[..]
-                && alignable(middle, &whole)
-            {
-                let head = libpostal(head)?;
-                if head_aligns(&head) {
-                    aligned = comma_aligned(&head, middle, &libpostal(tail)?, &whole);
+            let mut parts: Vec<&str> = q.split(',').collect();
+            // "…, NJ 07111, United States": the country part is set aside while the rest aligns
+            let country = match whole.last() {
+                Some((k, v))
+                    if k == "country"
+                        && parts.len() >= 3
+                        && parts.last().is_some_and(|p| p.trim().to_lowercase() == *v) =>
+                {
+                    parts.pop();
+                    Some((k.clone(), v.clone()))
                 }
+                _ => None,
+            };
+            let inner: Vec<_> = whole
+                .iter()
+                .filter(|(k, _)| country.is_none() || k != "country")
+                .cloned()
+                .collect();
+            let mut aligned = None;
+            match parts[..] {
+                [head, tail] if state_part(tail) => {
+                    aligned = street_aligned(
+                        &libpostal(head.trim())?,
+                        head,
+                        &libpostal(tail.trim())?,
+                        &inner,
+                    );
+                }
+                // "street, county, town, STATE ZIP": the parts between the street and the town
+                // are the county
+                [head, ref extras @ .., middle, tail] if alignable(middle, extras, &inner) => {
+                    let head = libpostal(head.trim())?;
+                    if head_aligns(&head) {
+                        aligned =
+                            comma_aligned(&head, extras, middle, &libpostal(tail.trim())?, &inner);
+                    }
+                }
+                _ => {}
             }
-            aligned.unwrap_or(whole).into_iter().collect()
+            let mut parsed = match aligned {
+                Some(mut a) => {
+                    a.extend(country);
+                    a
+                }
+                None => whole,
+            };
+            unit_from_road(&mut parsed);
+            parsed.into_iter().collect()
         };
         if self.capacity > 0 {
             let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
@@ -1102,6 +1282,17 @@ impl Parser {
             cache.insert(q.into(), parsed.clone());
         }
         Ok(parsed)
+    }
+
+    /// A reversed address ("Country, STATE ZIP, town, number street") in the usual order, for
+    /// the caller to resolve instead. Not done in [`Self::parse`]: the resolver's structured
+    /// re-queries are written country first on purpose.
+    pub fn reordered(&self, q: &str) -> Result<Option<String>> {
+        let whole = self.parse(q)?;
+        let Some(turned) = reversed(q, &whole, |t| Ok(self.parse(t)?.to_vec()))? else {
+            return Ok(None);
+        };
+        Ok(one_house(&self.parse(&turned)?).then_some(turned))
     }
 }
 
@@ -1423,7 +1614,7 @@ impl Index {
             && let Some(bare) = without_admin_word(text)
         {
             // "Kreisfreie Stadt München" names a city; "Vas County" an area
-            let city_word = ["city", "stadt", "kreisfreie"]
+            let city_word = ["city", "stadt", "kreisfreie", "township", "borough", "town"]
                 .iter()
                 .any(|w| text.split_whitespace().any(|t| t.to_lowercase() == *w));
             return self.places_named(&bare, cc, within, ok, !city_word);
@@ -1563,14 +1754,13 @@ impl Index {
             return self
                 .streets_by(&name, number, city, &named, postcode, cc)
                 .into_iter()
-                .filter(|h| {
-                    matches!(
-                        h,
-                        Hit::Street {
-                            number: Some(_),
-                            ..
-                        }
-                    )
+                .filter(|h| match h {
+                    Hit::Street {
+                        number: Some(_),
+                        postcode: own,
+                        ..
+                    } => postcode_not_contradicted(own.as_deref(), postcode),
+                    _ => false,
                 })
                 .collect();
         }
@@ -1628,19 +1818,11 @@ impl Index {
         if missing.next().is_some() || !fuzzable(word) {
             return None;
         }
-        let kind = (!canon::is_canonical(word))
-            .then(|| {
-                canon::VARIANTS
-                    .iter()
-                    .find(|(full, _)| one_edit(word, full))
-            })
-            .flatten();
-        let alternatives: Vec<String> = match kind {
-            Some((_, short)) => vec![short.to_string()],
-            // the words themselves, not tantivy's FuzzyTermQuery: that marks every document
-            // holding any of them in a bitset per segment before the scope narrows anything
-            None => self.terms_near(word).to_vec(),
-        };
+        // a street type or direction, or a name ("adlee" is near "allee" and "adele"); the
+        // words themselves, not tantivy's FuzzyTermQuery: that marks every document holding any
+        // of them in a bitset per segment before the scope narrows anything
+        let mut alternatives = misspelt_kind(word);
+        alternatives.extend(self.terms_near(word).iter().cloned());
         if alternatives.is_empty() {
             return None;
         }
@@ -2088,6 +2270,29 @@ impl Index {
             .find(|t| !self.places(t, cc, None, &local).is_empty())
     }
 
+    /// Whether a place named exactly `name` (in country `cc`, if given) has its centre within
+    /// `km` of the point.
+    /// "Maplewood Township" may be named "Maplewood".
+    pub fn place_near(&self, name: &str, cc: Option<&str>, lat: f32, lon: f32, km: f32) -> bool {
+        std::iter::once(name.to_string())
+            .chain(without_admin_word(name))
+            .any(|name| {
+                let want = name_key(&name);
+                let local =
+                    |p: &Place| !matches!(&*p.subtype, "country" | "dependency") && p.named(want);
+                self.places(&name, cc, None, &local)
+                    .iter()
+                    .any(|h| match h {
+                        Hit::Place(id) => {
+                            let p = &self.places[*id as usize];
+                            let dx = (p.x - lon) * lat.to_radians().cos();
+                            dx.hypot(p.y - lat) * 111.2 < km
+                        }
+                        _ => false,
+                    })
+            })
+    }
+
     /// The postcode's own places, as hits to render.
     pub fn postcode_hits(&self, pc: &str, cc: Option<&str>) -> Vec<Hit> {
         self.postcodes(pc, cc)
@@ -2159,6 +2364,55 @@ impl Index {
             .map(|(code, &place)| (code.as_str(), place))
     }
 
+    /// Whether every street named `road` in place `within` that holds house `number` holds it
+    /// within about a kilometre of the others: one house, perhaps on several segments.
+    fn house_unique_in(&self, road: &str, number: &str, within: u32) -> bool {
+        const MAX: usize = 1000;
+        let mut cl = self.musts(self.f.names, road);
+        if cl.is_empty() {
+            return false;
+        }
+        cl.push(must(term(self.f.ids, &within.to_string())));
+        let top = self.top_of(Kind::Street, None, cl, MAX);
+        let number = schema::number_key(number);
+        let houses: Vec<(f64, f64)> = top
+            .iter()
+            .filter(|&&a| {
+                let sid = self.fast(a, "id") as u32;
+                let mut key = sid.to_be_bytes().to_vec();
+                key.extend_from_slice(number.as_bytes());
+                self.numbers[sid as usize % self.numbers.len()]
+                    .get(&key)
+                    .is_some()
+            })
+            .map(|&a| (self.fast_f64(a, "x"), self.fast_f64(a, "y")))
+            .collect();
+        top.len() < MAX
+            && houses
+                .first()
+                .is_some_and(|&(x0, y0)| houses.iter().all(|&(x, y)| (x - x0).hypot(y - y0) < 0.01))
+    }
+
+    /// A US state's region place, by its postal code ("OH") or its name.
+    fn us_state(&self, state: &str) -> Option<u32> {
+        let state = state.trim();
+        if state.len() == 2 {
+            return self
+                .regions
+                .get(&format!("US-{}", state.to_uppercase()))
+                .copied();
+        }
+        let want = name_key(state);
+        self.places(state, Some("us"), None, &|p| {
+            &*p.subtype == "region" && p.named(want)
+        })
+        .into_iter()
+        .find_map(|h| match h {
+            Hit::Place(id) => Some(id),
+            _ => None,
+        })
+    }
+
     /// `<cc>, <ISO 3166-2 code>`, as a query for a region by its code.
     fn region_query(&self, q: &str) -> Option<u32> {
         let (cc, code) = q.split_once(", ")?;
@@ -2226,10 +2480,18 @@ impl Index {
             .iter()
             .find(|(l, _)| l == "postcode")
             .map(|(_, v)| pc_norm(v));
+        // Not a US house number that is also a ZIP ("15411 Woodcliffe Trail, IN"): a lone
+        // "41400 Montrichard" part still gives its postcode.
+        let house = parsed
+            .iter()
+            .find(|(l, _)| l == "house_number")
+            .map(|(_, v)| pc_norm(v))
+            .filter(|_| parsed.iter().any(|(l, _)| l == "state"));
         if let Some((pc, rest)) = self.find_postcode(q, first_cc.as_deref())
             && stated.as_ref().is_none_or(|s| {
                 pc_norm(&pc).len() > s.len() && pc_norm(&pc).starts_with(s.as_str())
             })
+            && house != Some(pc_norm(&pc))
         {
             parsed = self.parse(&rest);
             parsed.push(("postcode".into(), pc));
@@ -2351,6 +2613,40 @@ impl Index {
                     }
                 }
             }
+        }
+        // "1516 Ruth Avenue, OH": a house with only its US state to place it, answered when the
+        // state holds that number on one street of that name.
+        if hits.is_empty()
+            && city.is_none()
+            && get("postcode").is_none()
+            && cc.is_none_or(|c| c == "us")
+            && let (Some(road), Some(n), Some(state)) =
+                (roads.last(), get("house_number").map(house_number), state)
+            && let Some(region) = self.us_state(state)
+            && self.house_unique_in(without_number_mark(road), n, region)
+        {
+            let name = self.places[region as usize].primary.to_string();
+            let found: Vec<Hit> = self
+                .streets_by(
+                    without_number_mark(road),
+                    Some(n),
+                    Some(&name),
+                    &[region],
+                    None,
+                    Some("us"),
+                )
+                .into_iter()
+                .filter(|h| {
+                    matches!(
+                        h,
+                        Hit::Street {
+                            number: Some(_),
+                            ..
+                        }
+                    )
+                })
+                .collect();
+            hits = found.into_iter().take(1).collect();
         }
         // "Santiago, Metropolitana, Chile" parses "santiago" as a road: without a house number,
         // an unmatched road is tried as a place name too.
@@ -3189,6 +3485,63 @@ mod tests {
     }
 
     #[test]
+    fn reversed_addresses_are_turned_and_units_leave_the_road() {
+        let pairs = |p: &[(&str, &str)]| -> Vec<(String, String)> {
+            p.iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect()
+        };
+        let country = |text: &str| -> Result<Vec<(String, String)>> {
+            Ok(if text == "United States" {
+                pairs(&[("country", "united states")])
+            } else {
+                pairs(&[("road", "x")])
+            })
+        };
+        let q = "United States, WY 82636, Evansville, 498 Hat Six Road";
+        let two_roads = pairs(&[
+            ("road", "united states wy"),
+            ("postcode", "82636"),
+            ("road", "evansville"),
+            ("house_number", "498"),
+            ("road", "hat six road"),
+        ]);
+        assert_eq!(
+            reversed(q, &two_roads, country).unwrap().as_deref(),
+            Some("498 Hat Six Road, Evansville, WY 82636, United States")
+        );
+        let labelled = pairs(&[("country", "france"), ("postcode", "76160")]);
+        assert!(
+            reversed("France, 76160 Darnétal, 2 Rue X", &labelled, country)
+                .unwrap()
+                .is_some()
+        );
+        // repeated roads after a street, not a country, are left alone
+        let q = "Nieuwe Bosscheweg 6, 5017 JM Tilburg, Netherlands";
+        let repeats = pairs(&[("road", "nieuwe bosscheweg"), ("road", "jm")]);
+        assert!(reversed(q, &repeats, country).unwrap().is_none());
+        assert!(one_house(&pairs(&[("house_number", "1"), ("road", "a")])));
+        assert!(!one_house(&two_roads));
+
+        for (road, kept, unit) in [
+            ("south fillmore street #b", "south fillmore street", "#b"),
+            (
+                "201st avenue souhtwest apt 10a",
+                "201st avenue souhtwest",
+                "apt 10a",
+            ),
+            ("main street suite 200", "main street", "suite 200"),
+            ("rue ste foy", "rue ste foy", ""),
+            ("avenue unit", "avenue unit", ""),
+        ] {
+            let mut parsed = pairs(&[("house_number", "1"), ("road", road)]);
+            unit_from_road(&mut parsed);
+            assert_eq!(field(&parsed, "road"), kept, "{road}");
+            assert_eq!(field(&parsed, "unit"), unit, "{road}");
+        }
+    }
+
+    #[test]
     fn one_edit_apart() {
         for (a, b) in [
             ("srteet", "street"),
@@ -3208,6 +3561,13 @@ mod tests {
         ] {
             assert!(!one_edit(a, b), "{a} {b}");
         }
+        assert_eq!(misspelt_kind("southewst"), ["se", "sw"]);
+        assert_eq!(misspelt_kind("srteet"), ["st"]);
+        assert!(misspelt_kind("sw").is_empty());
+        assert!(postcode_not_contradicted(Some("04103"), Some("04103")));
+        assert!(postcode_not_contradicted(None, Some("04103")));
+        assert!(postcode_not_contradicted(Some("04101"), None));
+        assert!(!postcode_not_contradicted(Some("04101"), Some("04103")));
         use tantivy_fst::Automaton;
         let run = |word: &str, input: &str| {
             let a = OneEdit(word.as_bytes());
@@ -3253,6 +3613,14 @@ mod tests {
             Some("München")
         );
         assert_eq!(without_admin_word("County"), None);
+        assert_eq!(
+            without_admin_word("Maplewood Township").as_deref(),
+            Some("Maplewood")
+        );
+        assert_eq!(
+            without_admin_word("City and Borough of Juneau").as_deref(),
+            Some("Juneau")
+        );
         assert_eq!(without_admin_word("Leinster"), None);
         assert_eq!(house_number("No:5"), "5");
         assert_eq!(without_number_mark("köprüsü sk. no"), "köprüsü sk.");

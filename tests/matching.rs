@@ -160,6 +160,13 @@ fn pairs(values: &[(&str, &str)]) -> Vec<(String, String)> {
         .collect()
 }
 
+fn field_of<'a>(parsed: &'a [(String, String)], key: &str) -> &'a str {
+    parsed
+        .iter()
+        .find(|(k, _)| k == key)
+        .map_or("", |(_, v)| v.as_str())
+}
+
 #[test]
 fn commas_bound_the_town_in_street_town_state_postcode() {
     use opengeocoding::index::comma_aligned;
@@ -173,7 +180,7 @@ fn commas_bound_the_town_in_street_town_state_postcode() {
         ("state", "ny"),
         ("postcode", "14051"),
     ]);
-    let aligned = comma_aligned(&head, " East Amherst", &tail, &whole).unwrap();
+    let aligned = comma_aligned(&head, &[], " East Amherst", &tail, &whole).unwrap();
     assert_eq!(
         aligned,
         pairs(&[
@@ -187,18 +194,80 @@ fn commas_bound_the_town_in_street_town_state_postcode() {
     // already agreeing, a country stated, a middle that is no town, or outer parts that carry
     // more than the street and the region leave the parse alone
     let agreeing = pairs(&[("city", "east amherst")]);
-    assert!(comma_aligned(&head, "East Amherst", &tail, &agreeing).is_none());
+    assert!(comma_aligned(&head, &[], "East Amherst", &tail, &agreeing).is_none());
     let mut with_country = whole.clone();
     with_country.push(("country".into(), "usa".into()));
-    assert!(comma_aligned(&head, "East Amherst", &tail, &with_country).is_none());
-    assert!(comma_aligned(&head, "Unit 4", &tail, &whole).is_none());
+    assert!(comma_aligned(&head, &[], "East Amherst", &tail, &with_country).is_none());
+    assert!(comma_aligned(&head, &[], "Unit 4", &tail, &whole).is_none());
     let no_town: Vec<_> = whole.iter().filter(|(k, _)| k != "city").cloned().collect();
-    assert!(comma_aligned(&head, "Bronx", &tail, &no_town).is_none());
+    assert!(comma_aligned(&head, &[], "Bronx", &tail, &no_town).is_none());
+    // a road that swallowed the town ("4724 3rd Place Northwest, Washingotn, DC 20011")
+    let swallowed = pairs(&[
+        ("house_number", "14"),
+        ("road", "breezewood common washingotn"),
+        ("state", "ny"),
+        ("postcode", "14051"),
+    ]);
+    let aligned = comma_aligned(&head, &[], "Washingotn", &tail, &swallowed).unwrap();
+    assert_eq!(field_of(&aligned, "city"), "washingotn");
+    assert_eq!(field_of(&aligned, "road"), "breezewood common");
     let mut split = whole.clone();
     split.push(("suburb".into(), "avondale".into()));
-    assert!(comma_aligned(&head, "Avondale Goodyear", &tail, &split).is_none());
+    assert!(comma_aligned(&head, &[], "Avondale Goodyear", &tail, &split).is_none());
     let town_in_tail = pairs(&[("city", "ithaca"), ("state", "ny"), ("postcode", "14850")]);
-    assert!(comma_aligned(&head, "East Amherst", &town_in_tail, &whole).is_none());
+    assert!(comma_aligned(&head, &[], "East Amherst", &town_in_tail, &whole).is_none());
+    // a county between street and town, read into the road
+    let county = pairs(&[
+        ("house_number", "14"),
+        ("road", "breezewood common erie"),
+        ("city", "east amherst"),
+        ("state", "ny"),
+        ("postcode", "14051"),
+    ]);
+    let aligned = comma_aligned(&head, &[" Erie"], " East Amherst", &tail, &county).unwrap();
+    assert_eq!(field_of(&aligned, "road"), "breezewood common");
+    assert_eq!(field_of(&aligned, "state_district"), "erie");
+    assert!(comma_aligned(&head, &["12"], " East Amherst", &tail, &county).is_none());
+    // the road read as a suburb ("2219 Pacific Coast Highway, Lomita")
+    let suburb = pairs(&[
+        ("house_number", "14"),
+        ("suburb", "breezewood common"),
+        ("city", "east amherst"),
+        ("state", "ny"),
+        ("postcode", "14051"),
+    ]);
+    let aligned = comma_aligned(&head, &[], "East Amherst", &tail, &suburb).unwrap();
+    assert_eq!(field_of(&aligned, "road"), "breezewood common");
+}
+
+#[test]
+fn a_street_type_is_not_the_town() {
+    use opengeocoding::index::street_aligned;
+    let head = pairs(&[("house_number", "701"), ("road", "greenwood avenue")]);
+    let tail = pairs(&[("state", "oh"), ("postcode", "45229")]);
+    let whole = pairs(&[
+        ("house_number", "701"),
+        ("road", "greenwood"),
+        ("city", "avenue"),
+        ("state", "oh"),
+        ("postcode", "45229"),
+    ]);
+    let aligned = street_aligned(&head, "701 GREENWOOD Avenue", &tail, &whole).unwrap();
+    assert_eq!(field_of(&aligned, "road"), "greenwood avenue");
+    assert_eq!(field_of(&aligned, "city"), "");
+    // a town in its own part is left alone
+    let town = pairs(&[
+        ("road", "main street"),
+        ("city", "springfield"),
+        ("state", "oh"),
+    ]);
+    assert!(street_aligned(&head, "701 Greenwood Avenue", &tail, &town).is_none());
+    // the state read into the road ("1516 RUTH Avenue, OH")
+    let state = pairs(&[("state", "oh")]);
+    let swallowed = pairs(&[("house_number", "701"), ("road", "greenwood avenue oh")]);
+    let aligned = street_aligned(&head, "701 Greenwood Avenue", &state, &swallowed).unwrap();
+    assert_eq!(field_of(&aligned, "state"), "oh");
+    assert_eq!(field_of(&aligned, "road"), "greenwood avenue");
 }
 
 #[test]
@@ -735,4 +804,27 @@ fn a_stray_word_is_removed_from_the_query() {
         without_word("Dr. Nikiski, AK 99611", "dr."),
         "Nikiski, AK 99611"
     );
+}
+
+#[test]
+fn a_road_the_index_respelt_agrees() {
+    let house = |road: &str| AddressDetails {
+        road: road.into(),
+        house_number: "3717".into(),
+        ..Default::default()
+    };
+    let agrees = |typed: &str, found: &str| {
+        road_agrees(
+            &parsed(&[("house_number", "3717"), ("road", typed)]),
+            Some(&house(found)),
+        )
+    };
+    assert!(agrees("West 54th Street", "W 54th St"));
+    assert!(agrees("West 54th Srteet", "West 54th Street"));
+    assert!(agrees("Whte Dawn Lane", "White Dawn Lane"));
+    assert!(agrees("Bowood Dr", "Boxwood Drive"));
+    // two words off, another first letter, or another street type are other roads
+    assert!(!agrees("Whte Dwan Lane", "White Dawn Lane"));
+    assert!(!agrees("Bowood Dr", "Dowood Drive"));
+    assert!(!agrees("Boxwood Dr", "Boxwood Court"));
 }
