@@ -105,7 +105,12 @@ fn words_open(text: &str, open: bool) -> Vec<String> {
     if !open {
         return words(text);
     }
-    let (before, last) = text.rsplit_once(' ').unwrap_or(("", text));
+    // "saint-etienne" is "st etienne": the word before a hyphen is whole
+    let last = text
+        .rsplit(|c: char| !c.is_alphanumeric())
+        .next()
+        .unwrap_or(text);
+    let before = &text[..text.len() - last.len()];
     let mut out = words(before);
     out.extend(raw_words(last));
     out
@@ -131,6 +136,15 @@ fn open_forms(words: &[String]) -> Vec<String> {
         }
     }
     forms
+}
+
+/// "koeln" as "koln", which is how the index holds "Köln": German digraphs for umlauts.
+fn umlaut_form(text: &str) -> Option<String> {
+    let form = text
+        .replace("ae", "a")
+        .replace("oe", "o")
+        .replace("ue", "u");
+    (form != text).then_some(form)
 }
 
 fn words(text: &str) -> Vec<String> {
@@ -178,6 +192,8 @@ const EXAMINED: usize = 150;
 /// How much a name's fit counts: the name itself, its main name starts with the text, another
 /// language's does.
 const FIT: [u64; 3] = [100, 20, 5];
+/// The most a country's name in a language that is not its main one is worth.
+const OTHER_NAME_COUNTRY: u64 = 2_000_000;
 
 /// Folded name, a NUL, whether it is the primary or English name (0) or another (1) and the
 /// place number -> the place's weight. One entry per place and name, so places sharing a name
@@ -308,7 +324,11 @@ impl Index {
                 .map(|(id, _)| self.place_suggestion(id)),
         );
         let mut seen = std::collections::HashSet::new();
-        out.retain(|s| seen.insert(s.display_name.clone()));
+        // the filter matches a street's own country, which its place may not be in
+        out.retain(|s| {
+            cc.is_none_or(|c| s.country_code.is_empty() || s.country_code.eq_ignore_ascii_case(c))
+                && seen.insert(s.display_name.clone())
+        });
         out.truncate(limit);
         out
     }
@@ -562,6 +582,12 @@ impl Index {
             let at = k.len() - 6;
             let id = u32::from_be_bytes(k[at + 2..].try_into().unwrap());
             let fit = if at == text.len() { 0 } else { 1 + k[at + 1] };
+            // a country's weight is for its own name: another language's word that happens to
+            // be "lagos" or start "lima" is not worth a country's
+            let w = match &*self.places[id as usize].subtype {
+                "country" | "dependency" if k[at + 1] == 1 => w.min(OTHER_NAME_COUNTRY),
+                _ => w,
+            };
             let score = w * FIT[fit as usize];
             let e = best.entry(id).or_insert((score, fit));
             if score > e.0 {
@@ -652,17 +678,29 @@ impl Index {
             for form in &forms {
                 candidates.extend(self.name_candidates(form, head_open).iter());
             }
-            candidates.sort_unstable_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
-            // candidates come best first, so the first `want` that qualify are the best
-            for (examined, (id, fit, score)) in candidates.into_iter().enumerate() {
-                if ranked.len() >= want || examined >= EXAMINED {
-                    break;
+            // "koeln" is read as "köln" only when no place is named as typed
+            let umlaut = umlaut_form(&text);
+            for n in 0..2 {
+                if n == 1 {
+                    match &umlaut {
+                        Some(alt) if ranked.is_empty() => {
+                            candidates = self.name_candidates(alt, head_open).to_vec()
+                        }
+                        _ => break,
+                    }
                 }
-                if !found.iter().any(|f| f.0 == id)
-                    && !ranked.iter().any(|r| r.2 == id)
-                    && acceptable(id)
-                {
-                    ranked.push((Reverse(score), fit, id));
+                candidates.sort_unstable_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
+                // candidates come best first, so the first `want` that qualify are the best
+                for (examined, &(id, fit, score)) in candidates.iter().enumerate() {
+                    if ranked.len() >= want || examined >= EXAMINED {
+                        break;
+                    }
+                    if !found.iter().any(|f| f.0 == id)
+                        && !ranked.iter().any(|r| r.2 == id)
+                        && acceptable(id)
+                    {
+                        ranked.push((Reverse(score), fit, id));
+                    }
                 }
             }
             // The rest of the places, by the words the term dictionary holds: those as typed
@@ -741,17 +779,23 @@ impl Index {
         if pc.len() < MIN_POSTCODE {
             return vec![];
         }
-        let cl = if open {
-            self.typed_words(self.f.pcode, &[pc], true)
-                .map(|(cl, _)| cl)
-        } else {
-            Some(vec![must(term(self.f.pcode, &pc))])
-        };
-        let Some(cl) = cl else {
-            return vec![];
-        };
-        self.top_of(Kind::Postcode, cc, cl, limit * 2)
-            .into_iter()
+        // the code as typed before the longer ones it starts
+        let mut docs = self.top_of(
+            Kind::Postcode,
+            cc,
+            vec![must(term(self.f.pcode, &pc))],
+            limit * 2,
+        );
+        if open
+            && let Some((cl, _)) = self.typed_words(self.f.pcode, std::slice::from_ref(&pc), true)
+        {
+            for a in self.top_of(Kind::Postcode, cc, cl, limit * 2) {
+                if !docs.contains(&a) {
+                    docs.push(a);
+                }
+            }
+        }
+        docs.into_iter()
             .filter_map(|a| {
                 let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
                 let (place, x, y) = (
@@ -970,7 +1014,15 @@ impl Index {
         };
         // those named as typed before those that only contain it ("Main Street" over "High
         // Springs Main Street")
-        streets.sort_by_cached_key(|s| (scope_rank(s.2), !fold(&s.3).starts_with(&road_text)));
+        // and the street so named before one that goes on ("Gran Vía" before "Gran Vía del Sur")
+        streets.sort_by_cached_key(|s| {
+            let name = fold(&s.3);
+            (
+                scope_rank(s.2),
+                !name.starts_with(&road_text),
+                name != road_text,
+            )
+        });
         let mut houses = vec![];
         let mut plain = vec![];
         for (a, sid, place, name) in streets {
@@ -1054,6 +1106,16 @@ impl Index {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn typed_words_and_digraphs() {
+        // a hyphen ends a word like a space: "saint" is whole and abbreviated, as indexed
+        assert_eq!(words_open("saint-etien", true), ["st", "etien"]);
+        assert_eq!(words_open("saint-etienne", false), ["st", "etienne"]);
+        assert_eq!(umlaut_form("koeln").as_deref(), Some("koln"));
+        assert_eq!(umlaut_form("muenchen").as_deref(), Some("munchen"));
+        assert_eq!(umlaut_form("paris"), None);
+    }
 
     const SEP: char = '\u{1f}';
 

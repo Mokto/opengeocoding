@@ -34,7 +34,7 @@ zurich		1	city	ch	47.377	8.541	20
 zürich		1	city	ch	47.377	8.541	20		
 köln		1	city	de	50.938	6.960	20		
 cologne		1	city	de	50.938	6.960	20		
-koeln		1	city	de	50.938	6.960	20		no oe transliteration: nothing found
+koeln		1	city	de	50.938	6.960	20		
 nürnberg		1	city	de	49.452	11.077	20		
 nuremberg		1	city	de	49.452	11.077	20		
 dusseldorf		1	city	de	51.228	6.774	20		
@@ -42,7 +42,7 @@ frankfurt		1	city	de	50.110	8.682	20
 praha		1	city	cz	50.076	14.438	20		
 prague		1	city	cz	50.076	14.438	20		
 lisboa		2	city	pt	38.722	-9.139	20		
-porto		1	city	pt	41.157	-8.629	20		Porto Alegre and other places rank above the city
+porto		3	city	pt	41.157	-8.629	20		
 kraków		1	city	pl	50.065	19.945	20		
 krakow		1	city	pl	50.065	19.945	20		
 łódź		1	city	pl	51.759	19.456	20		
@@ -58,7 +58,7 @@ istanbul		1	city	tr	41.008	28.978	30	5
 moscow		1	city	ru	55.756	37.617	30		
 bangkok		1	city	th	13.756	100.502	30	5	
 nairobi		1	city	ke	-1.286	36.820	30		
-lagos		1	city	ng	6.524	3.379	30		the country Laos ranks above the city
+lagos		1	city	ng	6.524	3.379	30		
 buenos ai		1	city	ar	-34.604	-58.382	30	6	
 toronto		1	city	ca	43.653	-79.383	30	5	
 vancouver		1	city	ca	49.283	-123.121	30	5	
@@ -78,7 +78,7 @@ tehran		1	city	ir	35.689	51.389	30
 dubai		1		ae	25.205	55.271	30		
 tel aviv		1		il	32.085	34.782	30		
 ho chi minh		1	city	vn	10.823	106.630	30		
-saint-étienne		1	city	fr	45.440	4.387	20		a hyphenated name with its saint spelled out finds nothing
+saint-étienne		1	city	fr	45.440	4.387	20	10	
 saint etienne		1	city	fr	45.440	4.387	20		
 москва		1	city	ru	55.756	37.617	30		
 санкт-петербург		1	city	ru	59.934	30.336	30		
@@ -95,7 +95,7 @@ saint etienne		1	city	fr	45.440	4.387	20
 กรุงเทพ		1		th	13.756	100.502	30		
 portland		1	city	us	45.515	-122.679	30		
 portland, me		1	city	us	43.661	-70.255	20		
-birmingham		1	city	gb	52.486	-1.890	20		American namesakes rank above the English city
+birmingham		1	city	gb	52.486	-1.890	20		Birmingham, UK is a county of weight 10,000 in the data (no population), under American places of 20,000 to 200,000
 birmingham, al		1	city	us	33.520	-86.810	20		
 cambridge		2	city	gb	52.205	0.119	20		
 cambridge, ma		1	city	us	42.373	-71.110	20		
@@ -110,7 +110,7 @@ sydney	ca	1		ca	46.140	-60.190	30
 alexandria	eg	1	city	eg	31.200	29.919	30		
 alexandria	us	1		us	38.805	-77.047	30		
 cordoba	ar	1	city	ar	-31.420	-64.188	30		
-cordoba	es	1	city	es	37.888	-4.779	30		the country filter lets streets of other countries through
+cordoba	es	1	city	es	37.888	-4.779	30		
 valencia	ve	1	city	ve	10.162	-68.007	30		
 san jose	cr	1		cr	9.929	-84.091	30		
 santiago	cl	1	city	cl	-33.449	-70.669	30		
@@ -130,7 +130,7 @@ brasil		1	country	br	-14.200	-51.900	2500
 united states		1	country	us	39.800	-98.600	3000		
 manhattan		1		us	40.783	-73.971	10		
 brooklyn		1		us	40.650	-73.950	15		
-kensington, london		1		gb	51.499	-0.190	5		London is not an ancestor of Kensington in the data
+kensington, london		1		gb	51.499	-0.190	5		London is not an ancestor of Kensington in the data (a borough of London is)
 shibuya		1		jp	35.659	139.700	10		
 kreuzberg, berlin		1		de	52.499	13.403	5		
 rue de rivoli, paris		1	street	fr	48.860	2.340	3		
@@ -141,7 +141,7 @@ passeig de gràcia, barcelona		1	street	es	41.395	2.162	3
 kalverstraat, amsterdam		1	street	nl	52.371	4.891	2		
 nørrebrogade, københavn		1	street	dk	55.694	12.548	3		
 via del corso, roma		1	street	it	41.903	12.480	3		
-gran via, madrid		1	street	es	40.420	-3.705	3		longer street names rank above the exact name
+gran via, madrid		1	street	es	40.420	-3.705	3		
 bahnhofstrasse, zürich		1	street	ch	47.372	8.538	3		
 market street, san francisco		1	street	us	37.780	-122.410	5		
 rådhuspladsen 1, københavn		1	address	dk	55.6760	12.5683	1		
@@ -179,7 +179,7 @@ athens		1	city	gr	37.984	23.728	20
 warsaw		1	city	pl	52.230	21.012	20	4	
 budapest		1	city	hu	47.498	19.040	20	5	
 bucharest		1	city	ro	44.427	26.103	20		
-lima		1	city	pe	-12.046	-77.043	30		the countries UAE and Afghanistan rank above the city
+lima		2	city	pe	-12.046	-77.043	30		
 bogota		1	city	co	4.711	-74.072	30		
 cairo		1	city	eg	30.044	31.236	30		
 riyadh		1	city	sa	24.714	46.675	30		
@@ -197,9 +197,13 @@ kensington	gb	1	neighbourhood	gb	51.499	-0.199	3
 1550	dk	1	postcode	dk	55.6760	12.5700	3		
 8000	dk	1	postcode	dk	56.1530	10.2040	3		
 8001	ch	1	postcode	ch	47.3700	8.5400	3		
-28013	es	1	postcode	es	40.4170	-3.7100	3		the code is a place-less entry in Libya
-1550		5	postcode	dk	55.6760	12.5700	3		longer codes outrank the exact code
-8001		3	postcode	ch	47.3700	8.5400	3		longer codes outrank the exact code
-koeln	de	1	city	de	50.938	6.960	20		no oe transliteration: nothing found
-saint-etienne		1	city	fr	45.440	4.387	20		a hyphenated name with its saint spelled out finds nothing
+28013	es	1	postcode	es	40.4170	-3.7100	3		the only indexed 28013 in Spain has no place and lies in Libya (source data)
+1550		3	postcode	dk	55.6760	12.5700	3		
+8001		3	postcode	ch	47.3700	8.5400	3		
+koeln	de	1	city	de	50.938	6.960	20		
+saint-etienne		1	city	fr	45.440	4.387	20	10	
 cologne	de	1	city	de	50.938	6.960	20		
+10001		2	postcode	us	40.7500	-73.9970	3		
+13001		2	postcode	fr	43.2980	5.3760	3		
+8000		2	postcode	dk	56.1530	10.2040	3		
+muenchen		1	city	de	48.137	11.575	20		
