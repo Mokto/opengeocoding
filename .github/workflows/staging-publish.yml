@@ -311,6 +311,18 @@ jobs:
           cat speed-comment.md comment.md > "$GITHUB_STEP_SUMMARY"
           upsert gold-speed speed-comment.md
           upsert gold-full comment.md
+      - name: Keep the report
+        if: always()
+        run: |
+          mkdir -p gold-run
+          [ ! -s run.json ] || jq '{id, status, phase, exit}' run.json > gold-run/run.json
+          for f in report.md gold.md speed.md; do [ ! -s "$f" ] || cp "$f" "gold-run/$f"; done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: gold-${{ needs.prepare.outputs.head }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: gold-run
+          if-no-files-found: ignore
       - name: Set the commit statuses
         if: always()
         env:
