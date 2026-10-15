@@ -1309,9 +1309,9 @@ impl Parser {
                             "city" | "state" | "state_district" | "suburb" | "city_district"
                         )
                     });
-                    if let [(k, v)] = &libpostal(head.trim())?[..]
-                        && whole.len() > 2
+                    if whole.len() > 2
                         && places
+                        && let [(k, v)] = &libpostal(head.trim())?[..]
                         && *v == split
                     {
                         aligned =
@@ -1747,10 +1747,23 @@ impl Index {
             .map(|w| name_key(&w))
             .collect();
         let mut ranked = self.top_of(Kind::Place, cc, cl, 100);
-        // The stated region places a small town among many of its name ("Temple, PA"): look in
-        // the countries that have such a region as well, or it drops out of the top 100.
+        // The stated region places a small town among many of its name ("Temple, PA"): when
+        // none of the top 100 is inside it, look in the countries that have such a region too.
+        let is_inside = |a: &DocAddress| {
+            let id = self.fast(*a, "id") as u32;
+            let pl = &self.places[id as usize];
+            within.iter().any(|&w| {
+                self.chain(id)
+                    .iter()
+                    .skip(1)
+                    .any(|&x| self.places[x as usize].named(w))
+            }) || within_code
+                .as_ref()
+                .is_some_and(|c| pl.region.ends_with(c.as_str()))
+        };
         if cc.is_none()
             && let Some(region) = within_text
+            && !ranked.iter().any(is_inside)
         {
             for country in self.region_countries(region) {
                 for a in self.top_of(

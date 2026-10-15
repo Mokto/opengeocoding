@@ -871,6 +871,8 @@ fn a_part_that_repeats_another_is_collapsed() {
         "Berlin",
         // "México" is the state, "Mexico" the country: two names, not a code and its name
         "Calimaya, México, Mexico",
+        // combining marks (Thai vowels) are part of a word, not a separator
+        "Shizhou, Chencun, ซุ่นเตื่อ, ฝอซาน, กวางตุ้ง 528313, จีน",
         // the same name in another script is left to the parser
         "Варна, бул. Приморски полк 43, 9000 Varna, Bulgaria",
     ] {

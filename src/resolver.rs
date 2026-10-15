@@ -384,19 +384,29 @@ impl Core {
                         || finer_near(f))
             })
             .collect();
-        if !lone_state
-            && !city.is_empty()
-            && ["road", "house_number", "postcode"]
-                .iter()
-                .all(|key| part(address, key).is_empty())
-        {
-            // A bare place name means the settlement, not a same-named quarter, county or region
-            // that the index may rank higher.
-            viable.sort_by_key(|(i, _)| match candidates[*i]["addresstype"].as_str() {
-                Some("city" | "town") => 0,
-                Some("municipality") => 1,
-                Some("village") => 2,
-                _ => 3,
+        // one candidate needs no ordering
+        if viable.len() > 1 && !city.is_empty() {
+            // The stated town as a candidate's own name comes before a suburb filed under it.
+            let bare = !lone_state
+                && ["road", "house_number", "postcode"]
+                    .iter()
+                    .all(|key| part(address, key).is_empty());
+            // A bare place name means the settlement, not a same-named quarter, county or
+            // region that the index may rank higher.
+            viable.sort_by_cached_key(|(i, f)| {
+                (
+                    !town_named(address, f.address_details.as_option()),
+                    if bare {
+                        match candidates[*i]["addresstype"].as_str() {
+                            Some("city" | "town") => 0,
+                            Some("municipality") => 1,
+                            Some("village") => 2,
+                            _ => 3,
+                        }
+                    } else {
+                        0
+                    },
+                )
             });
         }
         let values: Vec<_> = viable.iter().map(|(_, f)| (*f).clone()).collect();

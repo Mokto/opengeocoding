@@ -387,6 +387,20 @@ pub fn postcode_matches(expected: &str, details: Option<&AddressDetails>) -> boo
             .is_none_or(|d| d.postcode.is_empty() || postcodes_compatible(expected, &d.postcode))
 }
 
+/// The stated town is the candidate's own city, town, village or municipality, not a suburb it
+/// is filed under.
+pub fn town_named(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
+    let expected = part(address, "city");
+    let agrees = agrees_with(expected);
+    !expected.is_empty()
+        && details.is_some_and(|d| {
+            [&d.city, &d.town, &d.village, &d.municipality]
+                .iter()
+                .filter(|s| !s.is_empty())
+                .any(|s| agrees(s))
+        })
+}
+
 pub fn city_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
     let expected = part(address, "city");
     if expected.is_empty() {
@@ -556,13 +570,24 @@ pub fn choose_candidate(
     // prefecture) says nothing of the country: it would let a same-named place abroad outweigh
     // the country stated ("Tokyo, United States" is not Japan's).
     let city = part(address, "city");
-    let mut alone = address.clone();
-    for key in ["state", "state_district", "country_region"] {
-        if !city.is_empty() && names_agree(city, part(address, key)) {
+    let repeated: Vec<&str> = ["state", "state_district", "country_region"]
+        .into_iter()
+        .filter(|key| {
+            !city.is_empty()
+                && !part(address, key).is_empty()
+                && names_agree(city, part(address, key))
+        })
+        .collect();
+    let mut alone;
+    let address = if repeated.is_empty() {
+        address
+    } else {
+        alone = address.clone();
+        for key in repeated {
             alone.shift_remove(key);
         }
-    }
-    let address = &alone;
+        &alone
+    };
     let implied = implied_country(address);
     let contradicts = !implied.is_empty() && implied != country;
     let country_ok = |item: &FullAddress| {
@@ -782,7 +807,7 @@ pub fn without_redundant_parts(query: &str) -> Option<String> {
     // as written, not transliterated: "Варна, Varna" is left to the parser as before
     let written = |text: &str| {
         text.to_lowercase()
-            .split(|c: char| !c.is_alphanumeric())
+            .split(|c: char| c.is_whitespace() || c.is_ascii_punctuation())
             .filter(|w| !w.is_empty())
             .collect::<Vec<_>>()
             .join(" ")
