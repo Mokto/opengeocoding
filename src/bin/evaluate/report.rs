@@ -669,9 +669,14 @@ fn label(record: &Record) -> String {
     format!("{} {text} [{}] {lat},{lon}", s.level, s.country)
 }
 
-/// SearchAddress latency on both sides, in aggregate only and never gated. Three runs of one
-/// binary on a cluster node agreed within 2% in total and 5% at each percentile, but single cases
-/// moved by 30% either way; on a laptop even the totals moved by tens of percent.
+/// How much slower the candidate's total, p50, p90 or p99 may be. Three runs of one binary on a
+/// cluster node agreed within 2% in total and 5% at each percentile; single cases moved by 30%,
+/// so they are not compared, nor is the max (one case).
+const MAX_SLOWDOWN: f64 = 0.10;
+
+/// SearchAddress speed on both sides, between `<!-- speed: pass|fail|skip -->` and
+/// `<!-- speed end -->` lines that CI cuts out into its own comment and commit status. Not part of
+/// the `diff` exit code.
 fn latency(
     shared: &[&String],
     old: &IndexMap<String, Record>,
@@ -685,12 +690,11 @@ fn latency(
     if old_ms.is_empty() {
         return String::new();
     }
-    let mut report = format!(
-        "\n## SearchAddress latency ({} cases, ms, not gated)\n\n| | Total | p50 | p90 | p99 | Max |\n|---|---:|---:|---:|---:|---:|\n",
-        old_ms.len()
-    );
+    const METRICS: [&str; 5] = ["total", "p50", "p90", "p99", "max"];
+    let mut table =
+        String::from("| | Total | p50 | p90 | p99 | Max |\n|---|---:|---:|---:|---:|---:|\n");
     let mut stats = vec![];
-    for (name, ms) in [("baseline", &old_ms), ("candidate", &new_ms)] {
+    for (name, ms) in [("base", &old_ms), ("head", &new_ms)] {
         let row = [
             ms.iter().sum(),
             percentile(ms, 0.5),
@@ -699,22 +703,52 @@ fn latency(
             percentile(ms, 1.),
         ];
         let cells: Vec<_> = row.iter().map(|v| format!("{v:.1}")).collect();
-        let _ = writeln!(report, "| {name} | {} |", cells.join(" | "));
+        let _ = writeln!(table, "| {name} | {} |", cells.join(" | "));
         stats.push(row);
     }
-    let change: Vec<_> = stats[0]
+    let change: Vec<f64> = stats[0]
         .iter()
         .zip(&stats[1])
-        .map(|(a, b)| format!("{:+.0}%", (b / a.max(1e-3) - 1.) * 100.))
+        .map(|(a, b)| b / a.max(1e-3) - 1.)
         .collect();
-    let _ = writeln!(report, "| change | {} |", change.join(" | "));
+    let cells: Vec<_> = change
+        .iter()
+        .map(|c| format!("{:+.0}%", c * 100.))
+        .collect();
+    let _ = writeln!(table, "| change | {} |", cells.join(" | "));
     let repeats = manifests.map(|m| m["repeat"].as_u64().unwrap_or(1));
-    let _ = writeln!(
-        report,
-        "\nEach case is the fastest of {} (baseline) and {} (candidate) requests.",
-        repeats[0], repeats[1]
-    );
-    report
+    let slower: Vec<_> = METRICS[..4]
+        .iter()
+        .zip(&change)
+        // on the rounded percentage the table shows, so +10% never fails a 10% limit
+        .filter(|(_, c)| (**c * 100.).round() > MAX_SLOWDOWN * 100.)
+        .map(|(m, c)| format!("{m} {:+.0}%", c * 100.))
+        .collect();
+    let limit = MAX_SLOWDOWN * 100.;
+    let (verdict, headline) = if repeats[0] != repeats[1] {
+        (
+            "skip",
+            format!(
+                "not compared, base timed the fastest of {} requests per case and head of {}",
+                repeats[0], repeats[1]
+            ),
+        )
+    } else if slower.is_empty() {
+        ("pass", format!("no slowdown over {limit:.0}%"))
+    } else {
+        (
+            "fail",
+            format!(
+                "SearchAddress slower, {} (limit +{limit:.0}%)",
+                slower.join(", ")
+            ),
+        )
+    };
+    format!(
+        "\n<!-- speed: {verdict} -->\n## Speed: {headline}\n\nSearchAddress time in ms over {} cases, each the fastest of {} requests.\n\n{table}\nFails when the total, p50, p90 or p99 is more than {limit:.0}% slower. Runs of one binary differ by up to 5%; the max is one case and only reported.\n<!-- speed end -->\n",
+        old_ms.len(),
+        repeats[1]
+    )
 }
 
 /// Baseline vs candidate report; returns whether the comparison gate failed.
@@ -748,6 +782,7 @@ pub fn diff(
             "- {missing} case ids are present on only one side and not compared."
         );
     }
+    report += &latency(&shared, &old, &new, [&old_manifest, &new_manifest]);
     let (mut newly_failing, mut newly_passing, mut worse, mut better) =
         (vec![], vec![], vec![], vec![]);
     let mut changed: IndexMap<&str, Vec<String>> = IndexMap::new();
@@ -852,7 +887,6 @@ pub fn diff(
     if total == 0 {
         report += "\nNone.\n";
     }
-    report += &latency(&shared, &old, &new, [&old_manifest, &new_manifest]);
     for (name, records) in [("baseline", &old), ("candidate", &new)] {
         let calls: Vec<_> = records.values().filter_map(|r| r.backend_calls).collect();
         if !calls.is_empty() {
@@ -936,14 +970,22 @@ mod tests {
         let old = side(&[("a", Some(1.)), ("b", Some(3.)), ("c", None)]);
         let new = side(&[("a", Some(2.)), ("b", Some(6.)), ("c", Some(9.))]);
         let ids: Vec<_> = old.keys().collect();
-        let report = latency(&ids, &old, &new, [&json!({}), &json!({"repeat": 3})]);
-        assert!(report.contains("(2 cases"), "{report}");
+        let three = json!({"repeat": 3});
+        let report = latency(&ids, &old, &new, [&three, &three]);
+        assert!(report.starts_with("\n<!-- speed: fail -->\n"), "{report}");
+        assert!(report.contains("total +100%, p50 +100%, p90 +100%, p99 +100%"));
         assert!(
-            report.contains("| baseline | 4.0 | 1.0 | 3.0 | 3.0 | 3.0 |"),
+            report.contains("over 2 cases, each the fastest of 3"),
             "{report}"
         );
-        assert!(report.contains("| change | +100% | +100% |"), "{report}");
-        assert!(report.contains("fastest of 1 (baseline) and 3 (candidate)"));
+        assert!(report.contains("| base | 4.0 | 1.0 | 3.0 | 3.0 | 3.0 |"));
+        assert!(report.trim_end().ends_with("<!-- speed end -->"));
+        // 10% slower is within the limit; only more fails.
+        let near = side(&[("a", Some(1.1)), ("b", Some(3.3)), ("c", None)]);
+        let report = latency(&ids, &old, &near, [&three, &three]);
+        assert!(report.contains("<!-- speed: pass -->"), "{report}");
+        let report = latency(&ids, &old, &new, [&json!({}), &three]);
+        assert!(report.contains("<!-- speed: skip -->"), "{report}");
         let untimed = side(&[("a", None), ("b", None), ("c", None)]);
         assert!(latency(&ids, &old, &untimed, [&json!({}), &json!({})]).is_empty());
     }

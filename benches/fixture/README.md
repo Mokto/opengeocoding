@@ -1,8 +1,9 @@
 # `resolve` benchmark fixture
 
-`benches/resolve.rs` times libpostal parsing and `Index::search` over the non-held-out rows of
-`tests/addresses.tsv`, split by target. It needs libpostal's models and a small index, and does
-nothing when `INDEX_DIR` is unset. `benches/suggest.rs` times `Index::suggest` over the same rows
+`benches/resolve.rs` times libpostal parsing of the non-held-out rows of `tests/addresses.tsv`,
+split by target. It needs libpostal's models, and does nothing when `INDEX_DIR` is unset. Index
+searches are no longer benchmarked here: the full-index gold check times every SearchAddress
+(`gold-speed`). `benches/suggest.rs` times `Index::suggest` over the same rows
 cut as if typed (half, three quarters and all of each query) and needs the index but not the
 models. `benches/reverse.rs` times `Index::reverse_search` from points the index itself yields (houses,
 localities without a house in range, empty cells) and likewise needs no models. Its house benchmarks
