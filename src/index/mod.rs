@@ -521,6 +521,15 @@ impl tantivy_fst::Automaton for OneEdit<'_> {
     }
 }
 
+/// A house's own postcode against the stated one. A street typed wrongly and a postcode the
+/// house contradicts are two doubts at once, so the respelt street answers only without the second.
+fn postcode_not_contradicted(own: Option<&str>, stated: Option<&str>) -> bool {
+    match (own.map(pc_norm), stated.map(pc_norm)) {
+        (Some(o), Some(s)) if !o.is_empty() && !s.is_empty() => o == s,
+        _ => true,
+    }
+}
+
 /// A typed street word that the index would correct to `indexed`: a name word within one edit
 /// and with the same first letter ("whte" for "white"), or a misspelt street type or direction
 /// ("srteet" for "st").
@@ -1745,14 +1754,13 @@ impl Index {
             return self
                 .streets_by(&name, number, city, &named, postcode, cc)
                 .into_iter()
-                .filter(|h| {
-                    matches!(
-                        h,
-                        Hit::Street {
-                            number: Some(_),
-                            ..
-                        }
-                    )
+                .filter(|h| match h {
+                    Hit::Street {
+                        number: Some(_),
+                        postcode: own,
+                        ..
+                    } => postcode_not_contradicted(own.as_deref(), postcode),
+                    _ => false,
                 })
                 .collect();
         }
@@ -3556,6 +3564,10 @@ mod tests {
         assert_eq!(misspelt_kind("southewst"), ["se", "sw"]);
         assert_eq!(misspelt_kind("srteet"), ["st"]);
         assert!(misspelt_kind("sw").is_empty());
+        assert!(postcode_not_contradicted(Some("04103"), Some("04103")));
+        assert!(postcode_not_contradicted(None, Some("04103")));
+        assert!(postcode_not_contradicted(Some("04101"), None));
+        assert!(!postcode_not_contradicted(Some("04101"), Some("04103")));
         use tantivy_fst::Automaton;
         let run = |word: &str, input: &str| {
             let a = OneEdit(word.as_bytes());
