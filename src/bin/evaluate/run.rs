@@ -1,8 +1,9 @@
 use crate::{
-    model::{Case, DirectRaw, Record, root},
+    model::{Case, DirectRaw, Record, SuggestCheck, root},
     report::{diff, sorted, summarize},
     score::{
-        Expect, details, from_index, rank, region_codes, region_flags, score, summary_of, text,
+        Expect, SUGGEST_LIMIT, details, from_index, rank, region_codes, region_flags, score,
+        suggest_rank, suggested, summary_of, text,
     },
 };
 use anyhow::{Context, Result, bail};
@@ -15,6 +16,7 @@ use opengeocoding::{
 use reqwest::Client;
 use serde_json::{Value, json};
 use std::{
+    collections::BTreeMap,
     io::{Read, Write},
     path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
@@ -153,6 +155,28 @@ async fn rpc_json(
     serde_json::from_slice(&body).map_err(|_| "invalid_json".into())
 }
 
+/// Cases a completed text should be suggested for: not the damaged addresses of `degraded`,
+/// whose repair is SearchAddress's job, nor those expecting no place or an error.
+fn suggestible(case: &Case) -> bool {
+    case.cohort != "degraded"
+        && case.expect.as_ref().is_some_and(|e| {
+            e.error.is_none() && e.alternatives().iter().all(|a| a.level != "none")
+        })
+}
+
+/// Re-ranks saved suggestions against the current corpus.
+pub fn rescore_suggest(case: &Case, record: &mut Record) {
+    let Some(expect) = &case.expect else {
+        return;
+    };
+    for (name, check) in &mut record.suggest {
+        check.rank = suggest_rank(expect, &check.found);
+        if let ("name", Some(s)) = (name.as_str(), &case.suggest) {
+            check.want = s.rank;
+        }
+    }
+}
+
 /// Scores an RPC outcome against a case; also used to re-score saved responses.
 pub fn classify(case: &Case, outcome: Result<&Value, &str>, record: &mut Record) {
     let wants_error = case.expect.as_ref().and_then(|e| e.error.as_deref());
@@ -229,6 +253,7 @@ impl Checker {
             elapsed = elapsed.min(started.elapsed());
         }
         record.ms = Some((elapsed.as_secs_f64() * 1e6).round() / 1e3);
+        record.suggest = self.suggest(case).await;
         let response = match result {
             Ok(response) => response,
             Err(error) => {
@@ -246,6 +271,43 @@ impl Checker {
             _ => {}
         }
         Ok(record)
+    }
+
+    /// The query, and the place's name alone when the corpus ranks it among its namesakes, typed
+    /// into SuggestAddress.
+    async fn suggest(&self, case: &Case) -> BTreeMap<String, SuggestCheck> {
+        let mut checks = BTreeMap::new();
+        let Some(expect) = case.expect.as_ref().filter(|_| suggestible(case)) else {
+            return checks;
+        };
+        let mut texts = vec![("full", case.query.clone(), SUGGEST_LIMIT)];
+        texts.extend(
+            case.suggest
+                .as_ref()
+                .map(|s| ("name", s.text.clone(), s.rank)),
+        );
+        for (name, text, want) in texts {
+            self.budget.take().await;
+            let mut check = SuggestCheck {
+                text: text.clone(),
+                want,
+                ..Default::default()
+            };
+            match rpc_json(
+                &self.client,
+                &self.base,
+                "SuggestAddress",
+                &json!({ "text": text, "limit": SUGGEST_LIMIT }),
+            )
+            .await
+            {
+                Ok(body) => check.found = suggested(&body),
+                Err(error) => check.error = Some(error),
+            }
+            check.rank = suggest_rank(expect, &check.found);
+            checks.insert(name.into(), check);
+        }
+        checks
     }
 
     /// Direct backend checks attribute a failure to the backend or to the consumer.

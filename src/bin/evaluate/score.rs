@@ -1,3 +1,4 @@
+use crate::model::{SuggestCheck, Suggested};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -140,6 +141,63 @@ pub fn haversine(a: [f64; 2], b: [f64; 2]) -> f64 {
     let h = ((lat2 - lat1) / 2.).sin().powi(2)
         + lat1.cos() * lat2.cos() * ((lon2 - lon1) / 2.).sin().powi(2);
     2. * 6371.0088 * h.sqrt().asin()
+}
+
+/// Suggestions asked for, SuggestAddress's default.
+pub const SUGGEST_LIMIT: usize = 5;
+/// Ordered from best to worst, like `CLASSES`.
+pub const SUGGEST_CLASSES: [&str; 4] = ["pass", "ranked_low", "missing", "error"];
+
+/// 1-based rank of the first suggestion at an expected place: its country, a type of its level
+/// and within its radius.
+pub fn suggest_rank(expect: &Expect, found: &[Suggested]) -> Option<usize> {
+    let at = |alt: &Expect, s: &Suggested| {
+        let kind = match alt.level.as_str() {
+            "none" => false,
+            "house" => s.kind == "address",
+            "street" | "postcode" | "country" => s.kind == alt.level,
+            _ => !["address", "street", "postcode"].contains(&s.kind.as_str()),
+        };
+        kind && alt.country.contains(&s.country.to_lowercase())
+            && alt
+                .point
+                .is_none_or(|p| haversine(p, s.point) <= alt.radius_km.unwrap_or(0.))
+    };
+    found
+        .iter()
+        .position(|s| expect.alternatives().iter().any(|alt| at(alt, s)))
+        .map(|i| i + 1)
+}
+
+pub fn suggest_class(check: &SuggestCheck) -> &'static str {
+    match check.rank {
+        Some(r) if r <= check.want => "pass",
+        Some(_) => "ranked_low",
+        None if check.error.is_some() => "error",
+        None => "missing",
+    }
+}
+
+pub fn suggest_severity(class: &str) -> usize {
+    SUGGEST_CLASSES
+        .iter()
+        .position(|c| *c == class)
+        .unwrap_or(SUGGEST_CLASSES.len())
+}
+
+/// The suggestions of a SuggestAddress response, in order.
+pub fn suggested(response: &Value) -> Vec<Suggested> {
+    response["suggestions"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|s| Suggested {
+            kind: text(s, "type").into(),
+            name: text(s, "displayName").into(),
+            country: text(s, "countryCode").to_lowercase(),
+            point: ["lat", "lon"].map(|k| round(s["geoCoordinates"][k].as_f64().unwrap_or(0.), 6)),
+        })
+        .collect()
 }
 
 /// Rounds the exact binary value through decimal formatting; `(x * 10^n).round()` can
@@ -743,5 +801,38 @@ mod tests {
             drift((None, Some(&at(1.))), (None, Some(&finer))),
             ["finer"]
         );
+    }
+
+    #[test]
+    fn suggestions_rank_by_country_kind_and_radius() {
+        let response = json!({ "suggestions": [
+            { "type": "city", "displayName": "Paris, Texas", "countryCode": "us",
+              "geoCoordinates": { "lat": 33.66, "lon": -95.55 } },
+            { "type": "street", "displayName": "Rue de Paris", "countryCode": "fr",
+              "geoCoordinates": { "lat": 48.86, "lon": 2.35 } },
+            { "type": "city", "displayName": "Paris", "countryCode": "FR",
+              "geoCoordinates": { "lat": 48.857, "lon": 2.352 } },
+        ]});
+        let found = suggested(&response);
+        let mut paris = Expect {
+            level: "locality".into(),
+            country: vec!["fr".into()],
+            point: Some([48.8566, 2.3522]),
+            radius_km: Some(10.),
+            ..Default::default()
+        };
+        assert_eq!(suggest_rank(&paris, &found), Some(3));
+        paris.level = "street".into();
+        assert_eq!(suggest_rank(&paris, &found), Some(2));
+        paris.level = "house".into();
+        assert_eq!(suggest_rank(&paris, &found), None);
+        let check = |want, rank| SuggestCheck {
+            want,
+            rank,
+            ..Default::default()
+        };
+        assert_eq!(suggest_class(&check(2, Some(2))), "pass");
+        assert_eq!(suggest_class(&check(1, Some(2))), "ranked_low");
+        assert_eq!(suggest_class(&check(1, None)), "missing");
     }
 }

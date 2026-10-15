@@ -1,9 +1,12 @@
-use crate::score::{Expect, LEVELS, Summary, rank};
+use crate::score::{Expect, LEVELS, SUGGEST_LIMIT, Summary, rank};
 use anyhow::{Context, Result, bail, ensure};
 use opengeocoding::eval::{ADDRESS_COLUMNS, holdout, read_tsv};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 pub fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -89,6 +92,40 @@ pub struct Case {
     pub source: Option<Value>,
     #[serde(default)]
     pub review: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggest: Option<SuggestExpect>,
+}
+
+/// A place's name typed alone into SuggestAddress: it should come at `rank` or better, behind
+/// only the `larger` places of the same name (Wikidata items with more population).
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct SuggestExpect {
+    pub text: String,
+    pub rank: usize,
+    #[serde(default)]
+    pub larger: Vec<String>,
+}
+
+/// One SuggestAddress request of a case: "full" types the query, "name" the place's name.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+pub struct SuggestCheck {
+    pub text: String,
+    /// The worst passing rank.
+    pub want: usize,
+    /// 1-based rank of the first suggestion at the expected place.
+    pub rank: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default)]
+    pub found: Vec<Suggested>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+pub struct Suggested {
+    pub kind: String,
+    pub name: String,
+    pub country: String,
+    pub point: [f64; 2],
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -145,6 +182,8 @@ pub struct Record {
     pub direct_details: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attribution_hint: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub suggest: BTreeMap<String, SuggestCheck>,
 }
 
 /// Splits on newlines only: real addresses contain U+2028 and U+001C–U+001E, which
@@ -227,6 +266,14 @@ pub fn validate_gold(cases: &[Case]) -> Result<()> {
             );
             continue;
         };
+        if let Some(s) = &case.suggest {
+            ensure!(
+                !s.text.trim().is_empty()
+                    && (1..=SUGGEST_LIMIT).contains(&s.rank)
+                    && s.rank == s.larger.len() + 1,
+                "{at}: suggest"
+            );
+        }
         if expect.error.is_some() {
             continue;
         }

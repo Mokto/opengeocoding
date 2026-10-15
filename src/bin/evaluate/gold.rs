@@ -5,7 +5,7 @@
 //! US National Address Database (public domain, read from a local release file) —
 //! never from Nominatim or this service. Requires network access; review the diff as a data update.
 
-use crate::{nad, report::sorted, run::utc_now};
+use crate::{nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT};
 use anyhow::{Context, Result, bail, ensure};
 use indexmap::IndexMap;
 use opengeocoding::eval::{holdout, sha256_hex};
@@ -304,6 +304,42 @@ impl Sources {
             if item.iso.is_empty() {
                 item.iso = item.codes.iter().map(|c| c[..2].to_lowercase()).collect();
             }
+        }
+        Ok(found)
+    }
+
+    /// Every located item with a population whose English label is one of `labels`: label ->
+    /// (item, population), most populous first.
+    async fn namesakes(
+        &self,
+        labels: &BTreeSet<String>,
+    ) -> Result<BTreeMap<String, Vec<(String, f64)>>> {
+        let mut found: BTreeMap<String, Vec<(String, f64)>> = BTreeMap::new();
+        for batch in labels.iter().collect::<Vec<_>>().chunks(50) {
+            let values = batch
+                .iter()
+                .map(|l| Ok(format!("{}@en", serde_json::to_string(l)?)))
+                .collect::<Result<Vec<_>>>()?
+                .join(" ");
+            for row in self
+                .sparql(&format!(
+                    "SELECT ?label ?item (MAX(?pop) AS ?population) WHERE {{ VALUES ?label {{ {values} }}
+                    ?item rdfs:label ?label; wdt:P625 ?coord; wdt:P1082 ?pop }} GROUP BY ?label ?item"
+                ))
+                .await?
+            {
+                let population = row["population"]["value"]
+                    .as_str()
+                    .and_then(|p| p.parse().ok())
+                    .context("population")?;
+                found
+                    .entry(row["label"]["value"].as_str().unwrap_or("").into())
+                    .or_default()
+                    .push((entity(&row["item"]), population));
+            }
+        }
+        for items in found.values_mut() {
+            items.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
         }
         Ok(found)
     }
@@ -705,6 +741,21 @@ pub async fn build(seeds_path: &Path, out: &Path, nad: Option<&Path>) -> Result<
             );
         }
     }
+    let typed_name = |seed: &Seed, query: &str| -> Option<(String, String)> {
+        let qid = seed.qid.clone()?;
+        let name = query.split(',').next()?.trim();
+        (matches!(seed.kind.as_str(), "place" | "region" | "country")
+            && !name.is_empty()
+            && name == wd[&qid].label)
+            .then(|| (qid, name.to_string()))
+    };
+    let labels: BTreeSet<String> = seeds
+        .iter()
+        .flat_map(|s| s.queries.iter().filter_map(|q| typed_name(s, q)))
+        .map(|(_, name)| name)
+        .collect();
+    let namesakes = sources.namesakes(&labels).await?;
+    let mut named = BTreeSet::new();
     // Any listed code is acceptable: OSM tags different levels per country (FR-IDF and FR-75C, IE-L and IE-D).
     let region = |qid: Option<&str>, extra: &[String]| -> Vec<String> {
         // Only ISO 3166-2 codes: Somaliland's "SL" sits on Sanaag's chain too.
@@ -995,6 +1046,21 @@ pub async fn build(seeds_path: &Path, out: &Path, nad: Option<&Path>) -> Result<
             });
             if let Some(known) = &seed.known_failure {
                 case["known_failure"] = json!(known);
+            }
+            if let Some((qid, name)) = typed_name(seed, query)
+                && named.insert((qid.clone(), name.clone()))
+            {
+                let all = namesakes.get(&name).map(Vec::as_slice).unwrap_or_default();
+                let own = all.iter().find(|(q, _)| *q == qid).map_or(0., |(_, p)| *p);
+                let larger: Vec<&str> = all
+                    .iter()
+                    .filter(|(q, p)| *q != qid && *p > own)
+                    .map(|(q, _)| q.as_str())
+                    .collect();
+                if larger.len() < SUGGEST_LIMIT {
+                    case["suggest"] =
+                        json!({ "text": name, "rank": larger.len() + 1, "larger": larger });
+                }
             }
             cases.push(case);
         }
