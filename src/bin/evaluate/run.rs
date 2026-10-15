@@ -293,17 +293,19 @@ impl Checker {
                 want,
                 ..Default::default()
             };
-            match rpc_json(
-                &self.client,
-                &self.base,
-                "SuggestAddress",
-                &json!({ "text": text, "limit": SUGGEST_LIMIT }),
-            )
-            .await
-            {
-                Ok(body) => check.found = suggested(&body),
-                Err(error) => check.error = Some(error),
+            let request = json!({ "text": text, "limit": SUGGEST_LIMIT });
+            let mut elapsed = None::<std::time::Duration>;
+            for _ in 0..self.repeat.max(1) {
+                let started = Instant::now();
+                let result = rpc_json(&self.client, &self.base, "SuggestAddress", &request).await;
+                let took = started.elapsed();
+                elapsed = Some(elapsed.map_or(took, |e| e.min(took)));
+                match result {
+                    Ok(body) => check.found = suggested(&body),
+                    Err(error) => check.error = Some(error),
+                }
             }
+            check.ms = elapsed.map(|e| (e.as_secs_f64() * 1e6).round() / 1e3);
             check.rank = suggest_rank(expect, &check.found);
             checks.insert(name.into(), check);
         }

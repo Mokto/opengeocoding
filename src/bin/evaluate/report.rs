@@ -727,6 +727,61 @@ fn label(record: &Record) -> String {
     format!("{} {text} [{}] {lat},{lon}", s.level, s.country)
 }
 
+/// Base and head totals and percentiles in ms, and the relative change of each.
+fn ms_table(old_ms: &[f64], new_ms: &[f64]) -> (String, Vec<f64>) {
+    let mut table =
+        String::from("| | Total | p50 | p90 | p99 | Max |\n|---|---:|---:|---:|---:|---:|\n");
+    let mut stats = vec![];
+    for (name, ms) in [("base", old_ms), ("head", new_ms)] {
+        let row = [
+            ms.iter().sum(),
+            percentile(ms, 0.5),
+            percentile(ms, 0.9),
+            percentile(ms, 0.99),
+            percentile(ms, 1.),
+        ];
+        let cells: Vec<_> = row.iter().map(|v| format!("{v:.1}")).collect();
+        let _ = writeln!(table, "| {name} | {} |", cells.join(" | "));
+        stats.push(row);
+    }
+    let change: Vec<f64> = stats[0]
+        .iter()
+        .zip(&stats[1])
+        .map(|(a, b)| b / a.max(1e-3) - 1.)
+        .collect();
+    let cells: Vec<_> = change
+        .iter()
+        .map(|c| format!("{:+.0}%", c * 100.))
+        .collect();
+    let _ = writeln!(table, "| change | {} |", cells.join(" | "));
+    (table, change)
+}
+
+/// SuggestAddress speed of the checks both sides timed, for the speed comment. Reported, not gated.
+fn suggest_latency(
+    shared: &[&String],
+    old: &IndexMap<String, Record>,
+    new: &IndexMap<String, Record>,
+) -> String {
+    let (old_ms, new_ms): (Vec<f64>, Vec<f64>) = shared
+        .iter()
+        .flat_map(|id| {
+            new[*id]
+                .suggest
+                .iter()
+                .filter_map(|(name, check)| Some((old[*id].suggest.get(name)?.ms?, check.ms?)))
+        })
+        .unzip();
+    if old_ms.is_empty() {
+        return String::new();
+    }
+    format!(
+        "\n### SuggestAddress (reported, not gated)\n\nTime in ms over {} requests.\n\n{}",
+        old_ms.len(),
+        ms_table(&old_ms, &new_ms).0
+    )
+}
+
 /// How much slower the candidate's total, p50, p90 or p99 may be. Three runs of one binary on a
 /// cluster node agreed within 2% in total and 5% at each percentile; single cases moved by 30%,
 /// so they are not compared, nor is the max (one case).
@@ -749,31 +804,7 @@ fn latency(
         return String::new();
     }
     const METRICS: [&str; 5] = ["total", "p50", "p90", "p99", "max"];
-    let mut table =
-        String::from("| | Total | p50 | p90 | p99 | Max |\n|---|---:|---:|---:|---:|---:|\n");
-    let mut stats = vec![];
-    for (name, ms) in [("base", &old_ms), ("head", &new_ms)] {
-        let row = [
-            ms.iter().sum(),
-            percentile(ms, 0.5),
-            percentile(ms, 0.9),
-            percentile(ms, 0.99),
-            percentile(ms, 1.),
-        ];
-        let cells: Vec<_> = row.iter().map(|v| format!("{v:.1}")).collect();
-        let _ = writeln!(table, "| {name} | {} |", cells.join(" | "));
-        stats.push(row);
-    }
-    let change: Vec<f64> = stats[0]
-        .iter()
-        .zip(&stats[1])
-        .map(|(a, b)| b / a.max(1e-3) - 1.)
-        .collect();
-    let cells: Vec<_> = change
-        .iter()
-        .map(|c| format!("{:+.0}%", c * 100.))
-        .collect();
-    let _ = writeln!(table, "| change | {} |", cells.join(" | "));
+    let (table, change) = ms_table(&old_ms, &new_ms);
     let repeats = manifests.map(|m| m["repeat"].as_u64().unwrap_or(1));
     let slower: Vec<_> = METRICS[..4]
         .iter()
@@ -860,12 +891,18 @@ pub fn diff(
         }
     }
     report += &fold("Runs", &runs, false);
-    report += &latency(&shared, &old, &new, [&old_manifest, &new_manifest]);
+    let speed = latency(&shared, &old, &new, [&old_manifest, &new_manifest]);
+    report += &speed.replace(
+        "<!-- speed end -->",
+        &(suggest_latency(&shared, &old, &new) + "<!-- speed end -->"),
+    );
     let (mut newly_failing, mut newly_passing, mut worse, mut better) =
         (vec![], vec![], vec![], vec![]);
     let mut changed: IndexMap<&str, Vec<String>> = IndexMap::new();
     let mut by_cohort: BTreeMap<String, BTreeMap<&str, usize>> = BTreeMap::new();
     let mut scored = false;
+    // Per check kind: checked, base passing, head passing, head's other classes.
+    let mut suggest_counts: BTreeMap<&str, [usize; 6]> = BTreeMap::new();
     for id in &shared {
         let (a, b) = (&old[*id], &new[*id]);
         let cohort = cases
@@ -896,6 +933,13 @@ pub fn diff(
             };
             scored = true;
             let (ca, cb) = (suggest_class(sa), suggest_class(sb));
+            let counts = suggest_counts.entry(name).or_default();
+            counts[0] += 1;
+            counts[1] += usize::from(ca == "pass");
+            counts[2] += usize::from(cb == "pass");
+            if cb != "pass" {
+                counts[2 + suggest_severity(cb)] += 1;
+            }
             let line = format!(
                 "- `{id}` suggest {name} {ca} -> {cb}: {:?} -> {}",
                 sb.text,
@@ -968,6 +1012,23 @@ pub fn diff(
             let _ = writeln!(report, "| {cohort} | {} |", cells.join(" | "));
         }
         report += "\nOnly cohorts with a change and kinds that occur are shown. gained/lost: a result appeared/disappeared; finer/coarser: resolution level; moved: >1 km; nudged: <1 km but visible at 3 decimals.\n";
+    }
+    if !suggest_counts.is_empty() {
+        report += "\n## SuggestAddress\n\n| Check | Checked | Pass base | Pass head | Change | ranked_low | missing | error |\n|---|---:|---:|---:|---:|---:|---:|---:|\n";
+        for (name, c) in &suggest_counts {
+            let _ = writeln!(
+                report,
+                "| {name} | {} | {} | {} | {:+} | {} | {} | {} |",
+                c[0],
+                c[1],
+                c[2],
+                c[2] as i64 - c[1] as i64,
+                c[3],
+                c[4],
+                c[5]
+            );
+        }
+        report += "\n`full` types the query; `name` types the place's name alone, which must come no later than the places of that name with more population. The last three columns count the head's failures.\n";
     }
     if scored {
         let mut none = vec![];
@@ -1259,6 +1320,7 @@ mod tests {
                 text: "Paris".into(),
                 want: 1,
                 rank: Some(rank),
+                ms: Some(rank as f64 * 2.),
                 ..Default::default()
             };
             let record = Record {
@@ -1282,6 +1344,15 @@ mod tests {
             report.contains("`a` suggest name pass -> ranked_low"),
             "{report}"
         );
+        assert!(
+            report.contains("| name | 1 | 1 | 0 | -1 | 1 | 0 | 0 |"),
+            "{report}"
+        );
+        let (a, b) = (load_side(&old).unwrap().1, load_side(&new).unwrap().1);
+        let ids: Vec<_> = a.keys().collect();
+        let speed = suggest_latency(&ids, &a, &b);
+        assert!(speed.contains("over 1 requests"), "{speed}");
+        assert!(speed.contains("| change | +100% |"), "{speed}");
         assert!(!diff(&cases, &old, &old, Some(&out), false, true).unwrap());
         let report = std::fs::read_to_string(&out).unwrap();
         assert!(report.contains("No case changed."), "{report}");
