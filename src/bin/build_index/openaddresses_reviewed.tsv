@@ -16,6 +16,11 @@
 #   FL statewide (three files)  commercial vendors (Mapwise, Loveland) or no terms (Revenue); NH parcel points (vendor data)
 #   WA, SC, IA, MO, MI statewide  contributor uploads of a state file; the state's terms were not found
 #   AR, MD, DE, SD, AK, MS, ID, WV, TX statewide  no terms found
+#   Outside the US (read, not allowed): South Korea (juso.go.kr), Iceland, Moscow, Riga, Bulgaria, Bern, Basel,
+#   Solothurn, Geneva, Cape Town, eThekwini, Montevideo, Cape Breton (licence link dead), Cayman Islands (Crown
+#   copyright, all rights reserved), Sao Paulo (CC-BY-SA), Fribourg (CC-BY-SA) and the Canadian cities whose terms
+#   pages could not be read (BC, Alberta, Ontario and Quebec municipalities); ZA, SA, EG, BY, KZ, RU, TH, KW, XK, QA
+#   and AE countrywide or city files are uploads or portals with no terms
 #   files whose licence is only "Indemnification" or a presumed attribution say nothing about use
 us_ky_statewide-state	CC0 1.0	Kentucky Division of Geographic Information and the Kentucky 911 Services Board	https://creativecommons.org/publicdomain/zero/1.0/ (item licence of "Kentucky 911 Site Structure Address Points")
 us_dc_statewide-city	CC BY 4.0	Office of the Chief Technology Officer, District of Columbia	https://opendata.dc.gov/datasets/DCGIS::address-points/about
@@ -36,3 +41,12 @@ us_mi_semcog-county	licence to use, reproduce, modify, distribute and make deriv
 us_mi_semcog-condos	licence to use, reproduce, modify, distribute and make derivative works with the copyright notice	Copyright (c) 2024 SEMCOG	https://maps-semcog.opendata.arcgis.com/pages/copyright-license-agreement
 us_md_montgomery-county	open data portal terms; warranty disclaimer only	Montgomery County, Maryland	https://data.montgomerycountymd.gov/terms-of-use
 us_mo_city_of_kansas_city-city	open data portal terms; warranty disclaimer only	City of Kansas City, Missouri	https://data.kcmo.org/terms
+ca_ns_province-state	Open Government Licence - Nova Scotia (commercial use, attribution)	Contains information licensed under the Open Government Licence - Nova Scotia	https://novascotia.ca/opendata/licence.asp
+ca_nb_province-state-french	GeoNB Open Data Licence (commercial use, attribution)	Contains information licenced under the GeoNB Open Data Licence, Service New Brunswick	https://geonb.snb.ca/documents/license/geonb-odl_en.pdf
+ca_on_peel-region-region	Region of Peel Open Data Licence 1.0 (commercial use, credit optional)	The Regional Municipality of Peel	https://data.peelregion.ca/pages/license
+ca_on_waterloo-county	Region of Waterloo Open Data Licence 1.0 (commercial use, credit optional)	Regional Municipality of Waterloo	https://www.regionofwaterloo.ca/government-and-council/transparency-and-accountability/open-data/
+ca_on_city_of_waterloo-city	Region of Waterloo Open Data Licence 1.0 (commercial use, credit optional)	Regional Municipality of Waterloo	https://www.regionofwaterloo.ca/government-and-council/transparency-and-accountability/open-data/
+at_city_of_vienna-state	CC BY 4.0	Stadt Wien	https://www.data.gv.at/katalog/dataset/1d5c2411-9719-4c8f-b99d-57a5f4a4ae41
+de_nw_city_of_cologne-city	Datenlizenz Deutschland Zero 2.0	Stadt Koeln	https://www.offenedaten-koeln.de/dataset/adressen-koeln
+hk_countrywide-zh-country	DATA.GOV.HK terms: commercial use free of charge with attribution of the source	Hong Kong Digital Policy Office	https://data.gov.hk/en/terms-and-conditions
+ar_m_mendoza-city	CC BY 4.0	Direccion de Catastro, Municipalidad de la Ciudad de Mendoza	https://datos.ciudaddemendoza.gob.ar/dataset/parcelario-catastral
