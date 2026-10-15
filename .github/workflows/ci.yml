@@ -25,6 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
       - uses: ./.github/actions/bench-env
+        with:
+          models: "true"
       - name: Install Rust and Buf
         run: |
           rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy && rustup default 1.99.0
@@ -38,6 +40,8 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
+      # Resolves addresses through libpostal over the synthetic world of tests/synthetic.
+      - run: cargo test --locked --test synthetic -- --ignored
 
   runtime:
     strategy:

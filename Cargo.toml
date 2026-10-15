@@ -54,6 +54,7 @@ strip = false
 debug = true
 
 [dev-dependencies]
+arrow-schema = "60"
 divan = { package = "codspeed-divan-compat", version = "5.0.2" }
 
 [[bench]]

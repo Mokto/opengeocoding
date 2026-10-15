@@ -2039,6 +2039,7 @@ version = "0.5.2"
 dependencies = [
  "anyhow",
  "arrow-array",
+ "arrow-schema",
  "axum",
  "buffa",
  "codspeed-divan-compat",
