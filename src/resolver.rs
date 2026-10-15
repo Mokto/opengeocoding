@@ -150,7 +150,7 @@ impl Resolver {
     pub async fn resolve(&self, query: &str) -> Result<FullAddress> {
         let core = self.0.clone();
         let query = query.to_owned();
-        tokio::task::spawn_blocking(move || core.resolve(&query)).await?
+        tokio::task::spawn_blocking(move || core.index.memoized(|| core.resolve(&query))).await?
     }
 
     /// Completions of a partly typed address; see `Index::suggest`.
@@ -1096,11 +1096,12 @@ fn km_between(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
 
 fn own_name<'a>(candidate: &'a Value, city: &str) -> Option<&'a str> {
     let names = candidate["namedetails"].as_object().into_iter().flatten();
+    let agrees = agrees_with(city);
     names
         .filter_map(|(_, v)| v.as_str())
         .flat_map(|v| v.split(';'))
         .chain(string(&candidate["display_name"]).split(',').next())
-        .find(|name| names_agree(city, name))
+        .find(|name| agrees(name))
 }
 
 /// Missing-data placeholders that would otherwise match to places named "n/a".
