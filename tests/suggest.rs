@@ -25,6 +25,10 @@ struct Case<'a> {
     lat: f64,
     lon: f64,
     km: f64,
+    /// Every prefix of the query this long or longer must also find the place (any of the 5).
+    from: Option<usize>,
+    /// Why the case is known to fail; it must keep failing until the label is removed.
+    known_failure: &'a str,
 }
 
 fn cases() -> Vec<Case<'static>> {
@@ -32,7 +36,7 @@ fn cases() -> Vec<Case<'static>> {
         .skip(1)
         .map(|l| {
             let c: Vec<&str> = l.split('\t').collect();
-            assert_eq!(c.len(), 8, "{l}");
+            assert_eq!(c.len(), 10, "{l}");
             Case {
                 query: c[0],
                 country: c[1],
@@ -42,58 +46,134 @@ fn cases() -> Vec<Case<'static>> {
                 lat: c[5].parse().unwrap(),
                 lon: c[6].parse().unwrap(),
                 km: c[7].parse().unwrap(),
+                from: c[8].parse().ok(),
+                known_failure: c[9],
             }
         })
         .collect()
 }
 
-#[test]
-fn gold_file_is_well_formed() {
-    let cases = cases();
-    assert!(cases.len() >= 20);
-    for c in cases {
-        assert!((-90.0..=90.0).contains(&c.lat) && (-180.0..=180.0).contains(&c.lon));
-        assert!(c.rank >= 1 && c.km > 0.0 && c.cc.len() == 2, "{}", c.query);
+impl Case<'_> {
+    fn suggest(&self, index: &Index, text: &str) -> Vec<Suggestion> {
+        index.suggest(text, 5, Some(self.country).filter(|c| !c.is_empty()))
+    }
+
+    fn hit(&self, found: &[Suggestion], rank: usize) -> bool {
+        found.iter().take(rank).any(|s| {
+            s.country_code == self.cc
+                && (self.kind.is_empty() || s.kind == self.kind)
+                && km(self.lat, self.lon, s) <= self.km
+        })
+    }
+
+    fn got(&self, found: &[Suggestion]) -> Vec<String> {
+        found
+            .iter()
+            .map(|s| {
+                format!(
+                    "{} {} ({:.0} km)",
+                    s.kind,
+                    s.display_name,
+                    km(self.lat, self.lon, s)
+                )
+            })
+            .collect()
     }
 }
 
-/// Every case must have a suggestion at its country, kind and place within `rank`.
+#[test]
+fn gold_file_is_well_formed() {
+    let cases = cases();
+    assert!(cases.len() >= 150);
+    let mut seen = std::collections::HashSet::new();
+    for c in &cases {
+        assert!((-90.0..=90.0).contains(&c.lat) && (-180.0..=180.0).contains(&c.lon));
+        assert!(
+            (1..=5).contains(&c.rank) && c.km > 0.0 && c.cc.len() == 2,
+            "{}",
+            c.query
+        );
+        assert!(c.country.is_empty() || c.country.len() == 2, "{}", c.query);
+        assert!(c.country.is_empty() || c.country == c.cc, "{}", c.query);
+        assert!(
+            c.from.is_none_or(|f| f <= c.query.chars().count()),
+            "{}",
+            c.query
+        );
+        assert!(
+            seen.insert((c.query, c.country, c.rank)),
+            "duplicate {}",
+            c.query
+        );
+    }
+}
+
+impl Case<'_> {
+    /// What is wrong with the answers to the query, and to each of its prefixes from `from` on.
+    fn problem(&self, index: &Index) -> Option<String> {
+        let chars: Vec<char> = self.query.chars().collect();
+        for n in self.from.unwrap_or(chars.len())..=chars.len() {
+            let text: String = chars[..n].iter().collect();
+            let found = self.suggest(index, &text);
+            let ids: std::collections::HashSet<_> = found.iter().map(|s| &s.id).collect();
+            if found.len() > 5 || ids.len() != found.len() {
+                return Some(format!(
+                    "{text:?}: too many or repeated: {:?}",
+                    self.got(&found)
+                ));
+            }
+            if let Some(s) = found
+                .iter()
+                .find(|s| !self.country.is_empty() && s.country_code != self.country)
+            {
+                return Some(format!(
+                    "{text:?} in {}: {} is in {}",
+                    self.country, s.display_name, s.country_code
+                ));
+            }
+            // a prefix only has to find the place somewhere; the whole query has to rank it
+            let rank = if n == chars.len() { self.rank } else { 5 };
+            if !self.hit(&found, rank) {
+                return Some(format!(
+                    "{text:?}: wanted a {} in {} near {},{} within {rank}; got {:?}",
+                    self.kind,
+                    self.cc,
+                    self.lat,
+                    self.lon,
+                    self.got(&found)
+                ));
+            }
+        }
+        None
+    }
+}
+
+/// Every case must have a suggestion at its country, kind and place within `rank`, and so must
+/// every prefix of its query from `from` characters on. Whatever the text, the answer respects
+/// the limit and the country filter and repeats no id. A known failure must still fail.
 #[test]
 #[ignore = "needs INDEX_DIR"]
 fn gold() {
     let index = open();
-    let mut failed = vec![];
-    for c in cases() {
-        let found = index.suggest(c.query, 5, Some(c.country).filter(|c| !c.is_empty()));
-        let hit = found.iter().take(c.rank).any(|s| {
-            s.country_code == c.cc
-                && (c.kind.is_empty() || s.kind == c.kind)
-                && km(c.lat, c.lon, s) <= c.km
-        });
-        if !hit {
-            let got: Vec<_> = found
-                .iter()
-                .map(|s| {
-                    format!(
-                        "{} {} ({:.0} km)",
-                        s.kind,
-                        s.display_name,
-                        km(c.lat, c.lon, s)
-                    )
-                })
-                .collect();
-            failed.push(format!(
-                "{:?}: wanted a {} in {} near {},{}; got {got:?}",
-                c.query, c.kind, c.cc, c.lat, c.lon
-            ));
+    let all = cases();
+    let mut bad = vec![];
+    for c in &all {
+        match (c.problem(&index), c.known_failure.is_empty()) {
+            (Some(p), true) => bad.push(p),
+            (None, false) => bad.push(format!(
+                "{:?} now passes: remove its known_failure",
+                c.query
+            )),
+            _ => {}
         }
     }
+    let known = all.iter().filter(|c| !c.known_failure.is_empty()).count();
+    eprintln!("{} cases, {known} known failures", all.len());
     assert!(
-        failed.is_empty(),
-        "{} of {} failed:\n{}",
-        failed.len(),
-        cases().len(),
-        failed.join("\n")
+        bad.is_empty(),
+        "{} problems:\n{}",
+        bad.len(),
+        bad.join("\n")
     );
 }
 
