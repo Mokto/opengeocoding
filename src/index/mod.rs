@@ -328,12 +328,17 @@ struct SegmentTop {
 }
 
 impl SegmentTop {
+    /// Places and streets have an id of their own, so one column read decides; postcode documents
+    /// have none and fall back to their coordinates.
     fn tie(&self, doc: u32) -> Tie {
-        (
-            self.id.first(doc).unwrap_or(0),
-            self.x.first(doc).map_or(0, f64::to_bits),
-            self.y.first(doc).map_or(0, f64::to_bits),
-        )
+        match self.id.first(doc) {
+            Some(id) => (id, 0, 0),
+            None => (
+                0,
+                self.x.first(doc).map_or(0, f64::to_bits),
+                self.y.first(doc).map_or(0, f64::to_bits),
+            ),
+        }
     }
 }
 
