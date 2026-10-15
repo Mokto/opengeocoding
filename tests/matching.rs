@@ -1033,3 +1033,43 @@ fn a_country_override_needs_more_than_a_street_or_a_digit() {
     assert!(!is_repeated_country("Kyiv, Kyiv"));
     assert!(!is_repeated_country("Paris, France"));
 }
+
+#[test]
+fn a_name_and_its_region_name_the_place_whichever_fields_the_parser_chose() {
+    let place = |city: &str, state: &str| AddressDetails {
+        village: city.into(),
+        state: state.into(),
+        country: "South Africa".into(),
+        country_code: "za".into(),
+        ..Default::default()
+    };
+    // libpostal reads "Kriel" as a suburb of a town "Mpumalanga"
+    let kriel = place("Kriel", "Mpumalanga");
+    assert!(named_in_region(
+        "Kriel, Mpumalanga, South Africa",
+        Some(&kriel)
+    ));
+    // the region without its administrative word
+    let juan = place("Villa San Agustín", "San Juan Province");
+    assert!(named_in_region(
+        "Villa San Agustín, San Juan, Argentina",
+        Some(&juan)
+    ));
+    // another region's namesake is not the place, nor is a different name in the right one
+    assert!(!named_in_region(
+        "Kriel, Gauteng, South Africa",
+        Some(&kriel)
+    ));
+    assert!(!named_in_region(
+        "Kriek, Mpumalanga, South Africa",
+        Some(&kriel)
+    ));
+    // a lone country is evidence only when no region is stated
+    assert!(named_in_region("Kriel, South Africa", Some(&kriel)));
+    assert!(!named_in_region(
+        "Kriel, Gauteng, South Africa",
+        Some(&kriel)
+    ));
+    assert!(!named_in_region("Kriel", Some(&kriel)));
+    assert!(!named_in_region("Kriel, Germany", Some(&kriel)));
+}

@@ -413,7 +413,7 @@
 {"kind": "place", "cohort": "city", "qid": "Q44401", "queries": ["Cayenne, Guyane, French Guiana"], "radius_km": 6, "tags": ["geonames-sample", "gf"]}
 {"kind": "place", "cohort": "city", "qid": "Q319959", "queries": ["Saint-Laurent-du-Maroni, Guyane, French Guiana"], "radius_km": 6, "tags": ["geonames-sample", "gf"]}
 {"kind": "place", "cohort": "city", "qid": "Q174262", "queries": ["Saint Peter Port, St Peter Port, Guernsey"], "radius_km": 6, "tags": ["geonames-sample", "gg"]}
-{"kind": "place", "cohort": "city", "qid": "Q1471408", "queries": ["Keta, Volta, Ghana"], "radius_km": 6, "tags": ["geonames-sample", "gh"], "known_failure": "wrong_country: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q1471408", "queries": ["Keta, Volta, Ghana"], "radius_km": 6, "tags": ["geonames-sample", "gh"]}
 {"kind": "place", "cohort": "city", "qid": "Q1410", "queries": ["Gibraltar, Gibraltar"], "radius_km": 6, "tags": ["geonames-sample", "gi"]}
 {"kind": "place", "cohort": "city", "qid": "Q226", "queries": ["Nuuk, Sermersooq, Greenland"], "radius_km": 6, "tags": ["geonames-sample", "gl"]}
 {"kind": "place", "cohort": "rural", "qid": "Q855324", "queries": ["Nanortalik, Kujalleq, Greenland"], "radius_km": 6, "tags": ["geonames-sample", "gl"]}
@@ -728,7 +728,7 @@
 {"kind": "place", "cohort": "city", "qid": "Q132676", "queries": ["Mamoudzou, Mayotte"], "radius_km": 6, "tags": ["geonames-sample", "yt"]}
 {"kind": "place", "cohort": "city", "qid": "Q1010634", "queries": ["Pamandzi, Mayotte"], "radius_km": 6, "tags": ["geonames-sample", "yt"]}
 {"kind": "place", "cohort": "city", "qid": "Q3926", "queries": ["Pretoria, South Africa"], "radius_km": 20, "tags": ["geonames-sample", "za"]}
-{"kind": "place", "cohort": "city", "qid": "Q1870711", "queries": ["Kriel, Mpumalanga, South Africa"], "radius_km": 6, "tags": ["geonames-sample", "za"], "known_failure": "far_miss: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q1870711", "queries": ["Kriel, Mpumalanga, South Africa"], "radius_km": 6, "tags": ["geonames-sample", "za"]}
 {"kind": "place", "cohort": "city", "qid": "Q3881", "queries": ["Lusaka, Zambia"], "radius_km": 20, "tags": ["geonames-sample", "zm"]}
 {"kind": "place", "cohort": "city", "qid": "Q260171", "queries": ["Lundazi, Eastern Province, Zambia"], "radius_km": 6, "tags": ["geonames-sample", "zm"]}
 {"kind": "place", "cohort": "city", "qid": "Q3921", "queries": ["Harare, Zimbabwe"], "radius_km": 20, "tags": ["geonames-sample", "zw"]}
@@ -1616,7 +1616,7 @@
 {"kind": "place", "cohort": "city", "qid": "Q44162", "queries": ["San Fernando del Valle de Catamarca, Argentina"], "radius_km": 10, "tags": ["geonames-sample", "geonames-2", "ar", "native"]}
 {"kind": "place", "cohort": "city", "qid": "Q692762", "queries": ["Colón, Buenos Aires, Argentina"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "ar"]}
 {"kind": "place", "cohort": "city", "qid": "Q4811974", "queries": ["La Punta, San Luis, Argentina"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "ar"]}
-{"kind": "place", "cohort": "rural", "qid": "Q3558742", "queries": ["Villa San Agustín, San Juan, Argentina"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "ar"], "known_failure": "far_miss: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "rural", "qid": "Q3558742", "queries": ["Villa San Agustín, San Juan, Argentina"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "ar"]}
 {"kind": "place", "cohort": "rural", "qid": "Q15246100", "queries": ["Mapusaga, Western District, American Samoa"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "as"]}
 {"kind": "place", "cohort": "city", "qid": "Q17856", "queries": ["Ballarat, Australia"], "radius_km": 10, "tags": ["geonames-sample", "geonames-2", "au"]}
 {"kind": "place", "cohort": "city", "qid": "Q21924201", "queries": ["Logan City, Australia"], "radius_km": 10, "tags": ["geonames-sample", "geonames-2", "au"]}
@@ -1656,7 +1656,7 @@
 {"kind": "place", "cohort": "city", "qid": "Q2708675", "queries": ["Mora, Far North, Cameroon"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "cm"]}
 {"kind": "place", "cohort": "city", "qid": "Q13674062", "queries": ["Changzheng, China"], "radius_km": 10, "tags": ["geonames-sample", "geonames-2", "cn"], "known_failure": "far_miss: a town name many Chinese towns share, with only the country to place it (2026-10-13)"}
 {"kind": "place", "cohort": "city", "qid": "Q13674062", "queries": ["Changzheng"], "radius_km": 10, "tags": ["geonames-sample", "geonames-2", "cn", "no_country"], "known_failure": "far_miss: a town name many Chinese towns share, with nothing to place it (2026-10-13)"}
-{"kind": "place", "cohort": "city", "qid": "Q13697371", "queries": ["Xumingsi, Chongqing, China"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "cn"], "known_failure": "far_miss: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q13697371", "queries": ["Xumingsi, Chongqing, China"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "cn"]}
 {"kind": "place", "cohort": "city", "qid": "Q13697371", "queries": ["许明寺镇, 中华人民共和国"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "cn", "native"]}
 {"kind": "place", "cohort": "rural", "qid": "Q11129652", "queries": ["Shuikou, Fujian, China"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "cn"]}
 {"kind": "place", "cohort": "rural", "qid": "Q11129652", "queries": ["水口镇, 中华人民共和国"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "cn", "native"], "known_failure": "far_miss: a town name many Chinese towns share, with only the country to place it (2026-10-13)"}
@@ -1669,7 +1669,7 @@
 {"kind": "place", "cohort": "rural", "qid": "Q23686510", "queries": ["Miraflores, Boyacá, Colombia"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "co"]}
 {"kind": "place", "cohort": "rural", "qid": "Q23789112", "queries": ["San Luis, Pinar del Río, Cuba"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "cu"]}
 {"kind": "place", "cohort": "city", "qid": "Q668370", "queries": ["Stróvolos, Nicosia, Cyprus"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "cy"]}
-{"kind": "place", "cohort": "rural", "qid": "Q508591", "queries": ["Police nad Metují, Hradec Králové Region, Czechia"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "cz"], "known_failure": "wrong_country: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "rural", "qid": "Q508591", "queries": ["Police nad Metují, Hradec Králové Region, Czechia"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "cz"]}
 {"kind": "place", "cohort": "city", "qid": "Q2833", "queries": ["Freiburg, Germany"], "radius_km": 10, "tags": ["geonames-sample", "geonames-2", "de"]}
 {"kind": "place", "cohort": "city", "qid": "Q2833", "queries": ["Freiburg"], "radius_km": 10, "tags": ["geonames-sample", "geonames-2", "de", "no_country"]}
 {"kind": "place", "cohort": "city", "qid": "Q32288986", "queries": ["Schneverdingen, Lower Saxony, Germany"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "de"]}
@@ -1801,7 +1801,7 @@
 {"kind": "place", "cohort": "city", "qid": "Q200028", "queries": ["Hamilton, New Zealand"], "radius_km": 10, "tags": ["geonames-sample", "geonames-2", "nz"]}
 {"kind": "place", "cohort": "city", "qid": "Q2397257", "queries": ["Taupo, Waikato Region, New Zealand"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "nz"]}
 {"kind": "place", "cohort": "city", "qid": "Q7618426", "queries": ["Stoke, Nelson Region, New Zealand"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "nz"]}
-{"kind": "place", "cohort": "rural", "qid": "Q7052998", "queries": ["Normanby, Taranaki Region, New Zealand"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "nz"], "known_failure": "far_miss: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "rural", "qid": "Q7052998", "queries": ["Normanby, Taranaki Region, New Zealand"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "nz"]}
 {"kind": "place", "cohort": "rural", "qid": "Q16902361", "queries": ["Unsworth Heights, Auckland, New Zealand"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "nz"]}
 {"kind": "place", "cohort": "city", "qid": "Q6390074", "queries": ["Yanqul, Ad Dhahirah, Oman"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "om"]}
 {"kind": "place", "cohort": "rural", "qid": "Q7203675", "queries": ["Plaza de Caisán, Chiriquí Province, Panama"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "pa"]}
@@ -1837,7 +1837,7 @@
 {"kind": "place", "cohort": "rural", "qid": "Q1018945", "queries": ["Kapoeta, Eastern Equatoria, South Sudan"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "ss"]}
 {"kind": "place", "cohort": "city", "qid": "Q2537220", "queries": ["Metapán, Santa Ana Department, El Salvador"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "sv"]}
 {"kind": "place", "cohort": "city", "qid": "Q2498357", "queries": ["Massakory, Hadjer-Lamis, Chad"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "td"]}
-{"kind": "place", "cohort": "city", "qid": "Q1120978", "queries": ["Sotouboua, Centrale, Togo"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "tg"], "known_failure": "wrong_country: the index returns it first; the service rejects it on its libpostal parse and a later tier finds a same-named place elsewhere (2026-10-13)"}
+{"kind": "place", "cohort": "city", "qid": "Q1120978", "queries": ["Sotouboua, Centrale, Togo"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "tg"]}
 {"kind": "place", "cohort": "city", "qid": "Q13025347", "queries": ["Ko Samui, Surat Thani, Thailand"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "th"]}
 {"kind": "place", "cohort": "rural", "qid": "Q2997247", "queries": ["Varzob, Republican Subordination, Tajikistan"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "tj"]}
 {"kind": "place", "cohort": "city", "qid": "Q811130", "queries": ["Baukau, Baucau, Timor Leste"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "tl"]}
@@ -1903,7 +1903,7 @@
 {"kind": "place", "cohort": "rural", "qid": "Q845469", "queries": ["Worland, WY"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "us"]}
 {"kind": "place", "cohort": "rural", "qid": "Q79387", "queries": ["Camden, AL"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "us"]}
 {"kind": "place", "cohort": "rural", "qid": "Q2430147", "queries": ["Wakefield, NH"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "us"]}
-{"kind": "place", "cohort": "rural", "qid": "Q9069512", "queries": ["Riverside, CT"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "us"], "known_failure": "far_miss: libpostal reads \"riverside ct\" as a road, CT as Court (2026-10-13)"}
+{"kind": "place", "cohort": "rural", "qid": "Q9069512", "queries": ["Riverside, CT"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "us"]}
 {"kind": "place", "cohort": "rural", "qid": "Q584452", "queries": ["Park River, ND"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "us"]}
 {"kind": "place", "cohort": "rural", "qid": "Q1898688", "queries": ["Rio Del Mar, CA"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "us"]}
 {"kind": "place", "cohort": "rural", "qid": "Q2619892", "queries": ["Osage City, KS"], "radius_km": 6, "tags": ["geonames-sample", "geonames-2", "us"]}
@@ -2880,7 +2880,7 @@
 {"kind": "place", "cohort": "fallback", "qid": "Q54755", "queries": ["Brandsvigsgatan 11A, SE-262 73 Ängelholm, Sweden"], "location": "fallback:brandsvigsgatan-11a--se-262-73-ängelholm--sweden", "level": "locality", "max_level": "house", "radius_km": 10, "good_match": null, "tags": ["production_query"], "label": "country plate on a postcode"}
 {"kind": "place", "cohort": "fallback", "qid": "Q3426", "queries": ["г. Воронеж, ул. Кольцовская, д.35 ТЦ Галерея Чижова"], "location": "fallback:г--воронеж--ул--кольцовская--д-35-тц-галерея-чижова", "level": "locality", "max_level": "house", "radius_km": 20, "good_match": null, "tags": ["production_query"], "label": "Cyrillic locality abbreviation"}
 {"kind": "place", "cohort": "fallback", "qid": "Q406", "queries": ["İstiklal Cd. No:187, 34433 Beyoğlu/İstanbul"], "location": "fallback:i-stiklal-cd--no-187--34433-beyoğlu-i-stanbul", "level": "locality", "max_level": "house", "radius_km": 25, "good_match": null, "tags": ["production_query"], "label": "district/city written with a slash"}
-{"kind": "place", "cohort": "fallback", "qid": "Q1024037", "queries": ["Dorchester, MA"], "location": "fallback:dorchester-ma", "level": "locality", "max_level": "locality", "radius_km": 8, "good_match": null, "tags": ["production_query"], "label": "US state code must not resolve to Dorchester, Dorset", "known_failure": "abstain: Dorset's Dorchester is refused, but the data has no Dorchester in Massachusetts (2026-10-14)"}
+{"kind": "place", "cohort": "fallback", "qid": "Q1024037", "queries": ["Dorchester, MA"], "location": "fallback:dorchester-ma", "level": "locality", "max_level": "locality", "radius_km": 8, "good_match": null, "tags": ["production_query"], "label": "US state code must not resolve to Dorchester, Dorset"}
 {"kind": "place", "cohort": "city", "qid": "Q62", "queries": ["San Francisco, US, United States", "San Francisco, United States, United States"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
 {"kind": "place", "cohort": "city", "qid": "Q40269", "queries": ["Porto Alegre, BR, Brazil"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
 {"kind": "place", "cohort": "city", "qid": "Q2807", "queries": ["Madrid, ES, Spain"], "radius_km": 20, "tags": ["variant", "redundant_token"]}

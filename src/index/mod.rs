@@ -1289,6 +1289,18 @@ impl Parser {
                         &libpostal(tail.trim())?,
                         &inner,
                     );
+                    // "Riverside, CT": a lone town and its state code that libpostal fused into
+                    // one road ("riverside ct")
+                    if aligned.is_none()
+                        && tail.trim().len() == 2
+                        && matches!(&whole[..], [(k, _)] if k == "road")
+                        && !head.chars().any(|c| c.is_ascii_digit())
+                    {
+                        aligned = Some(vec![
+                            ("city".to_string(), head.trim().to_lowercase()),
+                            ("state".to_string(), tail.trim().to_lowercase()),
+                        ]);
+                    }
                 }
                 // "New York, United States": the comma ends the place, but libpostal splits it
                 // into a town "new" and a state "york" when the country follows

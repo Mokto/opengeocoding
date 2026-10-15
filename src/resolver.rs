@@ -375,6 +375,7 @@ impl Core {
                     && (postcode_matches(postcode, details) || house_road_city(address, details))
                     && (part(address, "city").is_empty()
                         || city_agrees(address, details)
+                        || named_in_region(query, details)
                         || (same_postcode_country(country, postcode, details)
                             && (locality(details) || *postcode_vouches))
                         || postcode_place_agrees(address, postcode, details)

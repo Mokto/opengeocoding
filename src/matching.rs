@@ -387,6 +387,74 @@ pub fn postcode_matches(expected: &str, details: Option<&AddressDetails>) -> boo
             .is_none_or(|d| d.postcode.is_empty() || postcodes_compatible(expected, &d.postcode))
 }
 
+/// The query's first part names the candidate and a later part names its region: "Kriel,
+/// Mpumalanga, South Africa" for the place Kriel in the province Mpumalanga, which libpostal
+/// reads as a suburb Kriel in a town Mpumalanga. A name and its region agreeing is evidence
+/// enough for the place whichever fields the parser chose.
+pub fn named_in_region(query: &str, details: Option<&AddressDetails>) -> bool {
+    let Some(d) = details else {
+        return false;
+    };
+    let parts: Vec<&str> = query
+        .split(',')
+        .map(|p| p.trim_matches(whitespace))
+        .filter(|p| !p.is_empty())
+        .collect();
+    let Some((first, rest)) = parts.split_first() else {
+        return false;
+    };
+    let agrees = agrees_with(first);
+    let named = [&d.city, &d.town, &d.village, &d.municipality, &d.suburb]
+        .iter()
+        .any(|n| !n.is_empty() && agrees(n));
+    // With a region stated, only the place in that region is named; with a lone country
+    // ("Skopje, North Macedonia") the country is the evidence.
+    let in_country = |part: &str| {
+        names_agree(part, &d.country)
+            || (!d.country_code.is_empty()
+                && expected_country(&parsed_country(part)) == d.country_code.to_lowercase())
+    };
+    let in_region = |part: &str| {
+        [
+            &d.state,
+            &d.province,
+            &d.region,
+            &d.county,
+            &d.state_district,
+        ]
+        .iter()
+        .any(|r| !r.is_empty() && (names_agree(part, r) || admin_name_agrees(part, r)))
+    };
+    named
+        && rest
+            .iter()
+            .any(|part| in_region(part) || (rest.len() == 1 && in_country(part)))
+}
+
+/// "San Juan" is "San Juan Province": the region's name without its administrative word.
+fn admin_name_agrees(stated: &str, region: &str) -> bool {
+    const WORDS: &[&str] = &[
+        "province",
+        "department",
+        "county",
+        "state",
+        "prefecture",
+        "governorate",
+        "canton",
+        "oblast",
+        "voivodeship",
+        "territory",
+    ];
+    let name = normalize_place(region);
+    let words: Vec<&str> = name.split(' ').collect();
+    match words.split_last() {
+        Some((last, rest)) if !rest.is_empty() && WORDS.contains(last) => {
+            normalize_place(stated) == rest.join(" ")
+        }
+        _ => false,
+    }
+}
+
 /// The stated town is the candidate's own city, town, village or municipality, not a suburb it
 /// is filed under.
 pub fn town_named(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
