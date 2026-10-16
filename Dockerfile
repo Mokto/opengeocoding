@@ -19,8 +19,10 @@ RUN arch="$(uname -m)" && curl -fsSL --retry 3 \
 WORKDIR /source
 ENV RUSTFLAGS="-L native=/usr/local/lib"
 
-# Empty stand-ins for every source file and a zeroed package version, so dependencies compile in a
-# layer that only a change to dependencies, build.rs, proto/ or data/ invalidates, not a release bump.
+# Empty stand-ins for the target roots only and a zeroed package version, so dependencies compile in a
+# layer that only a change to dependencies, targets, build.rs, proto/ or data/ invalidates, not a
+# release bump or a new module. build.rs hashes the src/index files listed with lib.rs. In `case`,
+# `*` also matches `/`, hence the order of the patterns.
 FROM build AS stubs
 COPY Cargo.toml Cargo.lock /stubs/
 RUN sed -i '0,/^version = .*/s//version = "0.0.0"/' /stubs/Cargo.toml \
@@ -28,11 +30,14 @@ RUN sed -i '0,/^version = .*/s//version = "0.0.0"/' /stubs/Cargo.toml \
 COPY src src
 COPY benches benches
 RUN find src benches -name '*.rs' | while read -r f; do \
-      mkdir -p "/stubs/$(dirname "$f")"; \
       case "$f" in \
-        src/main.rs|src/bin/*.rs|src/bin/*/main.rs|benches/*.rs) echo 'fn main() {}' ;; \
-        *) : ;; \
-      esac > "/stubs/$f"; \
+        src/lib.rs|src/index/schema.rs|src/index/canon.rs|src/index/reverse.rs) body='' ;; \
+        src/main.rs|src/bin/*/main.rs|benches/*.rs) body='fn main() {}' ;; \
+        src/bin/*/*) continue ;; \
+        src/bin/*.rs) body='fn main() {}' ;; \
+        *) continue ;; \
+      esac; \
+      mkdir -p "/stubs/$(dirname "$f")" && echo "$body" > "/stubs/$f"; \
     done
 
 FROM build AS manifest
