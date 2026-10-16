@@ -91,23 +91,30 @@ jobs:
             status success "Skipped: $1"
             exit 0
           }
-          # explain TEXT: the pull request gets a comment saying why there is no gold run, under the
-          # markers the run's own comments use, so a later run's report replaces it. A green status
-          # alone looks like a pass that nobody sees. Best effort, like those comments.
+          # The pull request's comment saying why there is no gold run is its own, not the
+          # gold-full or gold-speed comments of a run: `explain TEXT` posts or updates it, and
+          # `forget` deletes it once a run can start. A green status alone looks like a pass that
+          # nobody sees. Best effort, like the run's comments.
+          skipped_comment() {
+            gh api "repos/$REPO/issues/$pr/comments" --paginate \
+              -q '.[] | select(.body | startswith("<!-- gold-status -->")) | .id'
+          }
           explain() {
             [ -n "$pr" ] || return 0
-            for kind in gold-full gold-speed; do
-              title="Gold check, full index"; [ "$kind" = gold-speed ] && title="Speed, full index"
-              printf '<!-- %s -->\n## %s: not run\n\n%s\n\nThe next run that can start replaces this comment.\n' \
-                "$kind" "$title" "$1" > "$RUNNER_TEMP/$kind.md"
-              id=$(gh api "repos/$REPO/issues/$pr/comments" --paginate \
-                -q ".[] | select(.body | startswith(\"<!-- $kind -->\")) | .id") || { echo "::warning::Could not read the pull request comments"; continue; }
-              id=${id%%$'\n'*}
-              if [ -n "$id" ]; then
-                gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$RUNNER_TEMP/$kind.md" > /dev/null || echo "::warning::Could not update the $kind comment"
-              else
-                gh api -X POST "repos/$REPO/issues/$pr/comments" -F body=@"$RUNNER_TEMP/$kind.md" > /dev/null || echo "::warning::Could not post the $kind comment"
-              fi
+            printf '<!-- gold-status -->\n## Gold check and speed, full index: not run\n\n%s\n\nThis comment goes away when a run can start.\n' \
+              "$1" > "$RUNNER_TEMP/skipped.md"
+            id=$(skipped_comment) || { echo "::warning::Could not read the pull request comments"; return 0; }
+            id=${id%%$'\n'*}
+            if [ -n "$id" ]; then
+              gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$RUNNER_TEMP/skipped.md" > /dev/null || echo "::warning::Could not update the comment"
+            else
+              gh api -X POST "repos/$REPO/issues/$pr/comments" -F body=@"$RUNNER_TEMP/skipped.md" > /dev/null || echo "::warning::Could not post the comment"
+            fi
+          }
+          forget() {
+            [ -n "$pr" ] || return 0
+            for id in $(skipped_comment || true); do
+              gh api -X DELETE "repos/$REPO/issues/comments/$id" > /dev/null || echo "::warning::Could not delete the comment"
             done
           }
           pr=""
@@ -139,6 +146,7 @@ jobs:
                 skip "no multi-architecture staging image for ${sha:0:7}"
               }
           done
+          forget
           {
             echo "head=$HEAD_SHA"
             echo "base=$base"
@@ -213,21 +221,29 @@ jobs:
               gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@"$2" > /dev/null || echo "::warning::Could not post the $1 comment"
             fi
           }
-          # progress TITLE SPEED_TITLE NOTE: replaces both comments, so an older commit's report
-          # never stands in for this one's.
+          drop() {
+            [ -n "$PR" ] || return 0
+            local id
+            for id in $(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+              -q ".[] | select(.body | startswith(\"<!-- $1 -->\")) | .id" || true); do
+              gh api -X DELETE "repos/$REPO/issues/comments/$id" > /dev/null || echo "::warning::Could not delete the $1 comment"
+            done
+          }
+          # progress TITLE NOTE: where the run is, in a comment of its own (the report is posted
+          # as new comments and this one deleted, so a run's comments never mix with a report).
           progress() {
             {
-              echo "<!-- gold-full -->"; echo "## Gold check, full index: $1"; echo
-              echo "Base \`${BASE_SHA:0:7}\` → \`${HEAD_SHA:0:7}\`, run \`${RUN_ID:-not started}\`, updated $(date -u +%H:%M) UTC. $3"
+              echo "<!-- gold-status -->"; echo "## Gold check and speed, full index: $1"; echo
+              echo "Base \`${BASE_SHA:0:7}\` → \`${HEAD_SHA:0:7}\`, run \`${RUN_ID:-not started}\`, updated $(date -u +%H:%M) UTC. $2"
               echo; timings
             } > "$RUNNER_TEMP/progress.md"
-            { echo "<!-- gold-speed -->"; echo "## Speed, full index: $2"; } > "$RUNNER_TEMP/progress-speed.md"
-            upsert gold-speed "$RUNNER_TEMP/progress-speed.md"
-            upsert gold-full "$RUNNER_TEMP/progress.md"
+            upsert gold-status "$RUNNER_TEMP/progress.md"
           }
           LIB
           . "$RUNNER_TEMP/lib.sh"
           : > "$PHASES"
+          # an older commit's report must not stand in for this one's while it runs
+          drop gold-full; drop gold-speed
           # The cluster runs two evaluations at a time; wait for a free slot. It evaluates both
           # commits in every run and caches nothing, so speed is timed on one node.
           deadline=$((SECONDS + 5 * 3600)); waiting=""
@@ -241,7 +257,7 @@ jobs:
                    fi
                    if [ -z "$waiting" ]; then
                      waiting=1; phase_start "waiting for a free slot"
-                     progress queued "waiting for the run" "Both slots of the cluster are busy; the run starts when one is free."
+                     progress queued "Both slots of the cluster are busy; the run starts when one is free."
                    fi
                    log "Both slots are busy; waited $(dur "$SECONDS") so far, retrying in 60 s"; sleep 60 ;;
               *) log "Starting the run failed: HTTP $code"; jq -r '.error // empty' start.json
@@ -266,7 +282,7 @@ jobs:
                   log "$status: $phase$([ -n "$last" ] && echo " (the step before took $(dur $((now - since))))")"
                   [ "$status" = succeeded ] || phase_start "$phase"
                   since=$now
-                  case "$status" in running|queued) progress running "waiting for the run" "The report replaces this comment when the run ends." ;; esac
+                  case "$status" in running|queued) progress running "The report is posted when the run ends, and this comment is deleted." ;; esac
                 else
                   log "$status: $phase"
                 fi
@@ -279,7 +295,7 @@ jobs:
               errors=$((errors + 1)); log "The endpoint did not answer ($errors of 20)"
               [ "$errors" -lt 20 ] || {
                 echo "FAILED_STEP=the run's endpoint stopped answering" >> "$GITHUB_ENV"
-                progress "lost contact with the run" "no result" "The run's endpoint stopped answering${phase:+ during \`$phase\`}. The run may still be going in the cluster; this job gave up after 20 failed polls."
+                progress "lost contact with the run" "The run's endpoint stopped answering${phase:+ during \`$phase\`}. The run may still be going in the cluster; this job gave up after 20 failed polls."
                 echo "::error title=Gold run lost::The endpoint stopped answering${phase:+ during $phase}; the run may still be going in the cluster (run $RUN_ID)"
                 exit 1
               }
@@ -291,7 +307,7 @@ jobs:
             echo "FAILED_STEP=$phase" >> "$GITHUB_ENV"
             took=$(dur $(($(date +%s) - began)))
             note="The run failed in step \`$phase\` after $took. This is a failure of the run, not a verdict on the change: nothing here says the commit regresses. The step's own log stays in the cluster; give a maintainer the run id."
-            progress "run failed in $phase" "no result, the run failed" "$note"
+            progress "run failed in $phase" "$note"
             { echo "## Gold run failed in step \`$phase\`"; echo; timings; } >> "$GITHUB_STEP_SUMMARY"
             echo "::error title=Gold run failed::Step $phase failed after $took (run $RUN_ID); no verdict for this commit"
             exit 1
@@ -335,6 +351,7 @@ jobs:
           cat speed-comment.md comment.md > "$GITHUB_STEP_SUMMARY"
           upsert gold-speed speed-comment.md
           upsert gold-full comment.md
+          drop gold-status
       - name: Keep the report
         if: always()
         run: |
