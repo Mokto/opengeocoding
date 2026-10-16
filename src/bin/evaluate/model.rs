@@ -132,6 +132,10 @@ pub struct Located {
     pub country: String,
     /// ISO 3166-2 codes of the first answer, uppercase.
     pub regions: Vec<String>,
+    /// The first ReverseGeocode answer's locality and region names; absent from ResolveRegion
+    /// answers and from runs that predate them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub places: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }

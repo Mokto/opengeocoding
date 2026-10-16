@@ -178,13 +178,18 @@ pub fn rescore_suggest(case: &Case, record: &mut Record) {
     }
 }
 
+/// The English Wikidata label of a case's place, which `build-gold` sets as its suggest text.
+fn place_name(case: &Case) -> Option<&str> {
+    case.suggest.as_ref().map(|s| s.text.as_str())
+}
+
 /// Re-scores saved reverse and region answers against the current corpus.
 pub fn rescore_locate(case: &Case, record: &mut Record) {
     let Some(expect) = &case.expect else {
         return;
     };
     if let Some(found) = &mut record.reverse {
-        found.class = reverse_class(expect, found).into();
+        found.class = reverse_class(expect, place_name(case), found).into();
     }
     if let Some(found) = &mut record.region {
         found.class = region_class(expect, found).into();
@@ -312,7 +317,7 @@ impl Checker {
             fastest = Some(fastest.map_or(took, |f| f.min(took)));
         }
         let ms = fastest.map(|f| (f.as_secs_f64() * 1e6).round() / 1e3);
-        found.class = reverse_class(expect, &found).into();
+        found.class = reverse_class(expect, place_name(case), &found).into();
         (ms, reverse_applies(expect).then_some(found))
     }
 
