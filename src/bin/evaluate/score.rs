@@ -1,4 +1,4 @@
-use crate::model::{SuggestCheck, Suggested};
+use crate::model::{Located, SuggestCheck, Suggested};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -183,6 +183,89 @@ pub fn suggest_severity(class: &str) -> usize {
         .iter()
         .position(|c| *c == class)
         .unwrap_or(SUGGEST_CLASSES.len())
+}
+
+/// Ordered from best to worst. An empty answer is better than a wrong one.
+pub const LOCATE_CLASSES: [&str; 5] = ["pass", "empty", "wrong_region", "wrong_country", "error"];
+
+pub fn locate_severity(class: &str) -> usize {
+    LOCATE_CLASSES
+        .iter()
+        .position(|c| *c == class)
+        .unwrap_or(LOCATE_CLASSES.len())
+}
+
+/// The case's single expected place, when it has one with a point to look up.
+pub fn expected_place(expect: &Expect) -> Option<&Expect> {
+    (expect.any_of.is_none() && expect.error.is_none() && rank(&expect.level) > 0)
+        .then_some(expect)
+        .filter(|e| e.point.is_some() && !e.country.is_empty())
+}
+
+/// ReverseGeocode is checked for places of a locality or finer, whose point has a locality or
+/// house of its own; a region or country's point may be far from any.
+pub fn reverse_applies(expect: &Expect) -> bool {
+    expected_place(expect).is_some_and(|e| rank(&e.level) >= rank("locality"))
+}
+
+/// ResolveRegion is checked for places in a known region.
+pub fn region_applies(expect: &Expect) -> bool {
+    expected_place(expect).is_some_and(|e| !e.region.is_empty() && rank(&e.level) >= rank("region"))
+}
+
+fn locate_class(expect: &Expect, check_region: bool, found: &Located) -> &'static str {
+    if found.error.is_some() {
+        "error"
+    } else if found.country.is_empty() {
+        "empty"
+    } else if !expect.country.contains(&found.country) {
+        "wrong_country"
+    } else if check_region && !expect.region.iter().any(|r| found.regions.contains(r)) {
+        "wrong_region"
+    } else {
+        "pass"
+    }
+}
+
+/// The first answer's country, and its region where the place has regions to check.
+pub fn reverse_class(expect: &Expect, found: &Located) -> &'static str {
+    locate_class(expect, !expect.region.is_empty(), found)
+}
+
+pub fn region_class(expect: &Expect, found: &Located) -> &'static str {
+    locate_class(expect, true, found)
+}
+
+/// The first result of a ReverseGeocode response.
+pub fn reversed(response: &Value) -> Located {
+    let address = &response["results"][0]["address"];
+    Located {
+        country: text(details(address), "countryCode").to_lowercase(),
+        regions: region_codes(address).into_iter().collect(),
+        ..Default::default()
+    }
+}
+
+/// The regions of a ResolveRegion response, which all lie in one country.
+pub fn resolved(response: &Value) -> Located {
+    let regions = response["regions"].as_array().cloned().unwrap_or_default();
+    Located {
+        country: regions
+            .first()
+            .map_or("", |r| text(r, "countryCode"))
+            .to_lowercase(),
+        regions: regions
+            .iter()
+            .map(|r| {
+                format!(
+                    "{}-{}",
+                    text(r, "countryCode").to_uppercase(),
+                    text(r, "adminCode")
+                )
+            })
+            .collect(),
+        ..Default::default()
+    }
 }
 
 /// The suggestions of a SuggestAddress response, in order.
@@ -818,6 +901,70 @@ mod tests {
             drift((None, Some(&at(1.))), (None, Some(&finer))),
             ["finer"]
         );
+    }
+
+    #[test]
+    fn reverse_and_region_answers_are_scored_by_country_and_region() {
+        let place = |level: &str, region: &[&str]| Expect {
+            level: level.into(),
+            country: vec!["dk".into()],
+            point: Some([55.67, 12.56]),
+            region: region.iter().map(|r| r.to_string()).collect(),
+            ..Default::default()
+        };
+        let reverse = json!({ "results": [{ "address": { "addressDetails": {
+            "countryCode": "DK", "regionCodes": [{ "code": "dk-84" }] } } }] });
+        let found = reversed(&reverse);
+        assert_eq!(
+            (found.country.as_str(), &found.regions[..]),
+            ("dk", &["DK-84".to_string()][..])
+        );
+        assert_eq!(
+            reverse_class(&place("locality", &["DK-84"]), &found),
+            "pass"
+        );
+        assert_eq!(
+            reverse_class(&place("locality", &["DK-81"]), &found),
+            "wrong_region"
+        );
+        assert_eq!(reverse_class(&place("locality", &[]), &found), "pass");
+        let mut abroad = place("locality", &["DK-84"]);
+        abroad.country = vec!["se".into()];
+        assert_eq!(reverse_class(&abroad, &found), "wrong_country");
+        assert_eq!(reverse_class(&abroad, &reversed(&json!({}))), "empty");
+        let failed = Located {
+            error: Some("timeout".into()),
+            ..Default::default()
+        };
+        assert_eq!(reverse_class(&abroad, &failed), "error");
+        // an empty answer is a smaller failure than a wrong one
+        assert!(locate_severity("empty") < locate_severity("wrong_region"));
+        assert!(locate_severity("wrong_region") < locate_severity("wrong_country"));
+
+        let resolve = json!({ "regions": [{ "countryCode": "dk", "adminCode": "84" }] });
+        assert_eq!(
+            region_class(&place("region", &["DK-84"]), &resolved(&resolve)),
+            "pass"
+        );
+        assert_eq!(
+            region_class(&place("region", &["DK-81"]), &resolved(&resolve)),
+            "wrong_region"
+        );
+        assert_eq!(
+            region_class(&place("region", &["DK-84"]), &resolved(&json!({}))),
+            "empty"
+        );
+
+        assert!(reverse_applies(&place("locality", &[])));
+        assert!(!reverse_applies(&place("region", &["DK-84"])));
+        assert!(region_applies(&place("region", &["DK-84"])));
+        assert!(!region_applies(&place("country", &[])));
+        assert!(!region_applies(&place("locality", &[])));
+        let any = Expect {
+            any_of: Some(vec![place("locality", &[])]),
+            ..Default::default()
+        };
+        assert!(!reverse_applies(&any));
     }
 
     #[test]

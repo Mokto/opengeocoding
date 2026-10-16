@@ -123,6 +123,19 @@ pub struct SuggestCheck {
     pub ms: Option<f64>,
 }
 
+/// What ReverseGeocode or ResolveRegion answered at the point a case expects, scored by
+/// `reverse_class` or `region_class`.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+pub struct Located {
+    pub class: String,
+    /// Lowercase ISO country code of the first answer; empty when there is none.
+    pub country: String,
+    /// ISO 3166-2 codes of the first answer, uppercase.
+    pub regions: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct Suggested {
     pub kind: String,
@@ -157,6 +170,11 @@ pub struct Record {
     pub ms: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend_calls: Option<usize>,
+    /// ReverseGeocode and ResolveRegion at the case's expected point.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reverse: Option<Located>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub region: Option<Located>,
     /// ReverseGeocode at the case's expected point, the fastest of `repeat` requests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reverse_ms: Option<f64>,

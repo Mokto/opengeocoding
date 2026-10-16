@@ -1,9 +1,10 @@
 use crate::{
-    model::{Case, DirectRaw, Record, SuggestCheck, root},
+    model::{Case, DirectRaw, Located, Record, SuggestCheck, root},
     report::{diff, sorted, summarize},
     score::{
-        Expect, SUGGEST_LIMIT, details, from_index, rank, region_codes, region_flags, score,
-        suggest_rank, suggested, summary_of, text,
+        Expect, SUGGEST_LIMIT, details, expected_place, from_index, rank, region_applies,
+        region_class, region_codes, region_flags, resolved, reverse_applies, reverse_class,
+        reversed, score, suggest_rank, suggested, summary_of, text,
     },
 };
 use anyhow::{Context, Result, bail};
@@ -177,6 +178,19 @@ pub fn rescore_suggest(case: &Case, record: &mut Record) {
     }
 }
 
+/// Re-scores saved reverse and region answers against the current corpus.
+pub fn rescore_locate(case: &Case, record: &mut Record) {
+    let Some(expect) = &case.expect else {
+        return;
+    };
+    if let Some(found) = &mut record.reverse {
+        found.class = reverse_class(expect, found).into();
+    }
+    if let Some(found) = &mut record.region {
+        found.class = region_class(expect, found).into();
+    }
+}
+
 /// Scores an RPC outcome against a case; also used to re-score saved responses.
 pub fn classify(case: &Case, outcome: Result<&Value, &str>, record: &mut Record) {
     let wants_error = case.expect.as_ref().and_then(|e| e.error.as_deref());
@@ -254,7 +268,8 @@ impl Checker {
         }
         record.ms = Some((elapsed.as_secs_f64() * 1e6).round() / 1e3);
         record.suggest = self.suggest(case).await;
-        record.reverse_ms = self.reverse(case).await;
+        (record.reverse_ms, record.reverse) = self.reverse(case).await;
+        record.region = self.region(case).await;
         let response = match result {
             Ok(response) => response,
             Err(error) => {
@@ -274,23 +289,54 @@ impl Checker {
         Ok(record)
     }
 
-    /// Time of ReverseGeocode at the point a single-answer case expects: a house where the case
-    /// is one, else the nearest locality.
-    async fn reverse(&self, case: &Case) -> Option<f64> {
-        let expect = case.expect.as_ref()?;
-        let [lat, lon] = expect.point.filter(|_| expect.any_of.is_none())?;
+    /// ReverseGeocode at the point a single-answer case expects (a house where the case is one,
+    /// else the nearest locality): its time, and what it answered where the case checks that.
+    async fn reverse(&self, case: &Case) -> (Option<f64>, Option<Located>) {
+        let Some(expect) = case.expect.as_ref().and_then(expected_place) else {
+            return (None, None);
+        };
+        let [lat, lon] = expect.point.unwrap_or_default();
         self.budget.take().await;
         let request = json!({ "lat": lat, "lon": lon });
-        let mut fastest = None::<Duration>;
+        let (mut fastest, mut found) = (None::<Duration>, Located::default());
         for _ in 0..self.repeat.max(1) {
             let started = Instant::now();
-            rpc_json(&self.client, &self.base, "ReverseGeocode", &request)
-                .await
-                .ok()?;
+            match rpc_json(&self.client, &self.base, "ReverseGeocode", &request).await {
+                Ok(body) => found = reversed(&body),
+                Err(error) => {
+                    found.error = Some(error);
+                    break;
+                }
+            }
             let took = started.elapsed();
             fastest = Some(fastest.map_or(took, |f| f.min(took)));
         }
-        fastest.map(|f| (f.as_secs_f64() * 1e6).round() / 1e3)
+        let ms = fastest.map(|f| (f.as_secs_f64() * 1e6).round() / 1e3);
+        found.class = reverse_class(expect, &found).into();
+        (ms, reverse_applies(expect).then_some(found))
+    }
+
+    /// ResolveRegion at the point of a place in a known region.
+    async fn region(&self, case: &Case) -> Option<Located> {
+        let expect = case.expect.as_ref().filter(|e| region_applies(e))?;
+        let [lat, lon] = expect.point?;
+        self.budget.take().await;
+        let mut found = match rpc_json(
+            &self.client,
+            &self.base,
+            "ResolveRegion",
+            &json!({ "lat": lat, "lon": lon }),
+        )
+        .await
+        {
+            Ok(body) => resolved(&body),
+            Err(error) => Located {
+                error: Some(error),
+                ..Default::default()
+            },
+        };
+        found.class = region_class(expect, &found).into();
+        Some(found)
     }
 
     /// The query, and the place's name alone when the corpus ranks it among its namesakes, typed
