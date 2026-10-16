@@ -69,11 +69,13 @@ jobs:
             test ! -e /usr/local/bin/python
             test -x /usr/local/bin/opengeocoding
             test -x /usr/local/bin/build_index
+            test -x /usr/local/bin/leader
             test -x /usr/local/bin/libpostal_data
             test ! -e /usr/local/bin/serve_index
             test ! -e /usr/local/bin/geolocation
             ! ldd /usr/local/bin/opengeocoding | grep "not found"
             ! ldd /usr/local/bin/build_index | grep "not found"
+            ! ldd /usr/local/bin/leader | grep "not found"
           '
           test "$(docker run --rm --entrypoint build_index opengeocoding hash)" = "$(sed -n 's/^  builderHash: "\(.*\)"$/\1/p' manifests/values.yaml)"
 

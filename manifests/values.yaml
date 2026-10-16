@@ -19,7 +19,7 @@ store:
   # Path-style requests (bucket in the path) work with most S3-compatible stores.
   virtualHostedStyle: false
   # Secret holding AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (and optionally
-  # AWS_SESSION_TOKEN). The build Job writes with it.
+  # AWS_SESSION_TOKEN). The build Job writes with it; the leader and the serving pods only read.
   credentialsSecret: ""
   # Read-only credentials for the serving pods; defaults to credentialsSecret.
   readCredentialsSecret: ""
@@ -36,7 +36,7 @@ serviceAccount:
 index:
   # The hash of the index builder this chart was released with (`build_index hash`); `cargo
   # test` fails when the code and this disagree. Changing it, or anything under sources or
-  # modelsVersion, names a new index: the build Job builds it while the running pods keep
+  # modelsVersion, names a new index: the leader builds it while the running pods keep
   # serving the old one.
   builderHash: "51e5bc0c8443e3d5"
   modelsVersion: v1
@@ -219,9 +219,27 @@ index:
       - zambia
       - zimbabwe
 
+# The leader (src/bin/leader): builds the index when the store lacks it, then rolls the serving
+# Deployment out to it. The bucket must exist: the leader exits when it can't list it.
+leader:
+  replicas: 2
+  intervalSeconds: 30
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
 build:
+  # false: the leader never builds, and serves an index only once something else has published it.
   enabled: true
-  backoffLimit: 4
+  # The Job never retries its pod; the leader replaces a failed Job after this many seconds.
+  retryDelaySeconds: 600
   # A world build fetches about 140 GB the first time.
   activeDeadlineSeconds: 172800
   resources:
@@ -258,8 +276,8 @@ serving:
       memory: 16Gi
   # emptyDir for the pulled index (12 GB for the world) and models (2 GB).
   indexVolumeSize: 20Gi
-  # A first install waits for the build; its rollout stays in progress until then.
-  progressDeadlineSeconds: 172800
+  # The leader creates the Deployment once the index exists; its pods then pull 12 GB.
+  progressDeadlineSeconds: 3600
   env: []
   nodeSelector: {}
   tolerations: []
