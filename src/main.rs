@@ -1,10 +1,30 @@
 use anyhow::{Context, Result};
-use axum::{Router, extract::Request, http::Uri, middleware::map_request, routing::get};
+use axum::{
+    Router,
+    extract::Request,
+    http::Uri,
+    middleware::map_request,
+    routing::get,
+    serve::{Listener, ListenerExt},
+};
 use connectrpc::{Limits, Router as ConnectRouter};
 use connectrpc_reflection::{Reflector, install};
 use opengeocoding::{metrics::METRICS, regions::Regions, resolver::Resolver, service::Service};
 use std::{borrow::Cow, sync::Arc, time::Duration};
 use tokio::sync::watch;
+
+// axum::serve leaves Nagle on, which stalls each small reply behind the client's delayed ACK.
+async fn rpc_listener(
+    port: u16,
+) -> std::io::Result<impl Listener<Io = tokio::net::TcpStream, Addr = std::net::SocketAddr>> {
+    Ok(tokio::net::TcpListener::bind(("0.0.0.0", port))
+        .await?
+        .tap_io(|tcp| {
+            if let Err(error) = tcp.set_nodelay(true) {
+                tracing::warn!(%error, "failed to set TCP_NODELAY");
+            }
+        }))
+}
 
 async fn legacy_package(mut request: Request) -> Request {
     if let Some(rest) = [
@@ -110,7 +130,7 @@ async fn main() -> Result<()> {
     let metrics_port = std::env::var("METRICS_PORT")
         .unwrap_or_else(|_| "8000".into())
         .parse::<u16>()?;
-    let rpc = tokio::net::TcpListener::bind(("0.0.0.0", rpc_port)).await?;
+    let rpc = rpc_listener(rpc_port).await?;
     let metrics_listener = tokio::net::TcpListener::bind(("0.0.0.0", metrics_port)).await?;
     let (sender, receiver) = watch::channel(false);
     let rpc_receiver = receiver.clone();
@@ -147,6 +167,16 @@ async fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn rpc_connections_disable_nagle() {
+        let mut listener = rpc_listener(0).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let _client = tokio::net::TcpStream::connect(("127.0.0.1", port))
+            .await
+            .unwrap();
+        assert!(listener.accept().await.0.nodelay().unwrap());
+    }
 
     #[tokio::test]
     async fn legacy_rpc_paths_are_preserved() {
