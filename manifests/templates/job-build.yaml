@@ -50,7 +50,7 @@ spec:
             - --scratch
             - /scratch
             - --models
-            - /data/libpostal
+            - /scratch/libpostal
             - --models-version
             - {{ .Values.index.modelsVersion | quote }}
           env:
