@@ -154,6 +154,34 @@ fn resolve_region_prefers_a_house_then_a_region_coded_locality_and_not_a_faraway
 }
 
 #[test]
+fn resolve_region_answers_the_polygon_that_holds_the_point() {
+    let region = |lat: f64, lon: f64| {
+        index().reverse_region(lat, lon)["address"]["ISO3166-2-lvl4"]
+            .as_str()
+            .map(String::from)
+    };
+    // Grenzdorf, across the border in Delta, is the nearest town
+    let grenzdorf = place("at-grenzdorf");
+    assert_eq!(region(0.0, 60.45).as_deref(), Some("AT-3"));
+    assert_eq!(region(0.0, 60.55).as_deref(), Some("AT-4"));
+    assert_eq!(region(0.0, grenzdorf.lon).as_deref(), Some("AT-4"));
+    // and ReverseGeocode names a town of the point's own region, though farther
+    assert_eq!(
+        index().reverse(0.0, 60.45)["address"]["village"],
+        "Gammadorf"
+    );
+    assert_eq!(
+        index().reverse(0.0, 60.55)["address"]["village"],
+        "Grenzdorf"
+    );
+    // offshore, in the territorial sea only
+    assert_eq!(region(0.0, 59.55).as_deref(), Some("AT-3"));
+    // Liechtenstein has no regions: Delta's Randdorf is nearer than Vaduz, but is in Austria
+    assert_eq!(region(0.0, 61.52), None);
+    assert_eq!(index().reverse(0.0, 61.52)["address"]["village"], "Vaduz");
+}
+
+#[test]
 fn a_county_with_an_iso_code_adds_it_below_its_region_and_is_listed() {
     let colmar = place("fr-colmar");
     let address = &index().reverse(colmar.lat, colmar.lon)["address"];

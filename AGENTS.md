@@ -13,9 +13,10 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 
 - `src/matching.rs`: normalization, country/region corroboration and candidate selection.
 - `src/resolver.rs`: parsing, index lookups, candidate formatting and fallback ordering.
-- `src/index/`: the in-process lookup over a `build_index` output (`mod.rs`), the shared libpostal `Parser`, and the analyzer, schema and house-number format shared with the builder (`canon.rs`, `schema.rs`); `ResolveRegion`'s reverse lookup is still nearest-locality only.
+- `src/index/`: the in-process lookup over a `build_index` output (`mod.rs`), the shared libpostal `Parser`, and the analyzer, schema and house-number format shared with the builder (`canon.rs`, `schema.rs`).
 - `src/index/locality.rs`: the startup-built grid of locality points behind `Index::reverse` (not part of the index files, so it does not change the builder hash).
 - `src/index/reverse.rs`: `reverse.bin`, the street-by-grid-cell file `ReverseGeocode` reads (the builder writes it after the final segment merge, from per-shard spills of `schema.rs`'s number pass); houses themselves stay in the number FSTs.
+- `src/index/area.rs`: `areas.bin`, the simplified county, region, dependency and country polygons `ResolveRegion` answers from (and `ReverseGeocode`'s locality fallback keeps to); the builder writes it from Overture's territorial `division_area` rows. Points no polygon with a region code holds fall back to the nearest-point rule in `Index::reverse_region`.
 - `src/index/suggest.rs`: `SuggestAddress` completion of a half-typed place, street, house or postcode, with one-edit typos, later words of a big place's name and an optional `focus`; reads the term dictionary and a name FST built at startup, never libpostal.
 - `src/regions.rs`: the regions and region map derived from the index at startup.
 - `src/service.rs`, `src/main.rs`, `src/metrics.rs`: RPCs, process lifecycle and observability.
@@ -94,7 +95,7 @@ A world index built by this repository's builder is kept in `~/opengeocoding-ind
 - Gold-corpus sources (Wikidata, BAN, PDOK/BAG, US Census, ONSPD via postcodes.io) are attributed in `NOTICE`; update it when adding a source. Do not add Google Maps or other restricted geocoder output to any corpus.
 - Regenerate `THIRD_PARTY_NOTICES.txt` with `cargo run --bin notices` after dependency changes. Do not edit generated data or notices by hand.
 - Models are external, large and not bundled in the runtime image. Do not add automatic startup downloads from upstream or commit model files. The container expects read-only models at `/data/libpostal`; the build Job mirrors them into the store with libpostal's own `libpostal_data`.
-- Any change under `src/bin/build_index/` other than `fetch.rs` and `store.rs`, to `src/index/{schema,canon,reverse}.rs` or to the tantivy or deunicode versions changes the builder hash: update `index.builderHash` in `manifests/values.yaml` (`build_index hash`) in the same commit. That names a new index, which deployed charts rebuild. Store layout and `MANIFEST`/`_COMPLETE` sealing are a compatibility surface for existing buckets.
+- Any change under `src/bin/build_index/` other than `fetch.rs` and `store.rs`, to `src/index/{schema,canon,reverse,area}.rs` or to the tantivy or deunicode versions changes the builder hash: update `index.builderHash` in `manifests/values.yaml` (`build_index hash`) in the same commit. That names a new index, which deployed charts rebuild. Store layout and `MANIFEST`/`_COMPLETE` sealing are a compatibility surface for existing buckets.
 - Keep the runtime Python-free and non-root (uid/gid 1000). Do not conflate a parser/model upgrade with unrelated service changes.
 
 ## Git and publishing

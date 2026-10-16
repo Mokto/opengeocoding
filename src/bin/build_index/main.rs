@@ -572,6 +572,79 @@ fn load_assigner(dir: &Path, places: &[Place], idx: &HashMap<Str, u32>) -> Assig
     Assigner::new(polys, towns)
 }
 
+/// The territorial polygons of `area::KINDS`, simplified, for `ResolveRegion`; those wholly outside
+/// `bbox` are left out. Returns the polygons, vertices and bytes written.
+fn write_areas(
+    dir: &Path,
+    idx: &HashMap<Str, u32>,
+    bbox: Option<[f64; 4]>,
+    out: &Path,
+) -> (usize, usize, u64) {
+    use opengeocoding::index::area;
+    let areas: Vec<area::Area> = tasks(dir)
+        .par_iter()
+        .flat_map_iter(|t| {
+            let mut out = vec![];
+            for b in read(t, &["division_id", "subtype", "is_territorial", "geometry"]) {
+                let (id, sub, sea, geom) = (
+                    col(&b, "division_id").as_string::<i32>(),
+                    col(&b, "subtype").as_string::<i32>(),
+                    col(&b, "is_territorial").as_boolean(),
+                    col(&b, "geometry").as_binary::<i32>(),
+                );
+                for i in 0..b.num_rows() {
+                    let Some(kind) = area::KINDS.iter().position(|k| *k == sub.value(i)) else {
+                        continue;
+                    };
+                    // is_territorial picks the polygon that takes in the territorial sea, so a
+                    // point just offshore is placed; there is one per division
+                    if sea.is_null(i) || !sea.value(i) || geom.is_null(i) {
+                        continue;
+                    }
+                    let Some(&place) = idx.get(id.value(i)) else {
+                        continue;
+                    };
+                    let Some((xy, rings)) = wkb_polygons(geom.value(i)) else {
+                        continue;
+                    };
+                    let outside = bbox.is_some_and(|[x0, y0, x1, y1]| {
+                        let (lo, hi) =
+                            xy.iter()
+                                .fold(([f64::MAX; 2], [f64::MIN; 2]), |(lo, hi), p| {
+                                    (
+                                        [lo[0].min(p[0]), lo[1].min(p[1])],
+                                        [hi[0].max(p[0]), hi[1].max(p[1])],
+                                    )
+                                });
+                        hi[0] < x0 || lo[0] > x1 || hi[1] < y0 || lo[1] > y1
+                    });
+                    if outside {
+                        continue;
+                    }
+                    let rings: Vec<_> = rings
+                        .iter()
+                        .filter_map(|&(s, e)| {
+                            area::simplify(&xy[s as usize..e as usize], area::TOLERANCE)
+                        })
+                        .collect();
+                    if !rings.is_empty() {
+                        out.push(area::Area {
+                            place,
+                            kind: kind as u8,
+                            rings,
+                        });
+                    }
+                }
+            }
+            out
+        })
+        .collect();
+    let vertices = areas.iter().flat_map(|a| &a.rings).map(Vec::len).sum();
+    let polygons = areas.len();
+    let bytes = area::write(&out.join(area::FILE), areas).unwrap();
+    (polygons, vertices, bytes)
+}
+
 #[derive(Default)]
 struct SegAgg {
     name: Str,
@@ -1289,8 +1362,18 @@ fn build(args: &[String]) {
             std::process::exit(2)
         })
     });
-    drop(idx);
     lap("polygons");
+    let (polygons, vertices, bytes) = write_areas(
+        &dir.join("division_area"),
+        &idx,
+        assigner.bbox,
+        Path::new(out),
+    );
+    drop(idx);
+    lap(&format!(
+        "areas ({polygons} polygons, {vertices} vertices, {:.1} MB)",
+        bytes as f64 / 1e6
+    ));
     if let Some(cities) = opt("--geonames-places").last() {
         let admin1 = opt("--geonames-admin1");
         let added = geonames::add_places(
