@@ -72,7 +72,9 @@ fn every_listed_code_finds_its_own_region() {
                 .as_ref()
                 .is_some_and(|r| r["address"][key].as_str() == Some(code))
         };
-        let finds = carries("ISO3166-2-lvl4") || carries("ISO3166-2-lvl6");
+        let finds = ["ISO3166-2-lvl4", "ISO3166-2-lvl5", "ISO3166-2-lvl6"]
+            .iter()
+            .any(|key| carries(key));
         if finds == KNOWN.contains(&code) {
             wrong.push(format!("{code} (place {place}, finds it: {finds})"));
         }

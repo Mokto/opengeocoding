@@ -94,7 +94,7 @@ impl Place {
     fn key(&self) -> &'static str {
         match &*self.subtype {
             "country" | "dependency" => "country",
-            "region" => "state",
+            "region" | "macroregion" => "state",
             "county" if self.city_like => "city",
             "county" => "county",
             "localadmin" => "municipality",
@@ -115,6 +115,7 @@ impl Place {
         match &*self.subtype {
             "country" | "dependency" => 2,
             "region" => 4,
+            "macroregion" => 5,
             "county" => 6,
             "localadmin" => 8,
             "locality" => 8,
@@ -466,6 +467,8 @@ pub struct Index {
     subdivisions: HashMap<String, u32>,
     /// The same, by place.
     subdivision_codes: HashMap<u32, Box<str>>,
+    /// ISO 3166-2 code -> the place made for an Irish province; see `irish_provinces`.
+    provinces: HashMap<String, u32>,
     parser: Arc<Parser>,
     /// `terms_near` results: retried road and town splits ask for the same words.
     near: Mutex<HashMap<String, std::sync::Arc<[String]>>>,
@@ -701,15 +704,86 @@ fn namedetails(pl: &Place, names: &mut Map<String, Value>) {
     }
 }
 
-/// Overture's Irish regions are counties; ISO 3166-2:IE also has the four provinces above them.
+/// ISO 3166-2:IE's four provinces, above the counties that are Overture's Irish regions: code,
+/// English and Irish name, and counties.
+const IRISH_PROVINCES: [(&str, &str, &str, &[&str]); 4] = [
+    (
+        "IE-C",
+        "Connacht",
+        "Connachta",
+        &["G", "LM", "MO", "RN", "SO"],
+    ),
+    (
+        "IE-L",
+        "Leinster",
+        "Laighin",
+        &[
+            "CW", "D", "KE", "KK", "LS", "LD", "LH", "MH", "OY", "WH", "WX", "WW",
+        ],
+    ),
+    (
+        "IE-M",
+        "Munster",
+        "An Mhumhain",
+        &["CE", "CO", "KY", "LK", "TA", "WD"],
+    ),
+    ("IE-U", "Ulster", "Ulaidh", &["CN", "DL", "MN"]),
+];
+
 fn irish_province(county: &str) -> Option<&'static str> {
-    Some(match county.strip_prefix("IE-")? {
-        "G" | "LM" | "MO" | "RN" | "SO" => "IE-C",
-        "CW" | "D" | "KE" | "KK" | "LS" | "LD" | "LH" | "MH" | "OY" | "WH" | "WX" | "WW" => "IE-L",
-        "CE" | "CO" | "KY" | "LK" | "TA" | "WD" => "IE-M",
-        "CN" | "DL" | "MN" => "IE-U",
-        _ => return None,
-    })
+    let county = county.strip_prefix("IE-")?;
+    let province = IRISH_PROVINCES.iter().find(|p| p.3.contains(&county))?;
+    Some(province.0)
+}
+
+/// A place for each Irish province whose counties the index has, by code: Overture has no
+/// provinces. It sits at the mean of its counties' points and is in no other place's chain, so
+/// it changes no search; it gives the province a region row and answers `ie, <code>`.
+fn irish_provinces(places: &[Place], regions: &HashMap<String, u32>) -> Vec<(String, Place)> {
+    IRISH_PROVINCES
+        .iter()
+        .filter_map(|&(code, en, ga, counties)| {
+            let members: Vec<&Place> = counties
+                .iter()
+                .filter_map(|c| regions.get(&format!("IE-{c}")))
+                .map(|&p| &places[p as usize])
+                .collect();
+            let first = members.first()?;
+            let n = members.len() as f32;
+            let bbox = members
+                .iter()
+                .fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |b, p| {
+                    [
+                        b[0].min(p.bbox[0]),
+                        b[1].min(p.bbox[1]),
+                        b[2].max(p.bbox[2]),
+                        b[3].max(p.bbox[3]),
+                    ]
+                });
+            let names: Box<str> = format!("en={en}{SEP}ga={ga}").into();
+            let mut keys = vec![name_key(en), name_key(ga)];
+            keys.sort_unstable();
+            Some((
+                code.to_string(),
+                Place {
+                    subtype: "macroregion".into(),
+                    class: "".into(),
+                    cc: first.cc.clone(),
+                    region: "".into(),
+                    population: members.iter().map(|p| p.population).sum(),
+                    x: members.iter().map(|p| p.x).sum::<f32>() / n,
+                    y: members.iter().map(|p| p.y).sum::<f32>() / n,
+                    bbox,
+                    parent: first.parent,
+                    primary: en.into(),
+                    en: Place::english(&names),
+                    names,
+                    keys: keys.into(),
+                    city_like: false,
+                },
+            ))
+        })
+        .collect()
 }
 
 /// (administrative units, road, number) of a Chinese road address, the units most general
@@ -1512,6 +1586,11 @@ impl Index {
         }
         countries.entry("uae".into()).or_insert_with(|| "ae".into());
         let place_names = suggest::place_names(&places)?;
+        let mut provinces = HashMap::new();
+        for (code, place) in irish_provinces(&places, &regions) {
+            provinces.insert(code, places.len() as u32);
+            places.push(place);
+        }
         let mut country_codes = HashMap::new();
         let columns: Vec<Columns> = searcher
             .segment_readers()
@@ -1533,6 +1612,7 @@ impl Index {
             own_codes,
             subdivisions,
             subdivision_codes,
+            provinces,
             parser,
             near: Mutex::default(),
             prefixes: Mutex::default(),
@@ -2526,6 +2606,7 @@ impl Index {
         self.regions
             .iter()
             .chain(&self.subdivisions)
+            .chain(&self.provinces)
             .map(|(code, &place)| (code.as_str(), place))
     }
 
@@ -2606,7 +2687,7 @@ impl Index {
         (cc.trim().len() == 2 && code.starts_with(&format!("{}-", cc.trim().to_uppercase())))
             .then(|| {
                 let found = self.regions.get(&code).or(self.subdivisions.get(&code));
-                found.copied()
+                found.or(self.provinces.get(&code)).copied()
             })
             .flatten()
     }
@@ -3032,6 +3113,9 @@ impl Index {
         if let Some(code) = chain.iter().find_map(|p| self.subdivision_codes.get(p)) {
             a.insert("ISO3166-2-lvl6".into(), code.to_string().into());
         }
+        if let Some((code, _)) = self.provinces.iter().find(|(_, p)| **p == place) {
+            a.insert("ISO3166-2-lvl5".into(), code.clone().into());
+        }
     }
 
     /// A candidate as Nominatim-style JSON, with English names when `en`.
@@ -3047,7 +3131,7 @@ impl Index {
                 self.address(*p, en, &mut a, &mut display);
                 let admin = matches!(
                     &*pl.subtype,
-                    "country" | "dependency" | "region" | "county" | "localadmin"
+                    "country" | "dependency" | "region" | "macroregion" | "county" | "localadmin"
                 );
                 let (class, typ) = if admin {
                     ("boundary", "administrative")
