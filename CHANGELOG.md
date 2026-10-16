@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.0](https://github.com/Mokto/opengeocoding/compare/v0.7.2...v0.8.0) (2026-10-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename service to opengeocoding.OpenGeocoding ([#125](https://github.com/Mokto/opengeocoding/issues/125))
+
+### Features
+
+* rename service to opengeocoding.OpenGeocoding ([#125](https://github.com/Mokto/opengeocoding/issues/125)) ([7c25390](https://github.com/Mokto/opengeocoding/commit/7c253905f1db0ef01fb37b69ffed137ef1ee8b59))
+
 ## [0.7.2](https://github.com/Mokto/opengeocoding/compare/v0.7.1...v0.7.2) (2026-10-16)
 
 
