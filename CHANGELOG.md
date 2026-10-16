@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.2](https://github.com/Mokto/opengeocoding/compare/v0.7.1...v0.7.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* hand a build Job an earlier leader created over to Argo CD ([#120](https://github.com/Mokto/opengeocoding/issues/120)) ([1513604](https://github.com/Mokto/opengeocoding/commit/1513604299c1da6fe41dc63d72c00276411635a2))
+* nest the build Job and serving Deployment under the workloads ConfigMap in Argo CD ([#122](https://github.com/Mokto/opengeocoding/issues/122)) ([ad34892](https://github.com/Mokto/opengeocoding/commit/ad348928317046740f6b8fe20dcec3630126aa42))
+
 ## [0.7.1](https://github.com/Mokto/opengeocoding/compare/v0.7.0...v0.7.1) (2026-10-16)
 
 
