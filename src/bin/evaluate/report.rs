@@ -1,8 +1,9 @@
 use crate::{
     model::{Case, Located, Record, SuggestCheck, load_jsonl},
     score::{
-        CLASSES, DRIFT_KINDS, LOCATE_CLASSES, SUGGEST_CLASSES, Summary, critical, drift, haversine,
-        locate_severity, severity, snapshot_point, suggest_class, suggest_severity,
+        CLASSES, DRIFT_KINDS, LOCATE_CLASSES, SUGGEST_CLASSES, Summary, comparable, critical,
+        drift, haversine, locate_severity, severity, snapshot_point, suggest_class,
+        suggest_severity,
     },
 };
 use anyhow::{Context, Result};
@@ -691,7 +692,22 @@ fn locate_label(found: &Located) -> String {
     match &found.error {
         Some(error) => format!("error {error}"),
         None if found.country.is_empty() => "nothing".into(),
-        None => format!("[{}] {}", found.country, found.regions.join(", ")),
+        None => {
+            let places = found.places.as_deref().unwrap_or_default();
+            let places = places
+                .iter()
+                .take(3)
+                .map(String::as_str)
+                .collect::<Vec<_>>();
+            format!(
+                "[{}] {} {}",
+                found.country,
+                found.regions.join(", "),
+                places.join(", ")
+            )
+            .trim_end()
+            .into()
+        }
     }
 }
 
@@ -712,7 +728,7 @@ fn locate_section(out: &mut String, results: &[&Record], cohort: &dyn Fn(&Record
     }
     let _ = write!(
         out,
-        "\n## ReverseGeocode and ResolveRegion\n\nBoth are asked about the point each single-answer case expects. ReverseGeocode: the nearest result is in the expected country (and region, for a locality or finer); ResolveRegion: one of the regions found is an expected one.\n\n| Check | Cohort | {} |\n|---|---|{}\n",
+        "\n## ReverseGeocode and ResolveRegion\n\nBoth are asked about the point each single-answer case expects. ReverseGeocode: the nearest result is in the expected country (and region, for a locality or finer) and, for a locality with an English Wikidata label, names it; ResolveRegion: one of the regions found is an expected one.\n\n| Check | Cohort | {} |\n|---|---|{}\n",
         LOCATE_CLASSES.join(" | "),
         "---:|".repeat(LOCATE_CLASSES.len())
     );
@@ -984,7 +1000,7 @@ pub fn diff(
     // Per check kind: checked, base passing, head passing, head's other classes.
     let mut suggest_counts: BTreeMap<&str, [usize; 6]> = BTreeMap::new();
     // Per ReverseGeocode and ResolveRegion: checked, base passing, head passing, head's classes.
-    let mut locate_counts: BTreeMap<&str, [usize; 7]> = BTreeMap::new();
+    let mut locate_counts: BTreeMap<&str, [usize; 2 + LOCATE_CLASSES.len()]> = BTreeMap::new();
     let mut changed_checks: BTreeMap<&str, usize> = BTreeMap::new();
     for id in &shared {
         let (a, b) = (&old[*id], &new[*id]);
@@ -1046,7 +1062,7 @@ pub fn diff(
             let (Some(fa), Some(fb)) = (fa, fb) else {
                 continue;
             };
-            let (ca, cb) = (fa.class.as_str(), fb.class.as_str());
+            let (ca, cb) = comparable(fa, fb);
             if ca != cb {
                 *changed_checks.entry(name).or_default() += 1;
             }
@@ -1175,13 +1191,13 @@ pub fn diff(
         .filter(|(name, _)| changed_checks.contains_key(*name))
     {
         let rule = if *name == "ReverseGeocode" {
-            "the nearest result is in the expected country, and region where the place is a locality or finer"
+            "the nearest result is in the expected country, and region where the place is a locality or finer, and names a locality's English Wikidata label among its places"
         } else {
             "one of the regions found is an expected one"
         };
         let _ = write!(
             report,
-            "\n## {name}\n\n| Checked | Pass base | Pass head | Change | empty | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|\n| {} | {} | {} | {:+} | {} | {} | {} | {} |\n\nPasses when {rule}. The last four columns count the head's failures.\n",
+            "\n## {name}\n\n| Checked | Pass base | Pass head | Change | empty | wrong_place | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n| {} | {} | {} | {:+} | {} | {} | {} | {} | {} |\n\nPasses when {rule}. The last five columns count the head's failures.\n",
             c[0],
             c[1],
             c[2],
@@ -1189,7 +1205,8 @@ pub fn diff(
             c[3],
             c[4],
             c[5],
-            c[6]
+            c[6],
+            c[7]
         );
     }
     // Gating lists stay open; the lists to review are folded.
@@ -1509,6 +1526,7 @@ mod tests {
             class: class.into(),
             country: country.into(),
             regions: vec![],
+            places: None,
             error: None,
         };
         for (side, reverse, region) in [
@@ -1539,7 +1557,7 @@ mod tests {
         );
         assert!(!report.contains("ResolveRegion pass ->"), "{report}");
         assert!(
-            report.contains("## ReverseGeocode\n\n| Checked | Pass base | Pass head | Change | empty | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|\n| 1 | 1 | 0 | -1 | 0 | 0 | 1 | 0 |\n"),
+            report.contains("## ReverseGeocode\n\n| Checked | Pass base | Pass head | Change | empty | wrong_place | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n| 1 | 1 | 0 | -1 | 0 | 0 | 0 | 1 | 0 |\n"),
             "{report}"
         );
         assert!(!report.contains("## ResolveRegion"), "{report}");
@@ -1613,7 +1631,7 @@ mod tests {
         assert!(report.contains("| full | 2 | 1 | 1 | +0 |"), "{report}");
         for name in ["ReverseGeocode", "ResolveRegion"] {
             assert!(
-                report.contains(&format!("## {name}\n\n| Checked | Pass base | Pass head | Change | empty | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|\n| 2 | 1 | 1 | +0 |")),
+                report.contains(&format!("## {name}\n\n| Checked | Pass base | Pass head | Change | empty | wrong_place | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n| 2 | 1 | 1 | +0 |")),
                 "{report}"
             );
             assert!(
