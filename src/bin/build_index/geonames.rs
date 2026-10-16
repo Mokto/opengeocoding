@@ -152,7 +152,7 @@ pub fn add_places(
             .collect();
         writeln!(
             tsv,
-            "{}\t\t{}\t{}\t0\t{}\t{}\t{}\tNaN\tNaN\tNaN\tNaN\t{}\t{}\t{}\t",
+            "{}\tgeonames\t{}\t{}\t0\t{}\t{}\t{}\tNaN\tNaN\tNaN\tNaN\t{}\t{}\t{}\t",
             r.subtype,
             crate::country_str(&r.cc),
             region,
