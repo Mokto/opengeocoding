@@ -763,8 +763,9 @@ impl Local {
     async fn stop(&mut self) {
         if let Some(mut child) = self.child.take() {
             if let Some(pid) = child.id() {
-                let _ = std::process::Command::new("kill")
-                    .args(["-TERM", &pid.to_string()])
+                // The shell's builtin: slim images such as the eval image have no kill binary.
+                let _ = std::process::Command::new("sh")
+                    .args(["-c", "kill -TERM \"$1\"", "sh", &pid.to_string()])
                     .status();
             }
             if tokio::time::timeout(Duration::from_secs(30), child.wait())
