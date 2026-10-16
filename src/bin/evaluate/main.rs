@@ -286,6 +286,15 @@ fn rescore(cases: &[Case], results: &mut [Record]) {
             changed += 1;
             eprintln!("rescored {}: suggestions re-ranked", record.id);
         }
+        let locate_before = (record.reverse.clone(), record.region.clone());
+        run::rescore_locate(case, record);
+        if (record.reverse.clone(), record.region.clone()) != locate_before {
+            changed += 1;
+            eprintln!(
+                "rescored {}: reverse or region answers re-scored",
+                record.id
+            );
+        }
         let before = record.class.clone();
         let response = record.response.clone();
         let error = record.error.clone();
