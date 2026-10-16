@@ -35,13 +35,13 @@ fn endpoint(url: &str) -> Result<String> {
 }
 
 fn search_endpoint(base: &str) -> String {
-    if base.ends_with("/opengeocoding.Geolocation")
+    if base.ends_with("/opengeocoding.OpenGeocoding")
         || base.ends_with("/geolocation.Geolocation")
         || base.ends_with("/nominatim_geolocation.NominatimGeolocation")
     {
         format!("{base}/SearchAddress")
     } else {
-        format!("{base}/opengeocoding.Geolocation/SearchAddress")
+        format!("{base}/opengeocoding.OpenGeocoding/SearchAddress")
     }
 }
 
@@ -250,10 +250,10 @@ mod tests {
     #[test]
     fn endpoints_and_percentiles() {
         for (base, service) in [
-            ("http://localhost:11121", "opengeocoding.Geolocation"),
+            ("http://localhost:11121", "opengeocoding.OpenGeocoding"),
             (
-                "http://localhost:11121/opengeocoding.Geolocation",
-                "opengeocoding.Geolocation",
+                "http://localhost:11121/opengeocoding.OpenGeocoding",
+                "opengeocoding.OpenGeocoding",
             ),
             (
                 "http://localhost:11121/geolocation.Geolocation",

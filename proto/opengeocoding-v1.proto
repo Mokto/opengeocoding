@@ -3,7 +3,7 @@ package opengeocoding;
 
 option go_package = "github.com/Mokto/opengeocoding/gen/opengeocoding";
 
-service Geolocation {
+service OpenGeocoding {
   rpc SearchAddress(SearchAddressTask) returns (FullAddress) {}
   rpc ResolveRegion(GeoCoordinates) returns (RegionsResponse) {}
   rpc ListRegions(EmptyRequest) returns (RegionsResponse) {}

@@ -25,7 +25,7 @@ use std::{
 };
 use tokio::process::{Child, Command};
 
-const SERVICE: &str = "opengeocoding.Geolocation";
+const SERVICE: &str = "opengeocoding.OpenGeocoding";
 
 pub struct Options {
     pub suite: String,

@@ -19,7 +19,7 @@ use serde_json::{Value, json};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::process::{Child, Command};
 
-const SERVICE: &str = "opengeocoding.Geolocation";
+const SERVICE: &str = "opengeocoding.OpenGeocoding";
 
 struct Env {
     client: reqwest::Client,
@@ -564,7 +564,7 @@ async fn checks(env: &mut Env) -> Result<()> {
     ensure!(metrics.contains("nominatim_geolocation_query_tier_total"));
     ensure!(
         metrics.contains("grpc_requests_total")
-            && metrics.contains(r#"grpc_service="opengeocoding.Geolocation""#)
+            && metrics.contains(r#"grpc_service="opengeocoding.OpenGeocoding""#)
             && metrics.contains(r#"organization_id="rpc-test""#)
     );
     let mut child = env.child.take().context("service process")?;
