@@ -1008,7 +1008,13 @@ impl Drop for Sink<'_, '_> {
 }
 
 fn pass_addresses(dir: &Path, shared: &Shared) {
-    tasks(dir).par_iter().for_each(|t| {
+    let tasks = tasks(dir);
+    let done = progress::Progress::items(
+        "overture addresses".into(),
+        tasks.len() as u64,
+        "row groups",
+    );
+    tasks.par_iter().for_each(|t| {
         let mut sink = Sink::new(shared);
         for b in read(
             t,
@@ -1061,6 +1067,7 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                 );
             }
         }
+        done.add(1);
     });
 }
 
@@ -1261,6 +1268,7 @@ fn build(args: &[String]) {
     let mut lap = |what: &str| {
         let rss = mem::rss().map_or(String::new(), |r| format!(", rss {:.1} GB", r as f64 / GB));
         println!("{what}: {:.1}s{rss}", t.elapsed().as_secs_f64());
+        progress::touch();
         t = Instant::now();
     };
 
@@ -1374,11 +1382,11 @@ fn build(args: &[String]) {
     progress::phase("Build search index");
     let headroom = headroom();
     if headroom < 2 * mem::MIN_TOTAL {
-        println!(
-            "  warning: {:.1} GB headroom left; the writer takes {:.1} GB anyway",
+        progress::warn(format!(
+            "{:.1} GB headroom left; the writer takes {:.1} GB anyway",
             headroom as f64 / GB,
             mem::MIN_TOTAL as f64 / GB
-        );
+        ));
     }
     let (threads, budget) = mem::writer_budget(
         headroom,
@@ -1582,6 +1590,9 @@ fn build(args: &[String]) {
     let n = opengeocoding::index::reverse::build(Path::new(out), &index, f.kind).unwrap();
     lap(&format!("reverse lookup ({n} records)"));
     println!("total: {:.1}s", t0.elapsed().as_secs_f64());
+    if !progress::in_job() {
+        progress::summary();
+    }
 }
 
 #[cfg(test)]

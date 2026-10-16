@@ -118,6 +118,7 @@ pub fn job(args: Vec<String>) -> Result<()> {
     progress::phase("Upload");
     rt.block_on(store.publish(&out, &rel))?;
     println!("published {rel}");
+    progress::summary();
     Ok(())
 }
 
@@ -165,11 +166,18 @@ fn verify(dir: &Path) -> Result<()> {
         &misses[..misses.len().min(10)]
     );
     println!(
-        "verified: {} places; {found} of {} sampled resolve; missing: {:?}",
+        "verify: PASS, {} places; {found} of {} sampled resolve ({}%, at least {VERIFY_MIN_PERCENT}% required)",
         index.places_loaded(),
         sample.len(),
-        &misses[..misses.len().min(10)]
+        found * 100 / sample.len()
     );
+    if !misses.is_empty() {
+        progress::warn(format!(
+            "{} sampled places did not resolve by their own name, for example {:?}",
+            misses.len(),
+            &misses[..misses.len().min(10)]
+        ));
+    }
     Ok(())
 }
 
