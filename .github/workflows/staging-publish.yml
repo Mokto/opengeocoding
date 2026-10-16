@@ -196,12 +196,12 @@ jobs:
             local now name start end state seconds elapsed; now=$(date +%s)
             if [ -s run.json ] && jq -e '.steps | length > 0' run.json > /dev/null; then
               jq -r '"Progress: \(.progress_percent)% (\([.steps[] | select(.status == "completed")] | length)/\(.steps | length) steps completed; not a time estimate)."' run.json
-              echo; echo "| Step | Status | Time |"; echo "|---|---|---|"
-              while IFS=$'\t' read -r name state seconds; do
+              echo; echo "| Step | Status | Time | Progress |"; echo "|---|---|---|---|"
+              while IFS=$'\t' read -r name state seconds detail; do
                 elapsed="—"
                 [ -z "$seconds" ] || elapsed=$(dur "$seconds")
-                echo "| $name | $state | $elapsed |"
-              done < <(jq -r '.steps[] | [.name, .status, (.seconds // "")] | @tsv' run.json)
+                echo "| $name | $state | $elapsed | ${detail:-—} |"
+              done < <(jq -r '.steps[] | [.name, .status, (.seconds // ""), (.detail // "" | gsub("[|`<>]"; ""))] | @tsv' run.json)
               return
             fi
             echo "| Step | Time |"; echo "|---|---|"
