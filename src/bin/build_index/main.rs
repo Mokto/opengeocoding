@@ -6,6 +6,7 @@ mod fetch;
 mod geo;
 mod job;
 mod mem;
+mod progress;
 mod sources;
 mod store;
 
@@ -1007,7 +1008,13 @@ impl Drop for Sink<'_, '_> {
 }
 
 fn pass_addresses(dir: &Path, shared: &Shared) {
-    tasks(dir).par_iter().for_each(|t| {
+    let tasks = tasks(dir);
+    let done = progress::Progress::items(
+        "overture addresses".into(),
+        tasks.len() as u64,
+        "row groups",
+    );
+    tasks.par_iter().for_each(|t| {
         let mut sink = Sink::new(shared);
         for b in read(
             t,
@@ -1060,6 +1067,7 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                 );
             }
         }
+        done.add(1);
     });
 }
 
@@ -1260,9 +1268,11 @@ fn build(args: &[String]) {
     let mut lap = |what: &str| {
         let rss = mem::rss().map_or(String::new(), |r| format!(", rss {:.1} GB", r as f64 / GB));
         println!("{what}: {:.1}s{rss}", t.elapsed().as_secs_f64());
+        progress::touch();
         t = Instant::now();
     };
 
+    progress::phase("Parse places and boundaries");
     let (places, idx) = load_places(&dir.join("division"), out);
     lap(&format!("places ({})", places.len()));
     let mut assigner = load_assigner(&dir.join("division_area"), &places, &idx);
@@ -1279,6 +1289,7 @@ fn build(args: &[String]) {
     lap("segments");
     let spill = NumberSpill::new(Path::new(out).join(".numbers-spill"), NUMBER_SHARDS);
     let shared = Shared::new(&assigner, &places, &spill);
+    progress::phase("Parse addresses");
     pass_addresses(&dir.join("address"), &shared);
     lap(&format!(
         "overture addresses ({} rows)",
@@ -1303,6 +1314,7 @@ fn build(args: &[String]) {
             shared.rows.swap(0, Relaxed)
         ));
     }
+    progress::phase("Merge streets, postcodes and house numbers");
     let Shared {
         streets,
         postcodes,
@@ -1367,13 +1379,14 @@ fn build(args: &[String]) {
     drop((renumber, slots));
     lap(&format!("house numbers ({n})"));
 
+    progress::phase("Build search index");
     let headroom = headroom();
     if headroom < 2 * mem::MIN_TOTAL {
-        println!(
-            "  warning: {:.1} GB headroom left; the writer takes {:.1} GB anyway",
+        progress::warn(format!(
+            "{:.1} GB headroom left; the writer takes {:.1} GB anyway",
             headroom as f64 / GB,
             mem::MIN_TOTAL as f64 / GB
-        );
+        ));
     }
     let (threads, budget) = mem::writer_budget(
         headroom,
@@ -1573,9 +1586,13 @@ fn build(args: &[String]) {
         "segment merge ({} segments)",
         index.searchable_segment_ids().unwrap().len()
     ));
+    progress::phase("Build reverse lookup");
     let n = opengeocoding::index::reverse::build(Path::new(out), &index, f.kind).unwrap();
     lap(&format!("reverse lookup ({n} records)"));
     println!("total: {:.1}s", t0.elapsed().as_secs_f64());
+    if !progress::in_job() {
+        progress::summary();
+    }
 }
 
 #[cfg(test)]
