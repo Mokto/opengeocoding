@@ -375,6 +375,7 @@ impl Core {
                     && (postcode_matches(postcode, details) || house_road_city(address, details))
                     && (part(address, "city").is_empty()
                         || city_agrees(address, details)
+                        || named_in_region(query, details)
                         || (same_postcode_country(country, postcode, details)
                             && (locality(details) || *postcode_vouches))
                         || postcode_place_agrees(address, postcode, details)
@@ -384,19 +385,29 @@ impl Core {
                         || finer_near(f))
             })
             .collect();
-        if !lone_state
-            && !city.is_empty()
-            && ["road", "house_number", "postcode"]
-                .iter()
-                .all(|key| part(address, key).is_empty())
-        {
-            // A bare place name means the settlement, not a same-named quarter, county or region
-            // that the index may rank higher.
-            viable.sort_by_key(|(i, _)| match candidates[*i]["addresstype"].as_str() {
-                Some("city" | "town") => 0,
-                Some("municipality") => 1,
-                Some("village") => 2,
-                _ => 3,
+        // one candidate needs no ordering
+        if viable.len() > 1 && !city.is_empty() {
+            // The stated town as a candidate's own name comes before a suburb filed under it.
+            let bare = !lone_state
+                && ["road", "house_number", "postcode"]
+                    .iter()
+                    .all(|key| part(address, key).is_empty());
+            // A bare place name means the settlement, not a same-named quarter, county or
+            // region that the index may rank higher.
+            viable.sort_by_cached_key(|(i, f)| {
+                (
+                    !town_named(address, f.address_details.as_option()),
+                    if bare {
+                        match candidates[*i]["addresstype"].as_str() {
+                            Some("city" | "town") => 0,
+                            Some("municipality") => 1,
+                            Some("village") => 2,
+                            _ => 3,
+                        }
+                    } else {
+                        0
+                    },
+                )
             });
         }
         let values: Vec<_> = viable.iter().map(|(_, f)| (*f).clone()).collect();
@@ -462,9 +473,38 @@ impl Core {
     }
 
     fn resolve(&self, query: &str) -> Result<FullAddress> {
+        // A repeated part ("Kyiv, Kyiv, Ukraine", "Madrid, ES, Spain") answers as the query
+        // without it.
+        let written = query;
+        let collapsed = without_redundant_parts(query);
+        // "Luxembourg, Luxembourg" is the city; the repeat only goes when the query as written
+        // finds nothing ("Chile, Chile")
+        if collapsed.is_some() && is_repeated_country(query) {
+            let found = self.resolve_once(query)?;
+            if !found.display_name.is_empty() {
+                return Ok(found);
+            }
+        }
+        let query = collapsed.as_deref().unwrap_or(query);
+        let named = self.index.with_region_names(query);
+        let query = named.as_deref().unwrap_or(query);
         let found = self.resolve_once(query)?;
         if !found.display_name.is_empty() {
             return Ok(found);
+        }
+        // The query as written is the last try, unless a country code was dropped from it:
+        // "IE, Ireland" parses without a country and lets a same-named place abroad answer.
+        let dropped_code = collapsed.as_deref().is_some_and(|c| {
+            written
+                .split(',')
+                .map(str::trim)
+                .any(|p| p.chars().count() <= 3 && !c.split(',').any(|k| k.trim() == p))
+        });
+        if collapsed.is_some() && !dropped_code {
+            let retried = self.resolve_once(written)?;
+            if !retried.display_name.is_empty() {
+                return Ok(retried);
+            }
         }
         // the parser's slips that the query itself can mend: no comma before the country, and
         // parenthesised remarks
@@ -777,6 +817,26 @@ impl Core {
                     && country_matches(country, details)
                     && state_consistent(address, details)
                 {
+                    // With no country stated, the town and postcode together may name a place in
+                    // another country than this house ("2560 Nidau" is Swiss, "82 Hauptstrasse,
+                    // 2560" a street in Austria): the pair outweighs a coincidence of house and road.
+                    if country.is_empty()
+                        && self
+                            .search(&format!("{postcode}, {}", part(address, "city")))
+                            .1
+                            .iter()
+                            .filter_map(|v| format_response(v).ok())
+                            .any(|f| {
+                                let other = f.address_details.as_option();
+                                city_agrees(address, other)
+                                    && postcode_agrees(postcode, other)
+                                    && other
+                                        .zip(details)
+                                        .is_some_and(|(o, d)| o.country_code != d.country_code)
+                            })
+                    {
+                        continue;
+                    }
                     // A postal town names its post office, often the next place over (Salcha for
                     // a house the data files under Aurora Lodge): near the house it agrees.
                     let postal = found.geo_coordinates.as_option().is_some_and(|g| {
@@ -890,7 +950,7 @@ impl Core {
                     && details
                         .is_none_or(|d| postcode_shape(&d.country_code, postcode) != Some(false))))
                 && !self.postcode_elsewhere(postcode, &chosen.found);
-            if fits && !self.ambiguous(&structured, &place, country, &chosen.found) {
+            if fits && !self.ambiguous(&structured, &place, country, &chosen.found, &chosen.kind) {
                 return Ok(Some(accept(chosen.found, address, "", "settlement", false)));
             }
         }
@@ -905,13 +965,23 @@ impl Core {
         place: &ParsedAddress,
         country: &str,
         found: &FullAddress,
+        own_kind: &str,
     ) -> bool {
         let Some(at) = found.geo_coordinates.as_option() else {
             return false;
         };
+        // A city outranks a village of its name: "Madrid" is not "Madrid" in Almería.
+        let size = |kind: &str| match kind {
+            "city" => 0,
+            "town" | "municipality" => 1,
+            "village" => 2,
+            _ => 3,
+        };
+        let found_size = size(own_kind);
         self.search(structured)
             .1
             .iter()
+            .filter(|v| size(string(&v["addresstype"])) <= found_size)
             .filter_map(|v| format_response(v).ok())
             .filter(|f| {
                 let details = f.address_details.as_option();
@@ -965,12 +1035,16 @@ impl Core {
             }
             if let Some(chosen) =
                 self.first_acceptable(&structured, address, (country, postcode), tier, true, None)?
+                // a query with no road in it finds a street only by a state's or town's name
+                // ("Calle Baja California Sur" for "Baja California Sur, La Paz")
                 && !(unplaced
                     && chosen
                         .found
                         .address_details
                         .as_option()
                         .is_some_and(|d| !d.road.is_empty()))
+                && !(!order.contains(&"road")
+                    && road_named_for_place(address, chosen.found.address_details.as_option()))
                 && !(state_only && chosen.kind == "country")
             {
                 return Ok(Some(accept(chosen.found, address, postcode, tier, false)));
@@ -1020,8 +1094,12 @@ impl Core {
                     let details = chosen.found.address_details.as_option();
                     let stated = normalize_place(part(address, "country"));
                     let corroborated = country.is_empty()
-                        || !part(address, "road").is_empty()
-                        || query.chars().any(|c| c.is_ascii_digit())
+                        || road_agrees(address, details)
+                        || postcode_agrees(postcode, details)
+                        // a postcode in the shape of the found country's and not of the stated
+                        // one's ("5757 BD" is Dutch, not Belgian)
+                        || details
+                            .is_some_and(|d| postcode_shaped_for(query, country, &d.country_code))
                         || details.is_some_and(|d| {
                             !d.country.is_empty()
                                 && normalize_place(query).contains(&normalize_place(&d.country))

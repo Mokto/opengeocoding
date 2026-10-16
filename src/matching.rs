@@ -1,5 +1,8 @@
 use crate::{
-    index::{canon::canon, schema::fold},
+    index::{
+        canon::{canon, is_canonical},
+        schema::fold,
+    },
     proto::opengeocoding::{AddressDetails, FullAddress},
 };
 use indexmap::IndexMap;
@@ -227,6 +230,23 @@ pub fn tidy(address: &mut ParsedAddress) {
         "наб",
         "ш",
     ];
+    // "Dublin 4": a postal district numbered after its town, which libpostal files as a district
+    // or a postcode of its own and leaves the street with no town.
+    static DISTRICT: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(\p{L}[\p{L} .'-]{2,}?[\p{L}])\s+\d{1,2}[a-z]?$").unwrap());
+    if part(address, "city").is_empty() {
+        for key in ["city_district", "postcode"] {
+            if let Some(town) = address
+                .get(key)
+                .and_then(|v| DISTRICT.captures(v))
+                .map(|c| c[1].to_owned())
+            {
+                address.shift_remove(key);
+                address.insert("city".into(), town);
+                break;
+            }
+        }
+    }
     // "L-1855" taken for the town
     if part(address, "postcode").is_empty()
         && let Some(city) = address
@@ -367,6 +387,88 @@ pub fn postcode_matches(expected: &str, details: Option<&AddressDetails>) -> boo
             .is_none_or(|d| d.postcode.is_empty() || postcodes_compatible(expected, &d.postcode))
 }
 
+/// The query's first part names the candidate and a later part names its region: "Kriel,
+/// Mpumalanga, South Africa" for the place Kriel in the province Mpumalanga, which libpostal
+/// reads as a suburb Kriel in a town Mpumalanga. A name and its region agreeing is evidence
+/// enough for the place whichever fields the parser chose.
+pub fn named_in_region(query: &str, details: Option<&AddressDetails>) -> bool {
+    let Some(d) = details else {
+        return false;
+    };
+    let parts: Vec<&str> = query
+        .split(',')
+        .map(|p| p.trim_matches(whitespace))
+        .filter(|p| !p.is_empty())
+        .collect();
+    let Some((first, rest)) = parts.split_first() else {
+        return false;
+    };
+    let agrees = agrees_with(first);
+    let named = [&d.city, &d.town, &d.village, &d.municipality, &d.suburb]
+        .iter()
+        .any(|n| !n.is_empty() && agrees(n));
+    // With a region stated, only the place in that region is named; with a lone country
+    // ("Skopje, North Macedonia") the country is the evidence.
+    let in_country = |part: &str| {
+        names_agree(part, &d.country)
+            || (!d.country_code.is_empty()
+                && expected_country(&parsed_country(part)) == d.country_code.to_lowercase())
+    };
+    let in_region = |part: &str| {
+        [
+            &d.state,
+            &d.province,
+            &d.region,
+            &d.county,
+            &d.state_district,
+        ]
+        .iter()
+        .any(|r| !r.is_empty() && (names_agree(part, r) || admin_name_agrees(part, r)))
+    };
+    named
+        && rest
+            .iter()
+            .any(|part| in_region(part) || (rest.len() == 1 && in_country(part)))
+}
+
+/// "San Juan" is "San Juan Province": the region's name without its administrative word.
+fn admin_name_agrees(stated: &str, region: &str) -> bool {
+    const WORDS: &[&str] = &[
+        "province",
+        "department",
+        "county",
+        "state",
+        "prefecture",
+        "governorate",
+        "canton",
+        "oblast",
+        "voivodeship",
+        "territory",
+    ];
+    let name = normalize_place(region);
+    let words: Vec<&str> = name.split(' ').collect();
+    match words.split_last() {
+        Some((last, rest)) if !rest.is_empty() && WORDS.contains(last) => {
+            normalize_place(stated) == rest.join(" ")
+        }
+        _ => false,
+    }
+}
+
+/// The stated town is the candidate's own city, town, village or municipality, not a suburb it
+/// is filed under.
+pub fn town_named(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
+    let expected = part(address, "city");
+    let agrees = agrees_with(expected);
+    !expected.is_empty()
+        && details.is_some_and(|d| {
+            [&d.city, &d.town, &d.village, &d.municipality]
+                .iter()
+                .filter(|s| !s.is_empty())
+                .any(|s| agrees(s))
+        })
+}
+
 pub fn city_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
     let expected = part(address, "city");
     if expected.is_empty() {
@@ -376,8 +478,20 @@ pub fn city_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
         return false;
     };
     let agrees = agrees_with(expected);
+    // A suburb the index files under its town ("Blairgowrie" in Johannesburg) is its own name
+    // when no road or house narrows it; with one, the suburb only says where the road is. A
+    // fragment of a few letters ("C" of "Fraser Valley C") names no suburb.
+    let own_area = d.road.is_empty()
+        && d.house_number.is_empty()
+        && normalize_place(expected).chars().count() >= 3;
     [&d.city, &d.town, &d.village, &d.municipality]
-        .iter()
+        .into_iter()
+        .chain(
+            own_area
+                .then_some([&d.suburb, &d.city_district])
+                .into_iter()
+                .flatten(),
+        )
         .filter(|s| !s.is_empty())
         .any(|s| agrees(s))
 }
@@ -520,6 +634,28 @@ pub fn choose_candidate(
     postcode: &str,
     candidates: &[FullAddress],
 ) -> Option<(usize, &'static str)> {
+    // A region that only repeats the town ("Delhi" is a town and a state, "Tokyo" a city and a
+    // prefecture) says nothing of the country: it would let a same-named place abroad outweigh
+    // the country stated ("Tokyo, United States" is not Japan's).
+    let city = part(address, "city");
+    let repeated: Vec<&str> = ["state", "state_district", "country_region"]
+        .into_iter()
+        .filter(|key| {
+            !city.is_empty()
+                && !part(address, key).is_empty()
+                && names_agree(city, part(address, key))
+        })
+        .collect();
+    let mut alone;
+    let address = if repeated.is_empty() {
+        address
+    } else {
+        alone = address.clone();
+        for key in repeated {
+            alone.shift_remove(key);
+        }
+        &alone
+    };
     let implied = implied_country(address);
     let contradicts = !implied.is_empty() && implied != country;
     let country_ok = |item: &FullAddress| {
@@ -722,6 +858,146 @@ pub fn without_country(query: &str, address: &ParsedAddress) -> String {
     } else {
         stripped
     }
+}
+
+/// `query` without the comma parts that only repeat another: the same text ("Kyiv, Kyiv,
+/// Ukraine"), the same text without its postcode ("Madrid, Madrid 28007"), or a country by its
+/// code beside its name ("Delhi, IN, India"). The parser reads such a repeat as one fused word
+/// or as a region that contradicts the country (IN is Indiana), and nothing then matches. None
+/// when no part repeats.
+pub fn without_redundant_parts(query: &str) -> Option<String> {
+    let parts: Vec<&str> = query
+        .split(',')
+        .map(|p| p.trim_matches(whitespace))
+        .filter(|p| !p.is_empty())
+        .collect();
+    let last = parts.len().checked_sub(1)?;
+    // as written, not transliterated: "Варна, Varna" is left to the parser as before
+    let written = |text: &str| {
+        text.to_lowercase()
+            .split(|c: char| c.is_whitespace() || c.is_ascii_punctuation())
+            .filter(|w| !w.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    let keys: Vec<String> = parts.iter().map(|p| written(p)).collect();
+    let countries: Vec<String> = parts
+        .iter()
+        .map(|p| expected_country(&parsed_country(p)))
+        .collect();
+    let unnumbered: Vec<String> = parts
+        .iter()
+        .map(|p| {
+            let words: Vec<_> = p
+                .split(whitespace)
+                .filter(|w| !w.chars().any(char::is_numeric))
+                .collect();
+            written(&words.join(" "))
+        })
+        .collect();
+    let redundant = |i: usize| {
+        keys[i].chars().any(char::is_alphabetic)
+            && (0..parts.len()).filter(|&j| j != i).any(|j| {
+                let ends_country = |k: usize| k == last && !countries[k].is_empty();
+                if keys[i] == keys[j] {
+                    // the later copy goes, unless it is the country that ends the address
+                    if i < j {
+                        ends_country(j)
+                    } else {
+                        !ends_country(i)
+                    }
+                } else if !countries[i].is_empty() && countries[i] == countries[j] {
+                    keys[i].len() <= 3 && keys[i].len() < keys[j].len()
+                } else {
+                    unnumbered[j] == keys[i] && keys[j] != keys[i]
+                }
+            })
+    };
+    let kept: Vec<&str> = (0..parts.len())
+        .filter(|&i| !redundant(i))
+        .map(|i| parts[i])
+        .collect();
+    (kept.len() < parts.len()).then(|| kept.join(", "))
+}
+
+/// `query` with a part that is a region's ISO 3166-2 code, written as "B.C.S" or "BCS" after the
+/// first part, replaced by the name `region` gives for the code (uppercase, without the
+/// country): libpostal takes such a code for a house or a town, and a code that only one
+/// region has is as good as its name. None when no part is one. Two-letter codes are left to the
+/// parser ("VA" is a state or a country), and so is a lowercase word without dots ("Vic").
+pub fn with_region_names(query: &str, region: impl Fn(&str) -> Option<String>) -> Option<String> {
+    let mut changed = false;
+    let parts: Vec<String> = query
+        .split(',')
+        .enumerate()
+        .map(|(i, part)| {
+            let part = part.trim();
+            let letters: String = part.chars().filter(|c| c.is_ascii_alphabetic()).collect();
+            let shape = part.chars().all(|c| c.is_ascii_alphabetic() || c == '.')
+                && letters.len() == 3
+                && (part.contains('.') || letters.chars().all(|c| c.is_ascii_uppercase()));
+            match shape.then(|| region(&letters.to_uppercase())).flatten() {
+                Some(name) if i > 0 => {
+                    changed = true;
+                    name
+                }
+                _ => part.to_string(),
+            }
+        })
+        .collect();
+    changed.then(|| parts.join(", "))
+}
+
+/// The query is one country named more than once ("Luxembourg, Luxembourg", "Chile, Chile"):
+/// the town of that name where the country has one, else the country.
+pub fn is_repeated_country(query: &str) -> bool {
+    let parts: Vec<&str> = query
+        .split(',')
+        .map(|p| p.trim_matches(whitespace))
+        .filter(|p| !p.is_empty())
+        .collect();
+    parts.len() > 1
+        && parts
+            .iter()
+            .all(|p| normalize_place(p) == normalize_place(parts[0]))
+        && !expected_country(&parsed_country(parts[0])).is_empty()
+}
+
+/// The candidate's road is only a stated state's or town's name with a street type before or
+/// after it ("Calle Baja California Sur" for "Baja California Sur"): the query named a place
+/// there, not a road.
+pub fn road_named_for_place(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
+    let Some(d) = details.filter(|d| !d.road.is_empty()) else {
+        return false;
+    };
+    let name: Vec<String> = normalize_place(&d.road)
+        .split(' ')
+        .filter(|w| !(canon(w).is_some() || is_canonical(w)))
+        .map(str::to_owned)
+        .collect();
+    let name = name.join(" ");
+    name.len() >= 4
+        && ["city", "state", "state_district", "country_region"]
+            .iter()
+            .any(|key| normalize_place(part(address, key)) == name)
+}
+
+/// A word or two of the query that is a postcode in the shape of `found_cc` and not of
+/// `stated_cc` ("5757 BD" is a Dutch postcode, not a Belgian one). Read from the text because the
+/// parser files postcodes it doesn't know under a house number or a road.
+pub fn postcode_shaped_for(query: &str, stated_cc: &str, found_cc: &str) -> bool {
+    query.split(',').any(|part| {
+        let words: Vec<&str> = part.split(whitespace).filter(|w| !w.is_empty()).collect();
+        let pairs = words.windows(2).map(|w| w.join(" "));
+        words
+            .iter()
+            .map(|w| w.to_string())
+            .chain(pairs)
+            .any(|text| {
+                postcode_shape(found_cc, &text) == Some(true)
+                    && postcode_shape(stated_cc, &text) == Some(false)
+            })
+    })
 }
 
 /// The part of a multi-part query that names a country when the parser labelled it something

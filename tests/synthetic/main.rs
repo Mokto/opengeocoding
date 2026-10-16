@@ -163,11 +163,7 @@ fn cases() -> Vec<Case> {
         case("Delhi, India", town("in-dl-delhi", true)),
         case("Delhi, Ontario", town("ca-on-delhi", true)),
         case("Delhi, ON, Canada", town("ca-on-delhi", true)),
-        Case {
-            query: "Delhi, Canada",
-            want: town("ca-on-delhi", true),
-            known_failure: "matching: the stated country loses to the far larger Delhi in India",
-        },
+        case("Delhi, Canada", town("ca-on-delhi", true)),
         case(
             "2 Rue de Rivoli, 75001 Paris, France",
             at_house("Rue de Rivoli", "2"),
