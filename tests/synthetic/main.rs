@@ -56,6 +56,82 @@ fn metres(a: (f64, f64), b: (f64, f64)) -> f64 {
 }
 
 #[test]
+fn poi_houses_need_a_known_road_and_never_override_addresses_or_move_streets() {
+    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+        .join(format!("synthetic-poi-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    world::write_release(&root.join("release"));
+    world::write_poi_addresses(&root.join("release"));
+    let out = root.join("index");
+    let built = Command::new(env!("CARGO_BIN_EXE_build_index"))
+        .arg(root.join("release"))
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(
+        built.status.success(),
+        "{}",
+        String::from_utf8_lossy(&built.stderr)
+    );
+    let licences = std::fs::read_to_string(out.join("PLACES-LICENSES.txt")).unwrap();
+    assert!(licences.contains("Copyright 2024 Foursquare Labs, Inc."));
+    assert!(licences.contains("Community Data License Agreement"));
+    assert!(licences.contains("Apache License"));
+    let poi = Index::open(&out, Arc::new(Parser::unloaded(0))).unwrap();
+    let at = |text: &str| poi.suggest(text, 5, Some("GB"), None);
+    let added = at("High Street 999, Beacon");
+    assert_eq!((added.len(), added[0].kind), (1, "address"));
+    assert!(metres((added[0].x, added[0].y), (30.011, 10.0)) < 5.);
+    let original = at("High Street 1, Beacon");
+    assert!(
+        metres(
+            (original[0].x, original[0].y),
+            house(street("High Street"), "1")
+        ) < 5.
+    );
+    for query in [
+        "Missing Road",
+        "High Street 997, Beacon",
+        "High Street 12, Beacon",
+    ] {
+        assert!(!at(query).iter().any(|s| s.kind == "address"), "{query}");
+    }
+    let market = at("Market Street, Beacon");
+    assert_eq!(market[0].kind, "street");
+    assert!(metres((market[0].x, market[0].y), (30.012, 10.0)) < 5.);
+    let market_house = at("Market Street 888, Beacon");
+    assert_eq!(market_house[0].kind, "address");
+    assert!(metres((market_house[0].x, market_house[0].y), (30.013, 10.0)) < 5.);
+    assert!(
+        !poi.suggest("Main Street 994, Paris", 5, Some("US"), None)
+            .iter()
+            .any(|s| s.kind == "address")
+    );
+    drop(poi);
+    world::cover_address_countries(&root.join("release"));
+    let covered = root.join("covered-index");
+    let built = Command::new(env!("CARGO_BIN_EXE_build_index"))
+        .arg(root.join("release"))
+        .arg(&covered)
+        .output()
+        .unwrap();
+    assert!(
+        built.status.success(),
+        "{}",
+        String::from_utf8_lossy(&built.stderr)
+    );
+    let covered = Index::open(&covered, Arc::new(Parser::unloaded(0))).unwrap();
+    assert!(
+        !covered
+            .suggest("High Street 999, Beacon", 5, Some("GB"), None)
+            .iter()
+            .any(|s| s.kind == "address")
+    );
+    drop(covered);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn a_typed_place_name_lists_every_place_by_size_and_a_country_narrows_it() {
     let paris = |cc| {
         index()

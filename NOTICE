@@ -20,6 +20,15 @@ and download hashes are recorded in data/sources.json.
 The Wikidata items listed under iso3166_2 in data/reference.json (their ISO
 3166-2 codes) come from Wikidata, released under CC0-1.0 (https://www.wikidata.org/).
 
+Indexes built by build_index are not part of this repository; the build Job writes
+ATTRIBUTION.txt for their sources. House numbers include modified, filtered addresses
+from the Overture Maps Foundation's places theme, under CDLA-Permissive-2.0,
+Apache-2.0 (Foursquare Open Source Places) and CC0-1.0 (AllThePlaces).
+Copyright 2024 Foursquare Labs, Inc. All rights reserved.
+See https://docs.overturemaps.org/attribution/ and LICENSES/{CDLA-Permissive-2.0,Apache-2.0}.txt.
+The builder includes the licence texts and credit in PLACES-LICENSES.txt in the index.
+The country populations in README.md's coverage table come from GeoNames (CC-BY-4.0).
+
 libpostal and rustpostal are MIT-licensed. Their notices remain applicable.
 See https://github.com/openvenues/libpostal and https://github.com/kodemartin/rustpostal
 The native libpostal notice is included in the runtime image.

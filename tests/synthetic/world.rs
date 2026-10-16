@@ -6,7 +6,7 @@ use arrow_array::{
     builder::{BinaryBuilder, ListBuilder, MapBuilder, StringBuilder, StructBuilder},
 };
 use arrow_schema::{DataType, Field, Fields};
-use parquet::arrow::ArrowWriter;
+use parquet::arrow::{ArrowWriter, arrow_reader::ParquetRecordBatchReaderBuilder};
 use std::{fs::File, path::Path, sync::Arc};
 
 pub struct Place {
@@ -511,6 +511,30 @@ pub const PLACES: &[Place] = &[
         "Dublin",
         &[("en", "Dublin"), ("ga", "Baile Átha Cliath")],
     ),
+    place!(
+        "gb",
+        "country",
+        "",
+        "GB",
+        "",
+        68_000_000,
+        (30.0, 10.0),
+        "",
+        "United Kingdom",
+        &[("en", "United Kingdom")]
+    ),
+    place!(
+        "gb-beacon",
+        "locality",
+        "town",
+        "GB",
+        "",
+        20_000,
+        (30.0, 10.0),
+        "gb",
+        "Beacon",
+        &[("en", "Beacon")]
+    ),
 ];
 
 /// Administrative polygons besides the towns' (a square of half-side 0.2° each): (division,
@@ -539,6 +563,17 @@ pub struct Street {
 }
 
 pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "High Street",
+        postcode: "AA1 1AA",
+        city: "Beacon",
+        cc: "GB",
+        lon: 30.01,
+        lat: 10.0,
+        numbers: &["1", "2", "3"],
+    },
     Street {
         class: "residential",
         length: 0.0,
@@ -785,6 +820,89 @@ fn chain(p: &Place) -> Vec<&'static str> {
 
 /// Localities without a polygon of their own.
 const POINT_ONLY: [&str; 2] = ["de-koeln-feldheim", "us-tx-reno"];
+
+pub fn cover_address_countries(dir: &Path) {
+    let mut reader = ParquetRecordBatchReaderBuilder::try_new(
+        File::open(dir.join("address/part-0.parquet")).unwrap(),
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+    let batch = reader.next().unwrap().unwrap();
+    let mut writer = ArrowWriter::try_new(
+        File::create(dir.join("address/registry.parquet")).unwrap(),
+        batch.schema(),
+        None,
+    )
+    .unwrap();
+    for _ in 0..3500 {
+        writer.write(&batch).unwrap();
+    }
+    writer.close().unwrap();
+}
+
+pub fn write_poi_addresses(dir: &Path) {
+    let rows = [
+        ("999 High Street", 30.011, 10.0),
+        ("888 Market Street", 30.013, 10.0),
+        ("1 High Street", 30.012, 10.0),
+        ("998 Missing Road", 30.011, 10.0),
+        ("997 High Street", 2.34, 48.86),
+        ("12, Shop, High Street", 30.011, 10.0),
+        ("996 High Street", f64::NAN, 10.0),
+        ("995 High Street", -195.555, 10.0),
+        ("994 Main Street", -95.555, 33.66),
+    ];
+    let mut addresses = ListBuilder::new(StructBuilder::new(
+        Fields::from(vec![
+            Field::new("freeform", DataType::Utf8, true),
+            Field::new("country", DataType::Utf8, true),
+        ]),
+        vec![
+            Box::new(StringBuilder::new()) as _,
+            Box::new(StringBuilder::new()) as _,
+        ],
+    ));
+    for (address, _, _) in rows {
+        for (i, value) in [address, "CN"].iter().enumerate() {
+            addresses
+                .values()
+                .field_builder::<StringBuilder>(i)
+                .unwrap()
+                .append_value(value);
+        }
+        addresses.values().append(true);
+        addresses.append(true);
+    }
+    write(
+        dir,
+        "place",
+        vec![
+            ("addresses", Arc::new(addresses.finish())),
+            (
+                "geometry",
+                binary(rows.iter().map(|(_, x, y)| point(*x, *y)).collect()),
+            ),
+        ],
+    );
+    let original = dir.join("segment/part-0.parquet");
+    let saved = dir.join("segment/original.parquet");
+    std::fs::rename(&original, &saved).unwrap();
+    write(
+        dir,
+        "segment",
+        vec![
+            ("subtype", strings(["road"])),
+            ("class", strings(["residential"])),
+            ("names", names(&[("Market Street", &[])])),
+            ("bbox", bbox(&[[30.011, 30.013, 10.0, 10.0]])),
+            (
+                "geometry",
+                binary(vec![line(&[(30.011, 10.0), (30.013, 10.0)])]),
+            ),
+        ],
+    );
+}
 
 /// Writes the division, division_area, segment and address datasets under `dir`.
 pub fn write_release(dir: &Path) {

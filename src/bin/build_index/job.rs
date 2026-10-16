@@ -193,7 +193,8 @@ fn attribution(sources: &Sources, out: &Path) -> Result<String> {
         "Built from these sources; their licences and attribution requirements apply to the index \
          and to answers derived from it.\n\n\
          Overture Maps Foundation, release {}: divisions and transportation under ODbL \
-         (© OpenStreetMap contributors and others), addresses under each source's licence. \
+         (© OpenStreetMap contributors and others), addresses under each source's licence, \
+         places under CDLA-Permissive-2.0, Apache-2.0 and CC0-1.0 (see PLACES-LICENSES.txt). \
          See https://docs.overturemaps.org/attribution/\n",
         sources.overture_release
     );
