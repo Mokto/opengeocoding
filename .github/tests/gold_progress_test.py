@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -58,23 +59,25 @@ class GoldProgressTest(unittest.TestCase):
         self.assertIn("| eval-head | pending |", output)
         self.assertNotIn("%", output)
 
-    def test_unchanged_phase_still_refreshes_the_comment_on_each_poll(self):
+    def test_the_comment_is_refreshed_on_a_change_and_every_30_seconds(self):
         wait = textwrap.dedent(WORKFLOW.read_text().split("- name: Wait for the run\n        run: |\n", 1)[1].split("      - name: Report\n", 1)[0])
         wait = wait.replace('. "$RUNNER_TEMP/lib.sh"', "")
         output = self.render(command='''
-polls=0
+polls=0; clock=1000
+date() { if [ "$1" = +%s ]; then echo "$clock"; else command date "$@"; fi; }
+sleep() { clock=$((clock + $1)); }
 curl() {
   polls=$((polls + 1))
-  if [ "$polls" -le 2 ]; then
-    printf '%s' '{"status":"running","phase":"eval-base"}' > run.json
-  else
-    printf '%s' '{"status":"succeeded","phase":"done","report":"ok","exit":0}' > run.json
-  fi
+  case $polls in
+    1|2|3|4) printf '%s' '{"status":"running","phase":"eval-base"}' > run.json ;;
+    5) printf '%s' '{"status":"running","phase":"report"}' > run.json ;;
+    *) printf '%s' '{"status":"succeeded","phase":"done","report":"ok","exit":0}' > run.json ;;
+  esac
 }
-sleep() { :; }
-progress() { echo "REFRESH:$1"; }
+progress() { echo "REFRESH:$clock"; }
 ''' + wait)
-        self.assertEqual(output.count("REFRESH:running"), 2)
+        # polls every 10 s: at 1000 to 1030 in eval-base, at 1040 in report
+        self.assertEqual(re.findall(r"REFRESH:(\d+)", output), ["1000", "1030", "1040"])
 
     def test_comment_includes_the_refresh_time(self):
         output = self.render(command="""
