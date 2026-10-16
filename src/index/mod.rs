@@ -3457,6 +3457,10 @@ impl Index {
         // in latitude steps, from the point
         let (p, sx) = (reverse::steps(lon, lat), 2.0 * cos);
         let from_p = |(x, y): (f64, f64)| ((x - p.0) * sx, y - p.1);
+        let (region, country) = self.area_at(lat, lon);
+        let code = |p| self.region_code(&self.chain(p));
+        let region = region.and_then(code);
+        let mut allowed = HashMap::new();
         let mut best: HashMap<u32, (f64, (f64, f64))> = HashMap::new();
         let mut edges = vec![];
         let read_m = |r: i64| (r as f64 - reverse::STREET_SLACK) * cell_m;
@@ -3464,6 +3468,16 @@ impl Index {
             edges.clear();
             ring(r, |dx, dy| streets.edges(cx + dx, cy + dy, &mut edges));
             for &(a, b, doc) in &edges {
+                if !*allowed.entry(doc).or_insert_with(|| {
+                    let (segment, id) = reverse::unpack_doc(doc);
+                    let place = self.fast(DocAddress::new(segment, id), "place") as u32;
+                    country.is_none_or(|c| {
+                        place != NONE
+                            && self.places[place as usize].cc == self.places[c as usize].cc
+                    }) && region.is_none_or(|r| code(place).is_none_or(|c| c == r))
+                }) {
+                    continue;
+                }
                 let (d, q) = reverse::nearest((0.0, 0.0), from_p(a), from_p(b));
                 let m = d * reverse::STEP_LAT_M;
                 if m <= radius_m && best.get(&doc).is_none_or(|e| m < e.0) {

@@ -619,6 +619,28 @@ pub const STREETS: &[Street] = &[
         lat: 33.7,
         numbers: &["1", "3"],
     },
+    Street {
+        class: "residential",
+        length: 0.01,
+        name: "Delta Road",
+        postcode: "",
+        city: "Grenzdorf",
+        cc: "AT",
+        lon: 60.5005,
+        lat: 0.0,
+        numbers: &[],
+    },
+    Street {
+        class: "residential",
+        length: 0.001,
+        name: "Randweg",
+        postcode: "",
+        city: "Randdorf",
+        cc: "AT",
+        lon: 61.497,
+        lat: 0.0,
+        numbers: &[],
+    },
 ];
 
 /// Where a street's segment ends, east of house 1.
@@ -834,7 +856,10 @@ pub fn write_release(dir: &Path) {
     let areas: Vec<_> = PLACES
         .iter()
         .filter(|p| p.subtype == "locality" && !POINT_ONLY.contains(&p.id))
-        .map(|p| (p.id, p.subtype, true, true, p.lon, p.lat, 0.2))
+        .map(|p| {
+            let r = if p.id == "li-vaduz" { 0.05 } else { 0.2 };
+            (p.id, p.subtype, true, true, p.lon, p.lat, r)
+        })
         .chain(AREAS.iter().copied())
         .collect();
     write(

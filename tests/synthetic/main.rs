@@ -196,6 +196,28 @@ fn reverse_search_names_the_nearest_street_when_no_house_is_in_range() {
 }
 
 #[test]
+fn reverse_streets_do_not_cross_the_containing_country_or_region() {
+    for (lon, layer, cc, region) in [
+        (60.499, "locality", "at", Some("AT-3")),
+        (60.501, "street", "at", Some("AT-4")),
+        (61.498, "street", "at", Some("AT-4")),
+        (61.5005, "locality", "li", None),
+    ] {
+        let found = index().reverse_search(0.0, lon, 500.0, 3);
+        assert!(!found.is_empty(), "{lon}");
+        for (got_layer, v, _) in &found {
+            assert_eq!(*got_layer, layer, "{lon}: {v}");
+            assert_eq!(v["address"]["country_code"], cc, "{lon}: {v}");
+            assert_eq!(
+                v["address"]["ISO3166-2-lvl4"].as_str(),
+                region,
+                "{lon}: {v}"
+            );
+        }
+    }
+}
+
+#[test]
 fn resolve_region_prefers_a_house_then_a_region_coded_locality_and_not_a_faraway_guess() {
     let region = |lat: f64, lon: f64| {
         index().reverse_region(lat, lon)["address"]["ISO3166-2-lvl4"]
