@@ -37,6 +37,9 @@ mimalloc = { version = "0.1", default-features = false }
 osmpbf = "0.3"
 flate2 = "1"
 object_store = { version = "0.13.2", default-features = false, features = ["aws", "fs"] }
+# The leader binary (src/bin/leader).
+kube = { version = "4.2", default-features = false, features = ["client", "rustls-tls", "ring"] }
+k8s-openapi = { version = "0.28", features = ["v1_36"] }
 
 [build-dependencies]
 ring = { version = "0.17", default-features = false }

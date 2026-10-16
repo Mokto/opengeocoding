@@ -1,7 +1,10 @@
 //! Address sources beside Overture: OpenAddresses GeoJSON-lines exports and OpenStreetMap PBF
 //! extracts. Both feed the same `Sink` as Overture rows, so a house number that several sources
 //! hold on the same street collapses to one FST key.
-use super::{Shared, Sink, country};
+use super::{
+    Shared, Sink, country,
+    progress::{self, Progress},
+};
 use osmpbf::{BlobDecode, BlobReader, ByteOffset, PrimitiveBlock, RelMemberType};
 use rayon::prelude::*;
 use serde::Deserialize;
@@ -239,17 +242,23 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
     existing += &report;
     std::fs::write(&report_path, existing).unwrap();
     for (class, (n, bytes)) in &skipped {
-        println!(
-            "  skipped {n} OpenAddresses files ({:.2} GB), licence {class:?}",
+        progress::warn(format!(
+            "skipped {n} OpenAddresses files ({:.2} GB), licence {class:?}",
             *bytes as f64 / 1e9
-        );
+        ));
     }
     let bad = AtomicU64::new(0);
+    let size = |p: &Path| std::fs::metadata(p).map_or(0, |m| m.len());
+    let done = Progress::new(
+        format!("openaddresses {}", dir.display()),
+        files.iter().map(|f| size(f)).sum(),
+    );
     files.par_iter().for_each(|path| {
+        let _counted = Counted(&done, size(path));
         let name = path.file_name().unwrap().to_string_lossy();
         let cc = country(name.split('_').next().map(str::to_uppercase).as_deref());
         if cc == [0; 2] {
-            eprintln!("  skipping {name}: no country prefix");
+            progress::warn(format!("skipping {name}: no country prefix"));
             return;
         }
         // One thread decompresses into blocks of whole lines; workers parse blocks in parallel,
@@ -267,7 +276,7 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
                             Ok(0) => break,
                             Ok(_) => {}
                             Err(e) => {
-                                eprintln!("  {name}: stopped reading: {e}");
+                                progress::warn(format!("{name}: stopped reading: {e}"));
                                 bad.fetch_add(1, Relaxed);
                                 break;
                             }
@@ -317,9 +326,18 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
     });
     let bad = bad.into_inner();
     if bad > 0 {
-        println!("  {bad} unreadable OpenAddresses lines or files");
+        progress::warn(format!("{bad} unreadable OpenAddresses lines or files"));
     }
     files.len()
+}
+
+/// Adds a file's size to the progress when its pass ends, however it ends.
+struct Counted<'a>(&'a Progress, u64);
+
+impl Drop for Counted<'_> {
+    fn drop(&mut self) {
+        self.0.add(self.1);
+    }
 }
 
 /// Decodes blobs `range` in parallel, with one `S` per rayon job. One thread reads ahead so
@@ -590,7 +608,13 @@ fn unpack(v: u64) -> (f64, f64) {
 // ponytail: a building's first node is within metres of its centroid.
 pub fn osm(dir: &Path, shared: &Shared) -> usize {
     let files = files(dir, ".osm.pbf");
+    let size = |p: &Path| std::fs::metadata(p).map_or(0, |m| m.len());
+    let done = Progress::new(
+        format!("osm {}", dir.display()),
+        files.iter().map(|f| size(f)).sum(),
+    );
     files.par_iter().for_each(|path| {
+        let _counted = Counted(&done, size(path));
         let (offsets, first_way, first_relation) = layout(path);
         let (nodes, ways, relations) = (
             1..first_way,

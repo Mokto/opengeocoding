@@ -24,7 +24,8 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - `tests/matching.rs`, `tests/rpc.rs`: regression tests and the model-backed RPC integration test (ignored by default).
 - `src/bin/benchmark.rs`, `src/bin/notices.rs`: SearchAddress benchmark across running services and third-party notice generation.
 - `src/bin/build_index/`: experimental offline Overture-to-Tantivy index builder (polygon assignment, street merging, house-number FSTs; `sources.rs` reads OSM and OpenAddresses), plus `job`/`pull`/`hash` subcommands (`job.rs`): fetching and mirroring sources (`fetch.rs`) and publishing and pulling sealed directories in any S3-compatible store (`store.rs`). The service loads its output read-only from `INDEX_DIR`.
-- `manifests/`: the Helm chart (build Job, serving Deployment with a `pull` init container); `tests/chart.rs` checks that it pins this code's builder hash.
+- `manifests/`: the Helm chart (the leader Deployment and its ConfigMap, which holds the rendered build Job and serving Deployment with a `pull` init container); `tests/chart.rs` checks that it pins this code's builder hash.
+- `src/bin/leader/`: the in-cluster controller that creates the build Job when the store lacks the index and applies the serving Deployment once it is sealed; stateless, with a Lease for election. It includes `build_index/store.rs` by path and needs the bucket to exist.
 - `src/bin/evaluate/`, `src/eval.rs`: geographic-correctness evaluator (scoring of SearchAddress and SuggestAddress, runs, reports, snapshots, gold builder) and the TSV/hold-out helpers it shares with external samplers.
 - `tests/synthetic/`: a made-up world (`world.rs`) written as Overture parquet and built by the real `build_index`; `main.rs` checks suggestions, reverse lookups and, with the libpostal models (`-- --ignored`, run in CI), SearchAddress against facts authored in `world.rs`, never this service's answers. Add a case there for logic that needs no real data; a case that fails today carries a `known_failure` label and must keep failing until it is fixed.
 - `tests/suggest.rs`, `tests/suggest.gold.tsv`: `SuggestAddress` golden cases (public facts, never this service's answers) and a typed-prefix latency run; both need `INDEX_DIR` and are ignored by default.
@@ -82,7 +83,7 @@ A world index built by this repository's builder is kept in `~/opengeocoding-ind
 - Address cases measure change, not accuracy. Keep snapshots as one TSV row per case with the manifest in a separate file, so a PR diff shows only changed answers. Replace `tests/snapshots/addresses.tsv` only after reviewing the diff, and say in the PR which changes were accepted and why. Do not regenerate the snapshot to silence drift.
 - Other corpora with production metadata (earlier geocodes, source labels) and their runs stay private and out of this repository.
 - Use the same consumer binary, models and reference data on both sides of a comparison. Confirm a zero-drift rerun before trusting a diff. Treat a code/configuration change and a data/import change as separate experiments.
-- Respect the backend's request budget and rate (`--max-rps`, `--budget`). Do not add evaluator retries. Load testing needs an approved isolated backend.
+- Do not add evaluator retries. Load testing needs an approved isolated backend.
 - The grpcurl SearchAddress hang remains a known failure even if a run reports it passing; it reproduces on a fresh service.
 
 ## Licensing, data and models

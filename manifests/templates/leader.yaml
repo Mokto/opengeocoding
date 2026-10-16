@@ -1,0 +1,153 @@
+{{- $leader := printf "%s-leader" (include "og.name" .) }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $leader }}
+  labels:
+    {{- include "og.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $leader }}
+  labels:
+    {{- include "og.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [{{ $leader }}]
+    verbs: [get]
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [get, list, create, delete]
+  # create can't be scoped to a name.
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [create]
+  # The leader reads its own Deployment for the owner reference; the serving one is applied.
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [{{ $leader }}, {{ include "og.name" . }}]
+    verbs: [get]
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [{{ include "og.name" . }}]
+    verbs: [patch]
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [create]
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    resourceNames: [{{ $leader }}]
+    verbs: [get, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $leader }}
+  labels:
+    {{- include "og.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $leader }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $leader }}
+---
+# What the leader builds and rolls out. Helm renders the two workloads; the leader creates the
+# build Job when the index isn't in the store, and applies the serving Deployment once it is.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $leader }}
+  labels:
+    {{- include "og.labels" . | nindent 4 }}
+data:
+  index: {{ include "og.indexId" . | quote }}
+  deployment.json: {{ include "og.serving" . | fromYaml | toJson | quote }}
+  {{- if .Values.build.enabled }}
+  job.json: {{ include "og.buildJob" . | fromYaml | toJson | quote }}
+  {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $leader }}
+  labels:
+    {{- include "og.labels" . | nindent 4 }}
+    app.kubernetes.io/component: leader
+spec:
+  revisionHistoryLimit: 0
+  # One leads (a Lease), the other stands by.
+  replicas: {{ .Values.leader.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: leader
+  template:
+    metadata:
+      labels:
+        {{- include "og.labels" . | nindent 8 }}
+        app.kubernetes.io/component: leader
+      {{- with .Values.leader.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ $leader }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "og.podSecurity" . | nindent 8 }}
+      containers:
+        - name: leader
+          image: {{ include "og.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [leader]
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: LEADER_DEPLOYMENT
+              value: {{ $leader }}
+            - name: LEASE_NAME
+              value: {{ $leader }}
+            - name: CONFIG
+              value: {{ $leader }}
+            - name: STORE_URL
+              value: {{ required "store.url is required" .Values.store.url | quote }}
+            - name: INTERVAL_SECONDS
+              value: {{ .Values.leader.intervalSeconds | quote }}
+            - name: RETRY_SECONDS
+              value: {{ .Values.build.retryDelaySeconds | quote }}
+            {{- include "og.storeEnv" . | nindent 12 }}
+          {{- with (.Values.store.readCredentialsSecret | default .Values.store.credentialsSecret) }}
+          envFrom:
+            - secretRef:
+                name: {{ . }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.leader.resources | nindent 12 }}
+          securityContext:
+            {{- include "og.containerSecurity" . | nindent 12 }}
+            readOnlyRootFilesystem: true
+      {{- with .Values.leader.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.leader.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.leader.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -836,8 +836,15 @@ fn latency(
             slower.push(format!("{} slower, {}", t.rpc, metrics.join(", ")));
         }
     }
+    // Pacing between cases changes how warm the service is, so timings only compare at one rate.
+    let rates = manifests.map(|m| m["max_rps"].as_f64());
     let limit = MAX_SLOWDOWN * 100.;
-    let (verdict, headline) = if repeats[0] != repeats[1] {
+    let (verdict, headline) = if rates[0] != rates[1] {
+        (
+            "skip",
+            "not compared, base and head ran at different --max-rps".to_string(),
+        )
+    } else if repeats[0] != repeats[1] {
         (
             "skip",
             format!(
@@ -1233,6 +1240,15 @@ mod tests {
             "{report}"
         );
         assert!(!report.contains("SearchAddress slower"), "{report}");
+        let (slow, fast) = (
+            json!({"repeat": 3, "max_rps": 20.}),
+            json!({"repeat": 3, "max_rps": 1e6}),
+        );
+        let report = latency(&ids, &old, &new, [&slow, &fast]);
+        assert!(report.contains("<!-- speed: skip -->"), "{report}");
+        assert!(report.contains("--max-rps"), "{report}");
+        let report = latency(&ids, &old, &new, [&fast, &fast]);
+        assert!(report.contains("<!-- speed: fail -->"), "{report}");
         let untimed = side(&[("a", None), ("b", None), ("c", None)]);
         assert!(latency(&ids, &old, &untimed, [&json!({}), &json!({})]).is_empty());
     }
