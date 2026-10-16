@@ -71,6 +71,28 @@ impl Owner {
             "Prune=false".into(),
         );
     }
+
+    /// A merge patch handing an object an earlier leader created (with an owner reference) to
+    /// Argo CD, if it isn't tracked yet.
+    fn adopt(
+        &self,
+        meta: &ObjectMeta,
+        group_kind: &str,
+        namespace: &str,
+    ) -> Option<serde_json::Value> {
+        let tracked = (meta.annotations.as_ref()).is_some_and(|a| a.contains_key(TRACKING));
+        if tracked || matches!(self, Owner::Leader(_)) {
+            return None;
+        }
+        let mut claimed = ObjectMeta {
+            name: meta.name.clone(),
+            ..Default::default()
+        };
+        self.claim(&mut claimed, group_kind, namespace);
+        Some(serde_json::json!({
+            "metadata": {"annotations": claimed.annotations, "ownerReferences": null}
+        }))
+    }
 }
 
 fn env<T: FromStr>(key: &str, default: T) -> T {
@@ -218,6 +240,14 @@ impl Leader {
             }
         }
         let existing = self.jobs.get_opt(&name).await?;
+        let adopt = (existing.as_ref())
+            .and_then(|j| self.owner.adopt(&j.metadata, "batch/Job", &self.namespace));
+        if let Some(patch) = adopt {
+            (self.jobs)
+                .patch(&name, &PatchParams::default(), &Patch::Merge(&patch))
+                .await?;
+            tracing::info!("build job {name} is now tracked by Argo CD");
+        }
         match decide(existing.as_ref(), Timestamp::now(), self.retry) {
             Build::Create => {
                 self.owner
@@ -364,6 +394,29 @@ mod tests {
         Owner::Leader(OwnerReference::default()).claim(&mut meta, "batch/Job", "ns");
         assert_eq!(meta.owner_references.map(|o| o.len()), Some(1));
         assert!(meta.annotations.is_none());
+    }
+
+    #[test]
+    fn hands_an_untracked_object_to_argo_cd_once() {
+        let argo = Owner::ArgoCd("app".into());
+        let mut meta = ObjectMeta {
+            name: Some("job".into()),
+            owner_references: Some(vec![OwnerReference::default()]),
+            ..Default::default()
+        };
+        let patch = argo.adopt(&meta, "batch/Job", "ns").unwrap();
+        assert_eq!(
+            patch["metadata"]["annotations"][TRACKING],
+            "app:batch/Job:ns/job"
+        );
+        assert!(patch["metadata"]["ownerReferences"].is_null());
+        assert!(
+            Owner::Leader(OwnerReference::default())
+                .adopt(&meta, "batch/Job", "ns")
+                .is_none()
+        );
+        argo.claim(&mut meta, "batch/Job", "ns");
+        assert!(argo.adopt(&meta, "batch/Job", "ns").is_none());
     }
 
     #[test]
