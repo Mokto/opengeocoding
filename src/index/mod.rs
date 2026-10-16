@@ -1,5 +1,6 @@
 //! Address lookup over a `build_index` output directory, loaded into the service process.
 //! Responses keep the Nominatim-style JSON candidate format the resolver reads.
+pub mod area;
 pub mod canon;
 mod locality;
 pub mod reverse;
@@ -452,6 +453,8 @@ pub struct Index {
     numbers: Vec<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
     /// Absent from hand-built indexes, which then answer reverse lookups with a locality only.
     reverse: Option<reverse::Reverse>,
+    /// Administrative polygons for `reverse_region`; absent from hand-built indexes.
+    areas: Option<area::Areas>,
     places: Vec<Place>,
     /// Locality points by position, for reverse lookups; built at startup from `places`.
     localities: locality::Localities,
@@ -1512,6 +1515,13 @@ impl Index {
         } else {
             None
         };
+        let areas = if dir.join(area::FILE).exists() {
+            use tantivy::directory::Directory;
+            let file = mmap.open_read(Path::new(area::FILE))?;
+            Some(area::Areas::new(file.read_bytes()?)?)
+        } else {
+            None
+        };
         let reference: Value =
             serde_json::from_str(include_str!("../../data/reference.json")).unwrap();
         let below = iso_by_item(&reference, "iso3166_2_lvl6");
@@ -1612,6 +1622,7 @@ impl Index {
             f,
             numbers,
             reverse,
+            areas,
             places,
             localities,
             countries,
@@ -3444,46 +3455,86 @@ impl Index {
         vec![("locality", place, m)]
     }
 
-    /// Nearest locality point within about 50 km.
+    /// Nearest locality point within about 50 km. One in the region whose polygon holds the point
+    /// (or, with none, in the country whose polygon does) comes first, so a nearer town across a
+    /// border does not name the point; with no such town in range, the nearest of any.
     pub fn reverse(&self, lat: f64, lon: f64) -> Value {
-        match self.nearest_locality_within(lat, lon, NEAR_LOCALITY_M, |_| true) {
+        let code = |p: u32| self.region_code(&self.chain(p));
+        let (region, country) = self.area_at(lat, lon);
+        let region = region.and_then(code);
+        let same = |p: u32| {
+            country.is_none_or(|c| self.places[p as usize].cc == self.places[c as usize].cc)
+                && region.is_none_or(|r| code(p).is_none_or(|c| c == r))
+        };
+        match self
+            .nearest_locality_within(lat, lon, NEAR_LOCALITY_M, same)
+            .or_else(|| self.nearest_locality_within(lat, lon, NEAR_LOCALITY_M, |_| true))
+        {
             Some((p, _)) => self.render(&Hit::Place(p), true),
             None => json!({"error": "Unable to geocode"}),
         }
     }
 
-    /// The address that names a point's region, for `ResolveRegion`. A house within 100 m comes
-    /// first: its place was assigned by polygon, where the nearest locality point can lie across
-    /// a border. Failing that, the nearest locality within 50 km, as `reverse` finds it, when it
-    /// has a region code. Otherwise (the point is past 50 km, up to 150, or the nearest locality's
-    /// parents stop short of a region) a coded locality answers only if it is in the nearest
-    /// one's country and no locality of another region is within twice its distance, or four
-    /// times when the nearest has no code: that gap suggests the data lacks the point's own
-    /// region, which a neighbour's code would misname.
+    /// The polygons that hold a point: the most specific one whose place has a region code, and
+    /// the country's.
+    fn area_at(&self, lat: f64, lon: f64) -> (Option<u32>, Option<u32>) {
+        let (mut region, mut country) = (None, None);
+        for (kind, p) in self.areas.iter().flat_map(|a| a.containing(lat, lon)) {
+            if region.is_none() && self.region_code(&self.chain(p)).is_some() {
+                region = Some(p);
+            }
+            if kind == area::COUNTRY && country.is_none() {
+                country = Some(p);
+            }
+        }
+        (region, country)
+    }
+
+    /// The address that names a point's region, for `ResolveRegion`: the most specific county,
+    /// region, dependency or country polygon that holds the point and has a region code, with
+    /// its subdivision below the region when it is a county that has one.
+    ///
+    /// A point no such polygon holds (offshore past the territorial sea, a gap in the data, a
+    /// country whose regions the index lacks) falls back to the nearest points. There a house
+    /// within 100 m comes first: its place was assigned by polygon, where the nearest locality
+    /// point can lie across a border. Failing that, the nearest locality within 50 km, when it
+    /// has a region code. Otherwise (the point is past 50 km, up to 150, or the nearest
+    /// locality's parents stop short of a region) a coded locality answers only if it is in the
+    /// nearest one's country and no locality of another region is within twice its distance, or
+    /// four times when the nearest has no code: that gap suggests the data lacks the point's own
+    /// region, which a neighbour's code would misname. When a country polygon holds the point,
+    /// only its own localities are read and the house is skipped.
     pub fn reverse_region(&self, lat: f64, lon: f64) -> Value {
-        if let Some((house, _)) = self
-            .reverse_houses(lat, lon, HOUSE_REGION_M, 1)
-            .into_iter()
-            .next()
+        let (region, country) = self.area_at(lat, lon);
+        if let Some(p) = region {
+            return self.render(&Hit::Place(p), true);
+        }
+        if country.is_none()
+            && let Some((house, _)) = self
+                .reverse_houses(lat, lon, HOUSE_REGION_M, 1)
+                .into_iter()
+                .next()
             && house["address"].get("ISO3166-2-lvl4").is_some()
         {
             return house;
         }
         let code = |p: u32| self.region_code(&self.chain(p));
         let cc = |p: u32| &self.places[p as usize].cc;
+        let inside = |p: u32| country.is_none_or(|c| cc(p) == cc(c));
         let found = self
-            .nearest_locality_within(lat, lon, FAR_REGION_M, |_| true)
+            .nearest_locality_within(lat, lon, FAR_REGION_M, inside)
             .and_then(|(nearest, m)| {
                 let coded = code(nearest).is_some();
                 if coded && m <= NEAR_LOCALITY_M {
                     return Some(nearest);
                 }
-                let (p, m) =
-                    self.nearest_locality_within(lat, lon, FAR_REGION_M, |p| code(p).is_some())?;
+                let (p, m) = self.nearest_locality_within(lat, lon, FAR_REGION_M, |p| {
+                    inside(p) && code(p).is_some()
+                })?;
                 let margin = if coded { 2.0 } else { 4.0 } * m;
                 let alone = || {
                     self.nearest_locality_within(lat, lon, margin, |q| {
-                        code(q).is_some_and(|c| Some(c) != code(p))
+                        inside(q) && code(q).is_some_and(|c| Some(c) != code(p))
                     })
                     .is_none()
                 };

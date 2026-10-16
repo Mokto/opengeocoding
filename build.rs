@@ -12,6 +12,7 @@ fn builder_hash() -> String {
         .filter(|p| !p.ends_with("fetch.rs") && !p.ends_with("store.rs"))
         .chain(
             [
+                "src/index/area.rs",
                 "src/index/schema.rs",
                 "src/index/canon.rs",
                 "src/index/reverse.rs",

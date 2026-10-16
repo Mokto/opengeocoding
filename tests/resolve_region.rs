@@ -1,7 +1,7 @@
 //! `Index::reverse_region` against a real index: each point's region is public geography (an
 //! ISO 3166-2 code), never this service's answer. `INDEX_DIR` is a `build_index` output; the test
 //! is ignored, as it needs a world index. No libpostal models are read.
-use opengeocoding::index::{Index, Parser};
+use opengeocoding::index::{Index, Parser, area};
 use std::{path::Path, sync::Arc};
 
 /// (lat, lon, ISO 3166-2 codes, why the case is known to fail), one code per level (4, then 6).
@@ -25,6 +25,16 @@ const POINTS: &[(f64, f64, &[&str], &str)] = &[
         &["CY-01"],
         "the index has no Cypriot divisions",
     ),
+    // Baarle-Hertog (Wikidata Q244959), a Belgian enclave in the Netherlands
+    (51.438333, 4.931667, &["BE-VLG", "BE-VAN"], ""),
+    // Wikidata items' points whose nearest locality or house the index files in another region,
+    // or in none: Oshikango (Q2033319), on the Angolan border; Caracas (Q1533); Valletta
+    // (Q20924973); Sabana Yegua (Q23762304); Belait (Q40395)
+    (-17.4, 15.883333, &["NA-OW"], ""),
+    (10.506111, -66.914444, &["VE-A"], ""),
+    (35.89833, 14.5125, &["MT-60"], ""),
+    (18.716667, -71.016667, &["DO-02"], ""),
+    (4.416667, 114.583333, &["BN-BE"], ""),
     // a region and the subdivision below it
     (48.0734, 7.2376, &["FR-GES", "FR-68"], ""),
     (48.8552, 2.3275, &["FR-IDF", "FR-75C"], ""),
@@ -52,6 +62,63 @@ fn each_point_names_the_regions_that_contain_it() {
         }
     }
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+}
+
+/// Times `reverse_region`, and the polygon lookup alone, on a grid of 10,000 points over western
+/// and central Europe, land and sea, after one untimed pass. Prints the percentiles; asserts
+/// nothing about speed.
+#[test]
+#[ignore = "needs INDEX_DIR, a world index"]
+fn region_lookups_are_timed() {
+    let index = open();
+    let points: Vec<(f64, f64)> = (0..100)
+        .flat_map(|i| (0..100).map(move |j| (36.0 + i as f64 * 0.24, -9.0 + j as f64 * 0.33)))
+        .collect();
+    let answered = points
+        .iter()
+        .filter(|&&(lat, lon)| index.reverse_region(lat, lon).get("address").is_some())
+        .count();
+    println!(
+        "{} points, {answered} answered; reverse_region {}",
+        points.len(),
+        timed(&points, |lat, lon| {
+            std::hint::black_box(index.reverse_region(lat, lon));
+        })
+    );
+    let dir = std::env::var("INDEX_DIR").unwrap();
+    if let Ok(bytes) = std::fs::read(Path::new(&dir).join(area::FILE)) {
+        let areas = area::Areas::new(tantivy::directory::OwnedBytes::new(bytes)).unwrap();
+        let held = points
+            .iter()
+            .filter(|&&(lat, lon)| !areas.containing(lat, lon).is_empty())
+            .count();
+        println!(
+            "{held} in a polygon; polygon lookup {}",
+            timed(&points, |lat, lon| {
+                std::hint::black_box(areas.containing(lat, lon));
+            })
+        );
+    }
+}
+
+fn timed(points: &[(f64, f64)], f: impl Fn(f64, f64)) -> String {
+    let mut took: Vec<f64> = points
+        .iter()
+        .map(|&(lat, lon)| {
+            let t = std::time::Instant::now();
+            f(lat, lon);
+            t.elapsed().as_secs_f64() * 1e6
+        })
+        .collect();
+    took.sort_by(f64::total_cmp);
+    let at = |q: f64| took[((took.len() - 1) as f64 * q) as usize];
+    format!(
+        "p50 {:.1} µs, p90 {:.1} µs, p99 {:.1} µs, max {:.0} µs",
+        at(0.5),
+        at(0.9),
+        at(0.99),
+        at(1.0)
+    )
 }
 
 /// Every row `ListRegions` serves is what a search for `<cc>, <code>` returns: the place's own

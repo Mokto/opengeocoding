@@ -362,6 +362,92 @@ pub const PLACES: &[Place] = &[
         "Fernort Ay",
         &[("en", "Fernort Ay")],
     ),
+    // Gamma and Delta share a border at 60.5° east; Grenzdorf, in Delta, is the nearest town to
+    // Gamma's eastern edge. Liechtenstein, east of Delta, has no regions.
+    place!(
+        "at-g",
+        "region",
+        "",
+        "AT",
+        "AT-3",
+        1000000,
+        (60.0, 0.0),
+        "at",
+        "Gamma",
+        &[("en", "Gamma")],
+    ),
+    place!(
+        "at-d",
+        "region",
+        "",
+        "AT",
+        "AT-4",
+        1000000,
+        (61.0, 0.0),
+        "at",
+        "Delta",
+        &[("en", "Delta")],
+    ),
+    place!(
+        "at-gammadorf",
+        "locality",
+        "",
+        "AT",
+        "AT-3",
+        1000,
+        (60.1, 0.0),
+        "at-g",
+        "Gammadorf",
+        &[("en", "Gammadorf")],
+    ),
+    place!(
+        "at-grenzdorf",
+        "locality",
+        "",
+        "AT",
+        "AT-4",
+        1000,
+        (60.52, 0.0),
+        "at-d",
+        "Grenzdorf",
+        &[("en", "Grenzdorf")],
+    ),
+    place!(
+        "at-randdorf",
+        "locality",
+        "",
+        "AT",
+        "AT-4",
+        1000,
+        (61.45, 0.0),
+        "at-d",
+        "Randdorf",
+        &[("en", "Randdorf")],
+    ),
+    place!(
+        "li",
+        "country",
+        "",
+        "LI",
+        "",
+        40000,
+        (61.6, 0.0),
+        "",
+        "Liechtenstein",
+        &[("en", "Liechtenstein")],
+    ),
+    place!(
+        "li-vaduz",
+        "locality",
+        "",
+        "LI",
+        "",
+        5000,
+        (61.65, 0.0),
+        "li",
+        "Vaduz",
+        &[("en", "Vaduz")],
+    ),
     // ISO 3166-2:IE puts County Dublin in the province of Leinster, IE-L.
     place!(
         "ie",
@@ -399,6 +485,16 @@ pub const PLACES: &[Place] = &[
         "Dublin",
         &[("en", "Dublin"), ("ga", "Baile Átha Cliath")],
     ),
+];
+
+/// Administrative polygons besides the towns' (a square of half-side 0.2° each): (division,
+/// subtype, is_land, is_territorial, lon, lat, half-side). Gamma's land stops 0.1° short of its
+/// territorial sea on the west.
+const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
+    ("at-g", "region", true, false, 60.05, 0.0, 0.45),
+    ("at-g", "region", false, true, 60.0, 0.0, 0.5),
+    ("at-d", "region", true, true, 61.0, 0.0, 0.5),
+    ("li", "country", true, true, 61.6, 0.0, 0.1),
 ];
 
 /// A street and its houses: (street, postcode, city, cc, lon, lat of house 1, numbers); the houses
@@ -643,20 +739,29 @@ pub fn write_release(dir: &Path) {
         ],
     );
 
-    let towns: Vec<&Place> = PLACES.iter().filter(|p| p.subtype == "locality").collect();
+    let areas: Vec<_> = PLACES
+        .iter()
+        .filter(|p| p.subtype == "locality")
+        .map(|p| (p.id, p.subtype, true, true, p.lon, p.lat, 0.2))
+        .chain(AREAS.iter().copied())
+        .collect();
     write(
         dir,
         "division_area",
         vec![
-            ("division_id", strings(towns.iter().map(|p| p.id))),
-            ("subtype", strings(towns.iter().map(|p| p.subtype))),
+            ("division_id", strings(areas.iter().map(|a| a.0))),
+            ("subtype", strings(areas.iter().map(|a| a.1))),
             (
                 "is_land",
-                Arc::new(BooleanArray::from(vec![true; towns.len()])),
+                Arc::new(BooleanArray::from_iter(areas.iter().map(|a| Some(a.2)))),
+            ),
+            (
+                "is_territorial",
+                Arc::new(BooleanArray::from_iter(areas.iter().map(|a| Some(a.3)))),
             ),
             (
                 "geometry",
-                binary(towns.iter().map(|p| square(p.lon, p.lat, 0.2)).collect()),
+                binary(areas.iter().map(|a| square(a.4, a.5, a.6)).collect()),
             ),
         ],
     );
