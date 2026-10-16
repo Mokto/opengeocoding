@@ -284,12 +284,15 @@ jobs:
         run: |
           set -euo pipefail
           . "$RUNNER_TEMP/lib.sh"
-          last=""; phase=""; errors=0; began=$(date +%s); beat=$began; since=$began
+          # The gateway is polled every 10 s, the comment edited on a change or every 30 s: GITHUB_TOKEN
+          # allows 1,000 API requests an hour, and a first index build runs for hours.
+          last=""; phase=""; errors=0; began=$(date +%s); beat=$began; since=$began; posted=0
           while :; do
             if curl -sS --fail -m 30 -o run.json -H "Authorization: Bearer $KEY" "$URL/runs/$RUN_ID"; then
               errors=0
-              status=$(jq -r .status run.json); phase=$(jq -r .phase run.json); now=$(date +%s)
+              status=$(jq -r .status run.json); phase=$(jq -r .phase run.json); now=$(date +%s); changed=""
               if [ "$status:$phase" != "$last" ]; then
+                changed=1
                 if [ "$phase" != "${last#*:}" ]; then
                   log "$status: $phase$([ -n "$last" ] && echo " (the step before took $(dur $((now - since))))")"
                   [ "$status" = succeeded ] || phase_start "$phase"
@@ -303,18 +306,22 @@ jobs:
               fi
               case "$status" in
                 succeeded|failed) break ;;
-                running|queued) progress "$status" "Refreshed every 30 seconds. The report is posted when the run ends, and this comment is deleted." ;;
+                running|queued)
+                  if [ -n "$changed" ] || [ $((now - posted)) -ge 30 ]; then
+                    progress "$status" "Refreshed every 30 seconds. The report is posted when the run ends, and this comment is deleted."
+                    posted=$now
+                  fi ;;
               esac
             else
-              errors=$((errors + 1)); log "The endpoint did not answer ($errors of 20)"
-              [ "$errors" -lt 20 ] || {
+              errors=$((errors + 1)); log "The endpoint did not answer ($errors of 60)"
+              [ "$errors" -lt 60 ] || {
                 echo "FAILED_STEP=the run's endpoint stopped answering" >> "$GITHUB_ENV"
-                progress "lost contact with the run" "The run's endpoint stopped answering${phase:+ during \`$phase\`}. The run may still be going in the cluster; this job gave up after 20 failed polls."
+                progress "lost contact with the run" "The run's endpoint stopped answering${phase:+ during \`$phase\`}. The run may still be going in the cluster; this job gave up after 60 failed polls, 10 minutes."
                 echo "::error title=Gold run lost::The endpoint stopped answering${phase:+ during $phase}; the run may still be going in the cluster (run $RUN_ID)"
                 exit 1
               }
             fi
-            sleep 30
+            sleep 10
           done
           phase_end
           if [ "$status" != succeeded ]; then
