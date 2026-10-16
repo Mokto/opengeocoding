@@ -443,7 +443,8 @@ async fn checks(env: &mut Env) -> Result<()> {
     ensure!(
         results.is_some_and(|r| r.iter().all(|r| {
             r["address"]["addressDetails"]["countryCode"] == "dk"
-                && ["address", "locality"].contains(&r["layer"].as_str().unwrap_or_default())
+                && ["address", "street", "locality"]
+                    .contains(&r["layer"].as_str().unwrap_or_default())
         })),
         "{reversed}"
     );
