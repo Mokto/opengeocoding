@@ -110,7 +110,11 @@ impl Geolocation for Service {
                 )
                 .into());
             }
-            let Some(address) = self.resolver.reverse(request.lat, request.lon).await? else {
+            let Some(address) = self
+                .resolver
+                .reverse_region(request.lat, request.lon)
+                .await?
+            else {
                 return Ok(RegionsResponse::default());
             };
             let Some(details) = address.address_details.as_option() else {

@@ -43,6 +43,12 @@ macro_rules! place {
 }
 
 /// Paris in France and in Texas, Delhi in India and in Ontario, and Cologne under its German name.
+/// Austria's made-up regions Alpha and Beta lie at the equator, where degrees of longitude and
+/// latitude are as long: Grenzgasse is inside Suedhain's area but nearer Nordhain's point.
+/// The Wikidata items of places that stand for an ISO 3166-2 subdivision, by place: the item of
+/// FR-68 (Haut-Rhin) in `data/reference.json`.
+pub const WIKIDATA: &[(&str, &str)] = &[("fr-haut-rhin", "Q12722")];
+
 pub const PLACES: &[Place] = &[
     place!(
         "fr",
@@ -224,6 +230,138 @@ pub const PLACES: &[Place] = &[
         "Köln",
         &[("en", "Cologne"), ("de", "Köln")],
     ),
+    place!(
+        "fr-haut-rhin",
+        "county",
+        "",
+        "FR",
+        "FR-IDF",
+        600000,
+        (7.3, 48.0),
+        "fr-idf",
+        "Haut-Rhin",
+        &[("en", "Haut-Rhin")],
+    ),
+    place!(
+        "fr-colmar",
+        "locality",
+        "city",
+        "FR",
+        "FR-IDF",
+        70000,
+        (7.35, 48.08),
+        "fr-haut-rhin",
+        "Colmar",
+        &[("en", "Colmar")],
+    ),
+    place!(
+        "at",
+        "country",
+        "",
+        "AT",
+        "",
+        8000000,
+        (13.0, 47.5),
+        "",
+        "Austria",
+        &[("en", "Austria")],
+    ),
+    place!(
+        "at-a",
+        "region",
+        "",
+        "AT",
+        "AT-1",
+        1000000,
+        (12.0, 47.0),
+        "at",
+        "Alpha",
+        &[("en", "Alpha")],
+    ),
+    place!(
+        "at-b",
+        "region",
+        "",
+        "AT",
+        "AT-2",
+        1000000,
+        (14.0, 47.0),
+        "at",
+        "Beta",
+        &[("en", "Beta")],
+    ),
+    place!(
+        "at-nordhain",
+        "locality",
+        "",
+        "AT",
+        "AT-1",
+        1000,
+        (30.0, 0.21),
+        "at-a",
+        "Nordhain",
+        &[("en", "Nordhain")],
+    ),
+    place!(
+        "at-suedhain",
+        "locality",
+        "",
+        "AT",
+        "AT-2",
+        1000,
+        (30.19, 0.19),
+        "at-b",
+        "Suedhain",
+        &[("en", "Suedhain")],
+    ),
+    place!(
+        "at-ohnecode",
+        "locality",
+        "",
+        "AT",
+        "",
+        1000,
+        (40.0, 0.0),
+        "at",
+        "Ohnecode",
+        &[("en", "Ohnecode")],
+    ),
+    place!(
+        "at-mitcode",
+        "locality",
+        "",
+        "AT",
+        "AT-1",
+        1000,
+        (40.05, 0.0),
+        "at-a",
+        "Mitcode",
+        &[("en", "Mitcode")],
+    ),
+    place!(
+        "at-fern-b",
+        "locality",
+        "",
+        "AT",
+        "AT-2",
+        1000,
+        (100.0, -20.0),
+        "at-b",
+        "Fernort Bee",
+        &[("en", "Fernort Bee")],
+    ),
+    place!(
+        "at-fern-a",
+        "locality",
+        "",
+        "AT",
+        "AT-1",
+        1000,
+        (100.0, -18.0),
+        "at-a",
+        "Fernort Ay",
+        &[("en", "Fernort Ay")],
+    ),
 ];
 
 /// A street and its houses: (street, postcode, city, cc, lon, lat of house 1, numbers); the houses
@@ -265,6 +403,15 @@ pub const STREETS: &[Street] = &[
         lon: 6.95,
         lat: 50.94,
         numbers: &["1", "2", "3"],
+    },
+    Street {
+        name: "Grenzgasse",
+        postcode: "9999",
+        city: "Suedhain",
+        cc: "AT",
+        lon: 30.0,
+        lat: 0.0,
+        numbers: &["1", "2"],
     },
 ];
 
@@ -415,7 +562,15 @@ pub fn write_release(dir: &Path) {
                 "parent_division_id",
                 optional(PLACES.iter().map(|p| p.parent)),
             ),
-            ("wikidata", optional(PLACES.iter().map(|_| ""))),
+            (
+                "wikidata",
+                optional(PLACES.iter().map(|p| {
+                    WIKIDATA
+                        .iter()
+                        .find(|(id, _)| *id == p.id)
+                        .map_or("", |(_, item)| *item)
+                })),
+            ),
             (
                 "population",
                 Arc::new(Int32Array::from_iter_values(

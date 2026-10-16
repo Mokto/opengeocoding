@@ -203,17 +203,12 @@ async fn main() -> Result<()> {
         .map(|(name, codes)| (name, codes.into_iter().next().unwrap_or_default()))
         .collect();
     // The codes are a policy kept in reference.json itself (the ISO 3166-2 subdivisions that
-    // Overture's `region` column lacks and consumers expect); only their Wikidata items are
-    // refreshed here. Add a code with an empty list to have it filled in.
-    let wanted: Vec<String> = std::fs::read_to_string(out.join("reference.json"))
+    // Overture's `region` column lacks and consumers expect, and under `iso3166_2_lvl6` the
+    // subdivisions below a region); only their Wikidata items are refreshed here. Add a code with
+    // an empty list to have it filled in.
+    let existing: Option<Value> = std::fs::read_to_string(out.join("reference.json"))
         .ok()
-        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
-        .and_then(|reference| {
-            reference["iso3166_2"]
-                .as_object()
-                .map(|codes| codes.keys().cloned().collect())
-        })
-        .unwrap_or_default();
+        .and_then(|text| serde_json::from_str(&text).ok());
     let wikidata: Value =
         serde_json::from_str(&downloads.get(WIKIDATA_ISO_3166_2, "CC0-1.0").await?)?;
     let mut items: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
@@ -232,13 +227,23 @@ async fn main() -> Result<()> {
             .or_default()
             .push(item.rsplit('/').next().unwrap_or(item));
     }
-    let mut iso3166_2 = BTreeMap::new();
-    for code in &wanted {
-        let Some(found) = items.get(code.as_str()) else {
-            bail!("Wikidata has no item for ISO 3166-2 code {code}");
-        };
-        iso3166_2.insert(code.clone(), found.clone());
-    }
+    let refreshed = |key: &str| -> Result<BTreeMap<String, Vec<&str>>> {
+        let wanted = existing
+            .as_ref()
+            .and_then(|reference| reference[key].as_object())
+            .into_iter()
+            .flat_map(|codes| codes.keys());
+        let mut found = BTreeMap::new();
+        for code in wanted {
+            let Some(item) = items.get(code.as_str()) else {
+                bail!("Wikidata has no item for ISO 3166-2 code {code}");
+            };
+            found.insert(code.clone(), item.clone());
+        }
+        Ok(found)
+    };
+    let iso3166_2 = refreshed("iso3166_2")?;
+    let iso3166_2_lvl6 = refreshed("iso3166_2_lvl6")?;
     std::fs::create_dir_all(&out)?;
     std::fs::write(
         out.join("reference.json"),
@@ -246,6 +251,7 @@ async fn main() -> Result<()> {
             "countries": countries,
             "region_countries": regions,
             "iso3166_2": iso3166_2,
+            "iso3166_2_lvl6": iso3166_2_lvl6,
             "overrides": {},
             "alpha_ranges": categories.ranges(|c| categories.alpha(c)),
             "printable_ranges": categories.ranges(|c| categories.printable(c)),
@@ -260,10 +266,11 @@ async fn main() -> Result<()> {
         serde_json::to_string_pretty(&sources)? + "\n",
     )?;
     println!(
-        "Wrote {} country aliases, {} region names and {} ISO 3166-2 codes",
+        "Wrote {} country aliases, {} region names and {} + {} ISO 3166-2 codes",
         countries.len(),
         regions.len(),
-        iso3166_2.len()
+        iso3166_2.len(),
+        iso3166_2_lvl6.len()
     );
     Ok(())
 }

@@ -161,11 +161,11 @@ pub fn sovereign(territory: &str) -> Option<&'static str> {
 /// Place number and ISO 3166-2 code of the places that stand for a subdivision.
 type OwnCodes = Vec<(u32, String)>;
 
-/// ISO 3166-2 code by Wikidata item, from `data/reference.json`: the subdivisions that
-/// Overture's `region` column lacks (Ugandan districts, overseas territories) and that
-/// consumers expect.
-fn iso_by_item(reference: &Value) -> HashMap<&str, &str> {
-    reference["iso3166_2"]
+/// ISO 3166-2 code by Wikidata item, from one list of `data/reference.json`: `iso3166_2`, the
+/// subdivisions that Overture's `region` column lacks (Ugandan districts, overseas territories)
+/// and that consumers expect, or `iso3166_2_lvl6`, those below a region (French départements).
+fn iso_by_item<'a>(reference: &'a Value, list: &str) -> HashMap<&'a str, &'a str> {
+    reference[list]
         .as_object()
         .into_iter()
         .flatten()
@@ -462,6 +462,10 @@ pub struct Index {
     regions: HashMap<String, u32>,
     /// Places that stand for an ISO 3166-2 subdivision Overture has no region for -> its code.
     own_codes: HashMap<u32, Box<str>>,
+    /// ISO 3166-2 code -> the county that stands for a subdivision below a region.
+    subdivisions: HashMap<String, u32>,
+    /// The same, by place.
+    subdivision_codes: HashMap<u32, Box<str>>,
     parser: Arc<Parser>,
     /// `terms_near` results: retried road and town splits ask for the same words.
     near: Mutex<HashMap<String, std::sync::Arc<[String]>>>,
@@ -1428,7 +1432,13 @@ impl Index {
         };
         let reference: Value =
             serde_json::from_str(include_str!("../../data/reference.json")).unwrap();
-        let (mut places, own) = load_places(&dir.join("places.tsv"), &iso_by_item(&reference))?;
+        let below = iso_by_item(&reference, "iso3166_2_lvl6");
+        let mut iso = iso_by_item(&reference, "iso3166_2");
+        iso.extend(&below);
+        let (mut places, own) = load_places(&dir.join("places.tsv"), &iso)?;
+        let (below_region, own): (Vec<_>, Vec<_>) = own
+            .into_iter()
+            .partition(|(_, code)| reference["iso3166_2_lvl6"].get(code).is_some());
         {
             // counties containing a same-named neighbourhood, minus those with such a locality
             let mut hood_named: std::collections::HashSet<u32> = Default::default();
@@ -1476,6 +1486,16 @@ impl Index {
             }
         }
         // A code Overture does supply wins, so a later release that names it needs no data change.
+        let (mut subdivisions, mut subdivision_codes) = (HashMap::new(), HashMap::new());
+        for (place, code) in below_region {
+            if places[place as usize].subtype.as_ref() == "county"
+                && !regions.contains_key(&code)
+                && let std::collections::hash_map::Entry::Vacant(entry) = subdivisions.entry(code)
+            {
+                subdivision_codes.insert(place, entry.key().as_str().into());
+                entry.insert(place);
+            }
+        }
         let mut own_codes = HashMap::new();
         for (place, code) in own {
             if let std::collections::hash_map::Entry::Vacant(entry) = regions.entry(code) {
@@ -1511,6 +1531,8 @@ impl Index {
             country_places,
             regions,
             own_codes,
+            subdivisions,
+            subdivision_codes,
             parser,
             near: Mutex::default(),
             prefixes: Mutex::default(),
@@ -2498,11 +2520,18 @@ impl Index {
         Some(self.places[*place as usize].name(true))
     }
 
-    /// Every ISO 3166-2 code that names a region place, with that place.
+    /// Every ISO 3166-2 code that names a region place or a subdivision below one, with that
+    /// place.
     pub fn region_places(&self) -> impl Iterator<Item = (&str, u32)> {
         self.regions
             .iter()
+            .chain(&self.subdivisions)
             .map(|(code, &place)| (code.as_str(), place))
+    }
+
+    /// The code of the region a subdivision's place lies in.
+    pub fn parent_region_code(&self, place: u32) -> Option<&str> {
+        self.region_code(self.chain(place).get(1..)?)
     }
 
     /// Whether every street named `road` in place `within` that holds house `number` holds it
@@ -2575,7 +2604,10 @@ impl Index {
         let (cc, code) = q.split_once(", ")?;
         let code = code.trim().to_uppercase();
         (cc.trim().len() == 2 && code.starts_with(&format!("{}-", cc.trim().to_uppercase())))
-            .then(|| self.regions.get(&code).copied())
+            .then(|| {
+                let found = self.regions.get(&code).or(self.subdivisions.get(&code));
+                found.copied()
+            })
             .flatten()
     }
 
@@ -2947,18 +2979,26 @@ impl Index {
         hits
     }
 
+    /// The ISO 3166-2 code of a place chain. The lowest subdivision the data names itself beats
+    /// the region code Overture gives the places inside it (the district over its region).
+    fn region_code(&self, chain: &[u32]) -> Option<&str> {
+        let own = chain.iter().find_map(|p| self.own_codes.get(p));
+        own.map(|c| &**c).or_else(|| {
+            chain
+                .iter()
+                .map(|&p| &*self.places[p as usize].region)
+                .find(|r| !r.is_empty())
+        })
+    }
+
     fn address(&self, place: u32, en: bool, a: &mut Map<String, Value>, display: &mut Vec<String>) {
         let chain = self.chain(place);
-        let mut code = None;
         for &p in &chain {
             let pl = &self.places[p as usize];
             let key = pl.key();
             if !a.contains_key(key) {
                 a.insert(key.into(), pl.name(en).into());
                 display.push(pl.name(en).into());
-            }
-            if code.is_none() && !pl.region.is_empty() {
-                code = Some(pl.region.to_string());
             }
             if !pl.cc.is_empty() {
                 a.entry("country_code")
@@ -2983,14 +3023,14 @@ impl Index {
             a.insert("country".into(), name.into());
             display.push(name.into());
         }
-        // The lowest subdivision the data names itself beats the region code Overture gives the
-        // places inside it (the district over its region).
-        let own = chain.iter().find_map(|p| self.own_codes.get(p));
-        if let Some(code) = own.map(|c| c.to_string()).or(code) {
-            if let Some(province) = irish_province(&code) {
+        if let Some(code) = self.region_code(&chain) {
+            if let Some(province) = irish_province(code) {
                 a.insert("ISO3166-2-lvl5".into(), province.into());
             }
             a.insert("ISO3166-2-lvl4".into(), code.into());
+        }
+        if let Some(code) = chain.iter().find_map(|p| self.subdivision_codes.get(p)) {
+            a.insert("ISO3166-2-lvl6".into(), code.to_string().into());
         }
     }
 
@@ -3276,20 +3316,77 @@ impl Index {
 
     /// Nearest locality point within about 50 km.
     pub fn reverse(&self, lat: f64, lon: f64) -> Value {
-        match self.nearest_locality(lat, lon) {
+        match self.nearest_locality_within(lat, lon, NEAR_LOCALITY_M, |_| true) {
+            Some((p, _)) => self.render(&Hit::Place(p), true),
+            None => json!({"error": "Unable to geocode"}),
+        }
+    }
+
+    /// The address that names a point's region, for `ResolveRegion`. A house within 100 m comes
+    /// first: its place was assigned by polygon, where the nearest locality point can lie across
+    /// a border. Failing that, the nearest locality within 50 km, as `reverse` finds it, when it
+    /// has a region code. Otherwise (the point is past 50 km, up to 150, or the nearest locality's
+    /// parents stop short of a region) a coded locality answers only if it is in the nearest
+    /// one's country and no locality of another region is within twice its distance, or four
+    /// times when the nearest has no code: that gap suggests the data lacks the point's own
+    /// region, which a neighbour's code would misname.
+    pub fn reverse_region(&self, lat: f64, lon: f64) -> Value {
+        if let Some((house, _)) = self
+            .reverse_houses(lat, lon, HOUSE_REGION_M, 1)
+            .into_iter()
+            .next()
+            && house["address"].get("ISO3166-2-lvl4").is_some()
+        {
+            return house;
+        }
+        let code = |p: u32| self.region_code(&self.chain(p));
+        let cc = |p: u32| &self.places[p as usize].cc;
+        let found = self
+            .nearest_locality_within(lat, lon, FAR_REGION_M, |_| true)
+            .and_then(|(nearest, m)| {
+                let coded = code(nearest).is_some();
+                if coded && m <= NEAR_LOCALITY_M {
+                    return Some(nearest);
+                }
+                let (p, m) =
+                    self.nearest_locality_within(lat, lon, FAR_REGION_M, |p| code(p).is_some())?;
+                let margin = if coded { 2.0 } else { 4.0 } * m;
+                let alone = || {
+                    self.nearest_locality_within(lat, lon, margin, |q| {
+                        code(q).is_some_and(|c| Some(c) != code(p))
+                    })
+                    .is_none()
+                };
+                (cc(p) == cc(nearest) && alone()).then_some(p)
+            });
+        match found {
             Some(p) => self.render(&Hit::Place(p), true),
             None => json!({"error": "Unable to geocode"}),
         }
     }
 
-    fn nearest_locality(&self, lat: f64, lon: f64) -> Option<u32> {
-        self.localities.nearest(lat, lon, NEAR_LOCALITY_M, |p| {
-            let pl = &self.places[p as usize];
-            (pl.x as f64, pl.y as f64)
-        })
+    fn nearest_locality_within(
+        &self,
+        lat: f64,
+        lon: f64,
+        max_m: f64,
+        accept: impl Fn(u32) -> bool,
+    ) -> Option<(u32, f64)> {
+        self.localities.nearest(
+            lat,
+            lon,
+            max_m,
+            |p| {
+                let pl = &self.places[p as usize];
+                (pl.x as f64, pl.y as f64)
+            },
+            accept,
+        )
     }
 }
 
+const HOUSE_REGION_M: f64 = 100.0;
+const FAR_REGION_M: f64 = 150_000.0;
 const NEAR_LOCALITY_M: f64 = 50_000.0;
 
 #[cfg(test)]
@@ -3906,7 +4003,7 @@ mod tests {
     fn subdivisions_are_named_by_the_item_in_the_last_column() {
         let reference: Value =
             serde_json::from_str(include_str!("../../data/reference.json")).unwrap();
-        let iso = iso_by_item(&reference);
+        let iso = iso_by_item(&reference, "iso3166_2");
         let listed: usize = reference["iso3166_2"]
             .as_object()
             .unwrap()

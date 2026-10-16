@@ -2,7 +2,7 @@
   "sources": [
     {
       "url": "https://download.geonames.org/export/dump/countryInfo.txt",
-      "sha256": "c5997ea659df5bcf42509eb937064d172b2a998bb873608603e8421d714a9974",
+      "sha256": "c55f638cfaafb4fe45a9aa15120a0f1f78e8a34a8e1847d7b9320cf740fbc9ab",
       "license": "CC-BY-4.0"
     },
     {

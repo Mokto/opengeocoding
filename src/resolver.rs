@@ -169,9 +169,10 @@ impl Resolver {
         .await?)
     }
 
-    pub async fn reverse(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
+    /// The address that names a point's region; see `Index::reverse_region`.
+    pub async fn reverse_region(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
         let core = self.0.clone();
-        tokio::task::spawn_blocking(move || core.reverse(lat, lon)).await?
+        tokio::task::spawn_blocking(move || core.reverse_region(lat, lon)).await?
     }
 
     /// The addresses nearest a point; see `Index::reverse_search`.
@@ -1234,8 +1235,8 @@ impl Core {
         Ok(best.map(|(_, at)| found.swap_remove(at).3))
     }
 
-    fn reverse(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
-        let value = self.index.reverse(lat as f64, lon as f64);
+    fn reverse_region(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
+        let value = self.index.reverse_region(lat as f64, lon as f64);
         if !truthy(&value["address"]) {
             return Ok(None);
         }
@@ -1256,6 +1257,7 @@ impl Core {
                 .iter()
                 .find_map(|name| names[*name].as_str().filter(|s| !s.is_empty()))
                 .unwrap_or("");
+            let admin_level = integer(&details["admin_level"])?;
             let Some((prefix, admin_code)) = code.split_once('-') else {
                 continue;
             };
@@ -1273,10 +1275,16 @@ impl Core {
                 Region {
                     country_code,
                     country_name: country_name.into(),
-                    admin_level: integer(&details["admin_level"])?,
+                    admin_level,
                     local_name: string(&details["localname"]).into(),
                     en_name: en_name.into(),
                     admin_code: admin_code.into(),
+                    parent_admin_code: self
+                        .index
+                        .parent_region_code(place)
+                        .filter(|_| admin_level == 6)
+                        .unwrap_or_default()
+                        .into(),
                     ..Default::default()
                 },
             ));
