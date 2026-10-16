@@ -94,8 +94,10 @@ jobs:
           pr=""
           case "$EVENT" in
             push)
-              base=$(gh api "repos/$REPO/commits/$HEAD_SHA" -q '.parents[0].sha')
-              environment=gold-trusted ;;
+              # main's image is built and pushed so later pull requests have a merge base to pull
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::No gold run for a commit already on main; pull requests run their own"
+              exit 0 ;;
             pull_request)
               pr=$(gh api "repos/$REPO/pulls?state=open&per_page=100" --paginate \
                    -q ".[] | select(.head.sha == \"$HEAD_SHA\") | .number")
