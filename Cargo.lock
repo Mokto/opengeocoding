@@ -2372,6 +2372,7 @@ dependencies = [
  "indexmap",
  "k8s-openapi",
  "kube",
+ "levenshtein_automata",
  "mimalloc",
  "object_store",
  "osmpbf",

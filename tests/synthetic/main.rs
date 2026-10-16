@@ -59,7 +59,7 @@ fn metres(a: (f64, f64), b: (f64, f64)) -> f64 {
 fn a_typed_place_name_lists_every_place_by_size_and_a_country_narrows_it() {
     let paris = |cc| {
         index()
-            .suggest("Par", 5, cc)
+            .suggest("Par", 5, cc, None)
             .iter()
             .map(|s| (s.country_code.clone(), s.kind))
             .collect::<Vec<_>>()
@@ -71,7 +71,7 @@ fn a_typed_place_name_lists_every_place_by_size_and_a_country_narrows_it() {
 
 #[test]
 fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
-    let at = |text: &str, cc| index().suggest(text, 5, cc);
+    let at = |text: &str, cc| index().suggest(text, 5, cc, None);
     let rivoli = at("Rue de Rivoli 2", None);
     assert_eq!((rivoli.len(), rivoli[0].kind), (1, "address"));
     let want = house(street("Rue de Rivoli"), "2");
