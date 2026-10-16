@@ -68,11 +68,3 @@ harness = false
 [[bench]]
 name = "resolve"
 harness = false
-
-[[bench]]
-name = "reverse"
-harness = false
-
-[[bench]]
-name = "suggest"
-harness = false

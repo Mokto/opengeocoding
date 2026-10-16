@@ -254,6 +254,7 @@ impl Checker {
         }
         record.ms = Some((elapsed.as_secs_f64() * 1e6).round() / 1e3);
         record.suggest = self.suggest(case).await;
+        record.reverse_ms = self.reverse(case).await;
         let response = match result {
             Ok(response) => response,
             Err(error) => {
@@ -271,6 +272,25 @@ impl Checker {
             _ => {}
         }
         Ok(record)
+    }
+
+    /// Time of ReverseGeocode at the point a single-answer case expects: a house where the case
+    /// is one, else the nearest locality.
+    async fn reverse(&self, case: &Case) -> Option<f64> {
+        let expect = case.expect.as_ref()?;
+        let [lat, lon] = expect.point.filter(|_| expect.any_of.is_none())?;
+        self.budget.take().await;
+        let request = json!({ "lat": lat, "lon": lon });
+        let mut fastest = None::<Duration>;
+        for _ in 0..self.repeat.max(1) {
+            let started = Instant::now();
+            rpc_json(&self.client, &self.base, "ReverseGeocode", &request)
+                .await
+                .ok()?;
+            let took = started.elapsed();
+            fastest = Some(fastest.map_or(took, |f| f.min(took)));
+        }
+        fastest.map(|f| (f.as_secs_f64() * 1e6).round() / 1e3)
     }
 
     /// The query, and the place's name alone when the corpus ranks it among its namesakes, typed

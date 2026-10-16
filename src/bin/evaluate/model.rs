@@ -157,6 +157,9 @@ pub struct Record {
     pub ms: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend_calls: Option<usize>,
+    /// ReverseGeocode at the case's expected point, the fastest of `repeat` requests.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reverse_ms: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend_errors: Option<usize>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

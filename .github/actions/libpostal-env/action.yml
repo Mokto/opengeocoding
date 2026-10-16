@@ -1,14 +1,8 @@
-name: Benchmark environment
-description: libpostal (built once, cached), its models and the index fixture of benches/fixture.
+name: libpostal environment
+description: libpostal (built once, cached) and, on request, its models.
 inputs:
-  fixture-url:
-    description: Release asset with the index fixture; without it only libpostal is set up.
-    default: ""
-  fixture-sha256:
-    description: Checksum of that asset.
-    default: ""
   models:
-    description: Set to "true" to fetch libpostal's models without the fixture.
+    description: Set to "true" to fetch libpostal's models.
     default: ""
 # The caller sets LIBPOSTAL_COMMIT, LIBPOSTAL_PREFIX and LIBPOSTAL_MODELS (the model path is
 # compiled in, as in the Dockerfile) and installs Rust afterwards.
@@ -33,27 +27,11 @@ runs:
         make -j4 && make install
     - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
       id: models
-      if: inputs.fixture-url != '' || inputs.models == 'true'
+      if: inputs.models == 'true'
       with:
         path: ${{ env.LIBPOSTAL_MODELS }}
         key: libpostal-models-${{ env.LIBPOSTAL_COMMIT }}
     - name: Download libpostal models
-      if: (inputs.fixture-url != '' || inputs.models == 'true') && steps.models.outputs.cache-hit != 'true'
+      if: inputs.models == 'true' && steps.models.outputs.cache-hit != 'true'
       shell: bash
       run: ${LIBPOSTAL_PREFIX}/bin/libpostal_data download all "$LIBPOSTAL_MODELS/libpostal"
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-      id: fixture
-      if: inputs.fixture-url != ''
-      with:
-        path: /home/runner/fixture
-        key: bench-fixture-${{ inputs.fixture-sha256 }}
-    - name: Fetch the index fixture
-      if: inputs.fixture-url != '' && steps.fixture.outputs.cache-hit != 'true'
-      shell: bash
-      env:
-        URL: ${{ inputs.fixture-url }}
-        SHA256: ${{ inputs.fixture-sha256 }}
-      run: |
-        curl -fsSL --retry 3 "$URL" -o /tmp/fixture.tar.zst
-        echo "$SHA256  /tmp/fixture.tar.zst" | sha256sum -c -
-        mkdir -p /home/runner/fixture && tar --zstd -xf /tmp/fixture.tar.zst -C /home/runner/fixture
