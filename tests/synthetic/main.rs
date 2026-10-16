@@ -153,6 +153,38 @@ fn resolve_region_prefers_a_house_then_a_region_coded_locality_and_not_a_faraway
     assert_eq!(region(-23.0, 100.0), None);
 }
 
+#[test]
+fn a_county_with_an_iso_code_adds_it_below_its_region_and_is_listed() {
+    let colmar = place("fr-colmar");
+    let address = &index().reverse(colmar.lat, colmar.lon)["address"];
+    assert_eq!(address["ISO3166-2-lvl4"], "FR-IDF");
+    assert_eq!(address["ISO3166-2-lvl6"], "FR-68");
+    // a place outside the county has no second code
+    let paris = place("fr-paris");
+    let address = &index().reverse(paris.lat, paris.lon)["address"];
+    assert_eq!(address["ISO3166-2-lvl4"], "FR-IDF");
+    assert!(address.get("ISO3166-2-lvl6").is_none());
+    let county = index()
+        .region_places()
+        .find(|(code, _)| *code == "FR-68")
+        .unwrap()
+        .1;
+    assert_eq!(index().parent_region_code(county), Some("FR-IDF"));
+    // the code names the county, as a search for it does
+    let found = index().search("fr, FR-68");
+    assert_eq!(
+        index().render(&found[0], true)["address"]["county"],
+        "Haut-Rhin"
+    );
+    assert_eq!(
+        index()
+            .region_places()
+            .filter(|(c, _)| c.starts_with("FR-"))
+            .count(),
+        2
+    );
+}
+
 enum Want {
     Abstain,
     /// A point, within some metres, and whether the match is a good one.

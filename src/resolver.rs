@@ -1257,6 +1257,7 @@ impl Core {
                 .iter()
                 .find_map(|name| names[*name].as_str().filter(|s| !s.is_empty()))
                 .unwrap_or("");
+            let admin_level = integer(&details["admin_level"])?;
             let Some((prefix, admin_code)) = code.split_once('-') else {
                 continue;
             };
@@ -1274,10 +1275,16 @@ impl Core {
                 Region {
                     country_code,
                     country_name: country_name.into(),
-                    admin_level: integer(&details["admin_level"])?,
+                    admin_level,
                     local_name: string(&details["localname"]).into(),
                     en_name: en_name.into(),
                     admin_code: admin_code.into(),
+                    parent_admin_code: self
+                        .index
+                        .parent_region_code(place)
+                        .filter(|_| admin_level == 6)
+                        .unwrap_or_default()
+                        .into(),
                     ..Default::default()
                 },
             ));

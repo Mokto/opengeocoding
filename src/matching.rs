@@ -1210,12 +1210,15 @@ pub fn state_consistent(address: &ParsedAddress, details: Option<&AddressDetails
     }
     region_agrees(address, details)
         || details.is_some_and(|d| {
-            d.region_codes.iter().any(|c| {
-                c.code
-                    .rsplit('-')
-                    .next()
-                    .is_some_and(|suffix| stated.iter().any(|s| s.eq_ignore_ascii_case(suffix)))
-            })
+            d.region_codes
+                .iter()
+                .filter(|c| c.admin_level < 6)
+                .any(|c| {
+                    c.code
+                        .rsplit('-')
+                        .next()
+                        .is_some_and(|suffix| stated.iter().any(|s| s.eq_ignore_ascii_case(suffix)))
+                })
         })
 }
 
@@ -1227,8 +1230,14 @@ pub fn state_code_conflict(address: &ParsedAddress, details: Option<&AddressDeta
     stated.len() == 2
         && stated.chars().all(|c| c.is_ascii_alphabetic())
         && details.is_some_and(|d| {
-            !d.region_codes.is_empty()
-                && !d.region_codes.iter().any(|c| {
+            // a subdivision below a region (ES-MA, Málaga) is no state code
+            let mut codes = d
+                .region_codes
+                .iter()
+                .filter(|c| c.admin_level < 6)
+                .peekable();
+            codes.peek().is_some()
+                && !codes.any(|c| {
                     c.code
                         .rsplit('-')
                         .next()

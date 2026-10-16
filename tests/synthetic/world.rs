@@ -45,6 +45,10 @@ macro_rules! place {
 /// Paris in France and in Texas, Delhi in India and in Ontario, and Cologne under its German name.
 /// Austria's made-up regions Alpha and Beta lie at the equator, where degrees of longitude and
 /// latitude are as long: Grenzgasse is inside Suedhain's area but nearer Nordhain's point.
+/// The Wikidata items of places that stand for an ISO 3166-2 subdivision, by place: the item of
+/// FR-68 (Haut-Rhin) in `data/reference.json`.
+pub const WIKIDATA: &[(&str, &str)] = &[("fr-haut-rhin", "Q12722")];
+
 pub const PLACES: &[Place] = &[
     place!(
         "fr",
@@ -225,6 +229,30 @@ pub const PLACES: &[Place] = &[
         "de-nw",
         "Köln",
         &[("en", "Cologne"), ("de", "Köln")],
+    ),
+    place!(
+        "fr-haut-rhin",
+        "county",
+        "",
+        "FR",
+        "FR-IDF",
+        600000,
+        (7.3, 48.0),
+        "fr-idf",
+        "Haut-Rhin",
+        &[("en", "Haut-Rhin")],
+    ),
+    place!(
+        "fr-colmar",
+        "locality",
+        "city",
+        "FR",
+        "FR-IDF",
+        70000,
+        (7.35, 48.08),
+        "fr-haut-rhin",
+        "Colmar",
+        &[("en", "Colmar")],
     ),
     place!(
         "at",
@@ -534,7 +562,15 @@ pub fn write_release(dir: &Path) {
                 "parent_division_id",
                 optional(PLACES.iter().map(|p| p.parent)),
             ),
-            ("wikidata", optional(PLACES.iter().map(|_| ""))),
+            (
+                "wikidata",
+                optional(PLACES.iter().map(|p| {
+                    WIKIDATA
+                        .iter()
+                        .find(|(id, _)| *id == p.id)
+                        .map_or("", |(_, item)| *item)
+                })),
+            ),
             (
                 "population",
                 Arc::new(Int32Array::from_iter_values(
