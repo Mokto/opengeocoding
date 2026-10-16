@@ -384,7 +384,7 @@ impl Checker {
             && !alt.region.is_empty()
             && rank(&alt.level) >= rank("region")
         {
-            let hit = index.reverse(lat, lon);
+            let hit = index.reverse_region(lat, lon);
             let reverse = if hit.get("address").is_some() {
                 from_index(&hit)
             } else {

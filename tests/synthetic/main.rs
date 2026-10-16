@@ -129,6 +129,30 @@ fn reverse_search_returns_the_nearest_houses_then_falls_back_to_the_locality() {
     assert_eq!(far[0].1["address"]["city"], "Paris");
 }
 
+#[test]
+fn resolve_region_prefers_a_house_then_a_region_coded_locality_and_not_a_faraway_guess() {
+    let region = |lat: f64, lon: f64| {
+        index().reverse_region(lat, lon)["address"]["ISO3166-2-lvl4"]
+            .as_str()
+            .map(String::from)
+    };
+    let (x, y) = house(street("Grenzgasse"), "1");
+    // the nearest locality point (Nordhain) is across the line from the house's town
+    assert_eq!(index().reverse(y, x)["address"]["village"], "Nordhain");
+    assert_eq!(region(y, x).as_deref(), Some("AT-2"));
+    // past the house's 100 m the locality answers
+    assert_eq!(region(y + 0.002, x).as_deref(), Some("AT-1"));
+    // Ohnecode's parents stop at the country, so its neighbour Mitcode names the region
+    assert_eq!(index().reverse(0.0, 40.0)["address"]["village"], "Ohnecode");
+    assert_eq!(region(0.0, 40.0).as_deref(), Some("AT-1"));
+    // 51 km from the nearest locality, another region's 274 km away: it answers; between two
+    // regions' localities it does not
+    assert_eq!(region(-20.46, 100.0).as_deref(), Some("AT-2"));
+    assert_eq!(region(-19.0, 100.0), None);
+    // and no farther than 150 km
+    assert_eq!(region(-23.0, 100.0), None);
+}
+
 enum Want {
     Abstain,
     /// A point, within some metres, and whether the match is a good one.

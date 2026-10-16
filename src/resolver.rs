@@ -169,9 +169,10 @@ impl Resolver {
         .await?)
     }
 
-    pub async fn reverse(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
+    /// The address that names a point's region; see `Index::reverse_region`.
+    pub async fn reverse_region(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
         let core = self.0.clone();
-        tokio::task::spawn_blocking(move || core.reverse(lat, lon)).await?
+        tokio::task::spawn_blocking(move || core.reverse_region(lat, lon)).await?
     }
 
     /// The addresses nearest a point; see `Index::reverse_search`.
@@ -1234,8 +1235,8 @@ impl Core {
         Ok(best.map(|(_, at)| found.swap_remove(at).3))
     }
 
-    fn reverse(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
-        let value = self.index.reverse(lat as f64, lon as f64);
+    fn reverse_region(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
+        let value = self.index.reverse_region(lat as f64, lon as f64);
         if !truthy(&value["address"]) {
             return Ok(None);
         }
