@@ -9,7 +9,11 @@ use anyhow::{Context, Result};
 use indexmap::IndexMap;
 use opengeocoding::eval::{Row, read_tsv, write_tsv};
 use serde_json::Value;
-use std::{collections::BTreeMap, fmt::Write as _, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
+    path::Path,
+};
 
 /// One row per case so a PR diff shows exactly which answers changed; the manifest lives beside it.
 pub const SNAPSHOT_COLUMNS: [&str; 15] = [
@@ -984,6 +988,7 @@ pub fn diff(
     let mut suggest_counts: BTreeMap<&str, [usize; 6]> = BTreeMap::new();
     // Per ReverseGeocode and ResolveRegion: checked, base passing, head passing, head's classes.
     let mut locate_counts: BTreeMap<&str, [usize; 7]> = BTreeMap::new();
+    let mut changed_checks = BTreeSet::new();
     for id in &shared {
         let (a, b) = (&old[*id], &new[*id]);
         search_pass[0] += usize::from(a.class == "pass");
@@ -1016,6 +1021,9 @@ pub fn diff(
             };
             scored = true;
             let (ca, cb) = (suggest_class(sa), suggest_class(sb));
+            if ca != cb {
+                changed_checks.insert(name.as_str());
+            }
             let counts = suggest_counts.entry(name).or_default();
             counts[0] += 1;
             counts[1] += usize::from(ca == "pass");
@@ -1044,6 +1052,9 @@ pub fn diff(
             };
             scored = true;
             let (ca, cb) = (fa.class.as_str(), fb.class.as_str());
+            if ca != cb {
+                changed_checks.insert(name);
+            }
             let counts = locate_counts.entry(name).or_default();
             counts[0] += 1;
             counts[1] += usize::from(ca == "pass");
@@ -1140,39 +1151,61 @@ pub fn diff(
         &format!("<!-- headline: {} -->\n", headline.join(" · ")),
     );
     if !suggest_counts.is_empty() {
-        report += "\n## SuggestAddress\n\n| Check | Checked | Pass base | Pass head | Change | ranked_low | missing | error |\n|---|---:|---:|---:|---:|---:|---:|---:|\n";
-        for (name, c) in &suggest_counts {
-            let _ = writeln!(
-                report,
-                "| {name} | {} | {} | {} | {:+} | {} | {} | {} |",
-                c[0],
-                c[1],
-                c[2],
-                c[2] as i64 - c[1] as i64,
-                c[3],
-                c[4],
-                c[5]
-            );
+        report += "\n## SuggestAddress\n\n";
+        if !suggest_counts
+            .keys()
+            .any(|name| changed_checks.contains(name))
+        {
+            report += "No SuggestAddress result class changed.\n";
+        } else {
+            report += "| Check | Checked | Pass base | Pass head | Change | ranked_low | missing | error |\n|---|---:|---:|---:|---:|---:|---:|---:|\n";
+            for (name, c) in suggest_counts
+                .iter()
+                .filter(|(name, _)| changed_checks.contains(*name))
+            {
+                let _ = writeln!(
+                    report,
+                    "| {name} | {} | {} | {} | {:+} | {} | {} | {} |",
+                    c[0],
+                    c[1],
+                    c[2],
+                    c[2] as i64 - c[1] as i64,
+                    c[3],
+                    c[4],
+                    c[5]
+                );
+            }
+            report += "\n`full` types the query; `name` types the place's name alone, which must come no later than the places of that name with more population. The last three columns count the head's failures.\n";
         }
-        report += "\n`full` types the query; `name` types the place's name alone, which must come no later than the places of that name with more population. The last three columns count the head's failures.\n";
     }
     if !locate_counts.is_empty() {
-        report += "\n## ReverseGeocode and ResolveRegion\n\n| Check | Checked | Pass base | Pass head | Change | empty | wrong_region | wrong_country | error |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|\n";
-        for (name, c) in &locate_counts {
-            let _ = writeln!(
-                report,
-                "| {name} | {} | {} | {} | {:+} | {} | {} | {} | {} |",
-                c[0],
-                c[1],
-                c[2],
-                c[2] as i64 - c[1] as i64,
-                c[3],
-                c[4],
-                c[5],
-                c[6]
-            );
+        report += "\n## ReverseGeocode and ResolveRegion\n\n";
+        if !locate_counts
+            .keys()
+            .any(|name| changed_checks.contains(name))
+        {
+            report += "No ReverseGeocode or ResolveRegion result class changed.\n";
+        } else {
+            report += "| Check | Checked | Pass base | Pass head | Change | empty | wrong_region | wrong_country | error |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|\n";
+            for (name, c) in locate_counts
+                .iter()
+                .filter(|(name, _)| changed_checks.contains(*name))
+            {
+                let _ = writeln!(
+                    report,
+                    "| {name} | {} | {} | {} | {:+} | {} | {} | {} | {} |",
+                    c[0],
+                    c[1],
+                    c[2],
+                    c[2] as i64 - c[1] as i64,
+                    c[3],
+                    c[4],
+                    c[5],
+                    c[6]
+                );
+            }
+            report += "\nThe last four columns count the head's failures. ReverseGeocode: the nearest result is in the expected country, and region where the place is a locality or finer; ResolveRegion: one of the regions found is an expected one.\n";
         }
-        report += "\nThe last four columns count the head's failures. ReverseGeocode: the nearest result is in the expected country, and region where the place is a locality or finer; ResolveRegion: one of the regions found is an expected one.\n";
     }
     if scored {
         let mut none = vec![];
@@ -1530,15 +1563,79 @@ mod tests {
             report.contains("| ReverseGeocode | 1 | 1 | 0 | -1 | 0 | 0 | 1 | 0 |"),
             "{report}"
         );
-        assert!(
-            report.contains("| ResolveRegion | 1 | 1 | 1 | +0 | 0 | 0 | 0 | 0 |"),
-            "{report}"
-        );
+        assert!(!report.contains("| ResolveRegion |"), "{report}");
         assert!(
             report.contains("ReverseGeocode 1 → 0 of 1 passing"),
             "{report}"
         );
         assert!(!diff(&cases, &old, &old, Some(&out), false, true).unwrap());
+        let report = std::fs::read_to_string(&out).unwrap();
+        assert!(report.contains("No ReverseGeocode or ResolveRegion result class changed."));
+        assert!(!report.contains("| Check |"), "{report}");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn offsetting_changes_still_show_check_tables() {
+        let dir = std::env::temp_dir().join(format!("eval-offsetting-{}", std::process::id()));
+        let cases: Vec<_> = ["a", "b"]
+            .into_iter()
+            .map(|id| Case {
+                id: id.into(),
+                ..Default::default()
+            })
+            .collect();
+        for (side, ranks) in [("old", [1, 2]), ("new", [2, 1])] {
+            std::fs::create_dir_all(dir.join(side)).unwrap();
+            std::fs::write(dir.join(side).join("manifest.json"), "{}").unwrap();
+            let records = cases
+                .iter()
+                .zip(ranks)
+                .map(|(case, rank)| {
+                    let located = Located {
+                        class: if rank == 1 { "pass" } else { "wrong_region" }.into(),
+                        ..Default::default()
+                    };
+                    let record = Record {
+                        id: case.id.clone(),
+                        class: "pass".into(),
+                        suggest: [(
+                            "full".into(),
+                            SuggestCheck {
+                                want: 1,
+                                rank: Some(rank),
+                                ..Default::default()
+                            },
+                        )]
+                        .into(),
+                        reverse: Some(located.clone()),
+                        region: Some(located),
+                        ..Default::default()
+                    };
+                    serde_json::to_string(&record).unwrap() + "\n"
+                })
+                .collect::<String>();
+            std::fs::write(dir.join(side).join("results.jsonl"), records).unwrap();
+        }
+        let out = dir.join("diff.md");
+        assert!(
+            diff(
+                &cases,
+                &dir.join("old"),
+                &dir.join("new"),
+                Some(&out),
+                false,
+                true
+            )
+            .unwrap()
+        );
+        let report = std::fs::read_to_string(out).unwrap();
+        for name in ["full", "ReverseGeocode", "ResolveRegion"] {
+            assert!(
+                report.contains(&format!("| {name} | 2 | 1 | 1 | +0 |")),
+                "{report}"
+            );
+        }
         std::fs::remove_dir_all(dir).unwrap();
     }
 
@@ -1605,6 +1702,8 @@ mod tests {
             report.contains("No SearchAddress result changed."),
             "{report}"
         );
+        assert!(report.contains("No SuggestAddress result class changed."));
+        assert!(!report.contains("| Check |"), "{report}");
         assert!(report.contains("None: newly failing, worse failure class"));
         assert!(!report.contains("| Cohort") && !report.contains("changed cases"));
         std::fs::remove_dir_all(dir).unwrap();
