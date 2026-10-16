@@ -91,23 +91,30 @@ jobs:
             status success "Skipped: $1"
             exit 0
           }
-          # explain TEXT: the pull request gets a comment saying why there is no gold run, under the
-          # markers the run's own comments use, so a later run's report replaces it. A green status
-          # alone looks like a pass that nobody sees. Best effort, like those comments.
+          # The pull request's comment saying why there is no gold run is its own, not the
+          # gold-full or gold-speed comments of a run: `explain TEXT` posts or updates it, and
+          # `forget` deletes it once a run can start. A green status alone looks like a pass that
+          # nobody sees. Best effort, like the run's comments.
+          skipped_comment() {
+            gh api "repos/$REPO/issues/$pr/comments" --paginate \
+              -q '.[] | select(.body | startswith("<!-- gold-skipped -->")) | .id'
+          }
           explain() {
             [ -n "$pr" ] || return 0
-            for kind in gold-full gold-speed; do
-              title="Gold check, full index"; [ "$kind" = gold-speed ] && title="Speed, full index"
-              printf '<!-- %s -->\n## %s: not run\n\n%s\n\nThe next run that can start replaces this comment.\n' \
-                "$kind" "$title" "$1" > "$RUNNER_TEMP/$kind.md"
-              id=$(gh api "repos/$REPO/issues/$pr/comments" --paginate \
-                -q ".[] | select(.body | startswith(\"<!-- $kind -->\")) | .id") || { echo "::warning::Could not read the pull request comments"; continue; }
-              id=${id%%$'\n'*}
-              if [ -n "$id" ]; then
-                gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$RUNNER_TEMP/$kind.md" > /dev/null || echo "::warning::Could not update the $kind comment"
-              else
-                gh api -X POST "repos/$REPO/issues/$pr/comments" -F body=@"$RUNNER_TEMP/$kind.md" > /dev/null || echo "::warning::Could not post the $kind comment"
-              fi
+            printf '<!-- gold-skipped -->\n## Gold check and speed, full index: not run\n\n%s\n\nThis comment goes away when a run can start.\n' \
+              "$1" > "$RUNNER_TEMP/skipped.md"
+            id=$(skipped_comment) || { echo "::warning::Could not read the pull request comments"; return 0; }
+            id=${id%%$'\n'*}
+            if [ -n "$id" ]; then
+              gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$RUNNER_TEMP/skipped.md" > /dev/null || echo "::warning::Could not update the comment"
+            else
+              gh api -X POST "repos/$REPO/issues/$pr/comments" -F body=@"$RUNNER_TEMP/skipped.md" > /dev/null || echo "::warning::Could not post the comment"
+            fi
+          }
+          forget() {
+            [ -n "$pr" ] || return 0
+            for id in $(skipped_comment || true); do
+              gh api -X DELETE "repos/$REPO/issues/comments/$id" > /dev/null || echo "::warning::Could not delete the comment"
             done
           }
           pr=""
@@ -139,6 +146,7 @@ jobs:
                 skip "no multi-architecture staging image for ${sha:0:7}"
               }
           done
+          forget
           {
             echo "head=$HEAD_SHA"
             echo "base=$base"
