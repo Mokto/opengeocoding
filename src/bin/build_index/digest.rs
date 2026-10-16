@@ -180,12 +180,26 @@ pub fn digest(args: &[String]) -> Result<()> {
         })
         .try_reduce(Acc::default, |a, b| Ok(a.merge(b)))?;
 
+    let mut landmarks = Acc::default();
+    for line in std::fs::read_to_string(dir.join("landmarks.tsv"))
+        .unwrap_or_default()
+        .lines()
+    {
+        landmarks.add(line.to_string(), keep);
+    }
+
     docs.show("docs");
     terms.show("terms");
     numbers.show("numbers");
+    landmarks.show("landmarks");
     if let Some(path) = dump {
         let mut out = std::io::BufWriter::new(std::fs::File::create(path)?);
-        for (name, acc) in [("doc", docs), ("term", terms), ("number", numbers)] {
+        for (name, acc) in [
+            ("doc", docs),
+            ("term", terms),
+            ("number", numbers),
+            ("landmark", landmarks),
+        ] {
             let mut lines = acc.lines;
             lines.sort_unstable();
             for l in lines {

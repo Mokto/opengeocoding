@@ -436,7 +436,16 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
     }
     suggest_section(&mut out, &results, &|r| case(r).cohort.clone());
     locate_section(&mut out, &results, &|r| case(r).cohort.clone());
-    let unscored: Vec<_> = results.iter().filter(|r| r.class == "unscored").collect();
+    let unscored: Vec<_> = results
+        .iter()
+        .filter(|r| {
+            r.class == "unscored"
+                && !case(r)
+                    .expect
+                    .as_ref()
+                    .is_some_and(|e| e.level == "landmark")
+        })
+        .collect();
     if !unscored.is_empty() {
         let referenced = unscored.iter().any(|r| {
             case(r)
@@ -677,6 +686,24 @@ fn suggest_section(out: &mut String, results: &[&Record], cohort: &dyn Fn(&Recor
     }
     if none {
         *out += "None.\n";
+    }
+    let landmarks: Vec<_> = results
+        .iter()
+        .filter(|r| cohort(r) == "suggest_landmark")
+        .filter_map(|r| Some((r, r.suggest.get("full")?)))
+        .filter(|(_, c)| suggest_class(c) != "pass")
+        .collect();
+    if !landmarks.is_empty() {
+        *out += "\n### Landmarks not suggested\n\n";
+        for (r, check) in landmarks {
+            let _ = writeln!(
+                out,
+                "- `{}` {:?}: {}",
+                r.id,
+                check.text,
+                suggest_label(check)
+            );
+        }
     }
 }
 
@@ -1147,7 +1174,15 @@ pub fn diff(
     let mut summary = String::from(
         "| RPC | Checked | Pass base | Pass head | Change | Results changed |\n|---|---:|---:|---:|---:|---:|\n",
     );
-    summary += &passing("SearchAddress", search_pass, shared.len(), total);
+    let searched = shared
+        .iter()
+        .filter(|id| {
+            !cases
+                .get(id.as_str())
+                .is_some_and(|c| c.expect.as_ref().is_some_and(|e| e.level == "landmark"))
+        })
+        .count();
+    summary += &passing("SearchAddress", search_pass, searched, total);
     if !suggest_counts.is_empty() {
         let sums = suggest_counts
             .values()

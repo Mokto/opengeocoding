@@ -14,7 +14,7 @@ use std::{
     process::Command,
     sync::{Arc, OnceLock},
 };
-use world::{PLACES, STREETS, house, road_end};
+use world::{FEATURES, PLACES, STREETS, house, road_end};
 
 fn dir() -> &'static PathBuf {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
@@ -23,10 +23,13 @@ fn dir() -> &'static PathBuf {
             .join(format!("synthetic-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         world::write_release(&root.join("release"));
+        world::write_osm(&root.join("osm"));
         let out = root.join("index");
         let built = Command::new(env!("CARGO_BIN_EXE_build_index"))
             .arg(root.join("release"))
             .arg(&out)
+            .arg("--osm")
+            .arg(root.join("osm"))
             .output()
             .unwrap();
         assert!(
@@ -78,7 +81,7 @@ fn poi_houses_need_a_known_road_and_never_override_addresses_or_move_streets() {
     assert!(licences.contains("Community Data License Agreement"));
     assert!(licences.contains("Apache License"));
     let poi = Index::open(&out, Arc::new(Parser::unloaded(0))).unwrap();
-    let at = |text: &str| poi.suggest(text, 5, Some("GB"), None);
+    let at = |text: &str| poi.suggest(text, 5, Some("GB"), None, false);
     let added = at("High Street 999, Beacon");
     assert_eq!((added.len(), added[0].kind), (1, "address"));
     assert!(metres((added[0].x, added[0].y), (30.011, 10.0)) < 5.);
@@ -103,7 +106,7 @@ fn poi_houses_need_a_known_road_and_never_override_addresses_or_move_streets() {
     assert_eq!(market_house[0].kind, "address");
     assert!(metres((market_house[0].x, market_house[0].y), (30.013, 10.0)) < 5.);
     assert!(
-        !poi.suggest("Main Street 994, Paris", 5, Some("US"), None)
+        !poi.suggest("Main Street 994, Paris", 5, Some("US"), None, false)
             .iter()
             .any(|s| s.kind == "address")
     );
@@ -123,7 +126,7 @@ fn poi_houses_need_a_known_road_and_never_override_addresses_or_move_streets() {
     let covered = Index::open(&covered, Arc::new(Parser::unloaded(0))).unwrap();
     assert!(
         !covered
-            .suggest("High Street 999, Beacon", 5, Some("GB"), None)
+            .suggest("High Street 999, Beacon", 5, Some("GB"), None, false)
             .iter()
             .any(|s| s.kind == "address")
     );
@@ -135,7 +138,7 @@ fn poi_houses_need_a_known_road_and_never_override_addresses_or_move_streets() {
 fn a_typed_place_name_lists_every_place_by_size_and_a_country_narrows_it() {
     let paris = |cc| {
         index()
-            .suggest("Par", 5, cc, None)
+            .suggest("Par", 5, cc, None, false)
             .iter()
             .map(|s| (s.country_code.clone(), s.kind))
             .collect::<Vec<_>>()
@@ -147,7 +150,7 @@ fn a_typed_place_name_lists_every_place_by_size_and_a_country_narrows_it() {
 
 #[test]
 fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
-    let at = |text: &str, cc| index().suggest(text, 5, cc, None);
+    let at = |text: &str, cc| index().suggest(text, 5, cc, None, false);
     let rivoli = at("Rue de Rivoli 2", None);
     assert_eq!((rivoli.len(), rivoli[0].kind), (1, "address"));
     let want = house(street("Rue de Rivoli"), "2");
@@ -167,6 +170,87 @@ fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
         .collect();
     assert_eq!(delhi[0], ("in".into(), "city"));
     assert!(delhi.contains(&("ca".into(), "town")));
+}
+
+#[test]
+fn landmarks_come_only_when_asked_and_after_the_towns_of_their_name() {
+    let at = |text: &str, cc, landmarks| index().suggest(text, 5, cc, None, landmarks);
+    let landmarks = |text: &str, cc| -> Vec<_> {
+        at(text, cc, true)
+            .into_iter()
+            .filter(|s| s.kind == "landmark")
+            .collect()
+    };
+    for text in ["Paris", "PNV", "Paris Gare", "Paris Museum"] {
+        assert!(at(text, None, false).iter().all(|s| s.kind != "landmark"));
+    }
+    let paris: Vec<_> = at("Paris", None, true)
+        .iter()
+        .map(|s| (s.country_code.clone(), s.kind, s.category))
+        .collect();
+    assert_eq!(
+        paris,
+        [
+            ("fr".into(), "city", ""),
+            ("us".into(), "city", ""),
+            ("fr".into(), "landmark", "airport"),
+            ("fr".into(), "landmark", "station"),
+            ("fr".into(), "landmark", "museum"),
+        ]
+    );
+    let kinds = |text: &str| -> Vec<_> {
+        at(text, None, true)
+            .iter()
+            .map(|s| (s.kind, s.category))
+            .collect()
+    };
+    assert_eq!(
+        kinds("Thingsmuseum"),
+        [("village", ""), ("landmark", "museum")]
+    );
+    assert_eq!(
+        kinds("Nordville"),
+        [
+            ("village", ""),
+            ("landmark", "airport"),
+            ("landmark", "station")
+        ]
+    );
+    assert_eq!(
+        kinds("Twin Hall"),
+        [("landmark", "station"), ("landmark", "museum")]
+    );
+    let focus = opengeocoding::index::Focus {
+        lat: 33.66,
+        lon: -95.56,
+        scale_km: 100.0,
+    };
+    assert_eq!(
+        index().suggest("Paris", 5, None, Some(&focus), true)[0].country_code,
+        "us"
+    );
+    let airport = &FEATURES[0];
+    let pnv = &at("PNV", None, true)[0];
+    assert_eq!((pnv.kind, pnv.category), ("landmark", "airport"));
+    assert_eq!(
+        pnv.display_name,
+        "Paris Nordville Airport, Paris, Ile-de-France, France"
+    );
+    // a way's and a relation's points are their nodes' mean
+    assert!(metres((pnv.x, pnv.y), (airport.lon, airport.lat)) < 5.0);
+    let museum = &landmarks("Paris Museum", None)[0];
+    // a whole word starts a longer name too
+    assert_eq!(landmarks("Paris Museum ", None)[0].id, museum.id);
+    assert!(metres((museum.x, museum.y), (FEATURES[2].lon, FEATURES[2].lat)) < 5.0);
+    // from a later word of its name
+    assert_eq!(landmarks("gare de l'ouest", None)[0].category, "station");
+    assert_eq!(landmarks("Paris Gare, France", None)[0].category, "station");
+    assert_eq!(landmarks("Paris Gare, Paris", None)[0].category, "station");
+    assert!(landmarks("Paris Gare, Texas", None).is_empty());
+    assert!(landmarks("PNV", Some("US")).is_empty());
+    // no Wikidata item; not a landmark's tag
+    assert!(landmarks("Paris Unlisted", None).is_empty());
+    assert!(landmarks("Paris Bakery", None).is_empty());
 }
 
 #[test]

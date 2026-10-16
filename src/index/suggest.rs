@@ -149,6 +149,8 @@ pub struct Suggestion {
     pub id: String,
     pub display_name: String,
     pub kind: &'static str,
+    /// Landmarks only: airport, station, attraction, museum, university, hospital or stadium.
+    pub category: &'static str,
     pub country_code: String,
     pub x: f64,
     pub y: f64,
@@ -390,6 +392,7 @@ impl Index {
         limit: usize,
         cc: Option<&str>,
         focus: Option<&Focus>,
+        landmarks: bool,
     ) -> Vec<Suggestion> {
         let text = text.trim_start();
         if text.chars().count() > MAX_TEXT || text.trim().is_empty() || limit == 0 {
@@ -430,6 +433,9 @@ impl Index {
             .into_iter()
             .map(|(id, _)| self.place_suggestion(id))
             .collect();
+        if landmarks && out.len() < limit {
+            out.extend(self.suggest_landmarks(&typed, cc, limit - out.len()));
+        }
         if out.len() < limit {
             out.extend(self.suggest_streets(&typed, cc, focus, limit - out.len()));
         }
@@ -446,7 +452,7 @@ impl Index {
         // the filter matches a street's own country, which its place may not be in
         out.retain(|s| {
             cc.is_none_or(|c| s.country_code.is_empty() || s.country_code.eq_ignore_ascii_case(c))
-                && seen.insert(s.display_name.clone())
+                && seen.insert((s.display_name.clone(), s.category))
         });
         out.truncate(limit);
         out
@@ -936,12 +942,72 @@ impl Index {
         (score as f64 * focus.boost(pl.y as f64, pl.x as f64)) as u64
     }
 
+    fn suggest_landmarks(&self, typed: &Typed, cc: Option<&str>, want: usize) -> Vec<Suggestion> {
+        let first = &typed.parts[0];
+        // two letters start too many names to rank
+        if first.chars().count() < 3 {
+            return vec![];
+        }
+        let one_part = typed.parts.len() == 1;
+        let open = typed.open && one_part;
+        let words = words_open(first, open);
+        let forms = if open {
+            open_forms(&words)
+        } else {
+            vec![words.join(" ")]
+        };
+        let quals: Vec<(String, Vec<&str>)> = typed.parts[1..]
+            .iter()
+            .map(|p| fold(p))
+            .filter(|q| !(typed.open && q.chars().count() < 2))
+            .map(|q| {
+                let ccs = self.countries_named(&q, typed.open);
+                (q, ccs)
+            })
+            .collect();
+        let mut ids: Vec<u32> = vec![];
+        for form in &forms {
+            for &id in self.landmarks.find(form, open).iter() {
+                if !ids.contains(&id) {
+                    ids.push(id);
+                }
+            }
+        }
+        ids.sort_unstable_by_key(|&id| (Reverse(self.landmarks.list[id as usize].score), id));
+        ids.into_iter()
+            .map(|id| (id, &self.landmarks.list[id as usize]))
+            .filter(|(_, l)| {
+                cc.is_none_or(|c| self.places[l.place as usize].cc.eq_ignore_ascii_case(c))
+                    && quals.iter().enumerate().all(|(i, (q, _))| {
+                        let open = typed.open && i + 1 == quals.len();
+                        let names = self.folded_names(l.place);
+                        names
+                            .iter()
+                            .any(|n| n == q || open && q.len() >= 3 && n.starts_with(q))
+                            || self.qualifies(l.place, &quals[i..=i], open)
+                    })
+            })
+            .take(want)
+            .map(|(id, l)| Suggestion {
+                id: format!("l{id}"),
+                display_name: format!("{}, {}", l.name, self.label(l.place)),
+                kind: "landmark",
+                category: l.category,
+                country_code: self.places[l.place as usize].cc.to_string(),
+                x: l.x as f64,
+                y: l.y as f64,
+                bbox: None,
+            })
+            .collect()
+    }
+
     fn place_suggestion(&self, id: u32) -> Suggestion {
         let pl = &self.places[id as usize];
         Suggestion {
             id: format!("p{id}"),
             display_name: self.label(id).to_string(),
             kind: place_kind(pl),
+            category: "",
             country_code: pl.cc.to_string(),
             x: pl.x as f64,
             y: pl.y as f64,
@@ -998,6 +1064,7 @@ impl Index {
                     id: format!("z{}:{}", country_code, pc_norm(&stored(&doc, self.f.pcode))),
                     display_name: display.join(", "),
                     kind: "postcode",
+                    category: "",
                     country_code,
                     x,
                     y,
@@ -1305,6 +1372,7 @@ impl Index {
             } else {
                 "street"
             },
+            category: "",
             country_code,
             x,
             y,
@@ -1550,10 +1618,13 @@ mod tests {
     #[test]
     fn completes_places_by_name_start_and_weight() {
         let (index, dir) = tiny();
-        let cold = names(&index.suggest("par", 5, None, None)).join("|");
+        let cold = names(&index.suggest("par", 5, None, None, false)).join("|");
         index.warm_suggest();
-        assert_eq!(names(&index.suggest("par", 5, None, None)).join("|"), cold);
-        let found = index.suggest("par", 5, None, None);
+        assert_eq!(
+            names(&index.suggest("par", 5, None, None, false)).join("|"),
+            cold
+        );
+        let found = index.suggest("par", 5, None, None, false);
         assert_eq!(found[0].id, "p2");
         assert_eq!(
             (found[0].kind, found[0].country_code.as_str()),
@@ -1562,20 +1633,23 @@ mod tests {
         assert_eq!(found[1].id, "p5");
         assert_eq!(found[0].display_name, "Paris, Ile-de-France, France");
         // the whole word typed, and then the town's country or region
-        assert_eq!(index.suggest("paris tex", 5, None, None)[0].id, "p5");
-        assert_eq!(index.suggest("paris, tx", 5, None, None)[0].id, "p5");
-        assert_eq!(index.suggest("paris, fr", 5, None, None)[0].id, "p2");
-        assert_eq!(index.suggest("paris, unit", 5, None, None)[0].id, "p5");
-        // a hamlet named exactly as typed does not outrank the city the text starts
-        assert_eq!(index.suggest("londo", 5, None, None)[0].id, "p7");
-        assert_eq!(index.suggest("londo ", 5, None, None)[0].id, "p8");
+        assert_eq!(index.suggest("paris tex", 5, None, None, false)[0].id, "p5");
+        assert_eq!(index.suggest("paris, tx", 5, None, None, false)[0].id, "p5");
+        assert_eq!(index.suggest("paris, fr", 5, None, None, false)[0].id, "p2");
         assert_eq!(
-            names(&index.suggest("PARIS", 1, Some("us"), None)),
+            index.suggest("paris, unit", 5, None, None, false)[0].id,
+            "p5"
+        );
+        // a hamlet named exactly as typed does not outrank the city the text starts
+        assert_eq!(index.suggest("londo", 5, None, None, false)[0].id, "p7");
+        assert_eq!(index.suggest("londo ", 5, None, None, false)[0].id, "p8");
+        assert_eq!(
+            names(&index.suggest("PARIS", 1, Some("us"), None, false)),
             ["Paris, Texas, United States"]
         );
-        assert!(index.suggest("p", 5, None, None).is_empty());
-        assert!(index.suggest("  ,, ", 5, None, None).is_empty());
-        assert!(index.suggest("zzzzz", 5, None, None).is_empty());
+        assert!(index.suggest("p", 5, None, None, false).is_empty());
+        assert!(index.suggest("  ,, ", 5, None, None, false).is_empty());
+        assert!(index.suggest("zzzzz", 5, None, None, false).is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
 
@@ -1605,7 +1679,7 @@ mod tests {
         let (index, dir) = tiny();
         let ids = |text: &str, focus: Option<&Focus>| -> Vec<String> {
             index
-                .suggest(text, 5, None, focus)
+                .suggest(text, 5, None, focus, false)
                 .into_iter()
                 .map(|s| s.id)
                 .collect()
@@ -1668,7 +1742,7 @@ mod tests {
     #[test]
     fn completes_streets_houses_and_postcodes() {
         let (index, dir) = tiny();
-        let street = &index.suggest("rue de riv", 5, None, None)[0];
+        let street = &index.suggest("rue de riv", 5, None, None, false)[0];
         assert_eq!((street.id.as_str(), street.kind), ("s7", "street"));
         assert_eq!(
             street.display_name,
@@ -1677,32 +1751,39 @@ mod tests {
         // the town after a comma, still being typed
         assert!(
             index
-                .suggest("rue de rivoli, par", 5, None, None)
+                .suggest("rue de rivoli, par", 5, None, None, false)
                 .iter()
                 .any(|s| s.id == "s7")
         );
-        let house = &index.suggest("12 rue de rivoli, par", 5, None, None)[0];
+        let house = &index.suggest("12 rue de rivoli, par", 5, None, None, false)[0];
         assert_eq!((house.id.as_str(), house.kind), ("h7:12", "address"));
         assert!(house.display_name.starts_with("12, Rue de Rivoli, Paris"));
         // a house number typed last is being typed: 12 and 120
         let ids: Vec<_> = index
-            .suggest("rue de rivoli 12", 5, None, None)
+            .suggest("rue de rivoli 12", 5, None, None, false)
             .into_iter()
             .map(|s| s.id)
             .collect();
         assert_eq!(ids[..2], ["h7:12", "h7:120"]);
         // no such number: the street
-        assert_eq!(index.suggest("99 rue de rivoli", 5, None, None)[0].id, "s7");
+        assert_eq!(
+            index.suggest("99 rue de rivoli", 5, None, None, false)[0].id,
+            "s7"
+        );
         // no place by that name in the scope
         assert!(
             index
-                .suggest("rue de rivoli, texas", 5, None, None)
+                .suggest("rue de rivoli, texas", 5, None, None, false)
                 .is_empty()
         );
-        let code = &index.suggest("7500", 5, None, None)[0];
+        let code = &index.suggest("7500", 5, None, None, false)[0];
         assert_eq!((code.id.as_str(), code.kind), ("zfr:75001", "postcode"));
-        assert!(index.suggest("75", 5, None, None).is_empty());
-        assert!(index.suggest("rue de riv", 5, Some("us"), None).is_empty());
+        assert!(index.suggest("75", 5, None, None, false).is_empty());
+        assert!(
+            index
+                .suggest("rue de riv", 5, Some("us"), None, false)
+                .is_empty()
+        );
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

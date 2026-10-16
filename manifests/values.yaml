@@ -38,7 +38,7 @@ index:
   # test` fails when the code and this disagree. Changing it, or anything under sources or
   # modelsVersion, names a new index: the leader builds it while the running pods keep
   # serving the old one.
-  builderHash: "0a3e9077e88a1702"
+  builderHash: "6450b72c1f4e540e"
   modelsVersion: v1
   sources:
     overtureRelease: "2026-09-23.1"
@@ -212,6 +212,47 @@ index:
       - yemen
       - zambia
       - zimbabwe
+    # Read for SuggestAddress landmarks only (airports, stations and the like that OSM links to
+    # Wikidata), not for addresses: the countries the extracts above leave out, whose addresses
+    # come from Overture. About 49 GB in October 2026. Empty: landmarks only where `osm` reads.
+    osmLandmarks:
+      - australia
+      - austria
+      - belgium
+      - brazil
+      - canada
+      - chile
+      - colombia
+      - croatia
+      - czech-republic
+      - denmark
+      - estonia
+      - faroe-islands
+      - finland
+      - france
+      - germany
+      - greenland
+      - iceland
+      - japan
+      - latvia
+      - liechtenstein
+      - lithuania
+      - luxembourg
+      - mexico
+      - netherlands
+      - new-caledonia
+      - new-zealand
+      - norway
+      - poland
+      - portugal
+      - serbia
+      - slovakia
+      - slovenia
+      - spain
+      - switzerland
+      - taiwan
+      - uruguay
+      - us
 
 # The leader (src/bin/leader): builds the index when the store lacks it, then rolls the serving
 # Deployment out to it. The bucket must exist: the leader exits when it can't list it.
@@ -234,7 +275,7 @@ build:
   enabled: true
   # The Job never retries its pod; the leader replaces a failed Job after this many seconds.
   retryDelaySeconds: 600
-  # A world build fetches about 140 GB the first time.
+  # A world build fetches about 200 GB the first time.
   activeDeadlineSeconds: 172800
   resources:
     requests:
@@ -242,7 +283,7 @@ build:
       memory: 24Gi
     limits:
       memory: 32Gi
-  # Sources, the house-number spill and the output: about 160 GB for the world. A volume
+  # Sources, the house-number spill and the output: about 220 GB for the world. A volume
   # claimed for the pod from storageClassName (the default class when empty), an emptyDir, or
   # an existing claim (the others are deleted with the pod). A claim that outlives the Job keeps
   # the sources already copied from the store, so the next build re-downloads only what changed;

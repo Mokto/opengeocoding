@@ -161,10 +161,14 @@ pub fn suggest_rank(expect: &Expect, found: &[Suggested]) -> Option<usize> {
                     || (s.kind == "address"
                         && alt.max_level.as_deref().unwrap_or("house") == "house")
             }
-            "postcode" | "country" => s.kind == alt.level,
-            _ => !["address", "street", "postcode"].contains(&s.kind.as_str()),
+            "postcode" | "country" | "landmark" => s.kind == alt.level,
+            _ => !["address", "street", "postcode", "landmark"].contains(&s.kind.as_str()),
         };
         kind && alt.country.contains(&s.country.to_lowercase())
+            && alt
+                .components
+                .get("category")
+                .is_none_or(|c| c == &s.category)
             && alt
                 .point
                 .is_none_or(|p| haversine(p, s.point) <= alt.radius_km.unwrap_or(0.))
@@ -326,6 +330,7 @@ pub fn suggested(response: &Value) -> Vec<Suggested> {
         .flatten()
         .map(|s| Suggested {
             kind: text(s, "type").into(),
+            category: text(s, "category").into(),
             name: text(s, "displayName").into(),
             country: text(s, "countryCode").to_lowercase(),
             point: ["lat", "lon"].map(|k| round(s["geoCoordinates"][k].as_f64().unwrap_or(0.), 6)),
@@ -1060,6 +1065,8 @@ mod tests {
     #[test]
     fn suggestions_rank_by_country_kind_and_radius() {
         let response = json!({ "suggestions": [
+            { "type": "landmark", "category": "station", "displayName": "Paris Gare du Nord", "countryCode": "fr",
+              "geoCoordinates": { "lat": 48.88, "lon": 2.355 } },
             { "type": "city", "displayName": "Paris, Texas", "countryCode": "us",
               "geoCoordinates": { "lat": 33.66, "lon": -95.55 } },
             { "type": "street", "displayName": "Rue de Paris", "countryCode": "fr",
@@ -1075,9 +1082,15 @@ mod tests {
             radius_km: Some(10.),
             ..Default::default()
         };
-        assert_eq!(suggest_rank(&paris, &found), Some(3));
+        // a landmark in the town is not the town
+        assert_eq!(suggest_rank(&paris, &found), Some(4));
         paris.level = "street".into();
-        assert_eq!(suggest_rank(&paris, &found), Some(2));
+        assert_eq!(suggest_rank(&paris, &found), Some(3));
+        paris.level = "landmark".into();
+        assert_eq!(suggest_rank(&paris, &found), Some(1));
+        paris.components.insert("category".into(), "museum".into());
+        assert_eq!(suggest_rank(&paris, &found), None);
+        paris.components.clear();
         paris.level = "house".into();
         assert_eq!(suggest_rank(&paris, &found), None);
         let house = json!({ "suggestions": [

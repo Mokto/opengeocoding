@@ -20,7 +20,7 @@ use std::{
     },
 };
 
-fn files(dir: &Path, suffix: &str) -> Vec<PathBuf> {
+pub(super) fn files(dir: &Path, suffix: &str) -> Vec<PathBuf> {
     let mut v: Vec<(u64, PathBuf)> = std::fs::read_dir(dir)
         .unwrap_or_else(|e| panic!("{}: {e}", dir.display()))
         .map(|e| e.unwrap().path())
@@ -332,7 +332,7 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
 }
 
 /// Adds a file's size to the progress when its pass ends, however it ends.
-struct Counted<'a>(&'a Progress, u64);
+pub(super) struct Counted<'a>(pub(super) &'a Progress, pub(super) u64);
 
 impl Drop for Counted<'_> {
     fn drop(&mut self) {
@@ -342,7 +342,7 @@ impl Drop for Counted<'_> {
 
 /// Decodes blobs `range` in parallel, with one `S` per rayon job. One thread reads ahead so
 /// workers don't queue on file reads.
-fn for_blobs<S>(
+pub(super) fn for_blobs<S>(
     path: &Path,
     offsets: &[ByteOffset],
     range: Range<usize>,
@@ -379,7 +379,7 @@ fn fail(path: &Path, e: osmpbf::Error) -> ! {
 
 /// Blob offsets, and the indexes of the first blob after the nodes and after the ways. Reads only blob headers and
 /// decodes about log2(blobs) blocks. Needs a file sorted by type then id, as Geofabrik's are.
-fn layout(path: &Path) -> (Vec<ByteOffset>, usize, usize) {
+pub(super) fn layout(path: &Path) -> (Vec<ByteOffset>, usize, usize) {
     let mut r = BlobReader::seekable_from_path(path).unwrap_or_else(|e| fail(path, e));
     let mut offsets = vec![];
     while let Some(h) = r.next_header_skip_blob() {
@@ -584,7 +584,7 @@ struct OwnedAddr {
 }
 
 /// Per-job buffer, appended to the shared one when rayon drops it.
-struct Collect<'m, T>(Vec<T>, &'m Mutex<Vec<T>>);
+pub(super) struct Collect<'m, T>(pub(super) Vec<T>, pub(super) &'m Mutex<Vec<T>>);
 
 impl<T> Drop for Collect<'_, T> {
     fn drop(&mut self) {
@@ -690,11 +690,11 @@ fn unpack_addrs(mut b: &[u8]) -> impl Iterator<Item = (i64, Addr<'_>)> {
     })
 }
 
-fn pack(x: f64, y: f64) -> u64 {
+pub(super) fn pack(x: f64, y: f64) -> u64 {
     ((x as f32).to_bits() as u64) << 32 | (y as f32).to_bits() as u64
 }
 
-fn unpack(v: u64) -> (f64, f64) {
+pub(super) fn unpack(v: u64) -> (f64, f64) {
     (
         f32::from_bits((v >> 32) as u32) as f64,
         f32::from_bits(v as u32) as f64,

@@ -16,6 +16,12 @@ pub fn gold() -> PathBuf {
     root().join("tests/gold.jsonl")
 }
 
+/// Landmarks typed into SuggestAddress with `includeLandmarks`, generated from
+/// `tests/gold.landmarks.seeds.jsonl`.
+pub fn gold_landmarks() -> PathBuf {
+    root().join("tests/gold.landmarks.jsonl")
+}
+
 /// Registry-first corpora (`tests/registry/*.jsonl`, generated from the `*.seeds.jsonl` (and `*.labels.jsonl`) beside them).
 pub fn registry_corpora() -> Vec<PathBuf> {
     let mut found: Vec<_> = std::fs::read_dir(root().join("tests/registry"))
@@ -34,10 +40,11 @@ pub fn registry_corpora() -> Vec<PathBuf> {
     found
 }
 
-/// The gold suite: the curated corpus, then every registry-first corpus.
+/// The gold suite: the curated corpus, every registry-first corpus, then the landmarks.
 pub fn suite() -> Vec<PathBuf> {
     let mut files = vec![gold()];
     files.extend(registry_corpora());
+    files.push(gold_landmarks());
     files
 }
 
@@ -94,6 +101,9 @@ pub struct Case {
     pub review: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub suggest: Option<SuggestExpect>,
+    /// Sets `includeLandmarks` on this case's suggestion requests.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub include_landmarks: bool,
 }
 
 /// A place's name typed alone into SuggestAddress: it should come at `rank` or better, behind
@@ -143,6 +153,8 @@ pub struct Located {
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct Suggested {
     pub kind: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub category: String,
     pub name: String,
     pub country: String,
     pub point: [f64; 2],
@@ -307,7 +319,8 @@ pub fn validate_gold(cases: &[Case]) -> Result<()> {
         }
         for alt in expect.alternatives() {
             ensure!(
-                LEVELS.contains(&alt.level.as_str()),
+                LEVELS.contains(&alt.level.as_str())
+                    || alt.level == "landmark" && case.include_landmarks,
                 "{at}: level {:?}",
                 alt.level
             );

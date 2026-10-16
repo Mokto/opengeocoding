@@ -2,6 +2,7 @@
 //! Responses keep the Nominatim-style JSON candidate format the resolver reads.
 pub mod area;
 pub mod canon;
+mod landmark;
 mod locality;
 pub mod reverse;
 pub mod schema;
@@ -484,6 +485,8 @@ pub struct Index {
     /// `name_candidates` results, by folded text and whether it is a prefix.
     place_prefixes: Mutex<HashMap<suggest::NamesKey, suggest::Candidates>>,
     suggest: suggest::Caches,
+    /// Read only by a suggestion that asks for landmarks.
+    landmarks: landmark::Landmarks,
 }
 
 #[derive(Clone)]
@@ -1613,6 +1616,7 @@ impl Index {
         }
         countries.entry("uae".into()).or_insert_with(|| "ae".into());
         let place_names = suggest::place_names(&places)?;
+        let landmarks = landmark::Landmarks::open(&dir.join("landmarks.tsv"), places.len())?;
         let mut provinces = HashMap::new();
         for (code, place) in irish_provinces(&places, &regions) {
             provinces.insert(code, places.len() as u32);
@@ -1648,6 +1652,7 @@ impl Index {
             place_names,
             place_prefixes: Mutex::default(),
             suggest: Default::default(),
+            landmarks,
         })
     }
 

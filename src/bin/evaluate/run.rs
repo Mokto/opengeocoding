@@ -241,6 +241,11 @@ impl Checker {
             query: case.query.clone(),
             ..Default::default()
         };
+        if case.expect.as_ref().is_some_and(|e| e.level == "landmark") {
+            record.class = "unscored".into();
+            record.suggest = self.suggest(case).await;
+            return Ok(record);
+        }
         let before = match &self.metrics {
             Some(metrics) => index_searches(&self.client, metrics).await,
             None => None,
@@ -364,7 +369,10 @@ impl Checker {
                 want,
                 ..Default::default()
             };
-            let request = json!({ "text": text, "limit": SUGGEST_LIMIT });
+            let mut request = json!({ "text": text, "limit": SUGGEST_LIMIT });
+            if case.include_landmarks {
+                request["includeLandmarks"] = json!(true);
+            }
             let mut elapsed = None::<std::time::Duration>;
             for _ in 0..self.repeat.max(1) {
                 let started = Instant::now();

@@ -66,7 +66,7 @@ fn cases() -> Vec<Case<'static>> {
 impl Case<'_> {
     fn suggest(&self, index: &Index, text: &str) -> Vec<Suggestion> {
         let cc = Some(self.country).filter(|c| !c.is_empty());
-        index.suggest(text, 5, cc, self.focus.as_ref())
+        index.suggest(text, 5, cc, self.focus.as_ref(), false)
     }
 
     fn hit(&self, found: &[Suggestion], rank: usize) -> bool {
@@ -241,15 +241,21 @@ fn latency() {
     index.warm_suggest();
     eprintln!("warm-up: {:?}", started.elapsed());
     // the first pass reads what the warm-up did not (three-letter prefixes, the ancestors of
-    // towns); the second finds it kept
-    for pass in ["first", "repeat"] {
+    // towns); the second finds it kept. Then the same with landmarks, whose first pass finds the
+    // places kept.
+    for (landmarks, pass) in [
+        (false, "first"),
+        (false, "repeat"),
+        (true, "first with landmarks"),
+        (true, "repeat with landmarks"),
+    ] {
         let mut micros = vec![];
         for text in TYPED {
             let chars: Vec<char> = text.chars().collect();
             for end in 2..=chars.len() {
                 let typed: String = chars[..end].iter().collect();
                 let t = Instant::now();
-                index.suggest(&typed, 5, None, None);
+                index.suggest(&typed, 5, None, None, landmarks);
                 micros.push((t.elapsed().as_micros(), typed));
             }
         }
@@ -272,7 +278,7 @@ fn report(pass: &str, mut micros: Vec<(u128, String)>) {
         micros.last().unwrap().0,
         micros.last().unwrap().1
     );
-    if pass == "repeat" {
+    if pass.starts_with("repeat") {
         assert!(at(0.99) < 20_000, "p99 {} µs", at(0.99));
     }
 }
