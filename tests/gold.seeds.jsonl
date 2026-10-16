@@ -2884,7 +2884,10 @@
 {"kind": "place", "cohort": "city", "qid": "Q62", "queries": ["San Francisco, US, United States", "San Francisco, United States, United States"], "radius_km": 15, "tags": ["variant", "redundant_token"]}
 {"kind": "place", "cohort": "city", "qid": "Q40269", "queries": ["Porto Alegre, BR, Brazil"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
 {"kind": "place", "cohort": "city", "qid": "Q2807", "queries": ["Madrid, ES, Spain"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
-{"kind": "place", "cohort": "city", "qid": "Q2807", "queries": ["Madrid 28007, Spain", "Madrid, Madrid 28007, ES, Spain"], "radius_km": 20, "tags": ["variant", "redundant_token"], "good_match": null, "known_failure": "abstain: the index files Spanish postcodes (28007 among them) under places in Niger and Chad, so no town fits the postcode and the settlement fallback refuses it (2026-10-15)"}
+{"kind": "place", "cohort": "city", "qid": "Q2807", "queries": ["Madrid 28007, Spain", "28007 Madrid, Spain", "Madrid, 28007, Spain", "Madrid, Madrid 28007, ES, Spain"], "radius_km": 20, "tags": ["variant", "redundant_token", "postcode_evidence"], "good_match": null}
+{"kind": "place", "cohort": "city", "qid": "Q8818", "queries": ["Valencia 46001, Spain"], "radius_km": 15, "tags": ["variant", "postcode_evidence"], "good_match": null}
+{"kind": "place", "cohort": "city", "qid": "Q8717", "queries": ["Sevilla 41001, Spain"], "radius_km": 15, "tags": ["variant", "postcode_evidence"], "good_match": null}
+{"kind": "place", "cohort": "city", "qid": "Q1492", "queries": ["Barcelona 08001, Spain"], "radius_km": 15, "tags": ["variant", "postcode_evidence"], "must_pass": true}
 {"kind": "place", "cohort": "city", "qid": "Q60", "queries": ["New York, United States", "New York, United States, New York, United States"], "radius_km": 25, "tags": ["variant", "redundant_token"]}
 {"kind": "place", "cohort": "city", "qid": "Q1899", "queries": ["Kyiv, Kyiv, Ukraine"], "radius_km": 20, "tags": ["variant", "redundant_token"]}
 {"kind": "place", "cohort": "city", "qid": "Q1867", "queries": ["Taipei, Taipei 10462, TW, Taiwan"], "radius_km": 20, "tags": ["variant", "redundant_token"], "good_match": null}
@@ -2952,10 +2955,14 @@
 {"kind": "place", "cohort": "city", "qid": "Q214215", "queries": ["La Paz, Baja California Sur, Mexico"], "radius_km": 12, "tags": ["region_evidence"], "must_pass": true}
 {"kind": "place", "cohort": "city", "qid": "Q1491", "queries": ["La Paz, Bolivia"], "radius_km": 12, "tags": ["same_name_elsewhere"], "must_pass": true}
 {"kind": "place", "cohort": "rural", "qid": "Q3709258", "queries": ["Temple, PA 19560"], "radius_km": 8, "tags": ["variant", "region_evidence", "us_state_zip"]}
+{"kind": "place", "cohort": "rural", "qid": "Q3709258", "queries": ["5005 Kutztown Rd. Temple, PA 19560", "5005 Kutztown Rd, Temple, PA 19560"], "radius_km": 8, "tags": ["variant", "us_state_zip"], "good_match": null, "level": "locality", "max_level": "house"}
 {"kind": "place", "cohort": "rural", "qid": "Q3709258", "queries": ["Temple, Pennsylvania, United States"], "radius_km": 8, "tags": ["region_evidence"], "must_pass": true}
 {"kind": "place", "cohort": "rural", "qid": "Q13209", "queries": ["Nidau 2560", "2560 Nidau, Switzerland"], "radius_km": 5, "tags": ["variant", "postcode_evidence"]}
-{"kind": "place", "cohort": "city", "qid": "Q185453", "queries": ["Multan, 66000, Multan, Punjab, Pakistan"], "radius_km": 15, "tags": ["variant", "redundant_token", "region_evidence"]}
+{"kind": "place", "cohort": "city", "qid": "Q185453", "queries": ["Multan, 66000, Multan, Punjab, Pakistan", "Multan, 66000, Pakistan"], "radius_km": 15, "tags": ["variant", "redundant_token", "region_evidence"]}
 {"kind": "place", "cohort": "city", "qid": "Q185453", "queries": ["Multan, Punjab, Pakistan"], "radius_km": 15, "tags": ["region_evidence"], "must_pass": true}
+{"kind": "place", "cohort": "rural", "qid": "Q1085623", "queries": ["US, NJ, WILLIAMSTOWN, WILLIAMSTOWN, United States", "Williamstown, NJ, United States"], "radius_km": 8, "tags": ["variant", "redundant_token", "region_evidence"]}
+{"kind": "place", "cohort": "rural", "qid": "Q39760", "queries": ["Gaza Strip, Palestine", "Gaza Strip, Palestine, Gaza Strip, Palestine"], "level": "region", "max_level": "region", "radius_km": 40, "tags": ["variant", "redundant_token"], "good_match": null}
+{"kind": "any_of", "cohort": "ambiguous", "queries": ["Calgary, Alberta and Halifax, NS, Canada"], "label": "two places in one query: one of them in Canada, or no answer", "tags": ["variant"], "any_of": [{"level": "none"}, {"qid": "Q36312", "level": "locality", "max_level": "house", "radius_km": 25, "good_match": null}, {"qid": "Q2141", "level": "locality", "max_level": "house", "radius_km": 20, "good_match": null}]}
 {"kind": "place", "cohort": "city", "qid": "Q5310807", "queries": ["Barrow Street, Dublin 4, Ireland"], "radius_km": 5, "tags": ["variant", "district_number", "german_country_name"], "level": "locality", "max_level": "street"}
 {"kind": "place", "cohort": "city", "qid": "Q5310807", "queries": ["Barrow Street, Dublin 4, Irland", "Gordon House, Barrow Street, Dublin 4, Irland"], "radius_km": 5, "tags": ["variant", "district_number", "german_country_name"], "level": "locality", "max_level": "street", "good_match": null}
 {"kind": "address", "source": "swisstopo", "ref": "Hauptstrasse 82 2560 Nidau", "queries": ["Hauptstrasse 82, 2560 Nidau, Switzerland", "Hauptstrasse 82, 2560 Nidau"], "tags": ["postcode_evidence", "ch"]}

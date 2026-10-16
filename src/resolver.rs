@@ -50,13 +50,18 @@ impl Chosen {
         )
     }
 
-    /// Whether the candidate's own name is one of the stated place names.
+    /// Whether the candidate's own name is one of the stated place names. A name in another
+    /// language ("Sevilla" for Seville) is its own too.
     fn named_by(&self, text: &str) -> bool {
+        let agrees = agrees_with(text);
         self.found
             .display_name
             .split(',')
             .next()
-            .is_some_and(|first| names_agree(text, first.trim()))
+            .is_some_and(|first| agrees(first.trim()))
+            // "ny" agrees with a code or a fragment ("ct/ ny" became Niamey). A full name
+            // in another language ("Sevilla") still does.
+            || (text.chars().count() > 2 && self.names.iter().any(|name| agrees(name)))
     }
 
     /// A settlement or postcode: the kinds a fragment of a query can name reliably.
@@ -511,6 +516,7 @@ impl Core {
         // parenthesised remarks
         for retry in [
             comma_before_country(query),
+            place_before_region_code(query),
             without_parentheses(query, true),
             without_parentheses(query, false),
         ]
@@ -950,7 +956,11 @@ impl Core {
                 || (state_consistent(&place, details)
                     && details
                         .is_none_or(|d| postcode_shape(&d.country_code, postcode) != Some(false))))
-                && !self.postcode_elsewhere(postcode, &chosen.found);
+                && !self.postcode_elsewhere(
+                    postcode,
+                    &chosen.found,
+                    part(address, "road").is_empty() && part(address, "house_number").is_empty(),
+                );
             if fits && !self.ambiguous(&structured, &place, country, &chosen.found, &chosen.kind) {
                 return Ok(Some(accept(chosen.found, address, "", "settlement", false)));
             }
@@ -996,7 +1006,9 @@ impl Core {
 
     /// The data places `postcode` (in the country of `found`), but nowhere near `found`: the
     /// postcode and the town contradict each other, and neither is the better guess.
-    fn postcode_elsewhere(&self, postcode: &str, found: &FullAddress) -> bool {
+    /// `town_only` is a query with no street: a code tagged with this country but sited in
+    /// another ("28007" of Spain, placed in Niger) is not a contradiction. A house still is.
+    fn postcode_elsewhere(&self, postcode: &str, found: &FullAddress, town_only: bool) -> bool {
         let (Some(at), Some(details)) = (
             found.geo_coordinates.as_option(),
             found.address_details.as_option(),
@@ -1005,13 +1017,28 @@ impl Core {
         };
         let cc = Some(details.country_code.as_str()).filter(|c| !c.is_empty());
         let hits = self.index.postcode_hits(postcode, cc);
-        let near = |hit: &crate::index::Hit| {
-            format_response(&self.index.render(hit, true))
-                .ok()
-                .and_then(|f| f.geo_coordinates.into_option())
-                .is_none_or(|g| km_between(at.lat, at.lon, g.lat, g.lon) < 30.0)
-        };
-        !postcode.is_empty() && !hits.is_empty() && !hits.iter().take(8).any(near)
+        // A code stored under this country but sited in another ("28007" of Spain, placed in
+        // Niger) is not evidence the postcode and the town disagree.
+        let placed = hits.iter().take(8).filter_map(|hit| {
+            let found = format_response(&self.index.render(hit, true)).ok()?;
+            let there = found.address_details.as_option();
+            if town_only && cc.is_some_and(|cc| !country_matches(cc, there)) {
+                return None;
+            }
+            Some(
+                found
+                    .geo_coordinates
+                    .into_option()
+                    .is_none_or(|g| km_between(at.lat, at.lon, g.lat, g.lon) < 30.0),
+            )
+        });
+        let mut any = false;
+        let mut near = false;
+        for hit in placed {
+            any = true;
+            near |= hit;
+        }
+        !postcode.is_empty() && any && !near
     }
 
     /// Structured re-queries of the parsed fields, loosest last.

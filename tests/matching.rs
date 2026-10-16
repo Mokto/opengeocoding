@@ -268,6 +268,41 @@ fn a_street_type_is_not_the_town() {
     let aligned = street_aligned(&head, "701 Greenwood Avenue", &state, &swallowed).unwrap();
     assert_eq!(field_of(&aligned, "state"), "oh");
     assert_eq!(field_of(&aligned, "road"), "greenwood avenue");
+    // "5005 Kutztown Rd. Temple, PA 19560": the town is inside the street part, and the
+    // whole parse already split it out. Dropping it leaves the postcode, which France shares.
+    let head = pairs(&[("house_number", "5005"), ("road", "kutztown rd. temple")]);
+    let tail = pairs(&[("state", "pa"), ("postcode", "19560")]);
+    let whole = pairs(&[
+        ("house_number", "5005"),
+        ("road", "kutztown rd."),
+        ("city", "temple"),
+        ("state", "pa"),
+        ("postcode", "19560"),
+    ]);
+    assert!(street_aligned(&head, "5005 Kutztown Rd. Temple", &tail, &whole).is_none());
+    // the street name taken for the town, and no road left ("185 Clairemont, TX 77351")
+    let head = pairs(&[("house_number", "185"), ("road", "clairemont")]);
+    let tail = pairs(&[("state", "tx"), ("postcode", "77351")]);
+    let whole = pairs(&[
+        ("house_number", "185"),
+        ("city", "clairemont"),
+        ("state", "tx"),
+        ("postcode", "77351"),
+    ]);
+    let aligned = street_aligned(&head, "185 Clairemont", &tail, &whole).unwrap();
+    assert_eq!(field_of(&aligned, "road"), "clairemont");
+    // the street type ends the false town ("1603 West Shady Lane, IN 47201")
+    let head = pairs(&[("house_number", "1603"), ("road", "west shady lane")]);
+    let tail = pairs(&[("state", "in"), ("postcode", "47201")]);
+    let whole = pairs(&[
+        ("house_number", "1603"),
+        ("road", "west"),
+        ("city", "shady lane"),
+        ("state", "in"),
+        ("postcode", "47201"),
+    ]);
+    let aligned = street_aligned(&head, "1603 West Shady Lane", &tail, &whole).unwrap();
+    assert_eq!(field_of(&aligned, "road"), "west shady lane");
 }
 
 #[test]
@@ -921,6 +956,65 @@ fn a_region_that_only_repeats_the_town_does_not_outweigh_the_stated_country() {
     ]);
     let state = candidate("us", "", "California", "");
     assert!(choose_candidate(&california, "us", "", &[state]).is_some());
+}
+
+#[test]
+fn a_postcode_in_another_region_does_not_outweigh_the_stated_town() {
+    let address = parsed(&[
+        ("city", "multan"),
+        ("state", "punjab"),
+        ("country", "pakistan"),
+    ]);
+    let pick =
+        |items: &[FullAddress]| choose_candidate(&address, "pk", "66000", items).map(|(i, _)| i);
+    assert_eq!(
+        pick(&[
+            candidate("pk", "Kingri", "Sindh", "66000"),
+            candidate("pk", "Multan", "Punjab", ""),
+        ]),
+        Some(1)
+    );
+    // the postcode still wins when it is the stated town, and when nothing in that region was found
+    assert_eq!(
+        pick(&[
+            candidate("pk", "Kingri", "Sindh", "66000"),
+            candidate("pk", "Multan", "Punjab", "66000"),
+        ]),
+        Some(1)
+    );
+    assert_eq!(
+        pick(&[candidate("pk", "Kingri", "Sindh", "66000")]),
+        Some(0)
+    );
+    // no region stated: the postcode is the evidence there is
+    let unstated = parsed(&[("city", "multan"), ("country", "pakistan")]);
+    assert_eq!(
+        choose_candidate(
+            &unstated,
+            "pk",
+            "66000",
+            &[
+                candidate("pk", "Kingri", "Sindh", "66000"),
+                candidate("pk", "Multan", "Punjab", ""),
+            ],
+        )
+        .map(|(i, _)| i),
+        Some(0)
+    );
+}
+
+#[test]
+fn a_leading_region_code_is_tried_behind_the_place() {
+    assert_eq!(
+        place_before_region_code("NJ, WILLIAMSTOWN, United States").as_deref(),
+        Some("WILLIAMSTOWN, NJ, United States")
+    );
+    assert_eq!(place_before_region_code("CA, Toronto, Canada"), None);
+    assert_eq!(place_before_region_code("PA, 19560"), None);
+    assert_eq!(
+        place_before_region_code("Williamstown, NJ, United States"),
+        None
+    );
 }
 
 #[test]

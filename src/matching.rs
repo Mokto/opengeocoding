@@ -733,6 +733,30 @@ pub fn choose_candidate(
             ));
         }
     }
+    // "Multan, 66000, Punjab": a postcode in another region does not outweigh the stated
+    // town there, when that town is a candidate. The postcode still wins when it is in the
+    // stated region, or when nothing in that region was found.
+    let region_stated = ["state", "state_district", "country_region"]
+        .iter()
+        .any(|key| !part(address, key).is_empty());
+    if region_stated && !postcode.is_empty() {
+        let in_region: Vec<usize> = candidates
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| {
+                let details = item.address_details.as_option();
+                city_agrees(address, details) && state_consistent(address, details)
+            })
+            .map(|(i, _)| i)
+            .collect();
+        let elsewhere = candidates.iter().any(|item| {
+            let details = item.address_details.as_option();
+            postcode_agrees(postcode, details) && !state_consistent(address, details)
+        });
+        if elsewhere && let Some(hit) = prefer(in_region, "city_region") {
+            return Some(hit);
+        }
+    }
     if let Some((i, _)) = candidates.iter().enumerate().find(|(_, item)| {
         country_ok(item)
             && (postcode.is_empty() || postcode_agrees(postcode, item.address_details.as_option()))
@@ -815,6 +839,30 @@ pub fn without_parentheses(query: &str, keep: bool) -> Option<String> {
         })
         .into_owned()
     })
+}
+
+/// `query` with a leading region code moved behind the place it was fused with
+/// ("NJ, WILLIAMSTOWN, United States", which libpostal reads as one state). A country
+/// code ("CA, Toronto, Canada") and a postcode ("PA, 19560") are left alone. None when
+/// the query does not start with such a code.
+pub fn place_before_region_code(query: &str) -> Option<String> {
+    let parts: Vec<&str> = query
+        .split(',')
+        .map(|p| p.trim_matches(whitespace))
+        .filter(|p| !p.is_empty())
+        .collect();
+    let (code, place) = (parts.first().copied()?, parts.get(1).copied()?);
+    if code.len() != 2
+        || !code.chars().all(|c| c.is_ascii_alphabetic())
+        || place.chars().any(|c| c.is_ascii_digit())
+        || place.chars().count() <= 2
+        || !expected_country(&parsed_country(code)).is_empty()
+    {
+        return None;
+    }
+    let mut out = vec![place, code];
+    out.extend_from_slice(&parts[2..]);
+    Some(out.join(", "))
 }
 
 /// `query` with a comma put before a country named at its end without one ("Dublin 2 Ireland"),
