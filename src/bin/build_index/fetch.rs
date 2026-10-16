@@ -34,9 +34,18 @@ pub struct Sources {
     #[serde(default)]
     pub geonames_postal: Vec<String>,
     /// GeoNames populated places (`cities500` and `admin1CodesASCII`), added where Overture has
-    /// no place of that name nearby.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    /// no place of that name nearby. On unless `false`, so a source list that predates the key
+    /// (a gold run's, say) builds with them as the chart does.
+    #[serde(default = "yes", skip_serializing_if = "is_yes")]
     pub geonames_places: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn is_yes(v: &bool) -> bool {
+    *v
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -869,6 +878,19 @@ mod tests {
             "overtureRelease":"2026-09-23.1","snapshot":"2026-10"}"#,
         );
         ok.validate().unwrap();
+        assert!(ok.geonames_places);
+        let off = src(r#"{"overtureRelease":"r","snapshot":"a","geonamesPlaces":false}"#);
+        assert!(!off.geonames_places);
+        assert!(
+            serde_json::to_string(&off)
+                .unwrap()
+                .contains("geonamesPlaces")
+        );
+        assert!(
+            !serde_json::to_string(&ok)
+                .unwrap()
+                .contains("geonamesPlaces")
+        );
         assert_eq!(ok.scope(), "bbox_9.4_47_9.7_47.3");
         assert!(
             src(r#"{"overtureRelease":"../x","snapshot":"a"}"#)
