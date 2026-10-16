@@ -34,16 +34,16 @@ class GoldProgressTest(unittest.TestCase):
         run = {"progress_percent": 40, "steps": [
             {"name": NAMES[0], "status": "completed", "seconds": 891},
             {"name": NAMES[1], "status": "completed", "seconds": 1},
-            {"name": NAMES[2], "status": "running", "seconds": 31},
+            {"name": NAMES[2], "status": "running", "seconds": 31, "detail": "case 12 of 48 (25%) | <b>"},
             {"name": NAMES[3], "status": "pending"},
             {"name": NAMES[4], "status": "pending"},
         ]}
         output = self.render(run)
         self.assertIn("40% (2/5 steps completed; not a time estimate)", output)
-        self.assertIn("| build-base | completed | 14m51s |", output)
+        self.assertIn("| build-base | completed | 14m51s | — |", output)
         self.assertIn("| build-head | completed | 0m01s |", output)
-        self.assertIn("| eval-base | running | 0m31s |", output)
-        self.assertIn("| report | pending | — |", output)
+        self.assertIn("| eval-base | running | 0m31s | case 12 of 48 (25%)  b |", output)
+        self.assertIn("| report | pending | — | — |", output)
         run["steps"][2].update(status="failed", seconds=61)
         self.assertIn("| eval-base | failed | 1m01s |", self.render(run))
         for step in run["steps"]:
