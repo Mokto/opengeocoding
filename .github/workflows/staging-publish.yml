@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       statuses: write
     outputs:
       head: ${{ steps.pick.outputs.head }}
@@ -91,6 +91,25 @@ jobs:
             status success "Skipped: $1"
             exit 0
           }
+          # explain TEXT: the pull request gets a comment saying why there is no gold run, under the
+          # markers the run's own comments use, so a later run's report replaces it. A green status
+          # alone looks like a pass that nobody sees. Best effort, like those comments.
+          explain() {
+            [ -n "$pr" ] || return 0
+            for kind in gold-full gold-speed; do
+              title="Gold check, full index"; [ "$kind" = gold-speed ] && title="Speed, full index"
+              printf '<!-- %s -->\n## %s: not run\n\n%s\n\nThe next run that can start replaces this comment.\n' \
+                "$kind" "$title" "$1" > "$RUNNER_TEMP/$kind.md"
+              id=$(gh api "repos/$REPO/issues/$pr/comments" --paginate \
+                -q ".[] | select(.body | startswith(\"<!-- $kind -->\")) | .id") || { echo "::warning::Could not read the pull request comments"; continue; }
+              id=${id%%$'\n'*}
+              if [ -n "$id" ]; then
+                gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$RUNNER_TEMP/$kind.md" > /dev/null || echo "::warning::Could not update the $kind comment"
+              else
+                gh api -X POST "repos/$REPO/issues/$pr/comments" -F body=@"$RUNNER_TEMP/$kind.md" > /dev/null || echo "::warning::Could not post the $kind comment"
+              fi
+            done
+          }
           pr=""
           case "$EVENT" in
             push)
@@ -111,7 +130,14 @@ jobs:
           for sha in "$HEAD_SHA" "$base"; do
             docker manifest inspect "$IMAGE:sha-$sha" 2>/dev/null \
               | jq -e '[.manifests[].platform.architecture] | contains(["amd64","arm64"])' > /dev/null \
-              || skip "no multi-architecture staging image for ${sha:0:7}"
+              || {
+                if [ "$sha" = "$base" ]; then
+                  explain "The run compares this branch with its merge base on \`main\`, \`${sha:0:7}\`, and no staging image was published for that commit, so there is nothing to compare against. Rebase onto the latest \`main\` (\`git fetch origin main && git rebase origin/main && git push --force-with-lease\`), or merge it. If \`main\`'s newest commit is still building its staging image, wait for that first."
+                else
+                  explain "No staging image was published for this commit, \`${sha:0:7}\`, so it cannot be evaluated. Look at the \`Staging image build\` and \`Staging image publish\` runs for it; pushing a new commit starts both again."
+                fi
+                skip "no multi-architecture staging image for ${sha:0:7}"
+              }
           done
           {
             echo "head=$HEAD_SHA"
