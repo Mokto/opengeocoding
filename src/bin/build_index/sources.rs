@@ -483,9 +483,9 @@ impl Interp {
     /// Ranges longer than this are mapping errors, not streets.
     const MAX: u32 = 500;
 
-    fn from(w: &osmpbf::Way) -> Option<Interp> {
+    fn from<'a>(w: &osmpbf::Way, tags: impl Iterator<Item = (&'a str, &'a str)>) -> Option<Interp> {
         let (mut step, mut street, mut postcode) = (None, None, None);
-        for (k, v) in w.tags() {
+        for (k, v) in tags {
             match k {
                 "addr:interpolation" => {
                     step = match v {
@@ -499,11 +499,12 @@ impl Interp {
                 _ => {}
             }
         }
+        let step = step?;
         let refs: Vec<i64> = w.refs().collect();
         (refs.len() >= 2).then_some(())?;
         Some(Interp {
             refs,
-            step: step?,
+            step,
             street,
             postcode,
         })
@@ -591,6 +592,104 @@ impl<T> Drop for Collect<'_, T> {
     }
 }
 
+const ADDR_KEYS: [&str; 6] = [
+    "addr:housenumber",
+    "addr:street",
+    "addr:postcode",
+    "addr:city",
+    "addr:place",
+    "addr:interpolation",
+];
+
+/// Which of a block's string-table entries are address keys, found on first use. Elements name
+/// their tags by table index, so the many other keys and all their values are never decoded as
+/// UTF-8, which was a tenth of the whole pass.
+struct Kinds(Vec<u8>);
+
+impl Kinds {
+    const UNSEEN: u8 = u8::MAX;
+
+    fn new(table: &[Vec<u8>]) -> Self {
+        Kinds(vec![Self::UNSEEN; table.len()])
+    }
+
+    /// The address tags among an element's raw (key, value) table indices.
+    fn tags<'k, 'a: 'k, K: Into<i64>>(
+        &'k mut self,
+        table: &'a [Vec<u8>],
+        raw: impl Iterator<Item = (K, K)> + 'k,
+    ) -> impl Iterator<Item = (&'a str, &'a str)> + 'k {
+        raw.filter_map(move |(k, v)| {
+            let i = usize::try_from(k.into()).ok()?;
+            let slot = self.0.get_mut(i)?;
+            if *slot == Self::UNSEEN {
+                *slot = ADDR_KEYS
+                    .iter()
+                    .position(|n| n.as_bytes() == table[i].as_slice())
+                    .map_or(0, |p| p as u8 + 1);
+            }
+            let key = ADDR_KEYS[usize::from(slot.checked_sub(1)?)];
+            let value = table.get(usize::try_from(v.into()).ok()?)?;
+            Some((key, std::str::from_utf8(value).ok()?))
+        })
+    }
+}
+
+/// Addresses of ways, kept from the first pass over the ways so the second doesn't decode them
+/// again: (first node, 4 fields) records, each field a u16 length (MAX for none) and its bytes.
+/// Dropping a buffer hands it to the shared list.
+struct Packed<'m>(Vec<u8>, &'m Mutex<Vec<Vec<u8>>>);
+
+impl Packed<'_> {
+    fn put(&mut self, first: i64, a: &Addr) {
+        self.0.extend(first.to_le_bytes());
+        for f in [a.number, a.street, a.postcode, a.city] {
+            match f.filter(|s| s.len() < usize::from(u16::MAX)) {
+                Some(s) => {
+                    self.0.extend((s.len() as u16).to_le_bytes());
+                    self.0.extend(s.as_bytes());
+                }
+                None => self.0.extend(u16::MAX.to_le_bytes()),
+            }
+        }
+    }
+}
+
+impl Drop for Packed<'_> {
+    fn drop(&mut self) {
+        if !self.0.is_empty() {
+            self.1.lock().unwrap().push(std::mem::take(&mut self.0));
+        }
+    }
+}
+
+/// The records `Packed::put` wrote.
+fn unpack_addrs(mut b: &[u8]) -> impl Iterator<Item = (i64, Addr<'_>)> {
+    std::iter::from_fn(move || {
+        let (first, rest) = b.split_first_chunk::<8>()?;
+        b = rest;
+        let mut field = || {
+            let (len, rest) = b.split_first_chunk::<2>()?;
+            let len = u16::from_le_bytes(*len);
+            b = rest;
+            if len == u16::MAX {
+                return Some(None);
+            }
+            let (s, rest) = b.split_at(usize::from(len));
+            b = rest;
+            Some(std::str::from_utf8(s).ok())
+        };
+        let (number, street, postcode, city) = (field()?, field()?, field()?, field()?);
+        let a = Addr {
+            number,
+            street,
+            postcode,
+            city,
+        };
+        Some((i64::from_le_bytes(*first), a))
+    })
+}
+
 fn pack(x: f64, y: f64) -> u64 {
     ((x as f32).to_bits() as u64) << 32 | (y as f32).to_bits() as u64
 }
@@ -630,8 +729,10 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             relations,
             || Collect(vec![], &found),
             |mine, block| {
+                let table = block.raw_stringtable();
+                let mut kinds = Kinds::new(table);
                 for r in block.groups().flat_map(|g| g.relations()) {
-                    let Some(a) = Addr::from(r.tags()) else {
+                    let Some(a) = Addr::from(kinds.tags(table, r.raw_tags())) else {
                         continue;
                     };
                     let ways = || r.members().filter(|m| m.member_type == RelMemberType::Way);
@@ -651,7 +752,12 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
 
         // 1: first node of each addressed way and of those relations' ways, and every node of
         // addr:interpolation ways
-        let (refs, firsts, interps) = (Mutex::new(vec![]), Mutex::new(vec![]), Mutex::new(vec![]));
+        let (refs, firsts, interps, packed) = (
+            Mutex::new(vec![]),
+            Mutex::new(vec![]),
+            Mutex::new(vec![]),
+            Mutex::new(vec![]),
+        );
         for_blobs(
             path,
             &offsets,
@@ -661,25 +767,30 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                     Collect(vec![], &refs),
                     Collect(vec![], &firsts),
                     Collect(vec![], &interps),
+                    Packed(vec![], &packed),
                 )
             },
-            |(mine, first, interp), block| {
+            |(mine, first, interp, addrs), block| {
+                let table = block.raw_stringtable();
+                let mut kinds = Kinds::new(table);
                 for w in block.groups().flat_map(|g| g.ways()) {
-                    if let Some(i) = Interp::from(&w) {
+                    if let Some(i) = Interp::from(&w, kinds.tags(table, w.raw_tags())) {
                         mine.0.extend(&i.refs);
                         interp.0.push(i);
-                        continue;
                     }
                     let Some(r) = w.refs().next() else { continue };
                     if member_ways.binary_search(&w.id()).is_ok() {
                         first.0.push((w.id(), r));
                         mine.0.push(r);
-                    } else if Addr::from(w.tags()).is_some() {
+                    }
+                    if let Some(a) = Addr::from(kinds.tags(table, w.raw_tags())) {
                         mine.0.push(r);
+                        addrs.put(r, &a);
                     }
                 }
             },
         );
+        let packed = packed.into_inner().unwrap();
         let mut firsts = firsts.into_inner().unwrap();
         firsts.par_sort_unstable();
         let mut needed = refs.into_inner().unwrap();
@@ -704,19 +815,23 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             nodes,
             || (Sink::new(shared).ranked(2), Collect(vec![], &ended)),
             |(sink, end), block| {
+                let table = block.raw_stringtable();
+                let mut kinds = Kinds::new(table);
                 for g in block.groups() {
-                    let (lo, hi) = g.dense_nodes().fold((i64::MAX, i64::MIN), |(lo, hi), n| {
-                        (lo.min(n.id()), hi.max(n.id()))
-                    });
-                    let s0 = needed.partition_point(|&r| r < lo);
-                    let s1 = needed.partition_point(|&r| r <= hi);
+                    // Ids ascend (checked in `layout`), so `needed` is walked once per group.
+                    let mut p = usize::MAX;
                     for n in g.dense_nodes() {
-                        if s0 < s1
-                            && let Ok(k) = needed[s0..s1].binary_search(&n.id())
-                        {
-                            coords[s0 + k].store(pack(n.lon(), n.lat()), Relaxed);
+                        let id = n.id();
+                        if p == usize::MAX {
+                            p = needed.partition_point(|&r| r < id);
                         }
-                        if let Some(a) = Addr::from(n.tags()) {
+                        while p < needed.len() && needed[p] < id {
+                            p += 1;
+                        }
+                        if needed.get(p) == Some(&id) {
+                            coords[p].store(pack(n.lon(), n.lat()), Relaxed);
+                        }
+                        if let Some(a) = Addr::from(kinds.tags(table, n.raw_tags())) {
                             if ends.binary_search(&n.id()).is_ok() {
                                 end.0.push((n.id(), a.owned()));
                             }
@@ -727,7 +842,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                         if let Ok(k) = needed.binary_search(&n.id()) {
                             coords[k].store(pack(n.lon(), n.lat()), Relaxed);
                         }
-                        if let Some(a) = Addr::from(n.tags()) {
+                        if let Some(a) = Addr::from(kinds.tags(table, n.raw_tags())) {
                             if ends.binary_search(&n.id()).is_ok() {
                                 end.0.push((n.id(), a.owned()));
                             }
@@ -740,18 +855,11 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
         let mut ended = ended.into_inner().unwrap();
         ended.par_sort_unstable_by_key(|(id, _)| *id);
 
-        // 3: addressed ways
-        for_blobs(
-            path,
-            &offsets,
-            ways,
+        // 3: addressed ways, from the first pass
+        packed.par_iter().for_each_init(
             || Sink::new(shared).ranked(2),
-            |sink, block| {
-                for w in block.groups().flat_map(|g| g.ways()) {
-                    let Some(a) = Addr::from(w.tags()) else {
-                        continue;
-                    };
-                    let Some(r) = w.refs().next() else { continue };
+            |sink, chunk| {
+                for (r, a) in unpack_addrs(chunk) {
                     let Ok(k) = needed.binary_search(&r) else {
                         continue;
                     };
@@ -768,35 +876,40 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             let v = coords[k].load(Relaxed);
             (v != u64::MAX).then(|| unpack(v))
         };
-        let mut sink = Sink::new(shared).ranked(2);
-        for i in &interps {
-            let line: Vec<Option<(f64, f64)>> = i.refs.iter().map(|&r| coord(r)).collect();
-            let end = |r: i64| {
-                ended
-                    .binary_search_by_key(&r, |(id, _)| *id)
-                    .ok()
-                    .map(|k| &ended[k].1)
-            };
-            for (x, y, street, number, postcode) in i.expand(&line, end) {
-                sink.add(None, x, y, Some(street), Some(&number), postcode, None);
-            }
-        }
-        for (way, a) in &relations {
-            let Ok(k) = firsts.binary_search_by_key(way, |(w, _)| *w) else {
-                continue;
-            };
-            if let Some((x, y)) = coord(firsts[k].1) {
-                sink.add(
-                    None,
-                    x,
-                    y,
-                    a.street.as_deref(),
-                    a.number.as_deref(),
-                    a.postcode.as_deref(),
-                    a.city.as_deref(),
-                );
-            }
-        }
+        interps.par_iter().for_each_init(
+            || Sink::new(shared).ranked(2),
+            |sink, i| {
+                let line: Vec<Option<(f64, f64)>> = i.refs.iter().map(|&r| coord(r)).collect();
+                let end = |r: i64| {
+                    ended
+                        .binary_search_by_key(&r, |(id, _)| *id)
+                        .ok()
+                        .map(|k| &ended[k].1)
+                };
+                for (x, y, street, number, postcode) in i.expand(&line, end) {
+                    sink.add(None, x, y, Some(street), Some(&number), postcode, None);
+                }
+            },
+        );
+        relations.par_iter().for_each_init(
+            || Sink::new(shared).ranked(2),
+            |sink, (way, a)| {
+                let Ok(k) = firsts.binary_search_by_key(way, |(w, _)| *w) else {
+                    return;
+                };
+                if let Some((x, y)) = coord(firsts[k].1) {
+                    sink.add(
+                        None,
+                        x,
+                        y,
+                        a.street.as_deref(),
+                        a.number.as_deref(),
+                        a.postcode.as_deref(),
+                        a.city.as_deref(),
+                    );
+                }
+            },
+        );
     });
     files.len()
 }
@@ -969,6 +1082,53 @@ mod tests {
         assert!(Addr::from([("addr:postcode", "SW1A 1AA")].into_iter()).is_some());
         let (x, y) = unpack(pack(-0.1276, 51.5072));
         assert!((x + 0.1276).abs() < 1e-5 && (y - 51.5072).abs() < 1e-5);
+    }
+
+    #[test]
+    fn raw_address_tags_and_packed_records() {
+        let table: Vec<Vec<u8>> = [
+            &b""[..],
+            b"building",
+            b"yes",
+            b"addr:housenumber",
+            b"12",
+            b"addr:street",
+            b"Main St",
+            b"addr:postcode",
+            &[0xff],
+            b"addr:place",
+            b"Hamlet",
+        ]
+        .map(<[u8]>::to_vec)
+        .to_vec();
+        let mut kinds = Kinds::new(&table);
+        let tags = [(1u32, 2u32), (3, 4), (5, 6), (7, 8), (99, 1)];
+        let a = Addr::from(kinds.tags(&table, tags.into_iter())).unwrap();
+        assert_eq!(
+            (a.number, a.street, a.postcode),
+            (Some("12"), Some("Main St"), None)
+        );
+        let place = Addr::from(kinds.tags(&table, [(3u32, 4u32), (9, 10)].into_iter())).unwrap();
+        assert_eq!(place.street, Some("Hamlet"));
+        assert!(Addr::from(kinds.tags(&table, [(1u32, 2u32)].into_iter())).is_none());
+
+        let list = Mutex::new(vec![]);
+        {
+            let mut p = Packed(vec![], &list);
+            p.put(7, &a);
+            p.put(-3, &place);
+        }
+        let list = list.into_inner().unwrap();
+        let got: Vec<_> = unpack_addrs(&list[0])
+            .map(|(r, a)| (r, a.number, a.street, a.postcode, a.city))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                (7, Some("12"), Some("Main St"), None, None),
+                (-3, Some("12"), Some("Hamlet"), None, None)
+            ]
+        );
     }
 
     #[test]

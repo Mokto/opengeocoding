@@ -53,7 +53,9 @@ const MAX_POSTCODES: usize = 20;
 const MAX_HELD_POSTCODES: usize = 63;
 const MAX_CITIES: usize = 5;
 const MAX_ALT_NAMES: usize = 64;
-const NUMBER_SHARDS: usize = 16;
+/// Must divide `SHARDS`: a house goes to the shard of its street's low byte. More shards mean smaller
+/// sorts, so more of them fit in memory at once.
+const NUMBER_SHARDS: usize = 64;
 const MAX_WRITER_THREADS: usize = 16;
 /// Segments left after the final merge. The writer leaves one per arena flush (319 for a world
 /// index); each query looks its terms up in every segment, so queries cost about that many
