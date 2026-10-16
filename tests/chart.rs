@@ -20,3 +20,32 @@ fn chart_pins_this_builder() {
         env!("BUILDER_HASH")
     );
 }
+
+/// libpostal has no runtime data-dir setting (`rustpostal` calls plain `libpostal_setup`), so
+/// every `--models` the chart passes must be the `--datadir` the Dockerfile compiles in, plus
+/// `/libpostal`; the build Job's Verify step loads the models from there.
+#[test]
+fn chart_models_are_where_libpostal_reads() {
+    let read =
+        |p: &str| std::fs::read_to_string(format!("{}/{p}", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let dockerfile = read("Dockerfile");
+    let datadir = dockerfile
+        .split_whitespace()
+        .find_map(|w| w.strip_prefix("--datadir="))
+        .expect("libpostal --datadir in the Dockerfile");
+    let expected = format!("- {datadir}/libpostal");
+    let chart = read("manifests/templates/_workloads.tpl");
+    let lines: Vec<&str> = chart.lines().map(str::trim).collect();
+    let models: Vec<&str> = lines
+        .windows(2)
+        .filter(|w| w[0] == "- --models")
+        .map(|w| w[1])
+        .collect();
+    assert!(!models.is_empty(), "no --models in the chart");
+    for m in models {
+        assert_eq!(
+            m, expected,
+            "--models must be libpostal's compiled-in data dir"
+        );
+    }
+}

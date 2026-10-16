@@ -51,7 +51,7 @@ spec:
             - --scratch
             - /scratch
             - --models
-            - /scratch/libpostal
+            - /data/libpostal
             - --models-version
             - {{ .Values.index.modelsVersion | quote }}
           env:
@@ -72,7 +72,9 @@ spec:
               readOnly: true
             - name: scratch
               mountPath: /scratch
-            - name: data
+            # libpostal reads its models only from its compiled-in /data/libpostal; mounting the
+            # scratch root there keeps them on the scratch volume across builds.
+            - name: scratch
               mountPath: /data
             - name: tmp
               mountPath: /tmp
@@ -80,9 +82,6 @@ spec:
         - name: config
           configMap:
             name: {{ include "og.name" . }}-sources
-        - name: data
-          emptyDir:
-            sizeLimit: 4Gi
         - name: tmp
           emptyDir: {}
         - name: scratch
