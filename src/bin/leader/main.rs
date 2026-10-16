@@ -10,9 +10,8 @@
 //!
 //! Replicas elect one leader through a Lease (lease.rs).
 //!
-//! Under Argo CD (the leader's own Deployment carries a tracking id), what the leader creates gets
-//! a tracking id of its own instead of an owner reference, so the app shows it as a top-level
-//! resource; it is marked to not be pruned, since the app's source doesn't render it.
+//! The ConfigMap the workloads are rendered into owns them, so Argo CD shows them under it (it
+//! is in the app's source) and deleting the release deletes them.
 mod lease;
 #[path = "../build_index/mem.rs"]
 #[allow(dead_code)]
@@ -38,61 +37,25 @@ use store::Store;
 
 const MANAGER: &str = "opengeocoding-leader";
 const LABEL: &str = "opengeocoding.io/leader";
-const TRACKING: &str = "argocd.argoproj.io/tracking-id";
+/// What an earlier leader set to have Argo CD track the workloads as resources of their own.
+const ARGO_ANNOTATIONS: [&str; 3] = [
+    "argocd.argoproj.io/tracking-id",
+    "argocd.argoproj.io/compare-options",
+    "argocd.argoproj.io/sync-options",
+];
 
-/// Who removes what the leader creates: Argo CD's app `app`, or the leader's Deployment.
-enum Owner {
-    ArgoCd(String),
-    Leader(OwnerReference),
-}
-
-impl Owner {
-    fn claim(&self, meta: &mut ObjectMeta, group_kind: &str, namespace: &str) {
-        meta.namespace = Some(namespace.into());
-        let app = match self {
-            Owner::ArgoCd(app) => app,
-            Owner::Leader(owner) => {
-                meta.owner_references = Some(vec![owner.clone()]);
-                return;
-            }
-        };
-        let name = meta.name.clone().unwrap_or_default();
-        let annotations = meta.annotations.get_or_insert_default();
-        annotations.insert(
-            TRACKING.into(),
-            format!("{app}:{group_kind}:{namespace}/{name}"),
-        );
-        annotations.insert(
-            "argocd.argoproj.io/compare-options".into(),
-            "IgnoreExtraneous".into(),
-        );
-        annotations.insert(
-            "argocd.argoproj.io/sync-options".into(),
-            "Prune=false".into(),
-        );
+/// A merge patch moving an object an earlier leader created (owned by the leader's Deployment,
+/// or tracked by Argo CD) under `owner`.
+fn adopt(meta: &ObjectMeta, owner: &OwnerReference) -> Option<serde_json::Value> {
+    if meta.owner_references.as_deref() == Some(std::slice::from_ref(owner)) {
+        return None;
     }
-
-    /// A merge patch handing an object an earlier leader created (with an owner reference) to
-    /// Argo CD, if it isn't tracked yet.
-    fn adopt(
-        &self,
-        meta: &ObjectMeta,
-        group_kind: &str,
-        namespace: &str,
-    ) -> Option<serde_json::Value> {
-        let tracked = (meta.annotations.as_ref()).is_some_and(|a| a.contains_key(TRACKING));
-        if tracked || matches!(self, Owner::Leader(_)) {
-            return None;
-        }
-        let mut claimed = ObjectMeta {
-            name: meta.name.clone(),
-            ..Default::default()
-        };
-        self.claim(&mut claimed, group_kind, namespace);
-        Some(serde_json::json!({
-            "metadata": {"annotations": claimed.annotations, "ownerReferences": null}
-        }))
-    }
+    let annotations: serde_json::Map<_, _> = (ARGO_ANNOTATIONS.iter())
+        .map(|k| (k.to_string(), serde_json::Value::Null))
+        .collect();
+    Some(serde_json::json!({
+        "metadata": {"ownerReferences": [owner], "annotations": annotations}
+    }))
 }
 
 fn env<T: FromStr>(key: &str, default: T) -> T {
@@ -155,7 +118,6 @@ struct Leader {
     config: String,
     namespace: String,
     name: String,
-    owner: Owner,
     retry: Duration,
     /// The last thing logged, so a steady state logs once.
     last: String,
@@ -171,6 +133,17 @@ impl Leader {
 
     async fn round(&mut self) -> Result<()> {
         let cm = self.configs.get(&self.config).await?;
+        let owner = OwnerReference {
+            api_version: "v1".into(),
+            kind: "ConfigMap".into(),
+            name: self.config.clone(),
+            uid: cm
+                .metadata
+                .uid
+                .clone()
+                .context("the ConfigMap has no uid")?,
+            ..Default::default()
+        };
         let data = cm.data.unwrap_or_default();
         let index = data.get("index").context("the ConfigMap names no index")?;
         let mut deployment: Deployment =
@@ -186,7 +159,7 @@ impl Leader {
             .await?;
         if !sealed {
             return match job {
-                Some(job) => self.build(index, job).await,
+                Some(job) => self.build(index, job, owner).await,
                 None => {
                     self.say(format!("index {index} isn't published and building is off"));
                     Ok(())
@@ -200,8 +173,8 @@ impl Leader {
             tracing::info!("deleting build job {name}: index {index} is published");
             self.jobs.delete(&name, &DeleteParams::background()).await?;
         }
-        self.owner
-            .claim(&mut deployment.metadata, "apps/Deployment", &self.namespace);
+        deployment.metadata.namespace = Some(self.namespace.clone());
+        deployment.metadata.owner_references = Some(vec![owner]);
         let name = deployment
             .metadata
             .name
@@ -226,7 +199,7 @@ impl Leader {
         Ok(())
     }
 
-    async fn build(&mut self, index: &str, mut job: Job) -> Result<()> {
+    async fn build(&mut self, index: &str, mut job: Job, owner: OwnerReference) -> Result<()> {
         let name = job.metadata.name.clone().context("job name")?;
         // One build at a time: the scratch volume is usually one ReadWriteOnce claim.
         let ours = ListParams::default().labels(&format!("{LABEL}={}", self.name));
@@ -240,18 +213,17 @@ impl Leader {
             }
         }
         let existing = self.jobs.get_opt(&name).await?;
-        let adopt = (existing.as_ref())
-            .and_then(|j| self.owner.adopt(&j.metadata, "batch/Job", &self.namespace));
+        let adopt = (existing.as_ref()).and_then(|j| adopt(&j.metadata, &owner));
         if let Some(patch) = adopt {
             (self.jobs)
                 .patch(&name, &PatchParams::default(), &Patch::Merge(&patch))
                 .await?;
-            tracing::info!("build job {name} is now tracked by Argo CD");
+            tracing::info!("build job {name} is now owned by ConfigMap {}", self.config);
         }
         match decide(existing.as_ref(), Timestamp::now(), self.retry) {
             Build::Create => {
-                self.owner
-                    .claim(&mut job.metadata, "batch/Job", &self.namespace);
+                job.metadata.namespace = Some(self.namespace.clone());
+                job.metadata.owner_references = Some(vec![owner]);
                 job.metadata
                     .labels
                     .get_or_insert_default()
@@ -278,41 +250,21 @@ async fn run() -> Result<()> {
         .await
         .context("listing the bucket failed: it must exist before the leader starts")?;
     let kube = kube::Client::try_default().await?;
-    let deployments: Api<Deployment> = Api::namespaced(kube.clone(), &namespace);
-    let name = required("LEADER_DEPLOYMENT")?;
-    let me = deployments
-        .get(&name)
-        .await
-        .context("read own Deployment")?;
-    let argo = (me.metadata.annotations.as_ref())
-        .and_then(|a| a.get(TRACKING))
-        .and_then(|t| t.split_once(':'))
-        .map(|(app, _)| app.to_string());
-    let owner = match argo {
-        Some(app) => Owner::ArgoCd(app),
-        None => Owner::Leader(OwnerReference {
-            api_version: "apps/v1".into(),
-            kind: "Deployment".into(),
-            name: name.clone(),
-            uid: me.metadata.uid.context("own Deployment has no uid")?,
-            ..Default::default()
-        }),
-    };
+    let name = required("LEASE_NAME")?;
     let mut lease = lease::Lease::new(
         Api::namespaced(kube.clone(), &namespace),
-        required("LEASE_NAME")?,
+        name.clone(),
         required("POD_NAME")?,
         Duration::from_secs(env("LEASE_SECONDS", 45)),
     );
     let mut leader = Leader {
         store,
         configs: Api::namespaced(kube.clone(), &namespace),
-        jobs: Api::namespaced(kube, &namespace),
-        deployments,
+        jobs: Api::namespaced(kube.clone(), &namespace),
+        deployments: Api::namespaced(kube, &namespace),
         config: required("CONFIG")?,
         namespace,
         name,
-        owner,
         retry: Duration::from_secs(env("RETRY_SECONDS", 600)),
         last: String::new(),
     };
@@ -379,44 +331,28 @@ mod tests {
     }
 
     #[test]
-    fn claims_for_argo_cd_or_the_leader() {
-        let mut meta = ObjectMeta {
-            name: Some("og".into()),
+    fn moves_an_earlier_leaders_object_under_the_config_map() {
+        let cm = OwnerReference {
+            kind: "ConfigMap".into(),
+            uid: "cm".into(),
             ..Default::default()
         };
-        Owner::ArgoCd("app".into()).claim(&mut meta, "apps/Deployment", "ns");
-        let a = meta.annotations.as_ref().unwrap();
-        assert_eq!(a[TRACKING], "app:apps/Deployment:ns/og");
-        assert_eq!(a["argocd.argoproj.io/sync-options"], "Prune=false");
-        assert!(meta.owner_references.is_none());
-
-        let mut meta = ObjectMeta::default();
-        Owner::Leader(OwnerReference::default()).claim(&mut meta, "batch/Job", "ns");
-        assert_eq!(meta.owner_references.map(|o| o.len()), Some(1));
-        assert!(meta.annotations.is_none());
-    }
-
-    #[test]
-    fn hands_an_untracked_object_to_argo_cd_once() {
-        let argo = Owner::ArgoCd("app".into());
-        let mut meta = ObjectMeta {
-            name: Some("job".into()),
-            owner_references: Some(vec![OwnerReference::default()]),
+        let old = ObjectMeta {
+            owner_references: Some(vec![OwnerReference {
+                kind: "Deployment".into(),
+                ..Default::default()
+            }]),
             ..Default::default()
         };
-        let patch = argo.adopt(&meta, "batch/Job", "ns").unwrap();
-        assert_eq!(
-            patch["metadata"]["annotations"][TRACKING],
-            "app:batch/Job:ns/job"
-        );
-        assert!(patch["metadata"]["ownerReferences"].is_null());
-        assert!(
-            Owner::Leader(OwnerReference::default())
-                .adopt(&meta, "batch/Job", "ns")
-                .is_none()
-        );
-        argo.claim(&mut meta, "batch/Job", "ns");
-        assert!(argo.adopt(&meta, "batch/Job", "ns").is_none());
+        let patch = adopt(&old, &cm).unwrap();
+        assert_eq!(patch["metadata"]["ownerReferences"][0]["uid"], "cm");
+        assert!(patch["metadata"]["annotations"]["argocd.argoproj.io/tracking-id"].is_null());
+        assert!(adopt(&ObjectMeta::default(), &cm).is_some());
+        let owned = ObjectMeta {
+            owner_references: Some(vec![cm.clone()]),
+            ..Default::default()
+        };
+        assert!(adopt(&owned, &cm).is_none());
     }
 
     #[test]
