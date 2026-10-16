@@ -1129,8 +1129,16 @@ pub fn street_aligned(
     whole: &[(String, String)],
 ) -> Option<Vec<(String, String)>> {
     let city = field(whole, "city");
-    let misread = (!city.is_empty() && head_text.to_lowercase().contains(city))
-        || field(whole, "state").is_empty();
+    // "avenue" or "shady lane" taken for the town, or the street name with no road left
+    // ("Clairemont"). A town the whole parse already split from its road ("Temple" after
+    // "Kutztown Rd.") is also inside the unsplit street part; dropping it leaves the postcode,
+    // which another country may share ("19560" is French).
+    let word = |w: &str| canon::canon(w).is_some() || canon::is_canonical(w);
+    let last = city.split_whitespace().next_back().unwrap_or("");
+    let streetish = !city.is_empty() && (word(city) || word(last));
+    let in_head = !city.is_empty() && head_text.to_lowercase().contains(city);
+    let misread = field(whole, "state").is_empty()
+        || (in_head && (streetish || field(whole, "road").is_empty()));
     let only = tail
         .iter()
         .all(|(k, _)| matches!(k.as_str(), "state" | "postcode"));
@@ -2975,6 +2983,29 @@ impl Index {
                 }
             }
         }
+        // "Gaza Strip, Palestine": the strip is its own country in the data (xg) and Palestine
+        // is not a country place, so a search scoped to PS finds nothing. A user-assigned code
+        // the reference files under the stated country is that place. "Georgia" is not one: its
+        // code is a real country's, and the US state was found above.
+        if hits.is_empty()
+            && get("house_number").is_none()
+            && roads.is_empty()
+            && let Some(text) = state.or(city)
+            && let Some(code) = self.country(text)
+            && code.starts_with('x')
+            && let Some(stated) = cc
+        {
+            let associated = crate::matching::implied_country(
+                &[("state".to_string(), text.to_string())]
+                    .into_iter()
+                    .collect(),
+            );
+            if stated == associated
+                && let Some(&p) = self.country_places.get(&code)
+            {
+                return vec![Hit::Place(p)];
+            }
+        }
         hits.truncate(10);
         hits
     }
@@ -3022,6 +3053,21 @@ impl Index {
             a.insert("country_code".into(), cc.into());
             a.insert("country".into(), name.into());
             display.push(name.into());
+        }
+        // The index has no PS country: the Gaza Strip and the West Bank are countries of
+        // their own (xg, xw). A query for Palestine names them under PS, and the territory
+        // stays a region so the answer is not only the country.
+        if matches!(
+            a.get("country_code").and_then(Value::as_str),
+            Some("xg" | "xw")
+        ) {
+            let territory = a.get("country").cloned();
+            a.insert("country_code".into(), "ps".into());
+            a.insert("country".into(), "Palestine".into());
+            if let Some(name) = territory {
+                a.entry("state").or_insert(name);
+            }
+            display.push("Palestine".into());
         }
         if let Some(code) = self.region_code(&chain) {
             if let Some(province) = irish_province(code) {
