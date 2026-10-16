@@ -185,6 +185,29 @@ fn a_county_with_an_iso_code_adds_it_below_its_region_and_is_listed() {
     );
 }
 
+#[test]
+fn an_irish_county_names_its_province_which_is_listed_and_found_by_its_code() {
+    let dublin = place("ie-dublin");
+    let address = &index().reverse(dublin.lat, dublin.lon)["address"];
+    assert_eq!(address["ISO3166-2-lvl4"], "IE-D");
+    assert_eq!(address["ISO3166-2-lvl5"], "IE-L");
+    let mut listed: Vec<_> = index()
+        .region_places()
+        .map(|(code, _)| code)
+        .filter(|code| code.starts_with("IE-"))
+        .collect();
+    listed.sort();
+    // no county of the other provinces is in this world
+    assert_eq!(listed, ["IE-D", "IE-L"]);
+    let found = index().search("ie, IE-L");
+    let province = &index().render(&found[0], true)["address"];
+    assert_eq!(province["state"], "Leinster");
+    assert_eq!(province["ISO3166-2-lvl5"], "IE-L");
+    assert!(province.get("ISO3166-2-lvl4").is_none());
+    let (_, place) = index().region_places().find(|(c, _)| *c == "IE-L").unwrap();
+    assert_eq!(index().details(place.into())["admin_level"], 5);
+}
+
 enum Want {
     Abstain,
     /// A point, within some metres, and whether the match is a good one.

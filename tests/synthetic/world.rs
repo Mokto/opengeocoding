@@ -362,6 +362,43 @@ pub const PLACES: &[Place] = &[
         "Fernort Ay",
         &[("en", "Fernort Ay")],
     ),
+    // ISO 3166-2:IE puts County Dublin in the province of Leinster, IE-L.
+    place!(
+        "ie",
+        "country",
+        "",
+        "IE",
+        "",
+        5_000_000,
+        (-8.0, 53.0),
+        "",
+        "Ireland",
+        &[("en", "Ireland")],
+    ),
+    place!(
+        "ie-d",
+        "region",
+        "",
+        "IE",
+        "IE-D",
+        1_400_000,
+        (-6.3, 53.4),
+        "ie",
+        "County Dublin",
+        &[("en", "County Dublin")],
+    ),
+    place!(
+        "ie-dublin",
+        "locality",
+        "city",
+        "IE",
+        "IE-D",
+        590_000,
+        (-6.2603, 53.3498),
+        "ie-d",
+        "Dublin",
+        &[("en", "Dublin"), ("ga", "Baile Átha Cliath")],
+    ),
 ];
 
 /// A street and its houses: (street, postcode, city, cc, lon, lat of house 1, numbers); the houses
