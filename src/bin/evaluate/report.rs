@@ -9,11 +9,7 @@ use anyhow::{Context, Result};
 use indexmap::IndexMap;
 use opengeocoding::eval::{Row, read_tsv, write_tsv};
 use serde_json::Value;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt::Write as _,
-    path::Path,
-};
+use std::{collections::BTreeMap, fmt::Write as _, path::Path};
 
 /// One row per case so a PR diff shows exactly which answers changed; the manifest lives beside it.
 pub const SNAPSHOT_COLUMNS: [&str; 15] = [
@@ -913,16 +909,18 @@ fn latency(
     )
 }
 
-/// "SearchAddress 3340 → 3342 of 3759 passing (+2, +0.1%)", or "... 3342 of 3759 passing, unchanged".
-fn passing(name: &str, [base, head]: [usize; 2], total: usize) -> String {
-    if base == head {
-        return format!("{name} {head} of {total} passing, unchanged");
-    }
-    let (delta, pct) = (
-        head as i64 - base as i64,
-        100. * (head as f64 / base.max(1) as f64 - 1.),
-    );
-    format!("{name} {base} → {head} of {total} passing ({delta:+}, {pct:+.1}%)")
+/// "| SearchAddress | 3759 | 3340 | 3342 | +2 (+0.1%) | 5 |", a row of the diff's summary table.
+fn passing(name: &str, [base, head]: [usize; 2], total: usize, changed: usize) -> String {
+    let delta = if base == head {
+        "0".into()
+    } else {
+        format!(
+            "{:+} ({:+.1}%)",
+            head as i64 - base as i64,
+            100. * (head as f64 / base.max(1) as f64 - 1.)
+        )
+    };
+    format!("| {name} | {total} | {base} | {head} | {delta} | {changed} |\n")
 }
 
 /// A collapsed (or `open`) section; the blank lines let GitHub render the markdown inside.
@@ -975,20 +973,19 @@ pub fn diff(
             );
         }
     }
-    let headline_at = report.len();
+    let summary_at = report.len();
     report += &fold("Runs", &runs, false);
     report += &latency(&shared, &old, &new, [&old_manifest, &new_manifest]);
     let (mut newly_failing, mut newly_passing, mut worse, mut better) =
         (vec![], vec![], vec![], vec![]);
     let mut changed: IndexMap<&str, Vec<String>> = IndexMap::new();
     let mut by_cohort: BTreeMap<String, BTreeMap<&str, usize>> = BTreeMap::new();
-    let mut scored = false;
     let mut search_pass = [0; 2];
     // Per check kind: checked, base passing, head passing, head's other classes.
     let mut suggest_counts: BTreeMap<&str, [usize; 6]> = BTreeMap::new();
     // Per ReverseGeocode and ResolveRegion: checked, base passing, head passing, head's classes.
     let mut locate_counts: BTreeMap<&str, [usize; 7]> = BTreeMap::new();
-    let mut changed_checks = BTreeSet::new();
+    let mut changed_checks: BTreeMap<&str, usize> = BTreeMap::new();
     for id in &shared {
         let (a, b) = (&old[*id], &new[*id]);
         search_pass[0] += usize::from(a.class == "pass");
@@ -1019,10 +1016,9 @@ pub fn diff(
             let Some(sa) = a.suggest.get(name) else {
                 continue;
             };
-            scored = true;
             let (ca, cb) = (suggest_class(sa), suggest_class(sb));
             if ca != cb {
-                changed_checks.insert(name.as_str());
+                *changed_checks.entry(name.as_str()).or_default() += 1;
             }
             let counts = suggest_counts.entry(name).or_default();
             counts[0] += 1;
@@ -1050,10 +1046,9 @@ pub fn diff(
             let (Some(fa), Some(fb)) = (fa, fb) else {
                 continue;
             };
-            scored = true;
             let (ca, cb) = (fa.class.as_str(), fb.class.as_str());
             if ca != cb {
-                changed_checks.insert(name);
+                *changed_checks.entry(name).or_default() += 1;
             }
             let counts = locate_counts.entry(name).or_default();
             counts[0] += 1;
@@ -1081,7 +1076,6 @@ pub fn diff(
         if a.class == "unscored" || b.class == "unscored" {
             continue;
         }
-        scored = true;
         let line = format!(
             "- `{id}` {} -> {}: {:?} -> {:?}",
             a.class,
@@ -1116,13 +1110,10 @@ pub fn diff(
         .iter()
         .filter(|(_, counts)| counts.contains_key("changed"))
         .collect();
-    report += "\n## SearchAddress: changes by cohort\n\n";
-    if rows.is_empty() {
-        report += "No SearchAddress result changed.\n";
-    } else {
+    if !rows.is_empty() {
         let _ = write!(
             report,
-            "| Cohort | Cases | Changed |{}\n|---|---:|---:|{}\n",
+            "\n## SearchAddress: changes by cohort\n\n| Cohort | Cases | Changed |{}\n|---|---:|---:|{}\n",
             kinds.iter().map(|k| format!(" {k} |")).collect::<String>(),
             "---:|".repeat(kinds.len())
         );
@@ -1136,112 +1127,100 @@ pub fn diff(
         }
         report += "\nOnly cohorts with a change and kinds that occur are shown. gained/lost: a result appeared/disappeared; finer/coarser: resolution level; moved: >1 km; nudged: <1 km but visible at 3 decimals.\n";
     }
-    let mut headline = vec![passing("SearchAddress", search_pass, shared.len())];
+    let total: usize = changed.values().map(Vec::len).sum();
+    let mut summary = String::from(
+        "| RPC | Checked | Pass base | Pass head | Change | Results changed |\n|---|---:|---:|---:|---:|---:|\n",
+    );
+    summary += &passing("SearchAddress", search_pass, shared.len(), total);
     if !suggest_counts.is_empty() {
         let sums = suggest_counts
             .values()
             .fold([0; 3], |t, c| [t[0] + c[0], t[1] + c[1], t[2] + c[2]]);
-        headline.push(passing("SuggestAddress", [sums[1], sums[2]], sums[0]));
+        let changed: usize = suggest_counts
+            .keys()
+            .filter_map(|name| changed_checks.get(name))
+            .sum();
+        summary += &passing("SuggestAddress", [sums[1], sums[2]], sums[0], changed);
     }
     for (name, c) in &locate_counts {
-        headline.push(passing(name, [c[1], c[2]], c[0]));
+        let changed = changed_checks.get(name).copied().unwrap_or(0);
+        summary += &passing(name, [c[1], c[2]], c[0], changed);
     }
-    report.insert_str(
-        headline_at,
-        &format!("<!-- headline: {} -->\n", headline.join(" · ")),
-    );
-    if !suggest_counts.is_empty() {
-        report += "\n## SuggestAddress\n\n";
-        if !suggest_counts
-            .keys()
-            .any(|name| changed_checks.contains(name))
+    report.insert_str(summary_at, &summary);
+    if suggest_counts
+        .keys()
+        .any(|name| changed_checks.contains_key(name))
+    {
+        report += "\n## SuggestAddress\n\n| Check | Checked | Pass base | Pass head | Change | ranked_low | missing | error |\n|---|---:|---:|---:|---:|---:|---:|---:|\n";
+        for (name, c) in suggest_counts
+            .iter()
+            .filter(|(name, _)| changed_checks.contains_key(*name))
         {
-            report += "No SuggestAddress result class changed.\n";
-        } else {
-            report += "| Check | Checked | Pass base | Pass head | Change | ranked_low | missing | error |\n|---|---:|---:|---:|---:|---:|---:|---:|\n";
-            for (name, c) in suggest_counts
-                .iter()
-                .filter(|(name, _)| changed_checks.contains(*name))
-            {
-                let _ = writeln!(
-                    report,
-                    "| {name} | {} | {} | {} | {:+} | {} | {} | {} |",
-                    c[0],
-                    c[1],
-                    c[2],
-                    c[2] as i64 - c[1] as i64,
-                    c[3],
-                    c[4],
-                    c[5]
-                );
-            }
-            report += "\n`full` types the query; `name` types the place's name alone, which must come no later than the places of that name with more population. The last three columns count the head's failures.\n";
+            let _ = writeln!(
+                report,
+                "| {name} | {} | {} | {} | {:+} | {} | {} | {} |",
+                c[0],
+                c[1],
+                c[2],
+                c[2] as i64 - c[1] as i64,
+                c[3],
+                c[4],
+                c[5]
+            );
         }
+        report += "\n`full` types the query; `name` types the place's name alone, which must come no later than the places of that name with more population. The last three columns count the head's failures.\n";
     }
-    if !locate_counts.is_empty() {
-        report += "\n## ReverseGeocode and ResolveRegion\n\n";
-        if !locate_counts
-            .keys()
-            .any(|name| changed_checks.contains(name))
-        {
-            report += "No ReverseGeocode or ResolveRegion result class changed.\n";
+    for (name, c) in locate_counts
+        .iter()
+        .filter(|(name, _)| changed_checks.contains_key(*name))
+    {
+        let rule = if *name == "ReverseGeocode" {
+            "the nearest result is in the expected country, and region where the place is a locality or finer"
         } else {
-            report += "| Check | Checked | Pass base | Pass head | Change | empty | wrong_region | wrong_country | error |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|\n";
-            for (name, c) in locate_counts
-                .iter()
-                .filter(|(name, _)| changed_checks.contains(*name))
-            {
-                let _ = writeln!(
-                    report,
-                    "| {name} | {} | {} | {} | {:+} | {} | {} | {} | {} |",
-                    c[0],
-                    c[1],
-                    c[2],
-                    c[2] as i64 - c[1] as i64,
-                    c[3],
-                    c[4],
-                    c[5],
-                    c[6]
-                );
-            }
-            report += "\nThe last four columns count the head's failures. ReverseGeocode: the nearest result is in the expected country, and region where the place is a locality or finer; ResolveRegion: one of the regions found is an expected one.\n";
-        }
+            "one of the regions found is an expected one"
+        };
+        let _ = write!(
+            report,
+            "\n## {name}\n\n| Checked | Pass base | Pass head | Change | empty | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|\n| {} | {} | {} | {:+} | {} | {} | {} | {} |\n\nPasses when {rule}. The last four columns count the head's failures.\n",
+            c[0],
+            c[1],
+            c[2],
+            c[2] as i64 - c[1] as i64,
+            c[3],
+            c[4],
+            c[5],
+            c[6]
+        );
     }
-    if scored {
-        let mut none = vec![];
-        // Gating lists stay open; the lists to review are folded.
-        for (title, items, open) in [
-            ("Newly failing", &newly_failing, true),
-            ("Worse failure class", &worse, true),
-            (
-                "Newly passing (verify before relabelling)",
-                &newly_passing,
+    // Gating lists stay open; the lists to review are folded.
+    for (title, items, open) in [
+        ("Newly failing", &newly_failing, true),
+        ("Worse failure class", &worse, true),
+        (
+            "Newly passing (verify before relabelling)",
+            &newly_passing,
+            false,
+        ),
+        ("Better failure class", &better, false),
+    ] {
+        if items.is_empty() {
+            continue;
+        }
+        if open {
+            let _ = write!(
+                report,
+                "\n## {title} ({})\n\n{}\n",
+                items.len(),
+                items.join("\n")
+            );
+        } else {
+            report += &fold(
+                &format!("{title} ({})", items.len()),
+                &items.join("\n"),
                 false,
-            ),
-            ("Better failure class", &better, false),
-        ] {
-            if items.is_empty() {
-                none.push(title);
-            } else if open {
-                let _ = write!(
-                    report,
-                    "\n## {title} ({})\n\n{}\n",
-                    items.len(),
-                    items.join("\n")
-                );
-            } else {
-                report += &fold(
-                    &format!("{title} ({})", items.len()),
-                    &items.join("\n"),
-                    false,
-                );
-            }
-        }
-        if !none.is_empty() {
-            let _ = write!(report, "\nNone: {}.\n", none.join(", ").to_lowercase());
+            );
         }
     }
-    let total: usize = changed.values().map(Vec::len).sum();
     if total > 0 {
         let mut body = String::new();
         for kind in DRIFT_KINDS {
@@ -1260,26 +1239,26 @@ pub fn diff(
             false,
         );
     }
-    let failed = !newly_failing.is_empty()
-        || !worse.is_empty()
-        || new_critical
-        || must
-        || (fail_on_drift && total > 0);
-    let _ = writeln!(
-        report,
-        "\nGate: {} (no newly failing or worse cases, no new critical results, {}{}).",
-        if failed { "FAIL" } else { "pass" },
-        if relative {
-            "baseline failures not gated"
-        } else {
-            "all must-pass cases pass"
-        },
-        if fail_on_drift {
-            ", no snapshot drift"
-        } else {
-            "; snapshot drift is reported, not gated"
+    let mut reasons = vec![];
+    for (n, what) in [
+        (newly_failing.len(), "newly failing"),
+        (worse.len(), "with a worse failure class"),
+        (if fail_on_drift { total } else { 0 }, "with snapshot drift"),
+    ] {
+        if n > 0 {
+            reasons.push(format!("{n} {what}"));
         }
-    );
+    }
+    if new_critical {
+        reasons.push("new critical results".into());
+    }
+    if must {
+        reasons.push("must-pass cases failing".into());
+    }
+    let failed = !reasons.is_empty();
+    if failed {
+        let _ = writeln!(report, "\nGate: FAIL ({}).", reasons.join(", "));
+    }
     if let Some(out) = out {
         std::fs::write(out, &report)?;
     }
@@ -1560,18 +1539,19 @@ mod tests {
         );
         assert!(!report.contains("ResolveRegion pass ->"), "{report}");
         assert!(
-            report.contains("| ReverseGeocode | 1 | 1 | 0 | -1 | 0 | 0 | 1 | 0 |"),
+            report.contains("## ReverseGeocode\n\n| Checked | Pass base | Pass head | Change | empty | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|\n| 1 | 1 | 0 | -1 | 0 | 0 | 1 | 0 |\n"),
             "{report}"
         );
-        assert!(!report.contains("| ResolveRegion |"), "{report}");
+        assert!(!report.contains("## ResolveRegion"), "{report}");
         assert!(
-            report.contains("ReverseGeocode 1 → 0 of 1 passing"),
+            report.contains("| ResolveRegion | 1 | 1 | 1 | 0 | 0 |\n| ReverseGeocode | 1 | 1 | 0 | -1 (-100.0%) | 1 |\n"),
             "{report}"
         );
+        assert!(report.contains("Gate: FAIL (1 newly failing)."), "{report}");
         assert!(!diff(&cases, &old, &old, Some(&out), false, true).unwrap());
         let report = std::fs::read_to_string(&out).unwrap();
-        assert!(report.contains("No ReverseGeocode or ResolveRegion result class changed."));
-        assert!(!report.contains("| Check |"), "{report}");
+        assert!(!report.contains("## Reverse"), "{report}");
+        assert!(!report.contains("Gate:"), "{report}");
         std::fs::remove_dir_all(dir).unwrap();
     }
 
@@ -1630,9 +1610,14 @@ mod tests {
             .unwrap()
         );
         let report = std::fs::read_to_string(out).unwrap();
-        for name in ["full", "ReverseGeocode", "ResolveRegion"] {
+        assert!(report.contains("| full | 2 | 1 | 1 | +0 |"), "{report}");
+        for name in ["ReverseGeocode", "ResolveRegion"] {
             assert!(
-                report.contains(&format!("| {name} | 2 | 1 | 1 | +0 |")),
+                report.contains(&format!("## {name}\n\n| Checked | Pass base | Pass head | Change | empty | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|\n| 2 | 1 | 1 | +0 |")),
+                "{report}"
+            );
+            assert!(
+                report.contains(&format!("| {name} | 2 | 1 | 1 | 0 | 2 |")),
                 "{report}"
             );
         }
@@ -1680,12 +1665,12 @@ mod tests {
             "{report}"
         );
         assert!(
-            report.contains("\n<!-- headline: SearchAddress 1 of 1 passing, unchanged · SuggestAddress 1 → 0 of 1 passing (-1, -100.0%) -->\n"),
+            report.contains("\n| RPC | Checked | Pass base | Pass head | Change | Results changed |\n|---|---:|---:|---:|---:|---:|\n| SearchAddress | 1 | 1 | 1 | 0 | 0 |\n| SuggestAddress | 1 | 1 | 0 | -1 (-100.0%) | 1 |\n"),
             "{report}"
         );
         assert_eq!(
-            passing("SearchAddress", [3340, 3342], 3759),
-            "SearchAddress 3340 → 3342 of 3759 passing (+2, +0.1%)"
+            passing("SearchAddress", [3340, 3342], 3759, 5),
+            "| SearchAddress | 3759 | 3340 | 3342 | +2 (+0.1%) | 5 |\n"
         );
         let (a, b) = (load_side(&old).unwrap().1, load_side(&new).unwrap().1);
         let ids: Vec<_> = a.keys().collect();
@@ -1698,13 +1683,11 @@ mod tests {
         );
         assert!(!diff(&cases, &old, &old, Some(&out), false, true).unwrap());
         let report = std::fs::read_to_string(&out).unwrap();
+        assert!(!report.contains("| Check |"), "{report}");
         assert!(
-            report.contains("No SearchAddress result changed."),
+            !report.contains("\n## Sugg") && !report.contains("Gate:"),
             "{report}"
         );
-        assert!(report.contains("No SuggestAddress result class changed."));
-        assert!(!report.contains("| Check |"), "{report}");
-        assert!(report.contains("None: newly failing, worse failure class"));
         assert!(!report.contains("| Cohort") && !report.contains("changed cases"));
         std::fs::remove_dir_all(dir).unwrap();
     }
