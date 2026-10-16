@@ -149,6 +149,8 @@ fn reverse_search_names_the_nearest_street_when_no_house_is_in_range() {
     let (layer, v, m) = &found[0];
     assert_eq!(*layer, "street");
     assert_eq!(v["address"]["road"], "Feldweg");
+    // Cologne's polygon holds the street, and the village point 330 m away lies in Cologne
+    assert_eq!(v["address"]["village"], "Feldheim");
     assert_eq!(v["address"]["city"], "Cologne");
     assert!(v["address"].get("house_number").is_none());
     assert!(v["address"].get("postcode").is_none());
@@ -172,6 +174,9 @@ fn reverse_search_names_the_nearest_street_when_no_house_is_in_range() {
     );
     assert_eq!(v["address"]["postcode"], "75462");
     assert!((m - to_road(s, lon, lat)).abs() < 3.0, "{m}");
+    // Paris's polygon holds the street; Reno, a city point beside it in the same state, names it
+    assert_eq!(v["address"]["city"], "Reno");
+    assert_eq!(v["address"]["suburb"], "Paris");
     // by its houses, the houses answer, as they did before streets did
     let (hx, hy) = house(s, "3");
     let found = index().reverse_search(hy + 0.0003, hx, 500.0, 1);
@@ -179,10 +184,10 @@ fn reverse_search_names_the_nearest_street_when_no_house_is_in_range() {
         (found[0].0, found[0].1["address"]["house_number"].as_str()),
         ("address", Some("3"))
     );
-    // 1.1 km from the street: the locality
+    // 1.1 km from the street: the nearest locality
     let found = index().reverse_search(s.lat + 0.01, lon, 500.0, 1);
     assert_eq!(found[0].0, "locality");
-    assert_eq!(found[0].1["address"]["city"], "Paris");
+    assert_eq!(found[0].1["address"]["city"], "Reno");
 
     // beside a path, with no street in range: the locality, not the path
     let p = street("Uferpfad");

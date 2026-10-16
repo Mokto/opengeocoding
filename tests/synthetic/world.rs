@@ -122,6 +122,19 @@ pub const PLACES: &[Place] = &[
         "Paris",
         &[("en", "Paris")],
     ),
+    // a city beside Paris, Texas, at the east end of Long Road, also a point only
+    place!(
+        "us-tx-reno",
+        "locality",
+        "city",
+        "US",
+        "US-TX",
+        30_000,
+        (-95.575, 33.703),
+        "us-tx",
+        "Reno",
+        &[("en", "Reno")],
+    ),
     place!(
         "ca",
         "country",
@@ -229,6 +242,19 @@ pub const PLACES: &[Place] = &[
         "de-nw",
         "Köln",
         &[("en", "Cologne"), ("de", "Köln")],
+    ),
+    // a village Overture has as a point inside Cologne's polygon, with none of its own
+    place!(
+        "de-koeln-feldheim",
+        "locality",
+        "village",
+        "DE",
+        "DE-NW",
+        800,
+        (6.86, 50.903),
+        "de-koeln",
+        "Feldheim",
+        &[("en", "Feldheim")],
     ),
     place!(
         "fr-haut-rhin",
@@ -735,6 +761,9 @@ fn chain(p: &Place) -> Vec<&'static str> {
     up
 }
 
+/// Localities without a polygon of their own.
+const POINT_ONLY: [&str; 2] = ["de-koeln-feldheim", "us-tx-reno"];
+
 /// Writes the division, division_area, segment and address datasets under `dir`.
 pub fn write_release(dir: &Path) {
     let level = |p: &Place| match p.subtype {
@@ -804,7 +833,7 @@ pub fn write_release(dir: &Path) {
 
     let areas: Vec<_> = PLACES
         .iter()
-        .filter(|p| p.subtype == "locality")
+        .filter(|p| p.subtype == "locality" && !POINT_ONLY.contains(&p.id))
         .map(|p| (p.id, p.subtype, true, true, p.lon, p.lat, 0.2))
         .chain(AREAS.iter().copied())
         .collect();

@@ -3506,20 +3506,56 @@ impl Index {
                             .map(pc_norm)
                     })
                     .flatten();
+                let (place, city) = self.street_place(self.fast(a, "place") as u32, lat, lon);
                 let hit = Hit::Street {
                     sid,
-                    place: self.fast(a, "place") as u32,
+                    place,
                     name: stored(&doc, self.f.name),
                     x,
                     y,
                     number: None,
                     postcode,
-                    city: None,
+                    city,
                     cc: String::new(),
                 };
                 Some((self.render(&hit, true), m))
             })
             .collect()
+    }
+
+    /// A segment's centre can fall in a township's polygon even when the query is near a town
+    /// point with no polygon. A descendant keeps the street's ancestry; a sibling contributes
+    /// only its name, never its region. A country alone does not corroborate a sibling.
+    fn street_place(&self, place: u32, lat: f64, lon: f64) -> (u32, Option<String>) {
+        let pl = |p: u32| &self.places[p as usize];
+        let size = |p: u32| match pl(p).key() {
+            "city" => 3,
+            "town" => 2,
+            "village" => 1,
+            _ => 0,
+        };
+        let Some((near, _)) = self.nearest_locality_within(lat, lon, STREET_LOCALITY_M, |p| {
+            &*self.places[p as usize].class != "hamlet"
+        }) else {
+            return (place, None);
+        };
+        if place == NONE {
+            return (place, None);
+        }
+        let ours = self.chain(place);
+        let parent = pl(near).parent;
+        if ours.contains(&near) {
+            (place, None)
+        } else if self.chain(near).contains(&place) {
+            (near, None)
+        } else if ours.contains(&parent)
+            && !matches!(&*pl(parent).subtype, "country" | "dependency")
+            && size(near) >= size(place)
+        {
+            (place, Some(pl(near).name(true).to_string()))
+        } else {
+            (place, None)
+        }
     }
 
     /// Up to `size` results for a point: the houses within `radius_m`, nearest first, as
@@ -3672,6 +3708,7 @@ fn ring(r: i64, mut cell: impl FnMut(i64, i64)) {
 }
 
 const HOUSE_REGION_M: f64 = 100.0;
+const STREET_LOCALITY_M: f64 = 1_000.0;
 const FAR_REGION_M: f64 = 150_000.0;
 const NEAR_LOCALITY_M: f64 = 50_000.0;
 
@@ -3992,10 +4029,15 @@ mod tests {
             (4, "neighborhood", "DK", "", 12.55, 55.69, "2", "Norrebro"),
             (5, "region", "DK", "DK-82", 0.0, 0.0, "0", "Midtjylland"),
             (6, "locality", "DK", "", 10.2039, 56.1629, "5", "Aarhus"),
+            (7, "locality", "DK", "", 12.569, 55.67, "2", "Small Hamlet"),
         ];
         let mut tsv = String::new();
         for (id, subtype, cc, region, x, y, parent, name) in places {
-            let class = if subtype == "locality" { "city" } else { "" };
+            let class = match (id, subtype) {
+                (7, _) => "hamlet",
+                (_, "locality") => "city",
+                _ => "",
+            };
             tsv += &format!(
                 "{subtype}\t{class}\t{cc}\t{region}\t\t0\t{x}\t{y}\t0\t0\t0\t0\t{parent}\t{name}\t\n"
             );
@@ -4037,6 +4079,16 @@ mod tests {
         // no locality within 5 km: the nearest within 50
         assert_eq!(city_and_region(55.65, 12.3), found("Roskilde", "DK-84"));
         assert_eq!(city_and_region(56.1, 10.5), found("Aarhus", "DK-82"));
+        assert_eq!(index.street_place(1, 55.6761, 12.5683), (2, None));
+        assert_eq!(index.street_place(4, 55.6761, 12.5683), (4, None));
+        assert_eq!(
+            index.street_place(2, 55.6415, 12.0803),
+            (2, Some("Roskilde".into()))
+        );
+        assert_eq!(index.street_place(2, 56.1629, 10.2039), (2, None));
+        assert_eq!(index.street_place(2, 55.65, 12.3), (2, None));
+        assert_eq!(index.street_place(2, 55.67, 12.569), (2, None));
+        assert_eq!(index.street_place(NONE, 55.6761, 12.5683), (NONE, None));
         // beyond 50 km (Roskilde is 61 km away), or at sea
         for (lat, lon) in [(55.64, 11.1), (56.0, 3.0), (0.0, 0.0), (-90.0, 180.0)] {
             let found = index.reverse(lat, lon);
