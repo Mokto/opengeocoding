@@ -101,6 +101,16 @@ pub fn job(args: Vec<String>) -> Result<()> {
     for f in &got.geonames {
         build.extend(["--geonames-postal".into(), f.to_string_lossy().into_owned()]);
     }
+    if let Some(d) = &got.geonames_places {
+        build.extend([
+            "--geonames-places".into(),
+            d.join("cities500.txt").to_string_lossy().into_owned(),
+            "--geonames-admin1".into(),
+            d.join("admin1CodesASCII.txt")
+                .to_string_lossy()
+                .into_owned(),
+        ]);
+    }
     crate::build(&build);
 
     std::fs::write(
@@ -196,6 +206,9 @@ fn attribution(sources: &Sources, out: &Path) -> Result<String> {
     }
     if !sources.geonames_postal.is_empty() {
         text += "GeoNames postal codes: CC BY 4.0, https://www.geonames.org/\n";
+    }
+    if sources.geonames_places {
+        text += "GeoNames populated places: CC BY 4.0, https://www.geonames.org/\n";
     }
     if let Ok(read) = std::fs::read_to_string(out.join("openaddresses.tsv")) {
         text += "OpenAddresses (https://openaddresses.io), sources read and their licences:\n";

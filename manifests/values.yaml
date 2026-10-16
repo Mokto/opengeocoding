@@ -60,6 +60,8 @@ index:
       - CA_full.csv
       - NL_full.csv
       - allCountries
+    # GeoNames populated places (cities500 and admin1 names), added where Overture has none nearby.
+    geonamesPlaces: true
     # Geofabrik extract ids (see https://download.geofabrik.de/index-v1-nogeom.json), for
     # countries Overture's addresses miss or cover thinly.
     osm:

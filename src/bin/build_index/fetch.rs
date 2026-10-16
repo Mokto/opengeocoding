@@ -33,6 +33,10 @@ pub struct Sources {
     /// GeoNames postal-code exports, such as `allCountries` or `GB_full.csv`; earlier ones win.
     #[serde(default)]
     pub geonames_postal: Vec<String>,
+    /// GeoNames populated places (`cities500` and `admin1CodesASCII`), added where Overture has
+    /// no place of that name nearby.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub geonames_places: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -50,6 +54,8 @@ pub struct Fetched {
     pub osm: Option<PathBuf>,
     pub openaddresses: Option<PathBuf>,
     pub geonames: Vec<PathBuf>,
+    /// The directory holding `cities500.txt` and `admin1CodesASCII.txt`.
+    pub geonames_places: Option<PathBuf>,
 }
 
 fn safe(what: &str, value: &str, extra: &str) -> Result<()> {
@@ -417,14 +423,72 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
 
         anyhow::Ok(geonames)
     };
-    let (openaddresses, osm, geonames) =
-        tokio::try_join!(overture_then_openaddresses, osm_files, geonames_files)?;
+    let geonames_places = async {
+        if !src.geonames_places {
+            return anyhow::Ok(None);
+        }
+        let dir = scratch.join("geonames-places");
+        let bbox = src.bbox();
+        let c = self::client()?;
+        mirror(
+            store,
+            &format!("sources/{}/geonames-places/{}", src.snapshot, src.scope()),
+            &dir,
+            1,
+            || async {
+                Ok(vec![
+                    ("cities500.txt".to_string(), true),
+                    ("admin1CodesASCII.txt".to_string(), false),
+                ])
+            },
+            move |zipped: bool, path: PathBuf| {
+                let c = c.clone();
+                Box::pin(async move {
+                    let base = "https://download.geonames.org/export/dump";
+                    if !zipped {
+                        let url = format!("{base}/admin1CodesASCII.txt");
+                        ensure!(http_get(&c, &url, &path).await?, "{url} not found");
+                        return Ok(true);
+                    }
+                    let url = format!("{base}/cities500.zip");
+                    let tmp = path.with_extension("zip");
+                    ensure!(http_get(&c, &url, &tmp).await?, "{url} not found");
+                    tokio::task::spawn_blocking(move || {
+                        let keep = |line: &str| {
+                            let f: Vec<&str> = line.split('\t').collect();
+                            let (Some(lat), Some(lon)) = (
+                                f.get(4).and_then(|v| v.parse::<f64>().ok()),
+                                f.get(5).and_then(|v| v.parse::<f64>().ok()),
+                            ) else {
+                                return false;
+                            };
+                            bbox.is_none_or(|b| intersects(b, lon, lat, lon, lat))
+                        };
+                        unzip_lines(&tmp, "cities500.txt", &path, keep)?;
+                        std::fs::remove_file(&tmp)?;
+                        anyhow::Ok(())
+                    })
+                    .await??;
+                    Ok(true)
+                })
+            },
+        )
+        .await?;
+        anyhow::Ok(Some(dir))
+    };
+    let (openaddresses, osm, geonames, geonames_places) = tokio::try_join!(
+        overture_then_openaddresses,
+        osm_files,
+        geonames_files,
+        geonames_places
+    )?;
 
     Ok(Fetched {
         overture: local,
         osm,
         openaddresses,
         geonames,
+        geonames_places,
     })
 }
 
