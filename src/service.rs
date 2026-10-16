@@ -28,7 +28,7 @@ impl Service {
         method: &str,
         operation: impl Future<Output = Result<T>>,
     ) -> ServiceResult<T> {
-        let service = "opengeocoding.Geolocation";
+        let service = "opengeocoding.OpenGeocoding";
         let organization = ctx
             .headers()
             .get("x-organization-id")
@@ -56,7 +56,7 @@ impl Service {
                 let error = match error.downcast::<ConnectError>() {
                     Ok(error) => error,
                     Err(error) => {
-                        tracing::error!(method, %error, "Geolocation request failed");
+                        tracing::error!(method, %error, "OpenGeocoding request failed");
                         sentry::capture_error::<dyn std::error::Error>(error.as_ref());
                         ConnectError::unknown("The geolocation request could not be completed.")
                     }
@@ -71,7 +71,7 @@ impl Service {
     }
 }
 
-impl Geolocation for Service {
+impl OpenGeocoding for Service {
     async fn search_address<'a>(
         &'a self,
         ctx: RequestContext,

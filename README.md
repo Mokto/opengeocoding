@@ -59,24 +59,24 @@ Addresses inside Docker must be reachable from the container; `localhost` refers
 Example request:
 
 ```sh
-curl http://localhost:11121/opengeocoding.Geolocation/SearchAddress \
+curl http://localhost:11121/opengeocoding.OpenGeocoding/SearchAddress \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{"addressString":"Copenhagen, Denmark"}'
 ```
 
-The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `Geolocation`. The methods are `SearchAddress`, `ResolveRegion`, `ListRegions`, `SuggestAddress` and `ReverseGeocode`. `RefreshRegionMap` and `GetRegionMap` (a Python-style dictionary string) were removed; `ListRegions` returns the same regions as typed messages.
+The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `OpenGeocoding`. The methods are `SearchAddress`, `ResolveRegion`, `ListRegions`, `SuggestAddress` and `ReverseGeocode`. `RefreshRegionMap` and `GetRegionMap` (a Python-style dictionary string) were removed; `ListRegions` returns the same regions as typed messages.
 
-The canonical RPC path is `/opengeocoding.Geolocation/*`. The Go package is `github.com/Mokto/opengeocoding/gen/opengeocoding`; the Rust crate is `opengeocoding`, with generated types under `opengeocoding::proto::opengeocoding`.
+The canonical RPC path is `/opengeocoding.OpenGeocoding/*`. The Go package is `github.com/Mokto/opengeocoding/gen/opengeocoding`; the Rust crate is `opengeocoding`, with generated types under `opengeocoding::proto::opengeocoding`.
 
-`/geolocation.Geolocation/*` and `/nominatim_geolocation.NominatimGeolocation/*` remain aliases for every method, including for benchmarking. Message fields, numbers and types are unchanged. These aliases do not enable a Nominatim backend. gRPC reflection advertises only `opengeocoding.Geolocation`, and the `grpc_service` metric label uses this canonical name on all routes.
+`/geolocation.Geolocation/*` and `/nominatim_geolocation.NominatimGeolocation/*` remain aliases for every method, including for benchmarking. Message fields, numbers and types are unchanged. These aliases do not enable a Nominatim backend. gRPC reflection advertises only `opengeocoding.OpenGeocoding`, and the `grpc_service` metric label uses this canonical name on all routes.
 
 ## Address suggestions
 
 `SuggestAddress` completes text as it is typed and returns up to `limit` (default 5, at most 15) suggestions, each with an opaque `id` (stable for one index), a `display_name`, a point (places also a bounding box when they have an extent), a `type` and a `country_code`. `country_code` restricts the answer to one country. There is no second lookup call: the point is in the suggestion.
 
 ```sh
-curl http://localhost:11121/opengeocoding.Geolocation/SuggestAddress \
+curl http://localhost:11121/opengeocoding.OpenGeocoding/SuggestAddress \
   -H 'Content-Type: application/json' -H 'Connect-Protocol-Version: 1' \
   -d '{"text":"10 downing street, lon","limit":3}'
 ```
@@ -92,7 +92,7 @@ The gold suite checks suggestions too, with places ranked by population (see Geo
 `ReverseGeocode` takes `lat`, `lon`, an optional `radius_m` (default 500, at most 2,000) and an optional `size` (default 1, at most 10). It returns the houses within the radius, nearest first, each a `FullAddress` with its `distance_m` and `layer` `address`. With no house in range it returns the nearest locality point (within about 50 km) as `layer` `locality`, and with nothing at all an empty list.
 
 ```sh
-curl http://localhost:11121/opengeocoding.Geolocation/ReverseGeocode \
+curl http://localhost:11121/opengeocoding.OpenGeocoding/ReverseGeocode \
   -H 'Content-Type: application/json' -H 'Connect-Protocol-Version: 1' \
   -d '{"lat":51.50354,"lon":-0.12768,"size":3}'
 ```
@@ -192,7 +192,7 @@ target/release/benchmark --queries queries.txt \
   --requests 2000 --rounds 3 --concurrency 1,8 > benchmark.jsonl
 ```
 
-`queries.txt` holds one address per line, for example the `query` column of `tests/addresses.tsv`. A service URL without a route uses `opengeocoding.Geolocation`; to benchmark old clients, use `--service legacy=http://127.0.0.1:18121/geolocation.Geolocation` or `.../nominatim_geolocation.NominatimGeolocation`. All three routes use the same resolver. Results include the client, HTTP transport, parsing, index lookups and the RPC framework on one machine; they are not production throughput or accuracy guarantees.
+`queries.txt` holds one address per line, for example the `query` column of `tests/addresses.tsv`. A service URL without a route uses `opengeocoding.OpenGeocoding`; to benchmark old clients, use `--service legacy=http://127.0.0.1:18121/geolocation.Geolocation` or `.../nominatim_geolocation.NominatimGeolocation`. All three routes use the same resolver. Results include the client, HTTP transport, parsing, index lookups and the RPC framework on one machine; they are not production throughput or accuracy guarantees.
 
 ## Overture address index
 

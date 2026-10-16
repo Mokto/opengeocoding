@@ -19,7 +19,7 @@ async fn legacy_package(mut request: Request) -> Request {
             .query()
             .map(|q| format!("?{q}"))
             .unwrap_or_default();
-        if let Ok(path) = format!("/opengeocoding.Geolocation/{rest}{query}").parse() {
+        if let Ok(path) = format!("/opengeocoding.OpenGeocoding/{rest}{query}").parse() {
             let mut parts = request.uri().clone().into_parts();
             parts.path_and_query = Some(path);
             if let Ok(uri) = Uri::from_parts(parts) {
@@ -86,7 +86,7 @@ async fn main() -> Result<()> {
         "/reflection.bin"
     )))?
     .with_services([
-        "opengeocoding.Geolocation",
+        "opengeocoding.OpenGeocoding",
         "grpc.reflection.v1.ServerReflection",
         "grpc.reflection.v1alpha.ServerReflection",
     ]);
@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
     );
     for method in ["SearchAddress", "ResolveRegion", "ListRegions"] {
         connect = connect.with_route_limits(
-            &format!("opengeocoding.Geolocation/{method}"),
+            &format!("opengeocoding.OpenGeocoding/{method}"),
             Limits::unlimited(),
         );
     }
@@ -151,7 +151,7 @@ mod tests {
     #[tokio::test]
     async fn legacy_rpc_paths_are_preserved() {
         for service in [
-            "opengeocoding.Geolocation",
+            "opengeocoding.OpenGeocoding",
             "geolocation.Geolocation",
             "nominatim_geolocation.NominatimGeolocation",
         ] {
@@ -165,7 +165,7 @@ mod tests {
                 assert_eq!(
                     legacy_package(request).await.uri().to_string(),
                     format!(
-                        "http://localhost/opengeocoding.Geolocation/{method}?key=%2Fvalue&key=other"
+                        "http://localhost/opengeocoding.OpenGeocoding/{method}?key=%2Fvalue&key=other"
                     )
                 );
             }
