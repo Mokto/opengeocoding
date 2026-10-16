@@ -162,6 +162,18 @@ pub fn wkb_point(buf: &[u8]) -> Option<(f64, f64)> {
     Some((r.f64(le)?, r.f64(le)?))
 }
 
+/// 2D WKB LineString, into `out`.
+pub fn wkb_line(buf: &[u8], out: &mut Vec<[f64; 2]>) -> Option<()> {
+    out.clear();
+    let mut r = Wkb(buf, 0);
+    let (le, kind) = r.header()?;
+    (kind == 2).then_some(())?;
+    for _ in 0..r.u32(le)? {
+        out.push([r.f64(le)?, r.f64(le)?]);
+    }
+    Some(())
+}
+
 pub const KINDS: [&str; 3] = ["locality", "localadmin", "county"];
 const NEAR_LOCALITY_M: f32 = 5000.0;
 

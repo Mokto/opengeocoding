@@ -16,9 +16,12 @@ use arrow_array::{
     cast::AsArray,
     types::{Float64Type, Int32Type},
 };
-use geo::{Assigner, KINDS, Poly, wkb_point, wkb_polygons};
-use opengeocoding::index::schema::{
-    self, Bucket, Num, NumberSpill, fold, fold_into, held_slot, pack, pc_norm, with_rank,
+use geo::{Assigner, KINDS, Poly, wkb_line, wkb_point, wkb_polygons};
+use opengeocoding::index::{
+    reverse::{self, StreetSpill, street_edges},
+    schema::{
+        self, Bucket, Num, NumberSpill, fold, fold_into, held_slot, pack, pc_norm, with_rank,
+    },
 };
 use parquet::arrow::{
     ProjectionMask,
@@ -647,6 +650,8 @@ fn write_areas(
 
 #[derive(Default)]
 struct SegAgg {
+    /// Its id in the spilled street edges: position in its shard, then shard.
+    id: u32,
     name: Str,
     /// Sorted, without duplicates.
     alt: Vec<Str>,
@@ -668,19 +673,41 @@ impl SegAgg {
 }
 
 type SegKey = (u32, Str);
+/// A segment's edges as `street_edges` cuts them.
+type StreetEdges = Vec<(u64, (i8, i8))>;
 
-fn pass_segments(dir: &Path, a: &Assigner) -> Vec<Mutex<HashMap<SegKey, SegAgg>>> {
+/// Segment classes left out of `streets.bin`: a point beside a path is not on a street.
+const NOT_STREETS: [&str; 6] = ["footway", "steps", "path", "cycleway", "bridleway", "track"];
+
+fn pass_segments(
+    dir: &Path,
+    a: &Assigner,
+    spill: &StreetSpill,
+) -> Vec<Mutex<HashMap<SegKey, SegAgg>>> {
     let shards = sharded::<HashMap<SegKey, SegAgg>>();
     let rows = AtomicU64::new(0);
     tasks(dir).par_iter().for_each(|t| {
         // place -> folded name, so lookups borrow the key instead of allocating one per row
-        let mut local: HashMap<u32, HashMap<Str, SegAgg>> = HashMap::new();
+        let mut local: HashMap<u32, HashMap<Str, (SegAgg, StreetEdges)>> = HashMap::new();
         let (mut key, mut last, mut cell_key) = (String::new(), String::new(), String::new());
-        for b in read(t, &["subtype", "names.primary", "names.common", "bbox"]) {
-            let (sub, nm, bbox) = (
+        let mut line = vec![];
+        for b in read(
+            t,
+            &[
+                "subtype",
+                "class",
+                "names.primary",
+                "names.common",
+                "bbox",
+                "geometry",
+            ],
+        ) {
+            let (sub, class, nm, bbox, geom) = (
                 col(&b, "subtype").as_string::<i32>(),
+                col(&b, "class").as_string::<i32>(),
                 col(&b, "names").as_struct(),
                 col(&b, "bbox").as_struct(),
+                col(&b, "geometry").as_binary::<i32>(),
             );
             let c = |n: &str| {
                 bbox.column_by_name(n)
@@ -714,11 +741,14 @@ fn pass_segments(dir: &Path, a: &Assigner) -> Vec<Mutex<HashMap<SegKey, SegAgg>>
                 }
                 let m = local.entry(place).or_default();
                 let celled = with_cell(&key, x, y, &mut cell_key);
-                let e = match m.get_mut(celled) {
+                let (e, edges) = match m.get_mut(celled) {
                     Some(e) => e,
-                    None => m.entry(celled.into()).or_insert_with(|| SegAgg {
-                        name: primary.into(),
-                        ..Default::default()
+                    None => m.entry(celled.into()).or_insert_with(|| {
+                        let agg = SegAgg {
+                            name: primary.into(),
+                            ..Default::default()
+                        };
+                        (agg, vec![])
                     }),
                 };
                 if prefer(primary, &e.name) {
@@ -728,19 +758,29 @@ fn pass_segments(dir: &Path, a: &Assigner) -> Vec<Mutex<HashMap<SegKey, SegAgg>>
                     insert_name(&mut e.alt, alt);
                 }
                 (e.sx, e.sy, e.n) = (e.sx + quantize(x), e.sy + quantize(y), e.n + 1);
+                let street = class.is_null(i) || !NOT_STREETS.contains(&class.value(i));
+                if street && !geom.is_null(i) && wkb_line(geom.value(i), &mut line).is_some() {
+                    street_edges(&line, edges);
+                }
             }
         }
+        let mut edges = vec![];
         for (place, m) in local {
-            for (k, v) in m {
+            for (k, (v, mine)) in m {
                 let k = (place, k);
-                shards[shard(&k)]
-                    .lock()
-                    .unwrap()
-                    .entry(k)
-                    .or_default()
-                    .add(v);
+                let s = shard(&k);
+                let mut g = shards[s].lock().unwrap();
+                assert!(g.len() < 1 << 24, "segment ids overflow");
+                let id = (g.len() as u32) << 8 | s as u32;
+                let e = g.entry(k).or_insert_with(|| SegAgg {
+                    id,
+                    ..Default::default()
+                });
+                e.add(v);
+                edges.extend(mine.into_iter().map(|(key, d)| (key, d, e.id)));
             }
         }
+        spill.add(&mut edges);
     });
     println!("  {} segment rows", rows.into_inner());
     shards
@@ -1385,7 +1425,9 @@ fn build(args: &[String]) {
         );
         lap(&format!("geonames places ({added} added)"));
     }
-    let segs = pass_segments(&dir.join("segment"), &assigner);
+    let street_spill = StreetSpill::new(&Path::new(out).join(reverse::STREETS_SPILL));
+    let segs = pass_segments(&dir.join("segment"), &assigner, &street_spill);
+    street_spill.finish();
     lap("segments");
     let spill = NumberSpill::new(Path::new(out).join(".numbers-spill"), NUMBER_SHARDS);
     let shared = Shared::new(&assigner, &places, &spill);
@@ -1564,6 +1606,19 @@ fn build(args: &[String]) {
         writer.add_document(d).unwrap();
     };
 
+    // A segment's spill id -> its street's sid, by position: shard base plus place in shard.
+    let seg_base: Vec<u32> = segs
+        .iter()
+        .scan(0, |n, m| {
+            let base = *n;
+            *n += m.lock().unwrap().len() as u32;
+            Some(base)
+        })
+        .collect();
+    let seg_count = seg_base.last().copied().unwrap_or(0)
+        + segs.last().map_or(0, |m| m.lock().unwrap().len() as u32);
+    let seg_sid: Vec<AtomicU32> = (0..seg_count).map(|_| AtomicU32::new(u32::MAX)).collect();
+    let seg_at = |id: u32| seg_base[(id & 0xff) as usize] as usize + (id >> 8) as usize;
     let (merged, max_sid) = (AtomicU64::new(0), AtomicU32::new(0));
     streets.par_iter().enumerate().for_each(|(sh, s)| {
         for (pos, ((cc, place, key), st)) in s.iter().enumerate() {
@@ -1577,6 +1632,9 @@ fn build(args: &[String]) {
                     segs[shard(&k)].lock().unwrap().remove(&k)
                 })
                 .flatten();
+            if let Some(g) = &seg {
+                seg_sid[seg_at(g.id)].store(sid, Relaxed);
+            }
             let primary = seg.as_ref().map_or(&*st.name, |g| &*g.name);
             let mut names = vec![primary];
             if let Some(g) = &seg {
@@ -1614,6 +1672,7 @@ fn build(args: &[String]) {
     only.par_iter()
         .enumerate()
         .for_each(|(i, ((place, _), g))| {
+            seg_sid[seg_at(g.id)].store(first + i as u32, Relaxed);
             let names: Vec<&str> = std::iter::once(&*g.name)
                 .chain(
                     g.alt
@@ -1687,8 +1746,13 @@ fn build(args: &[String]) {
         index.searchable_segment_ids().unwrap().len()
     ));
     progress::phase("Build reverse lookup");
-    let n = opengeocoding::index::reverse::build(Path::new(out), &index, f.kind).unwrap();
-    lap(&format!("reverse lookup ({n} records)"));
+    let (houses, streets) = reverse::build(Path::new(out), &index, f.kind, |id| {
+        Some(seg_sid[seg_at(id)].load(Relaxed)).filter(|&sid| sid != u32::MAX)
+    })
+    .unwrap();
+    lap(&format!(
+        "reverse lookup ({houses} house records, {streets} street records)"
+    ));
     println!("total: {:.1}s", t0.elapsed().as_secs_f64());
     if !progress::in_job() {
         progress::summary();

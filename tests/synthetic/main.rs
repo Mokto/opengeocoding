@@ -14,7 +14,7 @@ use std::{
     process::Command,
     sync::{Arc, OnceLock},
 };
-use world::{PLACES, STREETS, house};
+use world::{PLACES, STREETS, house, road_end};
 
 fn dir() -> &'static PathBuf {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
@@ -127,6 +127,67 @@ fn reverse_search_returns_the_nearest_houses_then_falls_back_to_the_locality() {
     assert_eq!(far.len(), 1);
     assert_eq!(far[0].0, "locality");
     assert_eq!(far[0].1["address"]["city"], "Paris");
+}
+
+/// A street's segment runs along its latitude from `lon` to `road_end`.
+fn to_road(s: &world::Street, lon: f64, lat: f64) -> f64 {
+    metres((lon, lat), (lon.clamp(s.lon, road_end(s)), s.lat))
+}
+
+fn coordinates(v: &serde_json::Value) -> (f64, f64) {
+    let at = |k: &str| v[k].as_str().unwrap().parse::<f64>().unwrap();
+    (at("lon"), at("lat"))
+}
+
+#[test]
+fn reverse_search_names_the_nearest_street_when_no_house_is_in_range() {
+    // 30 m north of the middle of a street that has no houses
+    let s = street("Feldweg");
+    let (lon, lat) = ((s.lon + road_end(s)) / 2.0, s.lat + 0.00027);
+    let found = index().reverse_search(lat, lon, 500.0, 3);
+    assert_eq!(found.len(), 1, "{found:?}");
+    let (layer, v, m) = &found[0];
+    assert_eq!(*layer, "street");
+    assert_eq!(v["address"]["road"], "Feldweg");
+    assert_eq!(v["address"]["city"], "Cologne");
+    assert!(v["address"].get("house_number").is_none());
+    assert!(v["address"].get("postcode").is_none());
+    // edges are stored to a metre or two
+    assert!((m - to_road(s, lon, lat)).abs() < 3.0, "{m}");
+    // at the street's point nearest the point
+    assert!(metres(coordinates(v), (lon, s.lat)) < 3.0, "{v}");
+    // a radius short of the street leaves the locality
+    let short = index().reverse_search(lat, lon, 20.0, 1);
+    assert_eq!(short[0].0, "locality");
+
+    // 2.6 km from the houses of a long street, 33 m south of its line: the street, with the
+    // postcode of its houses
+    let s = street("Long Road");
+    let (lon, lat) = (road_end(s) - 0.002, s.lat - 0.0003);
+    let found = index().reverse_search(lat, lon, 500.0, 1);
+    let (layer, v, m) = &found[0];
+    assert_eq!(
+        (*layer, &v["address"]["road"]),
+        ("street", &"Long Road".into())
+    );
+    assert_eq!(v["address"]["postcode"], "75462");
+    assert!((m - to_road(s, lon, lat)).abs() < 3.0, "{m}");
+    // by its houses, the houses answer, as they did before streets did
+    let (hx, hy) = house(s, "3");
+    let found = index().reverse_search(hy + 0.0003, hx, 500.0, 1);
+    assert_eq!(
+        (found[0].0, found[0].1["address"]["house_number"].as_str()),
+        ("address", Some("3"))
+    );
+    // 1.1 km from the street: the locality
+    let found = index().reverse_search(s.lat + 0.01, lon, 500.0, 1);
+    assert_eq!(found[0].0, "locality");
+    assert_eq!(found[0].1["address"]["city"], "Paris");
+
+    // beside a path, with no street in range: the locality, not the path
+    let p = street("Uferpfad");
+    let found = index().reverse_search(p.lat + 0.0002, p.lon + 0.005, 500.0, 1);
+    assert_eq!(found[0].0, "locality");
 }
 
 #[test]

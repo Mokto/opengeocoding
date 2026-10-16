@@ -498,8 +498,11 @@ const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
 ];
 
 /// A street and its houses: (street, postcode, city, cc, lon, lat of house 1, numbers); the houses
-/// stand 11 m apart, going east.
+/// stand 11 m apart, going east. Its segment runs east from house 1 along the latitude, to the
+/// last house or `length` degrees, whichever is longer.
 pub struct Street {
+    pub class: &'static str,
+    pub length: f64,
     pub name: &'static str,
     pub postcode: &'static str,
     pub city: &'static str,
@@ -511,6 +514,8 @@ pub struct Street {
 
 pub const STREETS: &[Street] = &[
     Street {
+        class: "residential",
+        length: 0.0,
         name: "Rue de Rivoli",
         postcode: "75001",
         city: "Paris",
@@ -520,6 +525,8 @@ pub const STREETS: &[Street] = &[
         numbers: &["1", "2", "3", "4", "5", "6"],
     },
     Street {
+        class: "residential",
+        length: 0.0,
         name: "Main Street",
         postcode: "75460",
         city: "Paris",
@@ -529,6 +536,8 @@ pub const STREETS: &[Street] = &[
         numbers: &["100", "102", "104"],
     },
     Street {
+        class: "residential",
+        length: 0.0,
         name: "Hohe Straße",
         postcode: "50667",
         city: "Köln",
@@ -538,6 +547,8 @@ pub const STREETS: &[Street] = &[
         numbers: &["1", "2", "3"],
     },
     Street {
+        class: "residential",
+        length: 0.0,
         name: "Grenzgasse",
         postcode: "9999",
         city: "Suedhain",
@@ -546,12 +557,64 @@ pub const STREETS: &[Street] = &[
         lat: 0.0,
         numbers: &["1", "2"],
     },
+    // a street with no houses
+    Street {
+        class: "residential",
+        length: 0.02,
+        name: "Feldweg",
+        postcode: "",
+        city: "Köln",
+        cc: "DE",
+        lon: 6.85,
+        lat: 50.9,
+        numbers: &[],
+    },
+    // a path, which is no street to answer a point with
+    Street {
+        class: "footway",
+        length: 0.01,
+        name: "Uferpfad",
+        postcode: "",
+        city: "Köln",
+        cc: "DE",
+        lon: 6.9,
+        lat: 50.97,
+        numbers: &[],
+    },
+    // houses at the west end of a 2.8 km street
+    Street {
+        class: "residential",
+        length: 0.03,
+        name: "Long Road",
+        postcode: "75462",
+        city: "Paris",
+        cc: "US",
+        lon: -95.6,
+        lat: 33.7,
+        numbers: &["1", "3"],
+    },
 ];
+
+/// Where a street's segment ends, east of house 1.
+pub fn road_end(street: &Street) -> f64 {
+    let houses = 0.00015 * street.numbers.len().saturating_sub(1) as f64;
+    street.lon + houses.max(street.length)
+}
 
 /// Where house `number` of the street stands.
 pub fn house(street: &Street, number: &str) -> (f64, f64) {
     let at = street.numbers.iter().position(|n| *n == number).unwrap();
     (street.lon + 0.00015 * at as f64, street.lat)
+}
+
+fn line(points: &[(f64, f64)]) -> Vec<u8> {
+    let mut b = vec![1, 2, 0, 0, 0];
+    b.extend((points.len() as u32).to_le_bytes());
+    for (x, y) in points {
+        b.extend(x.to_le_bytes());
+        b.extend(y.to_le_bytes());
+    }
+    b
 }
 
 fn point(lon: f64, lat: f64) -> Vec<u8> {
@@ -766,15 +829,13 @@ pub fn write_release(dir: &Path) {
         ],
     );
 
-    let road = |s: &Street| {
-        let (x1, _) = house(s, s.numbers[s.numbers.len() - 1]);
-        [s.lon, x1, s.lat, s.lat]
-    };
+    let road = |s: &Street| [s.lon, road_end(s), s.lat, s.lat];
     write(
         dir,
         "segment",
         vec![
             ("subtype", strings(STREETS.iter().map(|_| "road"))),
+            ("class", strings(STREETS.iter().map(|s| s.class))),
             (
                 "names",
                 names(
@@ -785,6 +846,18 @@ pub fn write_release(dir: &Path) {
                 ),
             ),
             ("bbox", bbox(&STREETS.iter().map(road).collect::<Vec<_>>())),
+            (
+                "geometry",
+                binary(
+                    STREETS
+                        .iter()
+                        .map(|s| {
+                            let end = road_end(s);
+                            line(&[(s.lon, s.lat), ((s.lon + end) / 2.0, s.lat), (end, s.lat)])
+                        })
+                        .collect(),
+                ),
+            ),
         ],
     );
 
