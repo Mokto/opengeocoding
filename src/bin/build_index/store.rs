@@ -3,6 +3,10 @@
 //!
 //! A directory is published as its files, then `MANIFEST` (paths, sizes, SHA-256), then
 //! `_COMPLETE`; readers trust nothing without `_COMPLETE` and check every file against `MANIFEST`.
+//!
+//! A local directory store hard-links the files of a published or fetched directory instead of
+//! copying them, when they share a file system: nothing writes such a file in place (the builder
+//! recreates its output directory, readers only read), so the copies can share their blocks.
 use crate::progress::Progress;
 use anyhow::{Context, Result, bail, ensure};
 use object_store::{
@@ -28,6 +32,7 @@ pub struct Store {
     inner: Arc<dyn ObjectStore>,
     root: String,
     permits: Arc<Semaphore>,
+    local: Option<Arc<LocalFileSystem>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -47,10 +52,11 @@ impl Store {
         let (inner, root): (Arc<dyn ObjectStore>, String) =
             if let Some(dir) = url.strip_prefix("file://") {
                 std::fs::create_dir_all(dir).with_context(|| format!("create {dir}"))?;
-                (
-                    Arc::new(LocalFileSystem::new_with_prefix(dir)?),
-                    String::new(),
-                )
+                let local = Arc::new(LocalFileSystem::new_with_prefix(dir)?);
+                return Ok(Self {
+                    local: Some(local.clone()),
+                    ..Self::new(local, String::new())
+                });
             } else if let Some(rest) = url.strip_prefix("s3://") {
                 let (bucket, prefix) = rest.split_once('/').unwrap_or((rest, ""));
                 ensure!(!bucket.is_empty(), "store URL {url} names no bucket");
@@ -86,7 +92,13 @@ impl Store {
             inner,
             root,
             permits,
+            local: None,
         }
+    }
+
+    /// The file holding `rel`, when the store is a local directory.
+    fn file(&self, rel: &str) -> Option<PathBuf> {
+        self.local.as_ref()?.path_to_filesystem(&self.key(rel)).ok()
     }
 
     pub fn key(&self, rel: &str) -> Key {
@@ -267,7 +279,15 @@ impl Store {
         for name in files {
             let (store, local, key) = (self.clone(), dir.join(&name), format!("{rel}/{name}"));
             let progress = progress.clone();
-            tasks.spawn(async move { store.upload(&local, &key, Some(&progress)).await });
+            tasks.spawn(async move {
+                if let Some(file) = store.file(&key)
+                    && link(&local, &file).is_ok()
+                {
+                    progress.add(std::fs::metadata(&local)?.len());
+                    return Ok(());
+                }
+                store.upload(&local, &key, Some(&progress)).await
+            });
         }
         while let Some(r) = tasks.join_next().await {
             r??;
@@ -314,17 +334,22 @@ impl Store {
             let (store, rel, progress) = (self.clone(), rel.to_string(), progress.clone());
             let local = dir.join(&e.path);
             tasks.spawn(async move {
+                let key = format!("{rel}/{}", e.path);
                 if matches(&local, &e, trusted).await? {
                     progress.skip(e.size);
                 } else {
-                    let sha = store
-                        .download(
-                            &format!("{rel}/{}", e.path),
-                            e.size,
-                            &local,
-                            Some(&progress),
-                        )
-                        .await?;
+                    let sha = match store.file(&key).filter(|f| link(f, &local).is_ok()) {
+                        Some(_) => {
+                            progress.add(e.size);
+                            let local = local.clone();
+                            tokio::task::spawn_blocking(move || sha256(&local)).await??
+                        }
+                        None => {
+                            store
+                                .download(&key, e.size, &local, Some(&progress))
+                                .await?
+                        }
+                    };
                     if sha != e.sha256 {
                         let _ = std::fs::remove_file(&local);
                         bail!("{rel}/{} does not match its MANIFEST entry", e.path);
@@ -348,6 +373,17 @@ impl Store {
 fn marker(dir: &Path) -> Option<PathBuf> {
     let name = dir.file_name()?.to_string_lossy();
     Some(dir.with_file_name(format!(".{name}.verified")))
+}
+
+/// Hard-links `from` at `to` through a `.part` name, so `to` appears whole or not at all.
+fn link(from: &Path, to: &Path) -> std::io::Result<()> {
+    if let Some(dir) = to.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let part = part(to);
+    let _ = std::fs::remove_file(&part);
+    std::fs::hard_link(from, &part)?;
+    std::fs::rename(&part, to)
 }
 
 pub fn part(path: &Path) -> PathBuf {
@@ -460,6 +496,17 @@ mod tests {
         store.publish(&src, "indexes/x").await.unwrap();
         store.fetch("indexes/x", &dst).await.unwrap();
         assert_eq!(std::fs::read(dst.join("big.bin")).unwrap(), big);
+        // a local store links the files, it does not copy them
+        use std::os::unix::fs::MetadataExt;
+        let inode = |p: PathBuf| std::fs::metadata(p).unwrap().ino();
+        let stored = bucket.join("indexes/x/big.bin");
+        assert_eq!(inode(src.join("big.bin")), inode(stored.clone()));
+        assert_eq!(inode(dst.join("big.bin")), inode(stored));
+        // so damage is simulated by replacing a file, as a writer of a new file would
+        let damage = |p: &Path, data: &[u8]| {
+            std::fs::remove_file(p).unwrap();
+            std::fs::write(p, data).unwrap();
+        };
         assert_eq!(
             std::fs::read(dst.join("nested/small.txt")).unwrap(),
             b"hello"
@@ -468,18 +515,18 @@ mod tests {
         assert!(!dst.join(".numbers-spill").exists());
         // a verified directory is trusted by size: same-size damage survives until the marker goes
         let kept = dst.join("nested/small.txt");
-        std::fs::write(&kept, b"HELLO").unwrap();
+        damage(&kept, b"HELLO");
         store.fetch("indexes/x", &dst).await.unwrap();
         assert_eq!(std::fs::read(&kept).unwrap(), b"HELLO");
         std::fs::remove_file(base.join(".dst.verified")).unwrap();
         store.fetch("indexes/x", &dst).await.unwrap();
         assert_eq!(std::fs::read(&kept).unwrap(), b"hello");
         // a size change is repaired even with the marker
-        std::fs::write(&kept, b"hi").unwrap();
+        damage(&kept, b"hi");
         store.fetch("indexes/x", &dst).await.unwrap();
         assert_eq!(std::fs::read(&kept).unwrap(), b"hello");
         // a corrupted object fails the check instead of being served
-        std::fs::write(bucket.join("indexes/x/nested/small.txt"), b"HELLO").unwrap();
+        damage(&bucket.join("indexes/x/nested/small.txt"), b"HELLO");
         std::fs::remove_file(dst.join("nested/small.txt")).unwrap();
         assert!(store.fetch("indexes/x", &dst).await.is_err());
         std::fs::remove_dir_all(&base).unwrap();
