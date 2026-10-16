@@ -28,33 +28,18 @@ pub struct Sources {
     /// Geofabrik extract ids, such as `europe/germany` or `liechtenstein`.
     #[serde(default)]
     pub osm: Vec<String>,
-    #[serde(default)]
-    pub openaddresses: OpenAddresses,
+    /// Retired switches (`openaddresses.enabled` and `anyLicence`, `geonamesPlaces`): every source
+    /// is always read, and OpenAddresses layers always pass the licence check. Accepted and
+    /// ignored so a source list that still has them parses.
+    #[serde(default, skip_serializing)]
+    #[allow(dead_code)]
+    pub openaddresses: serde::de::IgnoredAny,
     /// GeoNames postal-code exports, such as `allCountries` or `GB_full.csv`; earlier ones win.
     #[serde(default)]
     pub geonames_postal: Vec<String>,
-    /// GeoNames populated places (`cities500` and `admin1CodesASCII`), added where Overture has
-    /// no place of that name nearby. On unless `false`, so a source list that predates the key
-    /// (a gold run's, say) builds with them as the chart does.
-    #[serde(default = "yes", skip_serializing_if = "is_yes")]
-    pub geonames_places: bool,
-}
-
-fn yes() -> bool {
-    true
-}
-
-fn is_yes(v: &bool) -> bool {
-    *v
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct OpenAddresses {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default)]
-    pub any_licence: bool,
+    #[serde(default, skip_serializing)]
+    #[allow(dead_code)]
+    pub geonames_places: serde::de::IgnoredAny,
 }
 
 /// Local paths of the fetched sources, for `build_index`.
@@ -315,15 +300,10 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
             .await?;
         }
 
-        let openaddresses = if src.openaddresses.enabled {
-            let dir = scratch.join("openaddresses");
-            openaddresses(store, src, &local.join("address"), &dir).await?;
-            Some(dir)
-        } else {
-            None
-        };
+        let dir = scratch.join("openaddresses");
+        openaddresses(store, src, &local.join("address"), &dir).await?;
 
-        anyhow::Ok(openaddresses)
+        anyhow::Ok(Some(dir))
     };
     let osm_files = async {
         let osm = if src.osm.is_empty() {
@@ -433,9 +413,6 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         anyhow::Ok(geonames)
     };
     let geonames_places = async {
-        if !src.geonames_places {
-            return anyhow::Ok(None);
-        }
         let dir = scratch.join("geonames-places");
         let bbox = src.bbox();
         let c = self::client()?;
@@ -874,23 +851,17 @@ mod tests {
         // every key the chart's index.sources renders
         let ok = src(
             r#"{"bbox":[9.4,47.0,9.7,47.3],"geonamesPostal":["GB_full.csv","allCountries"],
-            "openaddresses":{"anyLicence":false,"enabled":true},"osm":["europe/liechtenstein"],
+            "osm":["europe/liechtenstein"],
             "overtureRelease":"2026-09-23.1","snapshot":"2026-10"}"#,
         );
         ok.validate().unwrap();
-        assert!(ok.geonames_places);
-        let off = src(r#"{"overtureRelease":"r","snapshot":"a","geonamesPlaces":false}"#);
-        assert!(!off.geonames_places);
-        assert!(
-            serde_json::to_string(&off)
-                .unwrap()
-                .contains("geonamesPlaces")
+        // retired switches still parse and leave no trace in the serialized sources
+        let old = src(
+            r#"{"overtureRelease":"r","snapshot":"a","geonamesPlaces":false,
+            "openaddresses":{"anyLicence":true,"enabled":false}}"#,
         );
-        assert!(
-            !serde_json::to_string(&ok)
-                .unwrap()
-                .contains("geonamesPlaces")
-        );
+        let json = serde_json::to_string(&old).unwrap();
+        assert!(!json.contains("geonamesPlaces") && !json.contains("openaddresses"));
         assert_eq!(ok.scope(), "bbox_9.4_47_9.7_47.3");
         assert!(
             src(r#"{"overtureRelease":"../x","snapshot":"a"}"#)

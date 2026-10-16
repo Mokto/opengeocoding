@@ -85,9 +85,6 @@ pub fn job(args: Vec<String>) -> Result<()> {
     ];
     if let Some(d) = &got.openaddresses {
         build.extend(["--openaddresses".into(), d.to_string_lossy().into_owned()]);
-        if sources.openaddresses.any_licence {
-            build.push("--openaddresses-any-licence".into());
-        }
     }
     if let Some(d) = &got.osm {
         build.extend(["--osm".into(), d.to_string_lossy().into_owned()]);
@@ -207,9 +204,7 @@ fn attribution(sources: &Sources, out: &Path) -> Result<String> {
     if !sources.geonames_postal.is_empty() {
         text += "GeoNames postal codes: CC BY 4.0, https://www.geonames.org/\n";
     }
-    if sources.geonames_places {
-        text += "GeoNames populated places: CC BY 4.0, https://www.geonames.org/\n";
-    }
+    text += "GeoNames populated places: CC BY 4.0, https://www.geonames.org/\n";
     if let Ok(read) = std::fs::read_to_string(out.join("openaddresses.tsv")) {
         text += "OpenAddresses (https://openaddresses.io), sources read and their licences:\n";
         for line in read.lines().skip(1) {
