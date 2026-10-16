@@ -7,6 +7,6 @@ sources:
   - https://github.com/Mokto/opengeocoding
 # Published charts set both from the release tag; appVersion is the image tag.
 # x-release-please-start-version
-version: 0.6.0
+version: 0.7.0
 # x-release-please-end
 appVersion: latest

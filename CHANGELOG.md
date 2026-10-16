@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.7.0](https://github.com/Mokto/opengeocoding/compare/v0.6.0...v0.7.0) (2026-10-16)
+
+
+### Features
+
+* add GeoNames populated places where Overture has none nearby ([#105](https://github.com/Mokto/opengeocoding/issues/105)) ([0a865e6](https://github.com/Mokto/opengeocoding/commit/0a865e666ba311904d0576237dfba8916b7b2542))
+* **chart:** build the index and roll out serving from an in-cluster leader ([#99](https://github.com/Mokto/opengeocoding/issues/99)) ([edb90b9](https://github.com/Mokto/opengeocoding/commit/edb90b99bdbbe2603dc698d0e5e19d81d638c899))
+* number the build log's phases and report transfer progress ([#100](https://github.com/Mokto/opengeocoding/issues/100)) ([aab0cd2](https://github.com/Mokto/opengeocoding/commit/aab0cd21dbf538712c2cc349cd8af78b1d22b745))
+
+
+### Bug Fixes
+
+* build the leader with the progress module that store.rs now needs ([#107](https://github.com/Mokto/opengeocoding/issues/107)) ([89ab9b9](https://github.com/Mokto/opengeocoding/commit/89ab9b977a323ff5d0976f2512c1162b6117ddaa))
+* **chart:** keep the build Job's libpostal models on the scratch volume ([#97](https://github.com/Mokto/opengeocoding/issues/97)) ([a528181](https://github.com/Mokto/opengeocoding/commit/a528181c044ee64f6d69540ec64256ce63091c1d))
+* hide unchanged evaluation check tables ([#113](https://github.com/Mokto/opengeocoding/issues/113)) ([49e66f3](https://github.com/Mokto/opengeocoding/commit/49e66f376cb780ab145ad9515049155f9555832c))
+* ResolveRegion near borders and add county subdivision codes (ISO3166-2-lvl6) ([#104](https://github.com/Mokto/opengeocoding/issues/104)) ([b4509c9](https://github.com/Mokto/opengeocoding/commit/b4509c974e4c9a70865e3d52b775608aa237e1bc))
+
+
+### Performance Improvements
+
+* run the evaluator's local service without a rate limit or budget ([#93](https://github.com/Mokto/opengeocoding/issues/93)) ([eabf68f](https://github.com/Mokto/opengeocoding/commit/eabf68f624b6803f3923be15b1287e92ade2c23e))
+* speed up the OSM build and house-number phase with decode-once and 64 shards ([#106](https://github.com/Mokto/opengeocoding/issues/106)) ([9e52127](https://github.com/Mokto/opengeocoding/commit/9e52127833b8b98b338502dc1a2fa4ac9e134090))
+
 ## [0.6.0](https://github.com/Mokto/opengeocoding/compare/v0.5.2...v0.6.0) (2026-10-16)
 
 
