@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.1](https://github.com/Mokto/opengeocoding/compare/v0.7.0...v0.7.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **chart:** load the build Job's libpostal models from libpostal's data dir ([#119](https://github.com/Mokto/opengeocoding/issues/119)) ([93a5034](https://github.com/Mokto/opengeocoding/commit/93a5034243bcc266d5e5a909eb0ca8bdc05d3b10))
+* show the leader's build Job and serving Deployment as top-level Argo CD resources ([#116](https://github.com/Mokto/opengeocoding/issues/116)) ([d7fb236](https://github.com/Mokto/opengeocoding/commit/d7fb236197b9b3835061cd541b6145ff602b3ad8))
+* stop the evaluated service where no kill binary is installed ([#118](https://github.com/Mokto/opengeocoding/issues/118)) ([c201cfa](https://github.com/Mokto/opengeocoding/commit/c201cfaffe4153c859a3e21da61df7a59ff327a7))
+
 ## [0.7.0](https://github.com/Mokto/opengeocoding/compare/v0.6.0...v0.7.0) (2026-10-16)
 
 
