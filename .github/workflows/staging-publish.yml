@@ -199,7 +199,7 @@ jobs:
             echo "| Step | Time |"; echo "|---|---|"
             while IFS=$'\t' read -r name start end; do
               if [ -n "$end" ]; then echo "| $name | $(dur $((end - start))) |"
-              else echo "| $name | running, $(dur $((now - start))) so far |"; fi
+              else echo "| $name | running, $(dur $((now - start))) so far at $(date -u +%H:%M) UTC |"; fi
             done < "$PHASES"
           }
           timing_line() {
