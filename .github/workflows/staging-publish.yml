@@ -181,9 +181,7 @@ jobs:
       - name: Start the run
         run: |
           set -euo pipefail
-          # Helpers for the steps below: timestamped log lines, a timings table of the steps seen so
-          # far, and the pull request comments that show where the run is until the report replaces
-          # them. Comment updates are best effort; a failed one never fails the run.
+          # Comment updates are best effort; a failed one never fails the run.
           cat > "$RUNNER_TEMP/lib.sh" <<'LIB'
           PHASES="$RUNNER_TEMP/phases.tsv"   # step, start, end (empty while it runs), tab-separated
           log() { echo "$(date -u +%H:%M:%S) $*"; }
@@ -195,12 +193,25 @@ jobs:
           }
           phase_start() { phase_end; printf '%s\t%s\t\n' "$1" "$(date +%s)" >> "$PHASES"; }
           timings() {
-            local now name start end; now=$(date +%s)
+            local now name start end state seconds elapsed; now=$(date +%s)
+            if [ -s run.json ] && jq -e '.steps | length > 0' run.json > /dev/null; then
+              jq -r '"Progress: \(.progress_percent)% (\([.steps[] | select(.status == "completed")] | length)/\(.steps | length) steps completed; not a time estimate)."' run.json
+              echo; echo "| Step | Status | Time |"; echo "|---|---|---|"
+              while IFS=$'\t' read -r name state seconds; do
+                elapsed="—"
+                [ -z "$seconds" ] || elapsed=$(dur "$seconds")
+                echo "| $name | $state | $elapsed |"
+              done < <(jq -r '.steps[] | [.name, .status, (.seconds // "")] | @tsv' run.json)
+              return
+            fi
             echo "| Step | Time |"; echo "|---|---|"
             while IFS=$'\t' read -r name start end; do
               if [ -n "$end" ]; then echo "| $name | $(dur $((end - start))) |"
-              else echo "| $name | running, $(dur $((now - start))) so far at $(date -u +%H:%M) UTC |"; fi
+              else echo "| $name | running, $(dur $((now - start))) so far |"; fi
             done < "$PHASES"
+            for name in build-base build-head eval-base eval-head report; do
+              grep -q "^$name"$'\t' "$PHASES" || echo "| $name | pending |"
+            done
           }
           timing_line() {
             local name start end out=""
@@ -234,7 +245,7 @@ jobs:
           progress() {
             {
               echo "<!-- gold-status -->"; echo "## Gold check and speed, full index: $1"; echo
-              echo "Base \`${BASE_SHA:0:7}\` → \`${HEAD_SHA:0:7}\`, run \`${RUN_ID:-not started}\`, updated $(date -u +%H:%M) UTC. $2"
+              echo "Base \`${BASE_SHA:0:7}\` → \`${HEAD_SHA:0:7}\`, run \`${RUN_ID:-not started}\`, updated $(date -u +%H:%M:%S) UTC. $2"
               echo; timings
             } > "$RUNNER_TEMP/progress.md"
             upsert gold-status "$RUNNER_TEMP/progress.md"
@@ -242,6 +253,7 @@ jobs:
           LIB
           . "$RUNNER_TEMP/lib.sh"
           : > "$PHASES"
+          progress queued "Waiting to start the cluster run."
           # an older commit's report must not stand in for this one's while it runs
           drop gold-full; drop gold-speed
           # The cluster runs two evaluations at a time; wait for a free slot. It evaluates both
@@ -257,8 +269,8 @@ jobs:
                    fi
                    if [ -z "$waiting" ]; then
                      waiting=1; phase_start "waiting for a free slot"
-                     progress queued "Both slots of the cluster are busy; the run starts when one is free."
                    fi
+                   progress queued "Both slots of the cluster are busy; the run starts when one is free."
                    log "Both slots are busy; waited $(dur "$SECONDS") so far, retrying in 60 s"; sleep 60 ;;
               *) log "Starting the run failed: HTTP $code"; jq -r '.error // empty' start.json
                  echo "FAILED_STEP=starting the run (HTTP $code)" >> "$GITHUB_ENV"; exit 1 ;;
@@ -282,15 +294,17 @@ jobs:
                   log "$status: $phase$([ -n "$last" ] && echo " (the step before took $(dur $((now - since))))")"
                   [ "$status" = succeeded ] || phase_start "$phase"
                   since=$now
-                  case "$status" in running|queued) progress running "The report is posted when the run ends, and this comment is deleted." ;; esac
                 else
                   log "$status: $phase"
                 fi
                 beat=$now; last="$status:$phase"
-              elif [ $((now - beat)) -ge 300 ]; then
+              elif [ $((now - beat)) -ge 30 ]; then
                 log "still $phase: $(dur $((now - since))) in this step, $(dur $((now - began))) in the run"; beat=$now
               fi
-              case "$status" in succeeded|failed) break ;; esac
+              case "$status" in
+                succeeded|failed) break ;;
+                running|queued) progress "$status" "Refreshed every 30 seconds. The report is posted when the run ends, and this comment is deleted." ;;
+              esac
             else
               errors=$((errors + 1)); log "The endpoint did not answer ($errors of 20)"
               [ "$errors" -lt 20 ] || {
