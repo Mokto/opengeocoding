@@ -80,7 +80,7 @@ impl Geolocation for Service {
         self.run(&ctx, "SearchAddress", async {
             if request.address_string.contains('\0') {
                 return Err(ConnectError::invalid_argument(
-                    "The address contains an invalid character.",
+                    "The address contains a null character.",
                 )
                 .into());
             }
