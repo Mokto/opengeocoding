@@ -42,7 +42,7 @@ COPY data data
 COPY --from=stubs /stubs ./
 
 FROM manifest AS deps
-RUN cargo build --locked --release --bin opengeocoding --bin build_index
+RUN cargo build --locked --release --bin opengeocoding --bin build_index --bin leader
 
 FROM deps AS compiled
 COPY Cargo.toml Cargo.lock ./
@@ -52,7 +52,7 @@ COPY benches benches
 COPY manifests manifests
 # the stubs are newer than these files' timestamps, and cargo would trust them
 RUN find src benches -name '*.rs' -exec touch {} + \
-    && cargo build --locked --release --bin opengeocoding --bin build_index
+    && cargo build --locked --release --bin opengeocoding --bin build_index --bin leader
 
 FROM compiled AS evaluate-compiled
 RUN cargo build --locked --release --bin evaluate
@@ -81,7 +81,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=build /usr/local/lib/libpostal.so* /usr/local/lib/
 COPY --from=build /usr/local/lib/LICENSE.libpostal /usr/local/share/licenses/libpostal/LICENSE
 COPY --from=build /usr/local/bin/libpostal_data /usr/local/bin/libpostal_data
-COPY --from=compiled /source/target/release/opengeocoding /source/target/release/build_index /usr/local/bin/
+COPY --from=compiled /source/target/release/opengeocoding /source/target/release/build_index /source/target/release/leader /usr/local/bin/
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.txt /usr/local/share/licenses/opengeocoding/
 COPY LICENSES /usr/local/share/licenses/opengeocoding/dependencies/
 RUN ldconfig
