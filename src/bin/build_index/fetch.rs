@@ -28,20 +28,18 @@ pub struct Sources {
     /// Geofabrik extract ids, such as `europe/germany` or `liechtenstein`.
     #[serde(default)]
     pub osm: Vec<String>,
-    #[serde(default)]
-    pub openaddresses: OpenAddresses,
+    /// Retired switches (`openaddresses.enabled` and `anyLicence`, `geonamesPlaces`): every source
+    /// is always read, and OpenAddresses layers always pass the licence check. Accepted and
+    /// ignored so a source list that still has them parses.
+    #[serde(default, skip_serializing)]
+    #[allow(dead_code)]
+    pub openaddresses: serde::de::IgnoredAny,
     /// GeoNames postal-code exports, such as `allCountries` or `GB_full.csv`; earlier ones win.
     #[serde(default)]
     pub geonames_postal: Vec<String>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct OpenAddresses {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default)]
-    pub any_licence: bool,
+    #[serde(default, skip_serializing)]
+    #[allow(dead_code)]
+    pub geonames_places: serde::de::IgnoredAny,
 }
 
 /// Local paths of the fetched sources, for `build_index`.
@@ -50,6 +48,8 @@ pub struct Fetched {
     pub osm: Option<PathBuf>,
     pub openaddresses: Option<PathBuf>,
     pub geonames: Vec<PathBuf>,
+    /// The directory holding `cities500.txt` and `admin1CodesASCII.txt`.
+    pub geonames_places: Option<PathBuf>,
 }
 
 fn safe(what: &str, value: &str, extra: &str) -> Result<()> {
@@ -300,15 +300,10 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
             .await?;
         }
 
-        let openaddresses = if src.openaddresses.enabled {
-            let dir = scratch.join("openaddresses");
-            openaddresses(store, src, &local.join("address"), &dir).await?;
-            Some(dir)
-        } else {
-            None
-        };
+        let dir = scratch.join("openaddresses");
+        openaddresses(store, src, &local.join("address"), &dir).await?;
 
-        anyhow::Ok(openaddresses)
+        anyhow::Ok(Some(dir))
     };
     let osm_files = async {
         let osm = if src.osm.is_empty() {
@@ -417,14 +412,69 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
 
         anyhow::Ok(geonames)
     };
-    let (openaddresses, osm, geonames) =
-        tokio::try_join!(overture_then_openaddresses, osm_files, geonames_files)?;
+    let geonames_places = async {
+        let dir = scratch.join("geonames-places");
+        let bbox = src.bbox();
+        let c = self::client()?;
+        mirror(
+            store,
+            &format!("sources/{}/geonames-places/{}", src.snapshot, src.scope()),
+            &dir,
+            1,
+            || async {
+                Ok(vec![
+                    ("cities500.txt".to_string(), true),
+                    ("admin1CodesASCII.txt".to_string(), false),
+                ])
+            },
+            move |zipped: bool, path: PathBuf| {
+                let c = c.clone();
+                Box::pin(async move {
+                    let base = "https://download.geonames.org/export/dump";
+                    if !zipped {
+                        let url = format!("{base}/admin1CodesASCII.txt");
+                        ensure!(http_get(&c, &url, &path).await?, "{url} not found");
+                        return Ok(true);
+                    }
+                    let url = format!("{base}/cities500.zip");
+                    let tmp = path.with_extension("zip");
+                    ensure!(http_get(&c, &url, &tmp).await?, "{url} not found");
+                    tokio::task::spawn_blocking(move || {
+                        let keep = |line: &str| {
+                            let f: Vec<&str> = line.split('\t').collect();
+                            let (Some(lat), Some(lon)) = (
+                                f.get(4).and_then(|v| v.parse::<f64>().ok()),
+                                f.get(5).and_then(|v| v.parse::<f64>().ok()),
+                            ) else {
+                                return false;
+                            };
+                            bbox.is_none_or(|b| intersects(b, lon, lat, lon, lat))
+                        };
+                        unzip_lines(&tmp, "cities500.txt", &path, keep)?;
+                        std::fs::remove_file(&tmp)?;
+                        anyhow::Ok(())
+                    })
+                    .await??;
+                    Ok(true)
+                })
+            },
+        )
+        .await?;
+        anyhow::Ok(Some(dir))
+    };
+    let (openaddresses, osm, geonames, geonames_places) = tokio::try_join!(
+        overture_then_openaddresses,
+        osm_files,
+        geonames_files,
+        geonames_places
+    )?;
 
     Ok(Fetched {
         overture: local,
         osm,
         openaddresses,
         geonames,
+        geonames_places,
     })
 }
 
@@ -801,10 +851,17 @@ mod tests {
         // every key the chart's index.sources renders
         let ok = src(
             r#"{"bbox":[9.4,47.0,9.7,47.3],"geonamesPostal":["GB_full.csv","allCountries"],
-            "openaddresses":{"anyLicence":false,"enabled":true},"osm":["europe/liechtenstein"],
+            "osm":["europe/liechtenstein"],
             "overtureRelease":"2026-09-23.1","snapshot":"2026-10"}"#,
         );
         ok.validate().unwrap();
+        // retired switches still parse and leave no trace in the serialized sources
+        let old = src(
+            r#"{"overtureRelease":"r","snapshot":"a","geonamesPlaces":false,
+            "openaddresses":{"anyLicence":true,"enabled":false}}"#,
+        );
+        let json = serde_json::to_string(&old).unwrap();
+        assert!(!json.contains("geonamesPlaces") && !json.contains("openaddresses"));
         assert_eq!(ok.scope(), "bbox_9.4_47_9.7_47.3");
         assert!(
             src(r#"{"overtureRelease":"../x","snapshot":"a"}"#)

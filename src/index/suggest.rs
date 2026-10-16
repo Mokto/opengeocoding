@@ -165,6 +165,9 @@ fn weight(p: &Place) -> u64 {
         "region" | "macroregion" => pop.clamp(300_000, 1_000_000),
         "county" | "macrocounty" => pop.clamp(10_000, 100_000),
         "localadmin" => pop.max(10_000),
+        // a place the builder added from GeoNames weighs like a locality Overture gives no size,
+        // however populous: it fills a gap and must not crowd out Overture's places
+        "locality" if &*p.class == "geonames" => 100,
         "locality" => pop.max(match &*p.class {
             "megacity" => 10_000_000,
             "city" => 50_000,
@@ -1115,6 +1118,29 @@ mod tests {
         assert_eq!(umlaut_form("koeln").as_deref(), Some("koln"));
         assert_eq!(umlaut_form("muenchen").as_deref(), Some("munchen"));
         assert_eq!(umlaut_form("paris"), None);
+    }
+
+    #[test]
+    fn a_place_added_from_geonames_weighs_a_localitys_unknown_size() {
+        let place = |class: &str, population| Place {
+            subtype: "locality".into(),
+            class: class.into(),
+            cc: "vn".into(),
+            region: "".into(),
+            population,
+            x: 0.0,
+            y: 0.0,
+            bbox: [f32::NAN; 4],
+            parent: NONE,
+            primary: "Huyện Lâm Hà".into(),
+            names: "".into(),
+            en: Place::english(""),
+            keys: Box::default(),
+            city_like: false,
+        };
+        assert_eq!(weight(&place("geonames", 90_000)), 100);
+        assert_eq!(weight(&place("", 90_000)), 90_000);
+        assert_eq!(weight(&place("", 0)), 100);
     }
 
     const SEP: char = '\u{1f}';

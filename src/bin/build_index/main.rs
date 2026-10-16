@@ -4,6 +4,7 @@
 mod digest;
 mod fetch;
 mod geo;
+mod geonames;
 mod job;
 mod mem;
 mod progress;
@@ -41,7 +42,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--geonames-postal FILE]... [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
        build_index digest DIR [--dump FILE]
@@ -285,6 +286,8 @@ struct Place {
     id: Str,
     subtype: &'static str,
     country: [u8; 2],
+    /// ISO 3166-2 code of the region, or empty.
+    region: Str,
     /// All names, primary first, joined by NAME_SEP.
     names: Str,
     population: u64,
@@ -473,6 +476,7 @@ fn load_places(dir: &Path, out: &str) -> (Vec<Place>, HashMap<Str, u32>) {
                             .find(|s| **s == sub.value(i))
                             .unwrap_or(&"other"),
                         country: country(text(cc, i)),
+                        region: text(region, i).unwrap_or("").into(),
                         names: names.join(&NAME_SEP.to_string()).into(),
                         population: if pop.is_null(i) {
                             0
@@ -1275,7 +1279,7 @@ fn build(args: &[String]) {
     };
 
     progress::phase("Parse places and boundaries");
-    let (places, idx) = load_places(&dir.join("division"), out);
+    let (mut places, idx) = load_places(&dir.join("division"), out);
     lap(&format!("places ({})", places.len()));
     let mut assigner = load_assigner(&dir.join("division_area"), &places, &idx);
     assigner.bbox = opt("--bbox").last().map(|b| {
@@ -1287,6 +1291,17 @@ fn build(args: &[String]) {
     });
     drop(idx);
     lap("polygons");
+    if let Some(cities) = opt("--geonames-places").last() {
+        let admin1 = opt("--geonames-admin1");
+        let added = geonames::add_places(
+            &mut places,
+            &assigner,
+            Path::new(cities),
+            admin1.last().map(Path::new),
+            Path::new(out),
+        );
+        lap(&format!("geonames places ({added} added)"));
+    }
     let segs = pass_segments(&dir.join("segment"), &assigner);
     lap("segments");
     let spill = NumberSpill::new(Path::new(out).join(".numbers-spill"), NUMBER_SHARDS);
