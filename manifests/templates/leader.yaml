@@ -24,7 +24,8 @@ rules:
   - apiGroups: [apps]
     resources: [deployments]
     verbs: [create]
-  # The leader reads its own Deployment for the owner reference; the serving one is applied.
+  # The leader reads its own Deployment for the owner reference or Argo CD tracking id; the
+  # serving one is applied.
   - apiGroups: [apps]
     resources: [deployments]
     resourceNames: [{{ $leader }}, {{ include "og.name" . }}]
