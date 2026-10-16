@@ -348,16 +348,13 @@ jobs:
           headline=$(sed -n 's/^## Speed: //p' speed.md)
           echo "SPEED=${speed:-none}" >> "$GITHUB_ENV"
           echo "SPEED_HEADLINE=${headline:-not measured by the evaluator of this head commit}" >> "$GITHUB_ENV"
-          # evaluate diff's headline line (what passes on each side, per RPC) goes into the title; the
-          # gateway's own "pass base=N head=M" line repeats part of it.
-          summary=$(sed -n 's/^<!-- headline: \(.*\) -->$/\1/p' gold.md | head -1)
+          # The gateway's own "pass base=N head=M" line repeats the summary table; an older evaluator's
+          # headline line is dropped too.
           sed -i -e '/^<!-- headline: /d' -e '/^pass base=[0-9]* head=[0-9]* of [0-9]*/d' gold.md
           {
             echo "<!-- gold-full -->"
-            echo "## Gold check, full index: $([ "$EXIT" = 1 ] && echo regressions || echo no regressions)${summary:+ — $summary}"
+            echo "## Gold check, full index: $([ "$EXIT" = 1 ] && echo regressions || echo no regressions)"
             cat gold.md
-            echo
-            echo "Run \`$RUN_ID\`: $(timing_line)"
           } > comment.md
           {
             echo "<!-- gold-speed -->"
@@ -369,7 +366,7 @@ jobs:
               echo "## Speed, full index: not measured"
             fi
           } > speed-comment.md
-          cat speed-comment.md comment.md > "$GITHUB_STEP_SUMMARY"
+          { cat speed-comment.md comment.md; echo; echo "Run \`$RUN_ID\`: $(timing_line)"; } > "$GITHUB_STEP_SUMMARY"
           upsert gold-speed speed-comment.md
           upsert gold-full comment.md
           drop gold-status
