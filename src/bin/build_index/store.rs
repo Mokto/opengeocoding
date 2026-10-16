@@ -3,6 +3,7 @@
 //!
 //! A directory is published as its files, then `MANIFEST` (paths, sizes, SHA-256), then
 //! `_COMPLETE`; readers trust nothing without `_COMPLETE` and check every file against `MANIFEST`.
+use crate::progress::Progress;
 use anyhow::{Context, Result, bail, ensure};
 use object_store::{
     ClientConfigKey, ObjectStore, ObjectStoreExt, PutPayload, WriteMultipart,
@@ -139,12 +140,14 @@ impl Store {
     }
 
     /// Uploads `local` to `rel`; it appears whole or not at all.
-    pub async fn upload(&self, local: &Path, rel: &str) -> Result<()> {
+    pub async fn upload(&self, local: &Path, rel: &str, progress: Option<&Progress>) -> Result<()> {
         use tokio::io::AsyncReadExt;
         let size = std::fs::metadata(local)?.len();
         if size <= CHUNK {
             let _permit = self.permits.acquire().await?;
-            return self.put(rel, tokio::fs::read(local).await?).await;
+            self.put(rel, tokio::fs::read(local).await?).await?;
+            progress.inspect(|p| p.add(size));
+            return Ok(());
         }
         let mut file = tokio::fs::File::open(local).await?;
         let upload = self.inner.put_multipart(&self.key(rel)).await?;
@@ -157,6 +160,7 @@ impl Store {
             }
             writer.wait_for_capacity(4).await?;
             writer.write(&buf[..n]);
+            progress.inspect(|p| p.add(n as u64));
         }
         writer.finish().await?;
         Ok(())
@@ -165,7 +169,13 @@ impl Store {
     /// Downloads `rel` (`size` bytes) to `local` with parallel range requests, through a
     /// `.part` file renamed into place, and returns the SHA-256 of what was written. The hash
     /// is computed as the leading chunks land, so no second pass over the file follows.
-    pub async fn download(&self, rel: &str, size: u64, local: &Path) -> Result<String> {
+    pub async fn download(
+        &self,
+        rel: &str,
+        size: u64,
+        local: &Path,
+        progress: Option<&Progress>,
+    ) -> Result<String> {
         if let Some(dir) = local.parent() {
             std::fs::create_dir_all(dir)?;
         }
@@ -211,18 +221,23 @@ impl Store {
                 let bytes = store
                     .get_range(&rel, start..(start + CHUNK).min(size))
                     .await?;
+                let len = bytes.len() as u64;
                 tokio::task::spawn_blocking(move || file.write_all_at(&bytes, start)).await??;
                 let _ = done.send(i);
-                anyhow::Ok(())
+                anyhow::Ok(len)
             });
         }
         drop(done);
         let mut landed_chunks = 0;
         while let Some(r) = tasks.join_next().await {
-            r??;
+            let len = r??;
             landed_chunks += 1;
-            // Single-chunk files finish at once; a line each would only be noise.
-            if chunks > 1 && landed_chunks * 10 / chunks > (landed_chunks - 1) * 10 / chunks {
+            if let Some(p) = progress {
+                p.add(len);
+            } else if chunks > 1
+                // Single-chunk files finish at once; a line each would only be noise.
+                && landed_chunks * 10 / chunks > (landed_chunks - 1) * 10 / chunks
+            {
                 let got = (landed_chunks * CHUNK).min(size);
                 println!(
                     "{rel}: {}% ({} of {} MiB)",
@@ -242,15 +257,22 @@ impl Store {
     /// and dot-directories (the house-number spill) are left out.
     pub async fn publish(&self, dir: &Path, rel: &str) -> Result<()> {
         let files = walk(dir)?;
+        println!("  {rel}: hashing {} files", files.len());
         let entries = hash_all(dir, &files).await?;
+        let progress = Progress::new(
+            format!("upload {rel}"),
+            entries.iter().map(|e| e.size).sum(),
+        );
         let mut tasks = JoinSet::new();
         for name in files {
             let (store, local, key) = (self.clone(), dir.join(&name), format!("{rel}/{name}"));
-            tasks.spawn(async move { store.upload(&local, &key).await });
+            let progress = progress.clone();
+            tasks.spawn(async move { store.upload(&local, &key, Some(&progress)).await });
         }
         while let Some(r) = tasks.join_next().await {
             r??;
         }
+        println!("  {rel}: sealing");
         self.seal(rel, entries).await
     }
 
@@ -282,14 +304,26 @@ impl Store {
         let mut manifest: Manifest = serde_json::from_slice(&raw)?;
         // Largest first, so the biggest files' hashing overlaps the rest of the transfer.
         manifest.files.sort_by_key(|e| std::cmp::Reverse(e.size));
+        // Files already on disk count as done at once, so the percentage covers the directory.
+        let progress = Progress::new(
+            format!("download {rel}"),
+            manifest.files.iter().map(|e| e.size).sum(),
+        );
         let mut tasks = JoinSet::new();
         for e in manifest.files {
-            let (store, rel) = (self.clone(), rel.to_string());
+            let (store, rel, progress) = (self.clone(), rel.to_string(), progress.clone());
             let local = dir.join(&e.path);
             tasks.spawn(async move {
-                if !matches(&local, &e, trusted).await? {
+                if matches(&local, &e, trusted).await? {
+                    progress.skip(e.size);
+                } else {
                     let sha = store
-                        .download(&format!("{rel}/{}", e.path), e.size, &local)
+                        .download(
+                            &format!("{rel}/{}", e.path),
+                            e.size,
+                            &local,
+                            Some(&progress),
+                        )
                         .await?;
                     if sha != e.sha256 {
                         let _ = std::fs::remove_file(&local);

@@ -231,12 +231,12 @@ where
         tasks.spawn(async move {
             let _permit = permits.acquire().await?;
             if let Some(size) = size {
-                store.download(&key, size, &local).await?;
+                store.download(&key, size, &local, None).await?;
             } else if produce(item, local.clone())
                 .await
                 .with_context(|| key.clone())?
             {
-                store.upload(&local, &key).await?;
+                store.upload(&local, &key, None).await?;
             }
             anyhow::Ok(())
         });
@@ -291,7 +291,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
                     let up = up.clone();
                     Box::pin(async move {
                         match bbox {
-                            None => up.download(&key, size, &path).await.map(|_| true),
+                            None => up.download(&key, size, &path, None).await.map(|_| true),
                             Some(b) => overture_within(&up, &key, size, b, &path).await,
                         }
                     })

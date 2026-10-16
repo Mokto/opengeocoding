@@ -2,6 +2,7 @@
 //! serving, as the Helm chart in `manifests/` runs them.
 use crate::{
     fetch::{self, Sources},
+    progress,
     store::Store,
 };
 use anyhow::{Context, Result, ensure};
@@ -70,7 +71,10 @@ pub fn job(args: Vec<String>) -> Result<()> {
         println!("{rel} is already published");
         return Ok(());
     }
+    progress::plan_job();
+    progress::phase("Download models");
     rt.block_on(fetch::models(&store, version, &models))?;
+    progress::phase("Download sources");
     let got = rt.block_on(fetch::fetch(&store, &sources, &scratch))?;
 
     let out = scratch.join("index");
@@ -109,7 +113,9 @@ pub fn job(args: Vec<String>) -> Result<()> {
         }))?,
     )?;
     std::fs::write(out.join("ATTRIBUTION.txt"), attribution(&sources, &out)?)?;
+    progress::phase("Verify");
     verify(&out)?;
+    progress::phase("Upload");
     rt.block_on(store.publish(&out, &rel))?;
     println!("published {rel}");
     Ok(())
