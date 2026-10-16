@@ -166,11 +166,13 @@ pub fn add_places(
         .unwrap();
         places.push(Place {
             id: Str::default(),
-            subtype: r.subtype,
+            // ranked as "other" below every Overture locality (importance is population plus the
+            // subtype's weight), so a gap filler never outranks the place Overture has
+            subtype: "other",
             country: r.cc,
             region,
             names: r.names.join(&NAME_SEP.to_string()).into(),
-            population: r.population,
+            population: r.population.min(9_000),
             xy: Some((r.x, r.y)),
             parents: vec![],
             anc,
