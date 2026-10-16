@@ -4,7 +4,10 @@ use std::{
     fs,
     io::{BufReader, BufWriter, Read, Write},
     path::PathBuf,
-    sync::Mutex,
+    sync::{
+        Mutex,
+        atomic::{AtomicU64, AtomicUsize, Ordering::Relaxed},
+    },
 };
 use tantivy::{
     Index, IndexWriter, TantivyDocument,
@@ -310,22 +313,31 @@ impl NumberSpill {
         for f in self.files {
             f.into_inner().unwrap().flush().unwrap();
         }
-        let mut long: Vec<Option<Vec<LongNum>>> = self
-            .long
-            .into_iter()
-            .map(|l| Some(l.into_inner().unwrap()))
-            .collect();
-        let mut n = 0;
-        for group in (0..n_shards).collect::<Vec<_>>().chunks(parallel) {
-            let jobs: Vec<(usize, Vec<LongNum>)> = group
-                .iter()
-                .map(|&s| (s, long[s].take().unwrap()))
-                .collect();
-            n += jobs
-                .into_par_iter()
-                .map(|(s, long)| self::shard(out, s, n_shards, &self.dir, long, resolve))
-                .sum::<u64>();
-        }
+        let long: Mutex<Vec<Option<Vec<LongNum>>>> = Mutex::new(
+            self.long
+                .into_iter()
+                .map(|l| Some(l.into_inner().unwrap()))
+                .collect(),
+        );
+        // A worker takes the next shard as soon as it finishes one, so a slow shard never holds
+        // back the rest as it did when shards ran in fixed groups.
+        let (next, n) = (AtomicUsize::new(0), AtomicU64::new(0));
+        std::thread::scope(|scope| {
+            for _ in 0..parallel.clamp(1, n_shards) {
+                scope.spawn(|| {
+                    loop {
+                        let s = next.fetch_add(1, Relaxed);
+                        if s >= n_shards {
+                            break;
+                        }
+                        let long = long.lock().unwrap()[s].take().unwrap();
+                        let done = self::shard(out, s, n_shards, &self.dir, long, resolve);
+                        n.fetch_add(done, Relaxed);
+                    }
+                });
+            }
+        });
+        let n = n.into_inner();
         fs::remove_dir_all(&self.dir).unwrap();
         fs::write(format!("{out}/numbers.shards"), n_shards.to_string()).unwrap();
         n
