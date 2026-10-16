@@ -4,17 +4,23 @@ on:
   push:
     branches: [main]
   pull_request:
+    # The union of the benchmarks' files below; the select step narrows it to the benchmarks each
+    # change touches.
     paths:
-      - src/**
       - benches/**
+      - src/matching.rs
+      - src/resolver.rs
+      - src/index/mod.rs
+      - src/index/schema.rs
+      - src/index/canon.rs
       - data/**
-      - proto/**
+      - tests/addresses.tsv
       - build.rs
       - Cargo.toml
       - Cargo.lock
       - .github/workflows/codspeed.yml
-      - .github/actions/bench-env/**
-  # lets CodSpeed backfill a baseline
+      - .github/actions/libpostal-env/**
+  # runs every benchmark, to backfill a baseline
   workflow_dispatch:
 
 permissions:
@@ -28,32 +34,55 @@ env:
   RUSTFLAGS: -L native=/home/runner/libpostal/lib
   LD_LIBRARY_PATH: /home/runner/libpostal/lib
   LIBPOSTAL_MODELS: /home/runner/models
-  INDEX_DIR: /home/runner/fixture/index
 
 jobs:
   benchmarks:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
-      # benches/suggest.rs and reverse.rs need an index, resolve.rs the models; without
-      # BENCH_FIXTURE_URL they are skipped.
-      # The fixture is described in benches/fixture/README.md.
-      - uses: ./.github/actions/bench-env
         with:
-          fixture-url: ${{ vars.BENCH_FIXTURE_URL }}
-          fixture-sha256: ${{ vars.BENCH_FIXTURE_SHA256 }}
-      - name: Install Rust
+          fetch-depth: 0
+      # Pull requests run only the benchmarks whose files they change. Pushes to main and manual
+      # runs run all of them, so every main commit is a complete baseline for the next pull request.
+      - name: Select the benchmarks
+        id: select
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          changed=$(if [ -n "$BASE" ]; then git diff --name-only "$BASE...HEAD"; else echo all; fi)
+          shared='^(all|Cargo\.(toml|lock)|build\.rs|\.github/workflows/codspeed\.yml)$'
+          picked=()
+          pick() { echo "$changed" | grep -Eq "$shared|$2" && picked+=("$1") || true; }
+          pick index '^(src/index/(schema|canon)\.rs|benches/index\.rs)$'
+          pick matching '^(src/(matching|resolver)\.rs|data/.*|benches/matching\.rs)$'
+          pick resolve '^(src/index/mod\.rs|benches/resolve\.rs|tests/addresses\.tsv|\.github/actions/libpostal-env/.*)$'
+          echo "benches=${picked[*]}" >> "$GITHUB_OUTPUT"
+          echo "Benchmarks to run: ${picked[*]:-none}"
+      - if: steps.select.outputs.benches != ''
+        uses: ./.github/actions/libpostal-env
+        with:
+          models: ${{ contains(steps.select.outputs.benches, 'resolve') }}
+      - if: steps.select.outputs.benches != ''
+        name: Install Rust
         run: rustup toolchain install 1.99.0 --profile minimal && rustup default 1.99.0
       # Caches dependencies, build output and the binaries installed below.
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - name: Install Buf and cargo-codspeed
+      - if: steps.select.outputs.benches != ''
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - if: steps.select.outputs.benches != ''
+        name: Install Buf and cargo-codspeed
         run: |
           curl -fsSL --retry 3 "https://github.com/bufbuild/buf/releases/download/v1.68.1/buf-Linux-x86_64" -o "$HOME/.cargo/bin/buf"
           chmod +x "$HOME/.cargo/bin/buf"
           cargo install cargo-codspeed --locked --version 5.0.2
-      - name: Build the benchmarks
+      # Builds them all (the build replaces earlier ones); only the selected ones run.
+      - if: steps.select.outputs.benches != ''
+        name: Build the benchmarks
         run: cargo codspeed build
-      - uses: CodSpeedHQ/action@f842b9a3ffe213dbb81768fd7f7eeb4dfcf1c369 # v5.4.2
+      - if: steps.select.outputs.benches != ''
+        uses: CodSpeedHQ/action@f842b9a3ffe213dbb81768fd7f7eeb4dfcf1c369 # v5.4.2
         with:
           mode: simulation
-          run: cargo codspeed run
+          run: |
+            for bench in ${{ steps.select.outputs.benches }}; do
+              cargo codspeed run --bench "$bench"
+            done

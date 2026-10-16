@@ -10,6 +10,12 @@
 //!
 //! Replicas elect one leader through a Lease (lease.rs).
 mod lease;
+#[path = "../build_index/mem.rs"]
+#[allow(dead_code)]
+mod mem;
+#[path = "../build_index/progress.rs"]
+#[allow(dead_code)]
+mod progress;
 #[path = "../build_index/store.rs"]
 #[allow(dead_code)]
 mod store;

@@ -166,6 +166,7 @@ fn json_snapshot(manifest: Value, records: IndexMap<String, Record>, out: &Path)
         .into_values()
         .map(|mut r| {
             r.ms = None;
+            r.reverse_ms = None;
             r.backend_trace.clear();
             Ok(format!(
                 "    {}",
@@ -757,62 +758,84 @@ fn ms_table(old_ms: &[f64], new_ms: &[f64]) -> (String, Vec<f64>) {
     (table, change)
 }
 
-/// SuggestAddress speed of the checks both sides timed, for the speed comment. Reported, not gated.
-fn suggest_latency(
-    shared: &[&String],
-    old: &IndexMap<String, Record>,
-    new: &IndexMap<String, Record>,
-) -> String {
-    let (old_ms, new_ms): (Vec<f64>, Vec<f64>) = shared
-        .iter()
-        .flat_map(|id| {
-            new[*id]
-                .suggest
-                .iter()
-                .filter_map(|(name, check)| Some((old[*id].suggest.get(name)?.ms?, check.ms?)))
-        })
-        .unzip();
-    if old_ms.is_empty() {
-        return String::new();
-    }
-    format!(
-        "\n### SuggestAddress (reported, not gated)\n\nTime in ms over {} requests.\n\n{}",
-        old_ms.len(),
-        ms_table(&old_ms, &new_ms).0
-    )
-}
-
 /// How much slower the candidate's total, p50, p90 or p99 may be. Three runs of one binary on a
 /// cluster node agreed within 2% in total and 5% at each percentile; single cases moved by 30%,
 /// so they are not compared, nor is the max (one case).
 const MAX_SLOWDOWN: f64 = 0.10;
 
-/// SearchAddress speed on both sides, between `<!-- speed: pass|fail|skip -->` and
-/// `<!-- speed end -->` lines that CI cuts out into its own comment and commit status. Not part of
-/// the `diff` exit code.
+/// Per-request times of one RPC on both sides, over the requests both timed.
+struct Timings {
+    rpc: &'static str,
+    unit: &'static str,
+    old: Vec<f64>,
+    new: Vec<f64>,
+}
+
+/// The speed section, between `<!-- speed: pass|fail|skip -->` and `<!-- speed end -->` lines that
+/// CI cuts out into its own comment and commit status: SearchAddress, SuggestAddress and
+/// ReverseGeocode, each gated alike. Not part of the `diff` exit code.
 fn latency(
     shared: &[&String],
     old: &IndexMap<String, Record>,
     new: &IndexMap<String, Record>,
     manifests: [&Value; 2],
 ) -> String {
-    let (old_ms, new_ms): (Vec<f64>, Vec<f64>) = shared
-        .iter()
-        .filter_map(|id| Some((old[*id].ms?, new[*id].ms?)))
-        .unzip();
-    if old_ms.is_empty() {
+    type Pairs = Vec<(f64, f64)>;
+    let series = |rpc, unit, times: &dyn Fn(&Record, &Record) -> Pairs| {
+        let (old, new) = shared
+            .iter()
+            .flat_map(|id| times(&old[*id], &new[*id]))
+            .unzip();
+        Timings {
+            rpc,
+            unit,
+            old,
+            new,
+        }
+    };
+    let timings: Vec<_> = [
+        series("SearchAddress", "cases", &|a, b| {
+            a.ms.zip(b.ms).into_iter().collect()
+        }),
+        series("SuggestAddress", "checks", &|a, b| {
+            b.suggest
+                .iter()
+                .filter_map(|(name, check)| Some((a.suggest.get(name)?.ms?, check.ms?)))
+                .collect()
+        }),
+        series("ReverseGeocode", "cases", &|a, b| {
+            a.reverse_ms.zip(b.reverse_ms).into_iter().collect()
+        }),
+    ]
+    .into_iter()
+    .filter(|t| !t.old.is_empty())
+    .collect();
+    if timings.is_empty() {
         return String::new();
     }
-    const METRICS: [&str; 5] = ["total", "p50", "p90", "p99", "max"];
-    let (table, change) = ms_table(&old_ms, &new_ms);
     let repeats = manifests.map(|m| m["repeat"].as_u64().unwrap_or(1));
-    let slower: Vec<_> = METRICS[..4]
-        .iter()
-        .zip(&change)
-        // on the rounded percentage the table shows, so +10% never fails a 10% limit
-        .filter(|(_, c)| (**c * 100.).round() > MAX_SLOWDOWN * 100.)
-        .map(|(m, c)| format!("{m} {:+.0}%", c * 100.))
-        .collect();
+    let (mut sections, mut slower) = (String::new(), vec![]);
+    for t in &timings {
+        let (table, change) = ms_table(&t.old, &t.new);
+        let _ = write!(
+            sections,
+            "\n### {}\n\nTime in ms over {} {}, each the fastest of {} requests.\n\n{table}",
+            t.rpc,
+            t.old.len(),
+            t.unit,
+            repeats[1]
+        );
+        let metrics = ["total", "p50", "p90", "p99"]
+            .iter()
+            .zip(&change)
+            // on the rounded percentage the table shows, so +10% never fails a 10% limit
+            .filter(|(_, c)| (**c * 100.).round() > MAX_SLOWDOWN * 100.)
+            .map(|(m, c)| format!("{m} {:+.0}%", c * 100.))
+            .collect::<Vec<_>>();
+        if !metrics.is_empty() {
+            slower.push(format!("{} slower, {}", t.rpc, metrics.join(", ")));
+        }
+    }
     // Pacing between cases changes how warm the service is, so timings only compare at one rate.
     let rates = manifests.map(|m| m["max_rps"].as_f64());
     let limit = MAX_SLOWDOWN * 100.;
@@ -834,16 +857,11 @@ fn latency(
     } else {
         (
             "fail",
-            format!(
-                "SearchAddress slower, {} (limit +{limit:.0}%)",
-                slower.join(", ")
-            ),
+            format!("{} (limit +{limit:.0}%)", slower.join("; ")),
         )
     };
     format!(
-        "\n<!-- speed: {verdict} -->\n## Speed: {headline}\n\n### SearchAddress\n\nTime in ms over {} cases, each the fastest of {} requests.\n\n{table}\nFails when the total, p50, p90 or p99 is more than {limit:.0}% slower. Runs of one binary differ by up to 5%; the max is one case and only reported.\n<!-- speed end -->\n",
-        old_ms.len(),
-        repeats[1]
+        "\n<!-- speed: {verdict} -->\n## Speed: {headline}\n{sections}\nFails when the total, p50, p90 or p99 of any table is more than {limit:.0}% slower. Runs of one binary differ by up to 5%; the max is one request and only reported.\n<!-- speed end -->\n"
     )
 }
 
@@ -911,11 +929,7 @@ pub fn diff(
     }
     let headline_at = report.len();
     report += &fold("Runs", &runs, false);
-    let speed = latency(&shared, &old, &new, [&old_manifest, &new_manifest]);
-    report += &speed.replace(
-        "<!-- speed end -->",
-        &(suggest_latency(&shared, &old, &new) + "<!-- speed end -->"),
-    );
+    report += &latency(&shared, &old, &new, [&old_manifest, &new_manifest]);
     let (mut newly_failing, mut newly_passing, mut worse, mut better) =
         (vec![], vec![], vec![], vec![]);
     let mut changed: IndexMap<&str, Vec<String>> = IndexMap::new();
@@ -1205,6 +1219,27 @@ mod tests {
         assert!(report.contains("<!-- speed: pass -->"), "{report}");
         let report = latency(&ids, &old, &new, [&json!({}), &three]);
         assert!(report.contains("<!-- speed: skip -->"), "{report}");
+        // each RPC is its own table, and any of them fails the verdict
+        let reversed = |ms: f64| -> IndexMap<String, Record> {
+            [(
+                "a".to_string(),
+                Record {
+                    ms: Some(1.),
+                    reverse_ms: Some(ms),
+                    ..Default::default()
+                },
+            )]
+            .into()
+        };
+        let (fast, slow) = (reversed(1.), reversed(2.));
+        let one = [&"a".to_string()];
+        let report = latency(&one, &fast, &slow, [&three, &three]);
+        assert!(report.contains("### ReverseGeocode"), "{report}");
+        assert!(
+            report.contains("## Speed: ReverseGeocode slower, total +100%, p50 +100%"),
+            "{report}"
+        );
+        assert!(!report.contains("SearchAddress slower"), "{report}");
         let (slow, fast) = (
             json!({"repeat": 3, "max_rps": 20.}),
             json!({"repeat": 3, "max_rps": 1e6}),
@@ -1405,9 +1440,13 @@ mod tests {
         );
         let (a, b) = (load_side(&old).unwrap().1, load_side(&new).unwrap().1);
         let ids: Vec<_> = a.keys().collect();
-        let speed = suggest_latency(&ids, &a, &b);
-        assert!(speed.contains("over 1 requests"), "{speed}");
-        assert!(speed.contains("| change | +100% |"), "{speed}");
+        let speed = latency(&ids, &a, &b, [&json!({}), &json!({})]);
+        assert!(speed.contains("### SuggestAddress"), "{speed}");
+        assert!(speed.contains("over 1 checks"), "{speed}");
+        assert!(
+            speed.contains("<!-- speed: fail -->\n## Speed: SuggestAddress slower, total +100%"),
+            "{speed}"
+        );
         assert!(!diff(&cases, &old, &old, Some(&out), false, true).unwrap());
         let report = std::fs::read_to_string(&out).unwrap();
         assert!(

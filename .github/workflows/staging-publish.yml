@@ -352,5 +352,5 @@ jobs:
       - name: Fail on a slowdown
         if: ${{ !cancelled() && env.SPEED == 'fail' }}
         run: |
-          echo "::error title=SearchAddress slowdown::$SPEED_HEADLINE"
+          echo "::error title=Speed regression::$SPEED_HEADLINE"
           exit 1

@@ -1,6 +1,6 @@
 //! Model-backed libpostal parsing of the non-held-out rows of `tests/addresses.tsv`. Runs only
-//! where CI sets up the fixture and models (`INDEX_DIR`). Index searches are timed end to end by
-//! the full-index gold check instead (`gold-speed`).
+//! where the models are provisioned (`LIBPOSTAL_MODELS`). Index searches, suggestions and reverse
+//! lookups are timed end to end by the full-index gold check instead (`gold-speed`).
 use divan::{Bencher, black_box};
 use opengeocoding::index::Parser;
 use std::{sync::Arc, sync::LazyLock};
@@ -34,8 +34,8 @@ static FIXTURE: LazyLock<Fixture> = LazyLock::new(|| {
 });
 
 fn main() {
-    if std::env::var_os("INDEX_DIR").is_none() {
-        eprintln!("INDEX_DIR is not set: skipping the model-backed benchmarks");
+    if std::env::var_os("LIBPOSTAL_MODELS").is_none() {
+        eprintln!("LIBPOSTAL_MODELS is not set: skipping the model-backed benchmarks");
         return;
     }
     divan::main();
