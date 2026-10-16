@@ -7,6 +7,8 @@ use connectrpc::{ConnectError, RequestContext, Response, ServiceRequest, Service
 
 const SUGGEST_DEFAULT: usize = 5;
 const SUGGEST_MAX: usize = 15;
+const SUGGEST_SCALE_DEFAULT: u32 = 100;
+const SUGGEST_SCALE_MAX: u32 = 20_000;
 fn valid_coordinates(lat: f32, lon: f32) -> bool {
     (-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon)
 }
@@ -153,7 +155,27 @@ impl OpenGeocoding for Service {
                 0 => SUGGEST_DEFAULT,
                 n => (n as usize).min(SUGGEST_MAX),
             };
-            let found = self.resolver.suggest(request.text, limit, country).await?;
+            let focus = match request.focus.as_option() {
+                None => None,
+                Some(f) if valid_coordinates(f.lat, f.lon) => Some(crate::index::Focus {
+                    lat: f.lat as f64,
+                    lon: f.lon as f64,
+                    scale_km: match f.scale_km {
+                        0 => SUGGEST_SCALE_DEFAULT,
+                        n => n.min(SUGGEST_SCALE_MAX),
+                    } as f64,
+                }),
+                Some(_) => {
+                    return Err(ConnectError::invalid_argument(
+                        "Enter valid latitude and longitude coordinates for the focus.",
+                    )
+                    .into());
+                }
+            };
+            let found = self
+                .resolver
+                .suggest(request.text, limit, country, focus)
+                .await?;
             Ok(SuggestAddressResponse {
                 suggestions: found
                     .into_iter()

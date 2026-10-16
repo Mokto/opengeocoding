@@ -2,7 +2,8 @@
 //! calls libpostal, which misreads half-typed words: the last word is a prefix of terms read
 //! from the index's term dictionary, and the commas the user types say where the town starts.
 use super::*;
-use std::{cmp::Reverse, collections::BinaryHeap};
+use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
+use std::{cmp::Reverse, collections::BinaryHeap, sync::LazyLock};
 use tantivy_fst::{IntoStreamer, Streamer};
 
 /// Documents times terms a prefix search may check: its terms are cut to fit, as far as `MIN_TERMS`.
@@ -27,11 +28,84 @@ const MAX_CACHED: usize = 20_000;
 const MAX_NUMBER: usize = 10;
 /// Words of a postcode needed before suggesting one: "75" matches thousands.
 const MIN_POSTCODE: usize = 3;
+/// Characters of a name typed before one a letter off is looked for: "pari" is one edit from
+/// too many names.
+const MIN_TYPO: usize = 5;
+/// Characters typed before a word inside a name counts: "ci" starts the end of too many.
+const MIN_INSIDE: usize = 3;
+/// The fit of a place whose name is one edit from the text.
+const TYPO: u8 = 4;
+/// The fit of a place a later word of whose main name starts with the text ("york" of New
+/// York). It counts as little as a name that has the text inside, but comes before streets.
+const INSIDE: u8 = 5;
+/// The weight from which a place is found by a later word of its main name: smaller ones are
+/// too many to rank before streets, and the index's terms find them after.
+const CITY: u64 = 100_000;
+
+/// Names within one insertion, deletion, substitution or transposition of adjacent letters.
+static ONE_EDIT: LazyLock<LevenshteinAutomatonBuilder> =
+    LazyLock::new(|| LevenshteinAutomatonBuilder::new(1, true));
+
+/// The keys of `place_names` whose name, before the NUL that ends it, the DFA accepts.
+struct NameWithin<'a>(&'a DFA);
+
+impl tantivy_fst::Automaton for NameWithin<'_> {
+    /// The DFA's state, or `None` once past an accepted name.
+    type State = Option<u32>;
+
+    fn start(&self) -> Self::State {
+        Some(self.0.initial_state())
+    }
+
+    fn is_match(&self, state: &Self::State) -> bool {
+        state.is_none()
+    }
+
+    fn can_match(&self, state: &Self::State) -> bool {
+        *state != Some(SINK_STATE)
+    }
+
+    fn will_always_match(&self, state: &Self::State) -> bool {
+        state.is_none()
+    }
+
+    fn accept(&self, state: &Self::State, byte: u8) -> Self::State {
+        match *state {
+            None => None,
+            Some(s) if byte == 0 => {
+                (!matches!(self.0.distance(s), Distance::Exact(_))).then_some(SINK_STATE)
+            }
+            Some(s) => Some(self.0.transition(s, byte)),
+        }
+    }
+}
+
+/// The user's position: places near it rank higher.
+#[derive(Clone, Copy, Debug)]
+pub struct Focus {
+    pub lat: f64,
+    pub lon: f64,
+    pub scale_km: f64,
+}
+
+impl Focus {
+    /// What the weight of a place at this point is multiplied by: 1,001 at the focus, 501 at
+    /// `scale_km`, about 11 at ten times that, and towards 1 beyond.
+    fn boost(&self, lat: f64, lon: f64) -> f64 {
+        let (a, b) = (self.lat.to_radians(), lat.to_radians());
+        let h = ((b - a) / 2.0).sin().powi(2)
+            + a.cos() * b.cos() * ((lon - self.lon).to_radians() / 2.0).sin().powi(2);
+        let km = 2.0 * 6371.0 * h.sqrt().min(1.0).asin();
+        1.0 + 1000.0 / (1.0 + (km / self.scale_km.max(1.0)).powi(2))
+    }
+}
 
 /// A prefix's most common terms and the documents each is in, most first.
 pub(super) type PrefixTerms = Arc<[(String, u32)]>;
 /// Place, fit and score of each place a name may mean.
 pub(super) type Candidates = Arc<[(u32, u8, u64)]>;
+/// The text, whether it is still being typed, and whether names one edit from it are wanted.
+pub(super) type NamesKey = (Box<str>, bool, bool);
 /// What suggestions look up again and again: a place's English name and its address line, which
 /// `Place::name` finds by scanning the place's names in every language.
 #[derive(Default)]
@@ -58,6 +132,17 @@ fn remember<V: Clone>(cache: &Mutex<HashMap<u32, V>>, id: u32, make: impl FnOnce
 }
 
 type Clauses = Vec<(Occur, Box<dyn TQuery>)>;
+
+/// Which names `suggest_places` reads.
+#[derive(Clone, Copy, PartialEq)]
+enum Names {
+    /// The names as typed and the words inside them that the index holds.
+    Strict,
+    /// Also a later word of a main name ("york" of New York).
+    Inside,
+    /// Only the names one edit from the text, for when the others leave room.
+    Typo,
+}
 
 pub struct Suggestion {
     /// Opaque; a place, street, house or postcode of this index.
@@ -193,14 +278,15 @@ const CANDIDATES: usize = 400;
 /// Of those, how many a qualifier is checked against: each reads its places' ancestors.
 const EXAMINED: usize = 150;
 /// How much a name's fit counts: the name itself, its main name starts with the text, another
-/// language's does.
-const FIT: [u64; 3] = [100, 20, 5];
+/// language's does, a name has it inside (or a later word of the main name starts with it).
+const FIT: [u64; 4] = [100, 20, 5, 1];
 /// The most a country's name in a language that is not its main one is worth.
 const OTHER_NAME_COUNTRY: u64 = 2_000_000;
 
-/// Folded name, a NUL, whether it is the primary or English name (0) or another (1) and the
-/// place number -> the place's weight. One entry per place and name, so places sharing a name
-/// have distinct keys and a prefix is a range.
+/// Folded name, a NUL, whether it is the primary or English name (0), another (1) or a main
+/// name from its second word or a later one on (2: "york" of "new york"), and the place number
+/// -> the place's weight. One entry per place and name, so places sharing a name have distinct
+/// keys and a prefix is a range.
 pub(super) fn place_names(places: &[Place]) -> Result<tantivy_fst::Map<Vec<u8>>> {
     use rayon::prelude::*;
     let mut keys: Vec<(Vec<u8>, u64)> = places
@@ -218,6 +304,22 @@ pub(super) fn place_names(places: &[Place]) -> Result<tantivy_fst::Map<Vec<u8>>>
                         Some(m) => m.1 = m.1.min(flag),
                         None if !n.is_empty() => names.push((n, flag)),
                         None => {}
+                    }
+                }
+                let inside: Vec<String> = names
+                    .iter()
+                    .filter(|(_, flag)| *flag == 0 && w >= CITY)
+                    .flat_map(|(n, _)| {
+                        let words: Vec<&str> = n.split(' ').collect();
+                        (1..words.len())
+                            .filter(|&i| words[i].chars().count() >= MIN_INSIDE)
+                            .map(|i| words[i..].join(" "))
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+                for n in inside {
+                    if !names.iter().any(|(m, _)| *m == n) {
+                        names.push((n, 2));
                     }
                 }
             }
@@ -263,10 +365,10 @@ impl Index {
     pub fn warm_suggest(&self) {
         let letters = 'a'..='z';
         for a in letters.clone() {
-            self.name_candidates(&a.to_string(), true);
+            self.name_candidates(&a.to_string(), true, false);
             for b in letters.clone() {
                 let pair = format!("{a}{b}");
-                self.name_candidates(&pair, true);
+                self.name_candidates(&pair, true, false);
                 self.prefix_terms(self.f.names, &pair);
             }
         }
@@ -282,7 +384,13 @@ impl Index {
     }
 
     /// Up to `limit` completions of `text`, best first. Blocks: call it off the async executor.
-    pub fn suggest(&self, text: &str, limit: usize, cc: Option<&str>) -> Vec<Suggestion> {
+    pub fn suggest(
+        &self,
+        text: &str,
+        limit: usize,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+    ) -> Vec<Suggestion> {
         let text = text.trim_start();
         if text.chars().count() > MAX_TEXT || text.trim().is_empty() || limit == 0 {
             return vec![];
@@ -304,28 +412,36 @@ impl Index {
                 return found;
             }
         }
-        let places = if coded {
+        let places = |names| {
+            self.suggest_places(&typed.parts, typed.open, cc, focus, names, limit)
+                .into_iter()
+        };
+        let found = if coded {
             vec![]
         } else {
-            self.suggest_places(&typed.parts, typed.open, cc, limit)
+            places(Names::Inside).collect()
         };
         // a place whose name only contains the words (a "Main Street Historic District") comes
-        // after the streets that are named so
-        let (named, contains): (Vec<_>, Vec<_>) = places.into_iter().partition(|&(id, fit)| {
-            fit == 0 || fit <= 2 && weight(&self.places[id as usize]) >= 5_000
+        // after the streets that are named so, unless it is a city ("york" is New York)
+        let (named, contains): (Vec<_>, Vec<_>) = found.into_iter().partition(|&(id, fit)| {
+            fit == 0 || fit <= 2 && weight(&self.places[id as usize]) >= 5_000 || fit == INSIDE
         });
         let mut out: Vec<Suggestion> = named
             .into_iter()
             .map(|(id, _)| self.place_suggestion(id))
             .collect();
         if out.len() < limit {
-            out.extend(self.suggest_streets(&typed, cc, limit - out.len()));
+            out.extend(self.suggest_streets(&typed, cc, focus, limit - out.len()));
         }
         out.extend(
             contains
                 .into_iter()
                 .map(|(id, _)| self.place_suggestion(id)),
         );
+        // a name a letter off only fills what the text as typed leaves
+        if out.len() < limit && !coded {
+            out.extend(places(Names::Typo).map(|(id, _)| self.place_suggestion(id)));
+        }
         let mut seen = std::collections::HashSet::new();
         // the filter matches a street's own country, which its place may not be in
         out.retain(|s| {
@@ -542,7 +658,8 @@ impl Index {
             let Ok(name) = std::str::from_utf8(&k[..at]) else {
                 continue;
             };
-            if name == key
+            if k[at + 1] == 2
+                || name == key
                 || !super::one_edit(&key, name)
                 || !cc.is_none_or(|c| self.places[id as usize].cc.eq_ignore_ascii_case(c))
             {
@@ -563,38 +680,79 @@ impl Index {
 
     /// The places of `place_names` whose name is `text`, or starts with it when `open`, best
     /// first: place, fit (0 the name itself, 1 its main name starts with the text, 2 another
-    /// language's does) and weight. Reading a short prefix's range is the cost, so it is kept.
-    fn name_candidates(&self, text: &str, open: bool) -> Candidates {
-        let key = (Box::<str>::from(text), open);
+    /// language's does, `INSIDE` a later word of its main name does) and weight. With `typo`,
+    /// the names one edit from `text` (or starting so when `open`) and with its first letter, all
+    /// of fit `TYPO`. Reading a short prefix's range is the cost, so it is kept.
+    fn name_candidates(&self, text: &str, open: bool, typo: bool) -> Candidates {
+        let key = (Box::<str>::from(text), open, typo);
         if let Some(hit) = self.place_prefixes.lock().unwrap().get(&key) {
             return hit.clone();
         }
-        let (from, to) = if open {
-            let mut to = text.as_bytes().to_vec();
-            *to.last_mut().unwrap() += 1;
-            (text.as_bytes().to_vec(), to)
-        } else {
-            (
-                [text.as_bytes(), &[0]].concat(),
-                [text.as_bytes(), &[1]].concat(),
-            )
-        };
+        let inside = text.chars().count() >= MIN_INSIDE;
         let mut best: HashMap<u32, (u64, u8)> = HashMap::new();
-        let mut range = self.place_names.range().ge(&from).lt(&to).into_stream();
-        while let Some((k, w)) = range.next() {
+        let mut add = |k: &[u8], w: u64| {
             let at = k.len() - 6;
             let id = u32::from_be_bytes(k[at + 2..].try_into().unwrap());
-            let fit = if at == text.len() { 0 } else { 1 + k[at + 1] };
+            let flag = k[at + 1];
+            if flag == 2 && !inside {
+                return;
+            }
+            let fit = match flag {
+                _ if typo => TYPO,
+                2 => INSIDE,
+                _ if at == text.len() => 0,
+                _ => 1 + flag,
+            };
             // a country's weight is for its own name: another language's word that happens to
             // be "lagos" or start "lima" is not worth a country's
             let w = match &*self.places[id as usize].subtype {
-                "country" | "dependency" if k[at + 1] == 1 => w.min(OTHER_NAME_COUNTRY),
+                "country" | "dependency" if flag >= 1 => w.min(OTHER_NAME_COUNTRY),
                 _ => w,
             };
-            let score = w * FIT[fit as usize];
+            let score = w * FIT[if typo { 1 + flag } else { fit.min(3) } as usize];
             let e = best.entry(id).or_insert((score, fit));
             if score > e.0 {
                 *e = (score, fit);
+            }
+        };
+        if typo {
+            let mut first = [0; 4];
+            let from = text
+                .chars()
+                .next()
+                .map_or(&[][..], |c| c.encode_utf8(&mut first).as_bytes());
+            let mut to = from.to_vec();
+            if let Some(last) = to.last_mut() {
+                *last += 1;
+            }
+            let dfa = if open {
+                ONE_EDIT.build_prefix_dfa(text)
+            } else {
+                ONE_EDIT.build_dfa(text)
+            };
+            let mut found = self
+                .place_names
+                .search(NameWithin(&dfa))
+                .ge(from)
+                .lt(&to)
+                .into_stream();
+            while let Some((k, w)) = found.next() {
+                add(k, w);
+            }
+        } else {
+            let (from, to) = if open {
+                let mut to = text.as_bytes().to_vec();
+                *to.last_mut().unwrap() += 1;
+                (text.as_bytes().to_vec(), to)
+            } else {
+                (
+                    [text.as_bytes(), &[0]].concat(),
+                    [text.as_bytes(), &[1]].concat(),
+                )
+            };
+            let mut range = self.place_names.range().ge(&from).lt(&to).into_stream();
+            while let Some((k, w)) = range.next() {
+                add(k, w);
             }
         }
         let mut all: Vec<(u32, u8, u64)> = best
@@ -615,12 +773,16 @@ impl Index {
 
     /// Places named by `parts` (the first part's name, then what it lies in), best first, with
     /// how well each name fits: 0 is a name of the place, 1 its main name (local or English)
-    /// starts with the text, 2 a name in another language does, 3 a name has it inside.
+    /// starts with the text, 2 a name in another language does, 3 a name has it inside,
+    /// `INSIDE` a later word of its main name starts with it (only with `Names::Inside`), `TYPO`
+    /// a name is one edit from it (only with `Names::Typo`).
     fn suggest_places(
         &self,
         parts: &[String],
         open: bool,
         cc: Option<&str>,
+        focus: Option<&Focus>,
+        names: Names,
         want: usize,
     ) -> Vec<(u32, u8)> {
         let Some(first) = parts.first() else {
@@ -628,13 +790,14 @@ impl Index {
         };
         let all = words_open(first, open && parts.len() == 1);
         // "paris fra": the whole text names a place, or its front does and its end says where
-        let splits: Vec<usize> = if parts.len() == 1 {
+        let splits: Vec<usize> = if parts.len() == 1 && names != Names::Typo {
             std::iter::once(all.len())
                 .chain((1..all.len()).rev().take(3))
                 .collect()
         } else {
             vec![all.len()]
         };
+        let typo = names == Names::Typo;
         let mut found: Vec<(u32, u8)> = vec![];
         for (n, split) in splits.into_iter().enumerate() {
             if n > 0 && found.len() >= want {
@@ -665,6 +828,12 @@ impl Index {
                 })
                 .collect();
             let text = head.join(" ");
+            if typo
+                && (text.chars().count() < MIN_TYPO
+                    || !text.chars().all(|c| c.is_alphabetic() || c == ' '))
+            {
+                return vec![];
+            }
             let acceptable = |id: u32| {
                 let pl = &self.places[id as usize];
                 pl.subtype.as_ref() != "microhood"
@@ -672,24 +841,29 @@ impl Index {
                     && (quals.is_empty() || self.qualifies(id, &quals, open))
             };
             let mut ranked: Vec<(Reverse<u64>, u8, u32)> = vec![];
-            let forms = if head_open {
+            let forms = if head_open && !typo {
                 open_forms(head)
             } else {
                 vec![text.clone()]
             };
             let mut candidates: Vec<(u32, u8, u64)> = vec![];
             for form in &forms {
-                candidates.extend(self.name_candidates(form, head_open).iter());
+                candidates.extend(self.name_candidates(form, head_open, typo).iter());
             }
             // "koeln" is read as "köln" only when no place is named as typed
-            let umlaut = umlaut_form(&text);
+            let umlaut = umlaut_form(&text).filter(|_| !typo);
             for n in 0..2 {
                 if n == 1 {
                     match &umlaut {
                         Some(alt) if ranked.is_empty() => {
-                            candidates = self.name_candidates(alt, head_open).to_vec()
+                            candidates = self.name_candidates(alt, head_open, false).to_vec()
                         }
                         _ => break,
+                    }
+                }
+                if let Some(focus) = focus {
+                    for c in &mut candidates {
+                        c.2 = self.focused(c.2, c.0, focus);
                     }
                 }
                 candidates.sort_unstable_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
@@ -698,7 +872,8 @@ impl Index {
                     if ranked.len() >= want || examined >= EXAMINED {
                         break;
                     }
-                    if !found.iter().any(|f| f.0 == id)
+                    if (names == Names::Inside || fit != INSIDE)
+                        && !found.iter().any(|f| f.0 == id)
                         && !ranked.iter().any(|r| r.2 == id)
                         && acceptable(id)
                     {
@@ -708,7 +883,7 @@ impl Index {
             }
             // The rest of the places, by the words the term dictionary holds: those as typed
             // first, for the places a prefix adds ("paris" -> "parish") are many.
-            if ranked.len() < want {
+            if ranked.len() < want && !typo {
                 let want_name = name_key(&text);
                 let mut ids: Vec<u32> = vec![];
                 for as_prefix in [false, true] {
@@ -744,7 +919,8 @@ impl Index {
                         3
                     };
                     // the name fits less as less of it is typed
-                    let score = weight(pl) * [100, 20, 5, 1][fit as usize];
+                    let score = weight(pl) * FIT[fit as usize];
+                    let score = focus.map_or(score, |f| self.focused(score, id, f));
                     ranked.push((Reverse(score), fit, id));
                 }
             }
@@ -753,6 +929,11 @@ impl Index {
         }
         found.truncate(want);
         found
+    }
+
+    fn focused(&self, score: u64, id: u32, focus: &Focus) -> u64 {
+        let pl = &self.places[id as usize];
+        (score as f64 * focus.boost(pl.y as f64, pl.x as f64)) as u64
     }
 
     fn place_suggestion(&self, id: u32) -> Suggestion {
@@ -829,7 +1010,13 @@ impl Index {
 
     /// Streets, and houses when a number is typed, with the road in the first part and the
     /// town after a comma ("12 main st, spring"). With no comma the town may still end the text.
-    fn suggest_streets(&self, typed: &Typed, cc: Option<&str>, want: usize) -> Vec<Suggestion> {
+    fn suggest_streets(
+        &self,
+        typed: &Typed,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        want: usize,
+    ) -> Vec<Suggestion> {
         let raw: Vec<&str> = typed.parts[0].split(' ').collect();
         let one_part = typed.parts.len() == 1;
         // the number: the first or last word, when a road remains
@@ -869,7 +1056,8 @@ impl Index {
                 let mut split = road_words.len();
                 while split > 1 && road_words.len() - split < 3 && found.len() < want {
                     split -= 1;
-                    let ids = self.scope(&[road_words[split..].join(" ")], road_open, cc, false);
+                    let town = [road_words[split..].join(" ")];
+                    let ids = self.scope(&town, road_open, cc, focus, false);
                     if ids.is_empty() {
                         continue;
                     }
@@ -894,7 +1082,7 @@ impl Index {
                 ));
                 found
             } else {
-                let ids = self.scope(&typed.parts[1..], typed.open, cc, true);
+                let ids = self.scope(&typed.parts[1..], typed.open, cc, focus, true);
                 if ids.is_empty() {
                     vec![]
                 } else {
@@ -911,16 +1099,35 @@ impl Index {
     }
 
     /// Ids of the places the parts name, to scope streets to: those places and all inside them.
-    fn scope(&self, parts: &[String], open: bool, cc: Option<&str>, codes: bool) -> Vec<u32> {
-        // two letters of a name are too many places to scope streets to
+    fn scope(
+        &self,
+        parts: &[String],
+        open: bool,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        codes: bool,
+    ) -> Vec<u32> {
+        // two letters of a name are too many places to scope streets to. Only after a comma is a
+        // town misspelt or named by a later word ("main st, lodnon"): the end of "rue de rivoli"
+        // or "united states" is not a town
         let short = open && parts.len() == 1 && parts[0].chars().count() < 3;
-        let mut ids: Vec<u32> = if short {
-            vec![]
-        } else {
-            self.suggest_places(parts, open, cc, 8)
+        let places = |names| -> Vec<u32> {
+            self.suggest_places(parts, open, cc, focus, names, 8)
                 .into_iter()
                 .map(|(id, _)| id)
                 .collect()
+        };
+        let mut ids = match (short, codes) {
+            (true, _) => vec![],
+            (false, false) => places(Names::Strict),
+            (false, true) => {
+                let ids = places(Names::Inside);
+                if ids.is_empty() {
+                    places(Names::Typo)
+                } else {
+                    ids
+                }
+            }
         };
         // "main st, il" and "10 downing st, uk": a region's code, a country's name or code. Only
         // after a comma: in "main st" the "st" is a word being typed.
@@ -1343,10 +1550,10 @@ mod tests {
     #[test]
     fn completes_places_by_name_start_and_weight() {
         let (index, dir) = tiny();
-        let cold = names(&index.suggest("par", 5, None)).join("|");
+        let cold = names(&index.suggest("par", 5, None, None)).join("|");
         index.warm_suggest();
-        assert_eq!(names(&index.suggest("par", 5, None)).join("|"), cold);
-        let found = index.suggest("par", 5, None);
+        assert_eq!(names(&index.suggest("par", 5, None, None)).join("|"), cold);
+        let found = index.suggest("par", 5, None, None);
         assert_eq!(found[0].id, "p2");
         assert_eq!(
             (found[0].kind, found[0].country_code.as_str()),
@@ -1355,20 +1562,20 @@ mod tests {
         assert_eq!(found[1].id, "p5");
         assert_eq!(found[0].display_name, "Paris, Ile-de-France, France");
         // the whole word typed, and then the town's country or region
-        assert_eq!(index.suggest("paris tex", 5, None)[0].id, "p5");
-        assert_eq!(index.suggest("paris, tx", 5, None)[0].id, "p5");
-        assert_eq!(index.suggest("paris, fr", 5, None)[0].id, "p2");
-        assert_eq!(index.suggest("paris, unit", 5, None)[0].id, "p5");
+        assert_eq!(index.suggest("paris tex", 5, None, None)[0].id, "p5");
+        assert_eq!(index.suggest("paris, tx", 5, None, None)[0].id, "p5");
+        assert_eq!(index.suggest("paris, fr", 5, None, None)[0].id, "p2");
+        assert_eq!(index.suggest("paris, unit", 5, None, None)[0].id, "p5");
         // a hamlet named exactly as typed does not outrank the city the text starts
-        assert_eq!(index.suggest("londo", 5, None)[0].id, "p7");
-        assert_eq!(index.suggest("londo ", 5, None)[0].id, "p8");
+        assert_eq!(index.suggest("londo", 5, None, None)[0].id, "p7");
+        assert_eq!(index.suggest("londo ", 5, None, None)[0].id, "p8");
         assert_eq!(
-            names(&index.suggest("PARIS", 1, Some("us"))),
+            names(&index.suggest("PARIS", 1, Some("us"), None)),
             ["Paris, Texas, United States"]
         );
-        assert!(index.suggest("p", 5, None).is_empty());
-        assert!(index.suggest("  ,, ", 5, None).is_empty());
-        assert!(index.suggest("zzzzz", 5, None).is_empty());
+        assert!(index.suggest("p", 5, None, None).is_empty());
+        assert!(index.suggest("  ,, ", 5, None, None).is_empty());
+        assert!(index.suggest("zzzzz", 5, None, None).is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
 
@@ -1388,13 +1595,80 @@ mod tests {
         assert_eq!(index.similar_place("Lyonn", None), None);
         assert_eq!(index.similar_place("Pari", None), None);
         assert_eq!(index.similar_place("Pariss", Some("gb")), None);
+        // "kingdom" is a key of United Kingdom, but not one of its names
+        assert_eq!(index.similar_place("Kingdon", None), None);
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn typos_words_inside_names_and_the_users_position() {
+        let (index, dir) = tiny();
+        let ids = |text: &str, focus: Option<&Focus>| -> Vec<String> {
+            index
+                .suggest(text, 5, None, focus)
+                .into_iter()
+                .map(|s| s.id)
+                .collect()
+        };
+        // one transposition, deletion or substitution, while typing and once typed
+        for typo in [
+            "lodnon",
+            "lndon",
+            "londn",
+            "lodnon, united kingdom",
+            "lomdon ",
+        ] {
+            assert_eq!(ids(typo, None)[..1], ["p7"], "{typo}");
+        }
+        // but not the first letter, not two edits and not a short text
+        for far in ["ondon", "lnodno", "pariz, france", "lndn"] {
+            assert!(!ids(far, None).contains(&"p7".into()), "{far}");
+        }
+        assert_eq!(ids("pariz ", None)[..2], ["p2", "p5"]);
+        // a name typed exactly comes before one a letter off
+        assert_eq!(ids("londo ", None), ["p8", "p7"]);
+        // a later word of a name, from its third letter
+        assert_eq!(ids("kingd", None), ["p6"]);
+        assert_eq!(ids("states", None), ["p3"]);
+        assert!(index.name_candidates("ki", true, false).is_empty());
+        // Paris, Texas near Dallas; Paris, France near Lyon or with no position
+        let dallas = Focus {
+            lat: 32.78,
+            lon: -96.8,
+            scale_km: 100.0,
+        };
+        let lyon = Focus {
+            lat: 45.76,
+            lon: 4.84,
+            scale_km: 100.0,
+        };
+        assert_eq!(ids("paris", Some(&dallas))[..2], ["p5", "p2"]);
+        assert_eq!(ids("pari", Some(&lyon))[..2], ["p2", "p5"]);
+        assert_eq!(ids("paris", None)[..2], ["p2", "p5"]);
+        // and as the town that scopes a street
+        assert_eq!(ids("rue de rivoli, paris", Some(&dallas))[0], "s7");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn focus_boost_falls_with_distance() {
+        let f = Focus {
+            lat: 0.0,
+            lon: 0.0,
+            scale_km: 100.0,
+        };
+        assert_eq!(f.boost(0.0, 0.0), 1001.0);
+        // a degree of longitude at the equator is 111.2 km
+        let at = |km: f64| f.boost(0.0, km / 111.195);
+        assert!((at(100.0) - 501.0).abs() < 1.0);
+        assert!((at(1000.0) - 10.9).abs() < 0.1);
+        assert!(f.boost(0.0, 180.0) < 1.03);
     }
 
     #[test]
     fn completes_streets_houses_and_postcodes() {
         let (index, dir) = tiny();
-        let street = &index.suggest("rue de riv", 5, None)[0];
+        let street = &index.suggest("rue de riv", 5, None, None)[0];
         assert_eq!((street.id.as_str(), street.kind), ("s7", "street"));
         assert_eq!(
             street.display_name,
@@ -1403,28 +1677,32 @@ mod tests {
         // the town after a comma, still being typed
         assert!(
             index
-                .suggest("rue de rivoli, par", 5, None)
+                .suggest("rue de rivoli, par", 5, None, None)
                 .iter()
                 .any(|s| s.id == "s7")
         );
-        let house = &index.suggest("12 rue de rivoli, par", 5, None)[0];
+        let house = &index.suggest("12 rue de rivoli, par", 5, None, None)[0];
         assert_eq!((house.id.as_str(), house.kind), ("h7:12", "address"));
         assert!(house.display_name.starts_with("12, Rue de Rivoli, Paris"));
         // a house number typed last is being typed: 12 and 120
         let ids: Vec<_> = index
-            .suggest("rue de rivoli 12", 5, None)
+            .suggest("rue de rivoli 12", 5, None, None)
             .into_iter()
             .map(|s| s.id)
             .collect();
         assert_eq!(ids[..2], ["h7:12", "h7:120"]);
         // no such number: the street
-        assert_eq!(index.suggest("99 rue de rivoli", 5, None)[0].id, "s7");
+        assert_eq!(index.suggest("99 rue de rivoli", 5, None, None)[0].id, "s7");
         // no place by that name in the scope
-        assert!(index.suggest("rue de rivoli, texas", 5, None).is_empty());
-        let code = &index.suggest("7500", 5, None)[0];
+        assert!(
+            index
+                .suggest("rue de rivoli, texas", 5, None, None)
+                .is_empty()
+        );
+        let code = &index.suggest("7500", 5, None, None)[0];
         assert_eq!((code.id.as_str(), code.kind), ("zfr:75001", "postcode"));
-        assert!(index.suggest("75", 5, None).is_empty());
-        assert!(index.suggest("rue de riv", 5, Some("us")).is_empty());
+        assert!(index.suggest("75", 5, None, None).is_empty());
+        assert!(index.suggest("rue de riv", 5, Some("us"), None).is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

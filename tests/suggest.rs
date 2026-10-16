@@ -1,7 +1,7 @@
 //! `Index::suggest` against a real index: expectations from public facts (a place's coordinates
 //! and country), never from this service's answers. `INDEX_DIR` is a `build_index` output; the
 //! tests that need it are ignored, as they need a world index. No libpostal models are read.
-use opengeocoding::index::{Index, Parser, Suggestion};
+use opengeocoding::index::{Focus, Index, Parser, Suggestion};
 use std::{path::Path, sync::Arc, time::Instant};
 
 const GOLD: &str = include_str!("suggest.gold.tsv");
@@ -27,6 +27,8 @@ struct Case<'a> {
     km: f64,
     /// Every prefix of the query this long or longer must also find the place (any of the 5).
     from: Option<usize>,
+    /// The user's position, "lat,lon" or "lat,lon,scale_km" (default 100).
+    focus: Option<Focus>,
     /// Why the case is known to fail; it must keep failing until the label is removed.
     known_failure: &'a str,
 }
@@ -36,7 +38,7 @@ fn cases() -> Vec<Case<'static>> {
         .skip(1)
         .map(|l| {
             let c: Vec<&str> = l.split('\t').collect();
-            assert_eq!(c.len(), 10, "{l}");
+            assert_eq!(c.len(), 11, "{l}");
             Case {
                 query: c[0],
                 country: c[1],
@@ -47,7 +49,15 @@ fn cases() -> Vec<Case<'static>> {
                 lon: c[6].parse().unwrap(),
                 km: c[7].parse().unwrap(),
                 from: c[8].parse().ok(),
-                known_failure: c[9],
+                focus: (!c[9].is_empty()).then(|| {
+                    let n: Vec<f64> = c[9].split(',').map(|v| v.parse().unwrap()).collect();
+                    Focus {
+                        lat: n[0],
+                        lon: n[1],
+                        scale_km: n.get(2).copied().unwrap_or(100.0),
+                    }
+                }),
+                known_failure: c[10],
             }
         })
         .collect()
@@ -55,7 +65,8 @@ fn cases() -> Vec<Case<'static>> {
 
 impl Case<'_> {
     fn suggest(&self, index: &Index, text: &str) -> Vec<Suggestion> {
-        index.suggest(text, 5, Some(self.country).filter(|c| !c.is_empty()))
+        let cc = Some(self.country).filter(|c| !c.is_empty());
+        index.suggest(text, 5, cc, self.focus.as_ref())
     }
 
     fn hit(&self, found: &[Suggestion], rank: usize) -> bool {
@@ -96,12 +107,24 @@ fn gold_file_is_well_formed() {
         assert!(c.country.is_empty() || c.country.len() == 2, "{}", c.query);
         assert!(c.country.is_empty() || c.country == c.cc, "{}", c.query);
         assert!(
+            c.focus.is_none_or(|f| (-90.0..=90.0).contains(&f.lat)
+                && (-180.0..=180.0).contains(&f.lon)
+                && f.scale_km > 0.0),
+            "{}",
+            c.query
+        );
+        assert!(
             c.from.is_none_or(|f| f <= c.query.chars().count()),
             "{}",
             c.query
         );
         assert!(
-            seen.insert((c.query, c.country, c.rank)),
+            seen.insert((
+                c.query,
+                c.country,
+                c.rank,
+                c.focus.map(|f| format!("{},{}", f.lat, f.lon))
+            )),
             "duplicate {}",
             c.query
         );
@@ -226,7 +249,7 @@ fn latency() {
             for end in 2..=chars.len() {
                 let typed: String = chars[..end].iter().collect();
                 let t = Instant::now();
-                index.suggest(&typed, 5, None);
+                index.suggest(&typed, 5, None, None);
                 micros.push((t.elapsed().as_micros(), typed));
             }
         }

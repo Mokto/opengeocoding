@@ -462,6 +462,17 @@ async fn checks(env: &mut Env) -> Result<()> {
                 .is_some_and(|lat| (lat - 55.68).abs() < 0.2),
         "{suggested}"
     );
+    // near Dallas, Paris is the one in Texas
+    let focused = env
+        .json(
+            "SuggestAddress",
+            json!({"text": "paris", "limit": 3, "focus": {"lat": 32.78, "lon": -96.8}}),
+        )
+        .await?;
+    ensure!(
+        focused["suggestions"][0]["countryCode"] == "us",
+        "{focused}"
+    );
     println!("PASS: address suggestions");
 
     for (method, payload) in [
@@ -472,6 +483,10 @@ async fn checks(env: &mut Env) -> Result<()> {
         (
             "SuggestAddress",
             json!({"text": "paris", "countryCode": "USA"}),
+        ),
+        (
+            "SuggestAddress",
+            json!({"text": "paris", "focus": {"lat": 91, "lon": 0}}),
         ),
         ("ResolveRegion", json!({"lat": 0, "lon": -180.5})),
         ("ResolveRegion", json!({"lat": -90.5, "lon": 0})),
