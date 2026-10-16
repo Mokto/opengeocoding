@@ -128,6 +128,17 @@ message SuggestAddressRequest {
   uint32 limit = 2;
   // Optional ISO 3166-1 alpha-2 code: only suggestions in that country.
   string country_code = 3;
+  // Optional: the user's position. Places near it rank higher.
+  SuggestFocus focus = 4;
+}
+
+// A place at the point weighs as if it were a thousand times as populous, one `scale_km` away
+// about 500 times, ten `scale_km` away about 10 times.
+message SuggestFocus {
+  float lat = 1;
+  float lon = 2;
+  // Default 100, at most 20000.
+  uint32 scale_km = 3;
 }
 
 message Suggestion {

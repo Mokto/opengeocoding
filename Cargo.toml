@@ -29,6 +29,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tantivy = "0.26"
 tantivy-fst = "0.5"
+levenshtein_automata = "0.2"
 rstar = "0.13"
 rayon = "1"
 arrow-array = "60"

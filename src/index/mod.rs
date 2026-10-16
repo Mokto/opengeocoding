@@ -22,7 +22,7 @@ use tantivy::{
 };
 
 mod suggest;
-pub use suggest::Suggestion;
+pub use suggest::{Focus, Suggestion};
 
 const SEP: char = '\u{1f}';
 const NONE: u32 = u32::MAX;
@@ -480,7 +480,7 @@ pub struct Index {
     /// Folded names of the places a completion most likely wants; see `suggest`.
     place_names: tantivy_fst::Map<Vec<u8>>,
     /// `name_candidates` results, by folded text and whether it is a prefix.
-    place_prefixes: Mutex<HashMap<(Box<str>, bool), suggest::Candidates>>,
+    place_prefixes: Mutex<HashMap<suggest::NamesKey, suggest::Candidates>>,
     suggest: suggest::Caches,
 }
 

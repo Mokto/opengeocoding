@@ -186,7 +186,14 @@ pub fn suggest_severity(class: &str) -> usize {
 }
 
 /// Ordered from best to worst. An empty answer is better than a wrong one.
-pub const LOCATE_CLASSES: [&str; 5] = ["pass", "empty", "wrong_region", "wrong_country", "error"];
+pub const LOCATE_CLASSES: [&str; 6] = [
+    "pass",
+    "empty",
+    "wrong_place",
+    "wrong_region",
+    "wrong_country",
+    "error",
+];
 
 pub fn locate_severity(class: &str) -> usize {
     LOCATE_CLASSES
@@ -227,9 +234,36 @@ fn locate_class(expect: &Expect, check_region: bool, found: &Located) -> &'stati
     }
 }
 
-/// The first answer's country, and its region where the place has regions to check.
-pub fn reverse_class(expect: &Expect, found: &Located) -> &'static str {
-    locate_class(expect, !expect.region.is_empty(), found)
+/// The first answer's country, and its region where the place has regions to check. For a
+/// locality with an English Wikidata label (`name`, the case's `suggest.text`), the answer must
+/// also name it among its places: a street or house of the town, not of the next village. Saved
+/// answers without places (older runs) are not checked for it.
+pub fn reverse_class(expect: &Expect, name: Option<&str>, found: &Located) -> &'static str {
+    let class = locate_class(expect, !expect.region.is_empty(), found);
+    let named = |places: &Vec<String>| {
+        let want = opengeocoding::index::schema::fold(name.unwrap_or_default());
+        places
+            .iter()
+            .any(|p| opengeocoding::index::schema::fold(p) == want)
+    };
+    match (&found.places, name) {
+        (Some(places), Some(_))
+            if class == "pass" && expect.level == "locality" && !named(places) =>
+        {
+            "wrong_place"
+        }
+        _ => class,
+    }
+}
+
+/// Compares like with like: an answer scored without its places (by an evaluator that predates
+/// the check) against one scored with them counts a missing place as a pass on both sides.
+pub fn comparable<'a>(a: &'a Located, b: &'a Located) -> (&'a str, &'a str) {
+    let strip = |l: &'a Located| match l.class.as_str() {
+        "wrong_place" if a.places.is_none() || b.places.is_none() => "pass",
+        c => c,
+    };
+    (strip(a), strip(b))
 }
 
 pub fn region_class(expect: &Expect, found: &Located) -> &'static str {
@@ -239,9 +273,19 @@ pub fn region_class(expect: &Expect, found: &Located) -> &'static str {
 /// The first result of a ReverseGeocode response.
 pub fn reversed(response: &Value) -> Located {
     let address = &response["results"][0]["address"];
+    let d = details(address);
     Located {
-        country: text(details(address), "countryCode").to_lowercase(),
+        country: text(d, "countryCode").to_lowercase(),
         regions: region_codes(address).into_iter().collect(),
+        places: Some(
+            LOCALITY_KEYS
+                .iter()
+                .chain(&REGION_KEYS)
+                .map(|key| text(d, key))
+                .filter(|v| !v.is_empty())
+                .map(String::from)
+                .collect(),
+        ),
         ..Default::default()
     }
 }
@@ -920,25 +964,65 @@ mod tests {
             ("dk", &["DK-84".to_string()][..])
         );
         assert_eq!(
-            reverse_class(&place("locality", &["DK-84"]), &found),
+            reverse_class(&place("locality", &["DK-84"]), None, &found),
             "pass"
         );
         assert_eq!(
-            reverse_class(&place("locality", &["DK-81"]), &found),
+            reverse_class(&place("locality", &["DK-81"]), None, &found),
             "wrong_region"
         );
-        assert_eq!(reverse_class(&place("locality", &[]), &found), "pass");
+        assert_eq!(reverse_class(&place("locality", &[]), None, &found), "pass");
         let mut abroad = place("locality", &["DK-84"]);
         abroad.country = vec!["se".into()];
-        assert_eq!(reverse_class(&abroad, &found), "wrong_country");
-        assert_eq!(reverse_class(&abroad, &reversed(&json!({}))), "empty");
+        assert_eq!(reverse_class(&abroad, None, &found), "wrong_country");
+        assert_eq!(reverse_class(&abroad, None, &reversed(&json!({}))), "empty");
         let failed = Located {
             error: Some("timeout".into()),
             ..Default::default()
         };
-        assert_eq!(reverse_class(&abroad, &failed), "error");
+        assert_eq!(reverse_class(&abroad, None, &failed), "error");
+        // the answer must name the town, in any case and accents, at any of its levels
+        let street = reversed(&json!({ "results": [{ "address": { "addressDetails": {
+            "countryCode": "al", "road": "Rruga Korça", "village": "Drenovë",
+            "county": "Bashkia Korçë" } } }] }));
+        let mut korce = place("locality", &[]);
+        korce.country = vec!["al".into()];
+        assert_eq!(reverse_class(&korce, Some("Korçë"), &street), "wrong_place");
+        assert_eq!(reverse_class(&korce, Some("drenove"), &street), "pass");
+        assert_eq!(
+            reverse_class(&korce, Some("Bashkia Korce"), &street),
+            "pass"
+        );
+        // a wrong region outranks it, and only a locality is checked for its name
+        korce.region = vec!["AL-06".into()];
+        assert_eq!(
+            reverse_class(&korce, Some("Korçë"), &street),
+            "wrong_region"
+        );
+        korce.region.clear();
+        korce.level = "house".into();
+        assert_eq!(reverse_class(&korce, Some("Korçë"), &street), "pass");
+        // a saved answer without places, from an older run, is not checked for it
+        let old = Located {
+            country: "al".into(),
+            ..Default::default()
+        };
+        korce.level = "locality".into();
+        assert_eq!(reverse_class(&korce, Some("Korçë"), &old), "pass");
+        let new = Located {
+            class: "wrong_place".into(),
+            places: Some(vec![]),
+            ..Default::default()
+        };
+        let old = Located {
+            class: "pass".into(),
+            ..Default::default()
+        };
+        assert_eq!(comparable(&old, &new), ("pass", "pass"));
+        assert_eq!(comparable(&new, &new), ("wrong_place", "wrong_place"));
         // an empty answer is a smaller failure than a wrong one
-        assert!(locate_severity("empty") < locate_severity("wrong_region"));
+        assert!(locate_severity("empty") < locate_severity("wrong_place"));
+        assert!(locate_severity("wrong_place") < locate_severity("wrong_region"));
         assert!(locate_severity("wrong_region") < locate_severity("wrong_country"));
 
         let resolve = json!({ "regions": [{ "countryCode": "dk", "adminCode": "84" }] });
