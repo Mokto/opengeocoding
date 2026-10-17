@@ -13,6 +13,7 @@ use anyhow::{Context, Result, ensure};
 use buffa::Message;
 use opengeocoding::proto::opengeocoding::{
     EmptyRequest, FullAddress, GeoCoordinates, RegionsResponse, SearchAddressTask,
+    SuggestAddressRequest, SuggestAddressResponse,
 };
 use reqwest::{StatusCode, header};
 use serde_json::{Value, json};
@@ -463,6 +464,47 @@ async fn checks(env: &mut Env) -> Result<()> {
                 .is_some_and(|lat| (lat - 55.68).abs() < 0.2),
         "{suggested}"
     );
+    let floor_text = "Rådhuspladsen 1, 4. th., København";
+    let building = env
+        .json(
+            "SuggestAddress",
+            json!({"text": "Rådhuspladsen 1, København", "limit": 1}),
+        )
+        .await?;
+    let floor = env
+        .json("SuggestAddress", json!({"text": floor_text, "limit": 1}))
+        .await?;
+    let first = &floor["suggestions"][0];
+    ensure!(
+        first["unverifiedSuffix"] == "4. th."
+            && first["id"] == building["suggestions"][0]["id"]
+            && first["geoCoordinates"] == building["suggestions"][0]["geoCoordinates"]
+            && first["displayName"]
+                .as_str()
+                .is_some_and(|n| n.contains(", 4. th., ")),
+        "{floor}"
+    );
+    let request = SuggestAddressRequest {
+        text: floor_text.into(),
+        limit: 1,
+        ..Default::default()
+    };
+    let (status, body) = env
+        .rpc("SuggestAddress", request.encode_to_vec(), true)
+        .await?;
+    ensure!(
+        status.is_success(),
+        "protobuf SuggestAddress returned {status}"
+    );
+    let decoded = SuggestAddressResponse::decode_from_slice(&body)?;
+    ensure!(
+        decoded.suggestions.len() == 1
+            && decoded.suggestions[0].unverified_suffix == "4. th."
+            && decoded.suggestions[0].id == first["id"].as_str().unwrap_or("")
+            && decoded.suggestions[0].display_name == first["displayName"].as_str().unwrap_or(""),
+        "{decoded:?}"
+    );
+    println!("PASS: unverified floor suffix preserved over Connect JSON and protobuf");
     // near Dallas, Paris is the one in Texas
     let focused = env
         .json(
