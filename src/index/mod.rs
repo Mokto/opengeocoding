@@ -1004,6 +1004,22 @@ fn house_number(n: &str) -> &str {
     t
 }
 
+fn compact_house_suffix(n: &str) -> Option<String> {
+    let parts: Vec<_> = n.split_whitespace().collect();
+    let [number, suffix] = parts.as_slice() else {
+        return None;
+    };
+    (!number.is_empty()
+        && number.bytes().all(|c| c.is_ascii_digit())
+        && suffix.starts_with(|c: char| c.is_ascii_alphabetic())
+        && (suffix[1..].bytes().all(|c| c.is_ascii_digit())
+            || matches!(
+                suffix.to_ascii_lowercase().as_str(),
+                "bis" | "ter" | "quater"
+            )))
+    .then(|| format!("{number}{suffix}"))
+}
+
 fn title(s: &str) -> String {
     s.split(' ')
         .map(|w| {
@@ -1229,6 +1245,80 @@ pub fn street_aligned(
         .then(|| head.iter().chain(tail).cloned().collect())
 }
 
+fn postal_city_aligned(
+    head: &[(String, String)],
+    tail: &str,
+    country: &(String, String),
+    whole: &[(String, String)],
+) -> Option<Vec<(String, String)>> {
+    let cc = crate::matching::expected_country(&[country.clone()].into_iter().collect());
+    let words: Vec<_> = tail.split_whitespace().collect();
+    let (postcode, city) = [2, 1]
+        .into_iter()
+        .filter(|&at| at < words.len())
+        .map(|at| (words[..at].join(" "), words[at..].join(" ")))
+        .find(|(pc, _)| crate::matching::postcode_shape(&cc, pc) == Some(true))?;
+    // A conflicting two-word postcode must stay intact: "9406 KX" is not Belgian "9406".
+    if postcode == words[0]
+        && words.len() > 2
+        && crate::matching::postcode_shape("nl", &words[..2].join(" ")) == Some(true)
+    {
+        return None;
+    }
+    if !head_aligns(head)
+        || !one_house(head)
+        || !["state", "state_district", "suburb", "city_district"]
+            .iter()
+            .all(|k| field(whole, k).is_empty())
+        || !city.chars().any(char::is_alphabetic)
+        || city.chars().any(|c| c.is_ascii_digit())
+    {
+        return None;
+    }
+    let mut parsed = head.to_vec();
+    parsed.extend([
+        ("postcode".into(), postcode.to_lowercase()),
+        ("city".into(), city.trim().to_lowercase()),
+    ]);
+    Some(parsed)
+}
+
+fn postal_without_commas(
+    q: &str,
+    whole: &[(String, String)],
+    libpostal: impl Fn(&str) -> Result<Vec<(String, String)>>,
+) -> Result<Option<Vec<(String, String)>>> {
+    if whole.iter().filter(|(k, _)| k == "house_number").count() < 2 {
+        return Ok(None);
+    }
+    let Some(country) = whole.last().filter(|(k, _)| k == "country") else {
+        return Ok(None);
+    };
+    let cc = crate::matching::expected_country(&[country.clone()].into_iter().collect());
+    let lower = q.trim().to_lowercase();
+    let Some(body) = lower.strip_suffix(&country.1).map(str::trim_end) else {
+        return Ok(None);
+    };
+    for (_, postcode) in whole.iter().rev().filter(|(k, v)| {
+        k == "house_number" && crate::matching::postcode_shape(&cc, v) == Some(true)
+    }) {
+        if let Some((head, rest)) = body.rsplit_once(postcode)
+            && head.ends_with(char::is_whitespace)
+            && rest.starts_with(char::is_whitespace)
+            && let Some(mut aligned) = postal_city_aligned(
+                &libpostal(head.trim())?,
+                &format!("{postcode}{rest}"),
+                country,
+                whole,
+            )
+        {
+            aligned.push(country.clone());
+            return Ok(Some(aligned));
+        }
+    }
+    Ok(None)
+}
+
 /// A US state code, alone or before a ZIP: the second part of "street, STATE ZIP".
 fn state_part(part: &str) -> bool {
     static STATE: LazyLock<regex::Regex> =
@@ -1434,7 +1524,23 @@ impl Parser {
                             comma_aligned(&head, extras, middle, &libpostal(tail.trim())?, &inner);
                     }
                 }
+                [head, tail]
+                    if country.is_some()
+                        && whole
+                            .iter()
+                            .any(|(k, v)| k == "road" && !head.to_lowercase().contains(v)) =>
+                {
+                    aligned = postal_city_aligned(
+                        &libpostal(head.trim())?,
+                        tail,
+                        country.as_ref().unwrap(),
+                        &inner,
+                    );
+                }
                 _ => {}
+            }
+            if aligned.is_none() && parts.len() == 1 {
+                aligned = postal_without_commas(q, &whole, libpostal)?;
             }
             let mut parsed = match aligned {
                 Some(mut a) => {
@@ -2079,6 +2185,29 @@ impl Index {
             })
             .collect();
         let hits = self.streets_by(road, number, city, &named, postcode, cc);
+        if !hits.iter().any(|h| {
+            matches!(
+                h,
+                Hit::Street {
+                    number: Some(_),
+                    ..
+                }
+            )
+        }) && let Some(compact) = number.and_then(compact_house_suffix)
+        {
+            let found = self.streets(road, Some(&compact), city, postcode, cc);
+            if found.iter().any(|h| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        ..
+                    }
+                )
+            }) {
+                return found;
+            }
+        }
         // A misspelt street ("Tarilwood Dr, Clinton"): only inside a stated town or postcode, and
         // only a house that exists there answers.
         if hits.is_empty()
@@ -2511,9 +2640,10 @@ impl Index {
                             && let Some((b, (x, y, own))) = with_postcode
                                 .iter()
                                 .filter_map(|&b| Some((b, schema::unpack(lookup(b, n)?))))
-                                .find(|&(b, (_, _, own))| {
+                                .filter(|&(b, (_, _, own))| {
                                     own_postcode(b, own).as_ref() == Some(wanted)
                                 })
+                                .min_by_key(|(b, _)| (dist(b), b.segment_ord, b.doc_id))
                         {
                             return vec![street(b, Some(n.to_string()), (x, y), own)];
                         }
@@ -3152,17 +3282,66 @@ impl Index {
     /// the region code Overture gives the places inside it (the district over its region).
     fn region_code(&self, chain: &[u32]) -> Option<&str> {
         let own = chain.iter().find_map(|p| self.own_codes.get(p));
-        own.map(|c| &**c).or_else(|| {
-            chain
-                .iter()
-                .map(|&p| &*self.places[p as usize].region)
-                .find(|r| !r.is_empty())
-        })
+        // A child's inherited region column can disagree with its explicit region parent.
+        own.map(|c| &**c)
+            .or_else(|| {
+                chain
+                    .iter()
+                    .map(|&p| &self.places[p as usize])
+                    .find(|p| p.subtype.as_ref() == "region" && !p.region.is_empty())
+                    .map(|p| &*p.region)
+            })
+            .or_else(|| {
+                chain
+                    .iter()
+                    .map(|&p| &*self.places[p as usize].region)
+                    .find(|r| !r.is_empty())
+            })
     }
 
-    fn address(&self, place: u32, en: bool, a: &mut Map<String, Value>, display: &mut Vec<String>) {
-        let chain = self.chain(place);
-        for &p in &chain {
+    fn house_chain(&self, chain: &[u32], x: f64, y: f64) -> Option<Vec<u32>> {
+        let region = |chain: &[u32]| {
+            chain
+                .iter()
+                .copied()
+                .find(|&p| self.places[p as usize].subtype.as_ref() == "region")
+        };
+        let named = region(chain)?;
+        let spatial = self.chain(self.area_at(y, x).0?);
+        let containing = region(&spatial)?;
+        if named == containing
+            || self.places[named as usize].cc != self.places[containing as usize].cc
+        {
+            return None;
+        }
+        Some(
+            chain
+                .iter()
+                .copied()
+                .take_while(|&p| {
+                    !matches!(
+                        self.places[p as usize].subtype.as_ref(),
+                        "localadmin"
+                            | "county"
+                            | "region"
+                            | "macroregion"
+                            | "dependency"
+                            | "country"
+                    ) && !self.own_codes.contains_key(&p)
+                })
+                .chain(spatial)
+                .collect(),
+        )
+    }
+
+    fn address(
+        &self,
+        chain: &[u32],
+        en: bool,
+        a: &mut Map<String, Value>,
+        display: &mut Vec<String>,
+    ) {
+        for &p in chain {
             let pl = &self.places[p as usize];
             let key = pl.key();
             if !a.contains_key(key) {
@@ -3207,7 +3386,7 @@ impl Index {
             }
             display.push("Palestine".into());
         }
-        if let Some(code) = self.region_code(&chain) {
+        if let Some(code) = self.region_code(chain) {
             if let Some(province) = irish_province(code) {
                 a.insert("ISO3166-2-lvl5".into(), province.into());
             }
@@ -3216,7 +3395,11 @@ impl Index {
         if let Some(code) = chain.iter().find_map(|p| self.subdivision_codes.get(p)) {
             a.insert("ISO3166-2-lvl6".into(), code.to_string().into());
         }
-        if let Some((code, _)) = self.provinces.iter().find(|(_, p)| **p == place) {
+        if let Some((code, _)) = self
+            .provinces
+            .iter()
+            .find(|(_, p)| chain.first() == Some(*p))
+        {
             a.insert("ISO3166-2-lvl5".into(), code.clone().into());
         }
     }
@@ -3231,7 +3414,7 @@ impl Index {
                 let mut names = Map::new();
                 names.insert("name".into(), pl.primary.to_string().into());
                 namedetails(pl, &mut names);
-                self.address(*p, en, &mut a, &mut display);
+                self.address(&self.chain(*p), en, &mut a, &mut display);
                 let admin = matches!(
                     &*pl.subtype,
                     "country" | "dependency" | "region" | "macroregion" | "county" | "localadmin"
@@ -3274,7 +3457,12 @@ impl Index {
                 a.insert("road".into(), name.clone().into());
                 display.push(name.clone());
                 if *place != NONE {
-                    self.address(*place, en, &mut a, &mut display);
+                    let chain = self.chain(*place);
+                    let chain = number
+                        .as_ref()
+                        .and_then(|_| self.house_chain(&chain, *x, *y))
+                        .unwrap_or(chain);
+                    self.address(&chain, en, &mut a, &mut display);
                 } else if let Some(country) = self.country_name(cc) {
                     a.insert("country_code".into(), cc.clone().into());
                     a.insert("country".into(), country.into());
@@ -3328,7 +3516,7 @@ impl Index {
                 a.insert("postcode".into(), pc.clone().into());
                 display.push(pc.clone());
                 if *place != NONE {
-                    self.address(*place, en, &mut a, &mut display);
+                    self.address(&self.chain(*place), en, &mut a, &mut display);
                 }
                 if !cc.is_empty() {
                     a.entry("country_code").or_insert_with(|| cc.clone().into());
@@ -3659,9 +3847,30 @@ impl Index {
     /// The polygons that hold a point: the most specific one whose place has a region code, and
     /// the country's.
     fn area_at(&self, lat: f64, lon: f64) -> (Option<u32>, Option<u32>) {
+        let containing: Vec<_> = self
+            .areas
+            .iter()
+            .flat_map(|a| a.containing(lat, lon))
+            .collect();
+        // County polygons can spill across a region boundary; the containing region wins.
+        let parent = containing.iter().find_map(|&(kind, p)| {
+            (kind == 1 && self.region_code(&self.chain(p)).is_some()).then_some(p)
+        });
         let (mut region, mut country) = (None, None);
-        for (kind, p) in self.areas.iter().flat_map(|a| a.containing(lat, lon)) {
-            if region.is_none() && self.region_code(&self.chain(p)).is_some() {
+        for (kind, p) in containing {
+            let chain = self.chain(p);
+            let county_region = (kind == 0)
+                .then(|| {
+                    chain
+                        .iter()
+                        .copied()
+                        .find(|&p| self.places[p as usize].subtype.as_ref() == "region")
+                })
+                .flatten();
+            if parent.zip(county_region).is_some_and(|(a, b)| a != b) {
+                continue;
+            }
+            if region.is_none() && self.region_code(&chain).is_some() {
                 region = Some(p);
             }
             if kind == area::COUNTRY && country.is_none() {
@@ -4484,6 +4693,86 @@ mod tests {
         assert_eq!(house_number("№ 43"), "43");
         assert_eq!(house_number("12b"), "12b");
         assert_eq!(house_number("Nordweg"), "Nordweg");
+    }
+
+    #[test]
+    fn spaced_house_suffixes_and_postcode_city_parts() {
+        assert_eq!(compact_house_suffix("7 bis").as_deref(), Some("7bis"));
+        assert_eq!(compact_house_suffix("40 C").as_deref(), Some("40C"));
+        assert_eq!(compact_house_suffix("63 P2").as_deref(), Some("63P2"));
+        for n in [
+            "7bis",
+            "12 34",
+            "12 bis apt 4",
+            "12/3 A",
+            "7 rue",
+            "12 avenue",
+            "20 route",
+            "5 apt",
+            "10 north",
+        ] {
+            assert!(compact_house_suffix(n).is_none(), "{n}");
+        }
+        let head = vec![
+            ("house_number".into(), "28".into()),
+            ("road".into(), "rue des cygnes".into()),
+        ];
+        let country = ("country".into(), "france".into());
+        let wrong = vec![
+            ("house_number".into(), "89116".into()),
+            ("road".into(), "belle-rive".into()),
+            ("city".into(), "vallee".into()),
+        ];
+        let aligned =
+            postal_city_aligned(&head, "89116 Belle-Rive la Vallée", &country, &wrong).unwrap();
+        assert_eq!(field(&aligned, "house_number"), "28");
+        assert_eq!(field(&aligned, "postcode"), "89116");
+        assert_eq!(field(&aligned, "city"), "belle-rive la vallée");
+        let mut duplicate = head.clone();
+        duplicate.extend(wrong.clone());
+        duplicate.push(country.clone());
+        let unseparated = postal_without_commas(
+            "28 rue des cygnes 89116 Belle-Rive la Vallée France",
+            &duplicate,
+            |q| {
+                assert_eq!(q, "28 rue des cygnes");
+                Ok(head.clone())
+            },
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(field(&unseparated, "house_number"), "28");
+        assert_eq!(field(&unseparated, "postcode"), "89116");
+        assert_eq!(field(&unseparated, "city"), "belle-rive la vallée");
+        let dutch = postal_city_aligned(
+            &head,
+            "6571 AD Berg en Dal",
+            &("country".into(), "netherlands".into()),
+            &wrong,
+        )
+        .unwrap();
+        assert_eq!(field(&dutch, "postcode"), "6571 ad");
+        assert_eq!(field(&dutch, "city"), "berg en dal");
+        assert!(
+            postal_city_aligned(
+                &head,
+                "9406 KX Assen",
+                &("country".into(), "belgium".into()),
+                &wrong
+            )
+            .is_none()
+        );
+        assert!(postal_city_aligned(&head, "8911 Belle-Rive", &country, &wrong).is_none());
+        assert!(postal_city_aligned(&head, "89116 Belle-Rive 2", &country, &wrong).is_none());
+        assert!(
+            postal_city_aligned(
+                &head,
+                "89116 Belle-Rive",
+                &country,
+                &[("state".into(), "bourgogne".into())]
+            )
+            .is_none()
+        );
     }
 
     #[test]
