@@ -14,6 +14,7 @@ pub const PROVIDER: Provider = Provider {
     storage_terms: Some("https://locationiq.com/terms"),
     request,
     normalize,
+    validate_status: None,
 };
 
 fn request(query: &str) -> Value {

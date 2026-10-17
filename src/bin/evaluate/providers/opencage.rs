@@ -14,17 +14,23 @@ pub const PROVIDER: Provider = Provider {
     storage_terms: None,
     request,
     normalize,
+    validate_status: Some(validate_status),
 };
 
 fn request(query: &str) -> Value {
     json!({"endpoint": "https://api.opencagedata.com/geocode/v1/json", "q": query, "language": "en", "limit": 1, "no_annotations": 1, "no_record": 1})
 }
 
-fn normalize(response: &Value) -> Result<Value> {
+fn validate_status(response: &Value) -> Result<()> {
     ensure!(
         response["status"]["code"].as_u64() == Some(200),
         "OpenCage API error or missing status; stopped without retrying"
     );
+    Ok(())
+}
+
+fn normalize(response: &Value) -> Result<Value> {
+    validate_status(response)?;
     let results = response["results"]
         .as_array()
         .context("missing OpenCage results array")?;

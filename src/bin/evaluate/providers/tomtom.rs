@@ -14,6 +14,7 @@ pub const PROVIDER: Provider = Provider {
     storage_terms: Some("https://developer.tomtom.com/terms-and-conditions"),
     request,
     normalize,
+    validate_status: None,
 };
 
 fn request(query: &str) -> Value {
