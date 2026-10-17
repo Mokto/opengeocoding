@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.9.0](https://github.com/Mokto/opengeocoding/compare/v0.8.0...v0.9.0) (2026-10-17)
+
+
+### Features
+
+* answer ResolveRegion from containing administrative polygons ([#138](https://github.com/Mokto/opengeocoding/issues/138)) ([d1857f1](https://github.com/Mokto/opengeocoding/commit/d1857f1e1e661953bc47ca12a02e8bca9e464534))
+* answer ReverseGeocode with the nearest street when no house is in range ([#137](https://github.com/Mokto/opengeocoding/issues/137)) ([fbcd914](https://github.com/Mokto/opengeocoding/commit/fbcd91447ebdca1867fb126f10a3facb32f7bb74))
+* measure house-number coverage and fill gaps from Overture places ([#143](https://github.com/Mokto/opengeocoding/issues/143)) ([abc5aa2](https://github.com/Mokto/opengeocoding/commit/abc5aa23bb16005d4a64db64a1045c7bc7f47e6e))
+* SuggestAddress typo tolerance, focus position bias and later words of names ([#139](https://github.com/Mokto/opengeocoding/issues/139)) ([ce8e15d](https://github.com/Mokto/opengeocoding/commit/ce8e15d66bda68fcc4c61b7cab052963b4e7f94c)), closes [#135](https://github.com/Mokto/opengeocoding/issues/135)
+
+
+### Bug Fixes
+
+* answer city+postcode queries a foreign postcode site would drop ([#128](https://github.com/Mokto/opengeocoding/issues/128)) ([8eecc74](https://github.com/Mokto/opengeocoding/commit/8eecc74ff8dc3a0370e119ab8df3f1a3ad72f01d))
+* list the four Irish provinces as regions and return them in answers ([#129](https://github.com/Mokto/opengeocoding/issues/129)) ([2d0c902](https://github.com/Mokto/opengeocoding/commit/2d0c90273993ccb8310b5e7a32c3260725477d8f))
+* set TCP_NODELAY on RPC connections ([#131](https://github.com/Mokto/opengeocoding/issues/131)) ([15c9090](https://github.com/Mokto/opengeocoding/commit/15c90908de70534584fc4f7d299b9d16b722172b))
+
+
+### Performance Improvements
+
+* hard-link published and pulled directories in a local store ([#140](https://github.com/Mokto/opengeocoding/issues/140)) ([644a34c](https://github.com/Mokto/opengeocoding/commit/644a34c54d39c567ca77edb27acbee497751b86a))
+
 ## [0.8.0](https://github.com/Mokto/opengeocoding/compare/v0.7.2...v0.8.0) (2026-10-16)
 
 
