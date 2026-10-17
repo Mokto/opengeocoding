@@ -1,0 +1,5 @@
+The registry-first sample tests/registry/fr.jsonl contains addresses and coordinates from the
+Base Adresse Nationale export of 2026-10-16, under Licence Ouverte / Open Licence 2.0
+(https://www.etalab.gouv.fr/licence-ouverte-open-licence/). Source: Base Adresse Nationale and
+its contributing municipalities, https://adresse.data.gouv.fr/. Per-case export checksums and
+retrieval dates are recorded in the corpus.

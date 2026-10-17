@@ -9,6 +9,8 @@
 !src/**
 !tests/
 !tests/**
+!docs/
+!docs/**
 !benches/
 !benches/**
 !proto/

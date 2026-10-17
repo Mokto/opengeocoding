@@ -8,13 +8,7 @@
 //! evaluate snapshot RUN_DIR FILE.json        manifest and full per-case results in one file
 //! evaluate report RUN_DIR [--rescore]        re-summarize a saved run, no network
 //! evaluate build-gold                        regenerate tests/gold.jsonl from tests/gold.seeds.jsonl
-//! evaluate sample-us --nad FILE --seed TEXT --out FILE   draw US cases from a NAD release, registry-first
-//! evaluate sample-fr --ban FILE --seed TEXT --out FILE   draw French cases from a BAN CSV export
-//! evaluate sample-no --kartverket FILE --seed TEXT --out FILE   draw Norwegian cases from a Kartverket CSV export
-//! evaluate sample-ch --swisstopo FILE --seed TEXT --out FILE   draw Swiss cases from the official address CSV
-//! evaluate sample-nl --bag FILE --seed TEXT --out FILE   draw Dutch cases from the BAG CSV
-//! evaluate sample-kr --schools FILE --seed TEXT --out FILE   draw Korean school address pairs
-//! evaluate sample-cz --ruian FILE --seed TEXT --out FILE   draw Czech cases from the prepared RUIAN CSV
+//! evaluate sample-CC --INPUT FILE --seed TEXT --out FILE   draw registry-first cases (see help)
 //! evaluate gold-corpus --out FILE            the gold suite as one file, for images
 //! evaluate check                             validate the corpora and snapshot, no network
 //! evaluate coverage --index DIR [--population countryInfo.txt]   house numbers per country
@@ -24,25 +18,40 @@
 //! points at a running service. Direct checks load the same index into the evaluator; they need
 //! it too.
 
-mod bag;
-mod ban;
 mod coverage;
 mod gold;
-mod kartverket;
-mod korea;
 mod model;
-mod nad;
+mod registry;
 mod report;
-mod ruian;
 mod run;
 mod score;
-mod swisstopo;
 
 use anyhow::{Context, Result, bail};
 use model::{Case, Record, load_corpus, load_jsonl};
 use std::{collections::HashMap, path::PathBuf};
 
-const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|sample-fr|sample-no|sample-ch|sample-nl|sample-kr|sample-cz|gold-corpus|check|coverage> [options]
+fn usage() -> String {
+    let commands = registry::ALL
+        .iter()
+        .map(|r| r.command)
+        .collect::<Vec<_>>()
+        .join("|");
+    let inputs = registry::ALL
+        .iter()
+        .map(|r| format!("[--{} FILE]", r.input))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let samples = registry::ALL
+        .iter()
+        .map(|r| {
+            format!(
+                "{:<11} --{} FILE --seed TEXT --out FILE",
+                r.command, r.input
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!("usage: evaluate <run|diff|snapshot|report|build-gold|{commands}|gold-corpus|check|coverage> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
@@ -50,17 +59,12 @@ run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare 
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
-build-gold  [--seeds FILE] [--out FILE] [--nad FILE] [--ban FILE] [--kartverket FILE] [--swisstopo FILE] [--bag FILE] [--schools FILE] [--ruian FILE]
-sample-us   --nad FILE --seed TEXT --out FILE
-sample-fr   --ban FILE --seed TEXT --out FILE
-sample-no   --kartverket FILE --seed TEXT --out FILE
-sample-ch   --swisstopo FILE --seed TEXT --out FILE
-sample-nl   --bag FILE --seed TEXT --out FILE
-sample-kr   --schools FILE --seed TEXT --out FILE
-sample-cz   --ruian FILE --seed TEXT --out FILE
+build-gold  [--seeds FILE] [--out FILE] {inputs}
+{samples}
 gold-corpus --out FILE      write the gold suite as one file (the curated corpus, then tests/registry/*.jsonl)
 check       validate tests/gold.jsonl, tests/registry/*.jsonl, tests/addresses.tsv and its snapshot
-coverage    --index DIR [--population countryInfo.txt] [--out FILE]   houses and streets per country, largest gap first";
+coverage    --index DIR [--population countryInfo.txt] [--out FILE]   houses and streets per country, largest gap first")
+}
 
 struct Args {
     positional: Vec<String>,
@@ -107,7 +111,7 @@ impl Args {
 
     fn only_flags(&self, allowed: &[&str]) -> Result<()> {
         if let Some(unknown) = self.flags.iter().find(|f| !allowed.contains(&f.as_str())) {
-            bail!("unknown option --{unknown}\n\n{USAGE}");
+            bail!("unknown option --{unknown}\n\n{}", usage());
         }
         Ok(())
     }
@@ -135,7 +139,7 @@ async fn main() {
 async fn command() -> Result<i32> {
     let mut raw = std::env::args().skip(1);
     let command = raw.next().unwrap_or_default();
-    let valued = [
+    let valued: Vec<_> = [
         "suite",
         "corpus",
         "out",
@@ -148,16 +152,12 @@ async fn command() -> Result<i32> {
         "compare",
         "repeat",
         "seeds",
-        "nad",
-        "ban",
-        "kartverket",
-        "swisstopo",
-        "bag",
-        "schools",
-        "ruian",
         "seed",
         "population",
-    ];
+    ]
+    .into_iter()
+    .chain(registry::ALL.iter().map(|r| r.input))
+    .collect();
     let args = Args::parse(raw, &valued)?;
     match command.as_str() {
         "run" => {
@@ -203,7 +203,7 @@ async fn command() -> Result<i32> {
         "diff" => {
             args.only_flags(&["fail-on-drift", "relative"])?;
             let [baseline, candidate] = args.positional.as_slice() else {
-                bail!("diff needs BASELINE and CANDIDATE\n\n{USAGE}");
+                bail!("diff needs BASELINE and CANDIDATE\n\n{}", usage());
             };
             let failed = report::diff(
                 &corpus(&args)?,
@@ -218,7 +218,10 @@ async fn command() -> Result<i32> {
         "snapshot" => {
             args.only_flags(&[])?;
             let [run_dir, out] = args.positional.as_slice() else {
-                bail!("snapshot needs RUN_DIR and FILE.tsv or FILE.json\n\n{USAGE}");
+                bail!(
+                    "snapshot needs RUN_DIR and FILE.tsv or FILE.json\n\n{}",
+                    usage()
+                );
             };
             report::snapshot(run_dir.as_ref(), out.as_ref())?;
             Ok(0)
@@ -226,7 +229,7 @@ async fn command() -> Result<i32> {
         "report" => {
             args.only_flags(&["rescore"])?;
             let [run_dir] = args.positional.as_slice() else {
-                bail!("report needs RUN_DIR\n\n{USAGE}");
+                bail!("report needs RUN_DIR\n\n{}", usage());
             };
             let run_dir = PathBuf::from(run_dir);
             let cases = corpus(&args)?;
@@ -249,15 +252,7 @@ async fn command() -> Result<i32> {
             gold::build(
                 &seeds,
                 &args.path("out").unwrap_or_else(model::gold),
-                gold::RegistryFiles {
-                    nad: args.path("nad").as_deref(),
-                    ban: args.path("ban").as_deref(),
-                    kartverket: args.path("kartverket").as_deref(),
-                    swisstopo: args.path("swisstopo").as_deref(),
-                    bag: args.path("bag").as_deref(),
-                    schools: args.path("schools").as_deref(),
-                    ruian: args.path("ruian").as_deref(),
-                },
+                &args.values,
             )
             .await?;
             Ok(0)
@@ -267,32 +262,17 @@ async fn command() -> Result<i32> {
             model::write_suite(&args.path("out").context("--out is required")?)?;
             Ok(0)
         }
-        "sample-us" | "sample-fr" | "sample-no" | "sample-ch" | "sample-nl" | "sample-kr"
-        | "sample-cz" => {
+        command if command.starts_with("sample-") => {
+            let registry = registry::ALL
+                .iter()
+                .find(|r| r.command == command)
+                .with_context(|| format!("unknown command {command}\n\n{}", usage()))?;
             args.only_flags(&[])?;
             let seed = args.value("seed").context("--seed is required")?;
-            let lines = match command.as_str() {
-                "sample-kr" => korea::sample(
-                    &args.path("schools").context("--schools is required")?,
-                    seed,
-                )?,
-                "sample-cz" => {
-                    ruian::sample(&args.path("ruian").context("--ruian is required")?, seed)?
-                }
-                "sample-nl" => bag::sample(&args.path("bag").context("--bag is required")?, seed)?,
-                "sample-fr" => ban::sample(&args.path("ban").context("--ban is required")?, seed)?,
-                "sample-no" => kartverket::sample(
-                    &args
-                        .path("kartverket")
-                        .context("--kartverket is required")?,
-                    seed,
-                )?,
-                "sample-ch" => swisstopo::sample(
-                    &args.path("swisstopo").context("--swisstopo is required")?,
-                    seed,
-                )?,
-                _ => nad::sample(&args.path("nad").context("--nad is required")?, seed)?,
-            };
+            let path = args
+                .path(registry.input)
+                .with_context(|| format!("--{} is required", registry.input))?;
+            let lines = (registry.sample)(&path, seed)?;
             let out = args.path("out").context("--out is required")?;
             let text: Vec<_> = lines
                 .iter()
@@ -343,7 +323,7 @@ async fn command() -> Result<i32> {
             Ok(0)
         }
         _ => {
-            eprintln!("{USAGE}");
+            eprintln!("{}", usage());
             Ok(2)
         }
     }

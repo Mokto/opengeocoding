@@ -1,0 +1,4 @@
+The registry-first sample tests/registry/us.jsonl contains addresses and coordinates from the US
+Department of Transportation's National Address Database (release r24), a work of the United States
+government in the public domain. The data is provided as is, without warranty of accuracy, and is
+not for use as a mailing list.

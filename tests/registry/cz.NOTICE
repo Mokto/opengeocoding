@@ -1,0 +1,8 @@
+The registry-first sample tests/registry/cz.jsonl contains addresses and coordinates from
+ČÚZK's RÚIAN address and hierarchy exports of 2026-09-30. © Český úřad zeměměřický a
+katastrální, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+Source: https://atom.cuzk.gov.cz/RUIAN-CSV-ADR-ST/RUIAN-CSV-ADR-ST.xml and
+https://atom.cuzk.gov.cz/RUIAN-CSV-HIE-ST/RUIAN-CSV-HIE-ST.xml.
+Coordinates were transformed from S-JTSK to EPSG:4326 with DuckDB spatial / PROJ, and
+queries were constructed from registry fields. Per-case prepared-CSV checksums and
+retrieval dates are recorded in the corpus; docs/registry/cz.md records the upstream checksums.
