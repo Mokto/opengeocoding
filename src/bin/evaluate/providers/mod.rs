@@ -31,6 +31,7 @@ pub struct Provider {
     label: &'static str,
     credential_env: &'static str,
     auth_parameter: &'static str,
+    query_error_statuses: &'static [u16],
     not_found_status: Option<u16>,
     interval_ms: u64,
     storage_terms: Option<&'static str>,
@@ -130,7 +131,9 @@ fn read_entry(provider: &Provider, cache: &Path, request: &Value) -> Result<Opti
         path.display()
     );
     ensure!(
-        matches!(entry.status, 200 | 422) || provider.not_found_status == Some(entry.status),
+        entry.status == 200
+            || provider.query_error_statuses.contains(&entry.status)
+            || provider.not_found_status == Some(entry.status),
         "invalid cached status"
     );
     Ok(Some(entry))
@@ -174,7 +177,9 @@ async fn fetch(
         .with_context(|| format!("{} request failed (not retried)", provider.name))?;
     let status = response.status().as_u16();
     ensure!(
-        matches!(status, 200 | 422) || provider.not_found_status == Some(status),
+        status == 200
+            || provider.query_error_statuses.contains(&status)
+            || provider.not_found_status == Some(status),
         "{} HTTP {status}; stopped without retrying",
         provider.name
     );
@@ -373,13 +378,18 @@ pub async fn run(options: Options) -> Result<i32> {
             query: case.query.clone(),
             ..Default::default()
         };
-        if entry.status != 422 {
+        if !provider.query_error_statuses.contains(&entry.status) {
             let response = (provider.normalize)(&entry.response)?;
             classify(case, Ok(&response), &mut record, false);
             record.summary = Some(summary_of(&response));
             record.response = Some(response);
         } else {
-            classify(case, Err("http_422"), &mut record, false);
+            classify(
+                case,
+                Err(&format!("http_{}", entry.status)),
+                &mut record,
+                false,
+            );
         }
         records.push(record);
         if records.len() % 50 == 0 {
@@ -458,7 +468,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn locationiq_not_found_is_cached_without_accepting_other_providers_404s() {
+    async fn provider_specific_http_outcomes_are_cached_without_hiding_errors() {
         let dir =
             std::env::temp_dir().join(format!("locationiq-cache-test-{}", std::process::id()));
         let cache = dir.join("cache");
@@ -504,6 +514,46 @@ mod tests {
             crate::model::load_jsonl(&dir.join("out/results.jsonl")).unwrap();
         assert_eq!(records[0].class, "pass");
         assert_eq!(records[0].response, Some(json!({})));
+        let provider = named("opencage").unwrap();
+        let request = (provider.request)("");
+        save_entry(
+            &dir.join("cache"),
+            &Entry {
+                request: request.clone(),
+                fetched_at: String::new(),
+                status: 400,
+                response: json!({"status": {"code": 400}, "results": []}),
+            },
+        )
+        .unwrap();
+        assert!(read_entry(named("google").unwrap(), &dir.join("cache"), &request).is_err());
+        std::fs::write(
+            dir.join("cases.jsonl"),
+            serde_json::to_string(&Case {
+                query: String::new(),
+                ..case
+            })
+            .unwrap()
+                + "\n",
+        )
+        .unwrap();
+        run(Options {
+            provider,
+            storage_authorized: false,
+            corpus: Some(dir.join("cases.jsonl")),
+            out: dir.join("invalid"),
+            cache: dir.join("cache"),
+            only: None,
+            fetch: false,
+            budget: 0,
+            compare: None,
+        })
+        .await
+        .unwrap();
+        let records: Vec<Record> =
+            crate::model::load_jsonl(&dir.join("invalid/results.jsonl")).unwrap();
+        assert_eq!(records[0].class, "error");
+        assert_eq!(records[0].error.as_deref(), Some("http_400"));
         std::fs::remove_dir_all(dir).unwrap();
     }
 

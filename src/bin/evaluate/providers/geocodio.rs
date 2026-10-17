@@ -8,6 +8,7 @@ pub const PROVIDER: Provider = Provider {
     label: "Geocodio API v2",
     credential_env: "GEOCODIO_API_KEY",
     auth_parameter: "api_key",
+    query_error_statuses: &[422],
     not_found_status: None,
     interval_ms: 200,
     storage_terms: Some("https://www.geocod.io/terms-of-use/"),

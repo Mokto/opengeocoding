@@ -8,6 +8,7 @@ pub const PROVIDER: Provider = Provider {
     name: "here",
     label: "HERE Geocoding and Search v7",
     credential_env: "HERE_API_KEY",
+    query_error_statuses: &[422],
     not_found_status: None,
     interval_ms: 200,
     auth_parameter: "apiKey",
