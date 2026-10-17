@@ -2471,10 +2471,13 @@ impl Index {
                 }
                 None => Default::default(),
             };
-        let near_postcode = postcode.and_then(|pc| match self.postcodes(pc, cc).first() {
+        let postcode_places = postcode
+            .map(|pc| self.postcodes(pc, cc))
+            .unwrap_or_default();
+        let near_postcode = match postcode_places.first() {
             Some(Hit::Postcode { x, y, .. }) => Some((*x, *y)),
             _ => None,
-        });
+        };
         for (i, scope) in scopes.into_iter().enumerate() {
             let mut cl = base();
             if let Some(s) = scope {
@@ -2623,6 +2626,7 @@ impl Index {
             }
             if let Some(n) = number.as_deref().filter(|n| !n.is_empty()) {
                 let mut key = vec![];
+                let mut conflicting = false;
                 for &a in &top {
                     let sid = self.fast(a, "id") as u32;
                     key.clear();
@@ -2647,9 +2651,42 @@ impl Index {
                         {
                             return vec![street(b, Some(n.to_string()), (x, y), own)];
                         }
+                        let found = street(a, Some(n.to_string()), (x, y), own);
+                        // Raw house postcodes can disagree with the nearby-source corroboration above.
+                        if with_postcode.contains(&a)
+                            && wanted.as_ref().is_some_and(|wanted| match &found {
+                                Hit::Street {
+                                    postcode: Some(actual),
+                                    ..
+                                } => !crate::matching::postcodes_compatible(wanted, actual),
+                                _ => false,
+                            })
+                            && postcode_places.iter().any(|hit| match hit {
+                                Hit::Postcode { place, .. } if *place != NONE => {
+                                    let street_place = self.fast(a, "place") as u32;
+                                    street_place != NONE
+                                        && matches!(
+                                            self.places[*place as usize].subtype.as_ref(),
+                                            "locality" | "localadmin"
+                                        )
+                                        && (self.chain(street_place).contains(place)
+                                            || (matches!(
+                                                self.places[street_place as usize].subtype.as_ref(),
+                                                "locality" | "localadmin"
+                                            ) && self.chain(*place).contains(&street_place)))
+                                }
+                                _ => false,
+                            })
+                        {
+                            conflicting = true;
+                            continue;
+                        }
                         // like Nominatim, a found house is the only answer
-                        return vec![street(a, Some(n.to_string()), (x, y), own)];
+                        return vec![found];
                     }
+                }
+                if conflicting {
+                    return vec![];
                 }
             }
             // A street crossing a cell edge is indexed in parts: answer the middle of the parts
