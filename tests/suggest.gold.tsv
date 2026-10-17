@@ -239,3 +239,11 @@ elysees, paris		1	street	fr	48.87	2.307	3
 350, fifth avenue, new york		1	address	us	40.7484	-73.9857	1			
 1, platz der republik, berlin		1	address	de	52.5186	13.3762	1			
 1600, amphitheatre parkway, mountain view		1	address	us	37.4220	-122.0841	1			
+rådhuspladsen 1, 4		1	address	dk	55.6760	12.5683	1	15		
+rådhuspladsen 1, 4. th.		1	address	dk	55.6760	12.5683	1	15		
+rådhuspladsen 1, st. tv.	dk	1	address	dk	55.6760	12.5683	1			
+rådhuspladsen 1, kl., københavn		1	address	dk	55.6760	12.5683	1			
+rådhuspladsen 1, 4, københavn		1	address	dk	55.6760	12.5683	1			
+rådhuspladsen 1, 4., københavn, denmark		1	address	dk	55.6760	12.5683	1			
+rådhuspladsen 1, 4., københavn	dk	1	address	dk	55.6760	12.5683	1			
+rådhuspladsen 1, 12. mf.		1	address	dk	55.6760	12.5683	1	15		

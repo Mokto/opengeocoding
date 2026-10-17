@@ -148,6 +148,7 @@ pub struct Suggestion {
     /// Opaque; a place, street, house or postcode of this index.
     pub id: String,
     pub display_name: String,
+    pub unverified_suffix: String,
     pub kind: &'static str,
     /// Landmarks only: airport, station, attraction, museum, university, hospital or stadium.
     pub category: &'static str,
@@ -371,6 +372,19 @@ impl Typed {
     }
 }
 
+fn danish_floor(text: &str) -> bool {
+    let folded = text.to_ascii_lowercase().replace('.', " ");
+    let words: Vec<_> = folded.split_whitespace().collect();
+    let Some(floor) = words.first() else {
+        return false;
+    };
+    let floor = matches!(*floor, "st" | "kl")
+        || (floor.len() <= 2 && floor.bytes().all(|b| b.is_ascii_digit()));
+    floor
+        && (words.len() == 1
+            || words.len() == 2 && matches!(words[1], "t" | "th" | "tv" | "m" | "mf"))
+}
+
 impl Index {
     /// Reads what the first person to type a short prefix would otherwise wait for: the places
     /// and terms of one and two letters, and the names of countries and regions. One thread, once,
@@ -460,6 +474,9 @@ impl Index {
         }
         if out.is_empty() {
             out = self.suggest_number_comma(&typed, cc, focus, limit);
+        }
+        if out.is_empty() {
+            out = self.suggest_floor(&typed, cc, focus, limit);
         }
         let mut seen = std::collections::HashSet::new();
         // the filter matches a street's own country, which its place may not be in
@@ -1004,6 +1021,7 @@ impl Index {
             .map(|(id, l)| Suggestion {
                 id: format!("l{id}"),
                 display_name: format!("{}, {}", self.landmarks.name(l), self.label(l.place)),
+                unverified_suffix: String::new(),
                 kind: "landmark",
                 category: l.category,
                 country_code: self.places[l.place as usize].cc.to_string(),
@@ -1019,6 +1037,7 @@ impl Index {
         Suggestion {
             id: format!("p{id}"),
             display_name: self.label(id).to_string(),
+            unverified_suffix: String::new(),
             kind: place_kind(pl),
             category: "",
             country_code: pl.cc.to_string(),
@@ -1085,6 +1104,7 @@ impl Index {
                 Some(Suggestion {
                     id: format!("z{}:{}", country_code, pc_norm(&stored(&doc, self.f.pcode))),
                     display_name: display.join(", "),
+                    unverified_suffix: String::new(),
                     kind: "postcode",
                     category: "",
                     country_code,
@@ -1129,6 +1149,37 @@ impl Index {
         .into_iter()
         .filter(|s| s.kind == "address")
         .collect()
+    }
+
+    fn suggest_floor(
+        &self,
+        typed: &Typed,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        want: usize,
+    ) -> Vec<Suggestion> {
+        if cc.is_some_and(|c| !c.eq_ignore_ascii_case("dk"))
+            || typed.parts.len() < 2
+            || !danish_floor(&typed.parts[1])
+        {
+            return vec![];
+        }
+        let mut building = Typed {
+            parts: typed.parts.clone(),
+            open: typed.open && typed.parts.len() > 2,
+        };
+        let suffix = building.parts.remove(1);
+        self.suggest_streets(&building, Some("dk"), focus, want)
+            .into_iter()
+            .filter(|s| s.kind == "address" && s.country_code == "dk")
+            .map(|mut s| {
+                if let Some((at, _)) = s.display_name.match_indices(", ").nth(1) {
+                    s.display_name.insert_str(at, &format!(", {suffix}"));
+                }
+                s.unverified_suffix = suffix.clone();
+                s
+            })
+            .collect()
     }
 
     /// Streets, and houses when a number is typed, with the road in the first part and the
@@ -1557,6 +1608,7 @@ impl Index {
                 None => format!("s{sid}"),
             },
             display_name: display.join(", "),
+            unverified_suffix: String::new(),
             kind: if number.is_some() {
                 "address"
             } else {
@@ -1749,6 +1801,42 @@ mod tests {
                 "Londo",
                 &en("Londo"),
             ),
+            place(
+                "country",
+                "",
+                "DK",
+                "",
+                6_000_000,
+                10.0,
+                56.0,
+                "",
+                "Denmark",
+                &en("Denmark"),
+            ),
+            place(
+                "locality",
+                "city",
+                "DK",
+                "DK-84",
+                600_000,
+                12.57,
+                55.68,
+                "9",
+                "Copenhagen",
+                &en("Copenhagen"),
+            ),
+            place(
+                "locality",
+                "village",
+                "DK",
+                "DK-84",
+                6_000,
+                12.0,
+                55.0,
+                "9",
+                "4",
+                &en("4"),
+            ),
         ];
         std::fs::write(dir.join("places.tsv"), places.concat()).unwrap();
 
@@ -1783,6 +1871,15 @@ mod tests {
             street.add_text(f.ids, id);
         }
         writer.add_document(street).unwrap();
+        for (sid, name, place) in [(8u64, "Examplegade", 10u64), (9, "Scopegade", 11)] {
+            writer
+                .add_document(tantivy::doc!(
+                    f.kind => "s", f.names => name, f.country => "DK", f.name => name,
+                    f.id => sid, f.place => place, f.ids => place.to_string(), f.ids => "9",
+                    f.importance => 50u64, f.x => 12.57f64, f.y => 55.68f64
+                ))
+                .unwrap();
+        }
         writer
             .add_document(tantivy::doc!(
                 f.kind => "z", f.pcode => "75001", f.name => "75001", f.country => "FR",
@@ -1793,11 +1890,22 @@ mod tests {
         drop(writer);
 
         let mut fst = tantivy_fst::MapBuilder::memory();
-        for n in ["12", "120", "12a"] {
-            let mut key = 7u32.to_be_bytes().to_vec();
-            key.extend_from_slice(n.as_bytes());
-            let (x, y) = schema::pack(2.3 + n.len() as f64 / 100.0, 48.86, 0);
-            fst.insert(key, (x as u64) << 32 | y as u64).unwrap();
+        for (sid, numbers) in [
+            (7u32, &["12", "120", "12a"][..]),
+            (8, &["12", "120", "12a"][..]),
+            (9, &["12"][..]),
+        ] {
+            for n in numbers {
+                let mut key = sid.to_be_bytes().to_vec();
+                key.extend_from_slice(n.as_bytes());
+                let (x, y) = match sid {
+                    7 => (2.3 + n.len() as f64 / 100.0, 48.86),
+                    8 => (12.57, 55.68),
+                    _ => (12.0, 55.0),
+                };
+                let (x, y) = schema::pack(x, y, 0);
+                fst.insert(key, (x as u64) << 32 | y as u64).unwrap();
+            }
         }
         std::fs::write(dir.join("numbers.shards"), "1").unwrap();
         std::fs::write(dir.join("numbers-00.fst"), fst.into_inner().unwrap()).unwrap();
@@ -1981,6 +2089,63 @@ mod tests {
             index.suggest("75001, paris", 1, None, None, false)[0].id,
             "zfr:75001"
         );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn floor_fallback_uses_the_buildings_country_and_preserves_constraints() {
+        let (index, dir) = tiny();
+        let base = index
+            .suggest("Examplegade 12, Copenhagen", 1, None, None, false)
+            .remove(0);
+        for suffix in ["4", "4.", "4. t", "4. th.", "ST. TV.", "kl.", "12. mf."] {
+            for tail in ["", ", Copen", ", Copenhagen, Denmark"] {
+                let query = format!("Examplegade 12, {suffix}{tail}");
+                let found = index.suggest(&query, 5, None, None, false);
+                assert_eq!(found.len(), 1, "{query}");
+                let s = &found[0];
+                assert_eq!((&s.id, s.x, s.y), (&base.id, base.x, base.y), "{query}");
+                assert_eq!(s.unverified_suffix, suffix);
+                assert_eq!(
+                    s.display_name,
+                    format!("12, Examplegade, {suffix}, Copenhagen, Denmark")
+                );
+                assert!(s.id.ends_with(":12"));
+            }
+        }
+        let letter = index.suggest("Examplegade 12A, 4", 1, Some("DK"), None, false);
+        assert_eq!(letter[0].id, "h8:12a");
+        assert_eq!(letter[0].unverified_suffix, "4");
+        for query in [
+            "Examplegade 1, 4",
+            "Examplegade 99, 4",
+            "Examplegade, 4",
+            "Examplegade 12, 1550",
+            "Examplegade 12, 4, London",
+            "Examplegade 12, 4, United States",
+            "Examplegade 12, 4, 9999",
+            "Examplegade 12, not a floor",
+            "12 rue de rivoli, 4",
+        ] {
+            assert!(
+                index.suggest(query, 5, None, None, false).is_empty(),
+                "{query}"
+            );
+        }
+        assert!(
+            index
+                .suggest("Examplegade 12, 4", 5, Some("fr"), None, false)
+                .is_empty()
+        );
+        assert!(
+            index
+                .suggest("Examplegade 12, 4", 0, None, None, false)
+                .is_empty()
+        );
+        let literal = index.suggest("Scopegade 12, 4,", 1, None, None, false);
+        assert_eq!(literal[0].id, "h9:12");
+        assert!(literal[0].unverified_suffix.is_empty());
+        assert!(base.unverified_suffix.is_empty());
         std::fs::remove_dir_all(dir).unwrap();
     }
 
