@@ -1776,6 +1776,44 @@ impl Index {
             .iter()
             .find(|(l, _)| l == "country")
             .and_then(|(_, c)| self.country(c));
+        // libpostal can read a postcode and compound town as a second house and road.
+        if let [
+            (number, n),
+            (road, r),
+            (postcode, pc),
+            (prefix, p),
+            (city, t),
+            rest @ ..,
+        ] = &*parsed
+            && number == "house_number"
+            && road == "road"
+            && postcode == "house_number"
+            && prefix == "road"
+            && city == "city"
+            && rest.iter().all(|(k, _)| {
+                matches!(
+                    k.as_str(),
+                    "country" | "state" | "state_district" | "country_region"
+                )
+            })
+            && let Some(cc) = first_cc.as_deref()
+            && self.knows_postcode(pc, Some(cc))
+        {
+            let town = format!("{p} {t}");
+            if !self
+                .places(&town, Some(cc), None, &|p| p.named(name_key(&town)))
+                .is_empty()
+            {
+                let mut repaired = vec![
+                    ("house_number".into(), n.clone()),
+                    ("road".into(), r.clone()),
+                    ("postcode".into(), pc.clone()),
+                    ("city".into(), town),
+                ];
+                repaired.extend_from_slice(rest);
+                return Ok(repaired.into());
+            }
+        }
         let stated = parsed
             .iter()
             .find(|(l, _)| l == "postcode")
@@ -2643,7 +2681,7 @@ impl Index {
                                 .filter(|&(b, (_, _, own))| {
                                     own_postcode(b, own).as_ref() == Some(wanted)
                                 })
-                                .min_by_key(|(b, _)| (dist(b), b.segment_ord, b.doc_id))
+                                .min_by_key(|(b, _)| (dist(b), self.fast(*b, "id")))
                         {
                             return vec![street(b, Some(n.to_string()), (x, y), own)];
                         }
@@ -4012,6 +4050,14 @@ mod tests {
                 f.country => "US", f.place => 0u64, f.importance => 1u64
             ))
             .unwrap();
+        for (id, name) in [(1u64, "North-Harbor"), (2, "Harbor")] {
+            writer
+                .add_document(tantivy::doc!(
+                    f.kind => "p", f.names => name, f.country => "US",
+                    f.id => id, f.importance => 1u64
+                ))
+                .unwrap();
+        }
         writer.commit().unwrap();
         drop(writer);
         std::fs::write(dir.join("numbers.shards"), "1").unwrap();
@@ -4022,7 +4068,11 @@ mod tests {
         .unwrap();
         std::fs::write(
             dir.join("places.tsv"),
-            "country\t\tUS\t\t\t0\t0\t0\t0\t0\t0\t0\t\tUnited States\ten=United States\n",
+            concat!(
+                "country\t\tUS\t\t\t0\t0\t0\t0\t0\t0\t0\t\tUnited States\ten=United States\n",
+                "locality\ttown\tUS\t\t\t0\t0\t0\t0\t0\t0\t0\t0\tNorth-Harbor\t\n",
+                "locality\ttown\tUS\t\t\t0\t0\t0\t0\t0\t0\t0\t0\tHarbor\t\n",
+            ),
         )
         .unwrap();
         let parser = Arc::new(Parser::unloaded(16));
@@ -4116,8 +4166,61 @@ mod tests {
             ("21 Oak, Springfeld, USA".into(), street.clone()),
         ]);
         cache.extend(protected.iter().map(|(q, p)| ((*q).into(), p.clone())));
+        let mut compounds = Vec::new();
+        for (town, postcode, country) in [
+            ("north-", "12345", "usa"),
+            ("missing-", "12345", "usa"),
+            ("north-", "99999", "usa"),
+            ("north-", "12345", "canada"),
+        ] {
+            let query = format!("20 Oak, {postcode} {town}Harbor, {country}");
+            let parsed = pairs(&[
+                ("house_number", "20"),
+                ("road", "oak"),
+                ("house_number", postcode),
+                ("road", town),
+                ("city", "harbor"),
+                ("country", country),
+            ]);
+            cache.insert(query.clone().into(), parsed.clone());
+            cache.insert(
+                format!("20 Oak, {town}Harbor, {country}").into(),
+                pairs(&[
+                    ("house_number", "20"),
+                    ("road", &format!("oak {town}")),
+                    ("city", "harbor"),
+                    ("country", country),
+                ]),
+            );
+            compounds.push((query, parsed));
+        }
         drop(cache);
         let index = Index::open(&dir, parser).unwrap();
+        for (i, (query, parsed)) in compounds.iter().enumerate() {
+            let expected = if i == 0 {
+                pairs(&[
+                    ("house_number", "20"),
+                    ("road", "oak"),
+                    ("postcode", "12345"),
+                    ("city", "north- harbor"),
+                    ("country", "usa"),
+                ])
+            } else {
+                parsed.clone()
+            };
+            assert_eq!(
+                index.parse_address(query, true).unwrap(),
+                expected,
+                "{query}"
+            );
+            if i == 0 {
+                assert_eq!(
+                    index.parse_address(query, false).unwrap(),
+                    expected,
+                    "{query}"
+                );
+            }
+        }
         let mut expected = street.to_vec();
         expected.push(("postcode".into(), "12345".into()));
         assert_eq!(
@@ -4159,10 +4262,16 @@ mod tests {
         let mut writer: tantivy::IndexWriter = tantivy_index
             .writer_with_num_threads(1, 15_000_000)
             .unwrap();
-        for (sid, name, pcode) in [(1000u64, "Oak Street", "12345"), (1001, "Elm Street", "")] {
+        for (sid, name, pcode) in [
+            (1000u64, "Oak Street", "12345"),
+            (1001, "Elm Street", ""),
+            (1003, "Oak Street", "67890"),
+            (1002, "Oak Street", "67890"),
+        ] {
             let mut d = tantivy::doc!(
                 f.kind => "s", f.names => name.to_lowercase(), f.country => "US", f.id => sid,
-                f.place => 0u64, f.importance => 1u64, f.x => 10.0, f.y => 50.0, f.name => name
+                f.place => 0u64, f.importance => 1u64, f.x => 10.0, f.y => 50.0, f.name => name,
+                f.city => if sid == 1000 { "Wrongtown" } else { "Righttown" }
             );
             if !pcode.is_empty() {
                 d.add_text(f.pcode, pcode);
@@ -4182,14 +4291,15 @@ mod tests {
                 at(1000, "2", 10.0002, 50.0, 0),
                 at(1001, "7", 10.0003, 50.0004, 0),
                 at(1001, "9", 10.05, 50.0, 0),
+                at(1002, "1", 11.0, 50.0, 1),
+                at(1003, "1", 12.0, 50.0, 1),
             ],
             long: vec![],
         }]);
         spill.write_fsts(dir.to_str().unwrap(), 1, &|sid, slot| (sid, slot));
         assert_eq!(
             reverse::build(&dir, &tantivy_index, f.kind, |_| None).unwrap(),
-            // Oak's two houses share a cell; Elm's two are in two; no street spill
-            (3, 0)
+            (5, 0)
         );
         std::fs::write(
             dir.join("places.tsv"),
@@ -4197,6 +4307,16 @@ mod tests {
         )
         .unwrap();
         let index = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
+        for _ in 0..32 {
+            let found = index.streets(
+                "Oak Street",
+                Some("1"),
+                Some("Wrongtown"),
+                Some("67890"),
+                Some("US"),
+            );
+            assert!(matches!(found.as_slice(), [Hit::Street { sid: 1002, .. }]));
+        }
         let find = |lat, lon, radius, size| {
             index
                 .reverse_search(lat, lon, radius, size)
