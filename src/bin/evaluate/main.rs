@@ -253,7 +253,10 @@ async fn command() -> Result<i32> {
             let cases = load_corpus(&model::gold())?;
             model::validate_gold(&cases)?;
             let mut registry = 0;
-            for path in model::registry_corpora() {
+            for path in model::registry_corpora()
+                .into_iter()
+                .chain([model::gold_landmarks()])
+            {
                 let cases = load_corpus(&path)?;
                 model::validate_gold(&cases).with_context(|| path.display().to_string())?;
                 registry += cases.len();
@@ -263,7 +266,7 @@ async fn command() -> Result<i32> {
             let addresses =
                 model::validate_addresses(&model::addresses(), &model::address_snapshot())?;
             println!(
-                "{} gold cases, {registry} registry cases and {addresses} address cases validated",
+                "{} gold cases, {registry} registry and landmark cases and {addresses} address cases validated",
                 cases.len()
             );
             Ok(0)

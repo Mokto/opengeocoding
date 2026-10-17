@@ -1,0 +1,59 @@
+{"kind":"suggest_landmark","qid":"Q46280","queries":["CDG","Charles de Gaulle Airport"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q8691","queries":["Heathrow","LHR"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q8685","queries":["JFK","John F. Kennedy Airport"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q206277","queries":["Copenhagen Airport","CPH"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q36454","queries":["NRT","Narita Airport"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q46033","queries":["Frankfurt Airport"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q166276","queries":["MAD","Barajas"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q9694","queries":["Schiphol"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q385406","queries":["GRU"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q821275","queries":["DEL","Indira Gandhi International Airport"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q821750","queries":["OR Tambo International Airport"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q17581","queries":["SYD"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q242066","queries":["Toronto Pearson"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q860559","queries":["Aeropuerto Internacional Benito Juárez"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q193439","queries":["DXB"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q3661908","queries":["Istanbul Airport"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q206349","queries":["NBO"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q384788","queries":["EZE"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q32159","queries":["Changi Airport"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q20932","queries":["ICN"],"radius_km":3,"category":"airport"}
+{"kind":"suggest_landmark","qid":"Q745942","queries":["Gare du Nord","Paris Gare du Nord"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q1495052","queries":["Københavns Hovedbanegård","København H"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q219867","queries":["King's Cross"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q11290","queries":["Grand Central Terminal"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q1097","queries":["Berlin Hauptbahnhof"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q283196","queries":["Tokyo Station"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q23093","queries":["Madrid Atocha"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q50719","queries":["Amsterdam Centraal"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q801193","queries":["Milano Centrale"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q224494","queries":["Zürich HB"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q697300","queries":["Wien Hauptbahnhof"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q235884","queries":["Chhatrapati Shivaji Maharaj Terminus"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q54315","queries":["Stockholm Central"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q1410317","queries":["Oslo S"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q2983699","queries":["Estação da Luz"],"radius_km":1,"category":"station"}
+{"kind":"suggest_landmark","qid":"Q243","queries":["Eiffel","Tour Eiffel"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q19675","queries":["Louvre"],"radius_km":1,"category":"museum"}
+{"kind":"suggest_landmark","qid":"Q110289","queries":["Tivoli Gardens"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q6373","queries":["British Museum"],"radius_km":1,"category":"museum"}
+{"kind":"suggest_landmark","qid":"Q9202","queries":["Statue of Liberty"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q10285","queries":["Colosseum","Colosseo"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q48435","queries":["Sagrada Família"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q190804","queries":["Rijksmuseum"],"radius_km":1,"category":"museum"}
+{"kind":"suggest_landmark","qid":"Q82425","queries":["Brandenburger Tor"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q45178","queries":["Sydney Opera House"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q9141","queries":["Taj Mahal"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q79961","queries":["Cristo Redentor"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q131013","queries":["Acropolis"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q12506","queries":["Hagia Sophia","Ayasofya"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q80290","queries":["Forbidden City"],"radius_km":2,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q676203","queries":["Machu Picchu"],"radius_km":3,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q83063","queries":["Petronas Towers"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q128468","queries":["Wembley Stadium"],"radius_km":1,"category":"stadium"}
+{"kind":"suggest_landmark","qid":"Q155174","queries":["Maracanã"],"radius_km":1,"category":"stadium"}
+{"kind":"suggest_landmark","qid":"Q13371","queries":["Harvard University"],"radius_km":2,"category":"university"}
+{"kind":"suggest_landmark","qid":"Q162684","queries":["Charité"],"radius_km":1,"category":"hospital"}
+{"kind":"suggest_landmark","qid":"Q201219","queries":["Egyptian Museum"],"radius_km":1,"category":"museum"}
+{"kind":"suggest_landmark","qid":"Q873769","queries":["Grand Palace, Bangkok"],"radius_km":1,"category":"attraction"}
+{"kind":"suggest_landmark","qid":"Q133274","queries":["Kremlin, Moscow"],"radius_km":1,"category":"attraction"}

@@ -86,6 +86,32 @@ pub const PLACES: &[Place] = &[
         "Paris",
         &[("en", "Paris"), ("fr", "Paris")],
     ),
+    // villages that share a word with Paris's airport and a name with its museum, lighter
+    // than a town
+    place!(
+        "fr-thingsmuseum",
+        "locality",
+        "village",
+        "FR",
+        "FR-IDF",
+        0,
+        (2.0, 47.0),
+        "fr-idf",
+        "Thingsmuseum",
+        &[("en", "Thingsmuseum")],
+    ),
+    place!(
+        "fr-nordville",
+        "locality",
+        "village",
+        "FR",
+        "FR-IDF",
+        0,
+        (2.0, 47.5),
+        "fr-idf",
+        "Nordville",
+        &[("en", "Nordville")],
+    ),
     place!(
         "us",
         "country",
@@ -1075,4 +1101,245 @@ pub fn write_release(dir: &Path) {
             ),
         ],
     );
+}
+
+/// An OSM feature `build_index` may read as a landmark: a node at its point, or a closed square
+/// way of half-side `r` degrees around it, or a multipolygon relation of such a way.
+pub struct Feature {
+    pub shape: Shape,
+    pub lon: f64,
+    pub lat: f64,
+    pub tags: &'static [(&'static str, &'static str)],
+}
+
+#[derive(PartialEq)]
+pub enum Shape {
+    Node,
+    Way(f64),
+    Relation(f64),
+}
+
+/// Paris's airport, station and museum, which share the town's name, Nordville's station, and two
+/// features that are not landmarks: a museum without a Wikidata item and a shop with one.
+pub const FEATURES: &[Feature] = &[
+    Feature {
+        shape: Shape::Way(0.02),
+        lon: 2.45,
+        lat: 48.95,
+        tags: &[
+            ("aeroway", "aerodrome"),
+            ("iata", "PNV"),
+            ("wikidata", "Q900001"),
+            ("name", "Aéroport de Paris-Nordville"),
+            ("name:en", "Paris Nordville Airport"),
+        ],
+    },
+    Feature {
+        shape: Shape::Node,
+        lon: 2.30,
+        lat: 48.87,
+        tags: &[
+            ("railway", "station"),
+            ("wikidata", "Q900002"),
+            ("name", "Paris Gare de l'Ouest"),
+        ],
+    },
+    Feature {
+        shape: Shape::Relation(0.004),
+        lon: 2.37,
+        lat: 48.84,
+        tags: &[
+            ("type", "multipolygon"),
+            ("tourism", "museum"),
+            ("wikidata", "Q900003"),
+            ("name", "Paris Museum of Things"),
+            ("alt_name", "Thingsmuseum"),
+        ],
+    },
+    Feature {
+        shape: Shape::Node,
+        lon: 2.01,
+        lat: 47.5,
+        tags: &[
+            ("railway", "station"),
+            ("wikidata", "Q900005"),
+            ("name", "Nordville"),
+        ],
+    },
+    Feature {
+        shape: Shape::Node,
+        lon: 2.36,
+        lat: 48.86,
+        tags: &[
+            ("tourism", "museum"),
+            ("wikidata", "Q900006"),
+            ("name", "Twin Hall"),
+        ],
+    },
+    Feature {
+        shape: Shape::Node,
+        lon: 2.36,
+        lat: 48.86,
+        tags: &[
+            ("railway", "station"),
+            ("wikidata", "Q900007"),
+            ("name", "Twin Hall"),
+        ],
+    },
+    Feature {
+        shape: Shape::Node,
+        lon: 2.36,
+        lat: 48.86,
+        tags: &[("tourism", "museum"), ("name", "Paris Unlisted Museum")],
+    },
+    Feature {
+        shape: Shape::Node,
+        lon: 2.33,
+        lat: 48.86,
+        tags: &[
+            ("shop", "bakery"),
+            ("wikidata", "Q900004"),
+            ("name", "Paris Bakery"),
+        ],
+    },
+];
+
+fn varint(out: &mut Vec<u8>, mut v: u64) {
+    while v >= 0x80 {
+        out.push(v as u8 | 0x80);
+        v >>= 7;
+    }
+    out.push(v as u8);
+}
+
+fn zigzag(v: i64) -> u64 {
+    ((v << 1) ^ (v >> 63)) as u64
+}
+
+/// A length-delimited protobuf field.
+fn field(out: &mut Vec<u8>, number: u64, bytes: &[u8]) {
+    varint(out, number << 3 | 2);
+    varint(out, bytes.len() as u64);
+    out.extend_from_slice(bytes);
+}
+
+fn number(out: &mut Vec<u8>, number: u64, v: u64) {
+    varint(out, number << 3);
+    varint(out, v);
+}
+
+fn packed(out: &mut Vec<u8>, n: u64, values: impl IntoIterator<Item = u64>) {
+    let mut b = vec![];
+    values.into_iter().for_each(|v| varint(&mut b, v));
+    field(out, n, &b);
+}
+
+fn blob(out: &mut Vec<u8>, kind: &str, data: &[u8]) {
+    let mut blob = vec![];
+    field(&mut blob, 1, data);
+    number(&mut blob, 2, data.len() as u64);
+    let mut header = vec![];
+    field(&mut header, 1, kind.as_bytes());
+    number(&mut header, 3, blob.len() as u64);
+    out.extend((header.len() as u32).to_be_bytes());
+    out.extend(header);
+    out.extend(blob);
+}
+
+/// `FEATURES` as an OSM PBF file sorted by type then id, one block per type, as Geofabrik's are.
+pub fn write_osm(dir: &Path) {
+    let mut table: Vec<&str> = vec!["", "outer"];
+    let mut sid = |s: &'static str| match table.iter().position(|t| *t == s) {
+        Some(i) => i as u64,
+        None => {
+            table.push(s);
+            table.len() as u64 - 1
+        }
+    };
+    let mut tags = |f: &Feature| -> (Vec<u64>, Vec<u64>) {
+        f.tags.iter().map(|(k, v)| (sid(k), sid(v))).unzip()
+    };
+    let mut relations: Vec<Vec<u8>> = vec![];
+    let mut node_messages: Vec<Vec<u8>> = vec![];
+    let mut way_messages: Vec<Vec<u8>> = vec![];
+    let mut add_node = |lon: f64, lat: f64, t: (Vec<u64>, Vec<u64>)| {
+        let id = node_messages.len() as i64 + 1;
+        let mut n = vec![];
+        number(&mut n, 1, zigzag(id));
+        packed(&mut n, 2, t.0);
+        packed(&mut n, 3, t.1);
+        number(&mut n, 8, zigzag((lat * 1e7).round() as i64));
+        number(&mut n, 9, zigzag((lon * 1e7).round() as i64));
+        node_messages.push(n);
+        id
+    };
+    for f in FEATURES {
+        let t = tags(f);
+        let r = match f.shape {
+            Shape::Node => {
+                add_node(f.lon, f.lat, t);
+                continue;
+            }
+            Shape::Way(r) | Shape::Relation(r) => r,
+        };
+        let corners: Vec<i64> = [(-r, -r), (r, -r), (r, r), (-r, r)]
+            .iter()
+            .map(|(x, y)| add_node(f.lon + x, f.lat + y, (vec![], vec![])))
+            .collect();
+        let way_id = way_messages.len() as i64 + 1;
+        let refs = corners.iter().chain(&corners[..1]);
+        let mut last = 0;
+        let deltas: Vec<u64> = refs
+            .map(|&id| {
+                let d = id - last;
+                last = id;
+                zigzag(d)
+            })
+            .collect();
+        let (keys, vals) = if f.shape == Shape::Relation(r) {
+            (vec![], vec![])
+        } else {
+            t.clone()
+        };
+        let mut w = vec![];
+        number(&mut w, 1, way_id as u64);
+        packed(&mut w, 2, keys);
+        packed(&mut w, 3, vals);
+        packed(&mut w, 8, deltas);
+        way_messages.push(w);
+        if f.shape == Shape::Relation(r) {
+            let mut rel = vec![];
+            number(&mut rel, 1, relations.len() as u64 + 1);
+            packed(&mut rel, 2, t.0);
+            packed(&mut rel, 3, t.1);
+            packed(&mut rel, 8, [1]);
+            packed(&mut rel, 9, [zigzag(way_id)]);
+            packed(&mut rel, 10, [1]);
+            relations.push(rel);
+        }
+    }
+    let block = |group_field: u64, messages: &[Vec<u8>], table: &[&str]| {
+        let mut strings = vec![];
+        table
+            .iter()
+            .for_each(|s| field(&mut strings, 1, s.as_bytes()));
+        let mut group = vec![];
+        messages
+            .iter()
+            .for_each(|m| field(&mut group, group_field, m));
+        let mut b = vec![];
+        field(&mut b, 1, &strings);
+        field(&mut b, 2, &group);
+        b
+    };
+    let mut header = vec![];
+    field(&mut header, 4, b"OsmSchema-V0.6");
+    field(&mut header, 5, b"Sort.Type_then_ID");
+    let mut file = vec![];
+    blob(&mut file, "OSMHeader", &header);
+    blob(&mut file, "OSMData", &block(1, &node_messages, &table));
+    blob(&mut file, "OSMData", &block(3, &way_messages, &table));
+    blob(&mut file, "OSMData", &block(4, &relations, &table));
+    std::fs::create_dir_all(dir).unwrap();
+    std::fs::write(dir.join("landmarks.osm.pbf"), file).unwrap();
 }

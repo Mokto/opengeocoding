@@ -89,6 +89,9 @@ pub fn job(args: Vec<String>) -> Result<()> {
     if let Some(d) = &got.osm {
         build.extend(["--osm".into(), d.to_string_lossy().into_owned()]);
     }
+    if let Some(d) = &got.osm_landmarks {
+        build.extend(["--osm-landmarks".into(), d.to_string_lossy().into_owned()]);
+    }
     if let Some(b) = sources.bbox() {
         build.extend([
             "--bbox".into(),
@@ -198,7 +201,7 @@ fn attribution(sources: &Sources, out: &Path) -> Result<String> {
          See https://docs.overturemaps.org/attribution/\n",
         sources.overture_release
     );
-    if !sources.osm.is_empty() {
+    if !sources.osm.is_empty() || !sources.osm_landmarks.is_empty() {
         text += "OpenStreetMap: © OpenStreetMap contributors, ODbL 1.0, \
                  https://www.openstreetmap.org/copyright (extracts by Geofabrik)\n";
     }

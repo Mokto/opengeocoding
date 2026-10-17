@@ -174,7 +174,13 @@ impl OpenGeocoding for Service {
             };
             let found = self
                 .resolver
-                .suggest(request.text, limit, country, focus)
+                .suggest(
+                    request.text,
+                    limit,
+                    country,
+                    focus,
+                    request.include_landmarks,
+                )
                 .await?;
             Ok(SuggestAddressResponse {
                 suggestions: found
@@ -200,6 +206,7 @@ impl OpenGeocoding for Service {
                         .into(),
                         r#type: s.kind.into(),
                         country_code: s.country_code,
+                        category: s.category.into(),
                         ..Default::default()
                     })
                     .collect(),

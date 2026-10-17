@@ -474,6 +474,34 @@ async fn checks(env: &mut Env) -> Result<()> {
         focused["suggestions"][0]["countryCode"] == "us",
         "{focused}"
     );
+    // the airport only when asked for, with its category; other types carry none
+    let landmark = |s: &Value| s["type"] == "landmark";
+    let plain = env.json("SuggestAddress", json!({"text": "CDG"})).await?;
+    let disabled = env
+        .json(
+            "SuggestAddress",
+            json!({"text": "CDG", "includeLandmarks": false}),
+        )
+        .await?;
+    ensure!(
+        plain == disabled,
+        "absent and false flags differ: {plain} {disabled}"
+    );
+    let asked = env
+        .json(
+            "SuggestAddress",
+            json!({"text": "CDG", "includeLandmarks": true}),
+        )
+        .await?;
+    let list = |v: &Value| v["suggestions"].as_array().cloned().unwrap_or_default();
+    ensure!(
+        !list(&plain).iter().any(landmark)
+            && list(&plain).iter().all(|s| s.get("category").is_none())
+            && list(&asked).first().is_some_and(|s| {
+                landmark(s) && s["category"] == "airport" && s["countryCode"] == "fr"
+            }),
+        "{plain} {asked}"
+    );
     println!("PASS: address suggestions");
 
     for (method, payload) in [

@@ -165,12 +165,14 @@ impl Resolver {
         limit: usize,
         country_code: &str,
         focus: Option<crate::index::Focus>,
+        landmarks: bool,
     ) -> Result<Vec<crate::index::Suggestion>> {
         let core = self.0.clone();
         let (text, cc) = (text.to_owned(), country_code.to_owned());
         Ok(tokio::task::spawn_blocking(move || {
             let cc = Some(cc.as_str()).filter(|c| !c.is_empty());
-            core.index.suggest(&text, limit, cc, focus.as_ref())
+            core.index
+                .suggest(&text, limit, cc, focus.as_ref(), landmarks)
         })
         .await?)
     }
