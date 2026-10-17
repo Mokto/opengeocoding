@@ -267,7 +267,9 @@ impl Core {
             city_agrees(address, f.address_details.as_option())
                 || postcode_place_agrees(address, postcode, f.address_details.as_option())
         };
-        if !part(address, "city").is_empty() && !english.iter().any(place_agrees) {
+        let named_in_english =
+            !part(address, "city").is_empty() && english.iter().any(place_agrees);
+        if !part(address, "city").is_empty() && !named_in_english {
             // the same hits named in their own languages
             let local: Vec<_> = hits.iter().map(|h| self.index.render(h, false)).collect();
             for (index, candidate) in candidates.iter().enumerate() {
@@ -294,6 +296,18 @@ impl Core {
         });
         if other_names && !city.is_empty() {
             for (index, candidate) in candidates.iter().enumerate() {
+                let details = judged[index].address_details.as_option();
+                if !named_in_english
+                    && country_matches(country, details)
+                    && road_agrees(address, details)
+                    && self.index.house_locality_named(&hits[index], city)
+                {
+                    judged.to_mut()[index]
+                        .address_details
+                        .get_or_insert_default()
+                        .city = city.into();
+                    continue;
+                }
                 let eligible = match candidate["addresstype"].as_str() {
                     Some("city" | "town" | "village" | "municipality" | "hamlet") => true,
                     Some(
@@ -303,7 +317,7 @@ impl Core {
                 };
                 if !eligible
                     || !matches!(candidate["class"].as_str(), Some("place" | "boundary"))
-                    || city_agrees(address, judged[index].address_details.as_option())
+                    || city_agrees(address, details)
                 {
                     continue;
                 }

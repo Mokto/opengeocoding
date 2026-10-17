@@ -776,6 +776,11 @@ fn cases() -> Vec<Case> {
             at_house("Main Street", "102"),
         ),
         case("Hohe Strasse 2, Köln", at_house("Hohe Straße", "2")),
+        case(
+            "2 Hohe Straße, Colonia, Germany",
+            at_house("Hohe Straße", "2"),
+        ),
+        case("2 Hohe Straße, Colonia, France", Want::Abstain),
         // the street is there, house 99 is not: the street, not a good match
         case(
             "99 Rue de Rivoli, Paris, France",
