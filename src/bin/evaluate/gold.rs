@@ -1,13 +1,14 @@
 //! Builds `tests/gold.jsonl` from `tests/gold.seeds.jsonl`. Expected answers come only from
 //! licensed authoritative sources — Wikidata (CC0), Base Adresse Nationale (Licence Ouverte 2.0),
 //! PDOK/BAG (CC0), the US Census geocoder (public domain), postcodes.io/ONSPD (OGL v3),
-//! Kartverket (CC BY 4.0), swisstopo (open use with attribution), CartoCiudad (CC BY 4.0) and the
-//! US National Address Database (public domain) and data.go.kr's school-location register
+//! Kartverket (CC BY 4.0), swisstopo (open use with attribution), CartoCiudad and RUIAN (CC BY 4.0),
+//! the US National Address Database (public domain) and data.go.kr's school-location register
 //! (unrestricted reuse), read from local snapshots —
 //! never from Nominatim or this service. Requires network access; review the diff as a data update.
 
 use crate::{
-    bag, ban, kartverket, korea, nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT, swisstopo,
+    bag, ban, kartverket, korea, nad, report::sorted, ruian, run::utc_now, score::SUGGEST_LIMIT,
+    swisstopo,
 };
 use anyhow::{Context, Result, bail, ensure};
 use indexmap::IndexMap;
@@ -105,7 +106,7 @@ fn license(source: &str) -> &'static str {
         "ban" | "ban-csv" => "etalab-2.0",
         "census" | "nad" => "US-Government-Public-Domain",
         "postcodes.io" => "OGL-UK-3.0",
-        "kartverket" | "kartverket-csv" | "cartociudad" => "CC-BY-4.0",
+        "kartverket" | "kartverket-csv" | "cartociudad" | "ruian-csv" => "CC-BY-4.0",
         "swisstopo" | "swisstopo-csv" => "swisstopo-OGD",
         "korean-schools" => korea::LICENSE,
         _ => "CC0-1.0",
@@ -124,6 +125,7 @@ fn source_url(source: &str, reference: &str) -> String {
         }
         "bag-csv" => format!("{}#{reference}", bag::URL),
         "korean-schools" => format!("{}#{reference}", korea::URL),
+        "ruian-csv" => format!("https://vdp.cuzk.gov.cz/vdp/ruian/adresnimista/{reference}"),
         "census" => format!("https://geocoding.geo.census.gov/ (TIGER line {reference})"),
         "postcodes.io" => format!("https://api.postcodes.io/postcodes/{reference}"),
         "kartverket" => format!("https://ws.geonorge.no/adresser/v1/sok?sok={reference}"),
@@ -684,6 +686,7 @@ async fn lookups(
                         | "swisstopo-csv"
                         | "bag-csv"
                         | "korean-schools"
+                        | "ruian-csv"
                 )
             )
         {
@@ -722,6 +725,7 @@ pub struct RegistryFiles<'a> {
     pub swisstopo: Option<&'a Path>,
     pub bag: Option<&'a Path>,
     pub schools: Option<&'a Path>,
+    pub ruian: Option<&'a Path>,
 }
 
 pub async fn build(
@@ -734,6 +738,7 @@ pub async fn build(
         swisstopo,
         bag,
         schools,
+        ruian,
     }: RegistryFiles<'_>,
 ) -> Result<()> {
     let seeds: Vec<Seed> = crate::model::load_jsonl::<Value>(seeds_path)?
@@ -877,6 +882,40 @@ pub async fn build(
             ),
         );
     }
+    let ruian_refs: BTreeSet<String> = seeds
+        .iter()
+        .filter(|s| s.source.as_deref() == Some("ruian-csv"))
+        .filter_map(|s| s.reference.clone())
+        .collect();
+    let ruian_sha256 = ruian.map(crate::run::sha256_file).transpose()?;
+    let ruian_rows = if ruian_refs.is_empty() {
+        BTreeMap::new()
+    } else {
+        ruian::lookup(
+            ruian.context("seeds cite a RUIAN export: pass --ruian FILE")?,
+            &ruian_refs,
+        )?
+    };
+    for (id, row) in &ruian_rows {
+        let mut components = IndexMap::from([
+            ("house_number", row.number()),
+            ("postcode", row.postcode.clone()),
+        ]);
+        if !row.street.is_empty() {
+            components.insert("road", row.street.clone());
+        }
+        looked_up.insert(
+            ("ruian-csv".into(), id.clone()),
+            (
+                Found {
+                    point: row.point.map(round6),
+                    components,
+                    radius_floor_km: 0.,
+                },
+                id.clone(),
+            ),
+        );
+    }
     let bag_refs: BTreeSet<String> = seeds
         .iter()
         .filter(|s| s.source.as_deref() == Some("bag-csv"))
@@ -1006,6 +1045,14 @@ pub async fn build(
             source["reference_date"] = json!(row.reference_date);
             source["road_address"] = json!(row.road);
             source["land_lot_address"] = json!(row.lot);
+        }
+        if name == "ruian-csv" {
+            source["dataset"] = json!(ruian::URL);
+            let row = &ruian_rows[reference];
+            source["release"] = json!(ruian.and_then(|p| p.file_name()?.to_str()));
+            source["sha256"] = json!(ruian_sha256);
+            source["coordinate_transform"] = json!({"from":"EPSG:5514", "to":"EPSG:4326", "input":"(-Y,-X)", "tool":"DuckDB spatial / PROJ", "always_xy":true});
+            source["numbering"] = json!({"type":row.number_type, "descriptive":row.descriptive, "orientation":row.orientation, "letter":row.letter});
         }
         if name == "bag-csv" {
             source["release"] = json!(bag.and_then(|p| p.file_name()?.to_str()));
@@ -1166,6 +1213,7 @@ pub async fn build(
                                 "ban" | "ban-csv" => "fr",
                                 "pdok" | "bag-csv" => "nl",
                                 "korean-schools" => "kr",
+                                "ruian-csv" => "cz",
                                 "census" | "nad" => "us",
                                 "kartverket" | "kartverket-csv" => "no",
                                 "swisstopo" | "swisstopo-csv" => "ch",
@@ -1214,6 +1262,8 @@ pub async fn build(
                     });
                     let expect = if name == "korean-schools" {
                         school_rows[reference].with_number_aliases(expect)?
+                    } else if name == "ruian-csv" {
+                        ruian_rows[reference].with_number_aliases(expect)
                     } else {
                         expect
                     };
@@ -1224,6 +1274,7 @@ pub async fn build(
                             match name {
                                 "ban-csv" => "ban",
                                 "bag-csv" => "bag",
+                                "ruian-csv" => "ruian",
                                 "kartverket-csv" => "kartverket",
                                 "swisstopo-csv" => "swisstopo",
                                 _ => name,
