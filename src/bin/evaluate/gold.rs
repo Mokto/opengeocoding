@@ -5,7 +5,7 @@
 //! US National Address Database (public domain, read from a local release file) —
 //! never from Nominatim or this service. Requires network access; review the diff as a data update.
 
-use crate::{ban, kartverket, nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT};
+use crate::{ban, kartverket, nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT, swisstopo};
 use anyhow::{Context, Result, bail, ensure};
 use indexmap::IndexMap;
 use opengeocoding::eval::{holdout, sha256_hex};
@@ -101,7 +101,7 @@ fn license(source: &str) -> &'static str {
         "census" | "nad" => "US-Government-Public-Domain",
         "postcodes.io" => "OGL-UK-3.0",
         "kartverket" | "kartverket-csv" | "cartociudad" => "CC-BY-4.0",
-        "swisstopo" => "swisstopo-OGD",
+        "swisstopo" | "swisstopo-csv" => "swisstopo-OGD",
         _ => "CC0-1.0",
     }
 }
@@ -120,6 +120,7 @@ fn source_url(source: &str, reference: &str) -> String {
         "postcodes.io" => format!("https://api.postcodes.io/postcodes/{reference}"),
         "kartverket" => format!("https://ws.geonorge.no/adresser/v1/sok?sok={reference}"),
         "kartverket-csv" => format!("{}#{reference}", kartverket::URL),
+        "swisstopo-csv" => format!("{}#{reference}", swisstopo::URL),
         "swisstopo" => format!(
             "https://api3.geo.admin.ch/rest/services/api/SearchServer?type=locations&searchText={reference}"
         ),
@@ -667,7 +668,7 @@ async fn lookups(
         if matches!(seed.kind.as_str(), "address" | "postcode")
             && !matches!(
                 seed.source.as_deref(),
-                Some("wikidata" | "nad" | "ban-csv" | "kartverket-csv")
+                Some("wikidata" | "nad" | "ban-csv" | "kartverket-csv" | "swisstopo-csv")
             )
         {
             let (source, reference) =
@@ -704,6 +705,7 @@ pub async fn build(
     nad: Option<&Path>,
     ban: Option<&Path>,
     kartverket: Option<&Path>,
+    swisstopo: Option<&Path>,
 ) -> Result<()> {
     let seeds: Vec<Seed> = crate::model::load_jsonl::<Value>(seeds_path)?
         .into_iter()
@@ -813,6 +815,55 @@ pub async fn build(
             );
         }
     }
+    let swisstopo_refs: BTreeSet<String> = seeds
+        .iter()
+        .filter(|s| s.source.as_deref() == Some("swisstopo-csv"))
+        .filter_map(|s| s.reference.clone())
+        .collect();
+    let swisstopo_sha256 = swisstopo.map(crate::run::sha256_file).transpose()?;
+    if !swisstopo_refs.is_empty() {
+        let path = swisstopo.context("seeds cite a swisstopo export: pass --swisstopo FILE")?;
+        for (n, (id, row)) in swisstopo::lookup(path, &swisstopo_refs)?
+            .into_iter()
+            .enumerate()
+        {
+            let response = sources
+                .get(
+                    swisstopo::REFRAME,
+                    &[
+                        ("easting", &row.lv95[0].to_string()),
+                        ("northing", &row.lv95[1].to_string()),
+                        ("altitude", "0"),
+                        ("format", "json"),
+                    ],
+                )
+                .await
+                .with_context(|| format!("REFRAME EGAID {id}"))?;
+            looked_up.insert(
+                ("swisstopo-csv".into(), id.clone()),
+                (
+                    Found {
+                        point: swisstopo::reframed_point(&response)?.map(round6),
+                        components: IndexMap::from([
+                            ("house_number", row.number),
+                            ("road", row.street),
+                            ("postcode", row.postcode),
+                        ]),
+                        radius_floor_km: 0.,
+                    },
+                    id,
+                ),
+            );
+            if (n + 1).is_multiple_of(50) {
+                eprintln!(
+                    "swisstopo: converted {} of {} LV95 points with REFRAME",
+                    n + 1,
+                    swisstopo_refs.len()
+                );
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
     let typed_name = |seed: &Seed, query: &str| -> Option<(String, String)> {
         let qid = seed.qid.clone()?;
         let name = query.split(',').next()?.trim();
@@ -857,6 +908,11 @@ pub async fn build(
         if name == "kartverket-csv" {
             source["release"] = json!(kartverket.and_then(|p| p.file_name()?.to_str()));
             source["sha256"] = json!(kartverket_sha256);
+        }
+        if name == "swisstopo-csv" {
+            source["release"] = json!(swisstopo.and_then(|p| p.file_name()?.to_str()));
+            source["sha256"] = json!(swisstopo_sha256);
+            source["coordinate_transform"] = json!({"url":swisstopo::REFRAME, "altitude":0});
         }
         source
     };
@@ -987,7 +1043,7 @@ pub async fn build(
                                 "pdok" => "nl",
                                 "census" | "nad" => "us",
                                 "kartverket" | "kartverket-csv" => "no",
-                                "swisstopo" => "ch",
+                                "swisstopo" | "swisstopo-csv" => "ch",
                                 "cartociudad" => "es",
                                 _ => "gb",
                             };
@@ -1038,6 +1094,7 @@ pub async fn build(
                             match name {
                                 "ban-csv" => "ban",
                                 "kartverket-csv" => "kartverket",
+                                "swisstopo-csv" => "swisstopo",
                                 _ => name,
                             }
                         ),

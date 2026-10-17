@@ -66,6 +66,14 @@ Dataset: https://kartkatalog.geonorge.no/metadata/uuid/f7df7a18-b30f-4745-bd64-d
 Queries include constructed variants; per-case export checksums and retrieval dates are recorded
 in the corpus. The data is provided as is, without a guarantee of accuracy.
 
+The registry-first sample tests/registry/ch.jsonl contains addresses and coordinates derived from
+the official directory of building addresses, ©swisstopo (Federal Office of Topography swisstopo),
+STAC item dated 2026-10-16. LV95 points were converted to WGS84 with swisstopo's REFRAME service.
+Use, redistribution, processing and commercial use are permitted with source attribution under
+https://www.swisstopo.admin.ch/ogd-conditions. Queries include constructed variants; per-case
+export checksums, retrieval dates and coordinate-conversion provenance are recorded in the corpus.
+The data is provided as is, without a guarantee of accuracy.
+
 tests/snapshots/addresses.tsv contains geocoding results derived from OpenStreetMap
 data via Nominatim. Data © OpenStreetMap contributors, available under the Open
 Database License (ODbL) 1.0: https://www.openstreetmap.org/copyright
