@@ -2643,7 +2643,7 @@ impl Index {
                                 .filter(|&(b, (_, _, own))| {
                                     own_postcode(b, own).as_ref() == Some(wanted)
                                 })
-                                .min_by_key(|(b, _)| (dist(b), b.segment_ord, b.doc_id))
+                                .min_by_key(|(b, _)| (dist(b), self.fast(*b, "id")))
                         {
                             return vec![street(b, Some(n.to_string()), (x, y), own)];
                         }
@@ -4159,10 +4159,16 @@ mod tests {
         let mut writer: tantivy::IndexWriter = tantivy_index
             .writer_with_num_threads(1, 15_000_000)
             .unwrap();
-        for (sid, name, pcode) in [(1000u64, "Oak Street", "12345"), (1001, "Elm Street", "")] {
+        for (sid, name, pcode) in [
+            (1000u64, "Oak Street", "12345"),
+            (1001, "Elm Street", ""),
+            (1003, "Oak Street", "67890"),
+            (1002, "Oak Street", "67890"),
+        ] {
             let mut d = tantivy::doc!(
                 f.kind => "s", f.names => name.to_lowercase(), f.country => "US", f.id => sid,
-                f.place => 0u64, f.importance => 1u64, f.x => 10.0, f.y => 50.0, f.name => name
+                f.place => 0u64, f.importance => 1u64, f.x => 10.0, f.y => 50.0, f.name => name,
+                f.city => if sid == 1000 { "Wrongtown" } else { "Righttown" }
             );
             if !pcode.is_empty() {
                 d.add_text(f.pcode, pcode);
@@ -4182,14 +4188,15 @@ mod tests {
                 at(1000, "2", 10.0002, 50.0, 0),
                 at(1001, "7", 10.0003, 50.0004, 0),
                 at(1001, "9", 10.05, 50.0, 0),
+                at(1002, "1", 11.0, 50.0, 1),
+                at(1003, "1", 12.0, 50.0, 1),
             ],
             long: vec![],
         }]);
         spill.write_fsts(dir.to_str().unwrap(), 1, &|sid, slot| (sid, slot));
         assert_eq!(
             reverse::build(&dir, &tantivy_index, f.kind, |_| None).unwrap(),
-            // Oak's two houses share a cell; Elm's two are in two; no street spill
-            (3, 0)
+            (5, 0)
         );
         std::fs::write(
             dir.join("places.tsv"),
@@ -4197,6 +4204,16 @@ mod tests {
         )
         .unwrap();
         let index = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
+        for _ in 0..32 {
+            let found = index.streets(
+                "Oak Street",
+                Some("1"),
+                Some("Wrongtown"),
+                Some("67890"),
+                Some("US"),
+            );
+            assert!(matches!(found.as_slice(), [Hit::Street { sid: 1002, .. }]));
+        }
         let find = |lat, lon, radius, size| {
             index
                 .reverse_search(lat, lon, radius, size)
