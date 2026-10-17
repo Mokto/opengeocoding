@@ -36,7 +36,7 @@ const USAGE: &str = "usage: evaluate <run|provider|mapbox|diff|snapshot|report|b
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
             [--no-direct] [--resume] [--backend-label TEXT] [--repeat 3]
-provider    mapbox|google|here|tomtom|geoapify|opencage|locationiq|geocodio|arcgis --out DIR --cache DIR [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
+provider    mapbox|google|here|tomtom|geoapify|opencage|locationiq|geocodio|arcgis|mapsco --out DIR --cache DIR [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
             [--fetch --budget N] [--storage-authorized] (offline by default; fetching may be billed)
 mapbox      alias for provider mapbox
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
