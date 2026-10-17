@@ -502,6 +502,7 @@ pub enum Hit {
         postcode: Option<String>,
         /// The requested city, when the street matched it only through its postal city.
         city: Option<String>,
+        postal_town: Option<String>,
         /// The country the search was scoped to; a street the data files under no place is
         /// otherwise of no country.
         cc: String,
@@ -1037,6 +1038,37 @@ fn stored(doc: &tantivy::TantivyDocument, f: Field) -> String {
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string()
+}
+
+fn postal_town(
+    doc: &tantivy::TantivyDocument,
+    field: Field,
+    number: &str,
+    postcode: Option<&str>,
+) -> Option<String> {
+    use tantivy::schema::Value as _;
+    let postcode = postcode.map(pc_norm);
+    let number = schema::number_key(number);
+    let mut town: Option<String> = None;
+    for value in doc.get_all(field) {
+        let (pc, house, name, _source): (&str, &str, &str, &str) =
+            serde_json::from_str(value.as_str()?).ok()?;
+        if if pc.is_empty() {
+            house != number
+        } else {
+            postcode.as_deref() != Some(pc)
+        } {
+            continue;
+        }
+        if town
+            .as_ref()
+            .is_some_and(|t| !crate::matching::names_agree(t, name))
+        {
+            return None;
+        }
+        town = Some(name.into());
+    }
+    town
 }
 
 /// The stored name sharing most words with the query, so "Sheikh Mohammed bin Rashid
@@ -2535,6 +2567,9 @@ impl Index {
                             .map(|pc| self.postcode_display(pc, cc))
                     })
                     .flatten();
+                let postal_town = number
+                    .as_deref()
+                    .and_then(|n| postal_town(&doc, self.f.postal_town, n, own.as_deref()));
                 // Sources disagree on some houses' postcodes (one OSM object says 112 21, another
                 // 111 52); the requested one stands when the street holds it and it is centred
                 // within 1 km of the house.
@@ -2564,7 +2599,25 @@ impl Index {
                             .any(|&p| self.places[p as usize].named(want))
                 };
                 let city = city
-                    .filter(|c| postal_city.contains(&a) && !named(c))
+                    .filter(|c| {
+                        use tantivy::schema::Value as _;
+                        postal_city.contains(&a)
+                            && !named(c)
+                            && (doc.get_first(self.f.postal_town).is_none()
+                                || doc.get_all(self.f.postal_town).any(|value| {
+                                    value
+                                        .as_str()
+                                        .and_then(|v| {
+                                            serde_json::from_str::<(&str, &str, &str, &str)>(v).ok()
+                                        })
+                                        .is_some_and(|(_, _, name, _)| {
+                                            let name = fold(name);
+                                            fold(c)
+                                                .split(' ')
+                                                .all(|word| name.split(' ').any(|w| w == word))
+                                        })
+                                }))
+                    })
                     .map(title);
                 Hit::Street {
                     sid: self.fast(a, "id") as u32,
@@ -2575,6 +2628,7 @@ impl Index {
                     number,
                     postcode,
                     city,
+                    postal_town,
                     cc: cc.unwrap_or_default().to_string(),
                 }
             };
@@ -3482,8 +3536,12 @@ impl Index {
                 number,
                 postcode,
                 city,
+                postal_town,
                 cc,
             } => {
+                if let Some(town) = postal_town {
+                    a.insert("postal_town".into(), town.clone().into());
+                }
                 if let Some(pc) = postcode {
                     a.insert("postcode".into(), pc.clone().into());
                 }
@@ -3697,6 +3755,12 @@ impl Index {
                     name: stored(&doc, self.f.name),
                     x,
                     y,
+                    postal_town: postal_town(
+                        &doc,
+                        self.f.postal_town,
+                        &number,
+                        postcode.as_deref(),
+                    ),
                     number: Some(number),
                     postcode,
                     city: None,
@@ -3810,6 +3874,7 @@ impl Index {
                     number: None,
                     postcode,
                     city,
+                    postal_town: None,
                     cc: String::new(),
                 };
                 Some((self.render(&hit, true), m))
@@ -4551,6 +4616,7 @@ mod tests {
             number: Some("1".into()),
             postcode: None,
             city: None,
+            postal_town: None,
             cc: "DK".into(),
         };
         assert!(index.house_locality_named(&house, "Copenhagen"));

@@ -307,7 +307,13 @@ impl Core {
                 if !named_in_english
                     && country_matches(country, details)
                     && road_agrees(address, details)
-                    && self.index.house_locality_named(&hits[index], city)
+                    && (self.index.house_locality_named(&hits[index], city)
+                        || (candidate["address"]["postal_town"]
+                            .as_str()
+                            .is_some_and(|town| names_agree(city, town))
+                            && postcode_matches(postcode, details)
+                            && state_consistent(address, details)
+                            && !state_code_conflict(address, details)))
                 {
                     judged.to_mut()[index]
                         .address_details

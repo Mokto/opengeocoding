@@ -100,10 +100,11 @@ pub fn digest(args: &[String]) -> Result<()> {
                 );
                 docs.add(
                     format!(
-                        "{who}|{}|{}|{:?}",
+                        "{who}|{}|{}|{:?}|{:?}",
                         pcs.join("/"),
                         importance.first(doc).unwrap_or(0),
-                        id.first(doc)
+                        id.first(doc),
+                        strings(&d, f.postal_town)
                     ),
                     keep,
                 );

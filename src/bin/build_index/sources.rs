@@ -309,7 +309,8 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
                             .city
                             .as_deref()
                             .filter(|c| !c.trim().is_empty())
-                            .or(p.district.as_deref());
+                            .map(|name| (name, "city"))
+                            .or_else(|| p.district.as_deref().map(|name| (name, "district")));
                         sink.add(
                             Some(cc),
                             x,
@@ -466,7 +467,7 @@ impl<'a> Addr<'a> {
             self.street,
             self.number,
             self.postcode,
-            self.city,
+            self.city.map(|name| (name, "addr:city")),
         );
     }
 }
@@ -905,7 +906,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                         a.street.as_deref(),
                         a.number.as_deref(),
                         a.postcode.as_deref(),
-                        a.city.as_deref(),
+                        a.city.as_deref().map(|name| (name, "addr:city")),
                     );
                 }
             },
