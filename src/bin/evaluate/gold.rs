@@ -5,7 +5,7 @@
 //! US National Address Database (public domain, read from a local release file) —
 //! never from Nominatim or this service. Requires network access; review the diff as a data update.
 
-use crate::{ban, nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT};
+use crate::{ban, kartverket, nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT};
 use anyhow::{Context, Result, bail, ensure};
 use indexmap::IndexMap;
 use opengeocoding::eval::{holdout, sha256_hex};
@@ -100,7 +100,7 @@ fn license(source: &str) -> &'static str {
         "ban" | "ban-csv" => "etalab-2.0",
         "census" | "nad" => "US-Government-Public-Domain",
         "postcodes.io" => "OGL-UK-3.0",
-        "kartverket" | "cartociudad" => "CC-BY-4.0",
+        "kartverket" | "kartverket-csv" | "cartociudad" => "CC-BY-4.0",
         "swisstopo" => "swisstopo-OGD",
         _ => "CC0-1.0",
     }
@@ -119,6 +119,7 @@ fn source_url(source: &str, reference: &str) -> String {
         "census" => format!("https://geocoding.geo.census.gov/ (TIGER line {reference})"),
         "postcodes.io" => format!("https://api.postcodes.io/postcodes/{reference}"),
         "kartverket" => format!("https://ws.geonorge.no/adresser/v1/sok?sok={reference}"),
+        "kartverket-csv" => format!("{}#{reference}", kartverket::URL),
         "swisstopo" => format!(
             "https://api3.geo.admin.ch/rest/services/api/SearchServer?type=locations&searchText={reference}"
         ),
@@ -664,7 +665,10 @@ async fn lookups(
     let mut by_source: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for seed in seeds {
         if matches!(seed.kind.as_str(), "address" | "postcode")
-            && !matches!(seed.source.as_deref(), Some("wikidata" | "nad" | "ban-csv"))
+            && !matches!(
+                seed.source.as_deref(),
+                Some("wikidata" | "nad" | "ban-csv" | "kartverket-csv")
+            )
         {
             let (source, reference) =
                 registry_ref(seed).context("address seeds need a source and ref")?;
@@ -699,6 +703,7 @@ pub async fn build(
     out: &Path,
     nad: Option<&Path>,
     ban: Option<&Path>,
+    kartverket: Option<&Path>,
 ) -> Result<()> {
     let seeds: Vec<Seed> = crate::model::load_jsonl::<Value>(seeds_path)?
         .into_iter()
@@ -782,6 +787,32 @@ pub async fn build(
             );
         }
     }
+    let kartverket_refs: BTreeSet<String> = seeds
+        .iter()
+        .filter(|s| s.source.as_deref() == Some("kartverket-csv"))
+        .filter_map(|s| s.reference.clone())
+        .collect();
+    let kartverket_sha256 = kartverket.map(crate::run::sha256_file).transpose()?;
+    if !kartverket_refs.is_empty() {
+        let path = kartverket.context("seeds cite a Kartverket export: pass --kartverket FILE")?;
+        for (id, row) in kartverket::lookup(path, &kartverket_refs)? {
+            looked_up.insert(
+                ("kartverket-csv".into(), id.clone()),
+                (
+                    Found {
+                        point: row.point.map(round6),
+                        components: IndexMap::from([
+                            ("house_number", row.number),
+                            ("road", row.street),
+                            ("postcode", row.postcode),
+                        ]),
+                        radius_floor_km: 0.,
+                    },
+                    id,
+                ),
+            );
+        }
+    }
     let typed_name = |seed: &Seed, query: &str| -> Option<(String, String)> {
         let qid = seed.qid.clone()?;
         let name = query.split(',').next()?.trim();
@@ -822,6 +853,10 @@ pub async fn build(
         if name == "ban-csv" {
             source["release"] = json!(ban.and_then(|p| p.file_name()?.to_str()));
             source["sha256"] = json!(ban_sha256);
+        }
+        if name == "kartverket-csv" {
+            source["release"] = json!(kartverket.and_then(|p| p.file_name()?.to_str()));
+            source["sha256"] = json!(kartverket_sha256);
         }
         source
     };
@@ -951,7 +986,7 @@ pub async fn build(
                                 "ban" | "ban-csv" => "fr",
                                 "pdok" => "nl",
                                 "census" | "nad" => "us",
-                                "kartverket" => "no",
+                                "kartverket" | "kartverket-csv" => "no",
                                 "swisstopo" => "ch",
                                 "cartociudad" => "es",
                                 _ => "gb",
@@ -998,7 +1033,14 @@ pub async fn build(
                     });
                     (
                         expect,
-                        format!("{}:{id}", if name == "ban-csv" { "ban" } else { name }),
+                        format!(
+                            "{}:{id}",
+                            match name {
+                                "ban-csv" => "ban",
+                                "kartverket-csv" => "kartverket",
+                                _ => name,
+                            }
+                        ),
                         seed.label.clone().unwrap_or_else(|| reference.to_string()),
                         source(name, &id),
                     )

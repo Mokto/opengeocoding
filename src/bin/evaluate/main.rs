@@ -10,6 +10,7 @@
 //! evaluate build-gold                        regenerate tests/gold.jsonl from tests/gold.seeds.jsonl
 //! evaluate sample-us --nad FILE --seed TEXT --out FILE   draw US cases from a NAD release, registry-first
 //! evaluate sample-fr --ban FILE --seed TEXT --out FILE   draw French cases from a BAN CSV export
+//! evaluate sample-no --kartverket FILE --seed TEXT --out FILE   draw Norwegian cases from a Kartverket CSV export
 //! evaluate gold-corpus --out FILE            the gold suite as one file, for images
 //! evaluate check                             validate the corpora and snapshot, no network
 //! evaluate coverage --index DIR [--population countryInfo.txt]   house numbers per country
@@ -22,6 +23,7 @@
 mod ban;
 mod coverage;
 mod gold;
+mod kartverket;
 mod model;
 mod nad;
 mod report;
@@ -32,7 +34,7 @@ use anyhow::{Context, Result, bail};
 use model::{Case, Record, load_corpus, load_jsonl};
 use std::{collections::HashMap, path::PathBuf};
 
-const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|sample-fr|gold-corpus|check|coverage> [options]
+const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|sample-fr|sample-no|gold-corpus|check|coverage> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
@@ -40,9 +42,10 @@ run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare 
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
-build-gold  [--seeds FILE] [--out FILE] [--nad FILE] [--ban FILE]
+build-gold  [--seeds FILE] [--out FILE] [--nad FILE] [--ban FILE] [--kartverket FILE]
 sample-us   --nad FILE --seed TEXT --out FILE
 sample-fr   --ban FILE --seed TEXT --out FILE
+sample-no   --kartverket FILE --seed TEXT --out FILE
 gold-corpus --out FILE      write the gold suite as one file (the curated corpus, then tests/registry/*.jsonl)
 check       validate tests/gold.jsonl, tests/registry/*.jsonl, tests/addresses.tsv and its snapshot
 coverage    --index DIR [--population countryInfo.txt] [--out FILE]   houses and streets per country, largest gap first";
@@ -135,6 +138,7 @@ async fn command() -> Result<i32> {
         "seeds",
         "nad",
         "ban",
+        "kartverket",
         "seed",
         "population",
     ];
@@ -231,6 +235,7 @@ async fn command() -> Result<i32> {
                 &args.path("out").unwrap_or_else(model::gold),
                 args.path("nad").as_deref(),
                 args.path("ban").as_deref(),
+                args.path("kartverket").as_deref(),
             )
             .await?;
             Ok(0)
@@ -240,13 +245,18 @@ async fn command() -> Result<i32> {
             model::write_suite(&args.path("out").context("--out is required")?)?;
             Ok(0)
         }
-        "sample-us" | "sample-fr" => {
+        "sample-us" | "sample-fr" | "sample-no" => {
             args.only_flags(&[])?;
             let seed = args.value("seed").context("--seed is required")?;
-            let lines = if command == "sample-fr" {
-                ban::sample(&args.path("ban").context("--ban is required")?, seed)?
-            } else {
-                nad::sample(&args.path("nad").context("--nad is required")?, seed)?
+            let lines = match command.as_str() {
+                "sample-fr" => ban::sample(&args.path("ban").context("--ban is required")?, seed)?,
+                "sample-no" => kartverket::sample(
+                    &args
+                        .path("kartverket")
+                        .context("--kartverket is required")?,
+                    seed,
+                )?,
+                _ => nad::sample(&args.path("nad").context("--nad is required")?, seed)?,
             };
             let out = args.path("out").context("--out is required")?;
             let text: Vec<_> = lines

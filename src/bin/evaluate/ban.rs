@@ -43,13 +43,13 @@ impl Address {
     }
 }
 
-fn record(reader: &mut impl BufRead, line: &mut String) -> Result<bool> {
+pub(super) fn record(reader: &mut impl BufRead, line: &mut String) -> Result<bool> {
     line.clear();
     loop {
         let read = reader.read_line(line)?;
-        ensure!(line.len() <= 1_048_576, "BAN CSV record exceeds 1 MiB");
+        ensure!(line.len() <= 1_048_576, "CSV record exceeds 1 MiB");
         let quoted = line.bytes().filter(|b| *b == b'"').count() % 2 == 1;
-        ensure!(read != 0 || !quoted, "unterminated BAN CSV quote");
+        ensure!(read != 0 || !quoted, "unterminated CSV quote");
         if !quoted {
             return Ok(!line.is_empty());
         }
@@ -153,7 +153,7 @@ fn key(seed: &str, id: &str) -> String {
     sha256_hex(format!("{seed}\0{id}").as_bytes())
 }
 
-fn typo(text: &str) -> Option<String> {
+pub(super) fn typo(text: &str) -> Option<String> {
     let word = text
         .split_whitespace()
         .filter(|w| w.chars().all(char::is_alphabetic))
