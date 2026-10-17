@@ -585,12 +585,47 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
         && !house.is_empty()
         && !d.road.is_empty()
         && !d.house_number.is_empty()
-        && roads_agree(road, &d.road)
+        && (roads_agree(road, &d.road)
+            || road_expansions(road, &d.country_code)
+                .iter()
+                .any(|expanded| {
+                    road_key(expanded) == road_key(&d.road)
+                        && country_matches(&expected_country(address), Some(d))
+                }))
         && house.split(whitespace).collect::<String>().to_lowercase()
             == d.house_number
                 .split(whitespace)
                 .collect::<String>()
                 .to_lowercase()
+}
+
+pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
+    let (short, full): (&str, &[&str]) = match cc {
+        "fr" | "FR" => ("r", &["rue"]),
+        "no" | "NO" => ("vn", &["veien", "vegen"]),
+        "nl" | "NL" => ("ln", &["laan"]),
+        _ => return vec![],
+    };
+    let road = normalize_place(road);
+    if short == "r" {
+        return road
+            .strip_prefix("r ")
+            .map(|rest| vec![format!("rue {rest}")])
+            .unwrap_or_default();
+    }
+    let Some(stem) = road.strip_suffix(short) else {
+        return vec![];
+    };
+    if !stem
+        .rsplit(' ')
+        .next()
+        .is_some_and(|word| word.chars().count() > 2 && word.chars().all(char::is_alphabetic))
+    {
+        return vec![];
+    }
+    full.iter()
+        .map(|suffix| format!("{stem}{suffix}"))
+        .collect()
 }
 
 /// One road, or one with a single word misspelt as the index corrects it: "West 54th Srteet" is

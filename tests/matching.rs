@@ -898,6 +898,50 @@ fn a_stray_word_is_removed_from_the_query() {
 }
 
 #[test]
+fn road_abbreviations_are_country_scoped_and_preserve_house_numbers() {
+    for (cc, typed, found, agrees) in [
+        ("fr", "R. du Bosquet", "Rue du Bosquet", true),
+        ("no", "Granvn.", "Granveien", true),
+        ("no", "Granvn.", "Granvegen", true),
+        ("nl", "Willowln.", "Willowlaan", true),
+        ("no", "Granvn.", "Grandveien", false),
+        ("nl", "Willowln.", "Willowstraat", false),
+        ("pt", "R. du Bosquet", "Rua du Bosquet", true),
+        ("pt", "R. du Bosquet", "Rue du Bosquet", false),
+        ("gb", "R. du Bosquet", "Rue du Bosquet", false),
+        ("se", "Granvn.", "Granveien", false),
+        ("gb", "Willowln.", "Willowlaan", false),
+    ] {
+        let address = parsed(&[("house_number", "5b"), ("road", typed), ("country", cc)]);
+        let mut details = AddressDetails {
+            country_code: cc.into(),
+            road: found.into(),
+            house_number: "5b".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            road_agrees(&address, Some(&details)),
+            agrees,
+            "{cc}: {typed} -> {found}"
+        );
+        details.house_number = "5c".into();
+        assert!(!road_agrees(&address, Some(&details)));
+    }
+    let address = parsed(&[
+        ("house_number", "5b"),
+        ("road", "Granvn."),
+        ("country", "Sweden"),
+    ]);
+    let details = AddressDetails {
+        country_code: "no".into(),
+        road: "Granveien".into(),
+        house_number: "5b".into(),
+        ..Default::default()
+    };
+    assert!(!road_agrees(&address, Some(&details)));
+}
+
+#[test]
 fn a_road_the_index_respelt_agrees() {
     let house = |road: &str| AddressDetails {
         road: road.into(),

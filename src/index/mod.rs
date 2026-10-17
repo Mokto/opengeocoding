@@ -2208,6 +2208,48 @@ impl Index {
                 return found;
             }
         }
+        if hits.is_empty()
+            && number.is_some_and(|n| !n.trim().is_empty())
+            && let Some(cc) = cc
+        {
+            let alternatives = crate::matching::road_expansions(road, cc);
+            if !alternatives.is_empty()
+                && (!named.is_empty()
+                    || postcode.is_some_and(|p| self.postcode_exists(p, Some(cc))))
+            {
+                let mut found = vec![];
+                let mut ids = std::collections::BTreeSet::new();
+                for name in alternatives {
+                    let next: Vec<_> = self
+                        .streets_by(&name, number, city, &named, postcode, Some(cc))
+                        .into_iter()
+                        .filter(|h| {
+                            matches!(h, Hit::Street { number: Some(_), postcode: own, .. }
+                            if postcode_not_contradicted(own.as_deref(), postcode))
+                        })
+                        .collect();
+                    if next.is_empty() {
+                        continue;
+                    }
+                    let next_ids = next
+                        .iter()
+                        .filter_map(|h| match h {
+                            Hit::Street { sid, .. } => Some(*sid),
+                            _ => None,
+                        })
+                        .collect();
+                    // "vn." can name two distinct roads, not just two spellings of one.
+                    if !found.is_empty() && ids != next_ids {
+                        return vec![];
+                    }
+                    ids = next_ids;
+                    found = next;
+                }
+                if !found.is_empty() {
+                    return found;
+                }
+            }
+        }
         // A misspelt street ("Tarilwood Dr, Clinton"): only inside a stated town or postcode, and
         // only a house that exists there answers.
         if hits.is_empty()

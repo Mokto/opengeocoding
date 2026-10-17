@@ -747,6 +747,40 @@ fn cases() -> Vec<Case> {
         case("Paris, France", town("fr-paris", true)),
         case("Missing Road, Paris, France", town("fr-paris", false)),
         case("Île-de-France, Haut-Rhin", town("fr-haut-rhin", true)),
+        case(
+            "2 R. de Rivoli, 75001 Paris, France",
+            at_house("Rue de Rivoli", "2"),
+        ),
+        case(
+            "7 bis R. de Rivoli, 75001 Paris, France",
+            at_house("Rue de Rivoli", "7bis"),
+        ),
+        case(
+            "Granveien 5B, 1234 Fjordvik, Norway",
+            at_house("Granveien", "5b"),
+        ),
+        case(
+            "Granvn. 5B, 1234 Fjordvik, Norway",
+            at_house("Granveien", "5b"),
+        ),
+        case("Granvn. 5B, 1234, Norway", at_house("Granveien", "5b")),
+        case(
+            "Bjørkvegen 12d, 1234 Fjordvik, Norway",
+            at_house("Bjørkvegen", "12d"),
+        ),
+        case(
+            "Bjørkvn. 12d, 1234 Fjordvik, Norway",
+            at_house("Bjørkvegen", "12d"),
+        ),
+        case(
+            "Willowlaan 4a, 1234 AB Polderdam, Netherlands",
+            at_house("Willowlaan", "4a"),
+        ),
+        case(
+            "Willowln. 4a, 1234 AB Polderdam, Netherlands",
+            at_house("Willowlaan", "4a"),
+        ),
+        case("Furuvn. 5, 1234 Fjordvik, Norway", at_house("Furuvn.", "5")),
         case("Paris, Texas", town("us-tx-paris", true)),
         case("Paris, TX, USA", town("us-tx-paris", true)),
         // the larger Paris, when nothing says otherwise
@@ -844,6 +878,22 @@ async fn resolve_follows_the_authored_facts() {
                 .is_none_or(|d| d.county != "Haut-Rhin"),
             "{query}: {got:?}"
         );
+    }
+    for query in [
+        "Askvn. 7, 1234 Fjordvik, Norway",
+        "Granvn. 5B, Norway",
+        "Granvn. 99, 1234 Fjordvik, Norway",
+        "2 R. de Rivoli, 75001 Paris, Germany",
+        "Willowln. 4a, Polderdam, Norway",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(
+            got.address_details
+                .as_option()
+                .is_none_or(|d| d.house_number.is_empty()),
+            "{query}: {got:?}"
+        );
+        assert!(!got.good_match, "{query}: {got:?}");
     }
     for (postcode, number, good) in [
         ("75461", "2", true),
