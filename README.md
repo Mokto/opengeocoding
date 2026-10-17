@@ -321,32 +321,41 @@ cargo build --locked --release --bin opengeocoding --bin evaluate
 
 Each run writes `manifest.json` (a hash of the index's `meta.json`, which names its segments, consumer commit and binary hash, libpostal model and reference-data hashes, cache state and limits), `results.jsonl` (full responses, index search counts, direct-index evidence) and `report.md`. Label the backend with `--backend-label`, e.g. image digest and configuration. A code or configuration comparison requires the same built index; a data or import change is a separate experiment.
 
-### Offline Mapbox comparison
+### Offline competitor comparisons
 
-`evaluate mapbox` evaluates the first result from Mapbox Geocoding v6 against the same corpus. It is **offline by default**: a missing cache entry fails before any network access. Use `--corpus FILE` for a separate corpus or `--only REGEX` to select case ids; otherwise it reads the gold suite, including registry-first samples.
+`evaluate provider NAME` evaluates a competitor's first forward-geocoding result against the same corpus. Adapters live in `src/bin/evaluate/providers/{provider}.rs`; `providers/mod.rs` shares caching, request budgets, scoring and paired reports. It is **offline by default**: a cache miss fails before any network access. Use `--corpus FILE` or `--only REGEX` to select cases; otherwise it reads the gold suite, including registry-first samples. `evaluate mapbox` remains an alias for `evaluate provider mapbox`, with the same cache keys and paths.
 
-Mapbox [allows indefinite storage only for permanent geocoding](https://docs.mapbox.com/api/search/geocoding/#storing-geocoding-results). Fetches always set `permanent=true` and may be billed; caching avoids repeat charges, not the initial cost. The account needs a valid payment method or an enterprise contract permitting permanent geocoding. Confirm applicable storage, benchmarking and use terms before fetching. Keep the cache and reports private, under the ignored `eval-results/` directory or outside the checkout. Never commit provider responses or credentials.
+| Provider | API | Credential environment variable | Offline-storage gate |
+| --- | --- | --- | --- |
+| `mapbox` | Geocoding v6 | `MAPBOX_ACCESS_TOKEN` | Always requests permanent geocoding |
+| `google` | Google Geocoding v3 | `GOOGLE_MAPS_API_KEY` | Requires `--storage-authorized` |
+| `here` | HERE Geocoding and Search v7 | `HERE_API_KEY` | Requires `--storage-authorized` |
+| `tomtom` | TomTom Search v2 Geocode | `TOMTOM_API_KEY` | Requires `--storage-authorized` |
 
-Provision `MAPBOX_ACCESS_TOKEN` through your secret manager in the process environment, not a command-line argument or a committed file. Then explicitly authorize at most `N` distinct missing requests:
+Mapbox [allows indefinite storage only for permanent geocoding](https://docs.mapbox.com/api/search/geocoding/#storing-geocoding-results). Its fetches always set `permanent=true`; the account needs a valid payment method or an enterprise contract permitting permanent geocoding. Caching avoids repeat charges, not the initial cost.
+
+Other providers' storage rights are **not** inherited from Mapbox. [Google's standard policy restricts response storage](https://developers.google.com/maps/documentation/geocoding/policies); [HERE](https://www.here.com/terms/here-platform-terms) and [TomTom](https://developer.tomtom.com/terms-and-conditions) also have contract-specific restrictions. For these adapters, use `--storage-authorized` only after verifying that your applicable agreement permits retaining raw responses and normalized reports for this offline evaluation. The flag grants no rights, supplies no automatic expiry or deletion, and does not turn a temporary-cache allowance into permission for indefinite storage. Observe any retention deadline yourself. Confirm benchmarking and use terms too.
+
+Keep caches and reports private, under the ignored `eval-results/` directory or outside the checkout. Never commit provider responses or credentials. Provision the credential through your secret manager in the process environment, not a command-line argument or committed file:
 
 ```sh
-# Inspect missing-request counts without a token or network access (fails on misses).
-target/release/evaluate mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox
+# Inspect cache misses without a token or network access (fails on misses).
+target/release/evaluate provider mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox
 
-# Fetch only missing queries. Replace N with an approved request budget.
-target/release/evaluate mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox \
+# Fetch missing queries. Replace N with an approved request budget.
+target/release/evaluate provider mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox \
   --fetch --budget N
 
-# Re-score offline and compare with a saved OpenGeocoding run directory or JSON snapshot.
-target/release/evaluate mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox \
+# Re-score offline against a saved local or competitor run directory or JSON snapshot.
+target/release/evaluate provider mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox \
   --compare eval-results/local-gold
 ```
 
-A budget smaller than the number of missing requests fails before sending any. Fetches are serialized at no more than five requests per second, without retries. Each successful JSON response (including an empty result) and HTTP 422 response is checkpointed before scoring. Re-running resumes from that cache; authentication, rate-limit and server failures stop the fetch. A transport failure may already have been billed, so inspect failures before authorizing another run. A cache lock prevents concurrent fetches against the same directory. Do not run fetches against separate caches for the same experiment.
+For another adapter, replace `mapbox` in the command and paths; fetching additionally requires `--storage-authorized`. A provider is never fetched automatically as part of another provider's run. A budget smaller than the missing-request count fails before sending any. Fetches are serialized at no more than five requests per second, without retries or redirects. Each HTTP 200 JSON response (including an empty result) and HTTP 422 response is checkpointed before scoring. Authentication, rate-limit and server failures stop the fetch. Google API errors inside HTTP 200 are retained for diagnosis and stop the run, not scored as empty answers; after fixing the account or key, explicitly remove that failed cache entry before fetching again. A transport failure may already have been billed. A cache lock prevents concurrent fetches against the same directory; do not fetch into separate caches for the same experiment.
 
-Cache keys include the exact query, endpoint and settings, never the token or expected answer. Raw responses, attribution and collection times are retained. Requests use `autocomplete=false`, `limit=1`, `language=en` and `worldview=us`, without country filters or proximity hints. Those fixed settings are recorded in the manifest; they are not an optimized country-by-country configuration. Mapbox secondary addresses are evaluated at building level, not for unit correctness.
+Cache keys include the exact query, provider endpoint and settings, never the credential or expected answer; different providers cannot share an entry. Raw responses, attribution and collection times are retained. Requests use English (`en-US` for TomTom), without country filters or proximity hints; Mapbox also uses `autocomplete=false` and `worldview=us`. Adapters request one result where supported and score only the first. Fixed settings and storage authorization are recorded in the manifest. Provider defaults can still bias answers; these are not optimized country-by-country configurations. Native result types determine granularity: a city is not promoted to a house because its context has an address. Google administrative short names and HERE state abbreviations are not assumed to be ISO 3166-2 codes. Mapbox secondary addresses are evaluated at building level, not for unit correctness.
 
-`report.md` includes outcomes by cohort, expected country and holdout. `--compare` re-scores both sides against the current corpus, ignoring `goodMatch`; Mapbox confidence is not equated with it. The paired table counts both-pass, baseline-only, Mapbox-only and neither-pass cases, and lists different failure classes. Service-specific error-contract cases are excluded. Known-failure labels do not turn failures into passes. No latency comparison is made from cached responses. The curated corpus remains a diagnostic benchmark, not an unbiased accuracy estimate: many cases were selected from index inputs, and registry expectations can share upstream sources with providers.
+`report.md` includes outcomes by cohort, expected country and holdout. `--compare` re-scores both sides against the current corpus, ignoring `goodMatch`; native confidence scores are not equated with it. The paired table counts both-pass, baseline-only, competitor-only and neither-pass cases, and lists different failure classes. Service-specific error-contract cases are excluded. Known-failure labels do not turn failures into passes. No latency comparison is made from cached responses. The curated corpus remains diagnostic, not an unbiased accuracy estimate: many cases were selected from index inputs, and registry expectations can share upstream sources with providers. Adapter tests use made-up responses; they establish neither live interoperability nor competitive accuracy.
 
 ### Gold corpus
 

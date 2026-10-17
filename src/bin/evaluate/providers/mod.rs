@@ -2,9 +2,9 @@ use crate::{
     model::{Case, Record, load_corpus, load_suite},
     report::{load_side, summarize},
     run::{classify, sha256_files, utc_now},
-    score::{score, summary_of, text},
+    score::{score, summary_of},
 };
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
@@ -16,9 +16,64 @@ use std::{
     time::Duration,
 };
 
-const ENDPOINT: &str = "https://api.mapbox.com/search/geocode/v6/forward";
+mod google;
+mod here;
+mod mapbox;
+mod tomtom;
+
+pub struct Provider {
+    pub name: &'static str,
+    label: &'static str,
+    credential_env: &'static str,
+    auth_parameter: &'static str,
+    storage_terms: Option<&'static str>,
+    request: fn(&str) -> Value,
+    normalize: fn(&Value) -> Result<Value>,
+}
+
+static PROVIDERS: [Provider; 4] = [
+    mapbox::PROVIDER,
+    google::PROVIDER,
+    here::PROVIDER,
+    tomtom::PROVIDER,
+];
+
+pub fn named(name: &str) -> Result<&'static Provider> {
+    PROVIDERS.iter().find(|p| p.name == name).with_context(|| {
+        format!("unknown provider {name}; expected mapbox, google, here or tomtom")
+    })
+}
+
+fn full_address(name: &str, lat: &Value, lon: &Value, details: Value) -> Result<Value> {
+    let lat = lat.as_f64().context("missing latitude")?;
+    let lon = lon.as_f64().context("missing longitude")?;
+    ensure!(
+        (-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon),
+        "invalid point"
+    );
+    let country = crate::score::text(&details, "countryCode");
+    ensure!(
+        country.len() == 2 && country.bytes().all(|b| b.is_ascii_alphabetic()),
+        "invalid country code"
+    );
+    let postcode = crate::score::text(&details, "postcode");
+    let postal = !postcode.is_empty()
+        && ["road", "houseNumber", "city", "suburb", "state", "county"]
+            .iter()
+            .all(|key| crate::score::text(&details, key).is_empty());
+    let name = if postal && !name.starts_with(postcode) {
+        format!("{postcode}, {name}")
+    } else {
+        name.into()
+    };
+    Ok(
+        json!({"displayName": name, "geoCoordinates": {"lat": lat, "lon": lon}, "addressDetails": details}),
+    )
+}
 
 pub struct Options {
+    pub provider: &'static Provider,
+    pub storage_authorized: bool,
     pub corpus: Option<PathBuf>,
     pub out: PathBuf,
     pub cache: PathBuf,
@@ -34,18 +89,6 @@ struct Entry {
     fetched_at: String,
     status: u16,
     response: Value,
-}
-
-fn request(query: &str) -> Value {
-    json!({
-        "endpoint": ENDPOINT,
-        "q": query,
-        "permanent": true,
-        "autocomplete": false,
-        "limit": 1,
-        "language": "en",
-        "worldview": "us",
-    })
 }
 
 fn key(request: &Value) -> String {
@@ -81,70 +124,12 @@ fn save_entry(cache: &Path, entry: &Entry) -> Result<()> {
     Ok(())
 }
 
-fn normalize(response: &Value) -> Result<Value> {
-    let features = response["features"]
-        .as_array()
-        .context("missing features array")?;
-    let Some(feature) = features.first() else {
-        return Ok(json!({}));
-    };
-    let props = &feature["properties"];
-    let context = &props["context"];
-    let coordinates = feature["geometry"]["coordinates"]
-        .as_array()
-        .context("missing coordinates")?;
-    ensure!(coordinates.len() == 2, "expected a point");
-    let lon = coordinates[0].as_f64().context("invalid longitude")?;
-    let lat = coordinates[1].as_f64().context("invalid latitude")?;
-    ensure!(
-        (-180.0..=180.0).contains(&lon) && (-90.0..=90.0).contains(&lat),
-        "invalid point"
-    );
-    let country = text(&context["country"], "country_code").to_lowercase();
-    ensure!(!country.is_empty(), "missing country code");
-    let mut address = json!({"countryCode": country});
-    let kind = text(props, "feature_type");
-    let field = match kind {
-        "address" | "secondary_address" => {
-            address["houseNumber"] = context["address"]["address_number"].clone();
-            address["road"] = context["street"]["name"]
-                .as_str()
-                .or_else(|| context["address"]["street_name"].as_str())
-                .unwrap_or("")
-                .into();
-            ensure!(!text(&address, "road").is_empty(), "address without street");
-            None
-        }
-        "street" => Some("road"),
-        "postcode" => Some("postcode"),
-        "country" => None,
-        "region" => Some("state"),
-        "district" => Some("county"),
-        "place" => Some("city"),
-        "locality" | "neighborhood" | "block" => Some("suburb"),
-        _ => bail!("unsupported Mapbox feature type: {kind}"),
-    };
-    if let Some(field) = field {
-        address[field] = props["name"].clone();
-    }
-    if matches!(kind, "address" | "secondary_address" | "street") {
-        address["postcode"] = context["postcode"]["name"].clone();
-        address["city"] = context["place"]["name"].clone();
-    }
-    let region = text(&context["region"], "region_code_full");
-    address["regionCodes"] = if region.is_empty() {
-        json!([])
-    } else {
-        json!([{"code": region.to_uppercase()}])
-    };
-    Ok(json!({
-        "displayName": props["full_address"].as_str().unwrap_or(text(props, "name")),
-        "geoCoordinates": {"lat": lat, "lon": lon},
-        "addressDetails": address,
-    }))
-}
-
-async fn fetch(client: &reqwest::Client, token: &str, request: Value) -> Result<Entry> {
+async fn fetch(
+    provider: &Provider,
+    client: &reqwest::Client,
+    token: &str,
+    request: Value,
+) -> Result<Entry> {
     let params: Vec<_> = request
         .as_object()
         .context("request object")?
@@ -156,25 +141,26 @@ async fn fetch(client: &reqwest::Client, token: &str, request: Value) -> Result<
                 v.as_str().map_or_else(|| v.to_string(), String::from),
             )
         })
-        .chain(std::iter::once(("access_token", token.to_owned())))
+        .chain(std::iter::once((provider.auth_parameter, token.to_owned())))
         .collect();
     let response = client
-        .get(ENDPOINT)
+        .get(request["endpoint"].as_str().context("missing endpoint")?)
         .query(&params)
         .send()
         .await
         .map_err(|error| error.without_url())
-        .context("Mapbox request failed (not retried)")?;
+        .with_context(|| format!("{} request failed (not retried)", provider.name))?;
     let status = response.status().as_u16();
     ensure!(
         matches!(status, 200 | 422),
-        "Mapbox HTTP {status}; stopped without retrying"
+        "{} HTTP {status}; stopped without retrying",
+        provider.name
     );
     let response: Value = response
         .json()
         .await
         .map_err(|error| error.without_url())
-        .context("invalid Mapbox JSON")?;
+        .context("invalid provider JSON")?;
     Ok(Entry {
         request,
         fetched_at: utc_now(),
@@ -183,7 +169,12 @@ async fn fetch(client: &reqwest::Client, token: &str, request: Value) -> Result<
     })
 }
 
-fn paired(cases: &[Case], records: &[Record], baseline: &Path) -> Result<String> {
+fn paired(
+    provider: &Provider,
+    cases: &[Case],
+    records: &[Record],
+    baseline: &Path,
+) -> Result<String> {
     let (_, base) = load_side(baseline)?;
     let mut counts = [0usize; 4];
     let mut differences = String::new();
@@ -222,8 +213,8 @@ fn paired(cases: &[Case], records: &[Record], baseline: &Path) -> Result<String>
         if class != record.class {
             let _ = writeln!(
                 differences,
-                "- `{}`: baseline **{class}**, Mapbox **{}**",
-                case.id, record.class
+                "- `{}`: baseline **{class}**, {} **{}**",
+                case.id, provider.label, record.class
             );
         }
     }
@@ -232,13 +223,14 @@ fn paired(cases: &[Case], records: &[Record], baseline: &Path) -> Result<String>
         "no paired scored cases with the baseline"
     );
     Ok(format!(
-        "\n## Paired forward comparison\n\nBoth sides re-scored against the current expectations, ignoring confidence. Only identical queries with saved responses/errors are paired.\n\n| Outcome | Cases |\n|---|---:|\n| Both pass | {} |\n| Baseline only passes | {} |\n| Mapbox only passes | {} |\n| Neither passes | {} |\n\n### Different classes\n\n{}",
-        counts[0], counts[1], counts[2], counts[3], differences,
+        "\n## Paired forward comparison\n\nBoth sides re-scored against the current expectations, ignoring confidence. Only identical queries with saved responses/errors are paired.\n\n| Outcome | Cases |\n|---|---:|\n| Both pass | {} |\n| Baseline only passes | {} |\n| {} only passes | {} |\n| Neither passes | {} |\n\n### Different classes\n\n{}",
+        counts[0], counts[1], provider.label, counts[2], counts[3], differences,
     ))
 }
 
 pub async fn run(options: Options) -> Result<i32> {
     let started_at = utc_now();
+    let provider = options.provider;
     ensure!(
         options.fetch || options.budget == 0,
         "--budget requires --fetch"
@@ -282,7 +274,7 @@ pub async fn run(options: Options) -> Result<i32> {
     };
     let mut missing = HashSet::new();
     for case in &cases {
-        let req = request(&case.query);
+        let req = (provider.request)(&case.query);
         if read_entry(&options.cache, &req)?.is_none() {
             missing.insert(key(&req));
         }
@@ -295,7 +287,7 @@ pub async fn run(options: Options) -> Result<i32> {
     );
     ensure!(
         missing.is_empty() || options.fetch,
-        "offline cache misses: {}; use --fetch --budget N to authorize permanent requests",
+        "offline cache misses: {}; use --fetch --budget N to authorize provider requests",
         missing.len()
     );
     ensure!(
@@ -307,9 +299,24 @@ pub async fn run(options: Options) -> Result<i32> {
     let client = if missing.is_empty() {
         None
     } else {
-        let token = std::env::var("MAPBOX_ACCESS_TOKEN")
-            .context("set MAPBOX_ACCESS_TOKEN through your secret manager")?;
-        ensure!(!token.trim().is_empty(), "MAPBOX_ACCESS_TOKEN is empty");
+        if let Some(terms) = provider.storage_terms {
+            ensure!(
+                options.storage_authorized,
+                "{} response storage requires an applicable agreement authorizing this offline evaluation; verify {terms}, then pass --storage-authorized",
+                provider.label
+            );
+        }
+        let token = std::env::var(provider.credential_env).with_context(|| {
+            format!(
+                "set {} through your secret manager",
+                provider.credential_env
+            )
+        })?;
+        ensure!(
+            !token.trim().is_empty(),
+            "{} is empty",
+            provider.credential_env
+        );
         Some((
             reqwest::Client::builder()
                 .retry(reqwest::retry::never())
@@ -323,7 +330,7 @@ pub async fn run(options: Options) -> Result<i32> {
     let mut records = vec![];
     let mut cache_files = BTreeMap::new();
     for case in &cases {
-        let req = request(&case.query);
+        let req = (provider.request)(&case.query);
         let cache_path = options.cache.join(format!("{}.json", key(&req)));
         let entry = match read_entry(&options.cache, &req)? {
             Some(entry) => entry,
@@ -332,7 +339,7 @@ pub async fn run(options: Options) -> Result<i32> {
                 if fetched > 0 {
                     tokio::time::sleep(Duration::from_millis(200)).await;
                 }
-                let entry = fetch(client, token, req).await?;
+                let entry = fetch(provider, client, token, req).await?;
                 save_entry(&options.cache, &entry)?;
                 fetched += 1;
                 entry
@@ -345,7 +352,7 @@ pub async fn run(options: Options) -> Result<i32> {
             ..Default::default()
         };
         if entry.status == 200 {
-            let response = normalize(&entry.response)?;
+            let response = (provider.normalize)(&entry.response)?;
             classify(case, Ok(&response), &mut record, false);
             record.summary = Some(summary_of(&response));
             record.response = Some(response);
@@ -362,20 +369,21 @@ pub async fn run(options: Options) -> Result<i32> {
         .clone()
         .map_or_else(crate::model::suite, |p| vec![p]);
     let manifest = json!({
-        "suite": "mapbox-forward", "started_at": started_at, "cases": cases.len(),
+        "suite": format!("{}-forward", provider.name), "started_at": started_at, "cases": cases.len(),
         "corpus_sha256": sha256_files(&files)?,
         "cache_sha256": sha256_files(&cache_files.into_keys().collect::<Vec<_>>())?,
         "scoring": {"confidence": false},
-        "request_settings": request(""), "fetched": fetched,
+        "request_settings": (provider.request)(""), "fetched": fetched,
+        "storage_authorized": options.storage_authorized,
         "excluded_contract_cases": excluded,
-        "backend": {"label": "Mapbox Geocoding v6 permanent", "status": {"software_version": "Mapbox hosted API", "data_updated": "unknown"}},
+        "backend": {"label": provider.label, "status": {"software_version": provider.name, "data_updated": "unknown"}},
     });
     let (report, _) = summarize(&cases, &records, &manifest);
     let mut report = format!(
         "Forward geocoding only; confidence is not scored. Known failures remain failures. This existing corpus is diagnostic, not an unbiased accuracy estimate. Native responses and collection dates are in the private cache. No request-latency comparison is made.\n\n{report}"
     );
     if let Some(baseline) = &options.compare {
-        report += &paired(&cases, &records, baseline)?;
+        report += &paired(provider, &cases, &records, baseline)?;
     }
     std::fs::create_dir_all(&options.out)?;
     let mut output = File::create(options.out.join("results.jsonl"))?;
@@ -411,32 +419,20 @@ mod tests {
     }
 
     #[test]
-    fn normalization_preserves_granularity_and_coordinates() {
-        for (kind, level) in [
-            ("address", "house"),
-            ("secondary_address", "house"),
-            ("street", "street"),
-            ("postcode", "postcode"),
-            ("place", "locality"),
-            ("region", "region"),
-            ("country", "country"),
-        ] {
-            let mut input = response(kind);
-            if kind == "postcode" {
-                input["features"][0]["properties"]["name"] = "12345".into();
-                input["features"][0]["properties"]["full_address"] = "12345 Exampletown".into();
-            }
-            let normalized = normalize(&input).unwrap();
-            assert_eq!(crate::score::level_of(&normalized), level);
-            assert_eq!(crate::score::coordinates(&normalized), Some([37., -122.]));
-            assert_eq!(normalized["addressDetails"]["countryCode"], "us");
-            assert!(normalized.get("goodMatch").is_none());
+    fn providers_have_isolated_requests_without_credentials() {
+        let mut keys = HashSet::new();
+        for provider in &PROVIDERS {
+            let request = (provider.request)("Exampletown");
+            assert!(request.get(provider.auth_parameter).is_none());
+            assert!(keys.insert(key(&request)));
+            assert!(
+                request["endpoint"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("https://")
+            );
         }
-        assert_eq!(normalize(&json!({"features": []})).unwrap(), json!({}));
-        assert!(normalize(&json!({})).is_err());
-        let mut invalid = response("address");
-        invalid["features"][0]["geometry"]["coordinates"][1] = 100.into();
-        assert!(normalize(&invalid).is_err());
+        assert!(named("unknown").is_err());
     }
 
     #[tokio::test]
@@ -473,7 +469,10 @@ mod tests {
             .unwrap()
         };
         write_cases(&other);
+        let provider = named("mapbox").unwrap();
         let options = |fetch, budget| Options {
+            provider,
+            storage_authorized: false,
             corpus: Some(corpus.clone()),
             cache: cache.clone(),
             out: dir.join("out"),
@@ -490,6 +489,17 @@ mod tests {
                 .contains("offline cache misses")
         );
         assert!(run(options(true, 0)).await.is_err());
+        for name in ["google", "here", "tomtom"] {
+            let mut restricted = options(true, 2);
+            restricted.provider = named(name).unwrap();
+            assert!(
+                run(restricted)
+                    .await
+                    .unwrap_err()
+                    .to_string()
+                    .contains("--storage-authorized")
+            );
+        }
         assert!(
             run(options(true, 1))
                 .await
@@ -502,8 +512,8 @@ mod tests {
             ..other
         };
         write_cases(&duplicate);
-        let req = request(&case.query);
-        assert_ne!(key(&req), key(&request("Other town")));
+        let req = (provider.request)(&case.query);
+        assert_ne!(key(&req), key(&(provider.request)("Other town")));
         assert_eq!(req["permanent"], true);
         assert_eq!(req["autocomplete"], false);
         save_entry(
@@ -534,7 +544,8 @@ mod tests {
             json!({"manifest": {}, "results": records}).to_string(),
         )
         .unwrap();
-        let paired_report = paired(&[case.clone(), duplicate], &records, &baseline).unwrap();
+        let paired_report =
+            paired(provider, &[case.clone(), duplicate], &records, &baseline).unwrap();
         assert!(paired_report.contains("| Both pass | 2 |"));
         let mut changed = req.clone();
         changed["language"] = "da".into();
