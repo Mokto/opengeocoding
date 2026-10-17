@@ -20,8 +20,8 @@
 
 mod coverage;
 mod gold;
-mod mapbox;
 mod model;
+mod providers;
 mod registry;
 mod report;
 mod run;
@@ -52,13 +52,14 @@ fn usage() -> String {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    format!("usage: evaluate <run|mapbox|diff|snapshot|report|build-gold|{commands}|gold-corpus|check|coverage> [options]
+    format!("usage: evaluate <run|provider|mapbox|diff|snapshot|report|build-gold|{commands}|gold-corpus|check|coverage> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
             [--no-direct] [--resume] [--backend-label TEXT] [--repeat 3]
-mapbox      --out DIR --cache DIR [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
-            [--fetch --budget N] (offline by default; fetch authorizes permanent, potentially billed requests)
+provider    mapbox|google|here|tomtom --out DIR --cache DIR [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
+            [--fetch --budget N] [--storage-authorized] (offline by default; fetching may be billed)
+mapbox      alias for provider mapbox
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
@@ -204,17 +205,21 @@ async fn command() -> Result<i32> {
             };
             run::run(options).await
         }
-        "mapbox" => {
-            args.only_flags(&["fetch"])?;
+        "provider" | "mapbox" => {
+            args.only_flags(&["fetch", "storage-authorized"])?;
+            let provider = match (command.as_str(), args.positional.as_slice()) {
+                ("provider", [name]) => providers::named(name)?,
+                ("mapbox", []) => providers::named("mapbox")?,
+                _ => bail!("provider needs one name: mapbox, google, here or tomtom"),
+            };
             if let Some(option) = args.values.keys().find(|k| {
                 !["out", "cache", "corpus", "only", "compare", "budget"].contains(&k.as_str())
             }) {
-                bail!("unsupported mapbox option --{option}");
+                bail!("unsupported provider option --{option}");
             }
-            if !args.positional.is_empty() {
-                bail!("mapbox accepts named options only");
-            }
-            mapbox::run(mapbox::Options {
+            providers::run(providers::Options {
+                provider,
+                storage_authorized: args.flag("storage-authorized"),
                 corpus: args.path("corpus"),
                 out: args.path("out").context("--out is required")?,
                 cache: args.path("cache").context("--cache is required")?,
