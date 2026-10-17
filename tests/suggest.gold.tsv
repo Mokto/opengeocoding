@@ -231,3 +231,11 @@ janeiro		5	city	br	-22.907	-43.173	30	5
 lumpur		5	city	my	3.139	101.687	30	4		
 chi minh		5		vn	10.823	106.63	30			
 elysees, paris		1	street	fr	48.87	2.307	3			
+1, rådhuspladsen		1	address	dk	55.6760	12.5683	1			
+1, rådhuspladsen	dk	1	address	dk	55.6760	12.5683	1			
+1, rådhuspladsen, københavn		1	address	dk	55.6760	12.5683	1			
+1, dam, amsterdam		1	address	nl	52.3731	4.8913	1			
+11, wall street, new york		1	address	us	40.7069	-74.0113	1			
+350, fifth avenue, new york		1	address	us	40.7484	-73.9857	1			
+1, platz der republik, berlin		1	address	de	52.5186	13.3762	1			
+1600, amphitheatre parkway, mountain view		1	address	us	37.4220	-122.0841	1			
