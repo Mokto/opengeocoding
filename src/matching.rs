@@ -606,6 +606,10 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
         "nl" | "NL" => ("ln", &["laan"]),
         _ => return vec![],
     };
+    // Full names like Solhavn and Koeln are not compound abbreviations.
+    if short != "r" && !road.trim_end().ends_with('.') {
+        return vec![];
+    }
     let road = normalize_place(road);
     if short == "r" {
         return road

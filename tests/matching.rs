@@ -905,6 +905,8 @@ fn road_abbreviations_are_country_scoped_and_preserve_house_numbers() {
         ("no", "Granvn.", "Granvegen", true),
         ("nl", "Willowln.", "Willowlaan", true),
         ("no", "Granvn.", "Grandveien", false),
+        ("no", "Solhavn", "Solhaveien", false),
+        ("nl", "Koeln", "Koelaan", false),
         ("nl", "Willowln.", "Willowstraat", false),
         ("pt", "R. du Bosquet", "Rua du Bosquet", true),
         ("pt", "R. du Bosquet", "Rue du Bosquet", false),
