@@ -3557,6 +3557,25 @@ impl Index {
         })
     }
 
+    pub(crate) fn house_locality_named(&self, hit: &Hit, name: &str) -> bool {
+        let Hit::Street {
+            place,
+            number: Some(_),
+            ..
+        } = hit
+        else {
+            return false;
+        };
+        if *place == NONE || name.chars().count() <= 2 {
+            return false;
+        }
+        let key = name_key(name);
+        self.chain(*place).iter().any(|&id| {
+            let place = &self.places[id as usize];
+            matches!(place.subtype.as_ref(), "locality" | "localadmin") && place.named(key)
+        })
+    }
+
     pub fn details(&self, id: u64) -> Value {
         let Some(pl) = (id < STREET)
             .then(|| self.places.get(id as usize))
@@ -4486,6 +4505,25 @@ mod tests {
         .unwrap();
         std::fs::write(dir.join("places.tsv"), tsv).unwrap();
         let index = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
+        let mut house = Hit::Street {
+            sid: 0,
+            place: 2,
+            name: "Test Road".into(),
+            x: 12.5683,
+            y: 55.6761,
+            number: Some("1".into()),
+            postcode: None,
+            city: None,
+            cc: "DK".into(),
+        };
+        assert!(index.house_locality_named(&house, "Copenhagen"));
+        for name in ["Hovedstaden", "Denmark", "Cop", "DK"] {
+            assert!(!index.house_locality_named(&house, name), "{name}");
+        }
+        if let Hit::Street { number, .. } = &mut house {
+            *number = None;
+        }
+        assert!(!index.house_locality_named(&house, "Copenhagen"));
         let city_and_region = |lat: f64, lon: f64| {
             let found = index.reverse(lat, lon);
             let address = &found["address"];

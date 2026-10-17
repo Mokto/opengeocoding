@@ -339,7 +339,7 @@ pub const PLACES: &[Place] = &[
         (6.9603, 50.9375),
         "de-nw",
         "Köln",
-        &[("en", "Cologne"), ("de", "Köln")],
+        &[("en", "Cologne"), ("de", "Köln"), ("es", "Colonia")],
     ),
     // a village Overture has as a point inside Cologne's polygon, with none of its own
     place!(
