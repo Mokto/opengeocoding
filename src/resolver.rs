@@ -598,6 +598,7 @@ impl Core {
         let stray = part(&address, "road").to_owned();
         tidy(&mut address);
         self.state_not_country(&mut address);
+        recover_postcode(query, &mut address);
         tracing::debug!(target: "opengeocoding::address_log", parsed = ?address, "Address normalized");
         let unstrayed;
         let query = if !stray.is_empty() && part(&address, "road").is_empty() {
@@ -635,14 +636,46 @@ impl Core {
             None => (&address, country.clone()),
         };
         let mut weak = None;
-        let raw = self.first_acceptable(
-            query,
-            stated_address,
-            (&stated_country, &postcode),
-            "raw",
-            true,
-            None,
-        )?;
+        let district = part(stated_address, "state_district");
+        let subdivision = if !district.is_empty()
+            && !part(stated_address, "state").is_empty()
+            && stated_address.keys().all(|key| {
+                matches!(
+                    key.as_str(),
+                    "state" | "state_district" | "country_region" | "country"
+                )
+            }) {
+            let mut parent = stated_address.clone();
+            parent.shift_remove("state_district");
+            self.first_acceptable(
+                district,
+                stated_address,
+                (&stated_country, &postcode),
+                "subdivision",
+                true,
+                None,
+            )?
+            .filter(|chosen| {
+                let details = chosen.found.address_details.as_option();
+                matches!(chosen.kind.as_str(), "county" | "state_district")
+                    && chosen.named_by(district)
+                    && state_consistent(&parent, details)
+                    && country_matches(&stated_country, details)
+            })
+        } else {
+            None
+        };
+        let raw = match subdivision {
+            Some(chosen) => Some(chosen),
+            None => self.first_acceptable(
+                query,
+                stated_address,
+                (&stated_country, &postcode),
+                "raw",
+                true,
+                None,
+            )?,
+        };
         // Without a house of its own, the raw answer is the stated town or nothing.
         if raw.as_ref().is_none_or(|chosen| {
             chosen
@@ -716,7 +749,13 @@ impl Core {
                 && explained * 2 < total
                 && !(named && chosen.countries <= 1);
             if !guess {
-                return Ok(accept(chosen.found, &address, &postcode, "raw", true));
+                let road = part(stated_address, "road");
+                let road_found =
+                    road.is_empty() || details.is_some_and(|d| !d.road.is_empty()) || {
+                        let (explained, total) = chosen.explained(road, stated_address);
+                        explained == total
+                    };
+                return Ok(accept(chosen.found, &address, &postcode, "raw", road_found));
             }
             weak = Some(chosen);
         }

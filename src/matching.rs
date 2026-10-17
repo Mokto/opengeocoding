@@ -291,6 +291,23 @@ pub fn tidy(address: &mut ParsedAddress) {
     }
 }
 
+pub fn recover_postcode(query: &str, address: &mut ParsedAddress) {
+    let country = expected_country(address);
+    let postcode = part(address, "postcode");
+    if postcode.is_empty() || postcode_shape(&country, postcode) != Some(false) {
+        return;
+    }
+    let mut codes = query
+        .split(',')
+        .map(|p| p.trim_matches(whitespace))
+        .filter(|p| postcode_shape(&country, p) == Some(true));
+    if let Some(code) = codes.next()
+        && codes.next().is_none()
+    {
+        address.insert("postcode".into(), code.into());
+    }
+}
+
 pub fn create_query(address: &ParsedAddress, order: &[&str]) -> String {
     if order.is_empty() {
         return address.values().cloned().collect::<Vec<_>>().join(", ");
@@ -1217,6 +1234,7 @@ pub fn postcode_shape(country_code: &str, postcode: &str) -> Option<bool> {
             ("jp", r"^\d{3}(\d{4})?$"),
             ("us", r"^\d{5}(\d{4})?$"),
             ("at", r"^\d{4}$"),
+            ("hu", r"^\d{4}$"),
             ("be", r"^\d{4}$"),
             ("ch", r"^\d{4}$"),
             ("dk", r"^\d{4}$"),

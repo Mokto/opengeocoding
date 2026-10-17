@@ -62,6 +62,41 @@ fn public_country_names_and_regions() {
 }
 
 #[test]
+fn a_single_postcode_part_repairs_an_invalid_parsed_postcode() {
+    for (country, before, query, after) in [
+        (
+            "Hungary",
+            "csanád",
+            "Tűzoltó street 2., 6728, Szeged, Csongrád- Csanád, Hungary",
+            "6728",
+        ),
+        ("Hungary", "csanád", "6728, 6729, Szeged, Hungary", "csanád"),
+        (
+            "Hungary",
+            "csanád",
+            "Tűzoltó street 6728, Szeged, Hungary",
+            "csanád",
+        ),
+        ("Hungary", "6729", "6728, Szeged, Hungary", "6729"),
+        ("Hungary", "", "6728, Szeged, Hungary", ""),
+        ("", "csanád", "6728, Szeged", "csanád"),
+        (
+            "United Kingdom",
+            "surrey",
+            "Cheam Road, SM1 2AX, Sutton, Surrey, United Kingdom",
+            "SM1 2AX",
+        ),
+        ("Canada", "M5J 2T3", "181, Toronto, Canada", "M5J 2T3"),
+    ] {
+        let mut address = parsed(&[("country", country), ("postcode", before)]);
+        recover_postcode(query, &mut address);
+        assert_eq!(part(&address, "postcode"), after, "{query}");
+    }
+    assert_eq!(postcode_shape("hu", "6728"), Some(true));
+    assert_eq!(postcode_shape("hu", "csanád"), Some(false));
+}
+
+#[test]
 fn postcode_precision() {
     for (expected, actual, compatible) in [
         ("E14 5HQ", "E14", true),
@@ -715,6 +750,10 @@ fn coverage_counts_the_query_words_a_candidate_explains() {
     // a repeated word counts once, and single letters and street types say nothing
     assert_eq!(coverage("Afrique, Afrique", ["Paris"]), (0, 1));
     assert_eq!(coverage("A, St", ["Paris"]), (0, 0));
+    assert_eq!(coverage("State of Paris", ["Paris"]), (1, 1));
+    assert_eq!(coverage("Missing Road", ["Paris, France"]), (0, 1));
+    let (explained, total) = coverage("Jl. Imaginary Km 7.400", ["Paris, France"]);
+    assert!(explained < total);
 }
 
 #[test]
