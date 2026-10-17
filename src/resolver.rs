@@ -155,7 +155,12 @@ impl Resolver {
     pub async fn resolve(&self, query: &str) -> Result<FullAddress> {
         let core = self.0.clone();
         let query = query.to_owned();
-        tokio::task::spawn_blocking(move || core.index.memoized(|| core.resolve(&query))).await?
+        let span = tracing::Span::current();
+        tokio::task::spawn_blocking(move || {
+            let _entered = span.enter();
+            core.index.memoized(|| core.resolve(&query))
+        })
+        .await?
     }
 
     /// Completions of a partly typed address; see `Index::suggest`.
@@ -214,12 +219,14 @@ impl Resolver {
 
 impl Core {
     fn parse(&self, query: &str) -> Result<ParsedAddress> {
-        Ok(self
+        let address = self
             .index
             .parse_address(query, true)?
             .iter()
             .cloned()
-            .collect())
+            .collect();
+        tracing::debug!(target: "opengeocoding::address_log", ?query, parsed = ?address, "Address parsed");
+        Ok(address)
     }
 
     /// The index's hits and their English rendering.
@@ -591,6 +598,7 @@ impl Core {
         let stray = part(&address, "road").to_owned();
         tidy(&mut address);
         self.state_not_country(&mut address);
+        tracing::debug!(target: "opengeocoding::address_log", parsed = ?address, "Address normalized");
         let unstrayed;
         let query = if !stray.is_empty() && part(&address, "road").is_empty() {
             unstrayed = without_word(query, &stray);
@@ -731,6 +739,7 @@ impl Core {
         if let Some(found) = self.settlement(query, stated_address, &stated_country, &postcode)? {
             return Ok(found);
         }
+        tracing::debug!(target: "opengeocoding::address_log", "Address unresolved");
         METRICS.tiers.with_label_values(&["unresolved"]).inc();
         Ok(FullAddress::default())
     }
@@ -1415,6 +1424,7 @@ fn accept(
     // a P.O. box is a counter, not a place: the town is the best that can be said
     let located = !is_po_box(part(address, "po_box"));
     found.good_match = good && house_found && postcode_found && located;
+    tracing::debug!(target: "opengeocoding::address_log", tier, good_match = found.good_match, "Address candidate selected");
     METRICS.tiers.with_label_values(&[tier]).inc();
     found
 }
