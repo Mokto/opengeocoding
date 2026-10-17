@@ -231,3 +231,11 @@ janeiro		5	city	br	-22.907	-43.173	30	5
 lumpur		5	city	my	3.139	101.687	30	4		
 chi minh		5		vn	10.823	106.63	30			
 elysees, paris		1	street	fr	48.87	2.307	3			
+rådhuspladsen 1, 4		1	address	dk	55.6760	12.5683	1	15		
+rådhuspladsen 1, 4. th.		1	address	dk	55.6760	12.5683	1	15		
+rådhuspladsen 1, st. tv.	dk	1	address	dk	55.6760	12.5683	1			
+rådhuspladsen 1, kl., københavn		1	address	dk	55.6760	12.5683	1			
+rådhuspladsen 1, 4, københavn		1	address	dk	55.6760	12.5683	1			
+rådhuspladsen 1, 4., københavn, denmark		1	address	dk	55.6760	12.5683	1			
+rådhuspladsen 1, 4., københavn	dk	1	address	dk	55.6760	12.5683	1			
+rådhuspladsen 1, 12. mf.		1	address	dk	55.6760	12.5683	1	15		

@@ -158,6 +158,9 @@ message Suggestion {
   // Landmarks only: airport, station, attraction, museum, university, hospital or stadium.
   // Empty for every other type.
   string category = 6;
+  // User-entered floor/unit text, also kept in display_name. Not verified: id and point
+  // still identify the building. Empty when no suffix interpretation was needed.
+  string unverified_suffix = 7;
 }
 
 message SuggestAddressResponse {

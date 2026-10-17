@@ -232,6 +232,7 @@ impl OpenGeocoding for Service {
                         r#type: s.kind.into(),
                         country_code: s.country_code,
                         category: s.category.into(),
+                        unverified_suffix: s.unverified_suffix,
                         ..Default::default()
                     })
                     .collect(),
