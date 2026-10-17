@@ -350,7 +350,13 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
     let untriaged = critical_results
         .iter()
         .any(|r| case(r).known_failure.is_none());
-    let mut failed = !must.is_empty() || untriaged;
+    let mut failed = !must.is_empty()
+        || untriaged
+        || results.iter().any(|r| {
+            r.suggest
+                .values()
+                .any(|c| c.landmarks_off && suggest_class(c) != "pass")
+        });
     out += "\n## Critical results (wrong country, >100 km, or a result where none exists)\n\n";
     for r in &critical_results {
         let s = r.summary.clone().unwrap_or_default();
@@ -629,7 +635,7 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
     }
     let _ = writeln!(
         out,
-        "\nGate: {} (must-pass cases, untriaged critical results, transport checks).",
+        "\nGate: {} (must-pass cases, untriaged critical results, landmark flag-off and transport checks).",
         if failed { "FAIL" } else { "pass" }
     );
     (out, failed)
@@ -637,6 +643,12 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
 
 /// Where the expected place came, and what came first.
 fn suggest_label(check: &SuggestCheck) -> String {
+    if check.landmarks_off && check.error.is_none() {
+        return format!(
+            "flag off; {} landmark suggestions",
+            check.found.iter().filter(|s| s.kind == "landmark").count()
+        );
+    }
     let first = check.found.first().map_or("nothing".into(), |s| {
         format!("{} {} [{}]", s.kind, clip(&s.name, 60), s.country)
     });
@@ -662,7 +674,7 @@ fn suggest_section(out: &mut String, results: &[&Record], cohort: &dyn Fn(&Recor
     }
     let _ = write!(
         out,
-        "\n## SuggestAddress (reported, not gated)\n\n`full` types the query; `name` types the place's name alone, which must come no later than the places of that name with more population (Wikidata).\n\n| Check | Cohort | {} |\n|---|---|{}\n",
+        "\n## SuggestAddress (geography reported, flag-off checks gated)\n\n`full` types the query; `name` types the place's name alone, which must come no later than the places of that name with more population (Wikidata). For landmark cases, `full` enables landmarks and `off` repeats the query with the flag false, requiring no landmark results.\n\n| Check | Cohort | {} |\n|---|---|{}\n",
         SUGGEST_CLASSES.join(" | "),
         "---:|".repeat(SUGGEST_CLASSES.len())
     );
@@ -1025,7 +1037,39 @@ pub fn diff(
     let mut by_cohort: BTreeMap<String, BTreeMap<&str, usize>> = BTreeMap::new();
     let mut search_pass = [0; 2];
     // Per check kind: checked, base passing, head passing, head's other classes.
-    let mut suggest_counts: BTreeMap<&str, [usize; 6]> = BTreeMap::new();
+    let mut suggest_counts: BTreeMap<&str, [usize; 2 + SUGGEST_CLASSES.len()]> = BTreeMap::new();
+    let mut added_counts: BTreeMap<&str, [usize; 2]> = BTreeMap::new();
+    let mut added_failures = String::new();
+    for (id, record) in &new {
+        for (name, check) in &record.suggest {
+            if old.get(id).is_some_and(|r| r.suggest.contains_key(name)) {
+                continue;
+            }
+            let class = suggest_class(check);
+            let counts = added_counts.entry(name).or_default();
+            counts[0] += 1;
+            counts[1] += usize::from(class == "pass");
+            if class != "pass" {
+                let line = format!(
+                    "- `{id}` suggest {name} {class}: {:?}: {}",
+                    check.text,
+                    suggest_label(check)
+                );
+                let _ = writeln!(added_failures, "{line}");
+                if check.landmarks_off {
+                    newly_failing.push(line);
+                }
+            }
+        }
+    }
+    if !added_counts.is_empty() {
+        report += "\n## New SuggestAddress checks (head only)\n\nThese have no baseline and are not improvements to shared cases. For landmark cases, `full` has the flag on; `off` requires no landmarks with the flag false.\n\n| Check | Pass head | Total |\n|---|---:|---:|\n";
+        for (name, counts) in added_counts {
+            let _ = writeln!(report, "| {name} | {} | {} |", counts[1], counts[0]);
+        }
+        report.push('\n');
+        report += &added_failures;
+    }
     // Per ReverseGeocode and ResolveRegion: checked, base passing, head passing, head's classes.
     let mut locate_counts: BTreeMap<&str, [usize; 2 + LOCATE_CLASSES.len()]> = BTreeMap::new();
     let mut changed_checks: BTreeMap<&str, usize> = BTreeMap::new();
@@ -1202,24 +1246,25 @@ pub fn diff(
         .keys()
         .any(|name| changed_checks.contains_key(name))
     {
-        report += "\n## SuggestAddress\n\n| Check | Checked | Pass base | Pass head | Change | ranked_low | missing | error |\n|---|---:|---:|---:|---:|---:|---:|---:|\n";
+        report += "\n## SuggestAddress\n\n| Check | Checked | Pass base | Pass head | Change | ranked_low | missing | unexpected | error |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|\n";
         for (name, c) in suggest_counts
             .iter()
             .filter(|(name, _)| changed_checks.contains_key(*name))
         {
             let _ = writeln!(
                 report,
-                "| {name} | {} | {} | {} | {:+} | {} | {} | {} |",
+                "| {name} | {} | {} | {} | {:+} | {} | {} | {} | {} |",
                 c[0],
                 c[1],
                 c[2],
                 c[2] as i64 - c[1] as i64,
                 c[3],
                 c[4],
-                c[5]
+                c[5],
+                c[6]
             );
         }
-        report += "\n`full` types the query; `name` types the place's name alone, which must come no later than the places of that name with more population. The last three columns count the head's failures.\n";
+        report += "\n`full` types the query; `name` types the place's name alone, which must come no later than the places of that name with more population. `off` requires no landmarks with the flag false. The last four columns count the head's failures.\n";
     }
     for (name, c) in locate_counts
         .iter()
@@ -1342,6 +1387,88 @@ mod tests {
         assert!(records["b"].ms.is_none() && records["b"].backend_trace.is_empty());
         let text = std::fs::read_to_string(&out).unwrap();
         assert!(text.contains(r#""classes": {"#) && text.contains(r#""pass": 2"#));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn new_landmark_checks_are_visible_and_flag_off_leaks_fail_both_gates() {
+        let dir = std::env::temp_dir().join(format!("eval-landmarks-{}", std::process::id()));
+        for side in ["base", "head"] {
+            std::fs::create_dir_all(dir.join(side)).unwrap();
+            std::fs::write(dir.join(side).join("manifest.json"), "{}").unwrap();
+        }
+        std::fs::write(dir.join("base/results.jsonl"), "").unwrap();
+        let cases = vec![Case {
+            id: "airport".into(),
+            cohort: "suggest_landmark".into(),
+            ..Default::default()
+        }];
+        let airport = crate::model::Suggested {
+            kind: "landmark".into(),
+            category: "airport".into(),
+            ..Default::default()
+        };
+        let mut record = Record {
+            id: "airport".into(),
+            query: "PNV".into(),
+            class: "unscored".into(),
+            suggest: [
+                (
+                    "full".into(),
+                    SuggestCheck {
+                        want: 5,
+                        rank: Some(1),
+                        found: vec![airport.clone()],
+                        ..Default::default()
+                    },
+                ),
+                (
+                    "off".into(),
+                    SuggestCheck {
+                        landmarks_off: true,
+                        ..Default::default()
+                    },
+                ),
+            ]
+            .into(),
+            ..Default::default()
+        };
+        for leaks in [false, true] {
+            record.suggest.get_mut("off").unwrap().found =
+                if leaks { vec![airport.clone()] } else { vec![] };
+            std::fs::write(
+                dir.join("head/results.jsonl"),
+                serde_json::to_string(&record).unwrap() + "\n",
+            )
+            .unwrap();
+            assert_eq!(summarize(&cases, &[record.clone()], &json!({})).1, leaks);
+            let out = dir.join("diff.md");
+            assert_eq!(
+                diff(
+                    &cases,
+                    &dir.join("base"),
+                    &dir.join("head"),
+                    Some(&out),
+                    false,
+                    true
+                )
+                .unwrap(),
+                leaks
+            );
+            let report = std::fs::read_to_string(out).unwrap();
+            assert!(
+                report.contains("## New SuggestAddress checks (head only)"),
+                "{report}"
+            );
+            assert!(report.contains("| full | 1 | 1 |"), "{report}");
+            assert!(
+                report.contains(&format!("| off | {} | 1 |", usize::from(!leaks))),
+                "{report}"
+            );
+            if leaks {
+                assert!(report.contains("suggest off unexpected"), "{report}");
+            }
+        }
         std::fs::remove_dir_all(dir).unwrap();
     }
 

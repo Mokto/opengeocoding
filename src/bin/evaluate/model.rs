@@ -116,7 +116,8 @@ pub struct SuggestExpect {
     pub larger: Vec<String>,
 }
 
-/// One SuggestAddress request of a case: "full" types the query, "name" the place's name.
+/// One SuggestAddress request: "full" types the query, "name" the place's name,
+/// "off" repeats a landmark query with landmarks explicitly disabled.
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct SuggestCheck {
     pub text: String,
@@ -128,6 +129,8 @@ pub struct SuggestCheck {
     pub error: Option<String>,
     #[serde(default)]
     pub found: Vec<Suggested>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub landmarks_off: bool,
     /// The fastest of `repeat` requests, as for a SearchAddress case.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ms: Option<f64>,

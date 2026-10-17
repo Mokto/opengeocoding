@@ -171,7 +171,9 @@ pub fn rescore_suggest(case: &Case, record: &mut Record) {
         return;
     };
     for (name, check) in &mut record.suggest {
-        check.rank = suggest_rank(expect, &check.found);
+        if !check.landmarks_off {
+            check.rank = suggest_rank(expect, &check.found);
+        }
         if let ("name", Some(s)) = (name.as_str(), &case.suggest) {
             check.want = s.rank;
         }
@@ -362,16 +364,20 @@ impl Checker {
                 .as_ref()
                 .map(|s| ("name", s.text.clone(), s.rank)),
         );
+        if case.include_landmarks && expect.level == "landmark" {
+            texts.push(("off", case.query.clone(), SUGGEST_LIMIT));
+        }
         for (name, text, want) in texts {
             self.budget.take().await;
             let mut check = SuggestCheck {
                 text: text.clone(),
                 want,
+                landmarks_off: name == "off",
                 ..Default::default()
             };
             let mut request = json!({ "text": text, "limit": SUGGEST_LIMIT });
             if case.include_landmarks {
-                request["includeLandmarks"] = json!(true);
+                request["includeLandmarks"] = json!(!check.landmarks_off);
             }
             let mut elapsed = None::<std::time::Duration>;
             for _ in 0..self.repeat.max(1) {
@@ -385,7 +391,9 @@ impl Checker {
                 }
             }
             check.ms = elapsed.map(|e| (e.as_secs_f64() * 1e6).round() / 1e3);
-            check.rank = suggest_rank(expect, &check.found);
+            if !check.landmarks_off {
+                check.rank = suggest_rank(expect, &check.found);
+            }
             checks.insert(name.into(), check);
         }
         checks
@@ -1043,6 +1051,69 @@ mod tests {
     }
 
     use super::*;
+
+    #[tokio::test]
+    async fn landmark_case_checks_the_same_query_with_the_flag_on_and_off() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let airport = json!({
+            "type": "landmark", "category": "airport", "countryCode": "fr",
+            "displayName": "Made-up Airport", "geoCoordinates": { "lat": 48., "lon": 2. }
+        });
+        let handler_airport = airport.clone();
+        let app = axum::Router::new().route(
+            &format!("/{SERVICE}/SuggestAddress"),
+            axum::routing::post(move |axum::Json(request): axum::Json<Value>| async move {
+                assert_eq!(request["text"], "PNV");
+                assert_eq!(request["limit"], SUGGEST_LIMIT);
+                let found = match request["includeLandmarks"].as_bool().unwrap() {
+                    true => vec![handler_airport],
+                    false => vec![],
+                };
+                axum::Json(json!({ "suggestions": found }))
+            }),
+        );
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let checker = Checker {
+            client: Client::new(),
+            base,
+            budget: Budget {
+                interval: Duration::ZERO,
+                limit: 2,
+                used: AtomicUsize::new(0),
+                next: tokio::sync::Mutex::new(tokio::time::Instant::now()),
+            },
+            metrics: None,
+            index: None,
+            repeat: 1,
+        };
+        let case = Case {
+            query: "PNV".into(),
+            include_landmarks: true,
+            expect: Some(Expect {
+                level: "landmark".into(),
+                country: vec!["fr".into()],
+                point: Some([48., 2.]),
+                radius_km: Some(1.),
+                components: [("category".into(), "airport".into())].into(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let mut checks = checker.suggest(&case).await;
+        server.abort();
+        assert_eq!(checker.budget.used(), 2);
+        assert_eq!(checks.len(), 2);
+        assert_eq!(checks["full"].rank, Some(1));
+        assert_eq!(crate::score::suggest_class(&checks["full"]), "pass");
+        let off = checks.get_mut("off").unwrap();
+        assert!(off.landmarks_off && off.found.is_empty());
+        assert_eq!(crate::score::suggest_class(off), "pass");
+        off.found = suggested(&json!({ "suggestions": [airport] }));
+        assert_eq!(crate::score::suggest_class(off), "unexpected");
+        off.error = Some("timeout".into());
+        assert_eq!(crate::score::suggest_class(off), "error");
+    }
 
     #[test]
     fn index_searches_sum_every_tier() {

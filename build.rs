@@ -16,6 +16,7 @@ fn builder_hash() -> String {
                 "src/index/schema.rs",
                 "src/index/canon.rs",
                 "src/index/reverse.rs",
+                "src/index/landmark.rs",
             ]
             .map(PathBuf::from),
         )

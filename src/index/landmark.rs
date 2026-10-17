@@ -1,12 +1,11 @@
-//! Landmarks a suggestion adds when asked (`include_landmarks`): the builder's `landmarks.tsv`,
-//! with a name FST built at startup apart from the places' one, so a suggestion without
-//! landmarks reads nothing of them.
+//! Landmark rows and names, mapped separately from the address index.
 use super::{SEP, schema::fold};
 use anyhow::{Context, Result};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
+use tantivy::directory::{Directory, MmapDirectory, OwnedBytes, error::OpenReadError};
 use tantivy_fst::{IntoStreamer, Streamer};
 
 pub(super) struct Landmark {
@@ -15,8 +14,8 @@ pub(super) struct Landmark {
     pub place: u32,
     pub x: f32,
     pub y: f32,
-    /// English name, else its own.
-    pub name: Box<str>,
+    // Keep names file-backed so unused landmark pages can be reclaimed.
+    name: std::ops::Range<usize>,
     pub score: u64,
 }
 
@@ -24,7 +23,8 @@ pub(super) struct Landmarks {
     pub list: Vec<Landmark>,
     /// Folded name, a NUL, whether the name starts there (0) or at a later word of it (1), and the
     /// landmark number -> its score.
-    names: tantivy_fst::Map<Vec<u8>>,
+    names: tantivy_fst::Map<OwnedBytes>,
+    text: OwnedBytes,
     /// `find` results by text and whether it is open: a short prefix walks thousands of names.
     found: Mutex<HashMap<(Box<str>, bool), Found>>,
 }
@@ -66,17 +66,28 @@ fn score(category: &str, languages: usize) -> u64 {
     (tier << 32) | languages.min(u32::MAX as usize) as u64
 }
 
+pub fn build(dir: &std::path::Path, places: usize) -> Result<()> {
+    let landmarks = Landmarks::read(dir, places, true)?;
+    std::fs::write(dir.join("landmarks.fst"), landmarks.names.as_fst().to_vec())?;
+    Ok(())
+}
+
 impl Landmarks {
-    /// Reads `path`; none when it does not exist (an index built without OSM extracts).
-    pub fn open(path: &std::path::Path, places: usize) -> Result<Landmarks> {
-        let text = match std::fs::read_to_string(path) {
-            Ok(text) => text,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
-            Err(e) => return Err(e).context(path.display().to_string()),
+    pub fn open(dir: &std::path::Path, places: usize) -> Result<Landmarks> {
+        Self::read(dir, places, false)
+    }
+
+    fn read(dir: &std::path::Path, places: usize, compile: bool) -> Result<Landmarks> {
+        let directory = MmapDirectory::open(dir)?;
+        let text = match directory.open_read(std::path::Path::new("landmarks.tsv")) {
+            Ok(file) => file.read_bytes()?,
+            Err(OpenReadError::FileDoesNotExist(_)) => OwnedBytes::empty(),
+            Err(e) => return Err(e).context(dir.display().to_string()),
         };
+        let rows = std::str::from_utf8(&text)?;
         let mut list = vec![];
         let mut keys: Vec<(Vec<u8>, u64)> = vec![];
-        for line in text.lines() {
+        for line in rows.lines() {
             let c: Vec<&str> = line.split('\t').collect();
             let (Some(category), Some(place), Some(x), Some(y), Some(primary), Some(pairs)) = (
                 CATEGORIES.iter().find(|k| Some(**k) == c.first().copied()),
@@ -112,41 +123,57 @@ impl Landmarks {
                     keys.push((k, s));
                 }
             };
-            for (k, n) in std::iter::once(("", *primary)).chain(pairs.iter().copied()) {
-                let n = fold(n);
-                key(&n, 0);
-                // "gare du nord" finds "Paris Gare du Nord": its own and English names, from each
-                // later word that is not a short article
-                if k.is_empty() || k == "en" || (k != "iata" && OTHER_KEYS.contains(&k)) {
-                    let mut at = 0;
-                    for w in n.split(' ') {
-                        if at > 0 && (w.len() >= 3 || w.bytes().any(|b| b.is_ascii_digit())) {
-                            key(&n[at..], 1);
+            if compile {
+                for (k, n) in std::iter::once(("", *primary)).chain(pairs.iter().copied()) {
+                    let n = fold(n);
+                    key(&n, 0);
+                    // "gare du nord" finds "Paris Gare du Nord": its own and English names, from each
+                    // later word that is not a short article
+                    if k.is_empty() || k == "en" || (k != "iata" && OTHER_KEYS.contains(&k)) {
+                        let mut at = 0;
+                        for w in n.split(' ') {
+                            if at > 0 && (w.len() >= 3 || w.bytes().any(|b| b.is_ascii_digit())) {
+                                key(&n[at..], 1);
+                            }
+                            at += w.len() + 1;
                         }
-                        at += w.len() + 1;
                     }
                 }
             }
+            let name = en.unwrap_or(primary);
+            let start = name.as_ptr().addr() - text.as_ptr().addr();
             list.push(Landmark {
                 category,
                 place,
                 x,
                 y,
-                name: en.unwrap_or(primary).into(),
+                name: start..start + name.len(),
                 score: s,
             });
         }
-        keys.sort_unstable();
-        keys.dedup_by(|a, b| a.0 == b.0);
-        let mut build = tantivy_fst::MapBuilder::memory();
-        for (k, v) in keys {
-            build.insert(k, v)?;
-        }
+        let names = if compile || text.is_empty() {
+            keys.sort_unstable();
+            keys.dedup_by(|a, b| a.0 == b.0);
+            let mut build = tantivy_fst::MapBuilder::memory();
+            for (k, v) in keys {
+                build.insert(k, v)?;
+            }
+            OwnedBytes::new(build.into_inner()?)
+        } else {
+            directory
+                .open_read(std::path::Path::new("landmarks.fst"))?
+                .read_bytes()?
+        };
         Ok(Landmarks {
             list,
-            names: tantivy_fst::Map::from_bytes(build.into_inner()?)?,
+            names: tantivy_fst::Map::from(tantivy_fst::raw::Fst::new(names)?),
+            text,
             found: Mutex::default(),
         })
+    }
+
+    pub fn name(&self, landmark: &Landmark) -> &str {
+        std::str::from_utf8(&self.text[landmark.name.clone()]).unwrap()
     }
 
     /// Landmarks with a name that starts with `text`, best first; when `open` its last word may
@@ -218,7 +245,8 @@ mod tests {
 
     #[test]
     fn names_iata_codes_and_later_words_find_a_landmark_by_tier_then_fame() {
-        let path = std::env::temp_dir().join(format!("landmarks-{}.tsv", std::process::id()));
+        let path = std::env::temp_dir().join(format!("landmarks-{}", std::process::id()));
+        std::fs::create_dir_all(&path).unwrap();
         let row = |cat: &str, place: u32, primary: &str, pairs: &[&str]| {
             format!(
                 "{cat}\t{place}\t2.35\t48.88\tQ1\t{primary}\t{}\n",
@@ -249,11 +277,13 @@ mod tests {
             row("museum", 9, "Elsewhere", &[]),
             row("shop", 0, "Bakery", &[]),
         ];
-        std::fs::write(&path, rows.concat()).unwrap();
+        std::fs::write(path.join("landmarks.tsv"), rows.concat()).unwrap();
+        build(&path, 1).unwrap();
         let l = Landmarks::open(&path, 1).unwrap();
-        std::fs::remove_file(&path).unwrap();
+        std::fs::remove_file(path.join("landmarks.tsv")).unwrap();
+        std::fs::remove_file(path.join("landmarks.fst")).unwrap();
         assert_eq!(l.list.len(), 4);
-        assert_eq!(&*l.list[0].name, "Paris North");
+        assert_eq!(l.name(&l.list[0]), "Paris North");
         let ids = |found: Found| found.to_vec();
         assert_eq!(*l.find("cdg", false), [1]);
         assert_eq!(*l.find("cd", true), [1]);
@@ -271,13 +301,7 @@ mod tests {
         // whole words of a longer name
         assert_eq!(ids(l.find("paris gare", false)), [0]);
         assert!(l.find("paris gar", false).is_empty());
-        assert!(
-            Landmarks::open(Path::new("/nonexistent/landmarks.tsv"), 1)
-                .unwrap()
-                .list
-                .is_empty()
-        );
+        assert!(Landmarks::open(&path, 1).unwrap().list.is_empty());
+        std::fs::remove_dir(path).unwrap();
     }
-
-    use std::path::Path;
 }

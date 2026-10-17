@@ -1594,6 +1594,7 @@ fn build(args: &[String]) {
     if !landmark_dirs.is_empty() {
         let found = landmarks::read(&landmark_dirs);
         let (counts, placeless) = landmarks::write(Path::new(out), &found, &assigner);
+        opengeocoding::index::landmark::build(Path::new(out), places.len()).unwrap();
         let counts: Vec<String> = landmarks::CATEGORIES
             .iter()
             .zip(counts)

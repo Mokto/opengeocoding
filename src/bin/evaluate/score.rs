@@ -146,7 +146,7 @@ pub fn haversine(a: [f64; 2], b: [f64; 2]) -> f64 {
 /// Suggestions asked for, SuggestAddress's default.
 pub const SUGGEST_LIMIT: usize = 5;
 /// Ordered from best to worst, like `CLASSES`.
-pub const SUGGEST_CLASSES: [&str; 4] = ["pass", "ranked_low", "missing", "error"];
+pub const SUGGEST_CLASSES: [&str; 5] = ["pass", "ranked_low", "missing", "unexpected", "error"];
 
 /// 1-based rank of the first suggestion at an expected place: its country, a type of its level
 /// and within its radius. A house answers a street when the case accepts a house, as it does in
@@ -180,6 +180,15 @@ pub fn suggest_rank(expect: &Expect, found: &[Suggested]) -> Option<usize> {
 }
 
 pub fn suggest_class(check: &SuggestCheck) -> &'static str {
+    if check.landmarks_off {
+        return if check.error.is_some() {
+            "error"
+        } else if check.found.iter().any(|s| s.kind == "landmark") {
+            "unexpected"
+        } else {
+            "pass"
+        };
+    }
     match check.rank {
         Some(r) if r <= check.want => "pass",
         Some(_) => "ranked_low",

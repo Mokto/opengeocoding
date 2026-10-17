@@ -173,6 +173,40 @@ fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
 }
 
 #[test]
+fn landmark_flag_does_not_contaminate_default_suggestions() {
+    let signature = |text, landmarks| {
+        index()
+            .suggest(text, 5, None, None, landmarks)
+            .into_iter()
+            .map(|s| {
+                (
+                    s.id,
+                    s.display_name,
+                    s.kind,
+                    s.category,
+                    s.country_code,
+                    s.x,
+                    s.y,
+                    s.bbox,
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    for text in ["PNV", "Paris", "Paris Gare", "Thingsmuseum"] {
+        let before = signature(text, false);
+        let on = signature(text, true);
+        assert!(before.iter().all(|s| s.2 != "landmark" && s.3.is_empty()));
+        assert!(on.iter().any(|s| s.2 == "landmark"));
+        assert_eq!(before, signature(text, false));
+        let towns: Vec<_> = before
+            .iter()
+            .filter(|s| s.2 == "city" || s.2 == "village")
+            .collect();
+        assert_eq!(towns, on.iter().take(towns.len()).collect::<Vec<_>>());
+    }
+}
+
+#[test]
 fn landmarks_come_only_when_asked_and_after_the_towns_of_their_name() {
     let at = |text: &str, cc, landmarks| index().suggest(text, 5, cc, None, landmarks);
     let landmarks = |text: &str, cc| -> Vec<_> {

@@ -990,7 +990,7 @@ impl Index {
             .take(want)
             .map(|(id, l)| Suggestion {
                 id: format!("l{id}"),
-                display_name: format!("{}, {}", l.name, self.label(l.place)),
+                display_name: format!("{}, {}", self.landmarks.name(l), self.label(l.place)),
                 kind: "landmark",
                 category: l.category,
                 country_code: self.places[l.place as usize].cc.to_string(),
