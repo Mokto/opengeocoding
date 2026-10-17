@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.1](https://github.com/Mokto/opengeocoding/compare/v0.10.0...v0.10.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* break equal-distance house ties by street id, not index layout ([#150](https://github.com/Mokto/opengeocoding/issues/150)) ([50818f6](https://github.com/Mokto/opengeocoding/commit/50818f6c5b61f9b7f6cdcd02b19bb134bc2e7871))
+* complete native and numeric places and qualified postcodes ([#154](https://github.com/Mokto/opengeocoding/issues/154)) ([740be6d](https://github.com/Mokto/opengeocoding/commit/740be6d9cfebeecbc28efd25d695ae8ac7c18f61))
+* registry address misses in France, Norway and Switzerland ([#151](https://github.com/Mokto/opengeocoding/issues/151)) ([8460735](https://github.com/Mokto/opengeocoding/commit/8460735f5d991c486456b61f11192eb4dfe69238))
+
 ## [0.10.0](https://github.com/Mokto/opengeocoding/compare/v0.9.0...v0.10.0) (2026-10-17)
 
 
