@@ -15,6 +15,7 @@ pub const PROVIDER: Provider = Provider {
     storage_terms: Some("https://www.here.com/terms/here-platform-terms"),
     request,
     normalize,
+    validate_status: None,
 };
 
 fn request(query: &str) -> Value {

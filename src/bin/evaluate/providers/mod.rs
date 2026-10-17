@@ -37,6 +37,7 @@ pub struct Provider {
     storage_terms: Option<&'static str>,
     request: fn(&str) -> Value,
     normalize: fn(&Value) -> Result<Value>,
+    validate_status: Option<fn(&Value) -> Result<()>>,
 }
 
 static PROVIDERS: [Provider; 9] = [
@@ -379,10 +380,28 @@ pub async fn run(options: Options) -> Result<i32> {
             ..Default::default()
         };
         if !provider.query_error_statuses.contains(&entry.status) {
-            let response = (provider.normalize)(&entry.response)?;
-            classify(case, Ok(&response), &mut record, false);
-            record.summary = Some(summary_of(&response));
-            record.response = Some(response);
+            if entry.status == 200 {
+                ensure!(
+                    entry.response.get("error").is_none(),
+                    "{} API error; stopped without retrying",
+                    provider.name
+                );
+                if let Some(validate) = provider.validate_status {
+                    validate(&entry.response)?;
+                }
+            }
+            match (provider.normalize)(&entry.response) {
+                Ok(response) => {
+                    classify(case, Ok(&response), &mut record, false);
+                    record.summary = Some(summary_of(&response));
+                    record.response = Some(response);
+                }
+                Err(error) => {
+                    classify(case, Err("invalid_response"), &mut record, false);
+                    record.flags.push(error.to_string());
+                    eprintln!("{}: malformed response counted as error (cached)", case.id);
+                }
+            }
         } else {
             classify(
                 case,
@@ -554,6 +573,125 @@ mod tests {
             crate::model::load_jsonl(&dir.join("invalid/results.jsonl")).unwrap();
         assert_eq!(records[0].class, "error");
         assert_eq!(records[0].error.as_deref(), Some("http_400"));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn malformed_results_do_not_stop_the_batch_but_api_errors_do() {
+        let dir =
+            std::env::temp_dir().join(format!("provider-malformed-test-{}", std::process::id()));
+        let cache = dir.join("cache");
+        std::fs::create_dir_all(&cache).unwrap();
+        let provider = named("opencage").unwrap();
+        let good = json!({"status": {"code": 200}, "results": [{"components": {"_type": "hotel", "_category": "travel/tourism", "country_code": "us", "house_number": "12", "road": "Example Road"}, "geometry": {"lat": 37., "lng": -122.}, "formatted": "12 Example Road"}]});
+        let mut missing_country = good.clone();
+        missing_country["results"][0]["components"]
+            .as_object_mut()
+            .unwrap()
+            .remove("country_code");
+        let mut invalid_point = good.clone();
+        invalid_point["results"][0]["geometry"]["lat"] = 100.into();
+        let mut unsupported = good.clone();
+        unsupported["results"][0]["components"]["_type"] = "unknown_place".into();
+        unsupported["results"][0]["components"]["_category"] = "place".into();
+        let mut cases = vec![];
+        for (id, response) in [
+            ("missing_country", missing_country),
+            ("invalid_point", invalid_point),
+            ("unsupported", unsupported),
+            ("valid", good.clone()),
+        ] {
+            let case = Case {
+                id: id.into(),
+                query: format!("Example {id}"),
+                expect: Some(crate::score::Expect {
+                    level: "house".into(),
+                    country: vec!["us".into()],
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+            save_entry(
+                &cache,
+                &Entry {
+                    request: (provider.request)(&case.query),
+                    fetched_at: String::new(),
+                    status: 200,
+                    response,
+                },
+            )
+            .unwrap();
+            cases.push(case);
+        }
+        let corpus = dir.join("cases.jsonl");
+        std::fs::write(
+            &corpus,
+            cases
+                .iter()
+                .map(|c| serde_json::to_string(c).unwrap() + "\n")
+                .collect::<String>(),
+        )
+        .unwrap();
+        let options = |provider: &'static Provider, out| Options {
+            provider,
+            storage_authorized: false,
+            corpus: Some(corpus.clone()),
+            out: dir.join(out),
+            cache: cache.clone(),
+            only: None,
+            fetch: false,
+            budget: 0,
+            compare: None,
+        };
+        run(options(provider, "out")).await.unwrap();
+        let records: Vec<Record> =
+            crate::model::load_jsonl(&dir.join("out/results.jsonl")).unwrap();
+        assert_eq!(records.len(), 4);
+        for record in &records[..3] {
+            assert_eq!(record.class, "error");
+            assert_eq!(record.error.as_deref(), Some("invalid_response"));
+            assert!(!record.flags.is_empty());
+            assert!(record.response.is_none());
+        }
+        assert_eq!(records[3].class, "pass");
+        for (name, response, message) in [
+            (
+                "opencage",
+                json!({"status": {"code": 402}, "results": []}),
+                "OpenCage API error",
+            ),
+            (
+                "google",
+                json!({"status": "REQUEST_DENIED", "results": []}),
+                "Google request denied",
+            ),
+            (
+                "arcgis",
+                json!({"error": {"code": 498}, "candidates": []}),
+                "arcgis API error",
+            ),
+        ] {
+            let provider = named(name).unwrap();
+            for case in &cases {
+                save_entry(
+                    &cache,
+                    &Entry {
+                        request: (provider.request)(&case.query),
+                        fetched_at: String::new(),
+                        status: 200,
+                        response: response.clone(),
+                    },
+                )
+                .unwrap();
+            }
+            assert!(
+                run(options(provider, name))
+                    .await
+                    .unwrap_err()
+                    .to_string()
+                    .contains(message)
+            );
+        }
         std::fs::remove_dir_all(dir).unwrap();
     }
 

@@ -14,6 +14,7 @@ pub const PROVIDER: Provider = Provider {
     storage_terms: Some("https://developers.google.com/maps/documentation/geocoding/policies"),
     request,
     normalize,
+    validate_status: Some(validate_status),
 };
 
 fn request(query: &str) -> Value {
@@ -26,10 +27,9 @@ fn has_type(value: &Value, kind: &str) -> bool {
         .is_some_and(|types| types.iter().any(|t| t.as_str() == Some(kind)))
 }
 
-fn normalize(response: &Value) -> Result<Value> {
+fn validate_status(response: &Value) -> Result<()> {
     match text(response, "status") {
-        "ZERO_RESULTS" => return Ok(json!({})),
-        "OK" => (),
+        "ZERO_RESULTS" | "OK" => (),
         "OVER_DAILY_LIMIT" | "OVER_QUERY_LIMIT" => {
             bail!("Google quota exceeded; stopped without retrying")
         }
@@ -37,6 +37,14 @@ fn normalize(response: &Value) -> Result<Value> {
         "INVALID_REQUEST" => bail!("Google invalid request"),
         "UNKNOWN_ERROR" => bail!("Google server error; stopped without retrying"),
         _ => bail!("invalid Google API status"),
+    }
+    Ok(())
+}
+
+fn normalize(response: &Value) -> Result<Value> {
+    validate_status(response)?;
+    if text(response, "status") == "ZERO_RESULTS" {
+        return Ok(json!({}));
     }
     let result = response["results"]
         .as_array()
