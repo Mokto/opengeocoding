@@ -53,6 +53,27 @@ Department of Transportation's National Address Database (release r24), a work o
 government in the public domain. The data is provided as is, without warranty of accuracy, and is
 not for use as a mailing list.
 
+The registry-first sample tests/registry/fr.jsonl contains addresses and coordinates from the
+Base Adresse Nationale export of 2026-10-16, under Licence Ouverte / Open Licence 2.0
+(https://www.etalab.gouv.fr/licence-ouverte-open-licence/). Source: Base Adresse Nationale and
+its contributing municipalities, https://adresse.data.gouv.fr/. Per-case export checksums and
+retrieval dates are recorded in the corpus.
+
+The registry-first sample tests/registry/no.jsonl contains addresses and coordinates from
+Kartverket's Matrikkelen - Adresse national CSV export of 2026-10-10. © Kartverket,
+licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/).
+Dataset: https://kartkatalog.geonorge.no/metadata/uuid/f7df7a18-b30f-4745-bd64-d0863812350c.
+Queries include constructed variants; per-case export checksums and retrieval dates are recorded
+in the corpus. The data is provided as is, without a guarantee of accuracy.
+
+The registry-first sample tests/registry/ch.jsonl contains addresses and coordinates derived from
+the official directory of building addresses, ©swisstopo (Federal Office of Topography swisstopo),
+STAC item dated 2026-10-16. LV95 points were converted to WGS84 with swisstopo's REFRAME service.
+Use, redistribution, processing and commercial use are permitted with source attribution under
+https://www.swisstopo.admin.ch/ogd-conditions. Queries include constructed variants; per-case
+export checksums, retrieval dates and coordinate-conversion provenance are recorded in the corpus.
+The data is provided as is, without a guarantee of accuracy.
+
 tests/snapshots/addresses.tsv contains geocoding results derived from OpenStreetMap
 data via Nominatim. Data © OpenStreetMap contributors, available under the Open
 Database License (ODbL) 1.0: https://www.openstreetmap.org/copyright

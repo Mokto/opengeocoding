@@ -152,9 +152,9 @@ impl Address {
 }
 
 /// Splits one CSV line, honouring double quotes. Quote-free lines, nearly all of them, borrow.
-fn split(line: &str) -> Vec<Cow<'_, str>> {
+pub(super) fn split(line: &str, delimiter: char) -> Vec<Cow<'_, str>> {
     if !line.contains('"') {
-        return line.split(',').map(Cow::Borrowed).collect();
+        return line.split(delimiter).map(Cow::Borrowed).collect();
     }
     let (mut fields, mut field, mut quoted) = (vec![], String::new(), false);
     let mut chars = line.chars().peekable();
@@ -165,7 +165,7 @@ fn split(line: &str) -> Vec<Cow<'_, str>> {
                 chars.next();
             }
             '"' => quoted = !quoted,
-            ',' if !quoted => fields.push(Cow::Owned(std::mem::take(&mut field))),
+            c if c == delimiter && !quoted => fields.push(Cow::Owned(std::mem::take(&mut field))),
             c => field.push(c),
         }
     }
@@ -339,7 +339,7 @@ fn for_each_row(path: &Path, mut f: impl FnMut(&Columns, &[Cow<'_, str>])) -> Re
     reader.read_until(b'\n', &mut buffer)?;
     let header = String::from_utf8_lossy(&buffer).trim().to_string();
     let columns = Columns(
-        split(&header)
+        split(&header, ',')
             .into_iter()
             .enumerate()
             .map(|(i, name)| (name.to_string(), i))
@@ -360,7 +360,7 @@ fn for_each_row(path: &Path, mut f: impl FnMut(&Columns, &[Cow<'_, str>])) -> Re
         let line = String::from_utf8_lossy(&buffer);
         let line = line.trim_end_matches(['\n', '\r']);
         if !line.is_empty() {
-            f(&columns, &split(line));
+            f(&columns, &split(line, ','));
         }
     }
 }
@@ -836,8 +836,8 @@ mod tests {
 
     #[test]
     fn splits_quoted_fields() {
-        assert_eq!(split("a,b,,c"), ["a", "b", "", "c"]);
-        assert_eq!(split(r#"a,"b,""x""",c"#), ["a", r#"b,"x""#, "c"]);
+        assert_eq!(split("a,b,,c", ','), ["a", "b", "", "c"]);
+        assert_eq!(split(r#"a,"b,""x""",c"#, ','), ["a", r#"b,"x""#, "c"]);
     }
 
     #[test]

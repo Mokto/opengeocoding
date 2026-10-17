@@ -5,7 +5,7 @@
 //! US National Address Database (public domain, read from a local release file) —
 //! never from Nominatim or this service. Requires network access; review the diff as a data update.
 
-use crate::{nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT};
+use crate::{ban, kartverket, nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT, swisstopo};
 use anyhow::{Context, Result, bail, ensure};
 use indexmap::IndexMap;
 use opengeocoding::eval::{holdout, sha256_hex};
@@ -99,11 +99,11 @@ struct Found {
 
 fn license(source: &str) -> &'static str {
     match source {
-        "ban" => "etalab-2.0",
+        "ban" | "ban-csv" => "etalab-2.0",
         "census" | "nad" => "US-Government-Public-Domain",
         "postcodes.io" => "OGL-UK-3.0",
-        "kartverket" | "cartociudad" => "CC-BY-4.0",
-        "swisstopo" => "swisstopo-OGD",
+        "kartverket" | "kartverket-csv" | "cartociudad" => "CC-BY-4.0",
+        "swisstopo" | "swisstopo-csv" => "swisstopo-OGD",
         _ => "CC0-1.0",
     }
 }
@@ -112,12 +112,17 @@ fn source_url(source: &str, reference: &str) -> String {
     match source {
         "wikidata" => format!("https://www.wikidata.org/wiki/{reference}"),
         "ban" => format!("https://adresse.data.gouv.fr/base-adresse-nationale/{reference}"),
+        "ban-csv" => format!(
+            "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-france.csv.gz#{reference}"
+        ),
         "pdok" => {
             format!("https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id={reference}")
         }
         "census" => format!("https://geocoding.geo.census.gov/ (TIGER line {reference})"),
         "postcodes.io" => format!("https://api.postcodes.io/postcodes/{reference}"),
         "kartverket" => format!("https://ws.geonorge.no/adresser/v1/sok?sok={reference}"),
+        "kartverket-csv" => format!("{}#{reference}", kartverket::URL),
+        "swisstopo-csv" => format!("{}#{reference}", swisstopo::URL),
         "swisstopo" => format!(
             "https://api3.geo.admin.ch/rest/services/api/SearchServer?type=locations&searchText={reference}"
         ),
@@ -663,7 +668,10 @@ async fn lookups(
     let mut by_source: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for seed in seeds {
         if matches!(seed.kind.as_str(), "address" | "postcode")
-            && !matches!(seed.source.as_deref(), Some("wikidata" | "nad"))
+            && !matches!(
+                seed.source.as_deref(),
+                Some("wikidata" | "nad" | "ban-csv" | "kartverket-csv" | "swisstopo-csv")
+            )
         {
             let (source, reference) =
                 registry_ref(seed).context("address seeds need a source and ref")?;
@@ -693,7 +701,14 @@ async fn lookups(
     Ok(all)
 }
 
-pub async fn build(seeds_path: &Path, out: &Path, nad: Option<&Path>) -> Result<()> {
+pub async fn build(
+    seeds_path: &Path,
+    out: &Path,
+    nad: Option<&Path>,
+    ban: Option<&Path>,
+    kartverket: Option<&Path>,
+    swisstopo: Option<&Path>,
+) -> Result<()> {
     let seeds: Vec<Seed> = crate::model::load_jsonl::<Value>(seeds_path)?
         .into_iter()
         .enumerate()
@@ -749,6 +764,108 @@ pub async fn build(seeds_path: &Path, out: &Path, nad: Option<&Path>) -> Result<
             );
         }
     }
+    let ban_refs: BTreeSet<String> = seeds
+        .iter()
+        .filter(|s| s.source.as_deref() == Some("ban-csv"))
+        .filter_map(|s| s.reference.clone())
+        .collect();
+    let ban_sha256 = ban.map(crate::run::sha256_file).transpose()?;
+    if !ban_refs.is_empty() {
+        let path = ban.context("seeds cite a BAN export: pass --ban FILE")?;
+        for (id, row) in ban::lookup(path, &ban_refs)? {
+            let radius_floor_km = row.radius_km();
+            looked_up.insert(
+                ("ban-csv".into(), id.clone()),
+                (
+                    Found {
+                        point: row.point.map(round6),
+                        components: IndexMap::from([
+                            ("house_number", row.number),
+                            ("road", row.street),
+                            ("postcode", row.postcode),
+                        ]),
+                        radius_floor_km,
+                    },
+                    id,
+                ),
+            );
+        }
+    }
+    let kartverket_refs: BTreeSet<String> = seeds
+        .iter()
+        .filter(|s| s.source.as_deref() == Some("kartverket-csv"))
+        .filter_map(|s| s.reference.clone())
+        .collect();
+    let kartverket_sha256 = kartverket.map(crate::run::sha256_file).transpose()?;
+    if !kartverket_refs.is_empty() {
+        let path = kartverket.context("seeds cite a Kartverket export: pass --kartverket FILE")?;
+        for (id, row) in kartverket::lookup(path, &kartverket_refs)? {
+            looked_up.insert(
+                ("kartverket-csv".into(), id.clone()),
+                (
+                    Found {
+                        point: row.point.map(round6),
+                        components: IndexMap::from([
+                            ("house_number", row.number),
+                            ("road", row.street),
+                            ("postcode", row.postcode),
+                        ]),
+                        radius_floor_km: 0.,
+                    },
+                    id,
+                ),
+            );
+        }
+    }
+    let swisstopo_refs: BTreeSet<String> = seeds
+        .iter()
+        .filter(|s| s.source.as_deref() == Some("swisstopo-csv"))
+        .filter_map(|s| s.reference.clone())
+        .collect();
+    let swisstopo_sha256 = swisstopo.map(crate::run::sha256_file).transpose()?;
+    if !swisstopo_refs.is_empty() {
+        let path = swisstopo.context("seeds cite a swisstopo export: pass --swisstopo FILE")?;
+        for (n, (id, row)) in swisstopo::lookup(path, &swisstopo_refs)?
+            .into_iter()
+            .enumerate()
+        {
+            let response = sources
+                .get(
+                    swisstopo::REFRAME,
+                    &[
+                        ("easting", &row.lv95[0].to_string()),
+                        ("northing", &row.lv95[1].to_string()),
+                        ("altitude", "0"),
+                        ("format", "json"),
+                    ],
+                )
+                .await
+                .with_context(|| format!("REFRAME EGAID {id}"))?;
+            looked_up.insert(
+                ("swisstopo-csv".into(), id.clone()),
+                (
+                    Found {
+                        point: swisstopo::reframed_point(&response)?.map(round6),
+                        components: IndexMap::from([
+                            ("house_number", row.number),
+                            ("road", row.street),
+                            ("postcode", row.postcode),
+                        ]),
+                        radius_floor_km: 0.,
+                    },
+                    id,
+                ),
+            );
+            if (n + 1).is_multiple_of(50) {
+                eprintln!(
+                    "swisstopo: converted {} of {} LV95 points with REFRAME",
+                    n + 1,
+                    swisstopo_refs.len()
+                );
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    }
     let typed_name = |seed: &Seed, query: &str| -> Option<(String, String)> {
         let qid = seed.qid.clone()?;
         let name = query.split(',').next()?.trim();
@@ -785,6 +902,19 @@ pub async fn build(seeds_path: &Path, out: &Path, nad: Option<&Path>) -> Result<
         let mut source = json!({ "name": name, "ref": reference, "url": source_url(name, reference), "license": license(name), "retrieved": today });
         if name == "nad" {
             source["release"] = json!(nad_release);
+        }
+        if name == "ban-csv" {
+            source["release"] = json!(ban.and_then(|p| p.file_name()?.to_str()));
+            source["sha256"] = json!(ban_sha256);
+        }
+        if name == "kartverket-csv" {
+            source["release"] = json!(kartverket.and_then(|p| p.file_name()?.to_str()));
+            source["sha256"] = json!(kartverket_sha256);
+        }
+        if name == "swisstopo-csv" {
+            source["release"] = json!(swisstopo.and_then(|p| p.file_name()?.to_str()));
+            source["sha256"] = json!(swisstopo_sha256);
+            source["coordinate_transform"] = json!({"url":swisstopo::REFRAME, "altitude":0});
         }
         source
     };
@@ -932,11 +1062,11 @@ pub async fn build(seeds_path: &Path, out: &Path, nad: Option<&Path>) -> Result<
                         }
                         Some((found, id)) => {
                             let country = match name {
-                                "ban" => "fr",
+                                "ban" | "ban-csv" => "fr",
                                 "pdok" => "nl",
                                 "census" | "nad" => "us",
-                                "kartverket" => "no",
-                                "swisstopo" => "ch",
+                                "kartverket" | "kartverket-csv" => "no",
+                                "swisstopo" | "swisstopo-csv" => "ch",
                                 "cartociudad" => "es",
                                 _ => "gb",
                             };
@@ -950,7 +1080,7 @@ pub async fn build(seeds_path: &Path, out: &Path, nad: Option<&Path>) -> Result<
                                         found
                                             .components
                                             .get("postcode")
-                                            .filter(|_| name == "ban")
+                                            .filter(|_| matches!(name, "ban" | "ban-csv"))
                                             .and_then(|pc| {
                                                 Some(match pc.get(..3)? {
                                                     "971" => "gp",
@@ -982,7 +1112,15 @@ pub async fn build(seeds_path: &Path, out: &Path, nad: Option<&Path>) -> Result<
                     });
                     (
                         expect,
-                        format!("{name}:{id}"),
+                        format!(
+                            "{}:{id}",
+                            match name {
+                                "ban-csv" => "ban",
+                                "kartverket-csv" => "kartverket",
+                                "swisstopo-csv" => "swisstopo",
+                                _ => name,
+                            }
+                        ),
                         seed.label.clone().unwrap_or_else(|| reference.to_string()),
                         source(name, &id),
                     )
