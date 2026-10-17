@@ -561,6 +561,18 @@ pub const PLACES: &[Place] = &[
         "Beacon",
         &[("en", "Beacon")]
     ),
+    place!(
+        "gb-orchard",
+        "microhood",
+        "",
+        "GB",
+        "",
+        500,
+        (30.02, 10.02),
+        "gb-beacon",
+        "Orchard",
+        &[("en", "Orchard")],
+    ),
 ];
 
 /// Administrative polygons besides the towns' (a square of half-side 0.2° each): (division,

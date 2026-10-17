@@ -1058,6 +1058,30 @@ fn a_suburb_is_its_own_town_only_when_no_road_narrows_it() {
 }
 
 #[test]
+fn a_neighbourhood_is_its_own_town_only_when_no_road_or_house_narrows_it() {
+    let area = AddressDetails {
+        neighbourhood: "Lower Orchard".into(),
+        town: "Beacon".into(),
+        ..Default::default()
+    };
+    let address = parsed(&[("city", "lower orchard")]);
+    assert!(city_agrees(&address, Some(&area)));
+    assert!(!city_agrees(&parsed(&[("city", "orchard")]), Some(&area)));
+    for on_a_road in [
+        AddressDetails {
+            road: "High Street".into(),
+            ..area.clone()
+        },
+        AddressDetails {
+            house_number: "12".into(),
+            ..area.clone()
+        },
+    ] {
+        assert!(!city_agrees(&address, Some(&on_a_road)));
+    }
+}
+
+#[test]
 fn a_postal_district_after_the_town_is_the_town() {
     for (key, value) in [("city_district", "dublin 4"), ("postcode", "dublin 4")] {
         let mut address = parsed(&[
