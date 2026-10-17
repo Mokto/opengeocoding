@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.11.0](https://github.com/Mokto/opengeocoding/compare/v0.10.1...v0.11.0) (2026-10-17)
+
+
+### Features
+
+* add opt-in SearchAddress diagnostic logging ([#162](https://github.com/Mokto/opengeocoding/issues/162)) ([7e6bd24](https://github.com/Mokto/opengeocoding/commit/7e6bd24df0c1ee25eafa6d53f6aca361cb8ade59))
+
+
+### Bug Fixes
+
+* corroborate house towns with indexed locality aliases ([#158](https://github.com/Mokto/opengeocoding/issues/158)) ([3960f49](https://github.com/Mokto/opengeocoding/commit/3960f49aae6f2ce1366106edc3000a85287a7827))
+* fall back when a house's postcode contradicts the requested one on the same street ([#156](https://github.com/Mokto/opengeocoding/issues/156)) ([40425d8](https://github.com/Mokto/opengeocoding/commit/40425d89902c0f428ae67bfe0515dc39315199bb))
+
 ## [0.10.1](https://github.com/Mokto/opengeocoding/compare/v0.10.0...v0.10.1) (2026-10-17)
 
 
