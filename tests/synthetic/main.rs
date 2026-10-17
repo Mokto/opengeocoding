@@ -745,6 +745,8 @@ fn cases() -> Vec<Case> {
     };
     vec![
         case("Paris, France", town("fr-paris", true)),
+        case("Missing Road, Paris, France", town("fr-paris", false)),
+        case("Île-de-France, Haut-Rhin", town("fr-haut-rhin", true)),
         case("Paris, Texas", town("us-tx-paris", true)),
         case("Paris, TX, USA", town("us-tx-paris", true)),
         // the larger Paris, when nothing says otherwise
@@ -834,6 +836,15 @@ async fn resolve_follows_the_authored_facts() {
         }
     }
     assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
+    for query in ["Texas, Haut-Rhin", "Île-de-France, Haut-Rhin, Germany"] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(
+            got.address_details
+                .as_option()
+                .is_none_or(|d| d.county != "Haut-Rhin"),
+            "{query}: {got:?}"
+        );
+    }
     for (postcode, number, good) in [
         ("75461", "2", true),
         ("75461-1234", "2", true),
