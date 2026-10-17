@@ -9,6 +9,7 @@ on:
       - src/**
       - data/**
       - proto/**
+      - manifests/**
       - build.rs
       - Cargo.toml
       - Cargo.lock
