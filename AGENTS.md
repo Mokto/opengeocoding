@@ -103,6 +103,7 @@ A world index built by this repository's builder is kept in `~/opengeocoding-ind
 ## Git and publishing
 
 - Use feature branches and pull requests; never push directly to `main` or continue a branch whose PR has merged.
+- Open pull requests as ready for review by default. Create a draft only when the user explicitly asks for one; pending CI or validation is not a reason to make a PR a draft. Report outstanding checks in the PR description instead.
 - Keep public PR descriptions accurate after every push and free of internal references.
 - Pin GitHub Actions and reusable workflows by commit SHA. Keep publishing credentials out of pull-request jobs.
 - Only `v*` tag pushes trigger checked, multi-platform image publishing to `ghcr.io/mokto/opengeocoding`; the tag also updates `latest`. release-please creates the tags when its Release PR is merged; commit titles must be conventional (`feat:`, `fix:`, `perf:`, `!`) to cause a release. The Helm chart is published to `oci://ghcr.io/mokto/charts` after the image, pinned to it.
