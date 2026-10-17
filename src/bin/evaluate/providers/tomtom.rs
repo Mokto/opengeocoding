@@ -7,6 +7,8 @@ pub const PROVIDER: Provider = Provider {
     name: "tomtom",
     label: "TomTom Search v2 Geocode",
     credential_env: "TOMTOM_API_KEY",
+    not_found_status: None,
+    interval_ms: 200,
     auth_parameter: "key",
     storage_terms: Some("https://developer.tomtom.com/terms-and-conditions"),
     request,

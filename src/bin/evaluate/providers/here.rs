@@ -8,6 +8,8 @@ pub const PROVIDER: Provider = Provider {
     name: "here",
     label: "HERE Geocoding and Search v7",
     credential_env: "HERE_API_KEY",
+    not_found_status: None,
+    interval_ms: 200,
     auth_parameter: "apiKey",
     storage_terms: Some("https://www.here.com/terms/here-platform-terms"),
     request,

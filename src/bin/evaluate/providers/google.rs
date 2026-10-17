@@ -7,6 +7,8 @@ pub const PROVIDER: Provider = Provider {
     name: "google",
     label: "Google Geocoding v3",
     credential_env: "GOOGLE_MAPS_API_KEY",
+    not_found_status: None,
+    interval_ms: 200,
     auth_parameter: "key",
     storage_terms: Some("https://developers.google.com/maps/documentation/geocoding/policies"),
     request,

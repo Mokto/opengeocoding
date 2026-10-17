@@ -57,7 +57,7 @@ fn usage() -> String {
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
             [--no-direct] [--resume] [--backend-label TEXT] [--repeat 3]
-provider    mapbox|google|here|tomtom --out DIR --cache DIR [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
+provider    mapbox|google|here|tomtom|geoapify|opencage|locationiq|geocodio|arcgis --out DIR --cache DIR [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
             [--fetch --budget N] [--storage-authorized] (offline by default; fetching may be billed)
 mapbox      alias for provider mapbox
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
@@ -210,7 +210,9 @@ async fn command() -> Result<i32> {
             let provider = match (command.as_str(), args.positional.as_slice()) {
                 ("provider", [name]) => providers::named(name)?,
                 ("mapbox", []) => providers::named("mapbox")?,
-                _ => bail!("provider needs one name: mapbox, google, here or tomtom"),
+                _ => bail!(
+                    "provider needs one name; usage: evaluate provider NAME --out DIR --cache DIR"
+                ),
             };
             if let Some(option) = args.values.keys().find(|k| {
                 !["out", "cache", "corpus", "only", "compare", "budget"].contains(&k.as_str())

@@ -16,9 +16,14 @@ use std::{
     time::Duration,
 };
 
+mod arcgis;
+mod geoapify;
+mod geocodio;
 mod google;
 mod here;
+mod locationiq;
 mod mapbox;
+mod opencage;
 mod tomtom;
 
 pub struct Provider {
@@ -26,12 +31,19 @@ pub struct Provider {
     label: &'static str,
     credential_env: &'static str,
     auth_parameter: &'static str,
+    not_found_status: Option<u16>,
+    interval_ms: u64,
     storage_terms: Option<&'static str>,
     request: fn(&str) -> Value,
     normalize: fn(&Value) -> Result<Value>,
 }
 
-static PROVIDERS: [Provider; 4] = [
+static PROVIDERS: [Provider; 9] = [
+    arcgis::PROVIDER,
+    geoapify::PROVIDER,
+    geocodio::PROVIDER,
+    locationiq::PROVIDER,
+    opencage::PROVIDER,
     mapbox::PROVIDER,
     google::PROVIDER,
     here::PROVIDER,
@@ -40,7 +52,14 @@ static PROVIDERS: [Provider; 4] = [
 
 pub fn named(name: &str) -> Result<&'static Provider> {
     PROVIDERS.iter().find(|p| p.name == name).with_context(|| {
-        format!("unknown provider {name}; expected mapbox, google, here or tomtom")
+        format!(
+            "unknown provider {name}; expected {}",
+            PROVIDERS
+                .iter()
+                .map(|p| p.name)
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     })
 }
 
@@ -96,7 +115,7 @@ fn key(request: &Value) -> String {
     digest.as_ref().iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn read_entry(cache: &Path, request: &Value) -> Result<Option<Entry>> {
+fn read_entry(provider: &Provider, cache: &Path, request: &Value) -> Result<Option<Entry>> {
     let path = cache.join(format!("{}.json", key(request)));
     let bytes = match std::fs::read(&path) {
         Ok(bytes) => bytes,
@@ -110,7 +129,10 @@ fn read_entry(cache: &Path, request: &Value) -> Result<Option<Entry>> {
         "cache request mismatch: {}",
         path.display()
     );
-    ensure!(matches!(entry.status, 200 | 422), "invalid cached status");
+    ensure!(
+        matches!(entry.status, 200 | 422) || provider.not_found_status == Some(entry.status),
+        "invalid cached status"
+    );
     Ok(Some(entry))
 }
 
@@ -152,7 +174,7 @@ async fn fetch(
         .with_context(|| format!("{} request failed (not retried)", provider.name))?;
     let status = response.status().as_u16();
     ensure!(
-        matches!(status, 200 | 422),
+        matches!(status, 200 | 422) || provider.not_found_status == Some(status),
         "{} HTTP {status}; stopped without retrying",
         provider.name
     );
@@ -275,7 +297,7 @@ pub async fn run(options: Options) -> Result<i32> {
     let mut missing = HashSet::new();
     for case in &cases {
         let req = (provider.request)(&case.query);
-        if read_entry(&options.cache, &req)?.is_none() {
+        if read_entry(provider, &options.cache, &req)?.is_none() {
             missing.insert(key(&req));
         }
     }
@@ -332,12 +354,12 @@ pub async fn run(options: Options) -> Result<i32> {
     for case in &cases {
         let req = (provider.request)(&case.query);
         let cache_path = options.cache.join(format!("{}.json", key(&req)));
-        let entry = match read_entry(&options.cache, &req)? {
+        let entry = match read_entry(provider, &options.cache, &req)? {
             Some(entry) => entry,
             None => {
                 let (client, token) = client.as_ref().context("offline cache miss")?;
                 if fetched > 0 {
-                    tokio::time::sleep(Duration::from_millis(200)).await;
+                    tokio::time::sleep(Duration::from_millis(provider.interval_ms)).await;
                 }
                 let entry = fetch(provider, client, token, req).await?;
                 save_entry(&options.cache, &entry)?;
@@ -351,7 +373,7 @@ pub async fn run(options: Options) -> Result<i32> {
             query: case.query.clone(),
             ..Default::default()
         };
-        if entry.status == 200 {
+        if entry.status != 422 {
             let response = (provider.normalize)(&entry.response)?;
             classify(case, Ok(&response), &mut record, false);
             record.summary = Some(summary_of(&response));
@@ -374,7 +396,7 @@ pub async fn run(options: Options) -> Result<i32> {
         "cache_sha256": sha256_files(&cache_files.into_keys().collect::<Vec<_>>())?,
         "scoring": {"confidence": false},
         "request_settings": (provider.request)(""), "fetched": fetched,
-        "storage_authorized": options.storage_authorized,
+        "storage_authorized": options.storage_authorized, "interval_ms": provider.interval_ms,
         "excluded_contract_cases": excluded,
         "backend": {"label": provider.label, "status": {"software_version": provider.name, "data_updated": "unknown"}},
     });
@@ -436,6 +458,56 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn locationiq_not_found_is_cached_without_accepting_other_providers_404s() {
+        let dir =
+            std::env::temp_dir().join(format!("locationiq-cache-test-{}", std::process::id()));
+        let cache = dir.join("cache");
+        std::fs::create_dir_all(&cache).unwrap();
+        let provider = named("locationiq").unwrap();
+        let case = Case {
+            id: "missing".into(),
+            query: "Made-up missing address".into(),
+            expect: Some(crate::score::Expect {
+                level: "none".into(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let corpus = dir.join("cases.jsonl");
+        std::fs::write(&corpus, serde_json::to_string(&case).unwrap() + "\n").unwrap();
+        let request = (provider.request)(&case.query);
+        save_entry(
+            &cache,
+            &Entry {
+                request: request.clone(),
+                fetched_at: String::new(),
+                status: 404,
+                response: json!({"error": "Unable to geocode"}),
+            },
+        )
+        .unwrap();
+        assert!(read_entry(named("google").unwrap(), &cache, &request).is_err());
+        run(Options {
+            provider,
+            storage_authorized: false,
+            corpus: Some(corpus),
+            out: dir.join("out"),
+            cache,
+            only: None,
+            fetch: false,
+            budget: 0,
+            compare: None,
+        })
+        .await
+        .unwrap();
+        let records: Vec<Record> =
+            crate::model::load_jsonl(&dir.join("out/results.jsonl")).unwrap();
+        assert_eq!(records[0].class, "pass");
+        assert_eq!(records[0].response, Some(json!({})));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[tokio::test]
     async fn offline_cache_replay_deduplicates_and_never_requires_a_token() {
         let dir = std::env::temp_dir().join(format!("mapbox-test-{}", std::process::id()));
         let cache = dir.join("cache");
@@ -489,9 +561,9 @@ mod tests {
                 .contains("offline cache misses")
         );
         assert!(run(options(true, 0)).await.is_err());
-        for name in ["google", "here", "tomtom"] {
+        for provider in PROVIDERS.iter().filter(|p| p.storage_terms.is_some()) {
             let mut restricted = options(true, 2);
-            restricted.provider = named(name).unwrap();
+            restricted.provider = provider;
             assert!(
                 run(restricted)
                     .await
@@ -550,7 +622,7 @@ mod tests {
         let mut changed = req.clone();
         changed["language"] = "da".into();
         assert_ne!(key(&req), key(&changed));
-        assert!(read_entry(&cache, &changed).unwrap().is_none());
+        assert!(read_entry(provider, &cache, &changed).unwrap().is_none());
         save_entry(
             &cache,
             &Entry {
