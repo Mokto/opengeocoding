@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.0](https://github.com/Mokto/opengeocoding/compare/v0.9.0...v0.10.0) (2026-10-17)
+
+
+### Features
+
+* add France, Norway and Switzerland registry samples to the gold suite and report added-case rates ([#146](https://github.com/Mokto/opengeocoding/issues/146)) ([1e3d786](https://github.com/Mokto/opengeocoding/commit/1e3d786783222b844872ac414a0ff24a7d45dcc7))
+* add opt-in landmark suggestions to SuggestAddress ([#142](https://github.com/Mokto/opengeocoding/issues/142)) ([6667600](https://github.com/Mokto/opengeocoding/commit/66676001ce96eeaa975313f9010e790f5be0b13d))
+
+
+### Bug Fixes
+
+* corroborate index-recognized postcodes conservatively ([#147](https://github.com/Mokto/opengeocoding/issues/147)) ([4ef106a](https://github.com/Mokto/opengeocoding/commit/4ef106ad821403436adec3f306e6e24f01256262))
+* evaluate chart-only pull requests ([#149](https://github.com/Mokto/opengeocoding/issues/149)) ([295e196](https://github.com/Mokto/opengeocoding/commit/295e196a29ad9c35e8b5a9c332b2710a60f066dd))
+* match neighbourhood names as the town and build staging from the exact PR head ([#145](https://github.com/Mokto/opengeocoding/issues/145)) ([5ef0e34](https://github.com/Mokto/opengeocoding/commit/5ef0e34db55273e641570b227730b10f04143a41))
+
 ## [0.9.0](https://github.com/Mokto/opengeocoding/compare/v0.8.0...v0.9.0) (2026-10-17)
 
 
