@@ -23,6 +23,7 @@ mod google;
 mod here;
 mod locationiq;
 mod mapbox;
+mod mapsco;
 mod opencage;
 mod tomtom;
 
@@ -40,13 +41,14 @@ pub struct Provider {
     validate_status: Option<fn(&Value) -> Result<()>>,
 }
 
-static PROVIDERS: [Provider; 9] = [
+static PROVIDERS: [Provider; 10] = [
     arcgis::PROVIDER,
     geoapify::PROVIDER,
     geocodio::PROVIDER,
     locationiq::PROVIDER,
     opencage::PROVIDER,
     mapbox::PROVIDER,
+    mapsco::PROVIDER,
     google::PROVIDER,
     here::PROVIDER,
     tomtom::PROVIDER,
