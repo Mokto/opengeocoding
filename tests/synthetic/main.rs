@@ -834,4 +834,32 @@ async fn resolve_follows_the_authored_facts() {
         }
     }
     assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
+    for (postcode, number, good) in [
+        ("75461", "2", true),
+        ("75461-1234", "2", true),
+        ("75469", "2", false),
+        ("75462", "2", false),
+        ("75460", "", false),
+    ] {
+        let query = format!("2 Canal Street, {postcode} Paris, United States");
+        let got = resolver.resolve(&query).await.unwrap();
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.country_code, "us", "{got:?}");
+        assert_eq!(details.house_number, number, "{query}: {got:?}");
+        assert_eq!(got.good_match, good, "{query}: {got:?}");
+        if number.is_empty() {
+            assert!(details.road.is_empty(), "{query}: {got:?}");
+        } else {
+            assert_eq!(details.postcode, "75461", "{query}: {got:?}");
+            let street = STREETS
+                .iter()
+                .find(|s| s.name == "Canal Street" && s.numbers.contains(&number))
+                .unwrap();
+            let at = got.geo_coordinates.as_option().unwrap();
+            assert!(
+                metres((at.lon as f64, at.lat as f64), house(street, number)) < 5.0,
+                "{query}: {got:?}"
+            );
+        }
+    }
 }
