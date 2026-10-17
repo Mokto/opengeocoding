@@ -181,7 +181,18 @@ fn raw_words(text: &str) -> Vec<String> {
         let mut out = vec![];
         let mut ts = a.token_stream(text);
         while ts.advance() {
-            out.push(ts.token().text.clone());
+            let mut word = ts.token().text.clone();
+            if word.is_ascii() {
+                out.push(word);
+                continue;
+            }
+            word.retain(|c| !('\u{300}'..='\u{36f}').contains(&c));
+            let folded = fold(&word);
+            if folded.contains(' ') {
+                out.extend(folded.split(' ').map(str::to_owned));
+            } else {
+                out.push(word);
+            }
         }
         out
     })
@@ -409,9 +420,11 @@ impl Index {
         }
         let coded = head_words.iter().any(|w| has_digit(w));
         // "75001", or "SW1A 2": a postcode, whose words may be split by a space
-        if one_part && coded && head_words.len() <= 2 {
-            let found = self.suggest_postcodes(head, typed.open, cc, limit);
-            if !found.is_empty() || head_words.len() == 1 {
+        if coded && head_words.len() <= 2 {
+            let found = self.suggest_postcodes(head, &typed.parts[1..], typed.open, cc, limit);
+            if !found.is_empty()
+                || head_words.len() == 1 && head.chars().all(|c| c.is_ascii_digit())
+            {
                 return found;
             }
         }
@@ -419,11 +432,7 @@ impl Index {
             self.suggest_places(&typed.parts, typed.open, cc, focus, names, limit)
                 .into_iter()
         };
-        let found = if coded {
-            vec![]
-        } else {
-            places(Names::Inside).collect()
-        };
+        let found = places(Names::Inside).collect::<Vec<_>>();
         // a place whose name only contains the words (a "Main Street Historic District") comes
         // after the streets that are named so, unless it is a city ("york" is New York)
         let (named, contains): (Vec<_>, Vec<_>) = found.into_iter().partition(|&(id, fit)| {
@@ -1021,6 +1030,7 @@ impl Index {
     fn suggest_postcodes(
         &self,
         text: &str,
+        qualifiers: &[String],
         open: bool,
         cc: Option<&str>,
         limit: usize,
@@ -1029,17 +1039,20 @@ impl Index {
         if pc.len() < MIN_POSTCODE {
             return vec![];
         }
+        let scope = (!qualifiers.is_empty()).then(|| self.scope(qualifiers, open, cc, None, true));
+        let pool = if scope.is_some() { POOL } else { limit * 2 };
         // the code as typed before the longer ones it starts
         let mut docs = self.top_of(
             Kind::Postcode,
             cc,
             vec![must(term(self.f.pcode, &pc))],
-            limit * 2,
+            pool,
         );
-        if open
+        if qualifiers.is_empty()
+            && open
             && let Some((cl, _)) = self.typed_words(self.f.pcode, std::slice::from_ref(&pc), true)
         {
-            for a in self.top_of(Kind::Postcode, cc, cl, limit * 2) {
+            for a in self.top_of(Kind::Postcode, cc, cl, pool) {
                 if !docs.contains(&a) {
                     docs.push(a);
                 }
@@ -1053,6 +1066,11 @@ impl Index {
                     self.fast_f64(a, "x"),
                     self.fast_f64(a, "y"),
                 );
+                if scope.as_ref().is_some_and(|ids| {
+                    place == NONE || !self.chain(place).iter().any(|id| ids.contains(id))
+                }) {
+                    return None;
+                }
                 let code = stored(&doc, self.f.name);
                 let mut display = vec![code];
                 let mut country_code = String::new();
@@ -1524,6 +1542,10 @@ mod tests {
         // a hyphen ends a word like a space: "saint" is whole and abbreviated, as indexed
         assert_eq!(words_open("saint-etien", true), ["st", "etien"]);
         assert_eq!(words_open("saint-etienne", false), ["st", "etienne"]);
+        assert_eq!(words_open("calle", true), ["calle"]);
+        for name in ["東京都", "上海市", "서울특별시", "İstanbul", "İzmir"] {
+            assert_eq!(words_open(name, true), words(name), "{name}");
+        }
         assert_eq!(umlaut_form("koeln").as_deref(), Some("koln"));
         assert_eq!(umlaut_form("muenchen").as_deref(), Some("munchen"));
         assert_eq!(umlaut_form("paris"), None);

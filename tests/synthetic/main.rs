@@ -223,6 +223,90 @@ fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
 }
 
 #[test]
+fn native_and_numeric_place_names_work_while_the_last_word_is_unfinished() {
+    for (text, id) in [
+        ("桜森市", "gb-beacon"),
+        ("松林市", "gb-beacon"),
+        ("솔빛도시", "gb-beacon"),
+        ("İncikent", "gb-beacon"),
+        ("6th of Bramble", "gb-bramble"),
+        ("Sixth of Bramble", "gb-bramble"),
+        ("Bramble6", "gb-bramble"),
+    ] {
+        let expected = place(id);
+        for query in [text.to_string(), format!("{text} "), format!("{text}, UK")] {
+            let found = index().suggest(&query, 5, None, None, false);
+            assert!(!found.is_empty(), "{query}");
+            assert_eq!(
+                (found[0].kind, found[0].country_code.as_str()),
+                ("town", "gb"),
+                "{query}"
+            );
+            assert!(
+                metres((found[0].x, found[0].y), (expected.lon, expected.lat)) < 5.,
+                "{query}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_postcodes_place_and_country_qualifiers_corroborate_it() {
+    for (text, road) in [
+        ("75001, Paris", "Rue de Rivoli"),
+        ("75001, Par", "Rue de Rivoli"),
+        ("75001, FR", "Rue de Rivoli"),
+        ("75001, Paris, France", "Rue de Rivoli"),
+        ("AA1 1AA, Beacon", "High Street"),
+        ("AA1 1AA, UK", "High Street"),
+    ] {
+        let found = index().suggest(text, 5, None, None, false);
+        assert!(!found.is_empty(), "{text}");
+        assert_eq!(found[0].kind, "postcode", "{text}");
+        assert_eq!(
+            found[0].country_code,
+            street(road).cc.to_lowercase(),
+            "{text}"
+        );
+        assert!(
+            metres((found[0].x, found[0].y), house(street(road), "1")) < 200.,
+            "{text}"
+        );
+    }
+    for text in [
+        "75001, London",
+        "75001, Paris, United States",
+        "75001, Paris, France, Texas",
+        "AA1 1AA, France",
+    ] {
+        assert!(
+            index().suggest(text, 5, None, None, false).is_empty(),
+            "{text}"
+        );
+    }
+    assert!(
+        index()
+            .suggest("75001, Paris, France", 5, Some("US"), None, false)
+            .is_empty()
+    );
+    for text in [
+        "2 Rue de Rivoli, Paris, 75001",
+        "2 Rue de Rivoli, Paris, 75001, France",
+    ] {
+        let found = index().suggest(text, 5, None, None, false);
+        assert!(!found.is_empty(), "{text}");
+        assert_eq!(found[0].kind, "address", "{text}");
+        assert!(
+            metres(
+                (found[0].x, found[0].y),
+                house(street("Rue de Rivoli"), "2")
+            ) < 5.,
+            "{text}"
+        );
+    }
+}
+
+#[test]
 fn postal_towns_need_not_be_geographic_places_and_region_names_need_not_be_countries() {
     for (typed, road, number) in [
         (
