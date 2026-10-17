@@ -452,6 +452,7 @@ fn cases() -> Vec<Case> {
         ),
         // France has this street, Texas has not: the town in Texas, never the French street
         case("Rue de Rivoli, Paris, Texas", town("us-tx-paris", false)),
+        case("Orchard, United Kingdom", town("gb-orchard", true)),
         case("Cologne, Germany", town("de-koeln", true)),
         case("Köln, Germany", town("de-koeln", true)),
         Case {

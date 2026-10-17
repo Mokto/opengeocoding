@@ -488,7 +488,7 @@ pub fn city_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
         .into_iter()
         .chain(
             own_area
-                .then_some([&d.suburb, &d.city_district])
+                .then_some([&d.suburb, &d.city_district, &d.neighbourhood])
                 .into_iter()
                 .flatten(),
         )
