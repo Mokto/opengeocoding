@@ -920,9 +920,14 @@ fn latency(
             format!("{} (limit +{limit:.0}%)", slower.join("; ")),
         )
     };
-    format!(
-        "\n<!-- speed: {verdict} -->\n## Speed: {headline}\n{sections}\nFails when the total, p50, p90 or p99 of any table is more than {limit:.0}% slower. Runs of one binary differ by up to 5%; the max is one request and only reported.\n<!-- speed end -->\n"
-    )
+    let _ = writeln!(
+        sections,
+        "\nFails when the total, p50, p90 or p99 of any table is more than {limit:.0}% slower. Runs of one binary differ by up to 5%; the max is one request and only reported."
+    );
+    if verdict == "pass" {
+        sections = fold("Details", &sections, false);
+    }
+    format!("\n<!-- speed: {verdict} -->\n## Speed: {headline}\n{sections}\n<!-- speed end -->\n")
 }
 
 /// "| SearchAddress | 3759 | 3340 | 3342 | +2 (+0.1%) | 5 |", a row of the diff's summary table.
@@ -1162,6 +1167,41 @@ pub fn diff(
         let changed = changed_checks.get(name).copied().unwrap_or(0);
         summary += &passing(name, [c[1], c[2]], c[0], changed);
     }
+    let mut added_counts: BTreeMap<(&str, &str), [usize; 2]> = BTreeMap::new();
+    let mut added = 0;
+    for (id, record) in new.iter().filter(|(id, _)| !old.contains_key(*id)) {
+        added += 1;
+        let cohort = cases.get(id.as_str()).map_or("?", |c| c.cohort.as_str());
+        let mut count = |rpc, class: &str| {
+            if !matches!(class, "unscored" | "") {
+                let counts = added_counts.entry((cohort, rpc)).or_default();
+                counts[0] += usize::from(class == "pass");
+                counts[1] += 1;
+            }
+        };
+        count("SearchAddress", &record.class);
+        for check in record.suggest.values() {
+            count("SuggestAddress", suggest_class(check));
+        }
+        for (name, result) in located(record) {
+            if let Some(result) = result {
+                count(name, &result.class);
+            }
+        }
+    }
+    if added > 0 {
+        let _ = write!(
+            summary,
+            "\n## Added cases ({added})\n\nCandidate-only results, excluded from regression and speed comparisons. Rates count checks, not independent locations; SuggestAddress can check a case twice.\n\n| Cohort | RPC | Passed | Checked | Success rate |\n|---|---|---:|---:|---:|\n"
+        );
+        for ((cohort, rpc), [passed, checked]) in added_counts {
+            let _ = writeln!(
+                summary,
+                "| {cohort} | {rpc} | {passed} | {checked} | {:.1}% |",
+                100. * passed as f64 / checked as f64
+            );
+        }
+    }
     report.insert_str(summary_at, &summary);
     if suggest_counts
         .keys()
@@ -1332,6 +1372,7 @@ mod tests {
         let report = latency(&ids, &old, &new, [&three, &three]);
         assert!(report.starts_with("\n<!-- speed: fail -->\n"), "{report}");
         assert!(report.contains("total +100%, p50 +100%, p90 +100%, p99 +100%"));
+        assert!(!report.contains("<details"), "{report}");
         assert!(
             report.contains("over 2 cases, each the fastest of 3"),
             "{report}"
@@ -1342,8 +1383,20 @@ mod tests {
         let near = side(&[("a", Some(1.1)), ("b", Some(3.3)), ("c", None)]);
         let report = latency(&ids, &old, &near, [&three, &three]);
         assert!(report.contains("<!-- speed: pass -->"), "{report}");
+        assert!(
+            report.contains(
+                "## Speed: no slowdown over 10%\n\n<details>\n<summary><b>Details</b></summary>"
+            ),
+            "{report}"
+        );
+        assert!(
+            report.contains("</details>\n\n<!-- speed end -->"),
+            "{report}"
+        );
+        assert!(report.find("<details>").unwrap() < report.find("### SearchAddress").unwrap());
         let report = latency(&ids, &old, &new, [&json!({}), &three]);
         assert!(report.contains("<!-- speed: skip -->"), "{report}");
+        assert!(!report.contains("<details"), "{report}");
         // each RPC is its own table, and any of them fails the verdict
         let reversed = |ms: f64| -> IndexMap<String, Record> {
             [(
@@ -1376,6 +1429,119 @@ mod tests {
         assert!(report.contains("<!-- speed: fail -->"), "{report}");
         let untimed = side(&[("a", None), ("b", None), ("c", None)]);
         assert!(latency(&ids, &old, &untimed, [&json!({}), &json!({})]).is_empty());
+    }
+
+    #[test]
+    fn added_cases_report_success_rates_without_changing_the_comparison() {
+        let dir = std::env::temp_dir().join(format!("eval-added-{}", std::process::id()));
+        let cases: Vec<_> = ["shared", "added-pass", "added-fail", "unscored"]
+            .into_iter()
+            .map(|id| Case {
+                id: id.into(),
+                cohort: if id == "unscored" {
+                    "unscored"
+                } else {
+                    "fr_house"
+                }
+                .into(),
+                ..Default::default()
+            })
+            .collect();
+        let record = |id: &str, class: &str| Record {
+            id: id.into(),
+            class: class.into(),
+            ..Default::default()
+        };
+        let check = |rank, error| SuggestCheck {
+            want: 1,
+            rank,
+            error,
+            ..Default::default()
+        };
+        let located = |class: &str| Located {
+            class: class.into(),
+            ..Default::default()
+        };
+        let mut passed = record("added-pass", "pass");
+        passed.suggest = [
+            ("name".into(), check(Some(1), None)),
+            ("full".into(), check(None, None)),
+        ]
+        .into();
+        passed.reverse = Some(located("pass"));
+        passed.region = Some(located("error"));
+        let mut failed = record("added-fail", "wrong_country");
+        failed.suggest = [("full".into(), check(None, Some("timeout".into())))].into();
+        failed.reverse = Some(located("wrong_country"));
+        for (side, records) in [
+            (
+                "old",
+                vec![record("shared", "pass"), record("removed", "pass")],
+            ),
+            (
+                "new",
+                vec![
+                    record("shared", "pass"),
+                    passed,
+                    failed,
+                    record("unscored", "unscored"),
+                ],
+            ),
+        ] {
+            std::fs::create_dir_all(dir.join(side)).unwrap();
+            std::fs::write(dir.join(side).join("manifest.json"), "{}").unwrap();
+            let lines: Vec<_> = records
+                .iter()
+                .map(|r| serde_json::to_string(r).unwrap())
+                .collect();
+            std::fs::write(dir.join(side).join("results.jsonl"), lines.join("\n")).unwrap();
+        }
+        let out = dir.join("diff.md");
+        assert!(
+            !diff(
+                &cases,
+                &dir.join("old"),
+                &dir.join("new"),
+                Some(&out),
+                false,
+                true
+            )
+            .unwrap()
+        );
+        let report = std::fs::read_to_string(&out).unwrap();
+        assert!(
+            report.contains("| SearchAddress | 1 | 1 | 1 | 0 | 0 |"),
+            "{report}"
+        );
+        assert!(report.contains("## Added cases (3)"), "{report}");
+        for row in [
+            "| fr_house | SearchAddress | 1 | 2 | 50.0% |",
+            "| fr_house | SuggestAddress | 1 | 3 | 33.3% |",
+            "| fr_house | ReverseGeocode | 1 | 2 | 50.0% |",
+            "| fr_house | ResolveRegion | 0 | 1 | 0.0% |",
+        ] {
+            assert!(report.contains(row), "{report}");
+        }
+        assert!(!report.contains("| unscored |"), "{report}");
+        assert!(!report.contains("NaN"), "{report}");
+        assert!(report.find("## Added cases").unwrap() < report.find("<summary><b>Runs").unwrap());
+        assert!(
+            !diff(
+                &cases,
+                &dir.join("new"),
+                &dir.join("new"),
+                Some(&out),
+                false,
+                true
+            )
+            .unwrap()
+        );
+        assert!(
+            !std::fs::read_to_string(out)
+                .unwrap()
+                .contains("## Added cases")
+        );
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
