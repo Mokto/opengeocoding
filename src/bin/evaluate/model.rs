@@ -274,14 +274,13 @@ pub fn load_corpus(path: &Path) -> Result<Vec<Case>> {
         .collect()
 }
 
-const LICENSES: [&str; 7] = [
+const LICENSES: [&str; 6] = [
     "CC0-1.0",
     "etalab-2.0",
     "US-Government-Public-Domain",
     "OGL-UK-3.0",
     "CC-BY-4.0",
     "swisstopo-OGD",
-    "Korea-Public-Data-Unrestricted",
 ];
 
 /// Gold corpus integrity: provenance, licence, hold-out rule and well-formed expectations.
@@ -297,7 +296,15 @@ pub fn validate_gold(cases: &[Case]) -> Result<()> {
             .as_ref()
             .and_then(|s| s["license"].as_str())
             .unwrap_or("");
-        ensure!(LICENSES.contains(&license), "{at}: licence {license:?}");
+        let registry = case
+            .source
+            .as_ref()
+            .and_then(|s| s["name"].as_str())
+            .and_then(crate::registry::get);
+        ensure!(
+            registry.map_or_else(|| LICENSES.contains(&license), |r| r.license == license),
+            "{at}: licence {license:?}"
+        );
         ensure!(case.review.is_some(), "{at}: review status");
         ensure!(
             case.holdout == holdout(&case.location),

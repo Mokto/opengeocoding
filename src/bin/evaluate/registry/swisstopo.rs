@@ -1,3 +1,4 @@
+use super::{Entry, Point, Registry};
 use anyhow::{Context, Result, ensure};
 use opengeocoding::eval::sha256_hex;
 use serde_json::{Value, json};
@@ -56,11 +57,11 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
     let mut reader = BufReader::new(File::open(path)?);
     let mut line = String::new();
     ensure!(
-        crate::ban::record(&mut reader, &mut line)?,
+        crate::registry::ban::record(&mut reader, &mut line)?,
         "empty swisstopo CSV"
     );
     let columns: BTreeMap<String, usize> =
-        crate::nad::split(line.trim_end().trim_start_matches('\u{feff}'), ';')
+        crate::registry::nad::split(line.trim_end().trim_start_matches('\u{feff}'), ';')
             .iter()
             .enumerate()
             .map(|(i, s)| (s.to_string(), i))
@@ -81,12 +82,12 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
         ensure!(columns.contains_key(name), "swisstopo CSV missing {name}");
     }
     let mut n = 0usize;
-    while crate::ban::record(&mut reader, &mut line)? {
+    while crate::registry::ban::record(&mut reader, &mut line)? {
         n += 1;
         if n.is_multiple_of(1_000_000) {
             eprintln!("swisstopo: {n} rows read");
         }
-        let fields = crate::nad::split(line.trim_end_matches(['\r', '\n']), ';');
+        let fields = crate::registry::nad::split(line.trim_end_matches(['\r', '\n']), ';');
         ensure!(
             fields.len() == columns.len(),
             "swisstopo CSV row {n}: column count"
@@ -189,12 +190,12 @@ fn variants(a: &Address, other: &Address) -> Vec<(&'static str, String, Option<b
         ),
         ("ascii", deunicode::deunicode(&query), Some(true)),
     ];
-    if let Some(street) = crate::ban::typo(&a.street) {
+    if let Some(street) = crate::registry::ban::typo(&a.street) {
         let mut copy = a.clone();
         copy.street = street;
         out.push(("typo_street", copy.query(), None));
     }
-    if let Some(city) = crate::ban::typo(&a.city) {
+    if let Some(city) = crate::registry::ban::typo(&a.city) {
         let mut copy = a.clone();
         copy.city = city;
         out.push(("typo_town", copy.query(), None));
@@ -281,6 +282,48 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
     }
     ensure!(!lines.is_empty(), "no eligible swisstopo LV95 addresses");
     Ok(lines)
+}
+
+pub const REGISTRY: Registry = Registry {
+    source: "swisstopo-csv",
+    command: "sample-ch",
+    country: "ch",
+    input: "swisstopo",
+    license: "swisstopo-OGD",
+    location: "swisstopo",
+    url: |id| format!("{URL}#{id}"),
+    sample,
+    prepare,
+};
+
+fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entry>> {
+    let metadata = {
+        let mut metadata = super::provenance(path)?;
+        metadata.insert(
+            "coordinate_transform".into(),
+            json!({"url":REFRAME, "altitude":0}),
+        );
+        metadata
+    };
+    lookup(path, refs)?
+        .into_iter()
+        .map(|(id, row)| {
+            Ok((
+                id,
+                Entry {
+                    point: Point::Lv95(row.lv95),
+                    components: indexmap::IndexMap::from([
+                        ("house_number", row.number),
+                        ("road", row.street),
+                        ("postcode", row.postcode),
+                    ]),
+                    radius_floor_km: 0.,
+                    provenance: metadata.clone(),
+                    number_aliases: None,
+                },
+            ))
+        })
+        .collect()
 }
 
 #[cfg(test)]

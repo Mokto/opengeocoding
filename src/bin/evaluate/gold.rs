@@ -1,15 +1,7 @@
-//! Builds `tests/gold.jsonl` from `tests/gold.seeds.jsonl`. Expected answers come only from
-//! licensed authoritative sources — Wikidata (CC0), Base Adresse Nationale (Licence Ouverte 2.0),
-//! PDOK/BAG (CC0), the US Census geocoder (public domain), postcodes.io/ONSPD (OGL v3),
-//! Kartverket (CC BY 4.0), swisstopo (open use with attribution), CartoCiudad and RUIAN (CC BY 4.0),
-//! the US National Address Database (public domain) and data.go.kr's school-location register
-//! (unrestricted reuse), read from local snapshots —
-//! never from Nominatim or this service. Requires network access; review the diff as a data update.
+//! Builds the gold corpus from licensed authoritative sources, never from a geocoder's answers.
+//! Local registry snapshots are prepared by the adapters in `registry/`.
 
-use crate::{
-    bag, ban, kartverket, korea, nad, report::sorted, ruian, run::utc_now, score::SUGGEST_LIMIT,
-    swisstopo,
-};
+use crate::{registry, report::sorted, run::utc_now, score::SUGGEST_LIMIT};
 use anyhow::{Context, Result, bail, ensure};
 use indexmap::IndexMap;
 use opengeocoding::eval::{holdout, sha256_hex};
@@ -18,7 +10,7 @@ use reqwest::Client;
 use serde::{Deserialize, Deserializer};
 use serde_json::{Value, json};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     path::Path,
     sync::LazyLock,
     time::Duration,
@@ -102,44 +94,38 @@ struct Found {
 }
 
 fn license(source: &str) -> &'static str {
+    if let Some(registry) = registry::get(source) {
+        return registry.license;
+    }
     match source {
-        "ban" | "ban-csv" => "etalab-2.0",
-        "census" | "nad" => "US-Government-Public-Domain",
+        "ban" => "etalab-2.0",
+        "census" => "US-Government-Public-Domain",
         "postcodes.io" => "OGL-UK-3.0",
-        "kartverket" | "kartverket-csv" | "cartociudad" | "ruian-csv" => "CC-BY-4.0",
-        "swisstopo" | "swisstopo-csv" => "swisstopo-OGD",
-        "korean-schools" => korea::LICENSE,
+        "kartverket" | "cartociudad" => "CC-BY-4.0",
+        "swisstopo" => "swisstopo-OGD",
         _ => "CC0-1.0",
     }
 }
 
 fn source_url(source: &str, reference: &str) -> String {
+    if let Some(registry) = registry::get(source) {
+        return (registry.url)(reference);
+    }
     match source {
         "wikidata" => format!("https://www.wikidata.org/wiki/{reference}"),
         "ban" => format!("https://adresse.data.gouv.fr/base-adresse-nationale/{reference}"),
-        "ban-csv" => format!(
-            "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-france.csv.gz#{reference}"
-        ),
         "pdok" => {
             format!("https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id={reference}")
         }
-        "bag-csv" => format!("{}#{reference}", bag::URL),
-        "korean-schools" => format!("{}#{reference}", korea::URL),
-        "ruian-csv" => format!("https://vdp.cuzk.gov.cz/vdp/ruian/adresnimista/{reference}"),
         "census" => format!("https://geocoding.geo.census.gov/ (TIGER line {reference})"),
         "postcodes.io" => format!("https://api.postcodes.io/postcodes/{reference}"),
         "kartverket" => format!("https://ws.geonorge.no/adresser/v1/sok?sok={reference}"),
-        "kartverket-csv" => format!("{}#{reference}", kartverket::URL),
-        "swisstopo-csv" => format!("{}#{reference}", swisstopo::URL),
         "swisstopo" => format!(
             "https://api3.geo.admin.ch/rest/services/api/SearchServer?type=locations&searchText={reference}"
         ),
         "cartociudad" => {
             format!("https://www.cartociudad.es/geocoder/api/geocoder/findJsonp?q={reference}")
         }
-        "nad" => format!(
-            "https://www.transportation.gov/gis/national-address-database (record {reference})"
-        ),
         _ => String::new(),
     }
 }
@@ -676,19 +662,10 @@ async fn lookups(
     let mut by_source: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for seed in seeds {
         if matches!(seed.kind.as_str(), "address" | "postcode")
-            && !matches!(
-                seed.source.as_deref(),
-                Some(
-                    "wikidata"
-                        | "nad"
-                        | "ban-csv"
-                        | "kartverket-csv"
-                        | "swisstopo-csv"
-                        | "bag-csv"
-                        | "korean-schools"
-                        | "ruian-csv"
-                )
-            )
+            && !seed
+                .source
+                .as_deref()
+                .is_some_and(|s| s == "wikidata" || registry::get(s).is_some())
         {
             let (source, reference) =
                 registry_ref(seed).context("address seeds need a source and ref")?;
@@ -718,29 +695,7 @@ async fn lookups(
     Ok(all)
 }
 
-pub struct RegistryFiles<'a> {
-    pub nad: Option<&'a Path>,
-    pub ban: Option<&'a Path>,
-    pub kartverket: Option<&'a Path>,
-    pub swisstopo: Option<&'a Path>,
-    pub bag: Option<&'a Path>,
-    pub schools: Option<&'a Path>,
-    pub ruian: Option<&'a Path>,
-}
-
-pub async fn build(
-    seeds_path: &Path,
-    out: &Path,
-    RegistryFiles {
-        nad,
-        ban,
-        kartverket,
-        swisstopo,
-        bag,
-        schools,
-        ruian,
-    }: RegistryFiles<'_>,
-) -> Result<()> {
+pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String>) -> Result<()> {
     let seeds: Vec<Seed> = crate::model::load_jsonl::<Value>(seeds_path)?
         .into_iter()
         .enumerate()
@@ -767,228 +722,64 @@ pub async fn build(
         }
     }
     let (wd, mut looked_up) = tokio::try_join!(sources.wikidata(&qids), lookups(&sources, &seeds))?;
-    let nad_refs: BTreeSet<String> = seeds
-        .iter()
-        .filter(|s| s.source.as_deref() == Some("nad"))
-        .filter_map(|s| s.reference.clone())
-        .collect();
-    let nad_release = nad
-        .and_then(|p| p.file_stem()?.to_str())
-        .unwrap_or_default()
-        .to_string();
-    if !nad_refs.is_empty() {
-        let path = nad.context("seeds cite the National Address Database: pass --nad FILE")?;
-        for (uuid, row) in nad::lookup(path, &nad_refs)? {
-            let components = IndexMap::from([
-                ("house_number", row.number.clone()),
-                ("postcode", row.zip.clone()),
-            ]);
-            looked_up.insert(
-                ("nad".to_string(), uuid.clone()),
-                (
-                    Found {
-                        point: row.point.map(round6),
-                        components,
-                        radius_floor_km: if row.parcel() { 0.3 } else { 0. },
-                    },
-                    uuid,
-                ),
-            );
+    let mut local_entries = BTreeMap::new();
+    for registry in registry::ALL {
+        let refs: BTreeSet<String> = seeds
+            .iter()
+            .filter(|s| s.source.as_deref() == Some(registry.source))
+            .filter_map(|s| s.reference.clone())
+            .collect();
+        if refs.is_empty() {
+            continue;
         }
-    }
-    let ban_refs: BTreeSet<String> = seeds
-        .iter()
-        .filter(|s| s.source.as_deref() == Some("ban-csv"))
-        .filter_map(|s| s.reference.clone())
-        .collect();
-    let ban_sha256 = ban.map(crate::run::sha256_file).transpose()?;
-    if !ban_refs.is_empty() {
-        let path = ban.context("seeds cite a BAN export: pass --ban FILE")?;
-        for (id, row) in ban::lookup(path, &ban_refs)? {
-            let radius_floor_km = row.radius_km();
+        let path = files.get(registry.input).with_context(|| {
+            format!(
+                "seeds cite {}: pass --{} FILE",
+                registry.source, registry.input
+            )
+        })?;
+        let entries = (registry.prepare)(Path::new(path), &refs)?;
+        for (n, (id, entry)) in entries.into_iter().enumerate() {
+            let point = match entry.point {
+                registry::Point::Wgs84(point) => point,
+                registry::Point::Lv95([easting, northing]) => {
+                    let response = sources
+                        .get(
+                            registry::REFRAME,
+                            &[
+                                ("easting", &easting.to_string()),
+                                ("northing", &northing.to_string()),
+                                ("altitude", "0"),
+                                ("format", "json"),
+                            ],
+                        )
+                        .await
+                        .with_context(|| format!("REFRAME EGAID {id}"))?;
+                    let point = registry::reframed_point(&response)?;
+                    if (n + 1).is_multiple_of(50) {
+                        eprintln!(
+                            "swisstopo: converted {} of {} LV95 points with REFRAME",
+                            n + 1,
+                            refs.len()
+                        );
+                    }
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    point
+                }
+            };
+            let key = (registry.source.to_string(), id.clone());
             looked_up.insert(
-                ("ban-csv".into(), id.clone()),
+                key.clone(),
                 (
                     Found {
-                        point: row.point.map(round6),
-                        components: IndexMap::from([
-                            ("house_number", row.number),
-                            ("road", row.street),
-                            ("postcode", row.postcode),
-                        ]),
-                        radius_floor_km,
-                    },
-                    id,
-                ),
-            );
-        }
-    }
-    let kartverket_refs: BTreeSet<String> = seeds
-        .iter()
-        .filter(|s| s.source.as_deref() == Some("kartverket-csv"))
-        .filter_map(|s| s.reference.clone())
-        .collect();
-    let kartverket_sha256 = kartverket.map(crate::run::sha256_file).transpose()?;
-    if !kartverket_refs.is_empty() {
-        let path = kartverket.context("seeds cite a Kartverket export: pass --kartverket FILE")?;
-        for (id, row) in kartverket::lookup(path, &kartverket_refs)? {
-            looked_up.insert(
-                ("kartverket-csv".into(), id.clone()),
-                (
-                    Found {
-                        point: row.point.map(round6),
-                        components: IndexMap::from([
-                            ("house_number", row.number),
-                            ("road", row.street),
-                            ("postcode", row.postcode),
-                        ]),
-                        radius_floor_km: 0.,
+                        point: point.map(round6),
+                        components: entry.components.clone(),
+                        radius_floor_km: entry.radius_floor_km,
                     },
                     id,
                 ),
             );
-        }
-    }
-    let school_refs: BTreeSet<String> = seeds
-        .iter()
-        .filter(|s| s.source.as_deref() == Some("korean-schools"))
-        .filter_map(|s| s.reference.clone())
-        .collect();
-    let schools_sha256 = schools.map(crate::run::sha256_file).transpose()?;
-    let school_rows = if school_refs.is_empty() {
-        BTreeMap::new()
-    } else {
-        korea::lookup(
-            schools.context("seeds cite Korean schools: pass --schools FILE")?,
-            &school_refs,
-        )?
-    };
-    for (id, row) in &school_rows {
-        looked_up.insert(
-            ("korean-schools".into(), id.clone()),
-            (
-                Found {
-                    point: row.point().context("school point")?.map(round6),
-                    components: IndexMap::from([
-                        (
-                            "house_number",
-                            row.road_number().context("school road number")?,
-                        ),
-                        ("road", row.road_name().context("school road name")?),
-                    ]),
-                    radius_floor_km: 0.25,
-                },
-                id.clone(),
-            ),
-        );
-    }
-    let ruian_refs: BTreeSet<String> = seeds
-        .iter()
-        .filter(|s| s.source.as_deref() == Some("ruian-csv"))
-        .filter_map(|s| s.reference.clone())
-        .collect();
-    let ruian_sha256 = ruian.map(crate::run::sha256_file).transpose()?;
-    let ruian_rows = if ruian_refs.is_empty() {
-        BTreeMap::new()
-    } else {
-        ruian::lookup(
-            ruian.context("seeds cite a RUIAN export: pass --ruian FILE")?,
-            &ruian_refs,
-        )?
-    };
-    for (id, row) in &ruian_rows {
-        let mut components = IndexMap::from([
-            ("house_number", row.number()),
-            ("postcode", row.postcode.clone()),
-        ]);
-        if !row.street.is_empty() {
-            components.insert("road", row.street.clone());
-        }
-        looked_up.insert(
-            ("ruian-csv".into(), id.clone()),
-            (
-                Found {
-                    point: row.point.map(round6),
-                    components,
-                    radius_floor_km: 0.,
-                },
-                id.clone(),
-            ),
-        );
-    }
-    let bag_refs: BTreeSet<String> = seeds
-        .iter()
-        .filter(|s| s.source.as_deref() == Some("bag-csv"))
-        .filter_map(|s| s.reference.clone())
-        .collect();
-    let bag_sha256 = bag.map(crate::run::sha256_file).transpose()?;
-    if !bag_refs.is_empty() {
-        let path = bag.context("seeds cite a BAG export: pass --bag FILE")?;
-        for (id, row) in bag::lookup(path, &bag_refs)? {
-            looked_up.insert(
-                ("bag-csv".into(), id.clone()),
-                (
-                    Found {
-                        point: row.point.map(round6),
-                        components: IndexMap::from([
-                            ("house_number", row.number),
-                            ("road", row.street),
-                            ("postcode", row.postcode),
-                        ]),
-                        radius_floor_km: 0.,
-                    },
-                    id,
-                ),
-            );
-        }
-    }
-    let swisstopo_refs: BTreeSet<String> = seeds
-        .iter()
-        .filter(|s| s.source.as_deref() == Some("swisstopo-csv"))
-        .filter_map(|s| s.reference.clone())
-        .collect();
-    let swisstopo_sha256 = swisstopo.map(crate::run::sha256_file).transpose()?;
-    if !swisstopo_refs.is_empty() {
-        let path = swisstopo.context("seeds cite a swisstopo export: pass --swisstopo FILE")?;
-        for (n, (id, row)) in swisstopo::lookup(path, &swisstopo_refs)?
-            .into_iter()
-            .enumerate()
-        {
-            let response = sources
-                .get(
-                    swisstopo::REFRAME,
-                    &[
-                        ("easting", &row.lv95[0].to_string()),
-                        ("northing", &row.lv95[1].to_string()),
-                        ("altitude", "0"),
-                        ("format", "json"),
-                    ],
-                )
-                .await
-                .with_context(|| format!("REFRAME EGAID {id}"))?;
-            looked_up.insert(
-                ("swisstopo-csv".into(), id.clone()),
-                (
-                    Found {
-                        point: swisstopo::reframed_point(&response)?.map(round6),
-                        components: IndexMap::from([
-                            ("house_number", row.number),
-                            ("road", row.street),
-                            ("postcode", row.postcode),
-                        ]),
-                        radius_floor_km: 0.,
-                    },
-                    id,
-                ),
-            );
-            if (n + 1).is_multiple_of(50) {
-                eprintln!(
-                    "swisstopo: converted {} of {} LV95 points with REFRAME",
-                    n + 1,
-                    swisstopo_refs.len()
-                );
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            local_entries.insert(key, entry);
         }
     }
     let typed_name = |seed: &Seed, query: &str| -> Option<(String, String)> {
@@ -1025,44 +816,10 @@ pub async fn build(
     let iso = |qid: &str| -> Vec<String> { wd[qid].iso.iter().cloned().collect() };
     let source = |name: &str, reference: &str| {
         let mut source = json!({ "name": name, "ref": reference, "url": source_url(name, reference), "license": license(name), "retrieved": today });
-        if name == "nad" {
-            source["release"] = json!(nad_release);
-        }
-        if name == "ban-csv" {
-            source["release"] = json!(ban.and_then(|p| p.file_name()?.to_str()));
-            source["sha256"] = json!(ban_sha256);
-        }
-        if name == "kartverket-csv" {
-            source["release"] = json!(kartverket.and_then(|p| p.file_name()?.to_str()));
-            source["sha256"] = json!(kartverket_sha256);
-        }
-        if name == "korean-schools" {
-            let row = &school_rows[reference];
-            source["release"] = json!(schools.and_then(|p| p.file_name()?.to_str()));
-            source["sha256"] = json!(schools_sha256);
-            source["rights_url"] = json!(korea::RIGHTS);
-            source["rights_statement"] = json!("이용허락범위 제한 없음");
-            source["reference_date"] = json!(row.reference_date);
-            source["road_address"] = json!(row.road);
-            source["land_lot_address"] = json!(row.lot);
-        }
-        if name == "ruian-csv" {
-            source["dataset"] = json!(ruian::URL);
-            let row = &ruian_rows[reference];
-            source["release"] = json!(ruian.and_then(|p| p.file_name()?.to_str()));
-            source["sha256"] = json!(ruian_sha256);
-            source["coordinate_transform"] = json!({"from":"EPSG:5514", "to":"EPSG:4326", "input":"(-Y,-X)", "tool":"DuckDB spatial / PROJ", "always_xy":true});
-            source["numbering"] = json!({"type":row.number_type, "descriptive":row.descriptive, "orientation":row.orientation, "letter":row.letter});
-        }
-        if name == "bag-csv" {
-            source["release"] = json!(bag.and_then(|p| p.file_name()?.to_str()));
-            source["sha256"] = json!(bag_sha256);
-            source["coordinate_transform"] = json!({"from":"EPSG:28992", "to":"EPSG:4326", "tool":"DuckDB spatial / PROJ", "always_xy":true});
-        }
-        if name == "swisstopo-csv" {
-            source["release"] = json!(swisstopo.and_then(|p| p.file_name()?.to_str()));
-            source["sha256"] = json!(swisstopo_sha256);
-            source["coordinate_transform"] = json!({"url":swisstopo::REFRAME, "altitude":0});
+        if let Some(entry) = local_entries.get(&(name.to_string(), reference.to_string())) {
+            for (key, value) in &entry.provenance {
+                source[key] = value.clone();
+            }
         }
         source
     };
@@ -1209,17 +966,17 @@ pub async fn build(
                             )
                         }
                         Some((found, id)) => {
-                            let country = match name {
-                                "ban" | "ban-csv" => "fr",
-                                "pdok" | "bag-csv" => "nl",
-                                "korean-schools" => "kr",
-                                "ruian-csv" => "cz",
-                                "census" | "nad" => "us",
-                                "kartverket" | "kartverket-csv" => "no",
-                                "swisstopo" | "swisstopo-csv" => "ch",
-                                "cartociudad" => "es",
-                                _ => "gb",
-                            };
+                            let country = registry::get(name).map(|r| r.country).unwrap_or_else(
+                                || match name {
+                                    "ban" => "fr",
+                                    "pdok" => "nl",
+                                    "census" => "us",
+                                    "kartverket" => "no",
+                                    "swisstopo" => "ch",
+                                    "cartociudad" => "es",
+                                    _ => "gb",
+                                },
+                            );
                             (
                                 found.point,
                                 json!(found.components),
@@ -1260,26 +1017,14 @@ pub async fn build(
                         "components": components,
                         "good_match": good_match,
                     });
-                    let expect = if name == "korean-schools" {
-                        school_rows[reference].with_number_aliases(expect)?
-                    } else if name == "ruian-csv" {
-                        ruian_rows[reference].with_number_aliases(expect)
-                    } else {
-                        expect
+                    let expect = match local_entries.get(&(name.to_string(), reference.to_string()))
+                    {
+                        Some(entry) => registry::with_number_aliases(expect, &entry.number_aliases),
+                        None => expect,
                     };
                     (
                         expect,
-                        format!(
-                            "{}:{id}",
-                            match name {
-                                "ban-csv" => "ban",
-                                "bag-csv" => "bag",
-                                "ruian-csv" => "ruian",
-                                "kartverket-csv" => "kartverket",
-                                "swisstopo-csv" => "swisstopo",
-                                _ => name,
-                            }
-                        ),
+                        format!("{}:{id}", registry::get(name).map_or(name, |r| r.location)),
                         seed.label.clone().unwrap_or_else(|| reference.to_string()),
                         source(name, &id),
                     )

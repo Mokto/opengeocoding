@@ -1,0 +1,11 @@
+The school-sampled corpus tests/registry/kr.jsonl reuses the official national school-location
+dataset (전국초중등학교위치표준데이터), provided by 한국교육시설안전원 through data.go.kr,
+reference date 2026-10-01, captured 2026-10-17.
+Source: https://www.data.go.kr/data/15021148/standard.do.
+The portal's own DCAT metadata states 이용허락범위 제한 없음 (no restrictions on reuse):
+https://www.data.go.kr/biz/dcat/metadata/15021148.do.
+Public-data policy: https://www.data.go.kr/ugs/selectPortalPolicyView.do.
+The provenance label Korea-Public-Data-Unrestricted records that statement, not a CC0 waiver.
+OpenGeocoding sampled school IDs and constructed paired road-name and land-lot queries from
+the source fields, rounding the published coordinates without making geocoding requests.
+This edited corpus is not an unmodified government publication. Per-case snapshot checksums and dates are recorded in it.

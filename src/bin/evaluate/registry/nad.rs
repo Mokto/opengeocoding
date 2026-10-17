@@ -5,6 +5,7 @@
 //! never on file order. `lookup` re-reads the same release for `build-gold`, which copies the
 //! expectation from the registry row.
 
+use super::{Entry, Point, Registry};
 use crate::score::haversine;
 use anyhow::{Context, Result, bail, ensure};
 use opengeocoding::eval::sha256_hex;
@@ -813,6 +814,48 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
         "{dropped} candidates skipped: the registry places them twice, further apart than the tolerance"
     );
     Ok(lines)
+}
+
+pub const REGISTRY: Registry = Registry {
+    source: "nad",
+    command: "sample-us",
+    country: "us",
+    input: "nad",
+    license: "US-Government-Public-Domain",
+    location: "nad",
+    url: |id| format!("https://www.transportation.gov/gis/national-address-database (record {id})"),
+    sample,
+    prepare,
+};
+
+fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entry>> {
+    let metadata = serde_json::Map::from_iter([(
+        "release".into(),
+        json!(
+            path.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or_default()
+        ),
+    )]);
+    lookup(path, refs)?
+        .into_iter()
+        .map(|(id, row)| {
+            let radius_floor_km = if row.parcel() { 0.3 } else { 0. };
+            Ok((
+                id,
+                Entry {
+                    point: Point::Wgs84(row.point),
+                    components: indexmap::IndexMap::from([
+                        ("house_number", row.number),
+                        ("postcode", row.zip),
+                    ]),
+                    radius_floor_km,
+                    provenance: metadata.clone(),
+                    number_aliases: None,
+                },
+            ))
+        })
+        .collect()
 }
 
 #[cfg(test)]
