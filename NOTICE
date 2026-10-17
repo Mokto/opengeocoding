@@ -65,6 +65,15 @@ OpenGeocoding sampled school IDs and constructed paired road-name and land-lot q
 the source fields, rounding the published coordinates without making geocoding requests.
 This edited corpus is not an unmodified government publication. Per-case snapshot checksums and dates are recorded in it.
 
+The registry-first sample tests/registry/cz.jsonl contains addresses and coordinates from
+ČÚZK's RÚIAN address and hierarchy exports of 2026-09-30. © Český úřad zeměměřický a
+katastrální, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+Source: https://atom.cuzk.gov.cz/RUIAN-CSV-ADR-ST/RUIAN-CSV-ADR-ST.xml and
+https://atom.cuzk.gov.cz/RUIAN-CSV-HIE-ST/RUIAN-CSV-HIE-ST.xml.
+Coordinates were transformed from S-JTSK to EPSG:4326 with DuckDB spatial / PROJ, and
+queries were constructed from registry fields. Per-case prepared-CSV checksums and
+retrieval dates are recorded in the corpus; README.md records the upstream checksums.
+
 The registry-first sample tests/registry/nl.jsonl contains addresses and coordinates from
 Kadaster's BAG GeoPackage of 2026-10-01, distributed by PDOK under CC0-1.0
 (https://service.pdok.nl/kadaster/bag/atom/bag.xml). Coordinates were transformed from

@@ -14,6 +14,7 @@
 //! evaluate sample-ch --swisstopo FILE --seed TEXT --out FILE   draw Swiss cases from the official address CSV
 //! evaluate sample-nl --bag FILE --seed TEXT --out FILE   draw Dutch cases from the BAG CSV
 //! evaluate sample-kr --schools FILE --seed TEXT --out FILE   draw Korean school address pairs
+//! evaluate sample-cz --ruian FILE --seed TEXT --out FILE   draw Czech cases from the prepared RUIAN CSV
 //! evaluate gold-corpus --out FILE            the gold suite as one file, for images
 //! evaluate check                             validate the corpora and snapshot, no network
 //! evaluate coverage --index DIR [--population countryInfo.txt]   house numbers per country
@@ -32,6 +33,7 @@ mod korea;
 mod model;
 mod nad;
 mod report;
+mod ruian;
 mod run;
 mod score;
 mod swisstopo;
@@ -40,7 +42,7 @@ use anyhow::{Context, Result, bail};
 use model::{Case, Record, load_corpus, load_jsonl};
 use std::{collections::HashMap, path::PathBuf};
 
-const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|sample-fr|sample-no|sample-ch|sample-nl|sample-kr|gold-corpus|check|coverage> [options]
+const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|sample-fr|sample-no|sample-ch|sample-nl|sample-kr|sample-cz|gold-corpus|check|coverage> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
@@ -48,13 +50,14 @@ run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare 
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
-build-gold  [--seeds FILE] [--out FILE] [--nad FILE] [--ban FILE] [--kartverket FILE] [--swisstopo FILE] [--bag FILE] [--schools FILE]
+build-gold  [--seeds FILE] [--out FILE] [--nad FILE] [--ban FILE] [--kartverket FILE] [--swisstopo FILE] [--bag FILE] [--schools FILE] [--ruian FILE]
 sample-us   --nad FILE --seed TEXT --out FILE
 sample-fr   --ban FILE --seed TEXT --out FILE
 sample-no   --kartverket FILE --seed TEXT --out FILE
 sample-ch   --swisstopo FILE --seed TEXT --out FILE
 sample-nl   --bag FILE --seed TEXT --out FILE
 sample-kr   --schools FILE --seed TEXT --out FILE
+sample-cz   --ruian FILE --seed TEXT --out FILE
 gold-corpus --out FILE      write the gold suite as one file (the curated corpus, then tests/registry/*.jsonl)
 check       validate tests/gold.jsonl, tests/registry/*.jsonl, tests/addresses.tsv and its snapshot
 coverage    --index DIR [--population countryInfo.txt] [--out FILE]   houses and streets per country, largest gap first";
@@ -151,6 +154,7 @@ async fn command() -> Result<i32> {
         "swisstopo",
         "bag",
         "schools",
+        "ruian",
         "seed",
         "population",
     ];
@@ -252,6 +256,7 @@ async fn command() -> Result<i32> {
                     swisstopo: args.path("swisstopo").as_deref(),
                     bag: args.path("bag").as_deref(),
                     schools: args.path("schools").as_deref(),
+                    ruian: args.path("ruian").as_deref(),
                 },
             )
             .await?;
@@ -262,7 +267,8 @@ async fn command() -> Result<i32> {
             model::write_suite(&args.path("out").context("--out is required")?)?;
             Ok(0)
         }
-        "sample-us" | "sample-fr" | "sample-no" | "sample-ch" | "sample-nl" | "sample-kr" => {
+        "sample-us" | "sample-fr" | "sample-no" | "sample-ch" | "sample-nl" | "sample-kr"
+        | "sample-cz" => {
             args.only_flags(&[])?;
             let seed = args.value("seed").context("--seed is required")?;
             let lines = match command.as_str() {
@@ -270,6 +276,9 @@ async fn command() -> Result<i32> {
                     &args.path("schools").context("--schools is required")?,
                     seed,
                 )?,
+                "sample-cz" => {
+                    ruian::sample(&args.path("ruian").context("--ruian is required")?, seed)?
+                }
                 "sample-nl" => bag::sample(&args.path("bag").context("--bag is required")?, seed)?,
                 "sample-fr" => ban::sample(&args.path("ban").context("--ban is required")?, seed)?,
                 "sample-no" => kartverket::sample(
