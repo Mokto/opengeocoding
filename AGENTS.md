@@ -6,6 +6,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 
 - Prefer the standard library and existing dependencies. Keep changes small; avoid speculative abstractions and unrelated cleanup.
 - Comments explain hidden constraints, not what the code does.
+- Add registry sources in `src/bin/evaluate/registry/`: declare the adapter module and catalogue entry in `mod.rs`, then keep source-specific sampling, preparation and metadata in its module. CLI flags/help and gold generation use that catalogue; do not add country branches to `main.rs` or `gold.rs`. Put country instructions in `docs/registry/<cc>.md` and attribution in `tests/registry/<cc>.NOTICE`, not shared README/NOTICE inventories.
 - Never include credentials, private endpoints, internal tickets, proprietary overrides or private checkout dependencies in source, documentation, commits or pull requests.
 - Do not claim production accuracy, throughput or interoperability from compilation or unit tests alone. Keep known limitations visible.
 
@@ -33,7 +34,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - `tests/suggest.rs`, `tests/suggest.gold.tsv`: `SuggestAddress` golden cases (public facts, never this service's answers) and a typed-prefix latency run; both need `INDEX_DIR` and are ignored by default.
 - `tests/gold.seeds.jsonl`, `tests/gold.jsonl`: curated gold case list and the corpus generated from it.
 - `tests/gold.landmarks.seeds.jsonl`, `tests/gold.landmarks.jsonl`: landmarks (Wikidata items) typed into `SuggestAddress` with `include_landmarks`; part of the gold suite, regenerated with `build-gold --seeds ... --out ...`, never hand-edited.
-- `tests/registry/`, `src/bin/evaluate/nad.rs`: registry-first corpora (`*.seeds.jsonl` drawn from a registry release, `*.labels.jsonl` triage labels, the generated `*.jsonl`) and the US National Address Database sampler. They are part of the gold suite; regenerate with `evaluate sample-us` and `build-gold --nad`, never hand-edit.
+- `tests/registry/`, `src/bin/evaluate/registry/`: registry-first corpora (`*.seeds.jsonl`, `*.labels.jsonl`, generated `*.jsonl`, per-country `*.NOTICE`) and their source adapters. CLI registration, input flags, provenance and gold preparation come from the adapter catalogue. Regenerate with `evaluate sample-CC` and `build-gold` using the source's input flag, never hand-edit. `docs/registry/` holds per-country preparation and limitations; `docs/evaluation.md` covers the evaluator.
 - `benches/`: CodSpeed benchmark suites (divan) for the index analyzer, candidate matching and libpostal parsing, each run on a pull request only when its files change; `.github/workflows/codspeed.yml` runs them. Search, suggest and reverse speed is `evaluate`'s speed section (`gold-speed`), not a bench.
 - `tests/addresses.tsv`, `tests/snapshots/addresses.tsv`: unscored real-address corpus and its accepted snapshot for change detection.
 - `Dockerfile`, `.github/workflows/`: runtime packaging, CI and GHCR publishing.

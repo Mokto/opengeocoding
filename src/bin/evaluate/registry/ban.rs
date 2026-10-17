@@ -1,3 +1,4 @@
+use super::{Entry, Point, Registry};
 use anyhow::{Context, Result, ensure};
 use flate2::read::MultiGzDecoder;
 use opengeocoding::eval::sha256_hex;
@@ -60,7 +61,7 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
     let mut reader = BufReader::new(MultiGzDecoder::new(File::open(path)?));
     let mut line = String::new();
     ensure!(record(&mut reader, &mut line)?, "empty BAN CSV");
-    let columns: BTreeMap<String, usize> = crate::nad::split(line.trim_end(), ';')
+    let columns: BTreeMap<String, usize> = crate::registry::nad::split(line.trim_end(), ';')
         .iter()
         .enumerate()
         .map(|(i, s)| (s.to_string(), i))
@@ -86,7 +87,7 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
         if n.is_multiple_of(5_000_000) {
             eprintln!("BAN: {n} rows read");
         }
-        let fields = crate::nad::split(line.trim_end_matches(['\r', '\n']), ';');
+        let fields = crate::registry::nad::split(line.trim_end_matches(['\r', '\n']), ';');
         ensure!(
             fields.len() == columns.len(),
             "BAN CSV row {n}: column count"
@@ -306,6 +307,46 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
     Ok(lines)
 }
 
+pub const REGISTRY: Registry = Registry {
+    source: "ban-csv",
+    command: "sample-fr",
+    country: "fr",
+    input: "ban",
+    license: "etalab-2.0",
+    location: "ban",
+    url: |id| {
+        format!(
+            "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-france.csv.gz#{id}"
+        )
+    },
+    sample,
+    prepare,
+};
+
+fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entry>> {
+    let metadata = super::provenance(path)?;
+    lookup(path, refs)?
+        .into_iter()
+        .map(|(id, row)| {
+            let radius_floor_km = row.radius_km();
+            Ok((
+                id,
+                Entry {
+                    point: Point::Wgs84(row.point),
+                    components: indexmap::IndexMap::from([
+                        ("house_number", row.number),
+                        ("road", row.street),
+                        ("postcode", row.postcode),
+                    ]),
+                    radius_floor_km,
+                    provenance: metadata.clone(),
+                    number_aliases: None,
+                },
+            ))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -350,7 +391,10 @@ mod tests {
         assert_eq!(typo("Églantines").unwrap(), "Élgantines");
         let mut line = String::new();
         assert!(record(&mut &b"a;\"b\nc\";d\n"[..], &mut line).unwrap());
-        assert_eq!(crate::nad::split(line.trim_end(), ';'), ["a", "b\nc", "d"]);
+        assert_eq!(
+            crate::registry::nad::split(line.trim_end(), ';'),
+            ["a", "b\nc", "d"]
+        );
         assert!(record(&mut &b"a;\"unterminated"[..], &mut line).is_err());
         assert!(
             variants(&found["a"], &found["b"])

@@ -69,6 +69,7 @@ RUN ldconfig && rustup component add rustfmt clippy \
     && cargo test --locked --no-run
 
 FROM check-deps AS checks
+COPY docs docs
 COPY Dockerfile ./
 COPY Cargo.toml Cargo.lock ./
 COPY src src
@@ -91,6 +92,7 @@ COPY --from=build /usr/local/bin/libpostal_data /usr/local/bin/libpostal_data
 COPY --from=compiled /source/target/release/opengeocoding /source/target/release/build_index /source/target/release/leader /usr/local/bin/
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.txt /usr/local/share/licenses/opengeocoding/
 COPY LICENSES /usr/local/share/licenses/opengeocoding/dependencies/
+COPY tests/registry/*.NOTICE /usr/local/share/licenses/opengeocoding/registry/
 RUN ldconfig
 WORKDIR /app
 USER 1000:1000

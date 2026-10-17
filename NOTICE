@@ -48,58 +48,9 @@ coordinates, administrative codes and addresses derived from:
 Per-case sources and retrieval dates are recorded in the corpus; `evaluate build-gold` regenerates it
 from tests/gold.seeds.jsonl.
 
-The registry-first sample tests/registry/us.jsonl contains addresses and coordinates from the US
-Department of Transportation's National Address Database (release r24), a work of the United States
-government in the public domain. The data is provided as is, without warranty of accuracy, and is
-not for use as a mailing list.
-
-The school-sampled corpus tests/registry/kr.jsonl reuses the official national school-location
-dataset (전국초중등학교위치표준데이터), provided by 한국교육시설안전원 through data.go.kr,
-reference date 2026-10-01, captured 2026-10-17.
-Source: https://www.data.go.kr/data/15021148/standard.do.
-The portal's own DCAT metadata states 이용허락범위 제한 없음 (no restrictions on reuse):
-https://www.data.go.kr/biz/dcat/metadata/15021148.do.
-Public-data policy: https://www.data.go.kr/ugs/selectPortalPolicyView.do.
-The provenance label Korea-Public-Data-Unrestricted records that statement, not a CC0 waiver.
-OpenGeocoding sampled school IDs and constructed paired road-name and land-lot queries from
-the source fields, rounding the published coordinates without making geocoding requests.
-This edited corpus is not an unmodified government publication. Per-case snapshot checksums and dates are recorded in it.
-
-The registry-first sample tests/registry/cz.jsonl contains addresses and coordinates from
-ČÚZK's RÚIAN address and hierarchy exports of 2026-09-30. © Český úřad zeměměřický a
-katastrální, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
-Source: https://atom.cuzk.gov.cz/RUIAN-CSV-ADR-ST/RUIAN-CSV-ADR-ST.xml and
-https://atom.cuzk.gov.cz/RUIAN-CSV-HIE-ST/RUIAN-CSV-HIE-ST.xml.
-Coordinates were transformed from S-JTSK to EPSG:4326 with DuckDB spatial / PROJ, and
-queries were constructed from registry fields. Per-case prepared-CSV checksums and
-retrieval dates are recorded in the corpus; README.md records the upstream checksums.
-
-The registry-first sample tests/registry/nl.jsonl contains addresses and coordinates from
-Kadaster's BAG GeoPackage of 2026-10-01, distributed by PDOK under CC0-1.0
-(https://service.pdok.nl/kadaster/bag/atom/bag.xml). Coordinates were transformed from
-EPSG:28992 to EPSG:4326 with DuckDB spatial / PROJ. Per-case prepared-CSV checksums and
-retrieval dates are recorded in the corpus; README.md records the upstream file checksum.
-
-The registry-first sample tests/registry/fr.jsonl contains addresses and coordinates from the
-Base Adresse Nationale export of 2026-10-16, under Licence Ouverte / Open Licence 2.0
-(https://www.etalab.gouv.fr/licence-ouverte-open-licence/). Source: Base Adresse Nationale and
-its contributing municipalities, https://adresse.data.gouv.fr/. Per-case export checksums and
-retrieval dates are recorded in the corpus.
-
-The registry-first sample tests/registry/no.jsonl contains addresses and coordinates from
-Kartverket's Matrikkelen - Adresse national CSV export of 2026-10-10. © Kartverket,
-licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/).
-Dataset: https://kartkatalog.geonorge.no/metadata/uuid/f7df7a18-b30f-4745-bd64-d0863812350c.
-Queries include constructed variants; per-case export checksums and retrieval dates are recorded
-in the corpus. The data is provided as is, without a guarantee of accuracy.
-
-The registry-first sample tests/registry/ch.jsonl contains addresses and coordinates derived from
-the official directory of building addresses, ©swisstopo (Federal Office of Topography swisstopo),
-STAC item dated 2026-10-16. LV95 points were converted to WGS84 with swisstopo's REFRAME service.
-Use, redistribution, processing and commercial use are permitted with source attribution under
-https://www.swisstopo.admin.ch/ogd-conditions. Queries include constructed variants; per-case
-export checksums, retrieval dates and coordinate-conversion provenance are recorded in the corpus.
-The data is provided as is, without a guarantee of accuracy.
+Registry-first and school-sampled evaluation corpora have per-source attribution and
+reuse terms in tests/registry/*.NOTICE. These notices accompany the corpora and are
+installed in container images under /usr/local/share/licenses/opengeocoding/registry/.
 
 tests/snapshots/addresses.tsv contains geocoding results derived from OpenStreetMap
 data via Nominatim. Data © OpenStreetMap contributors, available under the Open

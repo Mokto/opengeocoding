@@ -1,3 +1,4 @@
+use super::{Entry, Point, Registry};
 use anyhow::{Context, Result, ensure};
 use opengeocoding::eval::sha256_hex;
 use regex::Regex;
@@ -78,19 +79,12 @@ impl Address {
         }
     }
 
-    pub fn with_number_aliases(&self, expect: Value) -> Result<Value> {
+    fn number_aliases(&self) -> Result<Option<BTreeSet<String>>> {
         let numbers = BTreeSet::from([
             self.road_number().context("school road number")?,
             self.lot_number().context("school land-lot number")?,
         ]);
-        if numbers.len() == 1 {
-            return Ok(expect);
-        }
-        Ok(json!({"any_of": numbers.into_iter().map(|number| {
-            let mut alternative = expect.clone();
-            alternative["components"]["house_number"] = json!(number);
-            alternative
-        }).collect::<Vec<_>>()}))
+        Ok((numbers.len() > 1).then_some(numbers))
     }
 }
 
@@ -193,6 +187,50 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
     Ok(lines)
 }
 
+pub const REGISTRY: Registry = Registry {
+    source: "korean-schools",
+    command: "sample-kr",
+    country: "kr",
+    input: "schools",
+    license: LICENSE,
+    location: "korean-schools",
+    url: |id| format!("{URL}#{id}"),
+    sample,
+    prepare,
+};
+
+fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entry>> {
+    let metadata = super::provenance(path)?;
+    lookup(path, refs)?
+        .into_iter()
+        .map(|(id, row)| {
+            let number_aliases = row.number_aliases()?;
+            let mut metadata = metadata.clone();
+            metadata.insert("rights_url".into(), json!(RIGHTS));
+            metadata.insert("rights_statement".into(), json!("이용허락범위 제한 없음"));
+            metadata.insert("reference_date".into(), json!(row.reference_date));
+            metadata.insert("road_address".into(), json!(row.road));
+            metadata.insert("land_lot_address".into(), json!(row.lot));
+            Ok((
+                id,
+                Entry {
+                    point: Point::Wgs84(row.point().context("school point")?),
+                    components: indexmap::IndexMap::from([
+                        (
+                            "house_number",
+                            row.road_number().context("school road number")?,
+                        ),
+                        ("road", row.road_name().context("school road name")?),
+                    ]),
+                    radius_floor_km: 0.25,
+                    provenance: metadata.clone(),
+                    number_aliases,
+                },
+            ))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,7 +265,10 @@ mod tests {
         assert_eq!(plain.category(), "plain");
         plain.road = row.road.clone();
         assert_eq!(plain.category(), "road_hyphen");
-        let expect = row.with_number_aliases(json!({"country":["kr"],"level":"house","max_level":"house","point":row.point(),"radius_km":0.25,"good_match":true,"components":{"house_number":"12-3"}})).unwrap();
+        let expect = crate::registry::with_number_aliases(
+            json!({"country":["kr"],"level":"house","max_level":"house","point":row.point(),"radius_km":0.25,"good_match":true,"components":{"house_number":"12-3"}}),
+            &row.number_aliases().unwrap(),
+        );
         let expect: crate::score::Expect = serde_json::from_value(expect).unwrap();
         for number in ["12-3", "산45-6", "45-6", "999"] {
             let response = json!({"displayName":"x","geoCoordinates":{"lat":37.57,"lon":126.98},"addressDetails":{"countryCode":"kr","road":"새길","houseNumber":number},"goodMatch":true});

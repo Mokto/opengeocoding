@@ -1,3 +1,4 @@
+use super::{Entry, Point, Registry};
 use anyhow::{Context, Result, ensure};
 use opengeocoding::eval::sha256_hex;
 use serde_json::{Value, json};
@@ -65,20 +66,14 @@ impl Address {
         }
     }
 
-    pub fn with_number_aliases(&self, expect: Value) -> Value {
-        if self.orientation.is_empty() {
-            return expect;
-        }
-        let numbers = BTreeSet::from([
-            self.number(),
-            self.descriptive.clone(),
-            format!("{}{}", self.orientation, self.letter),
-        ]);
-        json!({"any_of": numbers.into_iter().map(|number| {
-            let mut alternative = expect.clone();
-            alternative["components"]["house_number"] = json!(number);
-            alternative
-        }).collect::<Vec<_>>()})
+    fn number_aliases(&self) -> Option<BTreeSet<String>> {
+        (!self.orientation.is_empty()).then(|| {
+            BTreeSet::from([
+                self.number(),
+                self.descriptive.clone(),
+                format!("{}{}", self.orientation, self.letter),
+            ])
+        })
     }
 }
 
@@ -86,10 +81,10 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
     let mut reader = BufReader::new(File::open(path)?);
     let mut line = String::new();
     ensure!(
-        crate::ban::record(&mut reader, &mut line)?,
+        crate::registry::ban::record(&mut reader, &mut line)?,
         "empty RUIAN CSV"
     );
-    let columns: BTreeMap<_, _> = crate::nad::split(line.trim_end(), ',')
+    let columns: BTreeMap<_, _> = crate::registry::nad::split(line.trim_end(), ',')
         .iter()
         .enumerate()
         .map(|(i, s)| (s.to_string(), i))
@@ -113,12 +108,12 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
         ensure!(columns.contains_key(name), "RUIAN CSV missing {name}");
     }
     let mut n = 0usize;
-    while crate::ban::record(&mut reader, &mut line)? {
+    while crate::registry::ban::record(&mut reader, &mut line)? {
         n += 1;
         if n.is_multiple_of(1_000_000) {
             eprintln!("RUIAN: {n} rows read");
         }
-        let fields = crate::nad::split(line.trim_end_matches(['\r', '\n']), ',');
+        let fields = crate::registry::nad::split(line.trim_end_matches(['\r', '\n']), ',');
         ensure!(
             fields.len() == columns.len(),
             "RUIAN CSV row {n}: column count"
@@ -243,6 +238,32 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
     Ok(lines)
 }
 
+pub const REGISTRY: Registry = Registry {
+    source: "ruian-csv",
+    command: "sample-cz",
+    country: "cz",
+    input: "ruian",
+    license: "CC-BY-4.0",
+    location: "ruian",
+    url: |id| format!("https://vdp.cuzk.gov.cz/vdp/ruian/adresnimista/{id}"),
+    sample,
+    prepare,
+};
+
+fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entry>> {
+    let metadata = super::provenance(path)?;
+    lookup(path, refs)?.into_iter().map(|(id, row)| {
+        let number_aliases = row.number_aliases(); let mut metadata = metadata.clone(); metadata.insert("dataset".into(), json!(URL)); metadata.insert("coordinate_transform".into(), json!({"from":"EPSG:5514", "to":"EPSG:4326", "input":"(-Y,-X)", "tool":"DuckDB spatial / PROJ", "always_xy":true})); metadata.insert("numbering".into(), json!({"type":row.number_type, "descriptive":row.descriptive, "orientation":row.orientation, "letter":row.letter})); let mut components = indexmap::IndexMap::from([("house_number", row.number()), ("postcode", row.postcode)]); if !row.street.is_empty() { components.insert("road", row.street); }
+        Ok((id, Entry {
+            point: Point::Wgs84(row.point),
+            components,
+            radius_floor_km: 0.,
+            provenance: metadata.clone(),
+            number_aliases,
+        }))
+    }).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,7 +294,10 @@ mod tests {
         assert_eq!(a.number(), "123/45a");
         assert_eq!(a.point, [50.08, 14.43]);
         assert_eq!(found["3"].street, "Druhá, ulice");
-        let expect = a.with_number_aliases(json!({"country":["cz"], "level":"house", "max_level":"house", "point":a.point, "radius_km":0.15, "good_match":true, "components":{"house_number":a.number(), "postcode":a.postcode}}));
+        let expect = crate::registry::with_number_aliases(
+            json!({"country":["cz"], "level":"house", "max_level":"house", "point":a.point, "radius_km":0.15, "good_match":true, "components":{"house_number":a.number(), "postcode":a.postcode}}),
+            &a.number_aliases(),
+        );
         let expect: crate::score::Expect = serde_json::from_value(expect).unwrap();
         for number in ["123/45a", "123", "45a", "45", "999"] {
             let response = json!({"goodMatch":true,"displayName":"Testovací", "geoCoordinates":{"lat":50.08,"lon":14.43}, "addressDetails":{"countryCode":"cz","road":"Testovací","houseNumber":number,"postcode":"11000"}});

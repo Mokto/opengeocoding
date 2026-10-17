@@ -1,0 +1,6 @@
+The registry-first sample tests/registry/no.jsonl contains addresses and coordinates from
+Kartverket's Matrikkelen - Adresse national CSV export of 2026-10-10. © Kartverket,
+licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/).
+Dataset: https://kartkatalog.geonorge.no/metadata/uuid/f7df7a18-b30f-4745-bd64-d0863812350c.
+Queries include constructed variants; per-case export checksums and retrieval dates are recorded
+in the corpus. The data is provided as is, without a guarantee of accuracy.
