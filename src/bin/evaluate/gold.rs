@@ -2,11 +2,12 @@
 //! licensed authoritative sources — Wikidata (CC0), Base Adresse Nationale (Licence Ouverte 2.0),
 //! PDOK/BAG (CC0), the US Census geocoder (public domain), postcodes.io/ONSPD (OGL v3),
 //! Kartverket (CC BY 4.0), swisstopo (open use with attribution), CartoCiudad (CC BY 4.0) and the
-//! US National Address Database (public domain, read from a local release file) —
+//! US National Address Database (public domain) and data.go.kr's school-location register
+//! (unrestricted reuse), read from local snapshots —
 //! never from Nominatim or this service. Requires network access; review the diff as a data update.
 
 use crate::{
-    bag, ban, kartverket, nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT, swisstopo,
+    bag, ban, kartverket, korea, nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT, swisstopo,
 };
 use anyhow::{Context, Result, bail, ensure};
 use indexmap::IndexMap;
@@ -106,6 +107,7 @@ fn license(source: &str) -> &'static str {
         "postcodes.io" => "OGL-UK-3.0",
         "kartverket" | "kartverket-csv" | "cartociudad" => "CC-BY-4.0",
         "swisstopo" | "swisstopo-csv" => "swisstopo-OGD",
+        "korean-schools" => korea::LICENSE,
         _ => "CC0-1.0",
     }
 }
@@ -121,6 +123,7 @@ fn source_url(source: &str, reference: &str) -> String {
             format!("https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id={reference}")
         }
         "bag-csv" => format!("{}#{reference}", bag::URL),
+        "korean-schools" => format!("{}#{reference}", korea::URL),
         "census" => format!("https://geocoding.geo.census.gov/ (TIGER line {reference})"),
         "postcodes.io" => format!("https://api.postcodes.io/postcodes/{reference}"),
         "kartverket" => format!("https://ws.geonorge.no/adresser/v1/sok?sok={reference}"),
@@ -674,7 +677,13 @@ async fn lookups(
             && !matches!(
                 seed.source.as_deref(),
                 Some(
-                    "wikidata" | "nad" | "ban-csv" | "kartverket-csv" | "swisstopo-csv" | "bag-csv"
+                    "wikidata"
+                        | "nad"
+                        | "ban-csv"
+                        | "kartverket-csv"
+                        | "swisstopo-csv"
+                        | "bag-csv"
+                        | "korean-schools"
                 )
             )
         {
@@ -706,14 +715,26 @@ async fn lookups(
     Ok(all)
 }
 
+pub struct RegistryFiles<'a> {
+    pub nad: Option<&'a Path>,
+    pub ban: Option<&'a Path>,
+    pub kartverket: Option<&'a Path>,
+    pub swisstopo: Option<&'a Path>,
+    pub bag: Option<&'a Path>,
+    pub schools: Option<&'a Path>,
+}
+
 pub async fn build(
     seeds_path: &Path,
     out: &Path,
-    nad: Option<&Path>,
-    ban: Option<&Path>,
-    kartverket: Option<&Path>,
-    swisstopo: Option<&Path>,
-    bag: Option<&Path>,
+    RegistryFiles {
+        nad,
+        ban,
+        kartverket,
+        swisstopo,
+        bag,
+        schools,
+    }: RegistryFiles<'_>,
 ) -> Result<()> {
     let seeds: Vec<Seed> = crate::model::load_jsonl::<Value>(seeds_path)?
         .into_iter()
@@ -822,6 +843,39 @@ pub async fn build(
                 ),
             );
         }
+    }
+    let school_refs: BTreeSet<String> = seeds
+        .iter()
+        .filter(|s| s.source.as_deref() == Some("korean-schools"))
+        .filter_map(|s| s.reference.clone())
+        .collect();
+    let schools_sha256 = schools.map(crate::run::sha256_file).transpose()?;
+    let school_rows = if school_refs.is_empty() {
+        BTreeMap::new()
+    } else {
+        korea::lookup(
+            schools.context("seeds cite Korean schools: pass --schools FILE")?,
+            &school_refs,
+        )?
+    };
+    for (id, row) in &school_rows {
+        looked_up.insert(
+            ("korean-schools".into(), id.clone()),
+            (
+                Found {
+                    point: row.point().context("school point")?.map(round6),
+                    components: IndexMap::from([
+                        (
+                            "house_number",
+                            row.road_number().context("school road number")?,
+                        ),
+                        ("road", row.road_name().context("school road name")?),
+                    ]),
+                    radius_floor_km: 0.25,
+                },
+                id.clone(),
+            ),
+        );
     }
     let bag_refs: BTreeSet<String> = seeds
         .iter()
@@ -942,6 +996,16 @@ pub async fn build(
         if name == "kartverket-csv" {
             source["release"] = json!(kartverket.and_then(|p| p.file_name()?.to_str()));
             source["sha256"] = json!(kartverket_sha256);
+        }
+        if name == "korean-schools" {
+            let row = &school_rows[reference];
+            source["release"] = json!(schools.and_then(|p| p.file_name()?.to_str()));
+            source["sha256"] = json!(schools_sha256);
+            source["rights_url"] = json!(korea::RIGHTS);
+            source["rights_statement"] = json!("이용허락범위 제한 없음");
+            source["reference_date"] = json!(row.reference_date);
+            source["road_address"] = json!(row.road);
+            source["land_lot_address"] = json!(row.lot);
         }
         if name == "bag-csv" {
             source["release"] = json!(bag.and_then(|p| p.file_name()?.to_str()));
@@ -1101,6 +1165,7 @@ pub async fn build(
                             let country = match name {
                                 "ban" | "ban-csv" => "fr",
                                 "pdok" | "bag-csv" => "nl",
+                                "korean-schools" => "kr",
                                 "census" | "nad" => "us",
                                 "kartverket" | "kartverket-csv" => "no",
                                 "swisstopo" | "swisstopo-csv" => "ch",
@@ -1147,6 +1212,11 @@ pub async fn build(
                         "components": components,
                         "good_match": good_match,
                     });
+                    let expect = if name == "korean-schools" {
+                        school_rows[reference].with_number_aliases(expect)?
+                    } else {
+                        expect
+                    };
                     (
                         expect,
                         format!(
