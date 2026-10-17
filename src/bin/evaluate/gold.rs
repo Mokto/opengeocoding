@@ -35,6 +35,8 @@ fn present<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, 
 struct Seed {
     kind: String,
     #[serde(default)]
+    category: Option<String>,
+    #[serde(default)]
     cohort: Option<String>,
     #[serde(default)]
     qid: Option<String>,
@@ -1014,6 +1016,27 @@ pub async fn build(
                         source("wikidata", qid),
                     )
                 }
+                // a landmark's name or code typed into SuggestAddress with `includeLandmarks`
+                "suggest_landmark" => {
+                    let qid = seed
+                        .qid
+                        .as_deref()
+                        .context("suggest_landmark seeds need a qid")?;
+                    let item = item.context("qid")?;
+                    let expect = json!({
+                        "country": seed.country.clone().unwrap_or_else(|| iso(qid)), "level": "landmark",
+                        "max_level": "house",
+                        "point": item.point.with_context(|| format!("{qid} has no coordinates"))?,
+                        "radius_km": seed.radius_km.unwrap_or(1.), "region": [], "good_match": good_match,
+                        "components": { "category": seed.category.as_deref().context("suggest_landmark seeds need a category")? },
+                    });
+                    (
+                        expect,
+                        format!("wikidata:{qid}"),
+                        seed.label.clone().unwrap_or_else(|| item.label.clone()),
+                        source("wikidata", qid),
+                    )
+                }
                 "address" | "postcode" => {
                     let name = seed
                         .source
@@ -1190,6 +1213,9 @@ pub async fn build(
             });
             if let Some(known) = &seed.known_failure {
                 case["known_failure"] = json!(known);
+            }
+            if seed.kind == "suggest_landmark" {
+                case["include_landmarks"] = json!(true);
             }
             if let Some((qid, name)) = typed_name(seed, query)
                 && named.insert((qid.clone(), name.clone()))

@@ -130,6 +130,9 @@ message SuggestAddressRequest {
   string country_code = 3;
   // Optional: the user's position. Places near it rank higher.
   SuggestFocus focus = 4;
+  // Also suggest landmarks (type "landmark"): airports, stations, attractions, museums,
+  // universities, hospitals and stadiums that OpenStreetMap links to Wikidata. Default false.
+  bool include_landmarks = 5;
 }
 
 // A place at the point weighs as if it were a thousand times as populous, one `scale_km` away
@@ -142,15 +145,19 @@ message SuggestFocus {
 }
 
 message Suggestion {
-  // Stable for one index, and opaque: a place, street, house or postcode.
+  // Stable for one index, and opaque: a place, street, house, postcode or landmark.
   string id = 1;
   string display_name = 2;
-  // The point of the place, street, house or postcode. Places also carry their bounding box.
+  // The point of the place, street, house, postcode or landmark. Places also carry their
+  // bounding box.
   GeoCoordinates geo_coordinates = 3;
-  // country, region, county, municipality, city, town, village, neighbourhood, street, address
-  // or postcode.
+  // country, region, county, municipality, city, town, village, neighbourhood, street, address,
+  // postcode or landmark.
   string type = 4;
   string country_code = 5;
+  // Landmarks only: airport, station, attraction, museum, university, hospital or stadium.
+  // Empty for every other type.
+  string category = 6;
 }
 
 message SuggestAddressResponse {

@@ -28,6 +28,10 @@ pub struct Sources {
     /// Geofabrik extract ids, such as `europe/germany` or `liechtenstein`.
     #[serde(default)]
     pub osm: Vec<String>,
+    /// Geofabrik extract ids read for landmarks only: countries whose addresses come from
+    /// Overture, where OSM's would change the answers.
+    #[serde(default)]
+    pub osm_landmarks: Vec<String>,
     /// Retired switches (`openaddresses.enabled` and `anyLicence`, `geonamesPlaces`): every source
     /// is always read, and OpenAddresses layers always pass the licence check. Accepted and
     /// ignored so a source list that still has them parses.
@@ -46,6 +50,7 @@ pub struct Sources {
 pub struct Fetched {
     pub overture: PathBuf,
     pub osm: Option<PathBuf>,
+    pub osm_landmarks: Option<PathBuf>,
     pub openaddresses: Option<PathBuf>,
     pub geonames: Vec<PathBuf>,
     /// The directory holding `cities500.txt` and `admin1CodesASCII.txt`.
@@ -69,7 +74,7 @@ impl Sources {
     pub fn validate(&self) -> Result<()> {
         safe("overtureRelease", &self.overture_release, "")?;
         safe("snapshot", &self.snapshot, "")?;
-        for id in &self.osm {
+        for id in self.osm.iter().chain(&self.osm_landmarks) {
             safe("osm extract", id, "/")?;
         }
         for name in &self.geonames_postal {
@@ -307,58 +312,17 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         anyhow::Ok(Some(dir))
     };
     let osm_files = async {
-        let osm = if src.osm.is_empty() {
-            None
-        } else {
-            let dir = scratch.join("osm");
-            let ids = src.osm.clone();
-            let c = client.clone();
-            mirror(
-                store,
-                &format!("sources/{}/osm", src.snapshot),
-                &dir,
-                2,
-                || async move {
-                    let index: serde_json::Value = c
-                        .get("https://download.geofabrik.de/index-v1-nogeom.json")
-                        .send()
-                        .await?
-                        .error_for_status()?
-                        .json()
-                        .await?;
-                    let urls: BTreeMap<&str, &str> = index["features"]
-                        .as_array()
-                        .context("Geofabrik index")?
-                        .iter()
-                        .filter_map(|f| {
-                            Some((
-                                f["properties"]["id"].as_str()?,
-                                f["properties"]["urls"]["pbf"].as_str()?,
-                            ))
-                        })
-                        .collect();
-                    ids.iter()
-                        .map(|id| {
-                            let url = urls
-                                .get(id.as_str())
-                                .with_context(|| format!("no Geofabrik extract {id}"))?;
-                            Ok((format!("{}.osm.pbf", id.replace('/', "_")), url.to_string()))
-                        })
-                        .collect()
-                },
-                move |url: String, path: PathBuf| {
-                    let c = client.clone();
-                    Box::pin(async move {
-                        ensure!(http_get(&c, &url, &path).await?, "{url} not found");
-                        Ok(true)
-                    })
-                },
-            )
-            .await?;
-            Some(dir)
-        };
-
-        anyhow::Ok(osm)
+        let osm = geofabrik(store, &client, src, "osm", &src.osm, scratch).await?;
+        let landmarks = geofabrik(
+            store,
+            &client,
+            src,
+            "osm-landmarks",
+            &src.osm_landmarks,
+            scratch,
+        )
+        .await?;
+        anyhow::Ok((osm, landmarks))
     };
     let geonames_files = async {
         let mut geonames = Vec::new();
@@ -463,7 +427,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         .await?;
         anyhow::Ok(Some(dir))
     };
-    let (openaddresses, osm, geonames, geonames_places) = tokio::try_join!(
+    let (openaddresses, (osm, osm_landmarks), geonames, geonames_places) = tokio::try_join!(
         overture_then_openaddresses,
         osm_files,
         geonames_files,
@@ -473,10 +437,71 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
     Ok(Fetched {
         overture: local,
         osm,
+        osm_landmarks,
         openaddresses,
         geonames,
         geonames_places,
     })
+}
+
+/// Mirrors the Geofabrik extracts `ids` into `scratch/<name>`, through `sources/<snapshot>/<name>`.
+async fn geofabrik(
+    store: &Store,
+    client: &reqwest::Client,
+    src: &Sources,
+    name: &str,
+    ids: &[String],
+    scratch: &Path,
+) -> Result<Option<PathBuf>> {
+    if ids.is_empty() {
+        return Ok(None);
+    }
+    let dir = scratch.join(name);
+    let ids = ids.to_vec();
+    let (c, client) = (client.clone(), client.clone());
+    mirror(
+        store,
+        &format!("sources/{}/{name}", src.snapshot),
+        &dir,
+        2,
+        || async move {
+            let index: serde_json::Value = c
+                .get("https://download.geofabrik.de/index-v1-nogeom.json")
+                .send()
+                .await?
+                .error_for_status()?
+                .json()
+                .await?;
+            let urls: BTreeMap<&str, &str> = index["features"]
+                .as_array()
+                .context("Geofabrik index")?
+                .iter()
+                .filter_map(|f| {
+                    Some((
+                        f["properties"]["id"].as_str()?,
+                        f["properties"]["urls"]["pbf"].as_str()?,
+                    ))
+                })
+                .collect();
+            ids.iter()
+                .map(|id| {
+                    let url = urls
+                        .get(id.as_str())
+                        .with_context(|| format!("no Geofabrik extract {id}"))?;
+                    Ok((format!("{}.osm.pbf", id.replace('/', "_")), url.to_string()))
+                })
+                .collect()
+        },
+        move |url: String, path: PathBuf| {
+            let c = client.clone();
+            Box::pin(async move {
+                ensure!(http_get(&c, &url, &path).await?, "{url} not found");
+                Ok(true)
+            })
+        },
+    )
+    .await?;
+    Ok(Some(dir))
 }
 
 /// Copies the row groups of an Overture GeoParquet file whose `bbox` statistics meet `b` into

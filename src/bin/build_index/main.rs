@@ -6,6 +6,7 @@ mod fetch;
 mod geo;
 mod geonames;
 mod job;
+mod landmarks;
 mod mem;
 mod progress;
 mod sources;
@@ -45,7 +46,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
        build_index digest DIR [--dump FILE]
@@ -1581,6 +1582,27 @@ fn build(args: &[String]) {
         lap(&format!(
             "osm {d} ({files} files, {} rows)",
             shared.rows.swap(0, Relaxed)
+        ));
+    }
+    // `--osm-landmarks` extracts are read for landmarks only: their addresses would change answers
+    // in countries whose addresses come from Overture.
+    let landmark_dirs: Vec<PathBuf> = osm_dirs
+        .iter()
+        .chain(&opt("--osm-landmarks"))
+        .map(PathBuf::from)
+        .collect();
+    if !landmark_dirs.is_empty() {
+        let found = landmarks::read(&landmark_dirs);
+        let (counts, placeless) = landmarks::write(Path::new(out), &found, &assigner);
+        opengeocoding::index::landmark::build(Path::new(out), places.len()).unwrap();
+        let counts: Vec<String> = landmarks::CATEGORIES
+            .iter()
+            .zip(counts)
+            .map(|(c, n)| format!("{c} {n}"))
+            .collect();
+        lap(&format!(
+            "landmarks ({}; {placeless} in no place)",
+            counts.join(", ")
         ));
     }
     progress::phase("Merge streets, postcodes and house numbers");

@@ -2,6 +2,7 @@
 //! Responses keep the Nominatim-style JSON candidate format the resolver reads.
 pub mod area;
 pub mod canon;
+pub mod landmark;
 mod locality;
 pub mod reverse;
 pub mod schema;
@@ -484,6 +485,8 @@ pub struct Index {
     /// `name_candidates` results, by folded text and whether it is a prefix.
     place_prefixes: Mutex<HashMap<suggest::NamesKey, suggest::Candidates>>,
     suggest: suggest::Caches,
+    /// Read only by a suggestion that asks for landmarks.
+    landmarks: landmark::Landmarks,
 }
 
 #[derive(Clone)]
@@ -1191,6 +1194,7 @@ fn alignable(middle: &str, extras: &[&str], whole: &[(String, String)]) -> bool 
     !middle.is_empty()
         && !middle.chars().any(|c| c.is_ascii_digit())
         && field(whole, "country").is_empty()
+        && field(whole, "state") != middle
         && (!city.is_empty() || road.contains(&middle))
         && (suburb.is_empty() || road_as_suburb)
         && field(whole, "city_district").is_empty()
@@ -1613,6 +1617,7 @@ impl Index {
         }
         countries.entry("uae".into()).or_insert_with(|| "ae".into());
         let place_names = suggest::place_names(&places)?;
+        let landmarks = landmark::Landmarks::open(dir, places.len())?;
         let mut provinces = HashMap::new();
         for (code, place) in irish_provinces(&places, &regions) {
             provinces.insert(code, places.len() as u32);
@@ -1648,11 +1653,69 @@ impl Index {
             place_names,
             place_prefixes: Mutex::default(),
             suggest: Default::default(),
+            landmarks,
         })
     }
 
     pub fn places_loaded(&self) -> usize {
         self.places.len()
+    }
+
+    pub(crate) fn parse_address(&self, q: &str, corroboration: bool) -> Result<Parsed> {
+        let mut parsed = self.parser.parse(q)?;
+        if corroboration && parsed.iter().any(|(k, _)| k == "postcode") {
+            return Ok(parsed);
+        }
+        let first_cc = parsed
+            .iter()
+            .find(|(l, _)| l == "country")
+            .and_then(|(_, c)| self.country(c));
+        let stated = parsed
+            .iter()
+            .find(|(l, _)| l == "postcode")
+            .map(|(_, v)| pc_norm(v));
+        // A US house number can also be a ZIP ("15411 Woodcliffe Trail, IN").
+        let house = parsed
+            .iter()
+            .find(|(l, _)| l == "house_number")
+            .map(|(_, v)| pc_norm(v))
+            .filter(|_| parsed.iter().any(|(l, _)| l == "state"));
+        if let Some((pc, rest)) = self.find_postcode(q, first_cc.as_deref())
+            && stated.as_ref().is_none_or(|s| {
+                pc_norm(&pc).len() > s.len() && pc_norm(&pc).starts_with(s.as_str())
+            })
+            && house != Some(pc_norm(&pc))
+            // Lookup may try an ambiguous number; corroboration cannot overwrite requested fields.
+            && (!corroboration
+                || !["house_number", "road", "po_box", "unit", "level"].iter().any(|key| {
+                    parsed.iter().find(|(k, _)| k == key).is_some_and(|(_, value)| {
+                        pc_norm(value).contains(&pc_norm(&pc))
+                    })
+                }))
+        {
+            let mut repaired = self.parser.parse(&rest)?.to_vec();
+            if corroboration {
+                if ["house_number", "road"].iter().any(|key| {
+                    repaired.iter().filter(|(k, _)| k == key).count() > 1
+                        || (!field(&parsed, key).is_empty()
+                            && field(&parsed, key) != field(&repaired, key))
+                }) {
+                    return Ok(parsed);
+                }
+                for (key, value) in parsed.iter().filter(|(k, _)| {
+                    matches!(
+                        k.as_str(),
+                        "country" | "state" | "state_district" | "country_region"
+                    )
+                }) {
+                    repaired.retain(|(k, _)| k != key);
+                    repaired.push((key.clone(), value.clone()));
+                }
+            }
+            repaired.push(("postcode".into(), pc));
+            parsed = repaired.into();
+        }
+        Ok(parsed)
     }
 
     fn parse(&self, q: &str) -> Vec<(String, String)> {
@@ -1662,8 +1725,7 @@ impl Index {
                 .filter(|c| !('\u{300}'..='\u{36f}').contains(c))
                 .collect()
         };
-        self.parser
-            .parse(q)
+        self.parse_address(q, false)
             .map(|v| v.iter().map(|(l, t)| (l.clone(), clean(t))).collect())
             .unwrap_or_default()
     }
@@ -2768,33 +2830,7 @@ impl Index {
         let repeated = deduped.len() < q.split(',').count();
         let deduped = deduped.join(", ");
         let q = deduped.as_str();
-        let mut parsed = self.parse(q);
-        let first_cc = parsed
-            .iter()
-            .find(|(l, _)| l == "country")
-            .and_then(|(_, c)| self.country(c));
-        // libpostal misreads postcodes it doesn't know (Eircodes, "3011 AD"); take one the
-        // index holds and parse the rest without it.
-        let stated = parsed
-            .iter()
-            .find(|(l, _)| l == "postcode")
-            .map(|(_, v)| pc_norm(v));
-        // Not a US house number that is also a ZIP ("15411 Woodcliffe Trail, IN"): a lone
-        // "41400 Montrichard" part still gives its postcode.
-        let house = parsed
-            .iter()
-            .find(|(l, _)| l == "house_number")
-            .map(|(_, v)| pc_norm(v))
-            .filter(|_| parsed.iter().any(|(l, _)| l == "state"));
-        if let Some((pc, rest)) = self.find_postcode(q, first_cc.as_deref())
-            && stated.as_ref().is_none_or(|s| {
-                pc_norm(&pc).len() > s.len() && pc_norm(&pc).starts_with(s.as_str())
-            })
-            && house != Some(pc_norm(&pc))
-        {
-            parsed = self.parse(&rest);
-            parsed.push(("postcode".into(), pc));
-        }
+        let parsed = self.parse(q);
         let get = |k: &str| parsed.iter().find(|(l, _)| l == k).map(|(_, v)| v.as_str());
         let country_text = get("country");
         let cc = country_text.and_then(|c| self.country(c));
@@ -3746,6 +3782,156 @@ mod tests {
         check_builder(&dir).unwrap();
         write("0000000000000000");
         assert!(check_builder(&dir).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn postcode_repair_preserves_requested_fields_for_corroboration() {
+        let dir = std::env::temp_dir().join(format!("parse-postcode-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (schema, f) = schema::schema();
+        let tantivy_index = tantivy::Index::create_in_dir(&dir, schema).unwrap();
+        tantivy_index
+            .tokenizers()
+            .register("fold", schema::analyzer());
+        let mut writer: tantivy::IndexWriter = tantivy_index
+            .writer_with_num_threads(1, 15_000_000)
+            .unwrap();
+        writer
+            .add_document(tantivy::doc!(
+                f.kind => "z", f.pcode => "12345", f.pcode => "12345ST",
+                f.country => "US", f.place => 0u64, f.importance => 1u64
+            ))
+            .unwrap();
+        writer.commit().unwrap();
+        drop(writer);
+        std::fs::write(dir.join("numbers.shards"), "1").unwrap();
+        std::fs::write(
+            dir.join("numbers-00.fst"),
+            tantivy_fst::MapBuilder::memory().into_inner().unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("places.tsv"),
+            "country\t\tUS\t\t\t0\t0\t0\t0\t0\t0\t0\t\tUnited States\ten=United States\n",
+        )
+        .unwrap();
+        let parser = Arc::new(Parser::unloaded(16));
+        let pairs = |p: &[(&str, &str)]| -> Parsed {
+            p.iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect()
+        };
+        let street = pairs(&[
+            ("house_number", "20"),
+            ("road", "oak"),
+            ("city", "springfeld"),
+            ("country", "usa"),
+        ]);
+        let mut garbled = street.to_vec();
+        garbled.insert(2, ("house_number".into(), "12345".into()));
+        let house = pairs(&[("house_number", "12345"), ("road", "oak"), ("state", "ny")]);
+        let protected = [
+            (
+                "20 Ash, 12345 Springfeld, USA",
+                pairs(&[
+                    ("house_number", "20"),
+                    ("road", "ash"),
+                    ("city", "springfeld"),
+                    ("country", "usa"),
+                ]),
+            ),
+            (
+                "21 Oak, 12345 Springfeld, USA",
+                pairs(&[
+                    ("house_number", "21"),
+                    ("road", "oak"),
+                    ("city", "springfeld"),
+                    ("country", "usa"),
+                ]),
+            ),
+            (
+                "12345 Oak, USA",
+                pairs(&[
+                    ("house_number", "12345"),
+                    ("road", "oak"),
+                    ("country", "usa"),
+                ]),
+            ),
+            (
+                "20 Oak 12345, Springfeld, USA",
+                pairs(&[
+                    ("house_number", "20"),
+                    ("road", "oak 12345"),
+                    ("city", "springfeld"),
+                    ("country", "usa"),
+                ]),
+            ),
+            (
+                "P.O. Box 12345, Springfeld, USA",
+                pairs(&[
+                    ("po_box", "p.o. box 12345"),
+                    ("city", "springfeld"),
+                    ("country", "usa"),
+                ]),
+            ),
+            (
+                "20 Oak, 12345 St. Johns, USA",
+                pairs(&[
+                    ("house_number", "20"),
+                    ("road", "oak"),
+                    ("postcode", "12345"),
+                    ("city", "st. johns"),
+                    ("country", "usa"),
+                ]),
+            ),
+        ];
+        let mut duplicate = street.to_vec();
+        duplicate.insert(1, ("road".into(), "ash".into()));
+        let mut cache = parser.cache.lock().unwrap();
+        cache.extend([
+            ("20 Oak, 12345 Springfeld, USA".into(), garbled.into()),
+            (
+                "20 Oak, Springfeld, USA".into(),
+                street
+                    .iter()
+                    .filter(|(k, _)| k != "country")
+                    .cloned()
+                    .collect(),
+            ),
+            ("12345 Oak, NY".into(), house.clone()),
+            ("Oak, USA".into(), street.clone()),
+            ("P.O. Box, Springfeld, USA".into(), street.clone()),
+            ("20 Oak, Johns, USA".into(), street.clone()),
+            ("20 Ash, Springfeld, USA".into(), duplicate.into()),
+            ("21 Oak, Springfeld, USA".into(), street.clone()),
+        ]);
+        cache.extend(protected.iter().map(|(q, p)| ((*q).into(), p.clone())));
+        drop(cache);
+        let index = Index::open(&dir, parser).unwrap();
+        let mut expected = street.to_vec();
+        expected.push(("postcode".into(), "12345".into()));
+        assert_eq!(
+            &*index
+                .parse_address("20 Oak, 12345 Springfeld, USA", true)
+                .unwrap(),
+            expected
+        );
+        assert_eq!(index.parse_address("12345 Oak, NY", true).unwrap(), house);
+        assert_eq!(index.parse_address("12345 Oak, NY", false).unwrap(), house);
+        for (query, parsed) in protected {
+            assert_eq!(index.parse_address(query, true).unwrap(), parsed, "{query}");
+        }
+        assert_eq!(
+            &*index
+                .parse_address("20 Oak 12345, Springfeld, USA", false)
+                .unwrap(),
+            expected
+                .iter()
+                .filter(|(k, _)| k != "country")
+                .cloned()
+                .collect::<Vec<_>>()
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

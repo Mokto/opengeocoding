@@ -31,7 +31,7 @@ COPY src src
 COPY benches benches
 RUN find src benches -name '*.rs' | while read -r f; do \
       case "$f" in \
-        src/lib.rs|src/index/area.rs|src/index/schema.rs|src/index/canon.rs|src/index/reverse.rs) body='' ;; \
+        src/lib.rs|src/index/area.rs|src/index/schema.rs|src/index/canon.rs|src/index/reverse.rs|src/index/landmark.rs) body='' ;; \
         src/main.rs|src/bin/*/main.rs|benches/*.rs) body='fn main() {}' ;; \
         src/bin/*/*) continue ;; \
         src/bin/*.rs) body='fn main() {}' ;; \
@@ -102,8 +102,9 @@ ENTRYPOINT ["/usr/local/bin/opengeocoding"]
 FROM runtime AS eval
 COPY --from=evaluate-compiled /source/target/release/evaluate /usr/local/bin/
 # The gold suite as one file, written by the evaluator so the image and `evaluate run` agree: the
-# curated corpus, then tests/registry/*.jsonl. The evaluator finds both under its build directory.
-COPY tests/gold.jsonl /source/tests/gold.jsonl
+# curated corpus, then tests/registry/*.jsonl, then the landmarks. The evaluator finds them under
+# its build directory.
+COPY tests/gold.jsonl tests/gold.landmarks.jsonl /source/tests/
 COPY tests/registry /source/tests/registry
 USER root
 RUN mkdir -p /app/tests && evaluate gold-corpus --out /app/tests/gold.jsonl
