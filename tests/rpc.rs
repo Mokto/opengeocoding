@@ -27,6 +27,7 @@ struct Env {
     rpc: String,
     metrics: String,
     index: PathBuf,
+    logs: Option<(PathBuf, &'static str)>,
 }
 
 impl Env {
@@ -138,6 +139,11 @@ async fn start(env: &mut Env, image: Option<&str>) -> Result<()> {
         command.envs(settings);
         command
     };
+    if let Some((path, filter)) = &env.logs {
+        command
+            .env("RUST_LOG", filter)
+            .stdout(std::fs::File::create(path)?);
+    }
     let child = env.child.insert(command.kill_on_drop(true).spawn()?);
     // loading the index and models takes seconds
     for _ in 0..900 {
@@ -633,6 +639,7 @@ async fn rpc_contracts() {
         child: None,
         rpc: String::new(),
         metrics: String::new(),
+        logs: None,
         index: std::env::var_os("INDEX_DIR")
             .expect("INDEX_DIR: a build_index output")
             .into(),
@@ -645,4 +652,70 @@ async fn rpc_contracts() {
         let _ = child.kill().await;
     }
     outcome.unwrap();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs an index (INDEX_DIR) and libpostal models; run with --ignored"]
+async fn search_diagnostics() -> Result<()> {
+    let path = std::env::temp_dir().join(format!(
+        "opengeocoding-diagnostics-{}.log",
+        std::process::id()
+    ));
+    let mut env = Env {
+        client: reqwest::Client::new(),
+        child: None,
+        rpc: String::new(),
+        metrics: String::new(),
+        index: std::env::var_os("INDEX_DIR").context("INDEX_DIR")?.into(),
+        logs: None,
+    };
+    for filter in ["info", "info,opengeocoding::address_log=debug"] {
+        env.logs = Some((path.clone(), filter));
+        start(&mut env, None).await?;
+        let (copenhagen, london) = tokio::join!(
+            env.search("Copenhagen,\nDenmark"),
+            env.search("London, United Kingdom")
+        );
+        ensure!(copenhagen?["addressDetails"]["countryCode"] == "dk");
+        ensure!(london?["addressDetails"]["countryCode"] == "gb");
+        let (status, _) = env
+            .rpc(
+                "SearchAddress",
+                br#"{"addressString":"invalid\u0000input"}"#.to_vec(),
+                false,
+            )
+            .await?;
+        ensure!(status == StatusCode::BAD_REQUEST);
+        let oversized = "private-input-".repeat(100);
+        env.search(&oversized).await?;
+        let mut child = env.child.take().context("service process")?;
+        child.kill().await?;
+        child.wait().await?;
+        let logs = std::fs::read_to_string(&path)?;
+        if filter == "info" {
+            ensure!(!logs.contains("address_log") && !logs.contains("Copenhagen"));
+        } else {
+            for event in [
+                "SearchAddress started",
+                "Address parsed",
+                "Address normalized",
+                "Address candidate selected",
+                "SearchAddress result",
+                "SearchAddress completed",
+            ] {
+                let lines: Vec<_> = logs.lines().filter(|line| line.contains(event)).collect();
+                ensure!(!lines.is_empty(), "missing {event}");
+                ensure!(
+                    lines.iter().all(|line| line.contains("request_id")),
+                    "uncorrelated {event}"
+                );
+            }
+            ensure!(logs.contains("Copenhagen,\\nDenmark"));
+            ensure!(logs.contains("invalid_argument") && logs.contains("elapsed_ms"));
+            ensure!(logs.contains("good_match") && logs.contains("geo_coordinates"));
+            ensure!(logs.contains(&oversized[..256]) && !logs.contains(&oversized));
+        }
+    }
+    std::fs::remove_file(path)?;
+    Ok(())
 }

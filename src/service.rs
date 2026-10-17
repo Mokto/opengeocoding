@@ -4,6 +4,10 @@ use crate::{
 };
 use anyhow::Result;
 use connectrpc::{ConnectError, RequestContext, Response, ServiceRequest, ServiceResult};
+use std::sync::atomic::{AtomicU64, Ordering};
+use tracing::Instrument;
+
+static SEARCH_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 const SUGGEST_DEFAULT: usize = 5;
 const SUGGEST_MAX: usize = 15;
@@ -79,24 +83,45 @@ impl OpenGeocoding for Service {
         ctx: RequestContext,
         request: ServiceRequest<'_, SearchAddressTask>,
     ) -> ServiceResult<impl connectrpc::Encodable<FullAddress> + Send + use<'a>> {
-        self.run(&ctx, "SearchAddress", async {
-            if request.address_string.contains('\0') {
-                return Err(ConnectError::invalid_argument(
-                    "The address contains an invalid character.",
-                )
-                .into());
-            }
-            if let Some(overridden) = search_override(request.address_string) {
-                return Ok(overridden);
-            }
-            let mut address = self.resolver.resolve(request.address_string).await?;
-            if let Some(details) = address.address_details.as_option_mut() {
-                details
-                    .regions
-                    .extend(self.regions.reformat(&details.region_codes));
-            }
-            Ok(address)
-        })
+        let span = tracing::debug_span!(
+            target: "opengeocoding::address_log",
+            "SearchAddress",
+            request_id = SEARCH_REQUEST_ID.fetch_add(1, Ordering::Relaxed),
+            address = ?request.address_string.chars().take(256).collect::<String>(),
+            input_bytes = request.address_string.len(),
+        );
+        async {
+            let started = std::time::Instant::now();
+            tracing::debug!(target: "opengeocoding::address_log", "SearchAddress started");
+            let result = self.run(&ctx, "SearchAddress", async {
+                if request.address_string.contains('\0') {
+                    return Err(ConnectError::invalid_argument(
+                        "The address contains an invalid character.",
+                    )
+                    .into());
+                }
+                if let Some(overridden) = search_override(request.address_string) {
+                    tracing::debug!(target: "opengeocoding::address_log", response = ?overridden, "SearchAddress override result");
+                    return Ok(overridden);
+                }
+                let mut address = self.resolver.resolve(request.address_string).await?;
+                if let Some(details) = address.address_details.as_option_mut() {
+                    details
+                        .regions
+                        .extend(self.regions.reformat(&details.region_codes));
+                }
+                tracing::debug!(target: "opengeocoding::address_log", response = ?address, "SearchAddress result");
+                Ok(address)
+            }).await;
+            tracing::debug!(
+                target: "opengeocoding::address_log",
+                elapsed_ms = started.elapsed().as_secs_f64() * 1000.0,
+                code = result.as_ref().err().map_or("OK", |error| error.code.as_str()),
+                "SearchAddress completed"
+            );
+            result
+        }
+        .instrument(span)
         .await
     }
 
