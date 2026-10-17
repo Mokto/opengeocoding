@@ -5,7 +5,9 @@
 //! US National Address Database (public domain, read from a local release file) —
 //! never from Nominatim or this service. Requires network access; review the diff as a data update.
 
-use crate::{ban, kartverket, nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT, swisstopo};
+use crate::{
+    bag, ban, kartverket, nad, report::sorted, run::utc_now, score::SUGGEST_LIMIT, swisstopo,
+};
 use anyhow::{Context, Result, bail, ensure};
 use indexmap::IndexMap;
 use opengeocoding::eval::{holdout, sha256_hex};
@@ -118,6 +120,7 @@ fn source_url(source: &str, reference: &str) -> String {
         "pdok" => {
             format!("https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id={reference}")
         }
+        "bag-csv" => format!("{}#{reference}", bag::URL),
         "census" => format!("https://geocoding.geo.census.gov/ (TIGER line {reference})"),
         "postcodes.io" => format!("https://api.postcodes.io/postcodes/{reference}"),
         "kartverket" => format!("https://ws.geonorge.no/adresser/v1/sok?sok={reference}"),
@@ -670,7 +673,9 @@ async fn lookups(
         if matches!(seed.kind.as_str(), "address" | "postcode")
             && !matches!(
                 seed.source.as_deref(),
-                Some("wikidata" | "nad" | "ban-csv" | "kartverket-csv" | "swisstopo-csv")
+                Some(
+                    "wikidata" | "nad" | "ban-csv" | "kartverket-csv" | "swisstopo-csv" | "bag-csv"
+                )
             )
         {
             let (source, reference) =
@@ -708,6 +713,7 @@ pub async fn build(
     ban: Option<&Path>,
     kartverket: Option<&Path>,
     swisstopo: Option<&Path>,
+    bag: Option<&Path>,
 ) -> Result<()> {
     let seeds: Vec<Seed> = crate::model::load_jsonl::<Value>(seeds_path)?
         .into_iter()
@@ -817,6 +823,32 @@ pub async fn build(
             );
         }
     }
+    let bag_refs: BTreeSet<String> = seeds
+        .iter()
+        .filter(|s| s.source.as_deref() == Some("bag-csv"))
+        .filter_map(|s| s.reference.clone())
+        .collect();
+    let bag_sha256 = bag.map(crate::run::sha256_file).transpose()?;
+    if !bag_refs.is_empty() {
+        let path = bag.context("seeds cite a BAG export: pass --bag FILE")?;
+        for (id, row) in bag::lookup(path, &bag_refs)? {
+            looked_up.insert(
+                ("bag-csv".into(), id.clone()),
+                (
+                    Found {
+                        point: row.point.map(round6),
+                        components: IndexMap::from([
+                            ("house_number", row.number),
+                            ("road", row.street),
+                            ("postcode", row.postcode),
+                        ]),
+                        radius_floor_km: 0.,
+                    },
+                    id,
+                ),
+            );
+        }
+    }
     let swisstopo_refs: BTreeSet<String> = seeds
         .iter()
         .filter(|s| s.source.as_deref() == Some("swisstopo-csv"))
@@ -910,6 +942,11 @@ pub async fn build(
         if name == "kartverket-csv" {
             source["release"] = json!(kartverket.and_then(|p| p.file_name()?.to_str()));
             source["sha256"] = json!(kartverket_sha256);
+        }
+        if name == "bag-csv" {
+            source["release"] = json!(bag.and_then(|p| p.file_name()?.to_str()));
+            source["sha256"] = json!(bag_sha256);
+            source["coordinate_transform"] = json!({"from":"EPSG:28992", "to":"EPSG:4326", "tool":"DuckDB spatial / PROJ", "always_xy":true});
         }
         if name == "swisstopo-csv" {
             source["release"] = json!(swisstopo.and_then(|p| p.file_name()?.to_str()));
@@ -1063,7 +1100,7 @@ pub async fn build(
                         Some((found, id)) => {
                             let country = match name {
                                 "ban" | "ban-csv" => "fr",
-                                "pdok" => "nl",
+                                "pdok" | "bag-csv" => "nl",
                                 "census" | "nad" => "us",
                                 "kartverket" | "kartverket-csv" => "no",
                                 "swisstopo" | "swisstopo-csv" => "ch",
@@ -1116,6 +1153,7 @@ pub async fn build(
                             "{}:{id}",
                             match name {
                                 "ban-csv" => "ban",
+                                "bag-csv" => "bag",
                                 "kartverket-csv" => "kartverket",
                                 "swisstopo-csv" => "swisstopo",
                                 _ => name,

@@ -53,6 +53,12 @@ Department of Transportation's National Address Database (release r24), a work o
 government in the public domain. The data is provided as is, without warranty of accuracy, and is
 not for use as a mailing list.
 
+The registry-first sample tests/registry/nl.jsonl contains addresses and coordinates from
+Kadaster's BAG GeoPackage of 2026-10-01, distributed by PDOK under CC0-1.0
+(https://service.pdok.nl/kadaster/bag/atom/bag.xml). Coordinates were transformed from
+EPSG:28992 to EPSG:4326 with DuckDB spatial / PROJ. Per-case prepared-CSV checksums and
+retrieval dates are recorded in the corpus; README.md records the upstream file checksum.
+
 The registry-first sample tests/registry/fr.jsonl contains addresses and coordinates from the
 Base Adresse Nationale export of 2026-10-16, under Licence Ouverte / Open Licence 2.0
 (https://www.etalab.gouv.fr/licence-ouverte-open-licence/). Source: Base Adresse Nationale and
