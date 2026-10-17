@@ -643,7 +643,25 @@ pub const PLACES: &[Place] = &[
         (30.0, 10.0),
         "gb",
         "Beacon",
-        &[("en", "Beacon")]
+        &[
+            ("en", "Beacon"),
+            ("ja", "桜森市"),
+            ("zh", "松林市"),
+            ("ko", "솔빛도시"),
+            ("tr", "İncikent"),
+        ]
+    ),
+    place!(
+        "gb-bramble",
+        "locality",
+        "town",
+        "GB",
+        "",
+        20_000,
+        (31.0, 11.0),
+        "gb",
+        "6th of Bramble",
+        &[("en", "Sixth of Bramble"), ("fr", "Bramble6")]
     ),
     place!(
         "gb-orchard",
