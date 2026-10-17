@@ -1084,8 +1084,46 @@ impl Index {
         focus: Option<&Focus>,
         want: usize,
     ) -> Vec<Suggestion> {
-        let raw: Vec<&str> = typed.parts[0].split(' ').collect();
         let one_part = typed.parts.len() == 1;
+        let country = (!one_part)
+            .then(|| {
+                typed
+                    .parts
+                    .last()
+                    .filter(|p| p.chars().count() > 3)
+                    .and_then(|p| {
+                        let cc = self.country(p)?;
+                        (!self
+                            .name_candidates(&fold(p), false, false)
+                            .iter()
+                            .any(|&(id, _, _)| {
+                                self.places[id as usize].subtype.as_ref() == "region"
+                                    || self.own_codes.contains_key(&id)
+                                    || self.subdivision_codes.contains_key(&id)
+                            }))
+                        .then_some(cc)
+                    })
+            })
+            .flatten();
+        if cc
+            .zip(country.as_deref())
+            .is_some_and(|(a, b)| !a.eq_ignore_ascii_case(b))
+        {
+            return vec![];
+        }
+        let cc = cc.or(country.as_deref());
+        let qualifiers = typed.parts[1..].join(", ");
+        let extracted = qualifiers
+            .chars()
+            .any(|c| c.is_ascii_digit())
+            .then(|| self.find_postcode(&qualifiers, cc))
+            .flatten();
+        let parts = extracted
+            .as_ref()
+            .map(|(_, rest)| Typed::new(rest).parts)
+            .unwrap_or_else(|| typed.parts[1..].to_vec());
+        let postcode = extracted.as_ref().map(|(pc, _)| pc.as_str());
+        let raw: Vec<&str> = typed.parts[0].split(' ').collect();
         // the number: the first or last word, when a road remains
         let number_at = (raw.len() > 1)
             .then(|| {
@@ -1116,6 +1154,29 @@ impl Index {
             if road_words.is_empty() {
                 continue;
             }
+            if postcode.is_some()
+                && number_word.is_some()
+                && (parts.len() == 1 || (parts.len() == 2 && country.is_some()))
+            {
+                let city = parts
+                    .first()
+                    .filter(|p| country.is_none() || self.country(p) != country)
+                    .map(|p| (p.as_str(), typed.open && parts.len() == 1));
+                let found = self.streets_typed(
+                    &road_words,
+                    false,
+                    None,
+                    number_word,
+                    false,
+                    cc,
+                    postcode,
+                    city,
+                    want,
+                );
+                if found.iter().any(|s| s.kind == "address") {
+                    return found;
+                }
+            }
             let found = if one_part {
                 // "main st springfield": the end of the text may name the town, and then the
                 // streets there are better than any other "main st"
@@ -1135,6 +1196,8 @@ impl Index {
                         number_word,
                         false,
                         cc,
+                        postcode,
+                        None,
                         want - found.len(),
                     ));
                 }
@@ -1145,20 +1208,58 @@ impl Index {
                     number_word,
                     number_open,
                     cc,
+                    postcode,
+                    None,
                     want,
                 ));
                 found
             } else {
-                let ids = self.scope(&typed.parts[1..], typed.open, cc, focus, true);
+                let ids = self.scope(&parts, typed.open, cc, focus, true);
                 if ids.is_empty() {
                     vec![]
                 } else {
-                    self.streets_typed(&road_words, false, Some(&ids), number_word, false, cc, want)
+                    self.streets_typed(
+                        &road_words,
+                        false,
+                        Some(&ids),
+                        number_word,
+                        false,
+                        cc,
+                        postcode,
+                        None,
+                        want,
+                    )
                 }
             };
             if !found.is_empty() {
                 out = found;
                 break;
+            }
+        }
+        if !out.iter().any(|s| s.kind == "address") && raw.len() > 2 {
+            for start in [0, raw.len() - 2] {
+                if let Some(number) = compact_house_suffix(&raw[start..start + 2].join(" ")) {
+                    let mut parts = typed.parts.clone();
+                    parts[0] = raw[..start]
+                        .iter()
+                        .copied()
+                        .chain([number.as_str()])
+                        .chain(raw[start + 2..].iter().copied())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    let found = self.suggest_streets(
+                        &Typed {
+                            parts,
+                            open: typed.open,
+                        },
+                        cc,
+                        focus,
+                        want,
+                    );
+                    if found.iter().any(|s| s.kind == "address") {
+                        return found;
+                    }
+                }
             }
         }
         out.truncate(want);
@@ -1228,19 +1329,32 @@ impl Index {
         number: Option<&str>,
         number_open: bool,
         cc: Option<&str>,
+        postcode: Option<&str>,
+        city: Option<(&str, bool)>,
         want: usize,
     ) -> Vec<Suggestion> {
         if road_open && road.len() == 1 && road[0].chars().count() < 3 {
             return vec![];
         }
-        let Some((base, rarest)) = self.typed_words(self.f.names, road, road_open) else {
+        let Some((mut base, rarest)) = self.typed_words(self.f.names, road, road_open) else {
             return vec![];
         };
-        let in_scope = scope.map(|ids| {
-            ids.iter()
-                .map(|id| self.docs_with(self.f.ids, &id.to_string()))
-                .sum::<u64>()
-        });
+        if let Some((city, open)) = city {
+            let Some((clauses, _)) = self.typed_words(self.f.city, &words_open(city, open), open)
+            else {
+                return vec![];
+            };
+            base.extend(clauses);
+        }
+        let in_scope = scope
+            .map(|ids| {
+                ids.iter()
+                    .map(|id| self.docs_with(self.f.ids, &id.to_string()))
+                    .sum::<u64>()
+            })
+            .into_iter()
+            .chain(postcode.map(|pc| self.docs_with(self.f.pcode, &pc_norm(pc))))
+            .min();
         let limit = if scope.is_some() {
             MAX_WORK_IN_TOWN
         } else {
@@ -1264,6 +1378,9 @@ impl Index {
                 break;
             }
             let mut cl: Vec<_> = base.iter().map(|(o, q)| (*o, q.box_clone())).collect();
+            if let Some(pc) = postcode {
+                cl.push(must(term(self.f.pcode, &pc_norm(pc))));
+            }
             if let Some(ids) = ids {
                 cl.push(must(Box::new(BooleanQuery::new(
                     ids.iter()
@@ -1328,7 +1445,20 @@ impl Index {
                     }
                 }
                 for (n, v) in numbers {
-                    let (x, y, _) = schema::unpack(v);
+                    let (x, y, own) = schema::unpack(v);
+                    if let Some(pc) = postcode.filter(|_| own > 0) {
+                        use tantivy::schema::Value as _;
+                        let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
+                        if doc
+                            .get_all(self.f.pcode)
+                            .nth(own as usize - 1)
+                            .and_then(|v| v.as_str())
+                            .map(pc_norm)
+                            != Some(pc_norm(pc))
+                        {
+                            continue;
+                        }
+                    }
                     houses.push(self.street_suggestion(sid, place, &name, Some(&n), (x, y)));
                     found = true;
                 }
@@ -1358,7 +1488,11 @@ impl Index {
         display.push(name.to_string());
         let mut country_code = String::new();
         if place != NONE {
-            display.push(self.label(place).to_string());
+            if let Some(chain) = number.and_then(|_| self.house_chain(&self.chain(place), x, y)) {
+                self.address(&chain, true, &mut Map::new(), &mut display);
+            } else {
+                display.push(self.label(place).to_string());
+            }
             country_code = self.places[place as usize].cc.to_string();
         }
         Suggestion {

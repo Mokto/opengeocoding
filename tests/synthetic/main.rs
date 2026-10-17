@@ -155,6 +155,56 @@ fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
     assert_eq!((rivoli.len(), rivoli[0].kind), (1, "address"));
     let want = house(street("Rue de Rivoli"), "2");
     assert!(metres((rivoli[0].x, rivoli[0].y), want) < 5.0);
+    for typed in [
+        "2 Rue de Rivoli, 75001 Paris, France",
+        "Rue de Rivoli 2, Paris 75001, France",
+        "2 Rue de Rivoli, 75001 Par",
+    ] {
+        let found = at(typed, None);
+        assert!(!found.is_empty(), "{typed}");
+        assert_eq!(found[0].kind, "address", "{typed}");
+        assert!(metres((found[0].x, found[0].y), want) < 5.0, "{typed}");
+    }
+    for typed in [
+        "2 Rue de Rivoli, 75460 Paris, France",
+        "2 Rue de Rivoli, 75001 Paris, United States",
+        "1 Long Road, 75460 Paris, United States",
+    ] {
+        assert!(
+            at(typed, None).iter().all(|s| s.kind != "address"),
+            "{typed}"
+        );
+    }
+    let own_postcode = at("1 Long Road, 75462 Paris, United States", None);
+    assert!(!own_postcode.is_empty());
+    assert_eq!(own_postcode[0].kind, "address");
+    assert!(
+        metres(
+            (own_postcode[0].x, own_postcode[0].y),
+            house(street("Long Road"), "1")
+        ) < 5.0
+    );
+    assert!(at("2 Rue de Rivoli, 75001 Paris, France", Some("US")).is_empty());
+    for typed in [
+        "7 bis Rue de Rivoli, 75001 Paris, France",
+        "Rue de Rivoli 7 bis, 75001 Paris, France",
+    ] {
+        let found = at(typed, None);
+        assert!(!found.is_empty(), "{typed}");
+        assert_eq!(found[0].kind, "address", "{typed}");
+        assert!(
+            metres(
+                (found[0].x, found[0].y),
+                house(street("Rue de Rivoli"), "7bis")
+            ) < 5.0,
+            "{typed}"
+        );
+    }
+    let found = at("14 Meadow Road, Bayport, IL", None);
+    assert!(!found.is_empty());
+    assert_eq!(found[0].kind, "address");
+    assert_eq!(found[0].country_code, "us");
+    assert!(metres((found[0].x, found[0].y), house(street("Meadow Road"), "14")) < 5.0);
     // the stated country excludes the French street
     assert!(at("Rue de Rivoli 2", Some("US")).is_empty());
     assert_eq!(at("75460", None)[0].kind, "postcode");
@@ -170,6 +220,40 @@ fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
         .collect();
     assert_eq!(delhi[0], ("in".into(), "city"));
     assert!(delhi.contains(&("ca".into(), "town")));
+}
+
+#[test]
+fn postal_towns_need_not_be_geographic_places_and_region_names_need_not_be_countries() {
+    for (typed, road, number) in [
+        (
+            "15 Township Lane, 60001 Postalton, United States",
+            "Township Lane",
+            "15",
+        ),
+        ("15 Township Lane, 60001 Posta", "Township Lane", "15"),
+        ("16 Cedar Road, Arbor, Georgia", "Cedar Road", "16"),
+    ] {
+        let found = index().suggest(typed, 5, None, None, false);
+        assert!(!found.is_empty(), "{typed}");
+        assert_eq!(found[0].kind, "address", "{typed}");
+        assert_eq!(found[0].country_code, "us", "{typed}");
+        assert!(
+            metres((found[0].x, found[0].y), house(street(road), number)) < 5.0,
+            "{typed}"
+        );
+    }
+    for typed in [
+        "15 Township Lane, 60001 Elsewhere, United States",
+        "15 Township Lane, 60001 Postalton, France",
+    ] {
+        assert!(
+            index()
+                .suggest(typed, 5, None, None, false)
+                .iter()
+                .all(|s| s.kind != "address"),
+            "{typed}"
+        );
+    }
 }
 
 #[test]
@@ -464,6 +548,39 @@ fn resolve_region_answers_the_polygon_that_holds_the_point() {
 }
 
 #[test]
+fn an_explicit_region_parent_beats_an_inconsistent_child_region_column() {
+    let city = place("us-il-bayport");
+    assert_eq!(
+        index().reverse(city.lat, city.lon)["address"]["ISO3166-2-lvl4"],
+        "US-IL"
+    );
+}
+
+#[test]
+fn a_county_cannot_override_the_containing_region_of_a_house() {
+    let parent = index()
+        .region_places()
+        .find(|(code, _)| *code == "AT-4")
+        .unwrap()
+        .1;
+    let hit = |number| opengeocoding::index::Hit::Street {
+        sid: 0,
+        place: parent,
+        name: "Border Road".into(),
+        x: 60.45,
+        y: 0.0,
+        number,
+        postcode: None,
+        city: None,
+        cc: "at".into(),
+    };
+    let house = index().render(&hit(Some("1".into())), true);
+    assert_eq!(house["address"]["ISO3166-2-lvl4"], "AT-3");
+    let road = index().render(&hit(None), true);
+    assert_eq!(road["address"]["ISO3166-2-lvl4"], "AT-4");
+}
+
+#[test]
 fn a_county_with_an_iso_code_adds_it_below_its_region_and_is_listed() {
     let colmar = place("fr-colmar");
     let address = &index().reverse(colmar.lat, colmar.lon)["address"];
@@ -558,6 +675,18 @@ fn cases() -> Vec<Case> {
             at_house("Rue de Rivoli", "2"),
         ),
         case("Rue de Rivoli 2, Paris", at_house("Rue de Rivoli", "2")),
+        case(
+            "14 Meadow Road, 60001 Bayport, Illinois, United States",
+            at_house("Meadow Road", "14"),
+        ),
+        case(
+            "7 bis Rue de Rivoli, 75001 Paris, France",
+            at_house("Rue de Rivoli", "7bis"),
+        ),
+        case(
+            "8 A Rue de Rivoli, 75001 Paris, France",
+            at_house("Rue de Rivoli", "8a"),
+        ),
         case(
             "102 Main Street, Paris, Texas",
             at_house("Main Street", "102"),
