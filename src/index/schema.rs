@@ -153,7 +153,8 @@ pub struct LongNum {
 }
 
 /// Where a house came from, in the two top bits of its packed longitude while the builder holds
-/// it (a postcode slot stays under 64): 0 Overture, 1 OpenAddresses, 2 OSM. When sources give
+/// it (a postcode slot stays under 64): 0 Overture addresses, 1 OpenAddresses, 2 OSM, 3 Overture
+/// places. When sources give
 /// the same house, the better-ranked one is kept.
 pub const RANK_SHIFT: u32 = 30;
 
@@ -620,15 +621,15 @@ mod tests {
     fn duplicate_houses_do_not_depend_on_arrival_order() {
         let dir = std::env::temp_dir().join(format!("numbers-dup-test-{}", std::process::id()));
         let long = "1-very-long-number";
-        // The same house from four sources: Overture's at the easternmost point, one OpenAddresses
-        // copy without a postcode, two others at other points with other postcodes.
+        // Places rank last even when their point sorts before every other copy.
         let copies = [
             (7, 1.5, 4, 0),
             (7, 1.0, 0, 1),
             (7, 1.2, 2, 1),
             (7, 1.0, 3, 2),
+            (7, 0.5, 0, 3),
         ];
-        let rows = |order: [usize; 4]| -> Vec<Vec<Row>> {
+        let rows = |order: [usize; 5]| -> Vec<Vec<Row>> {
             order
                 .iter()
                 .map(|&i| {
@@ -637,8 +638,8 @@ mod tests {
                 })
                 .collect()
         };
-        let (out, one) = write(&dir, "a", rows([0, 1, 2, 3]));
-        let (_, other) = write(&dir, "b", rows([3, 2, 0, 1]));
+        let (out, one) = write(&dir, "a", rows([0, 1, 2, 3, 4]));
+        let (_, other) = write(&dir, "b", rows([4, 3, 2, 0, 1]));
         assert_eq!(one, other);
         for n in ["418", long] {
             // the best-ranked source's copy and its postcode, though it is not the westernmost

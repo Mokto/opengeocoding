@@ -11,12 +11,14 @@
 //! evaluate sample-us --nad FILE --seed TEXT --out FILE   draw US cases from a NAD release, registry-first
 //! evaluate gold-corpus --out FILE            the gold suite as one file, for images
 //! evaluate check                             validate the corpora and snapshot, no network
+//! evaluate coverage --index DIR [--population countryInfo.txt]   house numbers per country
 //! ```
 //!
 //! `run` starts the local service binary on the index in `--index` (or INDEX_DIR), unless `--rpc`
 //! points at a running service. Direct checks load the same index into the evaluator; they need
 //! it too.
 
+mod coverage;
 mod gold;
 mod model;
 mod nad;
@@ -28,7 +30,7 @@ use anyhow::{Context, Result, bail};
 use model::{Case, Record, load_corpus, load_jsonl};
 use std::{collections::HashMap, path::PathBuf};
 
-const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|gold-corpus|check> [options]
+const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|gold-corpus|check|coverage> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
@@ -39,7 +41,8 @@ report      RUN_DIR [--corpus FILE] [--rescore]
 build-gold  [--seeds FILE] [--out FILE] [--nad FILE]
 sample-us   --nad FILE --seed TEXT --out FILE
 gold-corpus --out FILE      write the gold suite as one file (the curated corpus, then tests/registry/*.jsonl)
-check       validate tests/gold.jsonl, tests/registry/*.jsonl, tests/addresses.tsv and its snapshot";
+check       validate tests/gold.jsonl, tests/registry/*.jsonl, tests/addresses.tsv and its snapshot
+coverage    --index DIR [--population countryInfo.txt] [--out FILE]   houses and streets per country, largest gap first";
 
 struct Args {
     positional: Vec<String>,
@@ -129,6 +132,7 @@ async fn command() -> Result<i32> {
         "seeds",
         "nad",
         "seed",
+        "population",
     ];
     let args = Args::parse(raw, &valued)?;
     match command.as_str() {
@@ -262,6 +266,23 @@ async fn command() -> Result<i32> {
                 "{} gold cases, {registry} registry cases and {addresses} address cases validated",
                 cases.len()
             );
+            Ok(0)
+        }
+        "coverage" => {
+            args.only_flags(&[])?;
+            let index = args
+                .path("index")
+                .or_else(|| std::env::var_os("INDEX_DIR").map(PathBuf::from))
+                .context("--index or INDEX_DIR is required")?;
+            let population = match args.path("population") {
+                Some(path) => coverage::populations(&path)?,
+                None => HashMap::new(),
+            };
+            let table = coverage::table(&coverage::count(&index)?, &population);
+            match args.path("out") {
+                Some(out) => std::fs::write(out, table)?,
+                None => print!("{table}"),
+            }
             Ok(0)
         }
         _ => {

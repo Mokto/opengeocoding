@@ -1,6 +1,6 @@
 //! Builds the address index from a local Overture release directory (division, division_area,
-//! segment and address parquet), plus optional OSM extracts, OpenAddresses exports and GeoNames
-//! postcodes, without Nominatim. Only house numbers are spilled to disk.
+//! segment, address and, when present, place parquet), plus optional OSM extracts, OpenAddresses
+//! exports and GeoNames postcodes, without Nominatim. Only house numbers are spilled to disk.
 mod digest;
 mod fetch;
 mod geo;
@@ -852,6 +852,8 @@ struct Shared<'a> {
     postcodes: Vec<Mutex<HashMap<PcKey, PcAgg>>>,
     strings: Interner,
     rows: AtomicU64,
+    /// Overture's address rows with a street, per country of the containing place.
+    covered: Mutex<HashMap<[u8; 2], u64>>,
 }
 
 impl<'a> Shared<'a> {
@@ -864,6 +866,7 @@ impl<'a> Shared<'a> {
             postcodes: sharded(),
             strings: Interner::new(),
             rows: AtomicU64::new(0),
+            covered: Mutex::default(),
         }
     }
 }
@@ -882,6 +885,10 @@ fn with_cell<'k>(key: &str, x: f64, y: f64, out: &'k mut String) -> &'k str {
     );
     out
 }
+
+/// The source rank of Overture's places. Their houses neither move a street's point nor add to
+/// its weight: a road with one listed business keeps its segments' middle and importance.
+const PLACES_RANK: u8 = 3;
 
 /// Rows a sink aggregates before flushing, to bound task-local memory on large files.
 const SINK_ROWS: u64 = 2_000_000;
@@ -903,6 +910,7 @@ struct Sink<'s, 'a> {
     pcn: String,
     /// Which source these rows come from: see `schema::with_rank`.
     rank: u8,
+    covered: HashMap<[u8; 2], u64>,
 }
 
 fn nonempty(s: Option<&str>) -> Option<&str> {
@@ -925,6 +933,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             cell_key: String::new(),
             pcn: String::new(),
             rank: 0,
+            covered: HashMap::new(),
         }
     }
 
@@ -1002,6 +1011,12 @@ impl<'s, 'a> Sink<'s, 'a> {
             return;
         }
         let place = place.unwrap_or_else(|| a.place(x, y)).unwrap_or(NO_PLACE);
+        if self.rank == 0 && place != NO_PLACE {
+            *self
+                .covered
+                .entry(self.shared.countries[place as usize])
+                .or_default() += 1;
+        }
         let m = self.local.entry((c, place)).or_default();
         let celled = with_cell(&self.key, x, y, &mut self.cell_key);
         let li = match m.get(celled) {
@@ -1028,7 +1043,9 @@ impl<'s, 'a> Sink<'s, 'a> {
             let id = self.shared.strings.cached(&mut self.cache, city);
             insert_sorted(&mut e.cities, id);
         }
-        (e.sx, e.sy, e.n) = (e.sx + quantize(x), e.sy + quantize(y), e.n + 1);
+        if self.rank != PLACES_RANK {
+            (e.sx, e.sy, e.n) = (e.sx + quantize(x), e.sy + quantize(y), e.n + 1);
+        }
         for n in number
             .into_iter()
             .flat_map(|n| n.split(';'))
@@ -1052,6 +1069,11 @@ impl<'s, 'a> Sink<'s, 'a> {
     fn flush(&mut self) {
         let sh = self.shared;
         sh.rows.fetch_add(std::mem::take(&mut self.rows), Relaxed);
+        let mut covered = sh.covered.lock().unwrap();
+        for (c, n) in self.covered.drain() {
+            *covered.entry(c).or_default() += n;
+        }
+        drop(covered);
         let mut remap = vec![0u32; self.aggs.len()];
         // per local street: its local postcode slots -> slots in the merged street's list
         let mut slots: Vec<Vec<u8>> = vec![vec![]; self.aggs.len()];
@@ -1184,6 +1206,90 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                     text(&postcode, i),
                     city,
                 );
+            }
+        }
+        done.add(1);
+    });
+}
+
+// ponytail: only the number-first shape; "Jl. Sudirman No. 5" and "Avenida Corrientes 1234" are
+// skipped, because "Calle 10" names a street, not house 10. A per-country address parser
+// (libpostal at build time) is the upgrade path.
+fn freeform_house(freeform: &str) -> Option<(&str, &str)> {
+    let (number, street) = freeform.trim().split_once(' ')?;
+    let street = street.trim();
+    let digits = number.trim_end_matches(|c: char| c.is_ascii_alphabetic());
+    (!digits.is_empty()
+        && number.len() - digits.len() <= 1
+        && digits.bytes().all(|b| b.is_ascii_digit())
+        && !street.contains(',')
+        && street.chars().next().is_some_and(char::is_alphabetic))
+    .then_some((number, street))
+}
+
+/// Use the containing place's country, not the listing's: BAN covers Réunion, which its rows
+/// file under France. Require a known road; listings alone give unreliable street centroids.
+fn pass_places(dir: &Path, shared: &Shared, segs: &[Mutex<HashMap<SegKey, SegAgg>>]) {
+    // ponytail: a fixed floor, so the few addresses a registry files across a border do not
+    // cover the neighbour; French Polynesia's 2,000 rows fall under it. A share of the country's
+    // expected addresses would be the better test.
+    let covered: HashSet<[u8; 2]> = (shared.covered.lock().unwrap().iter())
+        .filter(|(_, n)| **n >= 10_000)
+        .map(|(c, _)| *c)
+        .collect();
+    let mut listed: Vec<&str> = covered.iter().map(country_str).collect();
+    listed.sort_unstable();
+    println!(
+        "  overture places: skipping {}, which Overture's addresses cover",
+        listed.join(" ")
+    );
+    let tasks = tasks(dir);
+    let done =
+        progress::Progress::items("overture places".into(), tasks.len() as u64, "row groups");
+    tasks.par_iter().for_each(|t| {
+        let mut sink = Sink::new(shared).ranked(PLACES_RANK);
+        let (mut key, mut cell_key) = (String::new(), String::new());
+        for b in read(t, &["addresses", "geometry"]) {
+            let (addresses, geom) = (
+                col(&b, "addresses").as_list::<i32>(),
+                col(&b, "geometry").as_binary::<i32>(),
+            );
+            let freeform = addresses.values().as_struct().column_by_name("freeform");
+            let freeform = freeform.unwrap().as_string::<i32>();
+            let o = addresses.value_offsets();
+            for i in 0..b.num_rows() {
+                if addresses.is_null(i) || geom.is_null(i) {
+                    continue;
+                }
+                let Some((x, y)) = wkb_point(geom.value(i)) else {
+                    continue;
+                };
+                let houses = (o[i] as usize..o[i + 1] as usize)
+                    .filter_map(|j| text(freeform, j).and_then(freeform_house));
+                let mut houses = houses.peekable();
+                if houses.peek().is_none()
+                    || !(-180.0..=180.0).contains(&x)
+                    || !(-90.0..=90.0).contains(&y)
+                    || !shared.assigner.within(x, y)
+                {
+                    continue;
+                }
+                let Some(p) = shared.assigner.place(x, y) else {
+                    continue;
+                };
+                let c = shared.countries[p as usize];
+                // ponytail: ship the two largest measured gains first; each further country
+                // needs a full-index gold comparison, including reverse lookups.
+                if ![*b"GB", *b"VN"].contains(&c) || covered.contains(&c) {
+                    continue;
+                }
+                for (number, street) in houses {
+                    fold_into(street, &mut key);
+                    let k: SegKey = (p, with_cell(&key, x, y, &mut cell_key).into());
+                    if segs[shard(&k)].lock().unwrap().contains_key(&k) {
+                        sink.add(Some(c), x, y, Some(street), Some(number), None, None);
+                    }
+                }
             }
         }
         done.add(1);
@@ -1437,6 +1543,27 @@ fn build(args: &[String]) {
         "overture addresses ({} rows)",
         shared.rows.swap(0, Relaxed)
     ));
+    if dir.join("place").is_dir() {
+        std::fs::write(
+            Path::new(out).join("PLACES-LICENSES.txt"),
+            concat!(
+                "Overture Maps Foundation places, https://docs.overturemaps.org/attribution/\n",
+                "Includes Foursquare Open Source Places.\n",
+                "Copyright 2024 Foursquare Labs, Inc. All rights reserved.\n",
+                "Includes AllThePlaces (CC0-1.0).\n",
+                "Modified: addresses filtered, split, normalized and merged into street/house tables.\n\n",
+                include_str!("../../../LICENSES/CDLA-Permissive-2.0.txt"),
+                "\n",
+                include_str!("../../../LICENSES/Apache-2.0.txt"),
+            ),
+        )
+        .unwrap();
+        pass_places(&dir.join("place"), &shared, &segs);
+        lap(&format!(
+            "overture places ({} rows)",
+            shared.rows.swap(0, Relaxed)
+        ));
+    }
     for d in &oa_dirs {
         let files = sources::openaddresses(
             Path::new(d),
@@ -1648,6 +1775,11 @@ fn build(args: &[String]) {
                 );
             }
             let n = st.n + seg.as_ref().map_or(0, |g| g.n);
+            // Places contribute no centroid or weight and are admitted only on a known segment.
+            let point = match &seg {
+                Some(g) if st.n == 0 => (mean(g.sx, g.n), mean(g.sy, g.n)),
+                _ => (mean(st.sx, st.n), mean(st.sy, st.n)),
+            };
             street_doc(
                 sid,
                 country_str(cc),
@@ -1655,7 +1787,7 @@ fn build(args: &[String]) {
                 &names,
                 &st.pcs,
                 &st.cities,
-                (mean(st.sx, st.n), mean(st.sy, st.n)),
+                point,
                 n,
             );
         }
@@ -1794,6 +1926,31 @@ mod tests {
             !canon.slots[0].contains_key(&1),
             "one postcode keeps its slot"
         );
+    }
+
+    #[test]
+    fn only_a_number_then_a_street_is_a_house() {
+        assert_eq!(
+            freeform_house("553 Sư Vạn Hạnh"),
+            Some(("553", "Sư Vạn Hạnh"))
+        );
+        assert_eq!(
+            freeform_house("12B High Street"),
+            Some(("12B", "High Street"))
+        );
+        assert_eq!(freeform_house("991 พระราม 1"), Some(("991", "พระราม 1")));
+        for no in [
+            "315, 2, Kaggadasapura Main Rd",
+            "Puan market, 41 Libby Road",
+            "Calle 10",
+            "12 3rd Street",
+            "12AB Road",
+            "12",
+            "Nandinagar",
+            "548/11 Rajajipuram",
+        ] {
+            assert_eq!(freeform_house(no), None, "{no}");
+        }
     }
 
     use super::balanced;

@@ -44,6 +44,7 @@ FROM build AS manifest
 COPY build.rs buf.yaml ./
 COPY proto proto
 COPY data data
+COPY LICENSES LICENSES
 COPY --from=stubs /stubs ./
 
 FROM manifest AS deps
@@ -68,6 +69,7 @@ RUN ldconfig && rustup component add rustfmt clippy \
     && cargo test --locked --no-run
 
 FROM check-deps AS checks
+COPY Dockerfile ./
 COPY Cargo.toml Cargo.lock ./
 COPY src src
 COPY tests tests

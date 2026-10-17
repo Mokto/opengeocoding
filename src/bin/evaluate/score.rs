@@ -149,13 +149,19 @@ pub const SUGGEST_LIMIT: usize = 5;
 pub const SUGGEST_CLASSES: [&str; 4] = ["pass", "ranked_low", "missing", "error"];
 
 /// 1-based rank of the first suggestion at an expected place: its country, a type of its level
-/// and within its radius.
+/// and within its radius. A house answers a street when the case accepts a house, as it does in
+/// SearchAddress.
 pub fn suggest_rank(expect: &Expect, found: &[Suggested]) -> Option<usize> {
     let at = |alt: &Expect, s: &Suggested| {
         let kind = match alt.level.as_str() {
             "none" => false,
             "house" => s.kind == "address",
-            "street" | "postcode" | "country" => s.kind == alt.level,
+            "street" => {
+                s.kind == "street"
+                    || (s.kind == "address"
+                        && alt.max_level.as_deref().unwrap_or("house") == "house")
+            }
+            "postcode" | "country" => s.kind == alt.level,
             _ => !["address", "street", "postcode"].contains(&s.kind.as_str()),
         };
         kind && alt.country.contains(&s.country.to_lowercase())
@@ -1074,6 +1080,14 @@ mod tests {
         assert_eq!(suggest_rank(&paris, &found), Some(2));
         paris.level = "house".into();
         assert_eq!(suggest_rank(&paris, &found), None);
+        let house = json!({ "suggestions": [
+            { "type": "address", "displayName": "1 Rue de Rivoli, Paris", "countryCode": "fr",
+              "geoCoordinates": { "lat": 48.8566, "lon": 2.3522 } },
+        ]});
+        paris.level = "street".into();
+        assert_eq!(suggest_rank(&paris, &suggested(&house)), Some(1));
+        paris.max_level = Some("street".into());
+        assert_eq!(suggest_rank(&paris, &suggested(&house)), None);
         let check = |want, rank| SuggestCheck {
             want,
             rank,

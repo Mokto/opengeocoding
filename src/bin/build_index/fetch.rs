@@ -250,11 +250,12 @@ where
     Ok(())
 }
 
-const OVERTURE_TYPES: [(&str, &str); 4] = [
+const OVERTURE_TYPES: [(&str, &str); 5] = [
     ("division", "theme=divisions/type=division"),
     ("division_area", "theme=divisions/type=division_area"),
     ("segment", "theme=transportation/type=segment"),
     ("address", "theme=addresses/type=address"),
+    ("place", "theme=places/type=place"),
 ];
 
 pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetched> {
