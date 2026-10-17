@@ -214,6 +214,23 @@ fn commas_bound_the_town_in_street_town_state_postcode() {
     let mut split = whole.clone();
     split.push(("suburb".into(), "avondale".into()));
     assert!(comma_aligned(&head, &[], "Avondale Goodyear", &tail, &split).is_none());
+    let separate_state = pairs(&[
+        ("house_number", "14"),
+        ("road", "breezewood common"),
+        ("city", "east amherst"),
+        ("state", "ny"),
+        ("postcode", "14051-1234"),
+    ]);
+    assert!(
+        comma_aligned(
+            &head,
+            &["East Amherst"],
+            " NY",
+            &pairs(&[("postcode", "14051-1234")]),
+            &separate_state,
+        )
+        .is_none()
+    );
     let town_in_tail = pairs(&[("city", "ithaca"), ("state", "ny"), ("postcode", "14850")]);
     assert!(comma_aligned(&head, &[], "East Amherst", &town_in_tail, &whole).is_none());
     // a county between street and town, read into the road

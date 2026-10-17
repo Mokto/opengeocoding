@@ -212,7 +212,12 @@ impl Resolver {
 
 impl Core {
     fn parse(&self, query: &str) -> Result<ParsedAddress> {
-        Ok(self.parser.parse(query)?.iter().cloned().collect())
+        Ok(self
+            .index
+            .parse_address(query, true)?
+            .iter()
+            .cloned()
+            .collect())
     }
 
     /// The index's hits and their English rendering.
