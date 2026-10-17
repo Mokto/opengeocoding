@@ -13,6 +13,7 @@
 //! evaluate sample-no --kartverket FILE --seed TEXT --out FILE   draw Norwegian cases from a Kartverket CSV export
 //! evaluate sample-ch --swisstopo FILE --seed TEXT --out FILE   draw Swiss cases from the official address CSV
 //! evaluate sample-nl --bag FILE --seed TEXT --out FILE   draw Dutch cases from the BAG CSV
+//! evaluate sample-kr --schools FILE --seed TEXT --out FILE   draw Korean school address pairs
 //! evaluate gold-corpus --out FILE            the gold suite as one file, for images
 //! evaluate check                             validate the corpora and snapshot, no network
 //! evaluate coverage --index DIR [--population countryInfo.txt]   house numbers per country
@@ -27,6 +28,7 @@ mod ban;
 mod coverage;
 mod gold;
 mod kartverket;
+mod korea;
 mod model;
 mod nad;
 mod report;
@@ -38,7 +40,7 @@ use anyhow::{Context, Result, bail};
 use model::{Case, Record, load_corpus, load_jsonl};
 use std::{collections::HashMap, path::PathBuf};
 
-const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|sample-fr|sample-no|sample-ch|sample-nl|gold-corpus|check|coverage> [options]
+const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|sample-fr|sample-no|sample-ch|sample-nl|sample-kr|gold-corpus|check|coverage> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
@@ -46,12 +48,13 @@ run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare 
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
-build-gold  [--seeds FILE] [--out FILE] [--nad FILE] [--ban FILE] [--kartverket FILE] [--swisstopo FILE] [--bag FILE]
+build-gold  [--seeds FILE] [--out FILE] [--nad FILE] [--ban FILE] [--kartverket FILE] [--swisstopo FILE] [--bag FILE] [--schools FILE]
 sample-us   --nad FILE --seed TEXT --out FILE
 sample-fr   --ban FILE --seed TEXT --out FILE
 sample-no   --kartverket FILE --seed TEXT --out FILE
 sample-ch   --swisstopo FILE --seed TEXT --out FILE
 sample-nl   --bag FILE --seed TEXT --out FILE
+sample-kr   --schools FILE --seed TEXT --out FILE
 gold-corpus --out FILE      write the gold suite as one file (the curated corpus, then tests/registry/*.jsonl)
 check       validate tests/gold.jsonl, tests/registry/*.jsonl, tests/addresses.tsv and its snapshot
 coverage    --index DIR [--population countryInfo.txt] [--out FILE]   houses and streets per country, largest gap first";
@@ -147,6 +150,7 @@ async fn command() -> Result<i32> {
         "kartverket",
         "swisstopo",
         "bag",
+        "schools",
         "seed",
         "population",
     ];
@@ -241,11 +245,14 @@ async fn command() -> Result<i32> {
             gold::build(
                 &seeds,
                 &args.path("out").unwrap_or_else(model::gold),
-                args.path("nad").as_deref(),
-                args.path("ban").as_deref(),
-                args.path("kartverket").as_deref(),
-                args.path("swisstopo").as_deref(),
-                args.path("bag").as_deref(),
+                gold::RegistryFiles {
+                    nad: args.path("nad").as_deref(),
+                    ban: args.path("ban").as_deref(),
+                    kartverket: args.path("kartverket").as_deref(),
+                    swisstopo: args.path("swisstopo").as_deref(),
+                    bag: args.path("bag").as_deref(),
+                    schools: args.path("schools").as_deref(),
+                },
             )
             .await?;
             Ok(0)
@@ -255,10 +262,14 @@ async fn command() -> Result<i32> {
             model::write_suite(&args.path("out").context("--out is required")?)?;
             Ok(0)
         }
-        "sample-us" | "sample-fr" | "sample-no" | "sample-ch" | "sample-nl" => {
+        "sample-us" | "sample-fr" | "sample-no" | "sample-ch" | "sample-nl" | "sample-kr" => {
             args.only_flags(&[])?;
             let seed = args.value("seed").context("--seed is required")?;
             let lines = match command.as_str() {
+                "sample-kr" => korea::sample(
+                    &args.path("schools").context("--schools is required")?,
+                    seed,
+                )?,
                 "sample-nl" => bag::sample(&args.path("bag").context("--bag is required")?, seed)?,
                 "sample-fr" => ban::sample(&args.path("ban").context("--ban is required")?, seed)?,
                 "sample-no" => kartverket::sample(
