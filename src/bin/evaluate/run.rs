@@ -222,7 +222,7 @@ pub fn rescore_locate(case: &Case, record: &mut Record) {
 }
 
 /// Scores an RPC outcome against a case; also used to re-score saved responses.
-pub fn classify(case: &Case, outcome: Result<&Value, &str>, record: &mut Record) {
+pub fn classify(case: &Case, outcome: Result<&Value, &str>, record: &mut Record, confidence: bool) {
     let wants_error = case.expect.as_ref().and_then(|e| e.error.as_deref());
     record.flags.clear();
     match outcome {
@@ -237,12 +237,14 @@ pub fn classify(case: &Case, outcome: Result<&Value, &str>, record: &mut Record)
         }
         Ok(_) if wants_error.is_some() => record.class = "unexpected_result".into(),
         Ok(response) => {
-            let scored = score(case.expect.as_ref(), response, true);
+            let scored = score(case.expect.as_ref(), response, confidence);
             record.class = scored.class.into();
             record.level = Some(scored.level.into());
             record.distance_km = scored.distance_km;
             record.flags = scored.flags;
-            record.flags.extend(region_flags(response));
+            if confidence {
+                record.flags.extend(region_flags(response));
+            }
         }
     }
 }
@@ -310,11 +312,11 @@ impl Checker {
         let response = match result {
             Ok(response) => response,
             Err(error) => {
-                classify(case, Err(&error), &mut record);
+                classify(case, Err(&error), &mut record, true);
                 return Ok(record);
             }
         };
-        classify(case, Ok(&response), &mut record);
+        classify(case, Ok(&response), &mut record, true);
         record.summary = Some(summary_of(&response));
         record.response = Some(response);
         match (&case.expect, &self.index) {
@@ -1299,9 +1301,9 @@ mod tests {
             ..Default::default()
         };
         let mut record = Record::default();
-        classify(&case, Err("invalid_argument"), &mut record);
+        classify(&case, Err("invalid_argument"), &mut record, true);
         assert_eq!(record.class, "pass");
-        classify(&case, Ok(&json!({})), &mut record);
+        classify(&case, Ok(&json!({})), &mut record, true);
         assert_eq!(record.class, "unexpected_result");
     }
 }

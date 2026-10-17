@@ -371,6 +371,33 @@ In one run against the October 2026 Overture release with the OSM, OpenAddresses
 
 See the [evaluation guide](docs/evaluation.md) for suites, scoring, gates and snapshots, and the [per-country registry guides](docs/registry/) for sampling and source provenance.
 
+### Offline Mapbox comparison
+
+`evaluate mapbox` evaluates the first result from Mapbox Geocoding v6 against the same corpus. It is **offline by default**: a missing cache entry fails before any network access. Use `--corpus FILE` for a separate corpus or `--only REGEX` to select case ids; otherwise it reads the gold suite, including registry-first samples.
+
+Mapbox [allows indefinite storage only for permanent geocoding](https://docs.mapbox.com/api/search/geocoding/#storing-geocoding-results). Fetches always set `permanent=true` and may be billed; caching avoids repeat charges, not the initial cost. The account needs a valid payment method or an enterprise contract permitting permanent geocoding. Confirm applicable storage, benchmarking and use terms before fetching. Keep the cache and reports private, under the ignored `eval-results/` directory or outside the checkout. Never commit provider responses or credentials.
+
+Provision `MAPBOX_ACCESS_TOKEN` through your secret manager in the process environment, not a command-line argument or a committed file. Then explicitly authorize at most `N` distinct missing requests:
+
+```sh
+# Inspect missing-request counts without a token or network access (fails on misses).
+target/release/evaluate mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox
+
+# Fetch only missing queries. Replace N with an approved request budget.
+target/release/evaluate mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox \
+  --fetch --budget N
+
+# Re-score offline and compare with a saved OpenGeocoding run directory or JSON snapshot.
+target/release/evaluate mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox \
+  --compare eval-results/local-gold
+```
+
+A budget smaller than the number of missing requests fails before sending any. Fetches are serialized at no more than five requests per second, without retries. Each successful JSON response (including an empty result) and HTTP 422 response is checkpointed before scoring. Re-running resumes from that cache; authentication, rate-limit and server failures stop the fetch. A transport failure may already have been billed, so inspect failures before authorizing another run. A cache lock prevents concurrent fetches against the same directory. Do not run fetches against separate caches for the same experiment.
+
+Cache keys include the exact query, endpoint and settings, never the token or expected answer. Raw responses, attribution and collection times are retained. Requests use `autocomplete=false`, `limit=1`, `language=en` and `worldview=us`, without country filters or proximity hints. Those fixed settings are recorded in the manifest; they are not an optimized country-by-country configuration. Mapbox secondary addresses are evaluated at building level, not for unit correctness.
+
+`report.md` includes outcomes by cohort, expected country and holdout. `--compare` re-scores both sides against the current corpus, ignoring `goodMatch`; Mapbox confidence is not equated with it. The paired table counts both-pass, baseline-only, Mapbox-only and neither-pass cases, and lists different failure classes. Service-specific error-contract cases are excluded. Known-failure labels do not turn failures into passes. No latency comparison is made from cached responses. The curated corpus remains a diagnostic benchmark, not an unbiased accuracy estimate: many cases were selected from index inputs, and registry expectations can share upstream sources with providers.
+
 ## GHCR publishing
 
 `.github/workflows/docker.yml` runs on `v*` tag pushes, which release-please creates when its Release PR is merged (it needs the `RELEASE_PLEASE_TOKEN` secret, because tags pushed with `GITHUB_TOKEN` trigger no workflows). It runs the existing checks first, then uses Docker's pinned reusable workflow to build on native amd64/arm64 runners, push to `ghcr.io/mokto/opengeocoding`, and assemble and verify the multi-platform manifest. Pull requests do not publish to that image.
