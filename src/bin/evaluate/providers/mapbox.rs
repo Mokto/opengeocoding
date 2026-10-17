@@ -9,6 +9,7 @@ pub const PROVIDER: Provider = Provider {
     name: "mapbox",
     label: "Mapbox Geocoding v6 permanent",
     credential_env: "MAPBOX_ACCESS_TOKEN",
+    query_error_statuses: &[422],
     not_found_status: None,
     interval_ms: 200,
     auth_parameter: "access_token",

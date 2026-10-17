@@ -9,6 +9,7 @@ pub const PROVIDER: Provider = Provider {
     label: "Esri ArcGIS World Geocoding",
     credential_env: "ARCGIS_API_KEY",
     auth_parameter: "token",
+    query_error_statuses: &[422],
     not_found_status: None,
     interval_ms: 200,
     storage_terms: Some(

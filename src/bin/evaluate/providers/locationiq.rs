@@ -8,6 +8,7 @@ pub const PROVIDER: Provider = Provider {
     label: "LocationIQ Search v1",
     credential_env: "LOCATIONIQ_ACCESS_TOKEN",
     auth_parameter: "key",
+    query_error_statuses: &[422],
     not_found_status: Some(404),
     interval_ms: 1000,
     storage_terms: Some("https://locationiq.com/terms"),

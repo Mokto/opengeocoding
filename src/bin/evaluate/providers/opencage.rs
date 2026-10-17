@@ -8,6 +8,7 @@ pub const PROVIDER: Provider = Provider {
     label: "OpenCage Geocoding v1",
     credential_env: "OPENCAGE_API_KEY",
     auth_parameter: "key",
+    query_error_statuses: &[400, 422],
     not_found_status: None,
     interval_ms: 1000,
     storage_terms: None,
@@ -57,16 +58,21 @@ fn normalize(response: &Value) -> Result<Value> {
         }
         _ if matches!(text(native, "_type"), "house" | "building")
             || [
+                "agriculture",
                 "building",
                 "commerce",
+                "construction",
                 "education",
                 "financial",
                 "government",
                 "health",
                 "industrial",
                 "military",
+                "natural/water",
+                "outdoors/recreation",
                 "place_of_worship",
                 "social",
+                "transportation",
                 "travel/tourism",
             ]
             .contains(&text(native, "_category")) =>
@@ -114,6 +120,17 @@ mod tests {
             assert!(crate::score::region_codes(&result).contains("US-CA"));
             assert!(result.get("goodMatch").is_none());
         }
+        input["results"][0]["components"]["_type"] = "charging_station".into();
+        input["results"][0]["components"]["_category"] = "transportation".into();
+        assert_eq!(crate::score::level_of(&normalize(&input).unwrap()), "house");
+        input["results"][0]["components"]["_type"] = "museum".into();
+        input["results"][0]["components"]["_category"] = "outdoors/recreation".into();
+        assert_eq!(crate::score::level_of(&normalize(&input).unwrap()), "house");
+        input["results"][0]["components"]["house_number"] = Value::Null;
+        assert_eq!(
+            crate::score::level_of(&normalize(&input).unwrap()),
+            "street"
+        );
         input["results"][0]["components"]["_type"] = "unknown_place".into();
         input["results"][0]["components"]["_category"] = "place".into();
         assert!(normalize(&input).is_err());
