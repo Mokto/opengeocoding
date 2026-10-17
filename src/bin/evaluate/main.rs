@@ -20,6 +20,7 @@
 
 mod coverage;
 mod gold;
+mod mapbox;
 mod model;
 mod nad;
 mod report;
@@ -30,11 +31,13 @@ use anyhow::{Context, Result, bail};
 use model::{Case, Record, load_corpus, load_jsonl};
 use std::{collections::HashMap, path::PathBuf};
 
-const USAGE: &str = "usage: evaluate <run|diff|snapshot|report|build-gold|sample-us|gold-corpus|check|coverage> [options]
+const USAGE: &str = "usage: evaluate <run|mapbox|diff|snapshot|report|build-gold|sample-us|gold-corpus|check|coverage> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
             [--no-direct] [--resume] [--backend-label TEXT] [--repeat 3]
+mapbox      --out DIR --cache DIR [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
+            [--fetch --budget N] (offline by default; fetch authorizes permanent, potentially billed requests)
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
@@ -133,6 +136,7 @@ async fn command() -> Result<i32> {
         "nad",
         "seed",
         "population",
+        "cache",
     ];
     let args = Args::parse(raw, &valued)?;
     match command.as_str() {
@@ -176,6 +180,27 @@ async fn command() -> Result<i32> {
             };
             run::run(options).await
         }
+        "mapbox" => {
+            args.only_flags(&["fetch"])?;
+            if let Some(option) = args.values.keys().find(|k| {
+                !["out", "cache", "corpus", "only", "compare", "budget"].contains(&k.as_str())
+            }) {
+                bail!("unsupported mapbox option --{option}");
+            }
+            if !args.positional.is_empty() {
+                bail!("mapbox accepts named options only");
+            }
+            mapbox::run(mapbox::Options {
+                corpus: args.path("corpus"),
+                out: args.path("out").context("--out is required")?,
+                cache: args.path("cache").context("--cache is required")?,
+                only: args.value("only").map(regex::Regex::new).transpose()?,
+                fetch: args.flag("fetch"),
+                budget: args.value("budget").map_or(Ok(0), str::parse)?,
+                compare: args.path("compare"),
+            })
+            .await
+        }
         "diff" => {
             args.only_flags(&["fail-on-drift", "relative"])?;
             let [baseline, candidate] = args.positional.as_slice() else {
@@ -206,11 +231,15 @@ async fn command() -> Result<i32> {
             };
             let run_dir = PathBuf::from(run_dir);
             let cases = corpus(&args)?;
-            let manifest =
+            let manifest: serde_json::Value =
                 serde_json::from_str(&std::fs::read_to_string(run_dir.join("manifest.json"))?)?;
             let mut results = load_jsonl::<Record>(&run_dir.join("results.jsonl"))?;
             if args.flag("rescore") {
-                rescore(&cases, &mut results);
+                rescore(
+                    &cases,
+                    &mut results,
+                    manifest["scoring"]["confidence"].as_bool().unwrap_or(true),
+                );
             }
             let (text, failed) = report::summarize(&cases, &results, &manifest);
             std::fs::write(run_dir.join("report.md"), &text)?;
@@ -294,7 +323,7 @@ async fn command() -> Result<i32> {
 
 /// Re-scores saved responses against the current corpus, e.g. after an expectation change,
 /// and lists every case whose class changed. No network; direct-backend evidence is kept as recorded.
-fn rescore(cases: &[Case], results: &mut [Record]) {
+fn rescore(cases: &[Case], results: &mut [Record], confidence: bool) {
     let by_id: HashMap<_, _> = cases.iter().map(|c| (c.id.as_str(), c)).collect();
     let mut changed = 0;
     for record in results.iter_mut() {
@@ -320,8 +349,8 @@ fn rescore(cases: &[Case], results: &mut [Record]) {
         let response = record.response.clone();
         let error = record.error.clone();
         match (&response, &error) {
-            (Some(response), _) => run::classify(case, Ok(response), record),
-            (None, Some(error)) => run::classify(case, Err(error), record),
+            (Some(response), _) => run::classify(case, Ok(response), record, confidence),
+            (None, Some(error)) => run::classify(case, Err(error), record, confidence),
             (None, None) => continue,
         }
         if record.class != before {
