@@ -8,7 +8,7 @@ pub const PROVIDER: Provider = Provider {
     label: "Geoapify Geocoding v1",
     credential_env: "GEOAPIFY_API_KEY",
     auth_parameter: "apiKey",
-    query_error_statuses: &[422],
+    query_error_statuses: &[400, 422],
     not_found_status: None,
     interval_ms: 200,
     storage_terms: None,

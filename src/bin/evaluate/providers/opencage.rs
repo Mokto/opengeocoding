@@ -47,7 +47,9 @@ fn normalize(response: &Value) -> Result<Value> {
                 .unwrap_or(&native["state"])
                 .clone()
         }
-        "county" | "state_district" => address["county"] = native[text(native, "_type")].clone(),
+        "county" | "state_district" | "subregion" => {
+            address["county"] = native[text(native, "_type")].clone()
+        }
         "postcode" | "postal_code" => address["postcode"] = native["postcode"].clone(),
         "road" | "pedestrian" | "footway" | "path" => {
             address["road"] = native
@@ -56,7 +58,7 @@ fn normalize(response: &Value) -> Result<Value> {
                 .clone()
         }
         kind @ ("city" | "town" | "village" | "hamlet" | "municipality" | "suburb"
-        | "neighbourhood" | "city_district") => {
+        | "neighbourhood" | "city_district" | "postal_city") => {
             address["city"] = native
                 .get(kind)
                 .unwrap_or(&native["_normalized_city"])
@@ -126,6 +128,18 @@ mod tests {
             assert!(crate::score::region_codes(&result).contains("US-CA"));
             assert!(result.get("goodMatch").is_none());
         }
+        input["results"][0]["components"]["_type"] = "postal_city".into();
+        input["results"][0]["components"]["postal_city"] = "Example Postal Town".into();
+        let postal_city = normalize(&input).unwrap();
+        assert_eq!(crate::score::level_of(&postal_city), "locality");
+        assert_eq!(postal_city["addressDetails"]["city"], "Example Postal Town");
+        input["results"][0]["components"]["_type"] = "subregion".into();
+        input["results"][0]["components"]["subregion"] = "Example District".into();
+        input["results"][0]["components"]["_category"] = "unknown".into();
+        assert_eq!(
+            crate::score::level_of(&normalize(&input).unwrap()),
+            "region"
+        );
         input["results"][0]["components"]["_type"] = "charging_station".into();
         input["results"][0]["components"]["_category"] = "transportation".into();
         assert_eq!(crate::score::level_of(&normalize(&input).unwrap()), "house");
