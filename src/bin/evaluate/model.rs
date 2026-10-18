@@ -40,11 +40,12 @@ pub fn registry_corpora() -> Vec<PathBuf> {
     found
 }
 
-/// The gold suite: the curated corpus, every registry-first corpus, then the landmarks.
+/// The gold suite: the curated corpus, every registry-first corpus, then the suggestion corpora.
 pub fn suite() -> Vec<PathBuf> {
     let mut files = vec![gold()];
     files.extend(registry_corpora());
     files.push(gold_landmarks());
+    files.push(root().join("tests/gold.suggest.jsonl"));
     files
 }
 
@@ -104,6 +105,16 @@ pub struct Case {
     /// Sets `includeLandmarks` on this case's suggestion requests.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub include_landmarks: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggest_address: Option<SuggestAddressExpect>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SuggestAddressExpect {
+    pub building: String,
+    pub unverified_suffix: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country_code: Option<String>,
 }
 
 /// A place's name typed alone into SuggestAddress: it should come at `rank` or better, behind
@@ -129,6 +140,8 @@ pub struct SuggestCheck {
     pub error: Option<String>,
     #[serde(default)]
     pub found: Vec<Suggested>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub building: Option<Suggested>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub landmarks_off: bool,
     /// The fastest of `repeat` requests, as for a SearchAddress case.
@@ -155,6 +168,10 @@ pub struct Located {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct Suggested {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub id: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub unverified_suffix: String,
     pub kind: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub category: String,
@@ -312,7 +329,7 @@ pub fn validate_gold(cases: &[Case]) -> Result<()> {
         );
         let Some(expect) = &case.expect else {
             ensure!(
-                !case.must_pass && case.known_failure.is_none(),
+                !case.must_pass && case.known_failure.is_none() && case.suggest_address.is_none(),
                 "{at}: unscored case cannot gate"
             );
             continue;
@@ -323,6 +340,21 @@ pub fn validate_gold(cases: &[Case]) -> Result<()> {
                     && (1..=SUGGEST_LIMIT).contains(&s.rank)
                     && s.rank == s.larger.len() + 1,
                 "{at}: suggest"
+            );
+        }
+        if let Some(s) = &case.suggest_address {
+            ensure!(
+                expect.level == "house"
+                    && expect.error.is_none()
+                    && !s.building.trim().is_empty()
+                    && !s.unverified_suffix.trim().is_empty()
+                    && s.country_code
+                        .as_ref()
+                        .is_none_or(|cc| expect.country.contains(cc))
+                    && case.suggest.is_none()
+                    && !case.include_landmarks
+                    && !case.must_pass,
+                "{at}: suggest address"
             );
         }
         if expect.error.is_some() {

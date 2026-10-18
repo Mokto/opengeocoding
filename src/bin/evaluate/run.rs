@@ -4,7 +4,7 @@ use crate::{
     score::{
         Expect, SUGGEST_LIMIT, details, expected_place, from_index, rank, region_applies,
         region_class, region_codes, region_flags, resolved, reverse_applies, reverse_class,
-        reversed, score, suggest_rank, suggested, summary_of, text,
+        reversed, score, suggest_rank, suggested, suggested_address, summary_of, text,
     },
 };
 use anyhow::{Context, Result, bail};
@@ -165,14 +165,37 @@ fn suggestible(case: &Case) -> bool {
         })
 }
 
+fn suggestion_rank(case: &Case, check: &SuggestCheck) -> Option<usize> {
+    let expect = case.expect.as_ref()?;
+    let Some(address) = &case.suggest_address else {
+        return suggest_rank(expect, &check.found);
+    };
+    let building = check.building.as_ref()?;
+    if check.error.is_some() || building.id.is_empty() || !building.unverified_suffix.is_empty() {
+        return None;
+    }
+    check
+        .found
+        .iter()
+        .position(|s| {
+            s.id == building.id
+                && s.point == building.point
+                && s.kind == building.kind
+                && s.country == building.country
+                && s.unverified_suffix == address.unverified_suffix
+                && suggest_rank(expect, std::slice::from_ref(s)).is_some()
+        })
+        .map(|i| i + 1)
+}
+
 /// Re-ranks saved suggestions against the current corpus.
 pub fn rescore_suggest(case: &Case, record: &mut Record) {
-    let Some(expect) = &case.expect else {
+    if case.expect.is_none() {
         return;
-    };
+    }
     for (name, check) in &mut record.suggest {
         if !check.landmarks_off {
-            check.rank = suggest_rank(expect, &check.found);
+            check.rank = suggestion_rank(case, check);
         }
         if let ("name", Some(s)) = (name.as_str(), &case.suggest) {
             check.want = s.rank;
@@ -243,7 +266,9 @@ impl Checker {
             query: case.query.clone(),
             ..Default::default()
         };
-        if case.expect.as_ref().is_some_and(|e| e.level == "landmark") {
+        if case.suggest_address.is_some()
+            || case.expect.as_ref().is_some_and(|e| e.level == "landmark")
+        {
             record.class = "unscored".into();
             record.suggest = self.suggest(case).await;
             return Ok(record);
@@ -358,6 +383,22 @@ impl Checker {
         let Some(expect) = case.expect.as_ref().filter(|_| suggestible(case)) else {
             return checks;
         };
+        let mut building = None;
+        let mut building_error = None;
+        if let Some(address) = &case.suggest_address {
+            let mut request = json!({ "text": address.building, "limit": SUGGEST_LIMIT });
+            if let Some(cc) = &address.country_code {
+                request["countryCode"] = json!(cc);
+            }
+            self.budget.take().await;
+            match rpc_json(&self.client, &self.base, "SuggestAddress", &request).await {
+                Ok(body) => {
+                    let found = suggested_address(&body);
+                    building = suggest_rank(expect, &found).map(|rank| found[rank - 1].clone());
+                }
+                Err(error) => building_error = Some(error),
+            }
+        }
         let mut texts = vec![("full", case.query.clone(), SUGGEST_LIMIT)];
         texts.extend(
             case.suggest
@@ -373,9 +414,18 @@ impl Checker {
                 text: text.clone(),
                 want,
                 landmarks_off: name == "off",
+                building: building.clone(),
+                error: building_error.clone(),
                 ..Default::default()
             };
             let mut request = json!({ "text": text, "limit": SUGGEST_LIMIT });
+            if let Some(cc) = case
+                .suggest_address
+                .as_ref()
+                .and_then(|s| s.country_code.as_ref())
+            {
+                request["countryCode"] = json!(cc);
+            }
             if case.include_landmarks {
                 request["includeLandmarks"] = json!(!check.landmarks_off);
             }
@@ -386,13 +436,19 @@ impl Checker {
                 let took = started.elapsed();
                 elapsed = Some(elapsed.map_or(took, |e| e.min(took)));
                 match result {
-                    Ok(body) => check.found = suggested(&body),
+                    Ok(body) => {
+                        check.found = if case.suggest_address.is_some() {
+                            suggested_address(&body)
+                        } else {
+                            suggested(&body)
+                        }
+                    }
                     Err(error) => check.error = Some(error),
                 }
             }
             check.ms = elapsed.map(|e| (e.as_secs_f64() * 1e6).round() / 1e3);
             if !check.landmarks_off {
-                check.rank = suggest_rank(expect, &check.found);
+                check.rank = suggestion_rank(case, &check);
             }
             checks.insert(name.into(), check);
         }
@@ -1113,6 +1169,89 @@ mod tests {
         assert_eq!(crate::score::suggest_class(off), "unexpected");
         off.error = Some("timeout".into());
         assert_eq!(crate::score::suggest_class(off), "error");
+    }
+
+    #[tokio::test]
+    async fn address_suggestions_preserve_the_building_and_unverified_suffix() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let app = axum::Router::new().route(
+            &format!("/{SERVICE}/SuggestAddress"),
+            axum::routing::post(|axum::Json(request): axum::Json<Value>| async move {
+                assert!(request.get("countryCode").is_none() || request["countryCode"] == "dk");
+                assert_eq!(request["limit"], SUGGEST_LIMIT);
+                let suffix = match request["text"].as_str().unwrap() {
+                    "test road 1" => "",
+                    "test road 1, 4. th." => "4. th.",
+                    other => panic!("unexpected request {other}"),
+                };
+                axum::Json(json!({ "suggestions": [{
+                    "id": "building-1", "type": "address", "countryCode": "dk",
+                    "displayName": "Test Road 1", "unverifiedSuffix": suffix,
+                    "geoCoordinates": { "lat": 55.675278321, "lon": 12.570278321 }
+                }] }))
+            }),
+        );
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let checker = Checker {
+            client: Client::new(),
+            base,
+            metrics: None,
+            index: None,
+            repeat: 1,
+            budget: Budget {
+                interval: Duration::ZERO,
+                limit: 4,
+                used: AtomicUsize::new(0),
+                next: tokio::sync::Mutex::new(tokio::time::Instant::now()),
+            },
+        };
+        let mut case = Case {
+            query: "test road 1, 4. th.".into(),
+            expect: Some(Expect {
+                level: "house".into(),
+                country: vec!["dk".into()],
+                point: Some([55.675278, 12.570278]),
+                radius_km: Some(0.25),
+                ..Default::default()
+            }),
+            suggest_address: Some(crate::model::SuggestAddressExpect {
+                building: "test road 1".into(),
+                unverified_suffix: "4. th.".into(),
+                country_code: None,
+            }),
+            ..Default::default()
+        };
+        for cc in [None, Some("dk".into())] {
+            case.suggest_address.as_mut().unwrap().country_code = cc;
+            let record = checker.check(&case).await.unwrap();
+            assert_eq!(record.class, "unscored");
+            assert!(record.reverse.is_none() && record.region.is_none());
+            let saved = serde_json::to_value(record).unwrap();
+            let mut record: Record = serde_json::from_value(saved).unwrap();
+            rescore_suggest(&case, &mut record);
+            assert_eq!(crate::score::suggest_class(&record.suggest["full"]), "pass");
+            for field in ["id", "point", "kind", "country", "unverified_suffix"] {
+                let mut broken = record.clone();
+                let found = &mut broken.suggest.get_mut("full").unwrap().found[0];
+                match field {
+                    "id" => found.id = "another-building".into(),
+                    "point" => found.point[0] += 0.00000001,
+                    "kind" => found.kind = "street".into(),
+                    "country" => found.country = "se".into(),
+                    "unverified_suffix" => found.unverified_suffix = "4. tv.".into(),
+                    _ => unreachable!(),
+                }
+                rescore_suggest(&case, &mut broken);
+                assert_eq!(
+                    crate::score::suggest_class(&broken.suggest["full"]),
+                    "missing",
+                    "{field}"
+                );
+            }
+        }
+        server.abort();
+        assert_eq!(checker.budget.used(), 4);
     }
 
     #[test]

@@ -343,8 +343,22 @@ pub fn suggested(response: &Value) -> Vec<Suggested> {
             name: text(s, "displayName").into(),
             country: text(s, "countryCode").to_lowercase(),
             point: ["lat", "lon"].map(|k| round(s["geoCoordinates"][k].as_f64().unwrap_or(0.), 6)),
+            ..Default::default()
         })
         .collect()
+}
+
+pub fn suggested_address(response: &Value) -> Vec<Suggested> {
+    let mut found = suggested(response);
+    for (s, raw) in found
+        .iter_mut()
+        .zip(response["suggestions"].as_array().into_iter().flatten())
+    {
+        s.id = text(raw, "id").into();
+        s.unverified_suffix = text(raw, "unverifiedSuffix").into();
+        s.point = coordinates(raw).unwrap_or_default();
+    }
+    found
 }
 
 /// Rounds the exact binary value through decimal formatting; `(x * 10^n).round()` can
