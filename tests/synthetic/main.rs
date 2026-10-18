@@ -782,6 +782,26 @@ fn cases() -> Vec<Case> {
             at_house("Willowlaan", "4a"),
         ),
         case("Furuvn. 5, 1234 Fjordvik, Norway", at_house("Furuvn.", "5")),
+        case(
+            "Birchveien - North 5B, 1234 Fjordvik, Norway",
+            at_house("Birchveien - North", "5b"),
+        ),
+        case(
+            "Birchvn. - North 5B, 1234 Fjordvik, Norway",
+            at_house("Birchveien - North", "5b"),
+        ),
+        case(
+            "Pinevn. - North 5, 1234 Fjordvik, Norway",
+            at_house("Pinevn. - North", "5"),
+        ),
+        case(
+            "Meadowlaan 4a, 1234 TJ Polderdam, Netherlands",
+            at_house("Meadowlaan", "4a"),
+        ),
+        case(
+            "Meadowln. 4a, 1234 TJ Polderdam, Netherlands",
+            at_house("Meadowlaan", "4a"),
+        ),
         case("Paris, Texas", town("us-tx-paris", true)),
         case("Paris, TX, USA", town("us-tx-paris", true)),
         // the larger Paris, when nothing says otherwise
@@ -932,6 +952,24 @@ async fn resolve_follows_the_authored_facts() {
         }
     }
     assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
+    for country in ["Netherlands", "NL"] {
+        let query = format!("Meadowln. 4a, 1234 TJ Polderdam, {country}");
+        let parsed = resolver.parse(&query).await.unwrap();
+        assert_eq!(parsed["house_number"], "4a", "{parsed:?}");
+        assert_eq!(parsed["road"], "meadowln.", "{parsed:?}");
+        assert_eq!(parsed["postcode"], "1234 tj", "{parsed:?}");
+        let got = resolver.resolve(&query).await.unwrap();
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.country_code, "nl", "{got:?}");
+        assert_eq!(details.postcode, "1234 TJ", "{got:?}");
+        assert_eq!(details.house_number, "4a", "{got:?}");
+        assert!(got.good_match, "{got:?}");
+    }
+    let separate_country = resolver
+        .parse("Meadowln. 4a, 1234, TJ, Polderdam, Netherlands")
+        .await
+        .unwrap();
+    assert_eq!(separate_country["postcode"], "1234", "{separate_country:?}");
     for query in ["Texas, Haut-Rhin", "Île-de-France, Haut-Rhin, Germany"] {
         let got = resolver.resolve(query).await.unwrap();
         assert!(
@@ -943,6 +981,10 @@ async fn resolve_follows_the_authored_facts() {
     }
     for query in [
         "Askvn. 7, 1234 Fjordvik, Norway",
+        "Elmvn. - North 7, 1234 Fjordvik, Norway",
+        "Birchvn. - South 5B, 1234 Fjordvik, Norway",
+        "Birchvn. - North 5B, Fjordvik, Sweden",
+        "Birchvn. - North 99, 1234 Fjordvik, Norway",
         "Granvn. 5B, Norway",
         "Granvn. 99, 1234 Fjordvik, Norway",
         "2 R. de Rivoli, 75001 Paris, Germany",
