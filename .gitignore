@@ -2,3 +2,4 @@
 .env
 /regions.json
 /eval-results/
+/.pi/reports/
