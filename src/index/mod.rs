@@ -22,6 +22,7 @@ use tantivy::{
     schema::{Field, IndexRecordOption},
 };
 
+mod korea;
 mod suggest;
 pub use suggest::{Focus, Suggestion};
 
@@ -3157,6 +3158,11 @@ impl Index {
         let q = q.trim();
         if q.is_empty() {
             return vec![];
+        }
+        if let Some(hits) = self.korean_search(q)
+            && !hits.is_empty()
+        {
+            return hits;
         }
         // Japanese block addresses: libpostal splits them, and the data names the chōme
         // ("芝公園四丁目", number "2-8"), so they're read here.

@@ -210,7 +210,7 @@ fn place_name(case: &Case) -> Option<&str> {
 
 /// Re-scores saved reverse and region answers against the current corpus.
 pub fn rescore_locate(case: &Case, record: &mut Record) {
-    let Some(expect) = &case.expect else {
+    let Some(expect) = case.expect.as_ref().and_then(expected_place) else {
         return;
     };
     if let Some(found) = &mut record.reverse {
@@ -328,7 +328,7 @@ impl Checker {
         Ok(record)
     }
 
-    /// ReverseGeocode at the point a single-answer case expects (a house where the case is one,
+    /// ReverseGeocode at the case's single expected point (a house where the case is one,
     /// else the nearest locality): its time, and what it answered where the case checks that.
     async fn reverse(&self, case: &Case) -> (Option<f64>, Option<Located>) {
         let Some(expect) = case.expect.as_ref().and_then(expected_place) else {
@@ -357,7 +357,11 @@ impl Checker {
 
     /// ResolveRegion at the point of a place in a known region.
     async fn region(&self, case: &Case) -> Option<Located> {
-        let expect = case.expect.as_ref().filter(|e| region_applies(e))?;
+        let expect = case
+            .expect
+            .as_ref()
+            .and_then(expected_place)
+            .filter(|e| region_applies(e))?;
         let [lat, lon] = expect.point?;
         self.budget.take().await;
         let mut found = match rpc_json(
@@ -1109,6 +1113,59 @@ mod tests {
     }
 
     use super::*;
+
+    #[tokio::test]
+    async fn number_aliases_share_coordinate_requests_and_rescoring() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let app = axum::Router::new().fallback(
+            |uri: axum::http::Uri, axum::Json(request): axum::Json<Value>| async move {
+                assert_eq!(request, json!({"lat":55., "lon":12.}));
+                axum::Json(if uri.path().ends_with("/ResolveRegion") {
+                    json!({"regions":[{"countryCode":"dk", "adminCode":"84"}]})
+                } else {
+                    assert!(uri.path().ends_with("/ReverseGeocode"));
+                    json!({"results":[{"address":{"addressDetails":{"countryCode":"dk", "regionCodes":[{"code":"DK-84"}]}}}]})
+                })
+            },
+        );
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let checker = Checker {
+            client: Client::new(),
+            base,
+            metrics: None,
+            index: None,
+            repeat: 1,
+            budget: Budget {
+                interval: Duration::ZERO,
+                limit: 2,
+                used: AtomicUsize::new(0),
+                next: tokio::sync::Mutex::new(tokio::time::Instant::now()),
+            },
+        };
+        let alternative = |number| json!({"country":["dk"], "region":["DK-84"], "point":[55.,12.], "level":"house", "components":{"house_number":number}});
+        let case = Case {
+            expect: Some(
+                serde_json::from_value(json!({"any_of":[alternative("12"),alternative("45")]}))
+                    .unwrap(),
+            ),
+            ..Default::default()
+        };
+        let (_, reverse) = checker.reverse(&case).await;
+        let region = checker.region(&case).await;
+        let mut record = Record {
+            reverse,
+            region,
+            ..Default::default()
+        };
+        assert_eq!(record.reverse.as_ref().unwrap().class, "pass");
+        assert_eq!(record.region.as_ref().unwrap().class, "pass");
+        rescore_locate(&case, &mut record);
+        assert_eq!(record.reverse.as_ref().unwrap().class, "pass");
+        assert_eq!(record.region.as_ref().unwrap().class, "pass");
+        server.abort();
+        assert_eq!(checker.budget.used(), 2);
+    }
 
     #[tokio::test]
     async fn landmark_case_checks_the_same_query_with_the_flag_on_and_off() {
