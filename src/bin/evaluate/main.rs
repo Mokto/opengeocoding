@@ -61,8 +61,8 @@ snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
 build-gold  [--seeds FILE] [--out FILE] {inputs}
 {samples}
-gold-corpus --out FILE      write the gold suite as one file (the curated corpus, then tests/registry/*.jsonl)
-check       validate tests/gold.jsonl, tests/registry/*.jsonl, tests/addresses.tsv and its snapshot
+gold-corpus --out FILE      write the full gold suite as one file
+check       validate the gold suite, tests/addresses.tsv and its snapshot
 coverage    --index DIR [--population countryInfo.txt] [--out FILE]   houses and streets per country, largest gap first")
 }
 
@@ -287,10 +287,7 @@ async fn command() -> Result<i32> {
             let cases = load_corpus(&model::gold())?;
             model::validate_gold(&cases)?;
             let mut registry = 0;
-            for path in model::registry_corpora()
-                .into_iter()
-                .chain([model::gold_landmarks()])
-            {
+            for path in model::suite().into_iter().skip(1) {
                 let cases = load_corpus(&path)?;
                 model::validate_gold(&cases).with_context(|| path.display().to_string())?;
                 registry += cases.len();
@@ -300,7 +297,7 @@ async fn command() -> Result<i32> {
             let addresses =
                 model::validate_addresses(&model::addresses(), &model::address_snapshot())?;
             println!(
-                "{} gold cases, {registry} registry and landmark cases and {addresses} address cases validated",
+                "{} gold cases, {registry} registry and suggestion cases and {addresses} address cases validated",
                 cases.len()
             );
             Ok(0)

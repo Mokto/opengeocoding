@@ -76,6 +76,8 @@ struct Seed {
     error: Option<String>,
     #[serde(default)]
     any_of: Option<Vec<Value>>,
+    #[serde(default)]
+    suggest_address: Option<crate::model::SuggestAddressExpect>,
 }
 
 #[derive(Default)]
@@ -1121,6 +1123,9 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
             if seed.kind == "suggest_landmark" {
                 case["include_landmarks"] = json!(true);
             }
+            if let Some(address) = &seed.suggest_address {
+                case["suggest_address"] = json!(address);
+            }
             if let Some((qid, name)) = typed_name(seed, query)
                 && named.insert((qid.clone(), name.clone()))
             {
@@ -1256,11 +1261,15 @@ mod tests {
 
     #[test]
     fn seeds_parse() {
-        let seeds =
-            crate::model::load_jsonl::<Value>(&crate::model::root().join("tests/gold.seeds.jsonl"))
-                .unwrap();
-        for seed in seeds {
-            serde_json::from_value::<Seed>(seed.clone()).unwrap_or_else(|e| panic!("{seed}: {e}"));
+        for name in ["gold", "gold.suggest"] {
+            let seeds = crate::model::load_jsonl::<Value>(
+                &crate::model::root().join(format!("tests/{name}.seeds.jsonl")),
+            )
+            .unwrap();
+            for seed in seeds {
+                serde_json::from_value::<Seed>(seed.clone())
+                    .unwrap_or_else(|e| panic!("{seed}: {e}"));
+            }
         }
     }
 }

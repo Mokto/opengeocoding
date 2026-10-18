@@ -446,6 +446,7 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
         .iter()
         .filter(|r| {
             r.class == "unscored"
+                && case(r).suggest_address.is_none()
                 && !case(r)
                     .expect
                     .as_ref()
@@ -1226,9 +1227,10 @@ pub fn diff(
     let searched = shared
         .iter()
         .filter(|id| {
-            !cases
-                .get(id.as_str())
-                .is_some_and(|c| c.expect.as_ref().is_some_and(|e| e.level == "landmark"))
+            !cases.get(id.as_str()).is_some_and(|c| {
+                c.suggest_address.is_some()
+                    || c.expect.as_ref().is_some_and(|e| e.level == "landmark")
+            })
         })
         .count();
     summary += &passing("SearchAddress", search_pass, searched, total);
@@ -1596,7 +1598,7 @@ mod tests {
     #[test]
     fn added_cases_report_success_rates_without_changing_the_comparison() {
         let dir = std::env::temp_dir().join(format!("eval-added-{}", std::process::id()));
-        let cases: Vec<_> = ["shared", "added-pass", "added-fail", "unscored"]
+        let mut cases: Vec<_> = ["shared", "added-pass", "added-fail", "unscored"]
             .into_iter()
             .map(|id| Case {
                 id: id.into(),
@@ -1609,6 +1611,16 @@ mod tests {
                 ..Default::default()
             })
             .collect();
+        cases.push(Case {
+            id: "suggest-only".into(),
+            cohort: "suggest_dk_floor".into(),
+            suggest_address: Some(crate::model::SuggestAddressExpect {
+                building: "Test Road 1".into(),
+                unverified_suffix: "4. th.".into(),
+                country_code: None,
+            }),
+            ..Default::default()
+        });
         let record = |id: &str, class: &str| Record {
             id: id.into(),
             class: class.into(),
@@ -1632,6 +1644,8 @@ mod tests {
         .into();
         passed.reverse = Some(located("pass"));
         passed.region = Some(located("error"));
+        let mut address = record("suggest-only", "unscored");
+        address.suggest = [("full".into(), check(Some(1), None))].into();
         let mut failed = record("added-fail", "wrong_country");
         failed.suggest = [("full".into(), check(None, Some("timeout".into())))].into();
         failed.reverse = Some(located("wrong_country"));
@@ -1647,6 +1661,7 @@ mod tests {
                     passed,
                     failed,
                     record("unscored", "unscored"),
+                    address,
                 ],
             ),
         ] {
@@ -1675,16 +1690,21 @@ mod tests {
             report.contains("| SearchAddress | 1 | 1 | 1 | 0 | 0 |"),
             "{report}"
         );
-        assert!(report.contains("## Added cases (3)"), "{report}");
+        assert!(report.contains("## Added cases (4)"), "{report}");
         for row in [
             "| fr_house | SearchAddress | 1 | 2 | 50.0% |",
             "| fr_house | SuggestAddress | 1 | 3 | 33.3% |",
             "| fr_house | ReverseGeocode | 1 | 2 | 50.0% |",
             "| fr_house | ResolveRegion | 0 | 1 | 0.0% |",
+            "| suggest_dk_floor | SuggestAddress | 1 | 1 | 100.0% |",
         ] {
             assert!(report.contains(row), "{report}");
         }
         assert!(!report.contains("| unscored |"), "{report}");
+        assert!(
+            !report.contains("| suggest_dk_floor | SearchAddress |"),
+            "{report}"
+        );
         assert!(!report.contains("NaN"), "{report}");
         assert!(report.find("## Added cases").unwrap() < report.find("<summary><b>Runs").unwrap());
         assert!(
@@ -1698,10 +1718,11 @@ mod tests {
             )
             .unwrap()
         );
+        let report = std::fs::read_to_string(out).unwrap();
+        assert!(!report.contains("## Added cases"), "{report}");
         assert!(
-            !std::fs::read_to_string(out)
-                .unwrap()
-                .contains("## Added cases")
+            report.contains("| SearchAddress | 4 | 2 | 2 | 0 | 0 |"),
+            "{report}"
         );
         std::fs::remove_dir_all(dir).unwrap();
     }
