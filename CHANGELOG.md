@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.11.1](https://github.com/Mokto/opengeocoding/compare/v0.11.0...v0.11.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* keep Danish buildings in autocomplete when a floor suffix is typed ([#171](https://github.com/Mokto/opengeocoding/issues/171)) ([32d1e3f](https://github.com/Mokto/opengeocoding/commit/32d1e3fe299f5782860c7d33a162b2d649958efc))
+* keep source postal towns apart from settlement ancestry ([#176](https://github.com/Mokto/opengeocoding/issues/176)) ([7c84e75](https://github.com/Mokto/opengeocoding/commit/7c84e7540f3cf5913ed6bb406ac0e02d369ecd77))
+* lower confidence on unexplained roads, recover invalid postcodes, prefer named county ([#172](https://github.com/Mokto/opengeocoding/issues/172)) ([4e2a3d7](https://github.com/Mokto/opengeocoding/commit/4e2a3d782a5732fa8d8d8263fb2855a88419b6da))
+* recover country-scoped road abbreviations in SearchAddress ([#175](https://github.com/Mokto/opengeocoding/issues/175)) ([a728336](https://github.com/Mokto/opengeocoding/commit/a728336c1dece1aa8acddce4161c93cb60c8b7c8))
+* resolve qualified Norwegian/Dutch road abbreviations and Dutch postcode letters ([#177](https://github.com/Mokto/opengeocoding/issues/177)) ([f7a6727](https://github.com/Mokto/opengeocoding/commit/f7a6727a611ba0d0290291735f736348d6219d20))
+* suggest houses when a comma follows the house number ([#174](https://github.com/Mokto/opengeocoding/issues/174)) ([fa25879](https://github.com/Mokto/opengeocoding/commit/fa258795c1dd5667e7ad72483b917852954193d9))
+
 ## [0.11.0](https://github.com/Mokto/opengeocoding/compare/v0.10.1...v0.11.0) (2026-10-17)
 
 
