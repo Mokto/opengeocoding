@@ -174,19 +174,44 @@ pub fn wkb_line(buf: &[u8], out: &mut Vec<[f64; 2]>) -> Option<()> {
     Some(())
 }
 
-pub const KINDS: [&str; 3] = ["locality", "localadmin", "county"];
+pub const KINDS: [&str; 6] = [
+    "locality",
+    "localadmin",
+    "county",
+    "region",
+    "dependency",
+    "country",
+];
+
+fn canonical_country(cc: [u8; 2]) -> [u8; 2] {
+    if matches!(&cc, b"XW" | b"XG") {
+        return *b"PS";
+    }
+    let lower = cc.map(|c| c.to_ascii_lowercase());
+    std::str::from_utf8(&lower)
+        .ok()
+        .and_then(opengeocoding::index::sovereign)
+        .map_or(cc, |s| s.as_bytes().try_into().unwrap())
+        .map(|c| c.to_ascii_uppercase())
+}
 const NEAR_LOCALITY_M: f32 = 5000.0;
 
 pub struct Assigner {
     polys: Vec<Poly>,
     tree: RTree<GeomWithData<Rectangle<[f64; 2]>, u32>>,
     towns: RTree<GeomWithData<[f64; 2], u32>>,
+    countries: Vec<[u8; 2]>,
+    sovereigns: Vec<[u8; 2]>,
     /// `[min x, min y, max x, max y]`: nothing outside is placed, so nothing outside is indexed.
     pub bbox: Option<[f64; 4]>,
 }
 
 impl Assigner {
-    pub fn new(polys: Vec<Poly>, towns: Vec<([f64; 2], u32)>) -> Assigner {
+    pub fn new(
+        polys: Vec<Poly>,
+        towns: Vec<([f64; 2], u32)>,
+        countries: Vec<([u8; 2], [u8; 2])>,
+    ) -> Assigner {
         let tree = RTree::bulk_load(
             polys
                 .iter()
@@ -205,10 +230,16 @@ impl Assigner {
                 .map(|(p, i)| GeomWithData::new(p, i))
                 .collect(),
         );
+        let (countries, sovereigns) = countries
+            .into_iter()
+            .map(|(cc, sovereign)| (canonical_country(cc), canonical_country(sovereign)))
+            .unzip();
         Assigner {
             polys,
             tree,
             towns,
+            countries,
+            sovereigns,
             bbox: None,
         }
     }
@@ -218,34 +249,77 @@ impl Assigner {
             .is_none_or(|b| b[0] <= x && x <= b[2] && b[1] <= y && y <= b[3])
     }
 
-    /// Containing locality polygon, else a locality point within 5 km, else the local admin
-    /// area, else the county. Overlapping polygons of one kind resolve to the smallest.
     pub fn place(&self, x: f64, y: f64) -> Option<u32> {
+        self.place_in(x, y, None)
+    }
+
+    pub fn region(&self, x: f64, y: f64, cc: [u8; 2]) -> Option<u32> {
+        let mut regions = self.tree.locate_all_at_point([x, y]).filter_map(|c| {
+            let p = &self.polys[c.data as usize];
+            (p.kind == 3
+                && self.countries[p.place as usize] == canonical_country(cc)
+                && p.contains(x, y))
+            .then_some(p.place)
+        });
+        let first = regions.next()?;
+        regions.all(|p| p == first).then_some(first)
+    }
+
+    /// Source country, else the containing administration, constrains every settlement candidate.
+    pub fn place_in(&self, x: f64, y: f64, cc: Option<[u8; 2]>) -> Option<u32> {
         if !self.within(x, y) {
             return None;
         }
-        let mut pick: [Option<(f64, u32)>; 3] = [None; 3];
-        for c in self.tree.locate_all_at_point([x, y]) {
-            let p = &self.polys[c.data as usize];
+        let containing = || {
+            self.tree
+                .locate_all_at_point([x, y])
+                .map(|c| &self.polys[c.data as usize])
+                .filter(|p| p.contains(x, y))
+        };
+        let cc = cc.map(canonical_country).or_else(|| {
+            containing()
+                .filter(|p| p.kind != 0)
+                .min_by(|a, b| {
+                    a.kind
+                        .cmp(&b.kind)
+                        .then(a.area().total_cmp(&b.area()))
+                        .then(a.place.cmp(&b.place))
+                })
+                .map(|p| self.countries[p.place as usize])
+        });
+        let allowed = |p: u32| {
+            cc.is_none_or(|c| c == self.countries[p as usize] || c == self.sovereigns[p as usize])
+        };
+        let mut pick: [Option<(f64, u32)>; 6] = [None; 6];
+        for p in containing() {
             let k = p.kind as usize;
-            if pick[k].is_none_or(|(a, _)| p.area() < a) && p.contains(x, y) {
-                pick[k] = Some((p.area(), p.place));
+            let key = (p.area(), p.place);
+            if allowed(p.place) && pick[k].is_none_or(|old| key < old) {
+                pick[k] = Some(key);
             }
         }
         if let Some((_, p)) = pick[0] {
             return Some(p);
         }
-        // ponytail: nearest by raw lon/lat degrees, then metres with cos(lat); can pick a slightly
-        // farther town at high latitudes. Upgrade: scale x by cos(lat) in the tree.
-        if let Some(t) = self.towns.nearest_neighbor([x, y]) {
-            let [tx, ty] = *t.geom();
-            if (((tx - x) * y.to_radians().cos()).hypot(ty - y) * 111_195.0) as f32
-                <= NEAR_LOCALITY_M
-            {
-                return Some(t.data);
-            }
+        // ponytail: degree-ordered neighbours inside a 5 km envelope; scale the tree by cos(lat)
+        // if ordering at high latitudes becomes material.
+        let dx = NEAR_LOCALITY_M as f64 / 111_195.0 / y.to_radians().cos().abs().max(1e-6);
+        let dy = NEAR_LOCALITY_M as f64 / 111_195.0;
+        let envelope = rstar::AABB::from_corners([x - dx, y - dy], [x + dx, y + dy]);
+        if let Some(t) = self
+            .towns
+            .locate_in_envelope(envelope)
+            .filter(|t| allowed(t.data))
+            .filter_map(|t| {
+                let [tx, ty] = *t.geom();
+                let distance = ((tx - x) * y.to_radians().cos()).hypot(ty - y);
+                (distance <= dy).then_some(((tx - x).hypot(ty - y), t.data))
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
+        {
+            return Some(t.1);
         }
-        pick[1].or(pick[2]).map(|(_, p)| p)
+        pick[1..3].iter().flatten().next().map(|&(_, p)| p)
     }
 }
 
@@ -290,6 +364,29 @@ mod tests {
     }
 
     #[test]
+    fn countries_constrain_polygons_and_point_fallbacks_without_splitting_sovereigns() {
+        let s = square(0.0, 0.0, 1.0);
+        let a = Assigner::new(
+            vec![Poly::new(0, 2, s.clone(), &[(0, s.len() as u32)]).unwrap()],
+            vec![([0.501, 0.5], 1), ([0.53, 0.5], 2)],
+            vec![(*b"AT", *b"AT"), (*b"LI", *b"LI"), (*b"AT", *b"AT")],
+        );
+        assert_eq!(a.place(0.5, 0.5), Some(2));
+        assert_eq!(a.place_in(0.5, 0.5, Some(*b"AT")), Some(2));
+        assert_eq!(a.place_in(0.5, 0.5, Some(*b"LI")), Some(1));
+        assert_eq!(a.place(0.9, 0.9), Some(0));
+        assert_eq!(canonical_country(*b"GF"), canonical_country(*b"FR"));
+        assert_eq!(canonical_country(*b"PR"), canonical_country(*b"US"));
+        assert_ne!(canonical_country(*b"GL"), canonical_country(*b"DK"));
+        assert_ne!(canonical_country(*b"VG"), canonical_country(*b"GB"));
+        assert_eq!(canonical_country(*b"XW"), canonical_country(*b"PS"));
+        assert_eq!(canonical_country(*b"XG"), canonical_country(*b"PS"));
+        let territory = Assigner::new(vec![], vec![([0.0, 0.0], 0)], vec![(*b"AX", *b"FI")]);
+        assert_eq!(territory.place_in(0.0, 0.0, Some(*b"FI")), Some(0));
+        assert_eq!(territory.countries[0], *b"AX");
+    }
+
+    #[test]
     fn smallest_locality_then_nearby_town_then_admin() {
         let poly = |place, kind, s: Vec<[f64; 2]>| {
             Poly::new(place, kind, s.clone(), &[(0, s.len() as u32)]).unwrap()
@@ -301,6 +398,7 @@ mod tests {
                 poly(3, 2, square(-5.0, -5.0, 20.0)),
             ],
             vec![([3.0, 3.0], 4)],
+            vec![(*b"AT", *b"AT"); 5],
         );
         assert_eq!(
             a.place(0.05, 0.05),

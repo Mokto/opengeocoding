@@ -312,10 +312,7 @@ fn cell(s: &str) -> std::borrow::Cow<'_, str> {
     }
 }
 
-/// Also writes `places.tsv`, one row per place id: subtype, class, country, ISO 3166-2 region,
-/// admin level, population, x, y, bbox (xmin, ymin, xmax, ymax), parent place id (or empty),
-/// primary name, `language=name` pairs joined by NAME_SEP, and the Wikidata item (or empty).
-fn load_places(dir: &Path, out: &str) -> (Vec<Place>, HashMap<Str, u32>) {
+fn load_places(dir: &Path) -> (Vec<Place>, HashMap<Str, u32>) {
     let mut places: Vec<Place> = tasks(dir)
         .par_iter()
         .flat_map_iter(|t| {
@@ -500,7 +497,7 @@ fn load_places(dir: &Path, out: &str) -> (Vec<Place>, HashMap<Str, u32>) {
     let idx: HashMap<Str, u32> = places
         .iter_mut()
         .enumerate()
-        .map(|(i, p)| (std::mem::take(&mut p.id), i as u32))
+        .map(|(i, p)| (p.id.clone(), i as u32))
         .collect();
     places.par_iter_mut().enumerate().for_each(|(i, p)| {
         let mut anc: Vec<u32> = p
@@ -514,8 +511,14 @@ fn load_places(dir: &Path, out: &str) -> (Vec<Place>, HashMap<Str, u32>) {
         p.anc = anc.into();
         p.parents = vec![];
     });
+    (places, idx)
+}
+
+/// `places.tsv`: subtype, class, country, ISO region, admin level, population, x, y,
+/// bbox (xmin, ymin, xmax, ymax), parent id, primary name, `language=name` pairs, Wikidata item.
+fn write_places(places: &mut [Place], idx: &HashMap<Str, u32>, out: &str) {
     let mut w = std::io::BufWriter::new(File::create(Path::new(out).join("places.tsv")).unwrap());
-    for p in &mut places {
+    for p in places {
         use std::io::Write;
         let parent = p.parent.take().and_then(|d| idx.get(&d).copied());
         let row = std::mem::take(&mut p.row);
@@ -528,7 +531,60 @@ fn load_places(dir: &Path, out: &str) -> (Vec<Place>, HashMap<Str, u32>) {
         writeln!(w, "{head}{parent}\t{tail}").unwrap();
     }
     std::io::Write::flush(&mut w).unwrap();
-    (places, idx)
+}
+
+fn reconcile_parents(places: &mut [Place], idx: &HashMap<Str, u32>, assigner: &Assigner) {
+    let changes: HashMap<u32, (u32, u32)> = places
+        .iter()
+        .enumerate()
+        .filter_map(|(i, p)| {
+            let old = *idx.get(p.parent.as_ref()?)?;
+            if p.subtype != "locality"
+                || places[old as usize].subtype != "region"
+                || places[old as usize].country != p.country
+            {
+                return None;
+            }
+            let (x, y) = p.xy?;
+            let new = assigner.region(x, y, p.country)?;
+            (old != new).then_some((i as u32, (old, new)))
+        })
+        .collect();
+    let ancestry: Vec<_> = places
+        .iter()
+        .enumerate()
+        .filter_map(|(i, p)| {
+            let &(old, new) = std::iter::once(i as u32)
+                .chain(p.anc.iter().copied())
+                .find_map(|id| changes.get(&id))?;
+            let mut anc = p.anc.to_vec();
+            anc.retain(|a| *a != old && !places[old as usize].anc.contains(a));
+            anc.push(new);
+            anc.extend_from_slice(&places[new as usize].anc);
+            anc.sort_unstable();
+            anc.dedup();
+            Some((
+                i,
+                anc.into_boxed_slice(),
+                places[new as usize].region.clone(),
+            ))
+        })
+        .collect();
+    for (i, &(old, new)) in &changes {
+        places[*i as usize].parent = Some(places[new as usize].id.clone());
+        println!(
+            "  region parent {}: {} -> {}",
+            places[*i as usize].id, places[old as usize].id, places[new as usize].id
+        );
+    }
+    for (i, anc, region) in ancestry {
+        let p = &mut places[i];
+        let mut fields: Vec<_> = p.row.split('\t').collect();
+        fields[3] = &region;
+        p.row = fields.join("\t").into();
+        p.region = region;
+        p.anc = anc;
+    }
 }
 
 fn load_assigner(dir: &Path, places: &[Place], idx: &HashMap<Str, u32>) -> Assigner {
@@ -573,7 +629,25 @@ fn load_assigner(dir: &Path, places: &[Place], idx: &HashMap<Str, u32>) -> Assig
         polys.len(),
         polys.iter().map(Poly::vertices).sum::<usize>()
     );
-    Assigner::new(polys, towns)
+    let countries = places
+        .iter()
+        .map(|p| {
+            let mut ancestors = p
+                .anc
+                .iter()
+                .map(|&i| &places[i as usize])
+                .filter(|a| a.subtype == "country")
+                .map(|a| a.country);
+            let first = ancestors.next().unwrap_or(p.country);
+            let sovereign = if ancestors.all(|cc| cc == first) {
+                first
+            } else {
+                p.country
+            };
+            (p.country, sovereign)
+        })
+        .collect();
+    Assigner::new(polys, towns, countries)
 }
 
 /// The territorial polygons of `area::KINDS`, simplified, for `ResolveRegion`; those wholly outside
@@ -1021,7 +1095,9 @@ impl<'s, 'a> Sink<'s, 'a> {
         if self.key.is_empty() {
             return;
         }
-        let place = place.unwrap_or_else(|| a.place(x, y)).unwrap_or(NO_PLACE);
+        let place = place
+            .unwrap_or_else(|| a.place_in(x, y, Some(c)))
+            .unwrap_or(NO_PLACE);
         if self.rank == 0 && place != NO_PLACE {
             *self
                 .covered
@@ -1534,9 +1610,11 @@ fn build(args: &[String]) {
     };
 
     progress::phase("Parse places and boundaries");
-    let (mut places, idx) = load_places(&dir.join("division"), out);
+    let (mut places, idx) = load_places(&dir.join("division"));
     lap(&format!("places ({})", places.len()));
     let mut assigner = load_assigner(&dir.join("division_area"), &places, &idx);
+    reconcile_parents(&mut places, &idx, &assigner);
+    write_places(&mut places, &idx, out);
     assigner.bbox = opt("--bbox").last().map(|b| {
         let v: Vec<f64> = b.split(',').filter_map(|v| v.trim().parse().ok()).collect();
         v.try_into().unwrap_or_else(|_| {

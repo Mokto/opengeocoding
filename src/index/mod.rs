@@ -126,40 +126,7 @@ impl Place {
     }
 }
 
-/// Territories Nominatim files under their sovereign's country in an address (Puerto Rico under
-/// the United States, Réunion under France), as the services this one replaces answered. The
-/// Danish, British and New Zealand territories keep their own.
-pub fn sovereign(territory: &str) -> Option<&'static str> {
-    const SOVEREIGNS: &[(&str, &str)] = &[
-        ("pr", "us"),
-        ("gu", "us"),
-        ("vi", "us"),
-        ("as", "us"),
-        ("mp", "us"),
-        ("re", "fr"),
-        ("gp", "fr"),
-        ("mq", "fr"),
-        ("gf", "fr"),
-        ("yt", "fr"),
-        ("nc", "fr"),
-        ("pf", "fr"),
-        ("pm", "fr"),
-        ("wf", "fr"),
-        ("bl", "fr"),
-        ("mf", "fr"),
-        ("sj", "no"),
-        ("aw", "nl"),
-        ("cw", "nl"),
-        ("sx", "nl"),
-        ("bq", "nl"),
-        ("hk", "cn"),
-        ("mo", "cn"),
-    ];
-    SOVEREIGNS
-        .iter()
-        .find(|(t, _)| *t == territory)
-        .map(|(_, s)| *s)
-}
+pub use schema::sovereign;
 
 /// Place number and ISO 3166-2 code of the places that stand for a subdivision.
 type OwnCodes = Vec<(u32, String)>;

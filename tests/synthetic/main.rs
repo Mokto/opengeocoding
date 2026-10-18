@@ -664,6 +664,34 @@ fn resolve_region_answers_the_polygon_that_holds_the_point() {
 }
 
 #[test]
+fn a_nearer_foreign_settlement_cannot_take_a_border_house() {
+    let found = index().suggest("Uferweg 7, Eastufer", 5, Some("AT"), None, false);
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].country_code, "at");
+    assert_eq!(found[0].kind, "address");
+    let (x, y) = house(street("Uferweg"), "7");
+    let reverse = index().reverse_search(y, x, 100.0, 1);
+    assert_eq!(reverse[0].1["address"]["country_code"], "at");
+    assert_eq!(reverse[0].1["address"]["ISO3166-2-lvl4"], "AT-5");
+}
+
+#[test]
+fn a_place_region_parent_agrees_with_its_containing_region() {
+    let found = index().suggest("Falkenstadt", 5, Some("AT"), None, false);
+    assert_eq!(found.len(), 1);
+    assert!(
+        found[0].display_name.contains("Epsilon"),
+        "{}",
+        found[0].display_name
+    );
+    let p = place("at-falkenstadt");
+    assert_eq!(
+        index().reverse_region(p.lat, p.lon)["address"]["ISO3166-2-lvl4"],
+        "AT-5"
+    );
+}
+
+#[test]
 fn an_explicit_region_parent_beats_an_inconsistent_child_region_column() {
     let city = place("us-il-bayport");
     assert_eq!(
@@ -1042,6 +1070,27 @@ async fn resolve_follows_the_authored_facts() {
         .await
         .unwrap();
     assert_eq!(separate_country["postcode"], "1234", "{separate_country:?}");
+    for query in ["7 Uferweg, 5555 Eastufer, Austria", "Falkenstadt, Austria"] {
+        let got = resolver.resolve(query).await.unwrap();
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.country_code, "at", "{query}: {got:?}");
+        assert!(
+            details.region_codes.iter().any(|r| r.code == "AT-5"),
+            "{query}: {got:?}"
+        );
+        assert!(got.good_match, "{query}: {got:?}");
+    }
+    for (query, cc) in [
+        ("7 Uferweg, Eastufer, Liechtenstein", "li"),
+        ("Falkenstadt, Germany", "de"),
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        if let Some(details) = got.address_details.as_option() {
+            assert_eq!(details.country_code, cc, "{query}: {got:?}");
+            assert!(details.house_number.is_empty(), "{query}: {got:?}");
+        }
+        assert!(!got.good_match, "{query}: {got:?}");
+    }
     for query in ["Texas, Haut-Rhin", "Île-de-France, Haut-Rhin, Germany"] {
         let got = resolver.resolve(query).await.unwrap();
         assert!(
