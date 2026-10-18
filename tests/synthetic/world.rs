@@ -723,6 +723,54 @@ pub const PLACES: &[Place] = &[
         "Orchard",
         &[("en", "Orchard")],
     ),
+    place!(
+        "gb-mailshire",
+        "region",
+        "",
+        "GB",
+        "GB-ENG",
+        10_000,
+        (32.0, 12.0),
+        "gb",
+        "Mailshire",
+        &[("en", "Mailshire")]
+    ),
+    place!(
+        "gb-posthaven-county",
+        "county",
+        "",
+        "GB",
+        "GB-ENG",
+        1_000,
+        (32.0, 12.0),
+        "gb-mailshire",
+        "Posthaven",
+        &[("en", "Posthaven")]
+    ),
+    place!(
+        "gb-oakmere",
+        "locality",
+        "village",
+        "GB",
+        "GB-ENG",
+        100,
+        (32.0, 12.0),
+        "gb-posthaven-county",
+        "Oakmere",
+        &[("en", "Oakmere")]
+    ),
+    place!(
+        "gb-posthaven",
+        "locality",
+        "town",
+        "GB",
+        "GB-ENG",
+        1_000,
+        (32.6, 12.0),
+        "gb-posthaven-county",
+        "Posthaven",
+        &[("en", "Posthaven")]
+    ),
 ];
 
 /// Administrative polygons besides the towns' (a square of half-side 0.2° each): (division,
@@ -759,7 +807,54 @@ pub struct Street {
     pub numbers: &'static [&'static str],
 }
 
+const POSTAL_STREET: Street = Street {
+    class: "residential",
+    length: 0.0,
+    name: "Courier Road",
+    postcode: "ZZ1 1AA",
+    city: "Posthaven",
+    cc: "GB",
+    lon: 32.001,
+    lat: 12.0,
+    numbers: &["31"],
+};
+
 pub const STREETS: &[Street] = &[
+    POSTAL_STREET,
+    Street {
+        postcode: "ZZ1 1AB",
+        city: "Farhaven",
+        lon: 32.002,
+        numbers: &["32"],
+        ..POSTAL_STREET
+    },
+    Street {
+        postcode: "ZZ1 1AC",
+        city: "Amber Quay",
+        lon: 32.003,
+        numbers: &["33"],
+        ..POSTAL_STREET
+    },
+    Street {
+        postcode: "ZZ1 1AC",
+        city: "Birch Reach",
+        lon: 32.004,
+        numbers: &["34"],
+        ..POSTAL_STREET
+    },
+    Street {
+        postcode: "",
+        lon: 32.005,
+        numbers: &["35"],
+        ..POSTAL_STREET
+    },
+    Street {
+        postcode: "",
+        city: "Farhaven",
+        lon: 32.006,
+        numbers: &["36"],
+        ..POSTAL_STREET
+    },
     Street {
         class: "residential",
         length: 0.0,

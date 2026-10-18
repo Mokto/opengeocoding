@@ -88,6 +88,7 @@ pub struct Fields {
     pub place: Field,
     pub x: Field,
     pub y: Field,
+    pub postal_town: Field,
 }
 
 pub fn schema() -> (Schema, Fields) {
@@ -113,6 +114,7 @@ pub fn schema() -> (Schema, Fields) {
         place: b.add_u64_field("place", FAST),
         x: b.add_f64_field("x", FAST),
         y: b.add_f64_field("y", FAST),
+        postal_town: b.add_text_field("postal_town", STORED),
     };
     (b.build(), f)
 }

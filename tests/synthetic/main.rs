@@ -656,6 +656,7 @@ fn a_county_cannot_override_the_containing_region_of_a_house() {
         number,
         postcode: None,
         city: None,
+        postal_town: None,
         cc: "at".into(),
     };
     let house = index().render(&hit(Some("1".into())), true);
@@ -838,10 +839,71 @@ fn cases() -> Vec<Case> {
     ]
 }
 
+#[test]
+fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
+    for (number, postcode, town) in [
+        ("31", "ZZ1 1AA", Some("Posthaven")),
+        ("32", "ZZ1 1AB", Some("Farhaven")),
+        ("33", "ZZ1 1AC", None),
+        ("34", "ZZ1 1AC", None),
+        ("35", "", Some("Posthaven")),
+        ("36", "", Some("Farhaven")),
+    ] {
+        let street = STREETS
+            .iter()
+            .find(|s| s.name == "Courier Road" && s.numbers.contains(&number))
+            .unwrap();
+        let (lon, lat) = house(street, number);
+        let found = index().reverse_search(lat, lon, 5.0, 1);
+        assert_eq!(found.len(), 1, "{number}");
+        let address = &found[0].1["address"];
+        assert_eq!(address["house_number"], number);
+        assert_eq!(address["village"], "Oakmere");
+        assert_eq!(address["county"], "Posthaven");
+        assert_eq!(address["state"], "Mailshire");
+        assert_eq!(address["postal_town"].as_str(), town);
+        assert_eq!(
+            address["postcode"].as_str().unwrap_or(""),
+            postcode.replace(' ', "")
+        );
+    }
+}
+
 #[tokio::test]
 #[ignore = "needs the libpostal models; run with --ignored"]
 async fn resolve_follows_the_authored_facts() {
     let resolver = Resolver::open(dir()).unwrap();
+    for (number, query) in [
+        ("31", "31 Courier Road, Posthaven, United Kingdom"),
+        ("35", "35 Courier Road, Posthaven, United Kingdom"),
+        ("31", "31 Courier Road, Mailshire, United Kingdom"),
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{got:?}");
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.house_number, number);
+        assert_eq!(details.village, "Oakmere");
+        assert_eq!(details.county, "Posthaven");
+        assert_eq!(details.state, "Mailshire");
+    }
+    for query in [
+        "32 Courier Road, Posthaven, United Kingdom",
+        "36 Courier Road, Posthaven, United Kingdom",
+        "33 Courier Road, Amber Reach, United Kingdom",
+        "31 Courier Road, Posthaven, France",
+        "31 Courier Road, Posthaven, Scotland, United Kingdom",
+        "31 Courier Road, ZZ2 2AA Posthaven, United Kingdom",
+        "999 Courier Road, Posthaven, United Kingdom",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(!got.good_match, "{query}: {got:?}");
+        assert!(
+            got.address_details
+                .as_option()
+                .is_none_or(|d| d.house_number.is_empty()),
+            "{query}: {got:?}"
+        );
+    }
     let mut wrong = vec![];
     for case in cases() {
         let got = resolver.resolve(case.query).await.unwrap();

@@ -795,6 +795,7 @@ struct AddrAgg {
     /// `MAX_POSTCODES` and `MAX_CITIES`.
     pcs: Vec<u32>,
     cities: Vec<u32>,
+    postal_towns: Vec<(u32, u32, u32, u32)>,
     sx: i64,
     sy: i64,
     n: u64,
@@ -810,6 +811,13 @@ impl AddrAgg {
         }
         for c in other.cities {
             insert_sorted(&mut self.cities, c);
+        }
+        if self.postal_towns.is_empty() {
+            self.postal_towns = other.postal_towns;
+        } else {
+            for town in other.postal_towns {
+                insert_sorted(&mut self.postal_towns, town);
+            }
         }
         (self.sx, self.sy, self.n) = (self.sx + other.sx, self.sy + other.sy, self.n + other.n);
     }
@@ -954,7 +962,7 @@ impl<'s, 'a> Sink<'s, 'a> {
         street: Option<&str>,
         number: Option<&str>,
         postcode: Option<&str>,
-        city: Option<&str>,
+        city: Option<(&str, &'static str)>,
     ) {
         self.rows += 1;
         if self.rows >= SINK_ROWS {
@@ -1000,7 +1008,9 @@ impl<'s, 'a> Sink<'s, 'a> {
         }
         // Village addresses without streets ("Libá 156", OSM addr:place) number within the
         // village, so its name stands in for the street, as in Nominatim.
-        let Some(st) = nonempty(street).or_else(|| nonempty(number).and(nonempty(city))) else {
+        let Some(st) =
+            nonempty(street).or_else(|| nonempty(number).and(nonempty(city.map(|(name, _)| name))))
+        else {
             return;
         };
         if st != self.last {
@@ -1040,9 +1050,31 @@ impl<'s, 'a> Sink<'s, 'a> {
         if let Some(id) = pc_id {
             push_unique(&mut e.pcs, id, MAX_HELD_POSTCODES);
         }
-        if let Some(city) = nonempty(city) {
-            let id = self.shared.strings.cached(&mut self.cache, city);
+        if let Some((city, source)) = city.filter(|(name, _)| !name.trim().is_empty()) {
+            let strings = &self.shared.strings;
+            let id = strings.cached(&mut self.cache, city.trim());
+            let source = strings.cached(&mut self.cache, source);
             insert_sorted(&mut e.cities, id);
+            let pc = pc_id.unwrap_or_else(|| strings.cached(&mut self.cache, ""));
+            let numbers = if pc_id.is_some() {
+                vec![String::new()]
+            } else {
+                number
+                    .into_iter()
+                    .flat_map(|n| n.split(';'))
+                    .map(schema::number_key)
+                    .filter(|n| !n.is_empty())
+                    .collect()
+            };
+            for n in numbers {
+                let number = strings.cached(&mut self.cache, &n);
+                let town = (pc, number, id, source);
+                if e.postal_towns.is_empty() {
+                    e.postal_towns = vec![town];
+                } else {
+                    insert_sorted(&mut e.postal_towns, town);
+                }
+            }
         }
         if self.rank != PLACES_RANK {
             (e.sx, e.sy, e.n) = (e.sx + quantize(x), e.sy + quantize(y), e.n + 1);
@@ -1189,15 +1221,18 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                 else {
                     continue;
                 };
-                let city = text(&postal, i).or_else(|| {
-                    let (o, v) = (
-                        levels.value_offsets(),
-                        levels.values().as_struct().column(0).as_string::<i32>(),
-                    );
-                    (!levels.is_null(i) && o[i + 1] > o[i])
-                        .then(|| text(v, o[i + 1] as usize - 1))
-                        .flatten()
-                });
+                let city = text(&postal, i)
+                    .map(|name| (name, "postal_city"))
+                    .or_else(|| {
+                        let (o, v) = (
+                            levels.value_offsets(),
+                            levels.values().as_struct().column(0).as_string::<i32>(),
+                        );
+                        (!levels.is_null(i) && o[i + 1] > o[i])
+                            .then(|| text(v, o[i + 1] as usize - 1))
+                            .flatten()
+                            .map(|name| (name, "address_levels"))
+                    });
                 sink.add(
                     Some(country(text(&cc, i))),
                     x,
@@ -1717,6 +1752,7 @@ fn build(args: &[String]) {
                       names: &[&str],
                       pcs: &[u32],
                       cities: &[u32],
+                      postal_towns: &[(u32, u32, u32, u32)],
                       (x, y): (f64, f64),
                       weight: u64| {
         let cities: Vec<&str> = cities.iter().map(|&c| strings.get(c)).collect();
@@ -1736,6 +1772,21 @@ fn build(args: &[String]) {
         }
         for &pc in pcs {
             d.add_text(f.pcode, strings.get(pc));
+        }
+        let mut towns: Vec<_> = postal_towns
+            .iter()
+            .map(|&(pc, number, city, source)| {
+                (
+                    strings.get(pc),
+                    strings.get(number),
+                    strings.get(city),
+                    strings.get(source),
+                )
+            })
+            .collect();
+        towns.sort_unstable();
+        for town in towns {
+            d.add_text(f.postal_town, serde_json::to_string(&town).unwrap());
         }
         if place != NO_PLACE {
             d.add_text(f.ids, place.to_string());
@@ -1809,6 +1860,7 @@ fn build(args: &[String]) {
                 &names,
                 &st.pcs,
                 &st.cities,
+                &st.postal_towns,
                 point,
                 n,
             );
@@ -1841,6 +1893,7 @@ fn build(args: &[String]) {
                 country_str(&places[*place as usize].country),
                 *place,
                 &names,
+                &[],
                 &[],
                 &[],
                 (mean(g.sx, g.n), mean(g.sy, g.n)),
@@ -1916,6 +1969,26 @@ fn build(args: &[String]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn postal_towns_stay_compact_when_streets_merge() {
+        let town = (0, 1, 2, 3);
+        let mut merged = AddrAgg::default();
+        for _ in 0..2 {
+            merged.add(AddrAgg {
+                postal_towns: vec![town],
+                ..Default::default()
+            });
+        }
+        assert_eq!(merged.postal_towns, [town]);
+        assert_eq!(std::mem::size_of_val(&merged.postal_towns[0]), 16);
+        assert_eq!(merged.postal_towns.capacity(), 1);
+        merged.add(AddrAgg {
+            postal_towns: vec![(0, 1, 4, 3)],
+            ..Default::default()
+        });
+        assert_eq!(merged.postal_towns, [town, (0, 1, 4, 3)]);
+    }
 
     #[test]
     fn postcodes_sort_by_text_and_slots_follow() {
