@@ -21,6 +21,7 @@
 mod coverage;
 mod gold;
 mod model;
+mod providers;
 mod registry;
 mod report;
 mod run;
@@ -51,11 +52,15 @@ fn usage() -> String {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    format!("usage: evaluate <run|diff|snapshot|report|build-gold|{commands}|gold-corpus|check|coverage> [options]
+    format!("usage: evaluate <run|provider|mapbox|diff|snapshot|report|build-gold|{commands}|gold-corpus|check|coverage> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
             [--no-direct] [--resume] [--backend-label TEXT] [--repeat 3]
+provider    mapbox|google|here|tomtom|geoapify|opencage|locationiq|geocodio|arcgis|mapsco --out DIR [--cache DIR] [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
+            [--fetch --budget N] [--storage-authorized] (offline by default; fetching may be billed)
+            --aggregate-only --fetch --budget N [--resume] (no --cache; retains only aggregates)
+mapbox      alias for provider mapbox
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
 report      RUN_DIR [--corpus FILE] [--rescore]
@@ -154,6 +159,7 @@ async fn command() -> Result<i32> {
         "seeds",
         "seed",
         "population",
+        "cache",
     ]
     .into_iter()
     .chain(registry::ALL.iter().map(|r| r.input))
@@ -200,6 +206,53 @@ async fn command() -> Result<i32> {
             };
             run::run(options).await
         }
+        "provider" | "mapbox" => {
+            args.only_flags(&["fetch", "storage-authorized", "aggregate-only", "resume"])?;
+            let aggregate_only = args.flag("aggregate-only");
+            if aggregate_only {
+                anyhow::ensure!(
+                    args.value("cache").is_none(),
+                    "aggregate-only does not accept --cache"
+                );
+            } else {
+                anyhow::ensure!(
+                    !args.flag("resume"),
+                    "provider --resume requires --aggregate-only"
+                );
+            }
+            let provider = match (command.as_str(), args.positional.as_slice()) {
+                ("provider", [name]) => providers::named(name)?,
+                ("mapbox", []) => providers::named("mapbox")?,
+                _ => bail!(
+                    "provider needs one name; usage: evaluate provider NAME --out DIR --cache DIR"
+                ),
+            };
+            if let Some(option) = args.values.keys().find(|k| {
+                !["out", "cache", "corpus", "only", "compare", "budget"].contains(&k.as_str())
+            }) {
+                bail!("unsupported provider option --{option}");
+            }
+            let options = providers::Options {
+                provider,
+                storage_authorized: args.flag("storage-authorized"),
+                corpus: args.path("corpus"),
+                out: args.path("out").context("--out is required")?,
+                cache: if aggregate_only {
+                    PathBuf::new()
+                } else {
+                    args.path("cache").context("--cache is required")?
+                },
+                only: args.value("only").map(regex::Regex::new).transpose()?,
+                fetch: args.flag("fetch"),
+                budget: args.value("budget").map_or(Ok(0), str::parse)?,
+                compare: args.path("compare"),
+            };
+            if aggregate_only {
+                providers::aggregate::run(options, args.flag("resume")).await
+            } else {
+                providers::run(options).await
+            }
+        }
         "diff" => {
             args.only_flags(&["fail-on-drift", "relative"])?;
             let [baseline, candidate] = args.positional.as_slice() else {
@@ -233,11 +286,15 @@ async fn command() -> Result<i32> {
             };
             let run_dir = PathBuf::from(run_dir);
             let cases = corpus(&args)?;
-            let manifest =
+            let manifest: serde_json::Value =
                 serde_json::from_str(&std::fs::read_to_string(run_dir.join("manifest.json"))?)?;
             let mut results = load_jsonl::<Record>(&run_dir.join("results.jsonl"))?;
             if args.flag("rescore") {
-                rescore(&cases, &mut results);
+                rescore(
+                    &cases,
+                    &mut results,
+                    manifest["scoring"]["confidence"].as_bool().unwrap_or(true),
+                );
             }
             let (text, failed) = report::summarize(&cases, &results, &manifest);
             std::fs::write(run_dir.join("report.md"), &text)?;
@@ -328,7 +385,7 @@ async fn command() -> Result<i32> {
 
 /// Re-scores saved responses against the current corpus, e.g. after an expectation change,
 /// and lists every case whose class changed. No network; direct-backend evidence is kept as recorded.
-fn rescore(cases: &[Case], results: &mut [Record]) {
+fn rescore(cases: &[Case], results: &mut [Record], confidence: bool) {
     let by_id: HashMap<_, _> = cases.iter().map(|c| (c.id.as_str(), c)).collect();
     let mut changed = 0;
     for record in results.iter_mut() {
@@ -354,8 +411,8 @@ fn rescore(cases: &[Case], results: &mut [Record]) {
         let response = record.response.clone();
         let error = record.error.clone();
         match (&response, &error) {
-            (Some(response), _) => run::classify(case, Ok(response), record),
-            (None, Some(error)) => run::classify(case, Err(error), record),
+            (Some(response), _) => run::classify(case, Ok(response), record, confidence),
+            (None, Some(error)) => run::classify(case, Err(error), record, confidence),
             (None, None) => continue,
         }
         if record.class != before {
