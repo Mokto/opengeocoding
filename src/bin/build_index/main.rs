@@ -795,7 +795,7 @@ struct AddrAgg {
     /// `MAX_POSTCODES` and `MAX_CITIES`.
     pcs: Vec<u32>,
     cities: Vec<u32>,
-    postal_towns: Vec<(u32, u32, u32, &'static str)>,
+    postal_towns: Vec<(u32, u32, u32, u32)>,
     sx: i64,
     sy: i64,
     n: u64,
@@ -812,8 +812,12 @@ impl AddrAgg {
         for c in other.cities {
             insert_sorted(&mut self.cities, c);
         }
-        for town in other.postal_towns {
-            insert_sorted(&mut self.postal_towns, town);
+        if self.postal_towns.is_empty() {
+            self.postal_towns = other.postal_towns;
+        } else {
+            for town in other.postal_towns {
+                insert_sorted(&mut self.postal_towns, town);
+            }
         }
         (self.sx, self.sy, self.n) = (self.sx + other.sx, self.sy + other.sy, self.n + other.n);
     }
@@ -1049,6 +1053,7 @@ impl<'s, 'a> Sink<'s, 'a> {
         if let Some((city, source)) = city.filter(|(name, _)| !name.trim().is_empty()) {
             let strings = &self.shared.strings;
             let id = strings.cached(&mut self.cache, city.trim());
+            let source = strings.cached(&mut self.cache, source);
             insert_sorted(&mut e.cities, id);
             let pc = pc_id.unwrap_or_else(|| strings.cached(&mut self.cache, ""));
             let numbers = if pc_id.is_some() {
@@ -1063,7 +1068,12 @@ impl<'s, 'a> Sink<'s, 'a> {
             };
             for n in numbers {
                 let number = strings.cached(&mut self.cache, &n);
-                insert_sorted(&mut e.postal_towns, (pc, number, id, source));
+                let town = (pc, number, id, source);
+                if e.postal_towns.is_empty() {
+                    e.postal_towns = vec![town];
+                } else {
+                    insert_sorted(&mut e.postal_towns, town);
+                }
             }
         }
         if self.rank != PLACES_RANK {
@@ -1742,7 +1752,7 @@ fn build(args: &[String]) {
                       names: &[&str],
                       pcs: &[u32],
                       cities: &[u32],
-                      postal_towns: &[(u32, u32, u32, &'static str)],
+                      postal_towns: &[(u32, u32, u32, u32)],
                       (x, y): (f64, f64),
                       weight: u64| {
         let cities: Vec<&str> = cities.iter().map(|&c| strings.get(c)).collect();
@@ -1770,7 +1780,7 @@ fn build(args: &[String]) {
                     strings.get(pc),
                     strings.get(number),
                     strings.get(city),
-                    source,
+                    strings.get(source),
                 )
             })
             .collect();
@@ -1959,6 +1969,26 @@ fn build(args: &[String]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn postal_towns_stay_compact_when_streets_merge() {
+        let town = (0, 1, 2, 3);
+        let mut merged = AddrAgg::default();
+        for _ in 0..2 {
+            merged.add(AddrAgg {
+                postal_towns: vec![town],
+                ..Default::default()
+            });
+        }
+        assert_eq!(merged.postal_towns, [town]);
+        assert_eq!(std::mem::size_of_val(&merged.postal_towns[0]), 16);
+        assert_eq!(merged.postal_towns.capacity(), 1);
+        merged.add(AddrAgg {
+            postal_towns: vec![(0, 1, 4, 3)],
+            ..Default::default()
+        });
+        assert_eq!(merged.postal_towns, [town, (0, 1, 4, 3)]);
+    }
 
     #[test]
     fn postcodes_sort_by_text_and_slots_follow() {
