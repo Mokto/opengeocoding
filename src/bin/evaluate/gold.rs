@@ -53,6 +53,10 @@ struct Seed {
     country: Option<Vec<String>>,
     #[serde(default)]
     extra_regions: Vec<String>,
+    #[serde(default)]
+    region_qid: Option<String>,
+    #[serde(default)]
+    review: Option<Value>,
     /// Absent means true; null means either is acceptable.
     #[serde(default, deserialize_with = "present")]
     good_match: Option<Value>,
@@ -716,6 +720,7 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
     for seed in &seeds {
         qids.extend(seed.qid.clone());
         qids.extend(seed.city.clone());
+        qids.extend(seed.region_qid.clone());
         if seed.source.as_deref() == Some("wikidata") {
             qids.extend(seed.reference.clone());
         }
@@ -855,7 +860,7 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                         "max_level": seed.max_level.as_deref().unwrap_or("house"),
                         "point": item.point.with_context(|| format!("{qid} has no coordinates"))?,
                         "radius_km": seed.radius_km.unwrap_or(15.),
-                        "region": region(Some(qid), &seed.extra_regions),
+                        "region": region(Some(seed.region_qid.as_deref().unwrap_or(qid)), &seed.extra_regions),
                         "good_match": good_match,
                     });
                     let case_source = match (&seed.source, &seed.reference) {
@@ -1117,6 +1122,9 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                 "review": { "status": "source-verified",
                             "note": "Expectation copied from the cited source by `evaluate build-gold`; human review pending." },
             });
+            if let Some(review) = &seed.review {
+                case["review"] = review.clone();
+            }
             if let Some(known) = &seed.known_failure {
                 case["known_failure"] = json!(known);
             }
@@ -1209,6 +1217,46 @@ fn apply_labels(cases: &mut [Value], seeds_path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn adjudicated_isa_town_replaces_the_region_without_weakening_the_case() {
+        let seeds: Vec<Seed> =
+            crate::model::load_jsonl(Path::new("tests/gold.seeds.jsonl")).unwrap();
+        let seed = seeds
+            .iter()
+            .find(|s| s.qid.as_deref() == Some("Q1017673"))
+            .unwrap();
+        assert_eq!(seed.region_qid.as_deref(), Some("Q838532"));
+        let cases: Vec<crate::model::Case> =
+            crate::model::load_jsonl(Path::new("tests/gold.jsonl")).unwrap();
+        let case = cases
+            .iter()
+            .find(|c| c.id == "city-isa-town-4ab705")
+            .unwrap();
+        let expect = case.expect.as_ref().unwrap();
+        assert_eq!(expect.region, ["BH-14"]);
+        assert_eq!(expect.point, Some([26.173611, 50.547778]));
+        assert_eq!(expect.radius_km, Some(6.0));
+        assert_eq!(case.review, seed.review);
+        let mut response = json!({
+            "geoCoordinates": {"lat": 26.173611, "lon": 50.547778},
+            "addressDetails": {"countryCode": "bh", "town": "Isa Town", "regionCodes": [{"code": "BH-14"}]}
+        });
+        assert_eq!(
+            crate::score::score(Some(expect), &response, true).class,
+            "confidence_mismatch"
+        );
+        response["goodMatch"] = json!(true);
+        assert_eq!(
+            crate::score::score(Some(expect), &response, true).class,
+            "pass"
+        );
+        response["addressDetails"]["regionCodes"][0]["code"] = json!("BH-16");
+        assert_eq!(
+            crate::score::score(Some(expect), &response, true).class,
+            "wrong_region"
+        );
+    }
 
     #[test]
     fn five_digit_house_numbers_are_not_postcodes() {
