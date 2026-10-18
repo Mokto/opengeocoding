@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.12.0](https://github.com/Mokto/opengeocoding/compare/v0.11.1...v0.12.0) (2026-10-18)
+
+
+### Features
+
+* add offline competitor geocoding comparisons and scorecard ([#144](https://github.com/Mokto/opengeocoding/issues/144)) ([cfc2780](https://github.com/Mokto/opengeocoding/commit/cfc2780e77209297c8455cc8e97d99d067ac98f7))
+* add project-local wait_for_gold tool and /gold-loop command for pi ([#183](https://github.com/Mokto/opengeocoding/issues/183)) ([70d1c05](https://github.com/Mokto/opengeocoding/commit/70d1c05fb27186b78d2cc350f84b05b1bd0a1b33))
+
+
+### Bug Fixes
+
+* correct stale Isa Town region and document unresolved Dairy Lane and Ikorodu Road gold conflicts ([#180](https://github.com/Mokto/opengeocoding/issues/180)) ([dbd46f3](https://github.com/Mokto/opengeocoding/commit/dbd46f3a17fea72dca75b5966887d91dc47aeacd))
+* recover indexed place names with scoped qualifiers ([#178](https://github.com/Mokto/opengeocoding/issues/178)) ([aa347e9](https://github.com/Mokto/opengeocoding/commit/aa347e9d34d53d74a4a7f1ff26f29b01bf76625c))
+
 ## [0.11.1](https://github.com/Mokto/opengeocoding/compare/v0.11.0...v0.11.1) (2026-10-18)
 
 
