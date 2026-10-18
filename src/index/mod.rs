@@ -1291,6 +1291,7 @@ fn postcode_country_suffix(tail: &str, whole: &[(String, String)]) -> bool {
     if !one_house(whole)
         || whole.iter().filter(|(k, _)| k == "postcode").count() != 1
         || whole.iter().filter(|(k, _)| k == "country").count() != 2
+        || whole.iter().any(|(k, _)| k == "country_region")
     {
         return false;
     }
@@ -5002,7 +5003,13 @@ mod tests {
         whole.pop();
         assert!(!postcode_country_suffix("1234 TJ Polderdam", &whole));
         whole.push(country);
-        for key in ["country", "house_number", "road", "postcode"] {
+        for key in [
+            "country",
+            "house_number",
+            "road",
+            "postcode",
+            "country_region",
+        ] {
             whole.push((key.into(), "germany".into()));
             assert!(!postcode_country_suffix("1234 TJ Polderdam", &whole));
             whole.pop();
