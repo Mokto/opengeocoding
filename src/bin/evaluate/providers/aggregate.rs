@@ -21,6 +21,8 @@ struct Counts {
     paired: [usize; 4],
     adapter_errors: usize,
     query_errors: usize,
+    #[serde(default)]
+    normalization_failures: BTreeMap<String, usize>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -68,6 +70,10 @@ impl State {
                 "\nAdapter errors: {}. Query errors: {}.\n\n",
                 counts.adapter_errors, counts.query_errors
             ));
+            for (kind, count) in &counts.normalization_failures {
+                report.push_str(&format!("- Normalization `{kind}`: {count}\n"));
+            }
+            report.push('\n');
         }
         std::fs::write(out.join("report.md"), report)?;
         Ok(())
@@ -340,20 +346,33 @@ pub async fn run(options: Options, resume: bool) -> Result<i32> {
             state.save(&options.out)?;
             bail!("provider API status blocked the run; response details are not retained");
         }
-        let (class, adapter_error) = if query_error {
-            ("error", false)
+        let (class, normalization_failure) = if query_error {
+            ("error", None)
         } else {
             match (provider.normalize)(&entry.response) {
-                Ok(response) => (score(case.expect.as_ref(), &response, false).class, false),
-                Err(_) => ("error", true),
+                Ok(response) => (score(case.expect.as_ref(), &response, false).class, None),
+                Err(error) => (
+                    "error",
+                    Some(if provider.name == "google" {
+                        super::google::normalization_failure(&error, &entry.response)
+                    } else {
+                        "other"
+                    }),
+                ),
             }
         };
         drop(entry);
         for group in groups(case) {
             let counts = state.groups.entry(group).or_default();
             *counts.outcomes.entry(class.into()).or_default() += 1;
-            counts.adapter_errors += usize::from(adapter_error);
+            counts.adapter_errors += usize::from(normalization_failure.is_some());
             counts.query_errors += usize::from(query_error);
+            if let Some(kind) = normalization_failure {
+                *counts
+                    .normalization_failures
+                    .entry(kind.into())
+                    .or_default() += 1;
+            }
             if baseline.is_some() {
                 let index = match (baseline_passes[state.next], class == "pass") {
                     (true, true) => 0,
@@ -413,6 +432,7 @@ mod tests {
             (200, json!({"status":"INVALID_REQUEST","error_message":"PRIVATE_RESPONSE_MARKER"}).to_string()),
             (200, json!({"status":"REQUEST_DENIED","error_message":"PRIVATE_RESPONSE_MARKER"}).to_string()),
             (200, json!({"status":"ZERO_RESULTS","results":[]}).to_string()),
+            (200, json!({"status":"OK","results":[],"error_message":"PRIVATE_RESPONSE_MARKER"}).to_string()),
         ];
         let server = std::thread::spawn(move || {
             let mut requests = vec![];
@@ -454,7 +474,7 @@ mod tests {
         ));
         let baseline = root.join("baseline");
         std::fs::create_dir_all(&baseline).unwrap();
-        let cases: Vec<Case> = ["first", "second", "third", "fourth"].into_iter().enumerate().map(|(i, name)| Case {
+        let cases: Vec<Case> = ["first", "second", "third", "fourth", "fifth"].into_iter().enumerate().map(|(i, name)| Case {
             id: name.into(), query: format!("{name}-input"), cohort: "made_up".into(), holdout: i == 0,
             expect: Some(serde_json::from_value(if i == 0 { json!({"level":"house","country":["us"],"point":[37.,-122.],"radius_km":0.1,"components":{"house_number":"12"}}) } else { json!({"level":"none","country":["us"]}) }).unwrap()),
             ..Default::default()
@@ -496,7 +516,7 @@ mod tests {
             only: None,
             storage_authorized: false,
             fetch: true,
-            budget: 5,
+            budget: 6,
             compare: Some(baseline.clone()),
         };
         let mut invalid = options();
@@ -522,13 +542,18 @@ mod tests {
         let state: State = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
         assert_eq!(
             (state.next, state.attempts, state.uncertain_attempts),
-            (4, 5, 1)
+            (5, 6, 1)
         );
         assert_eq!(state.phase, "complete");
-        assert_eq!(state.groups["all"].paired, [2, 2, 0, 0]);
+        assert_eq!(state.groups["all"].paired, [2, 3, 0, 0]);
         assert_eq!(state.groups["all"].outcomes["pass"], 2);
         assert_eq!(state.groups["all"].query_errors, 2);
-        assert_eq!(state.groups["us_ca"].outcomes.values().sum::<usize>(), 4);
+        assert_eq!(state.groups["us_ca"].outcomes.values().sum::<usize>(), 5);
+        assert_eq!(state.groups["all"].adapter_errors, 1);
+        assert_eq!(
+            state.groups["all"].normalization_failures["missing_results"],
+            1
+        );
         let mut changed = options();
         changed.only = Some(regex::Regex::new(".*").unwrap());
         assert!(run(changed, true).await.is_err());
@@ -560,6 +585,7 @@ mod tests {
             "third-input",
             "fourth-input",
             "fourth-input",
+            "fifth-input",
         ]) {
             assert!(request.contains(expected));
         }
