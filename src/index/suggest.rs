@@ -422,10 +422,11 @@ impl Index {
         // "75001", or "SW1A 2": a postcode, whose words may be split by a space
         if coded && head_words.len() <= 2 {
             let found = self.suggest_postcodes(head, &typed.parts[1..], typed.open, cc, limit);
-            if !found.is_empty()
-                || head_words.len() == 1 && head.chars().all(|c| c.is_ascii_digit())
-            {
+            if !found.is_empty() {
                 return found;
+            }
+            if head_words.len() == 1 && head.chars().all(|c| c.is_ascii_digit()) {
+                return self.suggest_number_comma(&typed, cc, focus, limit);
             }
         }
         let places = |names| {
@@ -456,6 +457,9 @@ impl Index {
         // a name a letter off only fills what the text as typed leaves
         if out.len() < limit && !coded {
             out.extend(places(Names::Typo).map(|(id, _)| self.place_suggestion(id)));
+        }
+        if out.is_empty() {
+            out = self.suggest_number_comma(&typed, cc, focus, limit);
         }
         let mut seen = std::collections::HashSet::new();
         // the filter matches a street's own country, which its place may not be in
@@ -1091,6 +1095,40 @@ impl Index {
             })
             .take(limit)
             .collect()
+    }
+
+    fn suggest_number_comma(
+        &self,
+        typed: &Typed,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        want: usize,
+    ) -> Vec<Suggestion> {
+        let [number, road, rest @ ..] = typed.parts.as_slice() else {
+            return vec![];
+        };
+        if number.len() > MAX_NUMBER
+            || !number.starts_with(|c: char| c.is_ascii_digit())
+            || !number
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || c == b'/' || c == b'-')
+        {
+            return vec![];
+        }
+        let mut parts = vec![format!("{number} {road}")];
+        parts.extend_from_slice(rest);
+        self.suggest_streets(
+            &Typed {
+                parts,
+                open: typed.open,
+            },
+            cc,
+            focus,
+            want,
+        )
+        .into_iter()
+        .filter(|s| s.kind == "address")
+        .collect()
     }
 
     /// Streets, and houses when a number is typed, with the road in the first part and the
@@ -1755,7 +1793,7 @@ mod tests {
         drop(writer);
 
         let mut fst = tantivy_fst::MapBuilder::memory();
-        for n in ["12", "120"] {
+        for n in ["12", "120", "12a"] {
             let mut key = 7u32.to_be_bytes().to_vec();
             key.extend_from_slice(n.as_bytes());
             let (x, y) = schema::pack(2.3 + n.len() as f64 / 100.0, 48.86, 0);
@@ -1893,6 +1931,57 @@ mod tests {
         assert!((at(100.0) - 501.0).abs() < 1.0);
         assert!((at(1000.0) - 10.9).abs() < 0.1);
         assert!(f.boost(0.0, 180.0) < 1.03);
+    }
+
+    #[test]
+    fn a_comma_can_separate_the_house_number_from_the_road() {
+        let (index, dir) = tiny();
+        for (query, id) in [
+            ("12, rue de rivoli", "h7:12"),
+            (" 12 , rue de rivoli ", "h7:12"),
+            ("12, rue de riv", "h7:12"),
+            ("12, rue de rivoli, par", "h7:12"),
+            ("12, rue de rivoli, paris, france", "h7:12"),
+            ("12A, rue de rivoli, paris", "h7:12a"),
+            ("120, rue de rivoli, paris", "h7:120"),
+        ] {
+            let found = index.suggest(query, 5, None, None, false);
+            assert_eq!(found.len(), 1, "{query}");
+            let s = &found[0];
+            assert_eq!(s.id, id, "{query}");
+            assert_eq!(s.kind, "address");
+            assert_eq!(s.country_code, "fr");
+        }
+        for query in [
+            "1, rue de rivoli",
+            "99, rue de rivoli",
+            "12, rue de rivoli, london",
+            "12, rue de rivoli, paris, united states",
+            "12, rue de rivoli, paris, texas",
+            "12,",
+            "12345678901, rue de rivoli",
+            "75001, london",
+        ] {
+            assert!(
+                index.suggest(query, 5, None, None, false).is_empty(),
+                "{query}"
+            );
+        }
+        assert!(
+            index
+                .suggest("12, rue de rivoli", 5, Some("us"), None, false)
+                .is_empty()
+        );
+        assert!(
+            index
+                .suggest("12, rue de rivoli", 0, None, None, false)
+                .is_empty()
+        );
+        assert_eq!(
+            index.suggest("75001, paris", 1, None, None, false)[0].id,
+            "zfr:75001"
+        );
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
