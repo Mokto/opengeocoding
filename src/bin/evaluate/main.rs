@@ -20,6 +20,7 @@
 
 mod coverage;
 mod gold;
+mod inspect;
 mod model;
 mod providers;
 mod registry;
@@ -52,7 +53,7 @@ fn usage() -> String {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    format!("usage: evaluate <run|provider|mapbox|diff|snapshot|report|build-gold|{commands}|gold-corpus|check|coverage> [options]
+    format!("usage: evaluate <run|provider|mapbox|diff|snapshot|report|build-gold|{commands}|gold-corpus|check|coverage|inspect> [options]
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
@@ -68,7 +69,8 @@ build-gold  [--seeds FILE] [--out FILE] {inputs}
 {samples}
 gold-corpus --out FILE      write the full gold suite as one file
 check       validate the gold suite, tests/addresses.tsv and its snapshot
-coverage    --index DIR [--population countryInfo.txt] [--out FILE]   houses and streets per country, largest gap first")
+coverage    --index DIR [--population countryInfo.txt] [--out FILE]   houses and streets per country, largest gap first
+inspect     --index DIR --corpus FILE --out FILE   all stored street lines within 1 km and their number keys (training only)")
 }
 
 struct Args {
@@ -357,6 +359,21 @@ async fn command() -> Result<i32> {
                 "{} gold cases, {registry} registry and suggestion cases and {addresses} address cases validated",
                 cases.len()
             );
+            Ok(0)
+        }
+        "inspect" => {
+            args.only_flags(&[])?;
+            let index = args.path("index").context("--index is required")?;
+            let input = args.path("corpus").context("--corpus is required")?;
+            let out = args.path("out").context("--out is required")?;
+            let cases = load_corpus(&input)?;
+            let rows = inspect::inspect(&index, &cases)?;
+            let mut text = String::new();
+            for row in rows {
+                text += &serde_json::to_string(&row)?;
+                text.push('\n');
+            }
+            std::fs::write(out, text)?;
             Ok(0)
         }
         "coverage" => {
