@@ -606,20 +606,23 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
         "nl" | "NL" => ("ln", &["laan"]),
         _ => return vec![],
     };
-    // Full names like Solhavn and Koeln are not compound abbreviations.
-    if short != "r" && !road.trim_end().ends_with('.') {
-        return vec![];
-    }
-    let road = normalize_place(road);
     if short == "r" {
-        return road
+        return normalize_place(road)
             .strip_prefix("r ")
             .map(|rest| vec![format!("rue {rest}")])
             .unwrap_or_default();
     }
-    let Some(stem) = road.strip_suffix(short) else {
+    // Full names like Solhavn and Koeln are not compound abbreviations.
+    let marker = format!("{short}.");
+    let road = road.to_lowercase();
+    let Some((stem, rest)) = road.split_once(&marker) else {
         return vec![];
     };
+    if !stem.ends_with(char::is_alphabetic) || rest.contains(&marker) {
+        return vec![];
+    }
+    let stem = normalize_place(stem);
+    let rest = normalize_place(rest);
     if !stem
         .rsplit(' ')
         .next()
@@ -628,7 +631,7 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
         return vec![];
     }
     full.iter()
-        .map(|suffix| format!("{stem}{suffix}"))
+        .map(|suffix| format!("{stem}{suffix} {rest}").trim_end().to_owned())
         .collect()
 }
 

@@ -1267,6 +1267,10 @@ fn postal_city_aligned(
     }
     if !head_aligns(head)
         || !one_house(head)
+        || (postcode_country_suffix(tail, whole)
+            && ["house_number", "road"]
+                .iter()
+                .any(|key| field(head, key) != field(whole, key)))
         || !["state", "state_district", "suburb", "city_district"]
             .iter()
             .all(|k| field(whole, k).is_empty())
@@ -1281,6 +1285,28 @@ fn postal_city_aligned(
         ("city".into(), city.trim().to_lowercase()),
     ]);
     Some(parsed)
+}
+
+fn postcode_country_suffix(tail: &str, whole: &[(String, String)]) -> bool {
+    if !one_house(whole)
+        || whole.iter().filter(|(k, _)| k == "postcode").count() != 1
+        || whole.iter().filter(|(k, _)| k == "country").count() != 2
+    {
+        return false;
+    }
+    let words: Vec<_> = tail.split_whitespace().collect();
+    // postcode_shape also accepts outcodes and strips non-ASCII characters.
+    words.len() > 2
+        && words[0].len() == 4
+        && words[0].bytes().all(|b| b.is_ascii_digit())
+        && words[1].len() == 2
+        && words[1].bytes().all(|b| b.is_ascii_alphabetic())
+        && whole.windows(2).any(|pair| {
+            pair[0].0 == "postcode"
+                && pair[0].1 == words[0]
+                && pair[1].0 == "country"
+                && pair[1].1.eq_ignore_ascii_case(words[1])
+        })
 }
 
 fn postal_without_commas(
@@ -1535,6 +1561,15 @@ impl Parser {
                         tail,
                         country.as_ref().unwrap(),
                         &inner,
+                    );
+                }
+                // The general alignment may repair the road; this path must preserve it.
+                [head, tail] if country.is_some() && postcode_country_suffix(tail, &whole) => {
+                    aligned = postal_city_aligned(
+                        &libpostal(head.trim())?,
+                        tail,
+                        country.as_ref().unwrap(),
+                        &whole,
                     );
                 }
                 _ => {}
@@ -4907,6 +4942,73 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn postcode_suffix_country_label_needs_an_intact_dutch_code() {
+        let head = vec![
+            ("house_number".into(), "4a".into()),
+            ("road".into(), "meadowln. - east".into()),
+        ];
+        let country = ("country".into(), "netherlands".into());
+        let mut whole = head.clone();
+        whole.extend([
+            ("postcode".into(), "1234".into()),
+            ("country".into(), "tj".into()),
+            ("city".into(), "polderdam".into()),
+            country.clone(),
+        ]);
+        assert!(postcode_country_suffix("1234 TJ Polderdam", &whole));
+        let aligned = postal_city_aligned(&head, "1234 TJ Polderdam", &country, &whole).unwrap();
+        for key in ["house_number", "road"] {
+            assert_eq!(field(&aligned, key), field(&whole, key));
+        }
+        assert_eq!(field(&aligned, "postcode"), "1234 tj");
+        assert_eq!(field(&aligned, "city"), "polderdam");
+        for (slot, value) in [(0, "4b"), (1, "other road")] {
+            let mut changed = head.clone();
+            changed[slot].1 = value.into();
+            assert!(postal_city_aligned(&changed, "1234 TJ Polderdam", &country, &whole).is_none());
+        }
+        for tail in [
+            "1234 TJ",
+            "1234, TJ Polderdam",
+            "5678 TJ Polderdam",
+            "12345 TJ Polderdam",
+            "1234 Tajikistan Polderdam",
+        ] {
+            assert!(!postcode_country_suffix(tail, &whole), "{tail}");
+        }
+        for suffix in ["中国", "ΤЈ", "T-J", "TJ.", "T"] {
+            whole[3].1 = suffix.to_lowercase();
+            assert!(
+                !postcode_country_suffix(&format!("1234 {suffix} Polderdam"), &whole),
+                "{suffix}"
+            );
+        }
+        whole[3].1 = "tj".into();
+        for cc in ["belgium", "germany", "norway", "france"] {
+            assert!(
+                postal_city_aligned(
+                    &head,
+                    "1234 TJ Polderdam",
+                    &("country".into(), cc.into()),
+                    &whole
+                )
+                .is_none(),
+                "{cc}"
+            );
+        }
+        whole.pop();
+        assert!(!postcode_country_suffix("1234 TJ Polderdam", &whole));
+        whole.push(country);
+        for key in ["country", "house_number", "road", "postcode"] {
+            whole.push((key.into(), "germany".into()));
+            assert!(!postcode_country_suffix("1234 TJ Polderdam", &whole));
+            whole.pop();
+        }
+        whole[3].1 = "tajikistan".into();
+        assert!(!postcode_country_suffix("1234 TJ Polderdam", &whole));
     }
 
     #[test]
