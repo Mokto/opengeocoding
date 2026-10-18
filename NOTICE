@@ -50,8 +50,9 @@ from tests/gold.seeds.jsonl.
 Reference adjudications in docs/adjudications/168.md also cite the US Census
 Bureau's TIGERweb boundaries (US Government work, public domain), VGIN address
 records, Bahrain's Legislation and Legal Opinion Commission and Ministry of
-Municipalities Affairs and Agriculture, and Glorious Vision University's contact
-page. Those texts and boundary geometries are not bundled; the corrected Bahrain
+Municipalities Affairs and Agriculture, Glorious Vision University's contact
+page, Nigeria's National Universities Commission register and ROR's CC0 locality
+metadata. Those texts and boundary geometries are not bundled; the corrected Bahrain
 code is sourced from CC0 Wikidata. The university case remains unresolved.
 
 Registry-first and school-sampled evaluation corpora have per-source attribution and
