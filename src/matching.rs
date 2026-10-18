@@ -600,10 +600,46 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
 }
 
 pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
+    if cc.eq_ignore_ascii_case("za") {
+        let road = normalize_place(road);
+        return [(" straat", " street"), (" street", " straat")]
+            .iter()
+            .filter_map(|(from, to)| road.strip_suffix(from).map(|stem| format!("{stem}{to}")))
+            .collect();
+    }
+    let german = ["ch", "de", "at"]
+        .iter()
+        .any(|c| cc.eq_ignore_ascii_case(c));
+    if german {
+        let road = normalize_place(road);
+        let (prefix, word) = road.rsplit_once(' ').unwrap_or(("", &road));
+        if !word.ends_with("strasse") {
+            let mut found = vec![];
+            // Correct the long suffix before the analyzer shortens an intact compound to …str.
+            for width in 6..=8 {
+                let Some(at) = word.len().checked_sub(width).filter(|&at| at > 2) else {
+                    continue;
+                };
+                let Some((stem, suffix)) = word.split_at_checked(at) else {
+                    continue;
+                };
+                if suffix.starts_with('s')
+                    && stem.chars().all(char::is_alphabetic)
+                    && crate::index::misspelt_word(suffix, "strasse")
+                {
+                    found.push(format!("{prefix} {stem}strasse").trim_start().to_owned());
+                }
+            }
+            if !found.is_empty() {
+                return found;
+            }
+        }
+    }
     let (short, full): (&str, &[&str]) = match cc {
         "fr" | "FR" => ("r", &["rue"]),
         "no" | "NO" => ("vn", &["veien", "vegen"]),
         "nl" | "NL" => ("ln", &["laan"]),
+        _ if german => ("str", &["strasse"]),
         _ => return vec![],
     };
     if short == "r" {
@@ -623,11 +659,10 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
     }
     let stem = normalize_place(stem);
     let rest = normalize_place(rest);
-    if !stem
-        .rsplit(' ')
-        .next()
-        .is_some_and(|word| word.chars().count() > 2 && word.chars().all(char::is_alphabetic))
-    {
+    if !stem.rsplit(' ').next().is_some_and(|word| {
+        word.chars().count() >= (if german { 2 } else { 3 })
+            && word.chars().all(char::is_alphabetic)
+    }) {
         return vec![];
     }
     full.iter()

@@ -51,6 +51,30 @@ pub const WIKIDATA: &[(&str, &str)] = &[("fr-haut-rhin", "Q12722")];
 
 pub const PLACES: &[Place] = &[
     place!(
+        "za",
+        "country",
+        "",
+        "ZA",
+        "",
+        50_000_000,
+        (25.0, -30.0),
+        "",
+        "South Africa",
+        &[("en", "South Africa")]
+    ),
+    place!(
+        "za-veldhaven",
+        "locality",
+        "town",
+        "ZA",
+        "",
+        20_000,
+        (25.0, -30.0),
+        "za",
+        "Veldhaven",
+        &[("en", "Veldhaven")]
+    ),
+    place!(
         "no",
         "country",
         "",
@@ -844,6 +868,61 @@ const POSTAL_STREET: Street = Street {
 };
 
 pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Acacia Street",
+        postcode: "9991",
+        city: "Veldhaven",
+        cc: "ZA",
+        lon: 25.01,
+        lat: -30.0,
+        numbers: &["7"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Literal Straat",
+        postcode: "9991",
+        city: "Veldhaven",
+        cc: "ZA",
+        lon: 25.02,
+        lat: -30.0,
+        numbers: &["8"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Literal Street",
+        postcode: "9991",
+        city: "Veldhaven",
+        cc: "ZA",
+        lon: 25.03,
+        lat: -30.0,
+        numbers: &["8"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Ulstrasse",
+        postcode: "50667",
+        city: "Köln",
+        cc: "DE",
+        lon: 6.954,
+        lat: 50.94,
+        numbers: &["25", "26"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Birkenstrasse",
+        postcode: "50667",
+        city: "Köln",
+        cc: "DE",
+        lon: 6.957,
+        lat: 50.94,
+        numbers: &["24"],
+    },
     POSTAL_STREET,
     Street {
         postcode: "ZZ1 1AB",

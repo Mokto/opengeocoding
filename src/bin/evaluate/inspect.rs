@@ -8,7 +8,9 @@ use tantivy_fst::{IntoStreamer, Streamer};
 
 pub fn inspect(dir: &Path, cases: &[Case]) -> Result<Vec<Value>> {
     ensure!(
-        cases.iter().all(|c| !c.holdout),
+        cases
+            .iter()
+            .all(|c| !c.holdout && !opengeocoding::eval::holdout(&c.location)),
         "inspection is training-only"
     );
     let mmap = tantivy::directory::MmapDirectory::open(dir)?;
@@ -195,15 +197,18 @@ mod tests {
 
     #[test]
     fn rejects_held_out_cases_before_opening_the_index() {
-        let case = Case {
-            holdout: true,
-            ..Default::default()
-        };
-        assert!(
-            inspect(Path::new("does-not-exist"), &[case])
-                .unwrap_err()
-                .to_string()
-                .contains("training-only")
-        );
+        for (holdout, location) in [(true, "z"), (false, "abc")] {
+            let case = Case {
+                holdout,
+                location: location.into(),
+                ..Default::default()
+            };
+            assert!(
+                inspect(Path::new("does-not-exist"), &[case])
+                    .unwrap_err()
+                    .to_string()
+                    .contains("training-only")
+            );
+        }
     }
 }

@@ -777,6 +777,26 @@ fn cases() -> Vec<Case> {
         known_failure: "",
     };
     vec![
+        case(
+            "7 Acacia Straat, 9991 Veldhaven, South Africa",
+            at_house("Acacia Street", "7"),
+        ),
+        case(
+            "8 Literal Straat, 9991 Veldhaven, South Africa",
+            at_house("Literal Straat", "8"),
+        ),
+        case(
+            "25 Ulstr., 50667 Köln, Germany",
+            at_house("Ulstrasse", "25"),
+        ),
+        case(
+            "24 Birkenstarsse, 50667 Köln, Germany",
+            at_house("Birkenstrasse", "24"),
+        ),
+        case(
+            "24 Birkensrasse, 50667 Köln, Germany",
+            at_house("Birkenstrasse", "24"),
+        ),
         case("Paris, France", town("fr-paris", true)),
         case("Missing Road, Paris, France", town("fr-paris", false)),
         case("Île-de-France, Haut-Rhin", town("fr-haut-rhin", true)),
@@ -939,6 +959,14 @@ async fn resolve_follows_the_authored_facts() {
         assert_eq!(details.state, "Mailshire");
     }
     for query in [
+        "7 Acacia Straat, 9992 Veldhaven, South Africa",
+        "7 Acacia Straat, 9991 Veldhaven, France",
+        "9 Acacia Straat, 9991 Veldhaven, South Africa",
+        "25 Ulstr., 50668 Köln, Germany",
+        "25 Ulstr., 50667 Köln, France",
+        "99 Birkenstarsse, 50667 Köln, Germany",
+        "24 Birkenstarsse, 50668 Köln, Germany",
+        "24 Birkenstarsse, 50667 Köln, France",
         "32 Courier Road, Posthaven, United Kingdom",
         "36 Courier Road, Posthaven, United Kingdom",
         "33 Courier Road, Amber Reach, United Kingdom",
