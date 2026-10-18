@@ -2,6 +2,8 @@
 
 Run commands from the repository root, including those in the per-country guides.
 
+The [postcode/state/governorate adjudication](adjudications/168.md) records the evidence, unresolved references and re-scoring for Dairy Lane, the Ikorodu Road campus conflict and Isa Town. Adjudicated place seeds may set `region_qid` to source their administrative chain separately from the place's identity/point; `review` preserves the decision and citations in generated cases.
+
 A [Senzing model trial](https://github.com/Mokto/opengeocoding/issues/98) on the same full index and 4,188 gold cases led to the corroboration and comma-boundary fixes above. With the default model, SearchAddress passes rose from 3,656 to 3,670; with Senzing's v1.2.0 parser bundle, from 3,604 to 3,638. Neither repair comparison introduced a newly failing case or a worse failure class. Switching models after the fixes still caused 86 newly failing cases and 44 worse failure classes, so the default model remains selected. These are counts from one corpus, not production accuracy estimates; the models, expectations and index were unchanged within each repair comparison.
 
 The `evaluate` binary (`src/bin/evaluate`) measures geographic correctness of the service and its index through the service's RPCs. It is for backend, data and consumer changes; it does not measure throughput. Build it with the service:
