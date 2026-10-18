@@ -1835,10 +1835,93 @@ impl Index {
         self.places.len()
     }
 
-    pub(crate) fn parse_address(&self, q: &str, corroboration: bool) -> Result<Parsed> {
+    pub(crate) fn parse_address(&self, q: &str, corroboration: bool) -> Result<Option<Parsed>> {
         let mut parsed = self.parser.parse(q)?;
+        if !parsed
+            .iter()
+            .any(|(k, _)| matches!(k.as_str(), "house_number" | "postcode"))
+        {
+            let parts: Vec<_> = q.split(',').map(str::trim).collect();
+            if let [town, region, country] = parts.as_slice()
+                && let Some(cc) = self.country(country)
+                && self
+                    .country(field(&parsed, "country"))
+                    .is_none_or(|stated| stated == cc)
+            {
+                let mut name = *town;
+                let (mut found, mut exact) = self.places_named(
+                    name,
+                    Some(&cc),
+                    Some(region),
+                    &|p| matches!(p.subtype.as_ref(), "locality" | "localadmin"),
+                    false,
+                );
+                if !exact
+                    && let Some((bare, kind)) = town.rsplit_once(char::is_whitespace)
+                    && kind.eq_ignore_ascii_case("village")
+                {
+                    name = bare.trim();
+                    (found, exact) = self.places_named(
+                        name,
+                        Some(&cc),
+                        Some(region),
+                        &|p| p.key() == "village",
+                        false,
+                    );
+                }
+                if exact {
+                    let canonical = found.iter().any(|hit| {
+                        let Hit::Place(id) = hit else { return false };
+                        let p = &self.places[*id as usize];
+                        crate::matching::names_agree(name, &p.primary)
+                            || crate::matching::names_agree(name, p.name(true))
+                    });
+                    for hit in found {
+                        let Hit::Place(id) = hit else { continue };
+                        if !self.places[id as usize].named(name_key(name)) {
+                            continue;
+                        }
+                        if let Some(parent) = self.chain(id).iter().skip(1).find_map(|&id| {
+                            let p = &self.places[id as usize];
+                            (matches!(
+                                p.subtype.as_ref(),
+                                "localadmin" | "county" | "macrocounty" | "region" | "macroregion"
+                            ) && p.all_names().any(crate::matching::agrees_with(region)))
+                            .then_some(p)
+                        }) {
+                            let key = if matches!(parent.subtype.as_ref(), "region" | "macroregion")
+                            {
+                                "state"
+                            } else {
+                                "state_district"
+                            };
+                            return Ok(Some(
+                                vec![
+                                    ("city".into(), name.into()),
+                                    (key.into(), parent.name(true).into()),
+                                    ("country".into(), (*country).into()),
+                                ]
+                                .into(),
+                            ));
+                        }
+                    }
+                    if !canonical {
+                        let (_, known) = self.places_exact(region, Some(&cc), None, &|p| {
+                            matches!(
+                                p.subtype.as_ref(),
+                                "localadmin" | "county" | "macrocounty" | "region" | "macroregion"
+                            )
+                        });
+                        if known {
+                            // An alias cannot bypass a contradictory qualifier through fragment fallbacks.
+                            return Ok(None);
+                        }
+                    }
+                }
+            }
+        }
         if corroboration && parsed.iter().any(|(k, _)| k == "postcode") {
-            return Ok(parsed);
+            return Ok(Some(parsed));
         }
         let first_cc = parsed
             .iter()
@@ -1874,7 +1957,7 @@ impl Index {
                         || (!field(&parsed, key).is_empty()
                             && field(&parsed, key) != field(&repaired, key))
                 }) {
-                    return Ok(parsed);
+                    return Ok(Some(parsed));
                 }
                 for (key, value) in parsed.iter().filter(|(k, _)| {
                     matches!(
@@ -1889,7 +1972,7 @@ impl Index {
             repaired.push(("postcode".into(), pc));
             parsed = repaired.into();
         }
-        Ok(parsed)
+        Ok(Some(parsed))
     }
 
     fn parse(&self, q: &str) -> Vec<(String, String)> {
@@ -1900,6 +1983,8 @@ impl Index {
                 .collect()
         };
         self.parse_address(q, false)
+            .ok()
+            .flatten()
             .map(|v| v.iter().map(|(l, t)| (l.clone(), clean(t))).collect())
             .unwrap_or_default()
     }
@@ -4322,17 +4407,32 @@ mod tests {
         assert_eq!(
             &*index
                 .parse_address("20 Oak, 12345 Springfeld, USA", true)
+                .unwrap()
                 .unwrap(),
             expected
         );
-        assert_eq!(index.parse_address("12345 Oak, NY", true).unwrap(), house);
-        assert_eq!(index.parse_address("12345 Oak, NY", false).unwrap(), house);
+        assert_eq!(
+            index.parse_address("12345 Oak, NY", true).unwrap().unwrap(),
+            house
+        );
+        assert_eq!(
+            index
+                .parse_address("12345 Oak, NY", false)
+                .unwrap()
+                .unwrap(),
+            house
+        );
         for (query, parsed) in protected {
-            assert_eq!(index.parse_address(query, true).unwrap(), parsed, "{query}");
+            assert_eq!(
+                index.parse_address(query, true).unwrap().unwrap(),
+                parsed,
+                "{query}"
+            );
         }
         assert_eq!(
             &*index
                 .parse_address("20 Oak 12345, Springfeld, USA", false)
+                .unwrap()
                 .unwrap(),
             expected
                 .iter()

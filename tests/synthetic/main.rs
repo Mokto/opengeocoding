@@ -24,12 +24,15 @@ fn dir() -> &'static PathBuf {
         let _ = std::fs::remove_dir_all(&root);
         world::write_release(&root.join("release"));
         world::write_osm(&root.join("osm"));
+        world::write_geonames(&root.join("cities.txt"));
         let out = root.join("index");
         let built = Command::new(env!("CARGO_BIN_EXE_build_index"))
             .arg(root.join("release"))
             .arg(&out)
             .arg("--osm")
             .arg(root.join("osm"))
+            .arg("--geonames-places")
+            .arg(root.join("cities.txt"))
             .output()
             .unwrap();
         assert!(
@@ -132,6 +135,35 @@ fn poi_houses_need_a_known_road_and_never_override_addresses_or_move_streets() {
     );
     drop(covered);
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn geonames_primary_names_survive_deduplication_without_exporting_other_labels() {
+    for text in [
+        "Северная Роща, Alpha",
+        "Severnaya Roshcha, Alpha",
+        "Severnaya Roshcha, Première",
+        "Северная Роща, Francia, Austria",
+    ] {
+        let found = index().suggest(text, 5, Some("AT"), None, false);
+        assert!(!found.is_empty(), "{text}");
+        assert!(
+            metres((found[0].x, found[0].y), (30.0, 0.21)) < 5.,
+            "{text}"
+        );
+    }
+    assert!(
+        index()
+            .suggest("Untrusted Alias", 5, None, None, false)
+            .is_empty()
+    );
+    assert!(
+        index()
+            .suggest("Северная Роща, Francia", 5, None, None, false)
+            .is_empty()
+    );
+    let bare = index().suggest("Severnaya Roshcha", 5, Some("AT"), None, false);
+    assert!(metres((bare[0].x, bare[0].y), (80.0, -10.0)) < 5.);
 }
 
 #[test]
@@ -922,6 +954,46 @@ async fn resolve_follows_the_authored_facts() {
                 .as_option()
                 .is_none_or(|d| d.house_number.is_empty()),
             "{query}: {got:?}"
+        );
+    }
+    for query in [
+        "Северная Роща, Alpha, Austria",
+        "Severnaya Roshcha, Alpha, Austria",
+        "Severnaya Roshcha, Première, Austria",
+        "Nordhain Village, Alpha, Austria",
+    ] {
+        let found = resolver.resolve(query).await.unwrap();
+        let point = found.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres((point.lon as f64, point.lat as f64), (30.0, 0.21)) < 5.,
+            "{query}: {found:?}"
+        );
+        assert!(found.good_match, "{query}: {found:?}");
+    }
+    let partial = resolver.resolve("Roshcha, Alpha, Austria").await.unwrap();
+    assert!(
+        !partial.geo_coordinates.as_option().is_some_and(|point| {
+            metres((point.lon as f64, point.lat as f64), (85.0, -10.0)) < 5.
+        }),
+        "{partial:?}"
+    );
+    let bare = resolver
+        .resolve("Severnaya Roshcha, Austria")
+        .await
+        .unwrap();
+    let point = bare.geo_coordinates.as_option().unwrap();
+    assert!(metres((point.lon as f64, point.lat as f64), (80.0, -10.0)) < 5.);
+    for query in [
+        "Северная Роща, Beta, Austria",
+        "Северная Роща Village, Beta, Austria",
+        "Severnaya Roshcha, Alpha, France",
+    ] {
+        let found = resolver.resolve(query).await.unwrap();
+        assert!(
+            !found.geo_coordinates.as_option().is_some_and(|point| {
+                metres((point.lon as f64, point.lat as f64), (30.0, 0.21)) < 5.
+            }),
+            "{query}: {found:?}"
         );
     }
     let mut wrong = vec![];

@@ -653,17 +653,23 @@ impl Index {
     fn qualifies(&self, place: u32, quals: &[(String, Vec<&str>)], open_last: bool) -> bool {
         let pl = &self.places[place as usize];
         let chain = self.chain(place);
+        let country_named = quals.iter().any(|(_, ccs)| {
+            ccs.contains(&&*pl.cc) || super::sovereign(&pl.cc).is_some_and(|cc| ccs.contains(&cc))
+        });
         let matches =
             |n: &str, q: &str, open: bool| n == q || (open && q.len() >= 3 && n.starts_with(q));
         quals.iter().enumerate().all(|(i, (q, ccs))| {
             let open = open_last && i + 1 == quals.len();
             let code = format!("-{}", q.to_uppercase());
+            let key = std::cell::LazyCell::new(|| super::name_key(q));
             ccs.contains(&&*pl.cc)
                 || (q.len() <= 3 && pl.region.ends_with(&code))
                 || chain.iter().skip(1).any(|&a| {
                     let names = self.folded_names(a);
                     matches(&names[0], q, open)
                         || matches(&names[1], q, open)
+                        || ((ccs.is_empty() || country_named)
+                            && self.places[a as usize].named(*key))
                         || (q.len() <= 3 && self.places[a as usize].region.ends_with(&code))
                 })
         })

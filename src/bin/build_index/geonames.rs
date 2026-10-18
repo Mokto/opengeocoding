@@ -5,7 +5,7 @@ use opengeocoding::index::schema::fold;
 use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
-    io::Write,
+    io::{BufRead, Write},
     path::Path,
 };
 
@@ -15,7 +15,7 @@ const NEAR_KM: f64 = 10.0;
 const SKIPPED: [&str; 5] = ["PPLH", "PPLQ", "PPLW", "PPLCH", "PPLR"];
 
 struct Row {
-    /// The name and its ASCII form: what the place answers to.
+    /// The source's primary name and its ASCII form: what the place answers to.
     names: Vec<String>,
     /// Every other name, used only to see whether Overture has the place. GeoNames' alternates
     /// include labels such as "Huy (Tihange)" and the names of the place's district, which
@@ -86,24 +86,26 @@ pub fn add_places(
         .collect();
 
     type Key = ([u8; 2], String);
+    type Located = (u32, (f64, f64));
     let wanted: HashSet<Key> = rows
         .iter()
         .flat_map(|r| r.names.iter().chain(&r.others).map(|n| (r.cc, fold(n))))
         .collect();
-    let named: Vec<(Key, (f64, f64))> = places
+    let named: Vec<(Key, Located)> = places
         .par_iter()
-        .filter_map(|p| p.xy.map(|xy| (p, xy)))
-        .flat_map_iter(|(p, xy)| {
+        .enumerate()
+        .filter_map(|(i, p)| p.xy.map(|xy| (i as u32, p, xy)))
+        .flat_map_iter(|(id, p, xy)| {
             p.names
                 .split(NAME_SEP)
                 .map(|n| (p.country, fold(n)))
                 .filter(|k| wanted.contains(k))
-                .map(move |k| (k, xy))
+                .map(move |k| (k, (id, xy)))
         })
         .collect();
-    let mut near: HashMap<Key, Vec<(f64, f64)>> = HashMap::new();
-    for (k, xy) in named {
-        near.entry(k).or_default().push(xy);
+    let mut near: HashMap<Key, Vec<Located>> = HashMap::new();
+    for (k, place) in named {
+        near.entry(k).or_default().push(place);
     }
     // an admin1 name finds its Overture region when no polygon holds the place
     let mut regions: HashMap<Key, u32> = HashMap::new();
@@ -124,15 +126,33 @@ pub fn add_places(
             .expect("open places.tsv"),
     );
     let before = places.len();
+    let mut aliases: HashMap<u32, Vec<String>> = HashMap::new();
     for r in rows {
         if !assigner.within(r.x, r.y) {
             continue;
         }
-        let known = r.names.iter().chain(&r.others).any(|n| {
-            near.get(&(r.cc, fold(n)))
-                .is_some_and(|v| v.iter().any(|&xy| km(xy, (r.x, r.y)) < NEAR_KM))
-        });
-        if known {
+        let mut known: Vec<u32> = r
+            .names
+            .iter()
+            .chain(&r.others)
+            .filter_map(|n| near.get(&(r.cc, fold(n))))
+            .flatten()
+            .filter(|(_, xy)| km(*xy, (r.x, r.y)) < NEAR_KM)
+            .map(|(id, _)| *id)
+            .collect();
+        known.sort_unstable();
+        known.dedup();
+        if !known.is_empty() {
+            known.retain(|&id| places[id as usize].subtype == r.subtype);
+            if let [id] = known.as_slice() {
+                let p = &mut places[*id as usize];
+                for name in &r.names {
+                    if !p.names.split(NAME_SEP).any(|n| fold(n) == fold(name)) {
+                        p.names = format!("{}{NAME_SEP}{name}", p.names).into();
+                        aliases.entry(*id).or_default().push(name.clone());
+                    }
+                }
+            }
             continue;
         }
         let parent = assigner.place(r.x, r.y).or_else(|| {
@@ -181,6 +201,30 @@ pub fn add_places(
         });
     }
     tsv.flush().unwrap();
+    drop(tsv);
+    if !aliases.is_empty() {
+        let path = out.join("places.tsv");
+        let updated = out.join("places.tsv.tmp");
+        let input = std::io::BufReader::new(std::fs::File::open(&path).unwrap());
+        let mut output = std::io::BufWriter::new(std::fs::File::create(&updated).unwrap());
+        for (id, line) in input.lines().enumerate() {
+            let line = line.unwrap();
+            if let Some(names) = aliases.get(&(id as u32)) {
+                let (row, item) = line.rsplit_once('\t').expect("places.tsv columns");
+                let separator = if row.ends_with('\t') { "" } else { "\u{1f}" };
+                let pairs = names
+                    .iter()
+                    .map(|n| format!("alt_name={}", cell(n)))
+                    .collect::<Vec<_>>()
+                    .join(&NAME_SEP.to_string());
+                writeln!(output, "{row}{separator}{pairs}\t{item}").unwrap();
+            } else {
+                writeln!(output, "{line}").unwrap();
+            }
+        }
+        output.flush().unwrap();
+        std::fs::rename(updated, path).unwrap();
+    }
     places.len() - before
 }
 
@@ -205,6 +249,49 @@ mod tests {
         assert_eq!(parse(&line("PPLX", "")).unwrap().subtype, "neighborhood");
         assert!(parse(&line("PPLH", "")).is_none());
         assert!(parse("garbage").is_none());
+    }
+
+    #[test]
+    fn only_an_unambiguous_same_country_settlement_keeps_the_primary_names() {
+        let root = std::env::temp_dir().join(format!("geonames-aliases-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let cities = root.join("cities.txt");
+        std::fs::write(&cities, line("PPL", "Oldname,Untrusted Alias")).unwrap();
+        let assigner = Assigner::new(vec![], vec![]);
+        for (cc, subtype, positions, enriched) in [
+            (*b"IN", "locality", vec![(74.9, 18.1)], true),
+            (*b"IN", "locality", vec![(74.9, 18.1), (80., 18.1)], true),
+            (*b"IN", "locality", vec![(74.9, 18.1), (74.91, 18.1)], false),
+            (*b"IN", "county", vec![(74.9, 18.1)], false),
+            (*b"FR", "locality", vec![(74.9, 18.1)], false),
+        ] {
+            let mut places: Vec<Place> = positions
+                .iter()
+                .map(|&xy| Place {
+                    id: Str::default(),
+                    subtype,
+                    country: cc,
+                    region: "IN-16".into(),
+                    names: "Oldname".into(),
+                    population: 4100,
+                    xy: Some(xy),
+                    parents: vec![],
+                    anc: Box::default(),
+                    parent: None,
+                    row: Str::default(),
+                })
+                .collect();
+            let original = "locality\tvillage\tIN\tIN-16\t0\t4100\t74.9\t18.1\tNaN\tNaN\tNaN\tNaN\t\tOldname\t\tQ1\n";
+            std::fs::write(root.join("places.tsv"), original.repeat(places.len())).unwrap();
+            add_places(&mut places, &assigner, &cities, None, &root);
+            assert_eq!(places[0].names.contains("Kalas"), enriched);
+            assert!(!places[0].names.contains("Untrusted Alias"));
+            let tsv = std::fs::read_to_string(root.join("places.tsv")).unwrap();
+            let first: Vec<_> = tsv.lines().next().unwrap().split('\t').collect();
+            assert_eq!(first[14].contains("alt_name=Kalas"), enriched);
+            assert_eq!((first[12], first[13], first[15]), ("", "Oldname", "Q1"));
+        }
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

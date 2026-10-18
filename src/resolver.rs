@@ -149,7 +149,8 @@ impl Resolver {
     pub async fn parse(&self, query: &str) -> Result<ParsedAddress> {
         let core = self.0.clone();
         let query = query.to_owned();
-        tokio::task::spawn_blocking(move || core.parse(&query)).await?
+        tokio::task::spawn_blocking(move || core.parse(&query).map(Option::unwrap_or_default))
+            .await?
     }
 
     pub async fn resolve(&self, query: &str) -> Result<FullAddress> {
@@ -218,15 +219,13 @@ impl Resolver {
 }
 
 impl Core {
-    fn parse(&self, query: &str) -> Result<ParsedAddress> {
-        let address = self
-            .index
-            .parse_address(query, true)?
-            .iter()
-            .cloned()
-            .collect();
+    fn parse(&self, query: &str) -> Result<Option<ParsedAddress>> {
+        let Some(parsed) = self.index.parse_address(query, true)? else {
+            return Ok(None);
+        };
+        let address = parsed.iter().cloned().collect();
         tracing::debug!(target: "opengeocoding::address_log", ?query, parsed = ?address, "Address parsed");
-        Ok(address)
+        Ok(Some(address))
     }
 
     /// The index's hits and their English rendering.
@@ -577,7 +576,11 @@ impl Core {
         }
         let turned = self.parser.reordered(query)?;
         let query = turned.as_deref().unwrap_or(query);
-        let mut address = self.parse(query)?;
+        let Some(mut address) = self.parse(query)? else {
+            tracing::debug!(target: "opengeocoding::address_log", "Address unresolved");
+            METRICS.tiers.with_label_values(&["unresolved"]).inc();
+            return Ok(FullAddress::default());
+        };
         // A complete address with a town that is also a country ("Cuba, NY 14727") would
         // otherwise be rotated into one whose country is that town.
         let complete = ["house_number", "road", "postcode"]
@@ -595,8 +598,9 @@ impl Core {
                     .copied()
                     .collect::<Vec<_>>()
                     .join(", ");
-                let rotated = self.parse(&rotated_query)?;
-                if !part(&rotated, "country").is_empty() {
+                if let Some(rotated) = self.parse(&rotated_query)?
+                    && !part(&rotated, "country").is_empty()
+                {
                     address = rotated;
                 }
             }
@@ -1272,7 +1276,9 @@ impl Core {
             if normalize_place(text) == stated {
                 continue;
             }
-            let parsed = self.parse(text)?;
+            let Some(parsed) = self.parse(text)? else {
+                continue;
+            };
             let postcode = part(&parsed, "postcode").to_owned();
             // a bare postcode or name is searched worldwide: say which country it is in
             let scoped = match self

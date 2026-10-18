@@ -460,7 +460,7 @@ pub const PLACES: &[Place] = &[
         (12.0, 47.0),
         "at",
         "Alpha",
-        &[("en", "Alpha")],
+        &[("en", "Alpha"), ("fr", "Première"), ("es", "Francia")],
     ),
     place!(
         "at-b",
@@ -497,6 +497,30 @@ pub const PLACES: &[Place] = &[
         "at-b",
         "Suedhain",
         &[("en", "Suedhain")],
+    ),
+    place!(
+        "at-northgrove",
+        "locality",
+        "town",
+        "AT",
+        "AT-2",
+        100_000,
+        (80.0, -10.0),
+        "at-b",
+        "Severnaya Roshcha",
+        &[("en", "Severnaya Roshcha")],
+    ),
+    place!(
+        "at-roshcha",
+        "locality",
+        "town",
+        "AT",
+        "AT-2",
+        100_000,
+        (85.0, -10.0),
+        "at-b",
+        "Roshcha",
+        &[("en", "Roshcha")],
     ),
     place!(
         "at-ohnecode",
@@ -1708,6 +1732,14 @@ fn blob(out: &mut Vec<u8>, kind: &str, data: &[u8]) {
     out.extend((header.len() as u32).to_be_bytes());
     out.extend(header);
     out.extend(blob);
+}
+
+pub fn write_geonames(path: &Path) {
+    std::fs::write(
+        path,
+        "1\tСеверная Роща\tSevernaya Roshcha\tNordhain,Untrusted Alias\t0.21\t30.0\tP\tPPL\tAT\t\t01\t\t\t\t1000\n",
+    )
+    .unwrap();
 }
 
 /// `FEATURES` as an OSM PBF file sorted by type then id, one block per type, as Geofabrik's are.
