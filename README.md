@@ -415,6 +415,19 @@ Cache keys include the exact query, provider endpoint and settings, never the cr
 
 `report.md` includes outcomes by cohort, expected country and holdout. `--compare` re-scores both sides against the current corpus, ignoring `goodMatch`; native confidence scores are not equated with it. The paired table counts both-pass, baseline-only, competitor-only and neither-pass cases, and lists different failure classes. Service-specific error-contract cases are excluded. Known-failure labels do not turn failures into passes. No latency comparison is made from cached responses. The curated corpus remains diagnostic, not an unbiased accuracy estimate: many cases were selected from index inputs, and registry expectations can share upstream sources with providers. Adapter tests use made-up responses; they establish neither live interoperability nor competitive accuracy.
 
+#### Aggregate-only evaluations
+
+`--aggregate-only` makes one forward request per scored case and retains only aggregate outcome counts, paired pass counts, cohort/holdout and US/Canada groups, request accounting and reproducibility metadata. It never reads or writes a response cache, raw or normalized provider responses, per-case outcomes, coordinates, address summaries or response diagnostics. The output contains `aggregate.json`, `report.md` and an empty lock file, not `results.jsonl`. It requires `--fetch --budget N` and rejects `--cache` and `--storage-authorized`. Use a new output directory.
+
+```sh
+target/release/evaluate provider google --aggregate-only --fetch --budget N \
+  --corpus cases.jsonl --out eval-results/google-aggregate --compare eval-results/local-gold
+```
+
+There are no automatic retries. `--resume` continues from aggregate checkpoints without repeating completed cases; keep the same binary, corpus, filter, baseline and total request budget. Attempts are checkpointed before network access. An interrupted in-flight request remains counted against the budget and may be repeated on explicit resume. Authentication and quota failures stop the run. Google HTTP 400 and `INVALID_REQUEST` responses count as query errors, not empty results. Aggregate-only mode discards declared HTTP query-error bodies without requiring JSON, so an HTML rejection of malformed input does not stop collection. Normalization failures count as adapter errors without retaining their details. Cases without geographic expectations and service-specific error-contract cases are excluded.
+
+No provider responses remain for offline inspection or re-scoring. This option minimizes retained data; it does **not** establish that benchmarking, aggregate retention or publication is permitted under the applicable provider agreement. Review those terms separately, including Google's applicable EEA or non-EEA terms. Never use provider answers as gold labels or to train the service.
+
 ## GHCR publishing
 
 `.github/workflows/docker.yml` runs on `v*` tag pushes, which release-please creates when its Release PR is merged (it needs the `RELEASE_PLEASE_TOKEN` secret, because tags pushed with `GITHUB_TOKEN` trigger no workflows). It runs the existing checks first, then uses Docker's pinned reusable workflow to build on native amd64/arm64 runners, push to `ghcr.io/mokto/opengeocoding`, and assemble and verify the multi-platform manifest. Pull requests do not publish to that image.

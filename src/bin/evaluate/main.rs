@@ -57,8 +57,9 @@ fn usage() -> String {
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
             [--no-direct] [--resume] [--backend-label TEXT] [--repeat 3]
-provider    mapbox|google|here|tomtom|geoapify|opencage|locationiq|geocodio|arcgis|mapsco --out DIR --cache DIR [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
+provider    mapbox|google|here|tomtom|geoapify|opencage|locationiq|geocodio|arcgis|mapsco --out DIR [--cache DIR] [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
             [--fetch --budget N] [--storage-authorized] (offline by default; fetching may be billed)
+            --aggregate-only --fetch --budget N [--resume] (no --cache; retains only aggregates)
 mapbox      alias for provider mapbox
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
 snapshot    RUN_DIR FILE.tsv|FILE.json
@@ -206,7 +207,19 @@ async fn command() -> Result<i32> {
             run::run(options).await
         }
         "provider" | "mapbox" => {
-            args.only_flags(&["fetch", "storage-authorized"])?;
+            args.only_flags(&["fetch", "storage-authorized", "aggregate-only", "resume"])?;
+            let aggregate_only = args.flag("aggregate-only");
+            if aggregate_only {
+                anyhow::ensure!(
+                    args.value("cache").is_none(),
+                    "aggregate-only does not accept --cache"
+                );
+            } else {
+                anyhow::ensure!(
+                    !args.flag("resume"),
+                    "provider --resume requires --aggregate-only"
+                );
+            }
             let provider = match (command.as_str(), args.positional.as_slice()) {
                 ("provider", [name]) => providers::named(name)?,
                 ("mapbox", []) => providers::named("mapbox")?,
@@ -219,18 +232,26 @@ async fn command() -> Result<i32> {
             }) {
                 bail!("unsupported provider option --{option}");
             }
-            providers::run(providers::Options {
+            let options = providers::Options {
                 provider,
                 storage_authorized: args.flag("storage-authorized"),
                 corpus: args.path("corpus"),
                 out: args.path("out").context("--out is required")?,
-                cache: args.path("cache").context("--cache is required")?,
+                cache: if aggregate_only {
+                    PathBuf::new()
+                } else {
+                    args.path("cache").context("--cache is required")?
+                },
                 only: args.value("only").map(regex::Regex::new).transpose()?,
                 fetch: args.flag("fetch"),
                 budget: args.value("budget").map_or(Ok(0), str::parse)?,
                 compare: args.path("compare"),
-            })
-            .await
+            };
+            if aggregate_only {
+                providers::aggregate::run(options, args.flag("resume")).await
+            } else {
+                providers::run(options).await
+            }
         }
         "diff" => {
             args.only_flags(&["fail-on-drift", "relative"])?;

@@ -16,6 +16,7 @@ use std::{
     time::Duration,
 };
 
+pub mod aggregate;
 mod arcgis;
 mod geoapify;
 mod geocodio;
@@ -157,6 +158,7 @@ async fn fetch(
     client: &reqwest::Client,
     token: &str,
     request: Value,
+    aggregate_only: bool,
 ) -> Result<Entry> {
     let params: Vec<_> = request
         .as_object()
@@ -179,18 +181,22 @@ async fn fetch(
         .map_err(|error| error.without_url())
         .with_context(|| format!("{} request failed (not retried)", provider.name))?;
     let status = response.status().as_u16();
+    let query_error = provider.query_error_statuses.contains(&status)
+        || (aggregate_only && provider.name == "google" && status == 400);
     ensure!(
-        status == 200
-            || provider.query_error_statuses.contains(&status)
-            || provider.not_found_status == Some(status),
+        status == 200 || query_error || provider.not_found_status == Some(status),
         "{} HTTP {status}; stopped without retrying",
         provider.name
     );
-    let response: Value = response
-        .json()
-        .await
-        .map_err(|error| error.without_url())
-        .context("invalid provider JSON")?;
+    let response: Value = if aggregate_only && query_error {
+        Value::Null
+    } else {
+        response
+            .json()
+            .await
+            .map_err(|error| error.without_url())
+            .context("invalid provider JSON")?
+    };
     Ok(Entry {
         request,
         fetched_at: utc_now(),
@@ -369,7 +375,7 @@ pub async fn run(options: Options) -> Result<i32> {
                 if fetched > 0 {
                     tokio::time::sleep(Duration::from_millis(provider.interval_ms)).await;
                 }
-                let entry = fetch(provider, client, token, req).await?;
+                let entry = fetch(provider, client, token, req, false).await?;
                 save_entry(&options.cache, &entry)?;
                 fetched += 1;
                 entry
