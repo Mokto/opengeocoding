@@ -2,7 +2,7 @@
 
 **Diagnostic measurements, not an unbiased production-accuracy estimate.** This is a vendor-run evaluation on this repository's gold corpus. Cases overlap the local index's source data; variants of one location are not independent samples. Do not read these tables as a general accuracy ranking.
 
-**Google is provisional.** Its initial adapter failed to normalize 54 responses; some may reflect insufficient provider metadata rather than adapter bugs. Adapter fixes are regression-tested, but the complete post-fix Google pass has not been collected. No Google response data remains for retrospective re-scoring. The initial measurement is shown for transparency, not as evidence that this service outperforms Google.
+**Google remains provisional.** The corrected-adapter pass is complete: normalization failures fell from 54 to 36 worldwide, with none in the US/Canada subset. Remaining failures include insufficient metadata and unsupported native types; they are not proof of incorrect Google locations. No Google response data remains for retrospective inspection. The tables show the completed rerun, not guessed corrections to the initial measurement.
 
 ## Worldwide: identical 4,183 queries
 
@@ -11,12 +11,12 @@ Collected 17–18 October 2026; local baseline collected 16 October 2026. Rates 
 | Service | Passed / cases | Pass rate | Normalization failures | Status |
 |---|---:|---:|---:|---|
 | OpenGeocoding | 3,669 / 4,183 | 87.7% | — | Frozen local baseline |
-| Google Geocoding API | 3,625 / 4,183 | 86.7% | 54 | **Initial adapter; post-fix verification pending** |
+| Google Geocoding API | 3,627 / 4,183 | 86.7% | 36 | Corrected-adapter pass complete; remaining normalization limitations |
 | Geoapify | 3,422 / 4,183 | 81.8% | 1 | Complete; one native result has unknown precision |
 | OpenCage | 2,766 / 4,183 | 66.1% | 1 | Complete; one result lacks country metadata |
 | geocode.maps.co | 2,402 / 4,183 | 57.4% | 0 | Complete |
 
-The initial Google run had 60 errors: 54 normalization failures and six query rejections. A normalization failure is **not proof of an incorrect Google location**. If all 54 unresolved cases passed after correct normalization, Google's count would be 3,679 / 4,183 (88.0%). This is an upper bound, not a predicted corrected score. The local result lies inside the resulting uncertainty interval; no worldwide winner against Google is established.
+The Google rerun had 42 errors: 36 normalization failures and six query rejections. A normalization failure is **not proof of an incorrect Google location**. Even an all-36-pass scenario would produce 3,663 / 4,183 (87.6%); this is a generous upper bound for those unresolved cases, not a predicted corrected score. The local raw pass count is higher on this corpus, but the remaining interoperability limitations and corpus bias do not support a general accuracy-superiority claim.
 
 ## US/Canada: identical 1,395 queries
 
@@ -25,7 +25,7 @@ This subset is selected before provider responses: the union of expected-country
 | Service | Passed / cases | Pass rate | Status |
 |---|---:|---:|---|
 | OpenGeocoding | 1,359 / 1,395 | 97.4% | Frozen local baseline |
-| Google Geocoding API | 1,314 / 1,395 | 94.2% | Initial adapter; one normalization failure; post-fix verification pending |
+| Google Geocoding API | 1,313 / 1,395 | 94.1% | Corrected-adapter pass complete; no normalization failures |
 | Geocodio | 1,235 / 1,395 | 88.5% | Complete; regional provider |
 | Geoapify | 1,201 / 1,395 | 86.1% | Complete |
 | OpenCage | 960 / 1,395 | 68.8% | Complete |
@@ -58,7 +58,7 @@ This measures compatibility with these geographic and address-precision requirem
 
 ## Google normalization status
 
-The initial measurement used the adapter in revision `5d7d9aaf754caec39edc5a57156ba78d73f7516c`. Subsequent changes must not be applied retrospectively to its counts:
+The initial measurement used revision `5d7d9aaf754caec39edc5a57156ba78d73f7516c`; the completed rerun uses the Google adapter in revision `9207fda`. Its evaluator binary SHA-256 is `ad3202718dccb4211cc91184c9727a66e2148b2adad0256b83dcde8979c17b1e`. The changes were:
 
 - Recognize native `sublocality_level_3` through `sublocality_level_5` without promoting inherited house/street context.
 - Accept a native postal town or other locality component for address context, and a street number even when road/city metadata is absent.
@@ -66,11 +66,20 @@ The initial measurement used the adapter in revision `5d7d9aaf754caec39edc5a5715
 - Treat an explicitly political colloquial area without a more specific native type conservatively as a region, not a city or address. Genuinely absent country metadata remains an error.
 - Retain only fixed, whitelisted aggregate failure categories. Unknown diagnostic text and provider addresses/coordinates are never written.
 
-Tuning-only schema probes verified that missing country components occur in actual responses. They cannot honestly be repaired by guessing. The probes are not an accuracy sample and do not replace a complete, same-corpus post-fix run. Until that run completes, keep the Google rows marked provisional.
+The complete 4,183-query rerun consumed 4,184 attempts, including one blocked attempt; the run resumed after the quota setting was updated. Completed cases were preserved on resume. The 36 remaining failures are categorized by the first failing normalization check:
+
+| Category | Cases | Interpretation |
+|---|---:|---|
+| Missing address context | 16 | No number, street or supported locality component sufficient for the current normalized address contract |
+| Unsupported `plus_code` result | 12 | Encoded location reference; not automatically a verified street or house identity |
+| Missing country component | 7 | Country cannot be invented from the query, gold answer or location |
+| Unsupported `political` result | 1 | No supported native primary precision established |
+
+These are first-failure categories, not proof that every other field is valid. All remain in the denominator as errors. Tuning-only schema probes are not an additional accuracy sample. The Google rows remain provisional while these interoperability limits persist. This rerun is a new live provider snapshot: since historical Google responses were discarded, individual class changes cannot be retrospectively audited or attributed solely to the adapter changes.
 
 ## Corpus and reproducibility
 
-The source is [`tests/gold.jsonl`](tests/gold.jsonl) plus [`tests/registry/us.jsonl`](tests/registry/us.jsonl), using the corpus, scorer and measured adapters at revision `5d7d9aaf754caec39edc5a57156ba78d73f7516c`. Of 4,188 cases, four have no forward expectation and one checks this service's RPC-specific `invalid_argument` contract. The geographic comparison therefore contains 4,183 cases. The region-specific comparison contains 1,395 of those same cases. The scored gold data comes from the licensed authoritative sources described in [README](README.md#gold-corpus) and [NOTICE](NOTICE), never from these competitors' answers.
+The source is [`tests/gold.jsonl`](tests/gold.jsonl) plus [`tests/registry/us.jsonl`](tests/registry/us.jsonl), using the corpus, scorer and non-Google adapters at revision `5d7d9aaf754caec39edc5a57156ba78d73f7516c`, and the Google adapter identified above. Of 4,188 cases, four have no forward expectation and one checks this service's RPC-specific `invalid_argument` contract. The geographic comparison therefore contains 4,183 cases. The region-specific comparison contains 1,395 of those same cases. The scored gold data comes from the licensed authoritative sources described in the [evaluation guide](docs/evaluation.md#gold-corpus) and [NOTICE](NOTICE), never from these competitors' answers.
 
 | Artifact | SHA-256 |
 |---|---|
