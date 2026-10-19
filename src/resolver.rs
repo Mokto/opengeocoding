@@ -450,9 +450,19 @@ impl Core {
         let mut viable: Vec<_> = judged
             .iter()
             .enumerate()
-            .filter(|(_, f)| {
+            .filter(|(i, f)| {
                 let details = f.address_details.as_option();
-                (!overriding || state_consistent(&stated_state, details))
+                !(candidates[*i]["addresstype"] == "country"
+                    && !part(address, "road").is_empty()
+                    && !part(address, "house_number").is_empty())
+                    && (!overriding || state_consistent(&stated_state, details))
+                    && (!(part(address, "state").ends_with('市')
+                        && part(address, "city").ends_with('區'))
+                        || (state_consistent(address, details)
+                            && details.is_some_and(|d| {
+                                (d.road.is_empty() || roads_agree(part(address, "road"), &d.road))
+                                    && (d.house_number.is_empty() || road_agrees(address, details))
+                            })))
                     // a road alone doesn't outweigh the state: "10 Elm Street, MA" is not Newark's
                     && (!state_code_conflict(address, details)
                         || (road_agrees(address, details) && city_agrees(address, details))

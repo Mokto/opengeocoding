@@ -1177,6 +1177,75 @@ fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
 #[ignore = "needs the libpostal models; run with --ignored"]
 async fn resolve_follows_the_authored_facts() {
     let resolver = Resolver::open(dir()).unwrap();
+    for (road, number, want) in [
+        ("明光路三段389巷6弄", "11", (123.0, 25.0)),
+        ("明光路3段389巷6弄", "11之2", (123.0001, 25.0)),
+        ("市民大道五段", "131", (123.01, 25.0)),
+        ("市民大道五段", "7", (123.0101, 25.0)),
+    ] {
+        let fullwidth = |text: &str| {
+            text.chars()
+                .map(|c| {
+                    if c.is_ascii_digit() {
+                        char::from_u32(c as u32 + 0xfee0).unwrap()
+                    } else {
+                        c
+                    }
+                })
+                .collect::<String>()
+        };
+        for (road, number) in [
+            (road.to_owned(), number.to_owned()),
+            (fullwidth(road), fullwidth(number)),
+        ] {
+            for floor in ["", "三樓", "7樓", "地下二樓"] {
+                let query = format!("青山市光華區{road}{number}號{floor}, Taiwan");
+                let got = resolver.resolve(&query).await.unwrap();
+                let point = got.geo_coordinates.as_option().unwrap();
+                let details = got.address_details.as_option().unwrap();
+                assert!(got.good_match, "{query}: {got:?}");
+                assert_eq!(details.country_code, "tw", "{query}");
+                assert_eq!(
+                    details.house_number,
+                    opengeocoding::index::schema::number_key(&number),
+                    "{query}"
+                );
+                assert!(
+                    metres((point.lon as f64, point.lat as f64), want) < 5.,
+                    "{query}: {got:?}"
+                );
+            }
+        }
+    }
+    for query in [
+        "光華社區明光路999號三樓, Taiwan",
+        "青山市光華區市民大道五段999號三樓, Taiwan",
+        "青山市光華區明光路三段389巷6弄999號三樓, Taiwan",
+        "青山市光華區明光路三段389巷6弄11之9號三樓, Taiwan",
+        "青山市光華區明光路四段389巷6弄11號三樓, Taiwan",
+        "青山市光華區明光路三段388巷6弄11號三樓, Taiwan",
+        "青山市光華區明光路三段389巷5弄11號三樓, Taiwan",
+        "碧海市光華區明光路三段389巷6弄11號三樓, Taiwan",
+        "青山市未知區明光路三段389巷6弄11號三樓, Taiwan",
+        "青山市光華區明光路三段389巷6弄11號三樓, France",
+        "青山市光華區明光路三段389巷6弄11號三樓, Alpha, Taiwan",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(!got.good_match, "{query}: {got:?}");
+        assert!(
+            got.address_details.as_option().is_none_or(|d| {
+                d.house_number.is_empty()
+                    && (!d.city.is_empty() || !d.state.is_empty() || d.country.is_empty())
+            }),
+            "{query}: {got:?}"
+        );
+    }
+    for query in ["Taiwan", "臺灣", "Taiwan, Taiwan"] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let point = got.geo_coordinates.as_option().unwrap();
+        assert!(metres((point.lon as f64, point.lat as f64), (125.0, 20.0)) < 5.);
+    }
     for (number, precise) in [
         ("702", true),
         ("703", true),
