@@ -45,9 +45,12 @@ macro_rules! place {
 /// Paris in France and in Texas, Delhi in India and in Ontario, and Cologne under its German name.
 /// Austria's made-up regions Alpha and Beta lie at the equator, where degrees of longitude and
 /// latitude are as long: Grenzgasse is inside Suedhain's area but nearer Nordhain's point.
-/// The Wikidata items of places that stand for an ISO 3166-2 subdivision, by place: the item of
-/// FR-68 (Haut-Rhin) in `data/reference.json`.
-pub const WIKIDATA: &[(&str, &str)] = &[("fr-haut-rhin", "Q12722")];
+/// Source identities: Haut-Rhin's subdivision item and an authored city/region entity pair.
+pub const WIKIDATA: &[(&str, &str)] = &[
+    ("fr-haut-rhin", "Q12722"),
+    ("gb-harbor-region", "Q999900001"),
+    ("gb-harbor-city", "Q999900001"),
+];
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -97,6 +100,30 @@ pub const PLACES: &[Place] = &[
         "no",
         "Fjordvik",
         &[("en", "Fjordvik")]
+    ),
+    place!(
+        "no-postalvik",
+        "county",
+        "",
+        "NO",
+        "",
+        1_000,
+        (18.0, 62.0),
+        "no",
+        "Postalvik",
+        &[("en", "Postalvik")]
+    ),
+    place!(
+        "no-birchlet",
+        "locality",
+        "village",
+        "NO",
+        "",
+        100,
+        (18.0, 62.0),
+        "no-postalvik",
+        "Birchlet",
+        &[("en", "Birchlet")]
     ),
     place!(
         "nl",
@@ -820,6 +847,42 @@ pub const PLACES: &[Place] = &[
         &[("en", "Orchard")],
     ),
     place!(
+        "gb-harbor-region",
+        "region",
+        "",
+        "GB",
+        "GB-WLS",
+        100_000,
+        (35.0, 12.0),
+        "gb",
+        "Harbor City",
+        &[("en", "Harbor City")]
+    ),
+    place!(
+        "gb-harbor-city",
+        "locality",
+        "city",
+        "GB",
+        "GB-WLS",
+        100_000,
+        (35.0, 12.01),
+        "gb-harbor-region",
+        "Harbor City",
+        &[("en", "Harbor City")]
+    ),
+    place!(
+        "gb-dockward",
+        "locality",
+        "village",
+        "GB",
+        "GB-WLS",
+        100,
+        (35.0, 12.0),
+        "gb-harbor-region",
+        "Dockward",
+        &[("en", "Dockward")]
+    ),
+    place!(
         "gb-mailshire",
         "region",
         "",
@@ -917,7 +980,53 @@ const POSTAL_STREET: Street = Street {
     numbers: &["31"],
 };
 
+const RECOVERY_STREET: Street = Street {
+    class: "residential",
+    length: 0.0,
+    name: "Dispatchveien",
+    postcode: "6780",
+    city: "Postalvik",
+    cc: "NO",
+    lon: 18.001,
+    lat: 62.0,
+    numbers: &["51"],
+};
+
 pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Quay Road",
+        postcode: "",
+        city: "",
+        cc: "GB",
+        lon: 35.001,
+        lat: 12.0,
+        numbers: &["61"],
+    },
+    RECOVERY_STREET,
+    Street {
+        postcode: "6782",
+        numbers: &["52"],
+        lon: 18.06,
+        ..RECOVERY_STREET
+    },
+    Street {
+        name: "Delivery Road",
+        postcode: "6799",
+        lon: 18.003,
+        ..RECOVERY_STREET
+    },
+    Street {
+        name: "Twin Road",
+        lon: 18.004,
+        ..RECOVERY_STREET
+    },
+    Street {
+        name: "Twin Road",
+        lon: 18.15,
+        ..RECOVERY_STREET
+    },
     Street {
         class: "residential",
         length: 0.0,
@@ -1473,7 +1582,8 @@ fn chain(p: &Place) -> Vec<&'static str> {
 }
 
 /// Localities without a polygon of their own.
-const POINT_ONLY: [&str; 4] = [
+const POINT_ONLY: [&str; 5] = [
+    "gb-harbor-city",
     "de-koeln-feldheim",
     "us-tx-reno",
     "at-eastufer",

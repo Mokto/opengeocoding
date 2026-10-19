@@ -1664,6 +1664,7 @@ mod tests {
             en: Place::english(""),
             keys: Box::default(),
             city_like: false,
+            settlement_twin: false,
         };
         assert_eq!(weight(&place("geonames", 90_000)), 100);
         assert_eq!(weight(&place("", 90_000)), 90_000);
