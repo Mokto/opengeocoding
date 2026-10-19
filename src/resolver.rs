@@ -525,6 +525,21 @@ impl Core {
     }
 
     fn resolve(&self, query: &str) -> Result<FullAddress> {
+        if query.chars().count() <= 256
+            && let Some(hits) = self.index.place_slug(query)
+        {
+            let Some(hit) = hits.first() else {
+                METRICS.tiers.with_label_values(&["unresolved"]).inc();
+                return Ok(FullAddress::default());
+            };
+            return Ok(accept(
+                format_response(&self.index.render(hit, true))?,
+                &ParsedAddress::new(),
+                "",
+                "slug",
+                true,
+            ));
+        }
         // A repeated part ("Kyiv, Kyiv, Ukraine", "Madrid, ES, Spain") answers as the query
         // without it.
         let written = query;

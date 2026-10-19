@@ -52,3 +52,46 @@ The 1,000-case unscored address comparison has four changed responses. Repeated 
 Checks: `cargo fmt --check`; release Clippy over all targets with warnings denied; `cargo test --locked --release`; the ignored model-backed synthetic test; release service/evaluator builds; full gold comparisons and repeat checks; address drift comparison. Current ignored RPC checks fail identically on base and candidate at their missing CDG landmark fixture (one passed, one failed each). Earlier checks on a landmark-complete index passed the other contracts before reproducing `grpcurl timed out`; the final gold evaluator still records that known transport failure. No assertions, retries or expectations were weakened to hide it.
 
 These are source-import and query-interpretation checks, not production accuracy or semantic proof for every old query. Canonical proximity alone is not a full re-score.
+
+## Remaining-case follow-up
+
+The original implementation is on main as #178. This follow-up separates a supported input form from a corpus correction; it does not import aliases or change the builder.
+
+### Gainesville: bounded ISO-code syntax
+
+SearchAddress accepts `<country>-<subdivision suffix>-<settlement>`, case-insensitively, when the country is recognized, the complete ISO 3166-2 subdivision exists in the index, and the complete settlement name is indexed under that subdivision's ancestor chain. Hyphens between name words become spaces under the existing exact-name normalization. The name contains letters and hyphens only, not house numbers, postcodes or additional comma-separated fields. Known country prefixes with an unknown subdivision or an incompatible/missing settlement abstain without fragment fallbacks. This is not arbitrary slug splitting or fuzzy free-text matching.
+
+Authored synthetic cases cover French/US namesakes, numeric subdivision codes, multiword Cyrillic and transliterated alternate names, a larger distant namesake, and contradictions in country, subdivision and complete versus partial names. Invalid syntax stays on the pre-existing path. Gainesville's country, point, radius, region and confidence expectations are unchanged; its known-failure label is removed only after the full-index lookup passes.
+
+### Zallaq: independently adjudicated region
+
+The legacy expectation follows [Zallaq, Wikidata Q4117781 revision 2113024205](https://www.wikidata.org/w/index.php?title=Q4117781&oldid=2113024205), whose P131 names Northern Governorate (Q840445, `BH-17`). That conflicts with the written Southern Governorate qualifier and the government's own records:
+
+- [Southern Governorate, Zallaq Residents Hall Project](https://www.southern.gov.bh/en/article/zallaq-residents-hall-project), published 2019-04-01, identifies the governorate's project at Al Zallaq.
+- [Southern Governorate, National Day festivities reach Zallaq](https://www.southern.gov.bh/en/article/national-day-festivities-reach-zallaq22), published 2022-12-11, records its governor and deputy governor attending the governorate's celebrations there.
+- [Southern Area Municipality](https://www.mun.gov.bh/newportal/en/southern-area-municipality/about-municipality) independently includes Al Zallaq landmarks in the southern area.
+- [Southern Governorate, Wikidata Q838532 revision 2529394607](https://www.wikidata.org/w/index.php?title=Q838532&oldid=2529394607) supplies the CC0 ISO code `BH-14`, as in the [Isa Town adjudication](adjudications/168.md).
+
+Inspected 2026-10-19. The seed uses the existing `region_qid` mechanism to source the current governorate separately from the town's identity/point. Generated expectations change only `BH-17` to `BH-14`; the WGS84 point (26.05, 50.4833), 6 km radius, query, country, locality level and `good_match=true` stay unchanged. No government prose, geometry or service-derived expectation is imported. A regression check still rejects `BH-17`.
+
+Regenerate the two affected seeds through `evaluate build-gold --seeds FILE --out FILE` and merge generated rows by unchanged case ID. The merge was checked to permit only Zallaq's region/review, Gainesville's verified label removal, and retrieval dates. Full regeneration remains `evaluate build-gold` against the original seeds; generated rows are never hand-edited.
+
+Re-scoring saved base/head runs changes Zallaq's forward class from `wrong_region` to `pass` on both binaries and re-scores its reverse/region checks. No service response changes for this correction; Gainesville's forward `abstain → pass` is a separate runtime change. No other class changes in the re-score.
+
+### Kaliling: historical geography remains unresolved
+
+[Republic Act No. 12000, section 3](https://www.lawphil.net/statutes/repacts/ra2024/ra_12000_2024.html), approved 2024-06-11, puts Negros Occidental, including its cities, municipalities and barangays, in the Negros Island Region. The indexed Caliling in Cauayan, Negros Occidental therefore does not have Western Visayas as its current ancestor. The named settlement spelling is already preserved by #178; the remaining rejection is the administrative contradiction, not a missing alias.
+
+The old query and its expectations remain untouched and its failure remains visible. Supporting a former region requires dated, source-backed administrative relationships kept distinct from the current parent chain; making Western Visayas a name of the settlement or dropping that qualifier would hide the contradiction. This follow-up does neither.
+
+### Follow-up validation and limits
+
+A clean baseline compiled from main `589c018` and the candidate used the same full index `e6df26bed27b` (builder `4fb1fd818b46b2f6`), models `65627ea2114b`, reference data `5cebf4b7a553`, evaluator and corrected 8,934-case corpus. SearchAddress passes change **7,702 → 7,703**, with Gainesville the only changed response. SuggestAddress (6,139), ResolveRegion (3,314) and ReverseGeocode (7,684) passing counts and responses are unchanged. There are no newly failing or worse-class cases. With Zallaq independently re-scored on both sides, **10 of the 11 training cases pass** on the candidate; Kaliling remains an abstention. Independent repeated baseline and candidate runs each have zero response drift across all four RPCs.
+
+The 1,000-case unscored address comparison also has zero base/head response changes. The accepted snapshot is not regenerated: its 864 differences from the current baseline are unrelated existing snapshot drift.
+
+Checks passed: formatting, release Clippy over all targets with warnings denied, `cargo test --locked --release`, and the ignored model-backed synthetic suite. The ignored RPC suite fails identically on both binaries at the absent CDG landmark fixture (one passed, one failed each), after the preceding JSON/protobuf, legacy-path and address checks pass. Gold's passing gRPC probes do not clear the separately documented SearchAddress hang.
+
+Local gold timings **fail** the 10% budget, including comparisons of unchanged binaries: baseline SearchAddress total +19%, and candidate SearchAddress p99 +74%. The code comparison is slower across all three measured RPCs, including unchanged suggestions and reverse lookups; the later unscored address comparison instead reports SearchAddress total -46%. These host measurements do not establish a speedup or a safe overhead bound. The CI speed gate remains necessary.
+
+A separate current-main index rebuild is **not validated**. The existing build command completed with builder `5aa58df2c766f429`, but its output `44bfb597e74e` returns wrong house coordinates (Dam 1 in Amsterdam at 151.29181, -33.4466) and only 1,508 forward passes. A clean `589c018` binary reproduces this, ruling out the initial stale-executable hypothesis. The builder reported zero memory headroom and a 1 GB writer arena; causality is not established. The failed output and logs are preserved, and the last-known-good index was restored and backed up for the comparisons above. This branch changes no builder input/hash and does not hide that independent rebuild failure by changing matching, tests or expectations.

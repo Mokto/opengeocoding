@@ -1259,6 +1259,42 @@ mod tests {
     }
 
     #[test]
+    fn adjudicated_zallaq_keeps_the_point_and_requires_southern_governorate() {
+        let seeds: Vec<Seed> =
+            crate::model::load_jsonl(Path::new("tests/gold.seeds.jsonl")).unwrap();
+        let seed = seeds
+            .iter()
+            .find(|s| s.qid.as_deref() == Some("Q4117781"))
+            .unwrap();
+        assert_eq!(seed.region_qid.as_deref(), Some("Q838532"));
+        let cases: Vec<crate::model::Case> =
+            crate::model::load_jsonl(Path::new("tests/gold.jsonl")).unwrap();
+        let case = cases
+            .iter()
+            .find(|c| c.id == "rural-az-zall-q-southern-governorate-bahrain")
+            .unwrap();
+        let expect = case.expect.as_ref().unwrap();
+        assert_eq!(expect.region, ["BH-14"]);
+        assert_eq!(expect.point, Some([26.05, 50.4833]));
+        assert_eq!(expect.radius_km, Some(6.0));
+        assert_eq!(case.review, seed.review);
+        let mut response = json!({
+            "geoCoordinates": {"lat": 26.05, "lon": 50.4833},
+            "addressDetails": {"countryCode": "bh", "village": "Zallaq", "regionCodes": [{"code": "BH-14"}]},
+            "goodMatch": true
+        });
+        assert_eq!(
+            crate::score::score(Some(expect), &response, true).class,
+            "pass"
+        );
+        response["addressDetails"]["regionCodes"][0]["code"] = json!("BH-17");
+        assert_eq!(
+            crate::score::score(Some(expect), &response, true).class,
+            "wrong_region"
+        );
+    }
+
+    #[test]
     fn five_digit_house_numbers_are_not_postcodes() {
         assert_eq!(
             last_five_digits("11626 Old Statesville Rd, Huntersville, NC 28078").unwrap(),
