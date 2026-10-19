@@ -1,474 +1,143 @@
 # OpenGeocoding
 
-[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/Mokto/opengeocoding?utm_source=badge)
+**Kubernetes-native geocoding: address search, autocomplete and reverse geocoding — on your infrastructure or through a hosted API.**
 
-A Rust service that combines libpostal address parsing, Overture-backed index lookups and the administrative regions of that index.
+[![Release](https://img.shields.io/github/v/release/Mokto/opengeocoding)](https://github.com/Mokto/opengeocoding/releases) [![License: PolyForm Shield](https://img.shields.io/badge/license-PolyForm_Shield-blue)](LICENSE) [![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/Mokto/opengeocoding?utm_source=badge)
 
-- Connect JSON and Connect protobuf; an experimental legacy gRPC surface.
-- Forward geocoding, reverse geocoding to the nearest houses or streets, reverse region resolution from administrative polygons and a list of the regions the index knows.
-- Country/region corroboration, local-language candidate matching (including each place's names in other languages and scripts), postcode-area safeguards and ordered fallback queries. A matching house and street can also corroborate the town through its exact indexed settlement names in other languages; a conflicting country or a county/region name alone cannot.
-- `goodMatch` is false for structured-fallback results, for a raw place/postcode answer that omits the requested road (unless its content words are all accounted for by the place's names and geography, as when the parser labels a region as a road), for street results that lack the requested house number, for a P.O. box (the town is answered), and for a place that explains less than half of a long query (a "weak" guess: "Twin City Shopping Centre, Burgersfort" is not Thuin). When the whole query is such a guess or the parser garbled it, each comma-separated part is searched on its own and a settlement or postcode that accounts for at least three of the query's words (or more than the guess did) answers, with `goodMatch` false unless it accounts for every word.
-- A bare region-and-county query prefers the named county when it agrees with the stated parent region and country, instead of stopping at the broader region. If a parsed postcode is invalid for its stated country, a single comma-separated part with that country's postcode shape repairs it; valid parses and ambiguous multiple codes are left unchanged.
-- Postcodes are returned as the country writes them (`1012 LG`, `H9R 5Z5`, `HA5 5NE`, `140 00`) where the shape is known, and a territory of the US, France, Norway, the Netherlands or China answers under its sovereign's country code, as the Nominatim deployment did (Greenland, the Faroes and the British territories keep their own).
-- Prometheus metrics, gRPC reflection and graceful shutdown.
-- A non-root, Python-free runtime for Linux amd64 and arm64.
+Turn free-text addresses into coordinates, help users find an address as they type, and resolve coordinates to nearby addresses or administrative regions.
 
-This is an initial implementation, not a production accuracy or throughput guarantee. libpostal remains a native C parser, not a pure-Rust replacement. Calls are serialized off the async executor pending native concurrency validation.
+Built in Rust, OpenGeocoding combines [libpostal](https://github.com/openvenues/libpostal) parsing with a read-only index built from [Overture Maps](https://overturemaps.org/), with optional OpenStreetMap, OpenAddresses and GeoNames inputs. The engine serves lookups in-process: no database, external geocoding backend or runtime data downloads.
 
-## Run with Docker
+**[Try the live demo](https://opengeocoding.com/) · [Hosted API docs](https://opengeocoding.com/docs) · [Self-host](#self-host) · [Releases](https://github.com/Mokto/opengeocoding/releases)**
 
-Build the image locally:
+> Source-available under [PolyForm Shield 1.0.0](#license), not OSI open source. The engine and index remain experimental; evaluate coverage and accuracy for your use case before production.
+
+## What you can build
+
+| Capability | Use it for |
+| --- | --- |
+| **Address search** | Turn an address or place name into coordinates and structured address fields |
+| **Autocomplete** | Complete places, streets, houses and postcodes, with country filters and location-biased place ranking |
+| **Selection retrieval** | Resolve an autocomplete selection by its opaque ID, without another text search |
+| **Reverse geocoding** | Find nearby houses, with street and locality fallbacks |
+| **Region resolution** | Find administrative regions and ISO 3166-2 codes for a point |
+| **Region directory** | List the regions available in your index |
+
+Autocomplete can also include selected landmark categories: airports, stations, attractions, museums, universities, hospitals and stadiums. It is not a general business or POI directory.
+
+## Why OpenGeocoding
+
+- **Keep lookups on your infrastructure.** Self-host the engine and its data; address resolution does not call a third-party geocoder.
+- **Operate one serving process.** Parsing, search and reverse lookups share an in-process index. Models and index files are mounted read-only.
+- **Search across languages and scripts.** Indexed local and alternative place names, Unicode normalization and street-abbreviation handling support multilingual inputs.
+- **Distinguish matches from fallbacks.** Structured fields and `goodMatch` let clients identify weaker forward-geocoding answers; it is not a calibrated confidence score.
+- **Kubernetes-native by design.** The Helm chart manages index-build Jobs and serving Deployments through a leader elected with a Kubernetes Lease, with verified index downloads and rolling updates. Linux amd64/arm64 containers, readiness checks, Prometheus metrics and graceful shutdown are included.
+
+## Performance and resources
+
+**A world index built in under 20 minutes from already-downloaded sources; forward search reached 2,850 queries/s in one serving container.** These are separate historical measurements, not one combined current-release benchmark:
+
+| Workload | Observed result |
+| --- | --- |
+| World index build, including landmarks | **Under 20 min, excluding downloads**, **32.2 GB peak memory**, on an 18-core Apple M5 Max with 64 GB RAM |
+| Built world index | About **16 GB on disk**, excluding libpostal models and build scratch |
+| Forward search, 1 connection | **599 queries/s**, **5.3 ms p95** |
+| Forward search, 16 connections to one serving instance | **2,850 queries/s per instance**, not a multi-pod total; p95 was not recorded in the published summary |
+| Serving process in the search benchmark | **4.2 GiB resident memory** |
+
+The build used already-downloaded sources; downloads and model provisioning are additional. Search numbers are end-to-end Connect JSON requests over keep-alive connections to a **single serving container**, using 808 address samples, an earlier 11 GB world index and `PARSE_CACHE=0`. **Search benchmark CPU:** a busy 18-core laptop; the CPU model and container vCPU allocation were not recorded. This is not a Kubernetes per-pod capacity measurement at a specified CPU budget, nor a hosted API limit. See [measurement scope and methodology](docs/development.md#performance-methodology-and-nominatim-comparison).
+
+### Compared with Nominatim
+
+[Nominatim 5.3's installation guide](https://nominatim.org/release-docs/5.3/admin/Installation/#hardware) strongly recommends **128 GB RAM or more for a planet import**, requires **at least 1 TB of disk for a planet installation**, and describes an import taking **around 2.5 days** on a well-configured machine (4–5 days on traditional SSDs). OpenGeocoding instead builds a compact read-only serving index and requires no PostgreSQL/PostGIS service.
+
+**This is operational context, not a like-for-like speedup claim.** The input datasets, indexing work, coverage and hardware differ. Nominatim's import RAM recommendation is not its serving RAM usage. We have not published matched Nominatim queries/s, p95 latency or serving-memory measurements; those comparisons remain unmeasured.
+
+## Try the hosted API
+
+For the shortest path to a request, create an API key in the [dashboard](https://opengeocoding.com/dashboard) and set `OPENGEOCODING_API_KEY` in your environment:
 
 ```sh
-docker build --target runtime -t opengeocoding .
+curl --fail-with-body https://api.opengeocoding.com/v1/search \
+  -H "x-api-key: ${OPENGEOCODING_API_KEY:?Set your API key first}" \
+  -H 'Content-Type: application/json' \
+  -d '{"addressString":"Copenhagen, Denmark"}'
 ```
 
-Or pull a published image:
+The hosted service manages authentication, credits and rate limits. This repository contains the self-hosted engine, not the hosted account or billing platform. Hosted routes and available operations are documented in the [API reference](https://opengeocoding.com/docs); they differ from the direct RPC paths below.
 
-```sh
-docker pull ghcr.io/mokto/opengeocoding:latest
-docker tag ghcr.io/mokto/opengeocoding:latest opengeocoding
+## Self-host
+
+```text
+Your application → trusted network or authenticated proxy → OpenGeocoding
+                                                           ├─ libpostal models
+                                                           └─ read-only geographic index
 ```
 
-`latest` is the newest release. Models and indexes are not included in the image.
+You need **both libpostal models and a compatible built index**. Neither is included in the runtime image. Source downloads and index building happen before serving, not at service startup.
 
-Download libpostal models explicitly into a writable directory. Downloads are large; nothing downloads automatically at import or startup:
+### Run with Docker
 
-```sh
-mkdir -p models
-docker run --rm --entrypoint libpostal_data \
-  -v "$PWD/models:/data" opengeocoding download all /data
-```
-
-The resulting directory is `models/libpostal`. Keep it for subsequent runs.
-
-Build an index into `out/` (see the index section below), and mount it read-only:
+Follow the [Docker setup guide](docs/deployment.md#run-with-docker) to obtain the image, provision models and build an index. With models at `models/libpostal/` and that image's index at `out/`, start the service:
 
 ```sh
 docker run --rm \
-  -p 11121:11121 -p 8000:8000 \
+  -p 127.0.0.1:11121:11121 -p 127.0.0.1:8000:8000 \
   -v "$PWD/models/libpostal:/data/libpostal:ro" \
   -v "$PWD/out:/data/index:ro" \
   -e INDEX_DIR=/data/index \
   opengeocoding
 ```
 
-Addresses inside Docker must be reachable from the container; `localhost` refers to that container. The service needs nothing else at runtime: it derives its administrative regions from the index at startup.
-
-**Deploy behind a trusted network or authenticated proxy.** The RPCs, including region-map refresh, do not implement authentication. Do not expose them directly to the public internet.
-
-Example request:
+In another terminal, make a Connect JSON request (no SDK required):
 
 ```sh
-curl http://localhost:11121/opengeocoding.OpenGeocoding/SearchAddress \
+curl --fail-with-body http://localhost:11121/opengeocoding.OpenGeocoding/SearchAddress \
   -H 'Content-Type: application/json' \
   -H 'Connect-Protocol-Version: 1' \
   -d '{"addressString":"Copenhagen, Denmark"}'
 ```
 
-The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `OpenGeocoding`. The methods are `SearchAddress`, `ResolveRegion`, `ListRegions`, `SuggestAddress`, `RetrieveSuggestion` and `ReverseGeocode`. `RefreshRegionMap` and `GetRegionMap` (a Python-style dictionary string) were removed; `ListRegions` returns the same regions as typed messages.
+Use a query inside your index's coverage if you built a regional index. Readiness is at `http://localhost:11121/healthz`; metrics are at `http://localhost:8000/metrics`.
 
-The canonical RPC path is `/opengeocoding.OpenGeocoding/*`. The Go package is `github.com/Mokto/opengeocoding/gen/opengeocoding`; the Rust crate is `opengeocoding`, with generated types under `opengeocoding::proto::opengeocoding`.
+**The engine has no authentication.** The command binds ports to loopback. Keep it on a trusted network or behind an authenticated proxy; do not expose the RPC or metrics ports directly to the internet.
 
-`/geolocation.Geolocation/*` and `/nominatim_geolocation.NominatimGeolocation/*` remain aliases for every method, including for benchmarking. Message fields, numbers and types are unchanged. These aliases do not enable a Nominatim backend. gRPC reflection advertises only `opengeocoding.OpenGeocoding`, and the `grpc_service` metric label uses this canonical name on all routes.
+### Deploy on Kubernetes
 
-## Address suggestions
+The [Helm deployment guide](docs/deployment.md#deploy-on-kubernetes) covers building and publishing indexes into an existing S3-compatible bucket, verified downloads into serving pods, and rolling upgrades. Each serving pod runs one geocoder instance with its own read-only index. Regional builds are supported.
 
-`SuggestAddress` completes text as it is typed and returns up to `limit` (default 5, at most 15) suggestions, each with an opaque `id` (stable for one index), a `display_name`, a point (places also a bounding box when they have an extent), a `type`, a `country_code` and, for a landmark (see Landmarks below), a `category`. `country_code` restricts the answer to one country. `RetrieveSuggestion` accepts a suggestion's opaque `id` and returns that exact place, street, indexed house, postcode or landmark with its coordinates. It reads the same immutable index without a session cache or another text search. IDs work across replicas on the same index snapshot and return `not_found` after that snapshot changes; request suggestions again. The returned building does not include unverified floor/unit suffixes typed into a suggestion. The internal suggestion response still includes its point; an authenticated public proxy can omit it and charge only for retrieval.
-
-`focus` (`lat`, `lon` and `scale_km`, default 100, at most 20,000) is the user's position: each place's weight is multiplied by 1 + 1000 / (1 + (d / `scale_km`)²), where d is its distance in km, so by 1,001 at the point, 501 at `scale_km` and about 11 at ten times that. With a focus near Dallas `paris` is Paris, Texas, and `main st, spri` near Hartford lists Springfield, Massachusetts first. It re-ranks the at most 400 best-known places a name or prefix finds and the towns that scope a street; streets, houses, postcodes and landmarks themselves are not ranked by distance.
-
-```sh
-curl http://localhost:11121/opengeocoding.OpenGeocoding/SuggestAddress \
-  -H 'Content-Type: application/json' -H 'Connect-Protocol-Version: 1' \
-  -d '{"text":"10 downing street, lon","limit":3}'
-```
-
-Postcodes can be qualified by a town or country (`75001, Paris`, `SW1A 2AA, UK`); contradictory qualifiers are rejected. Native CJK and Turkish names use the index's Unicode normalization even while the last word is unfinished, and a digit in a place name does not by itself turn the query into a house-number lookup.
-
-It does not call libpostal, which misreads half-typed words. A comma may separate the house number from the road (`1, Rådhuspladsen, København`): when the original interpretation finds nothing, only an indexed house with that exact number is suggested, retaining the remaining town/country qualifiers. Otherwise commas say where the road ends and the town starts (`12 rue de rivoli, par`), and without commas the end of the text may still name the town (`main st spri`). The last word may be unfinished unless the text ends in a space or comma. Places come from an in-memory FST of the folded names, in every language, of the places whose weight (population, or a guess by kind) is at least 5,000, built at startup (25 MB and about 0.6 s more on the world index, plus about 100 MB briefly while it is built); ranking is that weight times how much of the name was typed, so `londo` is London, not the hamlet named Londo, and `ma` lists countries. Every later word of a main (local or English) name of a place weighing 100,000 or more starts a key of its own, from three characters typed: `york` lists New York and `lumpur` Kuala Lumpur, weighed like a name that only contains the text but listed before streets (11,000 keys; the FST grows from 25.9 to 26.2 MB). When the text as typed leaves room among the suggestions, the places whose name is one edit (an insertion, deletion, substitution or transposition of adjacent letters) from a text of at least five letters, or starts so, with the first letter right, fill it after all others: a Levenshtein automaton over the same FST finds `lodnon`, `amsterdma` and `new yrok`. After a comma a misspelt town scopes streets when no town is named as typed (`oxford street, lodnon`). Smaller places, streets, house numbers (typed last, the numbers that start with them, up to four per street) and postcodes (three characters or more) come from the index's terms. A street search over words that many streets share is not run: without a town it would walk millions of postings to give an arbitrary street, so `main st` waits for a town, which can be a country or region code (`main st, il`). Place order and the weights are hand-set heuristics.
-
-If the full input finds nothing, a comma-separated Danish floor/unit suffix (`Rådhuspladsen 1, 4. th.`) can be interpreted separately from the building. No country filter is required: this fallback only returns Danish buildings with the exact house number, retaining any following locality/country constraints. The suffix stays in `display_name` and is returned separately as `unverified_suffix`; the `id` and coordinates still identify the building, not a verified floor or apartment. Clients must preserve that unverified text separately if they store the building identity. This currently recognizes only Danish floors (one or two digits, `st.` or `kl.`, optionally followed by `th.`, `tv.` or `mf.`, including partial side abbreviations); it does not discard arbitrary text after commas or treat postcodes as floors.
-
-Not supported: misspelt streets; a misspelt place when the text as typed fills the suggestions (`munchne` starts five streets named Münchner Straße, so München does not come, a known failure in the golden cases); a typo in the first letter or two typos; a later word of a smaller place's name (only the index's whole words find those, after streets); ranking streets, houses and postcodes by distance from `focus`. One or two letters of a lone street word are not completed.
-
-The gold suite checks suggestions too, with places ranked by population (see Geographic evaluation). `tests/suggest.rs` checks 248 golden cases (each place's country and coordinates are public facts, not this service's answers): cities by native and foreign spelling, other scripts, namesakes ranked by likelihood, the country filter, regions, countries, neighbourhoods, streets, houses (including a comma after the number), postcodes, one-letter typos, namesakes that a `focus` (the `focus` column) decides, later words of a name and unverified Danish floor/unit suffixes on a public building. For 43 of them every prefix from a given length on must also find the place, and no answer may break the limit, the country filter or repeat an id. 4 cases are known failures, three of them source-data gaps (a county without a population, a borough that is not an ancestor, a postcode placed in the wrong country) and one the misspelt `munchne` above, listed with their cause in the `known_failure` column of `tests/suggest.gold.tsv`; each must keep failing until its label is removed. The test also times every prefix of 29 typed strings against a world index (`INDEX_DIR=out cargo test --release --test suggest -- --ignored --nocapture`). On an 18-core laptop with a 10 GB world index, 380 typed prefixes took, after the service's warm-up (about 0.8 s on a thread of its own: the one- and two-letter prefixes and the names of countries and regions), p50 0.2 ms, p90 1.7 ms and p99 5 ms in the index on their first typing (max 10-17 ms, the first time a town's ancestors are read), and p50 0.12-0.14 ms, p90 1.3-1.4 ms and p99 4.4-4.6 ms (max 7-8 ms) when typed again. The two prefix caches hold at most 20,000 entries each, under about 150 MB. A request over Connect took 24 ms by `curl`, including the connection. These are one machine's numbers on public strings, not capacity or request-latency guarantees. Typo tolerance, `focus` and later words of names measured no slowdown beyond that laptop's noise when it was busy with other work: alternating the run before and after them twice, repeat p50 was 158-188 µs before and 82-140 µs after, p99 5.1-6.8 ms before and 2.6-4.3 ms after.
-
-`tests/gold.suggest.jsonl` adds eight Danish floor-suffix variants at one public building, Copenhagen City Hall, to the evaluator's gold suite and CI report. They exercise SuggestAddress only, with and without a Danish country filter. Each checks the country, address type and a point within 250 m of Wikidata's building point, plus the exact `unverified_suffix` and an unchanged building id and returned coordinates relative to a separate suffix-free suggestion. The floors are invented syntax examples, not verified units; these eight variants are one location, not nationwide address coverage. Regenerate their authoritative geographic expectations with:
-
-```sh
-target/release/evaluate build-gold --seeds tests/gold.suggest.seeds.jsonl --out tests/gold.suggest.jsonl
-```
-
-### Retrieve a selection
-
-```sh
-curl http://localhost:11121/opengeocoding.OpenGeocoding/RetrieveSuggestion \
-  -H 'Content-Type: application/json' \
-  -H 'Connect-Protocol-Version: 1' \
-  -d '{"id":"<id from SuggestAddress>"}'
-```
-
-Empty IDs, NUL characters and IDs over 256 bytes return `invalid_argument`. Unknown, malformed or stale nonempty IDs return `not_found`. IDs are opaque references, not authorization tokens. The service still requires an authenticated proxy or a trusted network.
-
-### Landmarks
-
-With `include_landmarks` (`includeLandmarks` in JSON, default false) suggestions may also be landmarks: `type` `landmark`, with a `category` of `airport`, `station`, `attraction`, `museum`, `university`, `hospital` or `stadium` (empty for every other type). Without it the answer is what it was before landmarks existed: they live in their own file and name FST, which nothing else reads.
-
-```sh
-curl http://localhost:11121/opengeocoding.OpenGeocoding/SuggestAddress \
-  -H 'Content-Type: application/json' -H 'Connect-Protocol-Version: 1' \
-  -d '{"text":"gare du nord","includeLandmarks":true}'
-```
-
-They come from the OSM extracts the builder reads (`--osm`, and `--osm-landmarks`, below), never from a business or POI source: features with a `wikidata` tag that are `aeroway=aerodrome` with an `iata` tag (the code is one more name, so `CDG` finds Paris Charles de Gaulle), `railway=station` or `public_transport=station` with `train=yes`, `tourism=museum`, `tourism=attraction|theme_park|zoo` (category `attraction`), `amenity=university`, `amenity=hospital` or `leisure=stadium`, tried in that order. A Wikidata item is one landmark: of its copies, the one with the most names. Its point is a node's, or a planar area centroid of closed outer rings (a vertex mean for open ways or fragmented relations). Holes and nested relation members are not assembled, and geometries crossing the antimeridian are omitted. The point gets the same polygon assignment as a street and the same address line, which can repeat ancestor names (`Paris Gare du Nord, Paris, Paris, Paris, Ile-de-France, France`). A landmark that assignment places nowhere is left out (439, among them Dubai International Airport, outside locality polygons and more than 5 km from the nearest locality point). The builder writes `landmarks.tsv` and `landmarks.fst`; the service maps both read-only. It does not build landmark names at startup.
-
-A name matches from its start, and the local, English and alternative names also from a later word of three letters or more (`gare du nord` finds `Paris Gare du Nord`, `heathrow` finds `London Heathrow Airport`). A name before a comma is whole words, and what follows the comma narrows like a place's qualifier (`gare du nord, paris`); `country_code` applies. Two typed characters find no landmark. Landmarks come after the existing places named by the text, which keep their positions (`Paris` is Paris, France first, and with the default limit of 5 no landmark follows it), and before the streets and places that only contain the text. Among themselves, airports come first, then stations, then the rest, and within a tier the landmarks OSM names in more languages: a stand-in for fame that favours what is known abroad over what is known locally.
-
-On 2026-10-16, with the October sources and 78.1 GiB of OSM extracts (including `osmLandmarks`), a world build on an 18-core Apple M5 Max with 64 GB RAM wrote **169,068 landmarks**:
-
-| Category | Count |
-|---|---:|
-| airport | 7,842 |
-| station | 69,888 |
-| attraction | 35,372 |
-| museum | 29,871 |
-| university | 9,095 |
-| hospital | 10,498 |
-| stadium | 6,502 |
-
-The landmark files are 19.6 MB of rows and 21.3 MB of names beside a roughly 16 GB index, including the administrative and street reverse files and GeoNames places. The 2026-10-17 build took 409 s with a 32.2 GB peak memory footprint; it was not an isolated before/after measurement. Moving name compilation to the builder and mapping names instead of owning them reduced startup anonymous-memory overhead against a non-landmark base from 68.5 MiB to 4.4 MiB in one Linux arm64 check on the same index; file-backed pages are not included. The prefix cache holds at most 20,000 entries of 400 ids (32 MB of ids, plus keys and map overhead). These are local measurements, not resource guarantees.
-
-`tests/gold.landmarks.jsonl` types 71 names and IATA codes of 59 Wikidata items in 32 countries with the flag on (`full`), then repeats each query with the flag explicitly false (`off`). The flag-on checks require the category, country and a point within 3 km of Wikidata's point for airports, 1 km for most others. Flag-off checks require no landmark result and fail the gate on a leak or RPC error. Regenerate it, never from a geocoder's answers:
-
-```sh
-target/release/evaluate build-gold --seeds tests/gold.landmarks.seeds.jsonl --out tests/gold.landmarks.jsonl
-```
-
-On the world index above, **53 of 71 flag-on checks and all 71 flag-off checks passed**. The report lists the 18 misses: nine names or IATA codes crowded out by existing places; Louvre's museum behind stations and its pyramid; four names OSM does not carry in the queried form; Grand Central Terminal and Wembley Stadium classified as attractions by their selected OSM features; Dubai's unassigned airport; and Charité's institution item absent while its campuses are present. No case was dropped or labelled to turn a failure green. These are geographic/category checks, not item-identity verification or production accuracy; a nearby landmark of the same category can pass. The cases ask SuggestAddress only and are `unscored` for other RPCs.
-
-The 71 flag-on requests took 26.5 ms in total (p50 0.22 ms, p90 0.53 ms, p99 and max 4.61 ms), each timed as the fastest of three local RPC calls. The existing 380-prefix typing workload also ran with the flag on (`cargo test --release --test suggest -- --ignored --nocapture`):
-
-| Warm typing, 380 prefixes | p50 | p90 | p99 |
-|---|---:|---:|---:|
-| flag off | 0.076 ms | 0.765 ms | 2.504 ms |
-| flag on | 0.045 ms | 0.682 ms | 2.524 ms |
-
-The flag-on pass followed the flag-off pass and reused its place caches. These laptop timings do not establish a speedup or a request-latency guarantee.
-
-Limits: OSM coverage is uneven, and "notable" means "OSM links it to Wikidata": a landmark mapped without the tag is absent, and well-mapped countries carry far more of them. Categories are only the seven above, from OSM's tags as they are: there are no businesses, shops or other points of interest, and no opening hours or other details. There is no typo tolerance or arbitrary substring matching, a station named after a landmark ranks before it (`Tour Eiffel` gives the RER station `Champ de Mars - Tour Eiffel`, then the tower), and a landmark whose name or code starts like five larger places is not in the default five. SearchAddress and ReverseGeocode do not return landmarks.
-
-## Reverse geocoding
-
-`ReverseGeocode` takes `lat`, `lon`, an optional `radius_m` (default 500, at most 2,000) and an optional `size` (default 1, at most 10). It returns the houses within the radius, nearest first, each a `FullAddress` with its `distance_m` and `layer` `address`. With no house in range it returns the streets within the radius that do not conflict with the containing country and region polygons, nearest first, as `layer` `street`: each at its point nearest the given one, with its place and, when the street has houses, the postcode of the house nearest that point. With neither it returns the nearest locality point (within about 50 km) as `layer` `locality`, one in the region whose polygon holds the point first (see below), and with nothing at all an empty list. A house in range always comes before a nearer street. Clients that switch on `layer` must accept `street`.
-
-```sh
-curl http://localhost:11121/opengeocoding.OpenGeocoding/ReverseGeocode \
-  -H 'Content-Type: application/json' -H 'Connect-Protocol-Version: 1' \
-  -d '{"lat":51.50354,"lon":-0.12768,"size":3}'
-```
-
-The builder writes `reverse.bin` next to the number FSTs: one 10-byte record for each street and each grid cell (2^6 steps of the 24-bit packed coordinates: 76 m by 153 m at the equator) that holds one of its houses, sorted by cell, with the Morton code of the first such house and the address of the street's document. A lookup binary-searches the cells around the point, ring by ring, then reads the candidate streets' houses from the number FSTs and ranks them by distance. Nothing is built at startup, and the file is memory-mapped like the FSTs. On the 2026-09-23 Overture world index with OpenAddresses and OSM it holds 132.6 million records (1.33 GB, about 13% more than the 10 GB index; 497.5 million house rows) and adds about 4 seconds to the build. On an 18-core laptop with a freshly written index in the page cache, 729 random points in western and central Europe that had a house within 500 m took p50 67 µs, p90 108 µs and p99 169 µs in the index, one point at a time. These are one machine's warm-cache numbers; a cold file costs a few page reads per lookup.
-
-It also writes `streets.bin`, the lines of the named `road` segments that have a street document (all classes but `footway`, `steps`, `path`, `cycleway`, `bridleway` and `track`). Each line is simplified to within about 5 m (Douglas-Peucker) and cut into edges whose far end is at most 127 steps from the near end on either axis. Each edge is one 12-byte record: the Morton code of its near end, the far end's offset and the street's document, sorted by street cell (2^8 steps: 305 m by 611 m at the equator). An edge reaches at most half a cell past its near end's cell, so after `r` rings of cells every edge within `r - 0.5` cells of the point has been read. A lookup reads rings until the nearest streets are closer than that or the radius is covered, and measures the distance to each edge. On the same world index (with GeoNames places) it holds 230.3 million edges, 2.76 GB, about twice `reverse.bin`; the index grew from 11 to 14 GB. The build reads and simplifies the lines in the segment pass and writes the file after `reverse.bin`. On a laptop shared with other index builds (load average 50 to 140), those phases took 114 s and 21 s, against 26 s and 8 s in the last build without streets, and the whole build 1,444 s against 503 s. These timings are inflated by the load and are single measurements. Of 20,000 random points in western and central Europe, 1,645 had no house within 500 m but a street. Before the nearby-locality naming refinement described below, with a warm page cache their lookups took p50 67 µs, p90 94 µs and p99 192 µs in the index. A point with neither (a `locality` answer) took p50 60 µs where it took 40 µs without `streets.bin`. Of the 3,957 gold ReverseGeocode points, 3,517 have a house within 500 m, 285 now get a street and 154 still get a locality.
-
-Limits: any house in range comes before a street, however much nearer the street is. Unnamed segments, paths and segments without a place have no line, and a street's distance is to its simplified line, stored to about 2 m. A street starts with the place its segment centre falls in. The nearest non-hamlet locality within 1 km of the query refines it when it descends from that place. Otherwise a city, town or village at least as large in kind can supply its city name when its parent is in the street's ancestry (but not just the country); the old place becomes a suburb, and the street's region stays unchanged. This is a naming heuristic, not containment: a nearby locality can still be across a boundary, and a long street across a border still carries the segment centre's region and is excluded on the other side when a containing polygon contradicts it. A street split into two documents (at the 0.1° cells that keep same-named streets of one town apart) can be listed twice when `size` is more than 1. Its postcode comes from its house nearest the point, wherever that house is. `ResolveRegion` does not read streets. The `locality` fallback takes the nearest of the 3.5 million `locality` points within 50 km, by distance, from a grid sorted at startup (`src/index/locality.rs`, 28 MB, well under a second to build), where it used to run a range query over the index's coordinate columns that took about 20 to 50 ms. Unlike that query, it does not prefer the most important places in a crowded box: it names the nearest, often a hamlet, and on a sample of 4,000 points it chose another place than before for 6% (0.7% a different region code, all near borders, where a nearest point is no better a guide than the old one). Cells across the antimeridian or poles are not searched. House numbers come back in their folded, lowercase form. Searching rings use the smaller cell side, so high latitudes read more cells than needed. Accuracy is not measured against an authoritative corpus; `tests/` only checks the lookup on a tiny index and, with an index, that the RPC answers.
-
-### Regions of a point
-
-`ResolveRegion` answers from administrative polygons. The builder writes `areas.bin` next to `reverse.bin`: the territorial `division_area` polygon (land and territorial sea, so a point just offshore is placed) of every county, region, dependency and country, simplified by Douglas-Peucker to 0.0005° (55 m of latitude, less of longitude) and stored as 1e-7° integers, with each polygon's edges bucketed into horizontal slabs so a test reads only the edges near the point's latitude. The service memory-maps it and keeps only a table and an R-tree of the polygons' bounding boxes in memory. A point's answer is the most specific polygon that holds it and has a region code: a county first (so a French département adds its `ISO3166-2-lvl6` code to its region's), then a region, a dependency, a country (Sint Maarten's `NL-SX`). Among polygons of one kind the smallest bounding box wins, then the lowest place id, so overlapping and disputed areas resolve the same way whatever the build order. The codes are those a search for the polygon's place returns, through its parents, not the polygon's own neighbours. Within the tolerance of a border a point can fall on the wrong side, or in a sliver between two simplified neighbours, which the fallback then answers.
-
-A point no coded polygon holds (offshore past the territorial sea, a gap in the data, a country whose regions the index lacks) falls back to the nearest points: the nearest house within 100 m when its place has a region code (its place was assigned by polygon), then the nearest locality within 50 km when it has a region code. When it has none, or is past 50 km, the nearest coded locality (up to 150 km) answers only when it is in the same country and no locality of another region is within twice its distance (four times when the nearest locality had no code, which suggests the data lacks the point's own region); otherwise the answer is empty. When a country polygon holds the point, only that country's localities are read and the house is skipped, so a point in a country without coded regions does not take a neighbour's, and Hong Kong, whose `CN-HK` Overture files on a locality, still answers through it. `ReverseGeocode`'s locality fallback likewise reads only the localities of the polygon's region (or of its country, with no coded polygon) when one is within 50 km.
-
-On the 2026-09-23 Overture world index the file holds 43,122 polygons and 17.9 million vertices in 235 MB (about 2% of the index), and writing it took 2 to 7 seconds of the build on an 18-core laptop shared with other builds. On that laptop, with a load average far above its 18 cores, 10,000 points on a grid over western and central Europe took p50 1.8 µs, p90 3.7 µs and p99 6.8 µs in the polygon lookup alone, and p50 15 µs and p90 190 µs for the whole `reverse_region` (the slow tail is the fallback at sea, which reads houses and localities up to 150 km away, as before). These are single measurements on one busy machine, not latency guarantees. On the 2,368 gold cases that check it, `ResolveRegion` returned an expected region for 2,348, where the nearest-point rule returned 2,331: 17 more and none fewer (Malta's local councils, Caracas, Oshikango on the Angolan border, Brunei's Belait, two Dominican provinces and three US addresses, in five cases, that the index files under a town across a state line), and `ReverseGeocode` passed 2 more of 3,705 and none fewer. `tests/resolve_region.rs` (with `INDEX_DIR`, `-- --ignored`) checks the two sides of State Line Road and of the Neisse, Shanghai, Washington, the Quebec interior, the Baarle-Hertog enclave and five Wikidata points that the nearest-point rule placed in another region or none, against ISO 3166-2 codes, and times the lookup.
-
-Still unanswered or wrong: regions the index does not carry (Cyprus, Kosovo, Baku, Bonaire, Sint Eustatius, Gwangju, the West Bank's governorates, South Ethiopia, and those listed under Configuration), where a point gets nothing or, when the country polygon is missing too, the nearest-point rule's answer; and places whose codes Overture or Wikidata file differently from the gold corpus (Butajira answers Oromia, Encamp another parish, Mata-Utu France's `FR-WF`).
-
-## Deploy on Kubernetes
-
-The Helm chart in `manifests/` builds the index in the cluster and serves it. It needs an S3-compatible bucket (AWS S3, MinIO, SeaweedFS, Ceph, R2 and the like) that already exists: nothing here creates it, and the leader exits when it can't list it.
-
-```sh
-kubectl create secret generic opengeocoding-s3 \
-  --from-literal=AWS_ACCESS_KEY_ID=... --from-literal=AWS_SECRET_ACCESS_KEY=...
-helm install geocoding oci://ghcr.io/mokto/charts/opengeocoding \
-  --set store.url=s3://my-bucket/opengeocoding \
-  --set store.endpoint=http://seaweedfs-s3.seaweedfs:8333 --set store.allowHttp=true \
-  --set store.credentialsSecret=opengeocoding-s3
-```
-
-`store.endpoint` is only for stores other than AWS S3; any other `AWS_*` setting, such as a web identity role, goes in `store.extraEnv`. See `manifests/values.yaml` for every setting.
-
-- **Leader.** The chart installs no build Job and no serving Deployment of its own. A small Deployment (`leader`, two replicas, one holding a Lease) runs the same loop every 30 seconds with no state beyond the cluster and the bucket: if the bucket has no sealed `indexes/<id>/_COMPLETE` for the index the chart names, it makes sure one build Job exists, replacing a failed Job after `build.retryDelaySeconds` (the Job itself never retries its pod); once the index is sealed, it deletes the build Jobs and server-side applies the serving Deployment, whose rolling update is the rollout. Helm only renders both workloads into a ConfigMap (`<name>-workloads`). No serving pod exists, or waits in an init container, before the first index does. That ConfigMap owns the Deployment and the Jobs the leader creates (owner references), so removing the release removes them, and a GitOps tool shows them under it (Argo CD neither tracks nor prunes them). The leader moves a build Job an earlier chart's leader created (owned by the leader's Deployment, or tracked by Argo CD) under the ConfigMap the same way. `build.enabled: false` keeps the leader from building: it then serves an index only once something else has published it.
-- **Build Job.** `build_index job` exits at once if the bucket already holds the index the chart names. Otherwise it fetches the sources and libpostal's models, builds, opens the result as the service would and resolves one of its places, then publishes it. Each source is copied into the bucket as it arrives, so a later build or a retried pod reads the bucket instead of upstream. A world build needs about 16 CPUs, 32 GiB of memory and 250 GiB of scratch (`build.*`), and about 200 GB of downloads the first time, including the places theme and 49 GB of landmark-only OSM extracts (`osmLandmarks`). Scratch is deleted with the pod unless `build.scratch.existingClaim` names a volume you keep: a later build then copies from the bucket only the files that do not already match it.
-- **Serving pods.** An init container (`build_index pull`) downloads it and the models to the pod's own disk and checks every file's SHA-256. The service then opens them read-only. The service itself never downloads anything. Each pod needs about 6 GiB of memory (16 GiB keeps a world index's page cache), and 14 GB of disk for a world index.
-- **Index names.** The chart names the index by `index.builderHash`, `index.modelsVersion` and `index.sources`, and passes the same name to the Job and the pods. `builderHash` hashes the builder's code (`build_index hash`), except the code that fetches sources and talks to the store (`fetch.rs`, `store.rs`): sources are sealed in the bucket and reused as they are, so that code can change without rebuilding. A fix to how sources are selected therefore takes effect only with a new `snapshot` label, or for Overture (stored by release) after deleting its directory in the bucket. `cargo test` fails until `manifests/values.yaml` matches the hash, so a builder change is a visible chart change. The Job refuses an image built from other builder code, and the service refuses an index whose `build.json` names another builder. `index.sources.snapshot` labels one fetch of the sources that only publish "latest" (OSM, OpenAddresses, GeoNames); a new label fetches them again.
-- **Upgrades.** A change that names a new index makes the leader start a new Job (a build still running for another index is deleted: one build at a time). The serving Deployment keeps its old template until the new index is sealed, so the old index keeps serving during the build; its rollout then replaces pods one at a time (`maxSurge: 1`, `maxUnavailable: 0`). Upgrading a release installed with an earlier chart, which rendered the Deployment itself: the leader takes the Deployment over on its first round, but a GitOps tool that still tracks the old Deployment (for example Argo CD's `argocd.argoproj.io/tracking-id` annotation) will prune it once the chart stops rendering it, so remove that annotation first. Rolling back the values rolls back to the old index, which is still in the bucket. Nothing deletes old sources or indexes.
-- **Regional builds.** `index.sources.bbox: [min lon, min lat, max lon, max lat]` builds only that area. Overture is then read only where its row groups meet the box (copied unchanged, without decoding), OpenAddresses layers are picked by their bounds, GeoNames by row, and the builder drops everything outside the box. Pick OSM extracts in `index.sources.osm` by hand. A regional index answers queries about other places with whatever it holds: "Paris, France" against a Liechtenstein index answered a Paris in Lombardy, with goodMatch true.
-
-Bucket layout, under the URL's prefix: `sources/overture/<release>/<extent>/<type>/`, `sources/<snapshot>/{osm,osm-landmarks,openaddresses/<extent>,geonames/<extent>/<file>}/`, `models/libpostal/<version>/` and `indexes/<id>/`. Every directory is sealed by `MANIFEST` (paths, sizes, SHA-256) and then `_COMPLETE`; readers use nothing unsealed.
-
-The same commands work without Kubernetes, against a bucket or a local directory: `build_index job --store file:///srv/geocoding --index NAME --builder-hash "$(build_index hash)" --sources sources.json --scratch /tmp/scratch --models /data/libpostal`, where `sources.json` holds `index.sources` as JSON, then `build_index pull --store file:///srv/geocoding --index NAME --to /srv/index --models /data/libpostal`. A local directory store hard-links the index and models into place instead of copying them when they share a file system, so nothing may write those files in place; `pull` still checks every file against `MANIFEST`.
-
-The leader has unit tests for its build decisions and has not yet run against a cluster. The earlier chart, with a Job and an init container that waited, was tested on a single-node kind cluster with SeaweedFS, with a Liechtenstein box and the `liechtenstein` OSM extract. The first build took 3 minutes, including libpostal's 2 GB of models from GitHub, and produced a 4.7 MB index. Two pods pulled it and answered house-level queries. Changing the sources built a new index from the bucket in under 20 seconds and rolled the pods one at a time. A client polling once a second through the rollout got 150 answers out of 150, after a 10-second `preStop` delay was added; before it, 3 of 240 requests failed. A world build has not yet been run through the Job; the world numbers above come from building by hand.
-
-## Known interoperability issue
-
-The initial model-backed integration run passes Connect JSON/protobuf, local-language corroboration, country/postcode rejection, reverse regions, map refresh, error handling and 64 concurrent requests. However, grpcurl 1.9.4 can list services but its SearchAddress invocation hangs, both with reflection and an explicit proto file. The integration script fails with a bounded timeout rather than skipping that failure. Legacy gRPC interoperability is not signed off; do not treat this initial push as a production-ready replacement.
-
-## Configuration
-
-| Variable | Default |
-| --- | --- |
-| `INDEX_DIR` | Required; a `build_index` output directory, read-only |
-| `RPC_PORT` / `METRICS_PORT` | `11121` / `8000` |
-| `PARSE_CACHE` | `65536`; address parses kept (0 parses every call). One resolve parses its query twice and libpostal's lock is shared, so repeats skip both |
-| `RUST_LOG` | `info` |
-| `SENTRY_DSN` / `ENV` | Optional |
-
-For temporary SearchAddress diagnostics, set `RUST_LOG=info,opengeocoding::address_log=debug` (or add `RUST_LOG` to the chart's `serving.env` list). This logs the input (at most 256 characters, with its original byte length), parsed components, candidate-selection tiers, the final response (including coordinates and `good_match`), RPC status and elapsed milliseconds. Events share a process-local `request_id` within a `SearchAddress` span, including on the blocking resolver thread; include the pod identity when correlating across replicas. Candidate selections are intermediate decisions; the `SearchAddress result` event is the final enriched answer. Invalid input and errors have a completion event but no result. Debug formatting escapes control characters.
-
-**Address diagnostics contain potentially personal data.** They are off at the default `info` level; broad `debug`/`trace` filters also enable them. Use only for a bounded debugging window with restricted log access and short retention, then restore `RUST_LOG=info`. Do not publish raw samples in issues or pull requests. Request domain and organization metadata are not included in these diagnostic events.
-
-The service loads the index into its own process at startup: one process parses, looks addresses up and serves the RPCs, with no internal HTTP hop. Startup fails if `INDEX_DIR` holds no `build_index` output. The index files stay memory-mapped; the place table (about 2 GB for the world) and libpostal's models (about 2 GB) are read into memory, which took about 10 seconds from a warm disk. `INDEX_URL`, `NOMINATIM_HOST`, `NOMINATIM_URL` and `NOMINATIM_AUTHORITY` are no longer supported; there is no Nominatim fallback. Legacy RPC paths and metric prefixes remain for compatibility, not backend selection.
-
-Overture's `region` column carries an ISO 3166-2 code for its regions only. Subdivisions it does not code (Ugandan, Czech and Nauruan districts, Palestinian governorates, overseas territories such as `US-PR` and `FR-971`; 180 in all) are named in `data/reference.json` under `iso3166_2`, by the Wikidata item Overture gives the division. The list of codes is a policy kept in that file, one entry per subdivision that consumers expect; `update_reference` refreshes only their items. The builder writes each place's Wikidata item as the last `places.tsv` column and the service gives the matching place that code: it becomes a region row and the address's `ISO3166-2-lvl4` code, ahead of the code Overture gives the places inside it (`UG-108` rather than `UG-C`). A code Overture supplies itself wins. Still without regions: Cyprus, Monaco, Madagascar and Singapore (Overture has no divisions with those codes' Wikidata items) and 29 Vietnamese provinces that Overture does not carry. Regions come from the index, not from a database: at startup the service builds one row per ISO 3166-2 code the index names a region or subdivision for (about 4,600 for the world), the same row a search for `<cc>, <code>` returns, and serves them from `ListRegions` (`RegionsResponse`, ordered by country and admin code). The rows are fixed for the life of the process and need no writable directory. A place also carries the subdivision below its region when it lies in a county that Wikidata gives an ISO 3166-2 code: `ISO3166-2-lvl6` (French départements `FR-68`, Italian and Spanish provinces `IT-MI`, `ES-BI`, Belgian provinces `BE-WLX`, Czech districts `CZ-806`, Lithuanian municipalities, Philippine provinces, Bangladeshi and Moroccan districts, 854 codes in all, from the `iso3166_2_lvl6` list in `data/reference.json`, which is kept and refreshed like `iso3166_2`). `ResolveRegion` and `addressDetails.regions` then return the region (level 4) first and the subdivision (level 6) after it, and `ListRegions` holds both, the subdivision's row naming its region in `parent_admin_code` (`FR-GES`). The two lists differ: `iso3166_2` replaces a place's level-4 code (a Ugandan district stands for the region), `iso3166_2_lvl6` adds a second one. Only counties are matched, so an address in a place whose parents skip the county, or in a county Overture does not carry, has a region only; in one comparison with Nominatim 5.x, 114 of 500 `ResolveRegion` points returned extra codes there, and at the six points of the issue that prompted this, this service now returns each extra code (`FR-68`, `FR-75C`, `IT-MI`, `ES-BI`, `BE-WLX`, `CZ-806`) but Alsace's `FR-6AE`, a collectivity that no county stands for. The index cannot give levels 3, 7 or 8, which Nominatim sometimes returns, nor level 5 outside Ireland. Overture's Irish regions are counties, so an Irish address also carries its province (`ISO3166-2-lvl5`, `IE-L`), and the service makes a place for each of the four provinces at startup from its counties (at the mean of their points, named in English and Irish): it has a region row at level 5, a search for `ie, <code>` finds it, but it is in no other place's chain, so free-text searches for "Leinster" still do not find it. A search for `<cc>, <code>` finds the subdivision's place, as it does a region's (`tests/resolve_region.rs`, with `INDEX_DIR`, checks every listed code does, bar Wallis and Futuna's three districts, and the issue's points). The subdivision codes take no part in the stated-state checks: `ES-MA` (Málaga) does not make "MA" agree with a Spanish candidate. A region code an address carries but the index has no region for is logged and left out of the answer. Earlier versions kept rows in ClickHouse (`CLICKHOUSE_*`, `REGION_MAP_PATH`); those settings are ignored.
-
-`/healthz` reports readiness after initialization. Metrics are exposed at `/metrics` on port 8000.
-
-Coordinates use protobuf float32. Postcode compatibility deliberately includes shared outward/area codes for supported national schemes; it is not a promise of an exact street-level postcode match.
-
-## Build and test
-
-Local builds require Rust 1.99+, Buf and a compiled libpostal installation. Native library/model paths are determined by libpostal's configure options. Nonstandard linker paths can be supplied through `RUSTFLAGS="-L native=/path/to/lib"`.
-
-```sh
-cargo build --locked --bin opengeocoding
-cargo test --locked
-cargo clippy --locked --all-targets -- -D warnings
-cargo fmt --check
-docker build --target checks .
-```
-
-`tests/rpc.rs` exercises Connect JSON/protobuf, both legacy routes, candidate safeguards, concurrent requests, metrics and shutdown against a world index. It needs an index and provisioned models, so it is ignored by default. Install `grpcurl` to include gRPC/reflection checks:
-
-```sh
-INDEX_DIR=out cargo test --locked --test rpc -- --ignored --nocapture
-```
-
-To test the final container instead of a local binary:
-
-```sh
-SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS="$PWD/models/libpostal" INDEX_DIR=out \
-  cargo test --locked --test rpc -- --ignored --nocapture
-```
-
-CI builds and checks both amd64 and arm64 without downloading models. [CodSpeed](https://codspeed.io/) runs the `benches/` suites in its simulation mode and reports changes in instruction counts: `index` (the index analyzer and house-number keys; `src/index/{schema,canon}.rs`), `matching` (the service's candidate matching; `src/matching.rs`, `src/resolver.rs`, `data/`) and `resolve` (model-backed libpostal parsing of `tests/addresses.tsv`; `src/index/mod.rs`, where the parser lives). A pull request runs only the suites whose files it changes (or all of them when it changes `Cargo.toml`, `Cargo.lock`, `build.rs` or the workflow); pushes to `main` run all of them, so each `main` commit is a complete baseline. Only `resolve` loads models; none loads an index. Run them locally with `cargo bench` (`resolve` needs `LIBPOSTAL_MODELS` set), or `cargo codspeed build && cargo codspeed run`. Index searches, suggestions and reverse lookups are timed end to end by the full-index gold check, below. Regenerate `THIRD_PARTY_NOTICES.txt` with `cargo run --locked --bin notices` after dependency changes. Model-backed RPC tests run separately with provisioned models.
-
-## Local performance benchmark
-
-The `benchmark` binary sends Connect JSON SearchAddress requests to running services. It first sends every query once to each service and counts differing responses, then times `--requests` calls per service and concurrency over keep-alive connections, rotating the service order between rounds and warming connections outside each timed batch. No failed request is retried. Its endpoint checks run in `cargo test`.
-
-Start release-built services on the same index and models. Benchmarking must not depend on production backends or databases.
-
-```sh
-cargo build --locked --release --bin opengeocoding --bin benchmark
-target/release/benchmark --queries queries.txt \
-  --service base=http://127.0.0.1:18121 \
-  --service candidate=http://127.0.0.1:18122 \
-  --requests 2000 --rounds 3 --concurrency 1,8 > benchmark.jsonl
-```
-
-`queries.txt` holds one address per line, for example the `query` column of `tests/addresses.tsv`. A service URL without a route uses `opengeocoding.OpenGeocoding`; to benchmark old clients, use `--service legacy=http://127.0.0.1:18121/geolocation.Geolocation` or `.../nominatim_geolocation.NominatimGeolocation`. All three routes use the same resolver. Results include the client, HTTP transport, parsing, index lookups and the RPC framework on one machine; they are not production throughput or accuracy guarantees.
-
-## Overture address index
-
-`build_index` builds a Tantivy index and house-number tables from a local [Overture Maps](https://docs.overturemaps.org/) release, without Nominatim. The service loads that index (`src/index/`) and it is its only supported lookup backend. The index remains experimental; the coverage and reverse-lookup limitations below and in Reverse geocoding still apply.
-
-`build_index job` (see "Deploy on Kubernetes") fetches all of the sources below itself. To build by hand, download the `division` and `division_area` (divisions theme), `segment` (transportation) and `address` (addresses) parquet files of one release into same-named directories, about 100 GB in total, and optionally `place` (places theme, `theme=places/type=place`, 11 GB), for example:
-
-```sh
-aws s3 sync --no-sign-request \
-  s3://overturemaps-us-west-2/release/2026-09-23.1/theme=addresses/type=address/ overture/address/
-cargo build --locked --release --bin build_index
-target/release/build_index overture out/ --openaddresses openaddresses/ --osm osm/ \
-  --geonames-postal GB_full.txt --geonames-postal allCountries.txt
-```
-
-Overture's address theme covers about 40 countries. The optional sources fill the rest:
-
-- `--osm DIR`: every `*.osm.pbf` in the directory. Addressed nodes, addressed ways and multipolygon relations at their first node, `addr:place` addresses (numbered within the place), and `addr:interpolation` ways (the numbers between their addressed nodes, spaced along the way; Argentina's block ranges alone give about 45 million); the country is that of the containing place. A way or relation not tagged as a `building` or `building:part` contributes a house number only when every outer vertex is present and within 300 m of its first vertex, using the existing house-copy merge scale as a conservative site-size heuristic. Larger or incomplete sites still contribute their street, postcode and postal-town metadata, not a building point; separately addressed nodes and explicitly tagged buildings remain eligible. Files must be sorted by type then id, as [Geofabrik](https://download.geofabrik.de/) extracts are. Pick the extracts for countries without Overture addresses from `download.geofabrik.de/index-v1-nogeom.json` (`iso3166-1:alpha2`); about 150 extracts and 30 GB in October 2026. Add extracts where Overture's coverage has holes: in October 2026 it had no addresses for Bavaria or the city of Milan, so `germany/bayern` and `italy` were added (3 GB). Extracts overlap at borders and with Overture; duplicate house numbers collapse. Landmarks (see Address suggestions) are read from these extracts too.
-- `--osm-landmarks DIR`: every `*.osm.pbf` in the directory, read for landmarks only, never for addresses, whose answers would change in countries whose addresses come from Overture. The chart's `osmLandmarks` lists the 37 extracts of the countries `osm` leaves out (Western and Central Europe, North America, Japan, Australia and others; 49 GB in October 2026).
-- `place/` in the Overture release directory, when present (`build_index job` always fetches it): Overture's places theme (points of interest from Meta, Microsoft and others under CDLA-Permissive-2.0, Foursquare under Apache-2.0, AllThePlaces under CC0-1.0). A place whose freeform address is only a house number and a street (`553 Sư Vạn Hạnh`, `44 Ryneveld Street`; not `Shop 5, Mall Road`, `548/11 Rajajipuram` or `Calle Mayor 5`) gives that house at the place's point, when the street is a road that Overture's segments name in the same place and 0.1° cell, and only in the United Kingdom and Vietnam in this first rollout, where fewer than 10,000 Overture address rows with a street fall in that country (counted by the place that holds them, so Réunion's BAN addresses, which Overture files under France, cover Réunion). The place's postcode and locality are not read: whoever listed the business typed them. Its houses rank last among duplicates, and they neither move a street's point nor add to its weight, so a road with one listed business keeps its segments' middle and its rank among same-named roads. In the October 2026 build it added 836,488 houses in those two countries and no street; see House-number coverage below.
-- `--openaddresses DIR`: every `*.geojson.gz` in the directory, one OpenAddresses batch job output each, named `<cc>_<source path>-<layer>.geojson.gz` (the country comes from the prefix). List address layers with `batch.openaddresses.io/api/data` and download `v2.openaddresses.io/batch-prod/job/<job>/source.geojson.gz` for the sources Overture doesn't list (about 2,700 files, 13 GB in October 2026). Many overlap Overture's data; identical house numbers on the same street collapse (the copy from the best-ranked source is kept, Overture before OpenAddresses before OSM before Overture's places, then the one with the smallest coordinates; it takes the postcode of the first duplicate that has one when it has none, so a source without postcodes never strips one), and in a sample 19% of US and 60% of Mexican OpenAddresses addresses were on a street the Overture-only index had without that number. Each file needs its source definition beside it as `<cc>_<source path>-<layer>.source.json`: the JSON at the job's `source` URL from `batch.openaddresses.io/api/job/<job>` (for a deleted source, its last version in the `openaddresses/openaddresses` git history; `build_index job` doesn't recover those, so it reads them only with `--openaddresses-any-licence`, and in October 2026 that left out about 400 files). Only files whose layer licence is recognised as public domain, open with at most attribution, or ODbL are read; a file with no definition, no stated licence, an unrecognised one, another share-alike licence or a ban on sale or commercial use is skipped. The classification is a conservative text match, not legal review. A file whose definition states no licence is read anyway when `src/bin/build_index/openaddresses_reviewed.tsv` lists it: those entries were checked against the publisher's own terms (statewide files for 12 US states and DC, a few US cities and counties, and sources in Canada, Austria, Germany, Hong Kong and Argentina; the file also records the sources read and refused, with the reason). The list never overrides a stated ban on sale or commercial use, or a share-alike licence, and each entry's terms and credit line go to `ATTRIBUTION.txt`. `--openaddresses-any-licence` reads every file. Each file's licence and whether it was read go to `out/openaddresses.tsv`.
-- `--bbox MINLON,MINLAT,MAXLON,MAXLAT`: index only streets, addresses and house numbers inside the box. Places from the input are kept as they are.
-- `--geonames-postal FILE`, repeatable: GeoNames postal-code dumps (`download.geonames.org/export/zip/`, CC-BY-4.0). `allCountries` has only outward codes for GB and 3-character codes for CA; `GB_full`, `CA_full` and `NL_full` hold full codes. A postcode is added only when the address data and earlier files lack it.
-- `--geonames-places FILE [--geonames-admin1 FILE]`: GeoNames `cities500.txt` and `admin1CodesASCII.txt` (`download.geonames.org/export/dump/`, CC-BY-4.0). A populated place is added (as a locality, or a neighborhood for `PPLX`; historical, abandoned, destroyed and religious ones are skipped) only when no place of the same country and folded name, under any of its names, lies within 10 km, so it fills a gap and leaves Overture's places as they are. A place answers to its name and ASCII name only: GeoNames' other names include labels like "Huy (Tihange)" and the names of the place's district, which then answered queries for other places. Its parent is the place that holds it (as for addresses); with none, the Overture region named by its admin1 name. Street and address assignment does not see these places. The gold corpus's cities were picked from GeoNames, so its gain from this source overstates the gain for places GeoNames lacks. `build_index job` always reads it; `index.sources` has no switch for it, nor for OpenAddresses (whose licence check always applies).
-
-The writer leaves one Tantivy segment per arena flush (319 for a world index) and every query looks its terms up in each, so the build ends by merging them into four, in parallel; the merge took 40 seconds for a world index and shrank its Tantivy files from 5.5 GB to 4.2 GB. One segment took 140 seconds and queried no faster.
-
-The output holds places, streets (one per normalized name per place and 0.1° cell, merging road names with address streets) and postcodes in Tantivy, plus house numbers with coordinates in sharded FSTs. The cell keeps same-named streets of one large locality apart (Port Chalmers' and central Dunedin's Beach Street); a street crossing a cell edge is indexed in parts, and a lookup answers the middle of the parts. Addresses without a street (Overture's Polish, Czech, Slovak and Baltic village addresses, OSM `addr:place`) are numbered on a street named after their village.
-
-Source postal towns are also stored separately from settlement ancestry, with their source field (`postal_city`, `address_levels`, OpenAddresses `city`/`district` or OSM `addr:city`). Within a street's assigned locality, the house's own postcode scopes this evidence; without a source postcode, only the exact house number can lend a town. Conflicting names within a scope do not corroborate it. This lets a house name its postal town even when that name is also a county, without allowing the county alone to vouch for the address or replacing its settlement/admin fields. Existing requested-city display conventions remain unchanged. A conflicting supplied postcode can be recovered on the raw house lookup only with an independently matching source postal town, a recognized country and consistent stated region. The code must be indexed in that country or differ from the house's own numeric postcode by one substitution. No matching street may hold the requested postcode (including a compatible postcode area), and every indexed occurrence of that street and house number in the country must lie within 100 m of the candidate; a saturated 1,000-street search declines recovery. Such an answer retains the source postcode and has `goodMatch=false`. Unknown nonnumeric codes, ambiguous houses and same-street postcode conflicts remain rejected.
-
-An administrative ancestor can also corroborate a house's town when the existing index identifies it and a settlement by the same nonempty Wikidata item, country and ISO region. A shared name alone does not qualify. This uses existing source identity, not a postal-town alias or a new import; settlement/admin fields remain unchanged. A stated postcode still needs the house's own compatible postcode on this path, and country/state conflicts remain constraints. See [postal-town recovery](docs/postal-town-recovery.md) for the scope and evaluation.
-
-Names are folded by one analyzer at build and query time: Unicode tokens, lowercased, ASCII-folded, then street-name abbreviations canonicalized (`src/index/canon.rs`: `Avenue`/`Ave`/`Avenida`/`Av.` → `av`, `Straße` and compounds → `str`, `Calle`/`C/` → `cl`, `Drottninggatan` → `drottningg` like `Drottningg.`, and so on for English, Spanish, Portuguese, French, German, Dutch, Nordic, Hungarian, Italian, Turkish, Polish, Russian and Ukrainian; Japanese chōme and Taiwanese section numerals read as digits, so `芝公園四丁目` and `芝公園4丁目` match). A query must use the same analyzer, including when correcting typos against the canonical vocabulary.
-
-For house queries, SearchAddress also expands French `R.` to `Rue`, Dutch compound `ln.` to `laan`, and Norwegian compound `vn.` to `veien` or `vegen` (including before further road-name words) at lookup time, only after an exact street miss, with a recognized country and a resolved town or indexed postcode. Undotted compound abbreviations and names with multiple supported dotted compound abbreviations are not expanded. It checks all alternatives and declines the expansion when they identify different street documents. The same guarded fallback expands dotted German `str.` compounds with stems of at least two letters in Switzerland, Germany and Austria, and repairs one-edit errors in a final compound `strasse` suffix before the analyzer shortens it to `str`. In South Africa it also tries a final `Straat` as `Street` and vice versa. These repairs still require an existing exact house number and decline a conflicting house postcode. The resolver corroborates these spellings under the same country constraint. This does not merge full road names globally, change the stored index or add abbreviation completion to SuggestAddress.
-
-Streets and addresses are assigned to the containing locality polygon, else a locality point within 5 km, else the local admin area or county, constrained by the source country or containing administration. Direct locality-to-region parents that conflict with a unique same-country containing region are reconciled at import; [assignment diagnosis and validation](docs/administrative-assignment.md) describe the rules and remaining limitations. House numbers are spilled to `out/.numbers-spill` during the build (about 7 GB for the world) and removed afterwards. The builder reads available memory at startup (cgroup limit and usage, capped by the host's `MemAvailable`; `vm_stat` on macOS) and sizes the index writer and the number sort from the remaining headroom. One world release took about 100 seconds on an 18-core laptop with a 19 GB peak memory footprint; with all the OSM extracts, OpenAddresses and GeoNames files above it took about 300 seconds and 20 GB (OpenAddresses about 75 seconds, OSM about 105), for 563 million house numbers and 43 million streets in 12 GB. These are single measurements, not guarantees, and the build needs that memory regardless of the writer budget.
-
-Known limitations: outside Overture's address countries, house numbers are only as complete as OSM and OpenAddresses there, with addresses of points of interest also read in the UK and Vietnam (sparse in the UK, India and much of Africa and Asia; see House-number coverage); a point of interest is placed where its listing puts it, which is not always its door; OSM ways and relations are placed at their first node, not a verified entrance; the footprint guard rejects house numbers on large untyped sites but trusts explicit building tags and does not identify a building within a shared campus; interpolated numbers assume even spacing; abbreviations outside that table (`MLK`, `CR 123` for County Road) still index as separate streets; house numbers are matched lowercased and without full-width forms or a trailing 号/號, otherwise exactly as written. Overture's divisions and transportation themes and OpenStreetMap are ODbL (attribution "© OpenStreetMap contributors", share-alike for a distributed derived database); OpenAddresses licenses vary per source and many state none; review them before distributing an index. Builds are reproducible: two builds of the same sources and builder produce the same documents, terms and house numbers, so a gold comparison of two indexes shows only the change under test. `build_index digest DIR [--dump FILE]` prints a checksum of each part (documents, term counts, house numbers with their postcodes) that ignores segment layout, so two builds can be checked with it; the files themselves still differ byte for byte, because tantivy names its segments at random. Order-dependent choices are made from content instead: a street shows its spelling that is not all capitals and sorts first, keeps the postcodes, postal cities and alternative names that sort first when it has more than 20, 5 or 64, and takes its centroid from sums in units of 2^-24 degree; a segment joins only an address street of its place's country; street ids follow the streets' key order. Lookups break ties between equally important candidates by id, then coordinates, not by document order, which depends on how many threads wrote the index.
-
-### House-number coverage
-
-`evaluate coverage --index DIR [--population countryInfo.txt] [--out FILE]` reads a built index (no service, no libpostal; 12 seconds for the world) and writes one row per country: house numbers, streets, streets with at least one number, and, with GeoNames' `countryInfo.txt` (CC-BY-4.0), population, houses per 1,000 people and an estimated gap, the houses missing to 0.3 per person. The rows are ordered by that gap. 0.3 is a round figure between the indexed French addresses (0.38 per person) and German addresses (0.26); countries of large apartment blocks or large households need fewer addresses per person, so their gap is overstated, and a country can exceed it (Argentina's interpolated block ranges give 1.0). It ranks countries; it is not a completeness measure. Counts are final deduplicated FST keys, not input rows or unique buildings; interpolation counts too. A “street” is an index document (name, place and 0.1° cell), not a physical road. Ratios are rounded. Countries in the population file with no streets are included with zero counts.
-
-The largest gaps in one world build (Overture 2026-09-23.1 with the OSM, OpenAddresses and GeoNames sources above), before and after Overture's places were added. [The full measurement](docs/house-number-coverage.tsv) records every country's before/after counts (base builder `4f714061845f4003`, candidate `0a3e9077e88a1702`; the `trial` column records the rejected wider import). Population: [GeoNames countryInfo.txt](https://download.geonames.org/export/dump/countryInfo.txt), retrieved 2026-10-16, SHA-256 `c55f638cfaafb4fe45a9aa15120a0f1f78e8a34a8e1847d7b9320cf740fbc9ab`.
-
-| Country | Population | Houses | Per 1,000 people | Streets with a number | Estimated gap |
-|---|---:|---:|---:|---:|---:|
-| India | 1,464 M | 85,596 | 0 | 13% | 439.1 M |
-| China | 1,407 M | 48,642 | 0 | 3% | 421.9 M |
-| Indonesia | 286 M | 68,272 | 0 | 5% | 85.6 M |
-| Pakistan | 255 M | 96,391 | 0 | 21% | 76.5 M |
-| Nigeria | 238 M | 7,276 | 0 | 8% | 71.3 M |
-| Bangladesh | 176 M | 18,323 | 0 | 17% | 52.7 M |
-| Ethiopia | 135 M | 425 | 0 | 6% | 40.6 M |
-| Philippines | 117 M | 64,285 | 1 | 9% | 35.0 M |
-| DR Congo | 113 M | 8,584 | 0 | 13% | 33.8 M |
-| Egypt | 118 M | 2,323,776 | 20 | 70% | 33.2 M |
-| Russia | 144 M | 11,603,910 | 81 | 70% | 31.5 M |
-| Vietnam | 102 M | 73,267 → 293,395 | 3 | 24% | 30.2 M |
-| Iran | 92 M | 12,231 | 0 | 2% | 27.7 M |
-| Turkey | 86 M | 195,318 | 2 | 10% | 25.6 M |
-| Mexico | 132 M | 16,182,651 | 123 | 60% | 23.4 M |
-| Thailand | 72 M | 43,169 | 1 | 12% | 21.4 M |
-| Tanzania | 71 M | 16,032 | 0 | 14% | 21.1 M |
-| South Africa | 65 M | 133,160 | 2 | 8% | 19.3 M |
-| Kenya | 58 M | 1,132 | 0 | 4% | 17.3 M |
-| Myanmar | 55 M | 4,995 | 0 | 12% | 16.5 M |
-
-For comparison, the United States has 329 houses per 1,000 people (112.4 million), France 385, Germany 256, Japan 307 and the United Kingdom 85 (5.29 million before, 5.90 million after). The first rollout adds 616,360 houses in the United Kingdom and 220,128 in Vietnam (four times as many there), for 501.7 million houses and the same 39.2 million streets. These are single-build counts, not recall estimates.
-
-A wider trial added 1.19 million houses in 166 countries, with further large additions in South Africa (+163,000), Malaysia (+57,000), the Philippines (+40,000), Ireland (+13,000), India (+12,000) and Nigeria (+11,500). It failed the gold gate on two reverse lookups: Valencia, Venezuela stopped naming Valencia and named Miguel Peña instead; a Lagos address got a nearer house across the Ogun State border. Those regressions were not relabelled or accepted. The broader rollout is deferred; its potential counts remain in the measurement's `trial` columns. Thailand's potential gain is only 5,000. Some listings and segments use different scripts (for example `Rama IV Rd` versus Thai), and an address without a matching road is dropped.
-
-Sources considered for the largest gaps, October 2026 (licence findings are a reading of the publishers' terms, not legal review):
-
-- **Adopted: [Overture's places theme](https://docs.overturemaps.org/guides/places/)**, [CDLA-Permissive-2.0](https://cdla.dev/permissive-2-0/), in the same bucket and release as the rest of Overture, so the build Job fetches it with no new credentials. This review's usable bulk candidate reaching the largest gaps; the first rollout takes only its two largest measured country additions, the UK and Vietnam. Every further country needs its own full-index gold comparison. The September 2026 files' `sources.license` also names Apache-2.0 for Foursquare and CC0-1.0 for AllThePlaces. CDLA allows commercial use, modification and redistribution with its agreement text; Apache requires its licence, retained notices and a change notice. The builder includes both licence texts, Foursquare's copyright and the changes made in `PLACES-LICENSES.txt`, for hand-built and Job-built indexes. These permissive licences add no share-alike restriction conflicting with ODbL: the combined index still carries its OSM-derived database obligations; permissive inputs do not remove those. Listings are typed by businesses, so only the plainest shape on a known road is read.
-- **India, China, Indonesia, Pakistan, Nigeria, Bangladesh, Ethiopia, DR Congo, Iran, Turkey, Thailand, Myanmar, Russia, Egypt:** this review did not establish a downloadable national address register with coordinates and redistribution permission. That is not proof that none exists; OpenStreetMap, already read, remains the main source. Russia's FIAS/GAR is an address register, not a replacement for geocoded house points. The OpenAddresses countrywide files for South Africa, Saudi Arabia and Egypt are uploads with no stated provenance or terms and stay refused (`openaddresses_reviewed.tsv`).
-- **United Kingdom:** AddressBase is licensed by Ordnance Survey and not open; [OS Open UPRN](https://www.ordnancesurvey.co.uk/products/os-open-uprn) (OGL) has 40 million points but no address text, and Code-Point Open only postcodes. Nothing to add beyond OSM and places.
-- **South Korea:** the [road-name address database with building entrances](https://www.data.go.kr/data/15050410/fileData.do) (juso.go.kr, about 6.4 million buildings) is listed on data.go.kr, but each download needs an application with identity verification, which a build Job cannot do; the 2017 OpenAddresses copy came from someone else's application and stays refused.
-- **Sweden:** Lantmäteriet offers [CC0 open geodata](https://www.lantmateriet.se/en/geodata/our-products/open-data/), but its [address download](https://www.lantmateriet.se/sv/geodata/vara-produkter/produktlista/belagenhetsadress-nedladdning-inspire/) is subject to legal review and special terms. Do not infer that the address product is unrestricted from the general CC0 page. A follow-up candidate after confirming redistribution rights and obtaining access (Sweden has 99 houses per 1,000 people).
-- **Bavaria:** its open data (CC BY 4.0) has building outlines, while the [house-coordinate service](https://geodatenonline.bayern.de/geodatenonline/seiten/wfs_hauskoor) requires an agreement and credentials; the OSM extract stays.
-- **Ireland:** GeoDirectory and Eircode are licensed, not open.
-
-The UK/Vietnam rollout passes the relative gold gate on the same 4,188-case suite, consumer binary and models: no newly failing or worse cases. SearchAddress goes from 3,655 to 3,656 passes (Belvedere Road in London); SuggestAddress (1,873), ResolveRegion (2,531) and ReverseGeocode (3,784) are unchanged. The new 200 cases pass 27 before and 28 after, including 7 and 8 of the 78 house cases. A baseline rerun showed zero response drift. The absolute run still fails the pre-existing Rue de Rivoli must-pass case, and grpcurl's documented timeout reproduced in the RPC integration test. The 1,000 unscored address samples change in 7 results, all to houses in the same country; their accepted snapshot was not replaced. These are coarse, landmark-biased coverage checks, not an accuracy or speed claim.
-
-Gold independence: the national address registers used for the United States, Netherlands, France, Norway, Switzerland, Spain and Czechia are already index inputs for those countries, through Overture's address theme (NAD for the United States, BAG for the Netherlands, BAN for France per département, Kartverket, swisstopo, CartoCiudad and RÚIAN) and OpenAddresses (BAN, BAG, CartoCiudad and Kartverket again). A registry case there measures fidelity to the register, not independent accuracy. Overture's places are read in none of those countries, since Overture covers them. The Korean school-directory set is selected independently of the index, but independence of its upstream coordinates from the index's contributors has not been established.
-
-### Lookups
-
-Lookups return candidates in the JSON format the resolver reads (Nominatim's search, details and reverse fields); this does not make Nominatim a supported backend. The service renders one search's candidates in English and, when it needs to corroborate a town written in another language, in local names, without searching twice.
-
-It parses with the service's one libpostal parser (serialized), matches places, streets, postcodes and house numbers like Nominatim's all-terms search, and recognizes postcodes from the index when libpostal mislabels them. The resolver uses those repairs for corroboration only when no postcode was parsed, the inferred code does not come from a requested house number, road, unit, floor or P.O. box, and reparsing preserves the primary house number and road without duplicate labels. Stated country and region fields remain constraints. A Dutch house address with a separately comma-delimited country also rejoins postcode letters mislabelled as a second country (`1234 TJ Town, Netherlands`): the letters must immediately follow the parsed postcode digits in the same comma part, form a full Dutch postcode, and leave a town name. Separate country parts, additional country labels, stated administrative regions and non-Dutch countries are not repaired this way. A separately comma-delimited state is not rewritten as a town. It reads Japanese block addresses (`東京都港区芝公園4-2-8` is chōme 4 of 芝公園, block 2, house 8) and Chinese road addresses itself, since libpostal splits them. Native Korean road-name and land-lot addresses use exact indexed numbers and an ordered province/city/district/township hierarchy; missing houses may answer the named locality with `goodMatch` false, never an invented road/lot-number conversion. Korean suggestions use the same hierarchy, including while a road or number is unfinished; see [the Korean evaluation notes](docs/registry/kr.md) for coverage and remaining failures. Streets are looked up in the named town, then a same-named county, then a same-named city-province (Istanbul), then by postcode and near the postcode's centre. It reports each house's own postcode, as the source data gives it. It remains experimental (`ReverseGeocode` reads houses and streets and `ResolveRegion` simplified polygons, see Reverse geocoding). It reads importance through cached per-segment fast-field columns and checks exact names against hashes folded at startup; Tantivy's `order_by_fast_field` reopened every segment's column per query and cost more than the search itself. The 12 GB index (Tantivy, house-number FSTs and `places.tsv`) is memory-mapped; in an earlier measurement 1.3 GB of it was resident after 20 seconds of load. On an 18-core laptop shared with other work (load average about 13), the service answered the 1,000 address samples at about 360 requests per second over one connection and 1,600 to 2,100 over eight (p99 39 ms). The same build calling a separate `serve_index` process over HTTP, on the same index, answered about 220 and 940 to 1,290 (p99 63 ms), with identical responses. The service's memory footprint was 3.5 GB, against 6.0 GB for the two processes, which each loaded libpostal's models. Per gold query it searched the index 1.8 times on average, where the HTTP version made 3.2 calls: one search now serves both languages. These are single measurements on one machine, not capacity guarantees.
-
-A later round of changes was measured on the 11 GB world index above, with 808 sample queries over one connection and over 16, alternating the old service on the index as built (319 segments) with the new one on a copy merged to four segments, on a busy 18-core laptop. Responses were identical. With the parse cache off: 170 to 806 requests per second over one connection (p95 21.9 to 3.9 ms), 1,516 to 5,512 over 16, and 8.2 to 1.4 ms of CPU per request. Three changes account for it, in order of size: merging the segments (CPU 8.2 to 3.0 ms; the merge happens in the builder, so this needs a rebuilt index), filtering a lookup's document kind in the collector (3.0 to 1.4 ms: a `kind:s` term has 40 million postings that Tantivy walked block by block for every street lookup, which took one name from 0.007 ms to 0.7 ms; the kind is read from which fast columns a document has, so existing indexes gain from it too), and running a request on one blocking thread instead of one hop per parse and search. The same comparison between the two release images in Linux containers (cache off, index bind-mounted from the host) gave 109 to 599 requests per second over one connection (p95 33.5 to 5.3 ms) and 957 to 2,850 over 16, with resident memory 5.0 GiB before and 4.2 GiB after. With the default parse cache the same run on the host gave 875 and 8,724 requests per second, but the 808 queries repeat there, so that number flatters real traffic; within one request alone the cache saved 0.6 of about 2.3 libpostal parses. Startup with the world index dropped from 5.9 to 2.7 seconds (models load while the place table is read, and the table is parsed on all cores). A country filter in the collector measured no gain, and mimalloc gained 1% to 3% throughput for 0.75 GB more memory, so neither was kept. These are single measurements, not capacity guarantees.
-
-A third round changed only how lookups run, not what they return. A lookup seeks the document runs of its kind (the builder writes places, streets and postcodes in 10 to 20 runs per segment), so a place's name no longer walks the millions of streets that share its words. The country filter reads a per-document country table built at startup (2 bytes a document, about 0.1 GB for a world index) instead of intersecting with a country term, whose postings tantivy's skip list walks one block at a time. A request remembers its own lookups (over half of them were repeats: the same town for every fallback and street scope), existence checks stop at the first match, and a place's English name is located once at startup. On the same busy laptop and world index, with the parse cache off, the 1,000 address samples took a mean of 0.8 ms instead of 2.4 ms over one connection (p99 5.3 ms instead of 23 ms; 1,240 requests per second instead of 410) and 5,000 to 5,400 requests per second over 16 instead of 3,100 to 3,300, where libpostal's single lock now sets the limit. With the parse cache on and the samples repeating, 16 connections gave 16,000 requests per second instead of 4,400. The gold suite's 3,732 cases returned identical responses, with total SearchAddress time down 63% (p99 31.5 to 10.7 ms), and `tests/suggest.rs` typed prefixes again took p50 82 µs instead of 125 µs (p99 3.4 ms instead of 4.6 ms). These are single measurements, not capacity guarantees.
-
-In one run against the October 2026 Overture release with the OSM, OpenAddresses and GeoNames sources above, the gold suite passed 1,038 of its first 1,280 cases (231 of the 286 held out), against 992 for the index before the October 13 data and parsing work. On the 2,875-case version it passed 2,136 (433 of the 582 held out), including 545 of the 926 damaged addresses: a typo in the street (2 of 95) and a wrong postcode (10 of 95) were its weakest kinds, since streets then matched only on exact (canonicalized) words. Lookups now correct a street with one misspelt word (within one edit, same first letter, or a misspelt street type) when a resolved town or postcode holds a street with the other words and the house number. The service accepts a candidate whose postcode disagrees with the requested one when its house number, road and town all agree, after every candidate holding the postcode has been refused, and returns it with goodMatch false. When the postcode identifies another part of that street in the same locality, it instead falls back to postcode or locality level rather than choosing a contradictory house. Existing nearby-source postcode corroboration and shared postcode-area compatibility still apply. With both, and 32 Census expectations corrected (their five-digit house numbers had been read as postcodes), the 2,875 cases passed 2,308 (459 of the 582 held out), including 701 of the 926 damaged addresses: 82 of 95 street typos and 73 of 95 wrong postcodes. One must-pass case regressed with them: "10 Rue de Rivoli, 75001 Paris, France" answered number 10 of the same street in 75004. The same-street postcode conflict guard now makes it fall back to postcode 75001 without a house, resolving that failure without changing its expectation. Of the original 247 cases it passed 239; Nominatim 5.3.2 with January 2026 OSM data passed 227, and the only case Nominatim passed and the index did not is a Dubai boulevard whose street data names a smaller locality than Dubai. Of the 405 address cases (Wikidata landmarks in 90 countries and registry addresses from France, the Netherlands, the United States, Norway, Switzerland and Spain), it passed 286. Most remaining failures are data gaps (streets or villages missing in OSM-only countries) or the service rejecting the index's right first answer on libpostal's parse ("Addis Ababa, Ethiopia" parses as one city name); those critical ones are labelled in `tests/gold.seeds.jsonl`. On the 1,000 address samples, the index answered 827 (Nominatim 855) and 143 at house level (117). Where the sample's country is known, it chose the right country for 97.3% of its answers (Nominatim 97.5%) and claimed a good match in the wrong country 14 times (Nominatim 14). To keep wrong countries down, a lookup answers a street with nothing to place it only when at most three same-named streets with that number exist, all in one country. It answers a place name without a country only on an exact name match, and a bare postcode without a country only when one country uses it. These are single runs on curated and sampled inputs, not production accuracy.
+The [chart defaults](manifests/values.yaml) request **1 CPU and 6 GiB RAM per serving pod**, with a **16 GiB memory limit and no CPU limit**. A CPU request is not a cap; these defaults are not the recorded benchmark allocation and do not establish 2,850 queries/s on one CPU. A world build requires substantial memory, scratch disk and initial downloads; review the guide before provisioning.
 
 ## Geographic evaluation
 
-See the [evaluation guide](docs/evaluation.md) for suites, scoring, gates and snapshots, and the [per-country registry guides](docs/registry/) for sampling and source provenance.
+Coverage depends on the source data and the index you build. Worldwide place coverage does **not** mean complete house-level coverage: substantial gaps remain in parts of Africa and Asia, and coverage varies elsewhere too. Regional indexes should not be treated as a safe geographic filter; out-of-area queries can still match an indexed namesake.
 
-### Offline competitor comparisons
+The repository includes authoritative-source evaluation corpora, held-out cases, regression gates and tools for comparing saved runs. These are diagnostic checks, not a production accuracy percentage. Some evaluation registries also supply index data, so agreement is not independent accuracy evidence.
 
-[SCORECARD.md](SCORECARD.md) is the single aggregate comparison record, including unresolved normalization and reproducibility limitations. Its corrected-adapter Google pass is complete, but the measurements remain provisional because some responses still lack required metadata or a supported native type.
+- [Evaluation methodology and regression gates](docs/evaluation.md)
+- [Country-specific sources and limitations](docs/registry/)
+- [House-number coverage measurements](docs/indexing.md#house-number-coverage)
+- [Provider comparison scorecard](SCORECARD.md) — provisional results with methodology and limitations
 
-`evaluate provider NAME` evaluates a competitor's first forward-geocoding result against the same corpus. Adapters live in `src/bin/evaluate/providers/{provider}.rs`; `providers/mod.rs` shares caching, request budgets, scoring and paired reports. It is **offline by default**: a cache miss fails before any network access. Use `--corpus FILE` or `--only REGEX` to select cases; otherwise it reads the gold suite, including registry-first samples. `evaluate mapbox` remains an alias for `evaluate provider mapbox`, with the same cache keys and paths.
+Connect JSON and Connect Protobuf are the primary interfaces. **Direct gRPC interoperability is not signed off:** the documented `grpcurl` search timeout remains a [known issue](docs/api.md#known-interoperability-issue). Autocomplete IDs are valid only for the same index snapshot. See the [API guide](docs/api.md) for matching semantics and operation-specific limits.
 
-| Provider | API | Credential environment variable | Offline-storage gate |
-| --- | --- | --- | --- |
-| `mapbox` | Geocoding v6 | `MAPBOX_ACCESS_TOKEN` | Always requests permanent geocoding |
-| `google` | Google Geocoding v3 | `GOOGLE_MAPS_API_KEY` | Requires `--storage-authorized` |
-| `here` | HERE Geocoding and Search v7 | `HERE_API_KEY` | Requires `--storage-authorized` |
-| `tomtom` | TomTom Search v2 Geocode | `TOMTOM_API_KEY` | Requires `--storage-authorized` |
-| `geoapify` | Geoapify Geocoding v1 | `GEOAPIFY_API_KEY` | Storage allowed with attribution |
-| `opencage` | OpenCage Geocoding v1 | `OPENCAGE_API_KEY` | Storage allowed; retain data licences |
-| `mapsco` | geocode.maps.co Search | `MAPSCO_API_KEY` | Result export allowed; retain OSM attribution and licence |
-| `locationiq` | LocationIQ Search v1 | `LOCATIONIQ_ACCESS_TOKEN` | Requires `--storage-authorized`; plan-dependent retention |
-| `geocodio` | Geocodio API v2 | `GEOCODIO_API_KEY` | Requires `--storage-authorized`; verify dataset terms |
-| `arcgis` | Esri ArcGIS World Geocoding | `ARCGIS_API_KEY` | Requires `--storage-authorized`; always requests `forStorage=true` |
+## Documentation
 
-Mapbox [allows indefinite storage only for permanent geocoding](https://docs.mapbox.com/api/search/geocoding/#storing-geocoding-results). Its fetches always set `permanent=true`; the account needs a valid payment method or an enterprise contract permitting permanent geocoding. Caching avoids repeat charges, not the initial cost.
+| Guide | Contents |
+| --- | --- |
+| [API](docs/api.md) | Wire contract, request examples, autocomplete, landmarks, reverse geocoding and compatibility |
+| [Deployment](docs/deployment.md) | Docker, Helm, model/index provisioning, configuration and diagnostics |
+| [Index building](docs/indexing.md) | Data inputs, licensing, coverage and historical build/performance measurements |
+| [Development](docs/development.md) | Build requirements, tests, performance methodology, Nominatim context, benchmarks and publishing |
+| [Evaluation](docs/evaluation.md) | Corpora, scoring, held-out cases and regression gates |
+| [Provider evaluation](docs/providers.md) | Offline comparisons, request budgets and provider storage restrictions |
 
-Other providers' storage rights are **not** inherited from Mapbox. [Google's standard policy restricts response storage](https://developers.google.com/maps/documentation/geocoding/policies); [HERE](https://www.here.com/terms/here-platform-terms) and [TomTom](https://developer.tomtom.com/terms-and-conditions) also have contract-specific restrictions. For these adapters, use `--storage-authorized` only after verifying that your applicable agreement permits retaining raw responses and normalized reports for this offline evaluation. The flag grants no rights, supplies no automatic expiry or deletion, and does not turn a temporary-cache allowance into permission for indefinite storage. Observe any retention deadline yourself. Confirm benchmarking and use terms too.
-
-[Geoapify permits storage with attribution](https://www.geoapify.com/geocoding-api/) and [OpenCage permits retaining results](https://opencagedata.com/faq#caching); retain their source attributions and licences. [geocode.maps.co permits exporting and using results](https://geocode.maps.co/terms) subject to source-data licences; retain its OpenStreetMap attribution. Its adapter uses GeocodeJSON's address levels and explicit primary postcode tags, never inherited address components, to determine precision. LocationIQ retention depends on the plan or active subscription, so it is storage-gated. Geocodio is also conservatively gated pending review of the applicable dataset terms. ArcGIS always requests [stored geocoding](https://developers.arcgis.com/rest/geocode/find-address-candidates/#forstorage) (`forStorage=true`), which requires a token with the corresponding privilege and may consume credits.
-
-Keep caches and reports private, under the ignored `eval-results/` directory or outside the checkout. Never commit provider responses or credentials. Provision the credential through your secret manager in the process environment, not a command-line argument or committed file:
-
-```sh
-# Inspect cache misses without a token or network access (fails on misses).
-target/release/evaluate provider mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox
-
-# Fetch missing queries. Replace N with an approved request budget.
-target/release/evaluate provider mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox \
-  --fetch --budget N
-
-# Re-score offline against a saved local or competitor run directory or JSON snapshot.
-target/release/evaluate provider mapbox --cache eval-results/mapbox-cache --out eval-results/mapbox \
-  --compare eval-results/local-gold
-```
-
-For another adapter, replace `mapbox` in the command and paths; add `--storage-authorized` where the table requires it. A provider is never fetched automatically as part of another provider's run. A budget smaller than the missing-request count fails before sending any. Fetches are serialized at no more than five requests per second (one per second for OpenCage, LocationIQ and maps.co), without retries or redirects. Each HTTP 200 JSON response (including an empty result) and HTTP 422 response is checkpointed before scoring. OpenCage, Geoapify and maps.co HTTP 400 invalid-query responses are also cached and counted as errors, not empty geocodes; an empty query therefore does not stop collection of the other cases. Authentication, rate-limit and server failures stop the fetch. LocationIQ HTTP 404 `Unable to geocode` responses are cached as empty results; 404s from other providers still stop the fetch. For a successful API response, missing country metadata, invalid coordinates and unsupported result types are recorded as per-case `invalid_response` errors; collection continues, never treating them as abstentions or inferring missing facts from the query. Provider API errors inside HTTP 200 still stop the run and are retained for diagnosis, not scored as empty answers; after fixing the account or key, explicitly remove that failed cache entry before fetching again. A transport failure may already have been billed. A cache lock prevents concurrent fetches against the same directory; do not fetch into separate caches for the same experiment.
-
-Cache keys include the exact query, provider endpoint and settings, never the credential or expected answer; different providers cannot share an entry. Raw responses, attribution and collection times are retained. Requests use English (`en-US` for TomTom; Geocodio uses its native language defaults), without country filters or proximity hints; Mapbox also uses `autocomplete=false` and `worldview=us`. Adapters request one result where supported and score only the first. Fixed settings and storage authorization are recorded in the manifest. Provider defaults can still bias answers; these are not optimized country-by-country configurations. Native result types determine granularity: a city is not promoted to a house because its context has an address. Google administrative short names and HERE state abbreviations are not assumed to be ISO 3166-2 codes. Google locality handling includes postal towns and all five sublocality levels; explicit political colloquial areas without a more specific native type are conservatively region-level. A malformed country short name can be resolved from the explicit native country name using the existing reference aliases, never from the query or expectation; genuinely missing country metadata remains an error. OpenCage `postal_city` results are localities, not postcode matches; `subregion` results remain at administrative-region precision. Mapbox secondary addresses are evaluated at building level, not for unit correctness. Geocodio is a regional provider and its native API defaults to the US, not worldwide search; compare relevant-country subsets separately. Its `place` accuracy type conflates ZIP and city centroids and is conservatively scored at locality level. Nearest-rooftop Geocodio matches and out-of-range ArcGIS street addresses are not credited as exact house matches.
-
-`report.md` includes outcomes by cohort, expected country and holdout. `--compare` re-scores both sides against the current corpus, ignoring `goodMatch`; native confidence scores are not equated with it. The paired table counts both-pass, baseline-only, competitor-only and neither-pass cases, and lists different failure classes. Service-specific error-contract cases are excluded. Known-failure labels do not turn failures into passes. No latency comparison is made from cached responses. The curated corpus remains diagnostic, not an unbiased accuracy estimate: many cases were selected from index inputs, and registry expectations can share upstream sources with providers. Adapter tests use made-up responses; they establish neither live interoperability nor competitive accuracy.
-
-#### Aggregate-only evaluations
-
-`--aggregate-only` makes one forward request per scored case and retains only aggregate outcome counts, paired pass counts, cohort/holdout and US/Canada groups, request accounting and reproducibility metadata. It never reads or writes a response cache, raw or normalized provider responses, per-case outcomes, coordinates, address summaries or response diagnostics. The output contains `aggregate.json`, `report.md` and an empty lock file, not `results.jsonl`. It requires `--fetch --budget N` and rejects `--cache` and `--storage-authorized`. Use a new output directory.
-
-```sh
-target/release/evaluate provider google --aggregate-only --fetch --budget N \
-  --corpus cases.jsonl --out eval-results/google-aggregate --compare eval-results/local-gold
-```
-
-There are no automatic retries. `--resume` continues from aggregate checkpoints without repeating completed cases; keep the same binary, corpus, filter, baseline and total request budget. Attempts are checkpointed before network access. An interrupted in-flight request remains counted against the budget and may be repeated on explicit resume. Authentication and quota failures stop the run. Google HTTP 400 and `INVALID_REQUEST` responses count as query errors, not empty results. Aggregate-only mode discards declared HTTP query-error bodies without requiring JSON, so an HTML rejection of malformed input does not stop collection. Normalization failures count as adapter errors without retaining response details. Google failures also have fixed, whitelisted aggregate categories (for example, missing country or unsupported type); arbitrary diagnostic text is never retained. Cases without geographic expectations and service-specific error-contract cases are excluded.
-
-No provider responses remain for offline inspection or re-scoring. This option minimizes retained data; it does **not** establish that benchmarking, aggregate retention or publication is permitted under the applicable provider agreement. Review those terms separately, including Google's applicable EEA or non-EEA terms. Never use provider answers as gold labels or to train the service.
-
-## GHCR publishing
-
-`.github/workflows/docker.yml` runs on `v*` tag pushes, which release-please creates when its Release PR is merged (it needs the `RELEASE_PLEASE_TOKEN` secret, because tags pushed with `GITHUB_TOKEN` trigger no workflows). It runs the existing checks first, then uses Docker's pinned reusable workflow to build on native amd64/arm64 runners, push to `ghcr.io/mokto/opengeocoding`, and assemble and verify the multi-platform manifest. Pull requests do not publish to that image.
-
-Separately, `staging-build.yml` builds the `eval` image on native amd64 and arm64 runners (the runtime image plus the `evaluate` binary and `tests/gold.jsonl`) for every pull request (forks included) and every `main` commit, with no secrets, and `staging-publish.yml` pushes it to `ghcr.io/mokto/opengeocoding-staging` from the default branch without running it: `sha-<commit>-amd64`, `sha-<commit>-arm64` and the multi-platform `sha-<commit>`. These images are untrusted builds for evaluation environments, not releases; set that package's visibility to public after its first push so evaluators can pull it anonymously. The publish workflow only triggers once it exists on `main`, so it cannot be tried from the pull request that adds it. Old tags are not pruned yet.
-
-The repository is `Mokto/opengeocoding`. The Rust crate and service executable are `opengeocoding`, and the GHCR image is `ghcr.io/mokto/opengeocoding`.
-
-A `v1.2.3` Git tag produces `1.2.3` and `latest`; pushes to `main` publish nothing. Publishing uses the workflow's `GITHUB_TOKEN` with `packages: write`, so no personal access token secret is required. OCI labels link the package to this repository. Crates and GitHub releases are not published.
-
-After the image, the same workflow publishes the Helm chart to `oci://ghcr.io/mokto/charts/opengeocoding`, pinned to that image: a `v1.2.3` tag gives chart version and appVersion `1.2.3`.
-
-GHCR can initially create packages as private even for public repositories. After the first successful push, set the [package visibility](https://github.com/users/Mokto/packages/container/opengeocoding/settings) to public if anonymous image pulls are required.
-
-## Reference data and normalization
-
-Country aliases use public Unicode CLDR and GeoNames data. Administrative-region hints use GeoNames; the Wikidata items of the ISO 3166-2 subdivisions Overture lacks (`iso3166_2`, below) come from Wikidata (CC0). Sources, revision and download hashes are recorded in `data/sources.json`; the checked-in data allows offline reference generation during normal builds.
-
-To refresh it, run `cargo run --locked --bin update_reference`. This requires network access and changes the checked-in dataset; review it as a data update. Character classes come from the Unicode Character Database version pinned in the generator (currently 16.0.0), not from the toolchain.
-
-An optional build-time `REFERENCE_DATA` path can supply a custom reference JSON. Search overrides are empty by default. No private deployments, endpoints or address overrides are included.
-
-Transliteration uses BSD-3-Clause `deunicode`, **not Python Unidecode**. Outputs differ for some scripts and symbols. In a migration comparison of 7,067 geographic/sample strings, 55 normalized outputs differed, including Hebrew and Japanese forms. Matching normalizes both sides consistently, but these differences still need real-address accuracy validation before replacing another service.
+The self-hosted wire contract is [`proto/opengeocoding-v1.proto`](proto/opengeocoding-v1.proto). Found a bug? [Open an issue](https://github.com/Mokto/opengeocoding/issues), without personal addresses, credentials or private endpoints.
 
 ## License
 
-Project source: **[PolyForm Shield 1.0.0](https://polyformproject.org/licenses/shield/1.0.0)**. Any use is allowed, including commercial use, changes and redistribution, except providing a product that competes with the software or with a product the licensor provides using it; a free product can compete too. There is no later conversion to an open-source license. This is source-available, not OSI open source. Versions published before the switch were licensed under FSL-1.1-ALv2 and keep that license, including its Apache-2.0 grant two years after each publication. See `LICENSE`, `NOTICE` and `LICENSES/` for third-party software and reference-data terms.
+Project source is licensed under **[PolyForm Shield 1.0.0](LICENSE)**. It permits use, modification and redistribution, including commercial use, except providing a product that competes with this software or a product the licensor provides using it. A free product can compete too. Read the license before adopting or offering a service built on it.
 
-libpostal and rustpostal are MIT-licensed; deunicode is BSD-3-Clause. CLDR data is Unicode-3.0; GeoNames data is CC-BY-4.0. Model files are not bundled; their source-data licensing and attribution obligations are separate.
+This is **source-available, not OSI open source**, with no later conversion to an open-source license. Versions published before the switch retain FSL-1.1-ALv2, including its Apache-2.0 grant two years after each publication.
+
+Data, models and third-party software have separate terms. Overture's divisions and transportation data and OpenStreetMap carry ODbL obligations; other input licenses vary. Review the [index guide](docs/indexing.md), [NOTICE](NOTICE), [third-party notices](THIRD_PARTY_NOTICES.txt) and [license texts](LICENSES/) before distributing an index or deployment.
