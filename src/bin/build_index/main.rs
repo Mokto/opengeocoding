@@ -1,6 +1,7 @@
 //! Builds the address index from a local Overture release directory (division, division_area,
 //! segment, address and, when present, place parquet), plus optional OSM extracts, OpenAddresses
 //! exports and GeoNames postcodes, without Nominatim. Only house numbers are spilled to disk.
+mod custom_names;
 mod digest;
 mod fetch;
 mod geo;
@@ -393,6 +394,14 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<Str, u32>) {
                                 names.push(name);
                             }
                             extra.push((key, name));
+                        }
+                    }
+                    for &(code, language, name) in custom_names::REGION_ALIASES {
+                        if sub.value(i) == "region" && text(region, i) == Some(code) {
+                            if !names.contains(&name) {
+                                names.push(name);
+                            }
+                            extra.push((format!("alt_name:{language}"), name));
                         }
                     }
                     let mut parents = vec![];
