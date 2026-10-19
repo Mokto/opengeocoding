@@ -600,6 +600,14 @@ impl Core {
         if has_house(&found) {
             return Ok(found);
         }
+        // Some Australian sources hold "unit/number" houses; elsewhere the building's house
+        // answers a unit the index lacks.
+        if let Some(building) = without_australian_unit(query) {
+            let building = self.resolve_written(&building)?;
+            if has_house(&building) {
+                return Ok(building);
+            }
+        }
         // A Danish supplementary place the index files differently breaks the parse of the whole
         // address; the house, road and postcode still name it. The place is unverified unless
         // the answer names it.

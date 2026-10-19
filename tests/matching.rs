@@ -1343,6 +1343,48 @@ fn a_danish_supplementary_place_is_set_aside_only_between_house_and_postcode() {
 }
 
 #[test]
+fn an_australian_slashed_unit_is_set_aside_without_touching_other_countries() {
+    for (query, building) in [
+        (
+            "71/206 PHILLIP STREET, MOUNT PLEASANT QLD 4740, Australia",
+            "206 PHILLIP STREET, MOUNT PLEASANT QLD 4740, Australia",
+        ),
+        (
+            "54/554-560 Mowbray Road West, Lane Cove North NSW 2066",
+            "554-560 Mowbray Road West, Lane Cove North NSW 2066",
+        ),
+        (
+            "1501/1D Greenbank St, Hurstville, NSW, Australia",
+            "1D Greenbank St, Hurstville, NSW, Australia",
+        ),
+        (
+            "Harbour View, G01/5 Smith St, Fitzroy VIC 3065",
+            "Harbour View, 5 Smith St, Fitzroy VIC 3065",
+        ),
+    ] {
+        assert_eq!(
+            without_australian_unit(query).as_deref(),
+            Some(building),
+            "{query}"
+        );
+    }
+    for query in [
+        "206 Phillip Street, Mount Pleasant QLD 4740, Australia",
+        // Czech descriptive/orientation and Polish building/flat numbers
+        "Vinohradská 1511/230, 100 00 Praha, Czechia",
+        "ul. Marszałkowska 10/16, 00-590 Warszawa, Poland",
+        // no Australian state and postcode, nor Australia stated
+        "12/3 Main Street, Springfield",
+        // another country stated beside a state-like code
+        "5/12 Smith St, Fitzroy VIC 3065, New Zealand",
+        // the slash is not a unit before a street
+        "1/2 Smith St",
+    ] {
+        assert_eq!(without_australian_unit(query), None, "{query}");
+    }
+}
+
+#[test]
 fn a_suburb_is_its_own_town_only_when_no_road_narrows_it() {
     // Blairgowrie is a suburb the index files under Johannesburg
     let suburb = AddressDetails {

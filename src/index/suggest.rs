@@ -398,6 +398,45 @@ fn danish_floor(text: &str) -> bool {
     }
 }
 
+/// An Australian unit before its building's number: "1/44 Macleay St", "Unit 1 44 Macleay St"
+/// or "Unit 1, 44 Macleay St". The unit as typed, whether a slash joined it to the number, and
+/// the text without it.
+fn australian_unit(typed: &Typed) -> Option<(String, bool, Typed)> {
+    const KIND: &str = r"(?:unit|u|apt|apartment|flat|shop|suite|villa|townhouse|office|level|lvl|l|floor|fl|site)";
+    static SLASH: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"^([A-Za-z]?\d{1,5}[A-Za-z]?)/(\d.*\s.*)$").unwrap());
+    static NAMED: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(&format!(
+            r"(?i)^({KIND}\s*[a-z]?\d{{1,5}}[a-z]?)(?:\s+(\d.*\s.*))?$"
+        ))
+        .unwrap()
+    });
+    let head = typed.parts.first()?;
+    let mut parts = typed.parts.clone();
+    let (unit, slash) = if let Some(c) = SLASH.captures(head) {
+        parts[0] = c[2].to_string();
+        (c[1].to_string(), true)
+    } else {
+        let c = NAMED.captures(head)?;
+        match c.get(2) {
+            Some(rest) => parts[0] = rest.as_str().to_string(),
+            None if parts.len() > 1 => {
+                parts.remove(0);
+            }
+            None => return None,
+        }
+        (c[1].to_string(), false)
+    };
+    Some((
+        unit,
+        slash,
+        Typed {
+            parts,
+            open: typed.open,
+        },
+    ))
+}
+
 impl Index {
     /// Reads what the first person to type a short prefix would otherwise wait for: the places
     /// and terms of one and two letters, and the names of countries and regions. One thread, once,
@@ -520,6 +559,12 @@ impl Index {
         // a name a letter off only fills what the text as typed leaves
         if out.len() < limit && !coded {
             out.extend(places(Names::Typo).map(|(id, _)| self.place_suggestion(id)));
+        }
+        if !out.iter().any(|s| s.kind == "address") {
+            let found = self.suggest_australian(&typed, cc, focus, limit);
+            if !found.is_empty() {
+                out = found;
+            }
         }
         if out.is_empty() {
             out = self.suggest_number_comma(&typed, cc, focus, limit);
@@ -1408,6 +1453,67 @@ impl Index {
         .collect()
     }
 
+    /// Is the text Australian: Australia filtered for or named, or a part that is a state's
+    /// code or ends with one and a postcode ("Crace ACT 2911")?
+    fn australian(&self, typed: &Typed, cc: Option<&str>) -> bool {
+        if let Some(cc) = cc {
+            return cc.eq_ignore_ascii_case("au");
+        }
+        let state = |w: &str| {
+            self.regions
+                .contains_key(&format!("AU-{}", w.to_uppercase()))
+        };
+        typed.parts[1..].iter().any(|p| {
+            let words: Vec<&str> = p.split(' ').collect();
+            self.country(p).as_deref() == Some("au")
+                || matches!(words.as_slice(), [code] if state(code))
+                || matches!(words.as_slice(), [.., code, pc]
+                    if state(code) && pc.len() == 4 && pc.bytes().all(|b| b.is_ascii_digit()))
+        })
+    }
+
+    /// Houses of an Australian text that finds none as typed: with Australia's state codes and
+    /// postcodes understood when it is not stated, then with a unit before the building's number
+    /// set aside. The unit stays in the display name, unverified.
+    fn suggest_australian(
+        &self,
+        typed: &Typed,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        want: usize,
+    ) -> Vec<Suggestion> {
+        if !self.australian(typed, cc) {
+            return vec![];
+        }
+        let houses = |typed: &Typed| -> Vec<Suggestion> {
+            self.suggest_streets(typed, Some("au"), focus, want)
+                .into_iter()
+                .filter(|s| s.kind == "address" && s.country_code == "au")
+                .collect()
+        };
+        if cc.is_none() {
+            let found = houses(typed);
+            if !found.is_empty() {
+                return found;
+            }
+        }
+        let Some((unit, slash, building)) = australian_unit(typed) else {
+            return vec![];
+        };
+        houses(&building)
+            .into_iter()
+            .map(|mut s| {
+                s.display_name = if slash {
+                    format!("{unit}/{}", s.display_name)
+                } else {
+                    format!("{unit}, {}", s.display_name)
+                };
+                s.unverified_suffix = unit.clone();
+                s
+            })
+            .collect()
+    }
+
     fn suggest_floor(
         &self,
         typed: &Typed,
@@ -1457,12 +1563,11 @@ impl Index {
                     .filter(|p| p.chars().count() > 3)
                     .and_then(|p| {
                         let cc = self.country(p)?;
+                        // a region named so ("Georgia"), not one with the country's name as
+                        // a later word ("South Australia", "Capital Region of Denmark")
                         (!self.name_candidates(&fold(p), false, false).iter().any(
                             |&(id, fit, _)| {
-                                // "Capital Region of Denmark" only contains the country's name.
-                                // Not for France, whose overseas departments are addressed
-                                // "…, France" under other country codes.
-                                !(fit == INSIDE && cc.eq_ignore_ascii_case("dk"))
+                                fit != INSIDE
                                     && (self.places[id as usize].subtype.as_ref() == "region"
                                         || self.own_codes.contains_key(&id)
                                         || self.subdivision_codes.contains_key(&id))
@@ -1478,6 +1583,7 @@ impl Index {
         {
             return vec![];
         }
+        let stated = cc.is_some();
         let cc = cc.or(country.as_deref());
         let qualifiers = typed.parts[1..].join(", ");
         let extracted = qualifiers
@@ -1485,6 +1591,15 @@ impl Index {
             .any(|c| c.is_ascii_digit())
             .then(|| self.find_postcode(&qualifiers, cc))
             .flatten();
+        // a stated France also means the places of its overseas departments, which have codes of
+        // their own (their streets are France's)
+        let place_cc = cc.filter(|c| {
+            stated
+                || !self
+                    .country_codes
+                    .keys()
+                    .any(|t| super::sovereign(&t.to_lowercase()) == Some(c))
+        });
         let parts = extracted
             .as_ref()
             .map(|(_, rest)| Typed::new(rest).parts)
@@ -1586,11 +1701,11 @@ impl Index {
                 ));
                 found
             } else {
-                let mut ids = self.scope(&parts, typed.open, cc, focus, true);
+                let mut ids = self.scope(&parts, typed.open, place_cc, focus, true);
                 if ids.is_empty() && country.is_some() {
-                    ids = self.scope(&parts[..parts.len() - 1], false, cc, focus, true);
+                    ids = self.scope(&parts[..parts.len() - 1], false, place_cc, focus, true);
                 }
-                if ids.is_empty() {
+                let mut found = if ids.is_empty() {
                     vec![]
                 } else {
                     self.streets_typed(
@@ -1604,7 +1719,43 @@ impl Index {
                         None,
                         want,
                     )
+                };
+                // a suburb the houses' addresses name but their places do not ("2 Clara St,
+                // Randwick" is filed under Sydney), with nothing else after it but the country.
+                // A region code written after it ("Kingsford QLD") holds the houses to that region.
+                if number_word.is_some()
+                    && !found.iter().any(|s| s.kind == "address")
+                    && (parts.len() == 1 || (parts.len() == 2 && country.is_some()))
+                    && let Some(town) = parts
+                        .first()
+                        .filter(|p| country.is_none() || self.country(p) != country)
+                {
+                    let coded = town.rsplit_once(' ').and_then(|(name, code)| {
+                        let region = self
+                            .regions
+                            .get(&format!("{}-{code}", cc?).to_uppercase())?;
+                        Some((name, [*region]))
+                    });
+                    let (town, region) = match &coded {
+                        Some((name, region)) => (*name, Some(&region[..])),
+                        None => (town.as_str(), None),
+                    };
+                    let by_town = self.streets_typed(
+                        &road_words,
+                        false,
+                        region,
+                        number_word,
+                        false,
+                        cc,
+                        postcode,
+                        Some((town, typed.open && parts.len() == 1)),
+                        want,
+                    );
+                    if by_town.iter().any(|s| s.kind == "address") {
+                        found = by_town;
+                    }
                 }
+                found
             };
             if !found.is_empty() {
                 out = found;
@@ -1733,12 +1884,15 @@ impl Index {
         let Some((mut base, rarest)) = self.typed_words(self.f.names, road, road_open) else {
             return vec![];
         };
+        let mut in_town = None;
         if let Some((city, open)) = city {
-            let Some((clauses, _)) = self.typed_words(self.f.city, &words_open(city, open), open)
+            let Some((clauses, rarest)) =
+                self.typed_words(self.f.city, &words_open(city, open), open)
             else {
                 return vec![];
             };
             base.extend(clauses);
+            in_town = Some(rarest);
         }
         let in_scope = scope
             .map(|ids| {
@@ -1748,6 +1902,7 @@ impl Index {
             })
             .into_iter()
             .chain(postcode.map(|pc| self.docs_with(self.f.pcode, &pc_norm(pc))))
+            .chain(in_town)
             .min();
         let limit = if scope.is_some() {
             MAX_WORK_IN_TOWN

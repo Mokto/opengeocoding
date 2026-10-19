@@ -426,6 +426,90 @@ fn a_full_address_ending_in_a_country_a_region_name_contains_is_suggested() {
 }
 
 #[test]
+fn australian_houses_are_suggested_with_state_codes_suburbs_and_units() {
+    let at = |text: &str| index().suggest(text, 5, None, None, false);
+    let near = |s: &opengeocoding::index::Suggestion, street_name, number| {
+        metres((s.x, s.y), house(street(street_name), number)) < 5.0
+    };
+    for (typed, number, suffix, display) in [
+        ("206 Banksia Street, 4740, Australia", "206", "", "206, "),
+        (
+            "206 BANKSIA STREET, WATTLEFORD QLD 4740, Australia",
+            "206",
+            "",
+            "206, ",
+        ),
+        (
+            "206 Banksia Street, Wattleford QLD 4740",
+            "206",
+            "",
+            "206, ",
+        ),
+        (
+            "71/206 Banksia St, Wattleford QLD 4740",
+            "206",
+            "71",
+            "71/206, ",
+        ),
+        (
+            "UNIT 71 206 BANKSIA STREET, WATTLEFORD QLD 4740, Australia",
+            "206",
+            "UNIT 71",
+            "UNIT 71, 206, ",
+        ),
+        (
+            "Unit 71, 206 Banksia Street, Wattleford, QLD",
+            "206",
+            "Unit 71",
+            "Unit 71, 206, ",
+        ),
+        // a unit the source holds as its own house
+        (
+            "8/206 Banksia Street, Wattleford QLD 4740",
+            "8/206",
+            "",
+            "8/206, ",
+        ),
+        ("3 Waratah Avenue, Kingsford", "3", "", "3, "),
+        ("3 Waratah Avenue, Kingsford QLD 4740", "3", "", "3, "),
+    ] {
+        let found = at(typed);
+        assert!(!found.is_empty(), "{typed}");
+        let s = &found[0];
+        assert_eq!(
+            (s.kind, s.country_code.as_str()),
+            ("address", "au"),
+            "{typed}"
+        );
+        assert!(
+            near(
+                s,
+                if typed.contains("Waratah") {
+                    "Waratah Avenue"
+                } else {
+                    "Banksia Street"
+                },
+                number
+            ),
+            "{typed}"
+        );
+        assert_eq!(s.unverified_suffix, suffix, "{typed}");
+        assert!(
+            s.display_name.starts_with(display),
+            "{typed}: {}",
+            s.display_name
+        );
+    }
+    // a slashed number is a unit only in Australia
+    for typed in [
+        "71/206 Banksia Street, Wattleford",
+        "71/206 Banksia Street, Wattleford, United States",
+    ] {
+        assert!(at(typed).iter().all(|s| s.kind != "address"), "{typed}");
+    }
+}
+
+#[test]
 fn native_and_numeric_place_names_work_while_the_last_word_is_unfinished() {
     for (text, id) in [
         ("桜森市", "gb-beacon"),
@@ -1127,6 +1211,24 @@ fn cases() -> Vec<Case> {
         case(
             "Rakowice Małe 20BS, 76-231, Poland",
             at_house("Rakowice Małe", "20bs"),
+        ),
+        // an Australian unit written before its building's number still resolves the building
+        case(
+            "206 Banksia Street, Wattleford QLD 4740, Australia",
+            at_house("Banksia Street", "206"),
+        ),
+        case(
+            "71/206 Banksia Street, Wattleford QLD 4740, Australia",
+            at_house("Banksia Street", "206"),
+        ),
+        case(
+            "71/206 Banksia St, Wattleford QLD 4740",
+            at_house("Banksia Street", "206"),
+        ),
+        // a unit the source holds as its own house keeps its point
+        case(
+            "8/206 Banksia Street, Wattleford QLD 4740, Australia",
+            at_house("Banksia Street", "8/206"),
         ),
         case("Paris, Texas", town("us-tx-paris", true)),
         case("Paris, TX, USA", town("us-tx-paris", true)),
