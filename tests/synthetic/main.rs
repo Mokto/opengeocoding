@@ -1112,6 +1112,14 @@ fn cases() -> Vec<Case> {
         case("Świtały 12, 76-231, Poland", at_house("Świtały", "12")),
         case("Jaszcz 10, 76-231, Poland", at_house("Jaszcz", "10")),
         case(
+            "ul. M. Kopernika 11, 76-231 Damnica, Poland",
+            at_house("Mikołaja Kopernika", "11"),
+        ),
+        case(
+            "ul. Mikołaja Kopernika 11, 76-231 Damnica",
+            at_house("Mikołaja Kopernika", "11"),
+        ),
+        case(
             "Rakowice Małe 20BS, 76-231, Poland",
             at_house("Rakowice Małe", "20bs"),
         ),

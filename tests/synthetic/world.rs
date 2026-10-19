@@ -1896,6 +1896,18 @@ pub const STREETS: &[Street] = &[
         lat: 54.5,
         numbers: &["12"],
     },
+    // written "ul. M. Kopernika": with "ul." (ulica) and the given name's initial
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Mikołaja Kopernika",
+        postcode: "76-231",
+        city: "Damnica",
+        cc: "PL",
+        lon: 17.39,
+        lat: 54.5,
+        numbers: &["11"],
+    },
     // libpostal leaves "20BS" in the road
     Street {
         class: "residential",

@@ -79,6 +79,31 @@ fn taiwanese_number_roles_are_not_road_typos() {
 }
 
 #[test]
+fn polish_ulica_is_the_same_road_with_or_without_it() {
+    let details = AddressDetails {
+        country_code: "pl".into(),
+        road: "ulica Marszałkowska".into(),
+        house_number: "140".into(),
+        ..Default::default()
+    };
+    for (road, agrees) in [
+        ("marszałkowska", true),
+        ("ul. marszałkowska", true),
+        ("ulica marszałkowska", true),
+        ("puławska", false),
+    ] {
+        assert_eq!(
+            road_agrees(
+                &parsed(&[("road", road), ("house_number", "140")]),
+                Some(&details)
+            ),
+            agrees,
+            "{road}"
+        );
+    }
+}
+
+#[test]
 fn public_country_names_and_regions() {
     for (name, code) in [
         ("France", "fr"),

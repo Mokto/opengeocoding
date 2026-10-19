@@ -2509,20 +2509,19 @@ impl Index {
                 return found;
             }
         }
-        if hits.is_empty()
-            && number.is_some_and(|n| !n.trim().is_empty())
-            && let Some(cc) = cc
-        {
-            let alternatives = crate::matching::road_expansions(road, cc);
+        if hits.is_empty() && number.is_some_and(|n| !n.trim().is_empty()) {
+            let mut alternatives = cc
+                .map(|cc| crate::matching::road_expansions(road, cc))
+                .unwrap_or_default();
+            alternatives.extend(crate::matching::bare_road(road, cc));
             if !alternatives.is_empty()
-                && (!named.is_empty()
-                    || postcode.is_some_and(|p| self.postcode_exists(p, Some(cc))))
+                && (!named.is_empty() || postcode.is_some_and(|p| self.postcode_exists(p, cc)))
             {
                 let mut found = vec![];
                 let mut ids = std::collections::BTreeSet::new();
                 for name in alternatives {
                     let next: Vec<_> = self
-                        .streets_by(&name, number, city, &named, postcode, Some(cc), false)
+                        .streets_by(&name, number, city, &named, postcode, cc, false)
                         .into_iter()
                         .filter(|h| {
                             matches!(h, Hit::Street { number: Some(_), postcode: own, .. }

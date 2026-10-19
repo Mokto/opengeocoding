@@ -669,6 +669,33 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
         .collect()
 }
 
+/// A Polish road as the index may name it: without "ul." (ulica), which most sources leave
+/// out, and without its given names' initials ("ul. M. Kopernika" is Mikołaja Kopernika's
+/// street). Without a stated country, only a road written with "ul." is taken to be Polish.
+pub(crate) fn bare_road(road: &str, cc: Option<&str>) -> Option<String> {
+    let initial = |w: &str| {
+        w.strip_suffix('.')
+            .is_some_and(|l| l.chars().count() == 1 && l.chars().all(char::is_alphabetic))
+    };
+    let mut words: Vec<&str> = road.split_whitespace().collect();
+    let ulica = words
+        .first()
+        .is_some_and(|w| matches!(w.to_lowercase().as_str(), "ul." | "ul" | "ulica"));
+    if !cc.map_or(ulica, |c| c.eq_ignore_ascii_case("pl")) {
+        return None;
+    }
+    let before = words.len();
+    if ulica {
+        words.remove(0);
+    }
+    words.retain(|w| !initial(w));
+    (words.len() < before
+        && words
+            .iter()
+            .any(|w| w.chars().filter(|c| c.is_alphabetic()).count() >= 3))
+    .then(|| words.join(" "))
+}
+
 /// One road, or one with a single word misspelt as the index corrects it: "West 54th Srteet" is
 /// the candidate's "West 54th Street" when the index found it by that correction.
 pub(crate) fn roads_agree(typed: &str, found: &str) -> bool {
@@ -691,11 +718,13 @@ pub(crate) fn roads_agree(typed: &str, found: &str) -> bool {
 /// A road name with its type and direction words canonicalized ("S 5th Street" and "South 5th
 /// Street" are one road).
 fn road_key(road: &str) -> String {
-    normalize_place(road)
-        .split(' ')
-        .map(|w| canon(w).unwrap_or(w))
-        .collect::<Vec<_>>()
-        .join(" ")
+    let road = normalize_place(road);
+    let mut words: Vec<&str> = road.split(' ').map(|w| canon(w).unwrap_or(w)).collect();
+    // Polish "ulica" ("ul."): some sources name a street with it, most without
+    if words.len() > 1 && words[0] == "ul" {
+        words.remove(0);
+    }
+    words.join(" ")
 }
 
 /// The stated house, road and postcode all equal the candidate's. A town the input names
