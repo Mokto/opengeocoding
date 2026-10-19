@@ -182,6 +182,7 @@ impl Index {
                 None
             };
             hits.push(Hit::Street {
+                doc: a,
                 sid,
                 place: self.fast(a, "place") as u32,
                 name,

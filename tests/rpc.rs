@@ -496,6 +496,34 @@ async fn checks(env: &mut Env) -> Result<()> {
                 .is_some_and(|lat| (lat - 55.68).abs() < 0.2),
         "{suggested}"
     );
+    for suggestion in suggested["suggestions"].as_array().unwrap().iter().cloned() {
+        let retrieved = env
+            .json("RetrieveSuggestion", json!({"id": suggestion["id"]}))
+            .await?;
+        ensure!(retrieved == suggestion, "{suggestion} {retrieved}");
+        let request = opengeocoding::proto::opengeocoding::RetrieveSuggestionRequest {
+            id: suggestion["id"].as_str().unwrap().into(),
+            ..Default::default()
+        };
+        let (status, body) = env
+            .rpc("RetrieveSuggestion", request.encode_to_vec(), true)
+            .await?;
+        ensure!(status.is_success(), "RetrieveSuggestion returned {status}");
+        let retrieved = opengeocoding::proto::opengeocoding::Suggestion::decode_from_slice(&body)?;
+        ensure!(retrieved.id == request.id, "{retrieved:?}");
+    }
+    let (status, _) = env
+        .rpc(
+            "RetrieveSuggestion",
+            br#"{"id":"stale/p1"}"#.to_vec(),
+            false,
+        )
+        .await?;
+    ensure!(
+        status == StatusCode::NOT_FOUND,
+        "stale ID returned {status}"
+    );
+    println!("PASS: exact suggestion retrieval over Connect JSON and protobuf");
     let floor_text = "Rådhuspladsen 1, 4. th., København";
     let building = env
         .json(
@@ -580,6 +608,8 @@ async fn checks(env: &mut Env) -> Result<()> {
 
     for (method, payload) in [
         ("SearchAddress", json!({"addressString": "bad\u{0}address"})),
+        ("RetrieveSuggestion", json!({"id": ""})),
+        ("RetrieveSuggestion", json!({"id": "x".repeat(257)})),
         ("ResolveRegion", json!({"lat": 100, "lon": 0})),
         ("ReverseGeocode", json!({"lat": 0, "lon": 181})),
         ("SuggestAddress", json!({"text": "bad\u{0}text"})),

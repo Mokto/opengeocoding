@@ -429,6 +429,7 @@ impl tantivy::collector::SegmentCollector for SegmentTop {
 
 pub struct Index {
     searcher: Searcher,
+    suggestion_scope: String,
     /// Fast-field readers per segment, opened once: opening one parses its block index.
     columns: Vec<Columns>,
     /// Uppercase `country` terms -> their number in `Columns::countries`.
@@ -477,6 +478,7 @@ pub struct Index {
 pub enum Hit {
     Place(u32),
     Street {
+        doc: DocAddress,
         sid: u32,
         place: u32,
         name: String,
@@ -1788,8 +1790,15 @@ impl Index {
             .iter()
             .map(|r| Columns::open(r, f.country, &mut country_codes))
             .collect::<Result<_>>()?;
+        let suggestion_scope =
+            ring::digest::digest(&ring::digest::SHA256, &fs::read(dir.join("meta.json"))?)
+                .as_ref()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect();
         Ok(Index {
             searcher,
+            suggestion_scope,
             columns,
             country_codes,
             f,
@@ -2768,6 +2777,7 @@ impl Index {
                     })
                     .map(title);
                 Hit::Street {
+                    doc: a,
                     sid: self.fast(a, "id") as u32,
                     place,
                     name,
@@ -3728,6 +3738,7 @@ impl Index {
                 city,
                 postal_town,
                 cc,
+                ..
             } => {
                 if let Some(town) = postal_town {
                     a.insert("postal_town".into(), town.clone().into());
@@ -4025,6 +4036,7 @@ impl Index {
                     })
                     .flatten();
                 let hit = Hit::Street {
+                    doc: a,
                     sid: self.fast(a, "id") as u32,
                     place: self.fast(a, "place") as u32,
                     name: stored(&doc, self.f.name),
@@ -4141,6 +4153,7 @@ impl Index {
                     .flatten();
                 let (place, city) = self.street_place(self.fast(a, "place") as u32, lat, lon);
                 let hit = Hit::Street {
+                    doc: a,
                     sid,
                     place,
                     name: stored(&doc, self.f.name),
@@ -4898,6 +4911,7 @@ mod tests {
         std::fs::write(dir.join("places.tsv"), tsv).unwrap();
         let index = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
         let mut house = Hit::Street {
+            doc: DocAddress::new(0, 0),
             sid: 0,
             place: 2,
             name: "Test Road".into(),

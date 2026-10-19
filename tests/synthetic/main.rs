@@ -419,6 +419,44 @@ fn postal_towns_need_not_be_geographic_places_and_region_names_need_not_be_count
 }
 
 #[test]
+fn retrieves_exact_suggestions_without_a_search_or_session() {
+    let index = index();
+    let mut kinds = std::collections::BTreeSet::new();
+    for query in [
+        "Paris",
+        "Rue de Rivoli",
+        "2 Rue de Rivoli, Paris",
+        "75001",
+        "Paris Museum",
+    ] {
+        let suggestions = index.suggest(query, 15, None, None, true);
+        assert!(!suggestions.is_empty(), "{query}");
+        for suggestion in suggestions {
+            let found = index.retrieve_suggestion(&suggestion.retrieval_id).unwrap();
+            assert_eq!(found.id, suggestion.id);
+            assert_eq!(found.display_name, suggestion.display_name);
+            assert_eq!(
+                (found.x, found.y, found.bbox),
+                (suggestion.x, suggestion.y, suggestion.bbox)
+            );
+            assert_eq!(found.retrieval_id, suggestion.retrieval_id);
+            kinds.insert(found.kind);
+            let stale = format!(
+                "stale/{}",
+                suggestion.retrieval_id.split_once('/').unwrap().1
+            );
+            assert!(index.retrieve_suggestion(&stale).is_none());
+        }
+    }
+    for kind in ["city", "street", "address", "postcode", "landmark"] {
+        assert!(kinds.contains(kind), "missing {kind}: {kinds:?}");
+    }
+    for id in ["", "p1", "stale/p1", "💥"] {
+        assert!(index.retrieve_suggestion(id).is_none());
+    }
+}
+
+#[test]
 fn landmark_flag_does_not_contaminate_default_suggestions() {
     let signature = |text, landmarks| {
         index()
@@ -754,6 +792,7 @@ fn a_county_cannot_override_the_containing_region_of_a_house() {
         .unwrap()
         .1;
     let hit = |number| opengeocoding::index::Hit::Street {
+        doc: tantivy::DocAddress::new(0, 0),
         sid: 0,
         place: parent,
         name: "Border Road".into(),
