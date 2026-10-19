@@ -1,6 +1,6 @@
 # South Korea, school-sampled
 
-[Evaluation guide](../evaluation.md) · [Source notice](../../tests/registry/kr.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/kr.NOTICE)
 
 **South Korea, school-sampled** (`kr.seeds.jsonl`, `kr.jsonl`): 207 schools and 414 paired road-name/land-lot queries, drawn directly from the official [national school-location dataset](https://www.data.go.kr/data/15021148/standard.do), provided by 한국교육시설안전원 through data.go.kr. This is a targeted sample from a public school directory, including privately operated schools, **not a sample of the national address register or an estimate of residential-address accuracy**. The national [entrance-coordinate register](https://www.data.go.kr/data/15050410/fileData.do) requires an application, identity verification and approval; this corpus does not use it or a commercial geocoder.
 
@@ -11,7 +11,7 @@ Every location types both published address strings, followed by `, South Korea`
 The portal's own [DCAT rights metadata](https://www.data.go.kr/biz/dcat/metadata/15021148.do) states `이용허락범위 제한 없음` (no restrictions on reuse), under its [public-data policy](https://www.data.go.kr/ugs/selectPortalPolicyView.do). The corpus records this as `Korea-Public-Data-Unrestricted`, not as a CC0 waiver or an assumed CC licence. The exporter verifies that exact rights statement, uses the same public endpoints as the portal's download button, saves the raw rights metadata, column metadata and pages with checksums, and refuses to overwrite them. A change in the published terms requires review. It needs Python's standard library only and is an offline curation tool, never a runtime download:
 
 ```sh
-python3 -u docs/export-korean-schools.py --out ../korea-data/korean-schools-2026-10-17.json
+python3 -u tests/registry/export-korean-schools.py --out ../korea-data/korean-schools-2026-10-17.json
 target/release/evaluate sample-kr --schools ../korea-data/korean-schools-2026-10-17.json --seed kr-2026-10 --out tests/registry/kr.seeds.jsonl
 target/release/evaluate build-gold --seeds tests/registry/kr.seeds.jsonl --out tests/registry/kr.jsonl --schools ../korea-data/korean-schools-2026-10-17.json
 target/release/evaluate run --corpus tests/registry/kr.jsonl --index out --out eval-results/kr

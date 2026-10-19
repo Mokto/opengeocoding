@@ -1,5 +1,7 @@
 # Geographic evaluation
 
+[Documentation](../README.md) · [Provider comparisons](providers.md) · [Coverage](coverage.md) · [Registry sources](registry/)
+
 Run commands from the repository root, including those in the per-country guides.
 
 The [postcode/state/governorate adjudication](adjudications/168.md) records the evidence, unresolved references and re-scoring for Dairy Lane, the Ikorodu Road campus conflict and Isa Town. Adjudicated place seeds may set `region_qid` to source their administrative chain separately from the place's identity/point; `review` preserves the decision and citations in generated cases.
@@ -60,7 +62,7 @@ Known limits: Atlanta carries the Slovak name "Athens" in the index and outranks
 
 The gold seeds above were picked from Overture, the index's own data, and then checked against a registry, so a registry address the index lacks was never sampled and recall cannot be measured. `tests/registry/` holds samples drawn from the registry first. `evaluate check` and `cargo test` validate each `tests/registry/*.jsonl`; `run --corpus tests/registry/us.jsonl` scores one. They are part of the gold suite: `run --suite gold`, `diff` and `report` read `tests/gold.jsonl`, `tests/registry/*.jsonl`, `tests/gold.landmarks.jsonl` and `tests/gold.suggest.jsonl` unless `--corpus` names a file, `evaluate gold-corpus --out FILE` writes the suite as one file (the eval image carries it as `/app/tests/gold.jsonl`, so the CI run scores both), and the run manifest hashes the files in that order. `diff` compares only case ids both sides have, so the pull request that adds a corpus is not gated on it. Candidate-only cases appear in an **Added cases** table with passed/checked counts and success rates by cohort and RPC; unscored searches are excluded, and SuggestAddress counts each applicable check. Those rates describe the new cases, not a base-to-head improvement or independent-location accuracy. No case is `must_pass`; the known failures are labelled.
 
-Per-country sampling, preparation commands, provenance, limitations and baseline results live in [docs/registry/](registry/). Add a country there without editing this guide.
+Per-country sampling, preparation commands, provenance, limitations and baseline results live in [docs/evaluation/registry/](registry/). Add a country there without editing this guide.
 
 ### Runtime fixes exposed by the registries
 

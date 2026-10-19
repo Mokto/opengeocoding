@@ -1,6 +1,6 @@
 # Deployment guide
 
-[Overview](../README.md) · [API](api.md) · [Index building](indexing.md)
+[Documentation](../README.md) · [API](api.md) · [Index building](indexing.md)
 
 Run commands from the repository root. Serving requires both libpostal models and a compatible built index; neither is bundled in the image. For an automated source/model fetch and build, use the Helm chart or its `build_index job` command below. World builds need substantial memory, disk and initial downloads; regional builds are smaller.
 
@@ -70,7 +70,7 @@ helm install geocoding oci://ghcr.io/mokto/charts/opengeocoding \
   --set store.credentialsSecret=opengeocoding-s3
 ```
 
-`store.endpoint` is only for stores other than AWS S3; any other `AWS_*` setting, such as a web identity role, goes in `store.extraEnv`. See [`manifests/values.yaml`](../manifests/values.yaml) for every setting.
+`store.endpoint` is only for stores other than AWS S3; any other `AWS_*` setting, such as a web identity role, goes in `store.extraEnv`. See [`manifests/values.yaml`](../../manifests/values.yaml) for every setting.
 
 - **Leader.** The chart installs no build Job and no serving Deployment of its own. A small Deployment (`leader`, two replicas, one holding a Lease) runs the same loop every 30 seconds with no state beyond the cluster and the bucket: if the bucket has no sealed `indexes/<id>/_COMPLETE` for the index the chart names, it makes sure one build Job exists, replacing a failed Job after `build.retryDelaySeconds` (the Job itself never retries its pod); once the index is sealed, it deletes the build Jobs and server-side applies the serving Deployment, whose rolling update is the rollout. Helm only renders both workloads into a ConfigMap (`<name>-workloads`). No serving pod exists, or waits in an init container, before the first index does. That ConfigMap owns the Deployment and the Jobs the leader creates (owner references), so removing the release removes them, and a GitOps tool shows them under it (Argo CD neither tracks nor prunes them). The leader moves a build Job an earlier chart's leader created (owned by the leader's Deployment, or tracked by Argo CD) under the ConfigMap the same way. `build.enabled: false` keeps the leader from building: it then serves an index only once something else has published it.
 - **Build Job.** `build_index job` exits at once if the bucket already holds the index the chart names. Otherwise it fetches the sources and libpostal's models, builds, opens the result as the service would and checks a sample of its places, then publishes it. Each source is copied into the bucket as it arrives, so a later build or a retried pod reads the bucket instead of upstream. A world build needs about 16 CPUs, 32 GiB of memory and 250 GiB of scratch (`build.*`), and about 200 GB of downloads the first time, including the places theme and 49 GB of landmark-only OSM extracts (`osmLandmarks`). Scratch is deleted with the pod unless `build.scratch.existingClaim` names a volume you keep: a later build then copies from the bucket only the files that do not already match it.

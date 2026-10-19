@@ -46,7 +46,7 @@ Autocomplete can also include selected landmark categories: airports, stations, 
 
 **Search benchmark CPU:** Intel Core i5-13500 (14 cores/20 threads) on a shared node. The pod requested **1 CPU with no CPU limit** and used an observed **4.1–5.0 CPU cores averaged over each benchmark invocation**; this is not a one-CPU throughput claim.
 
-All **60,000 measured requests completed without errors**. The client ran on another node and called one pod directly over Connect JSON/HTTP keep-alive, bypassing ingress and the public API edge. The workload repeated 1,000 address samples with the parse cache enabled and warmed. The third run was slower; the table includes all three runs, not only the fastest. These short runs are not a sustained-capacity or hosted API guarantee. Build downloads and model provisioning are additional. See the [results and methodology](docs/development.md#performance-methodology-and-nominatim-comparison) and [aggregate measurement record](docs/benchmarks/2026-10-19-search.json).
+All **60,000 measured requests completed without errors**. The client ran on another node and called one pod directly over Connect JSON/HTTP keep-alive, bypassing ingress and the public API edge. The workload repeated 1,000 address samples with the parse cache enabled and warmed. The third run was slower; the table includes all three runs, not only the fastest. These short runs are not a sustained-capacity or hosted API guarantee. Build downloads and model provisioning are additional. See the [results and methodology](docs/performance/README.md#performance-methodology-and-nominatim-comparison) and [aggregate measurement record](docs/performance/benchmarks/2026-10-19-search.json).
 
 ### Compared with Nominatim
 
@@ -79,7 +79,7 @@ You need **both libpostal models and a compatible built index**. Neither is incl
 
 ### Run with Docker
 
-Follow the [Docker setup guide](docs/deployment.md#run-with-docker) to obtain the image, provision models and build an index. With models at `models/libpostal/` and that image's index at `out/`, start the service:
+Follow the [Docker setup guide](docs/guides/deployment.md#run-with-docker) to obtain the image, provision models and build an index. With models at `models/libpostal/` and that image's index at `out/`, start the service:
 
 ```sh
 docker run --rm \
@@ -105,7 +105,7 @@ Use a query inside your index's coverage if you built a regional index. Readines
 
 ### Deploy on Kubernetes
 
-The [Helm deployment guide](docs/deployment.md#deploy-on-kubernetes) covers building and publishing indexes into an existing S3-compatible bucket, verified downloads into serving pods, and rolling upgrades. Each serving pod runs one geocoder instance with its own read-only index. Regional builds are supported.
+The [Helm deployment guide](docs/guides/deployment.md#deploy-on-kubernetes) covers building and publishing indexes into an existing S3-compatible bucket, verified downloads into serving pods, and rolling upgrades. Each serving pod runs one geocoder instance with its own read-only index. Regional builds are supported.
 
 The [chart defaults](manifests/values.yaml) request **1 CPU and 6 GiB RAM per serving pod**, with a **16 GiB memory limit and no CPU limit**. A CPU request is not a cap: the benchmark pod had these settings but consumed more than one CPU. The measured throughput is not a one-CPU guarantee. A world build requires substantial memory, scratch disk and initial downloads; review the guide before provisioning.
 
@@ -115,23 +115,26 @@ Coverage depends on the source data and the index you build. Worldwide place cov
 
 The repository includes authoritative-source evaluation corpora, held-out cases, regression gates and tools for comparing saved runs. These are diagnostic checks, not a production accuracy percentage. Some evaluation registries also supply index data, so agreement is not independent accuracy evidence.
 
-- [Evaluation methodology and regression gates](docs/evaluation.md)
-- [Country-specific sources and limitations](docs/registry/)
-- [House-number coverage measurements](docs/indexing.md#house-number-coverage)
+- [Evaluation methodology and regression gates](docs/evaluation/README.md)
+- [Country-specific sources and limitations](docs/evaluation/registry/)
+- [House-number coverage measurements](docs/evaluation/coverage.md#house-number-coverage)
 - [Provider comparison scorecard](SCORECARD.md) — provisional results with methodology and limitations
 
-Connect JSON and Connect Protobuf are the primary interfaces. **Direct gRPC interoperability is not signed off:** the documented `grpcurl` search timeout remains a [known issue](docs/api.md#known-interoperability-issue). Autocomplete IDs are valid only for the same index snapshot. See the [API guide](docs/api.md) for matching semantics and operation-specific limits.
+Connect JSON and Connect Protobuf are the primary interfaces. **Direct gRPC interoperability is not signed off:** the documented `grpcurl` search timeout remains a [known issue](docs/guides/api.md#known-interoperability-issue). Autocomplete IDs are valid only for the same index snapshot. See the [API guide](docs/guides/api.md) for matching semantics and operation-specific limits.
 
 ## Documentation
 
-| Guide | Contents |
+Start with the [documentation index](docs/README.md) for guides, evaluation workflows, performance evidence and implementation notes.
+
+| Area | Contents |
 | --- | --- |
-| [API](docs/api.md) | Wire contract, request examples, autocomplete, landmarks, reverse geocoding and compatibility |
-| [Deployment](docs/deployment.md) | Docker, Helm, model/index provisioning, configuration and diagnostics |
-| [Index building](docs/indexing.md) | Data inputs, licensing, coverage and historical build/performance measurements |
-| [Development](docs/development.md) | Build requirements, tests, performance methodology, Nominatim context, benchmarks and publishing |
-| [Evaluation](docs/evaluation.md) | Corpora, scoring, held-out cases and regression gates |
-| [Provider evaluation](docs/providers.md) | Offline comparisons, request budgets and provider storage restrictions |
+| [API](docs/guides/api.md) | Wire contract, request examples, autocomplete, landmarks, reverse geocoding and compatibility |
+| [Deployment](docs/guides/deployment.md) | Docker, Helm, model/index provisioning, configuration and diagnostics |
+| [Index building](docs/guides/indexing.md) | Data inputs, licensing, index construction and limitations |
+| [Development](docs/guides/development.md) | Build requirements, tests, reference data and publishing |
+| [Performance](docs/performance/README.md) | Measurement scope, resource observations, benchmarks and Nominatim context |
+| [Evaluation](docs/evaluation/README.md) | Corpora, scoring, held-out cases and regression gates |
+| [Provider evaluation](docs/evaluation/providers.md) | Offline comparisons, request budgets and provider storage restrictions |
 
 The self-hosted wire contract is [`proto/opengeocoding-v1.proto`](proto/opengeocoding-v1.proto). Found a bug? [Open an issue](https://github.com/Mokto/opengeocoding/issues), without personal addresses, credentials or private endpoints.
 
@@ -141,4 +144,4 @@ Project source is licensed under **[PolyForm Shield 1.0.0](LICENSE)**. It permit
 
 This is **source-available, not OSI open source**, with no later conversion to an open-source license. Versions published before the switch retain FSL-1.1-ALv2, including its Apache-2.0 grant two years after each publication.
 
-Data, models and third-party software have separate terms. Overture's divisions and transportation data and OpenStreetMap carry ODbL obligations; other input licenses vary. Review the [index guide](docs/indexing.md), [NOTICE](NOTICE), [third-party notices](THIRD_PARTY_NOTICES.txt) and [license texts](LICENSES/) before distributing an index or deployment.
+Data, models and third-party software have separate terms. Overture's divisions and transportation data and OpenStreetMap carry ODbL obligations; other input licenses vary. Review the [index guide](docs/guides/indexing.md), [NOTICE](NOTICE), [third-party notices](THIRD_PARTY_NOTICES.txt) and [license texts](LICENSES/) before distributing an index or deployment.
