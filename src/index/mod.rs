@@ -1839,7 +1839,8 @@ impl Index {
 
     pub(crate) fn parse_address(&self, q: &str, corroboration: bool) -> Result<Option<Parsed>> {
         let mut parsed = self.parser.parse(q)?;
-        if let Some((units, road, number)) = chinese(q)
+        if q.contains('號')
+            && let Some((units, road, number)) = chinese(q)
             && let [state, city] = units.as_slice()
             && state.ends_with('市')
             && city.ends_with('區')
@@ -2143,9 +2144,10 @@ impl Index {
 
     fn country(&self, text: &str) -> Option<String> {
         // The analyzer drops tokens of 40+ bytes; losing an address must not leave a bare country.
-        if text
-            .split(|c: char| !c.is_alphanumeric())
-            .any(|word| word.len() >= 40)
+        if text.len() >= 40
+            && text
+                .split(|c: char| !c.is_alphanumeric())
+                .any(|word| word.len() >= 40)
         {
             return None;
         }
@@ -2608,8 +2610,7 @@ impl Index {
     ) -> Vec<Hit> {
         let base = || self.musts(self.f.names, road);
         let long = long_words(road);
-        let exact = road
-            .contains(['路', '街', '道', '段', '巷', '弄'])
+        let exact = (!road.is_ascii() && road.contains(['路', '街', '道', '段', '巷', '弄']))
             .then(|| fold(road));
         if self.musts(self.f.names, road).is_empty() {
             return vec![];

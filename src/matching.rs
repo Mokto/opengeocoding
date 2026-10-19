@@ -672,8 +672,9 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
 /// One road, or one with a single word misspelt as the index corrects it: "West 54th Srteet" is
 /// the candidate's "West 54th Street" when the index found it by that correction.
 pub(crate) fn roads_agree(typed: &str, found: &str) -> bool {
-    if typed.contains(['路', '街', '道', '段', '巷', '弄'])
-        || found.contains(['路', '街', '道', '段', '巷', '弄'])
+    if (!typed.is_ascii() || !found.is_ascii())
+        && (typed.contains(['路', '街', '道', '段', '巷', '弄'])
+            || found.contains(['路', '街', '道', '段', '巷', '弄']))
     {
         let typed = fold(typed);
         return !typed.is_empty() && typed == fold(found);
