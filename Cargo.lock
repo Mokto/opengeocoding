@@ -2356,7 +2356,7 @@ checksum = "269bca4c2591a28585d6bf10d9ed0332b7d76900a1b02bec41bdc3a2cdcda107"
 
 [[package]]
 name = "opengeocoding"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "anyhow",
  "arrow-array",
