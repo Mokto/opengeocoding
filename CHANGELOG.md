@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.0](https://github.com/Mokto/opengeocoding/compare/v0.14.0...v0.15.0) (2026-10-19)
+
+
+### Features
+
+* add Australian, Danish and Spanish registry gold corpora ([#202](https://github.com/Mokto/opengeocoding/issues/202)) ([7f3e72b](https://github.com/Mokto/opengeocoding/commit/7f3e72b555d6bd1b8866ab5e155a85443eb197eb))
+* add Belgian, New Zealand, Taipei and Bogota registry gold corpora ([#190](https://github.com/Mokto/opengeocoding/issues/190)) ([96dc059](https://github.com/Mokto/opengeocoding/commit/96dc059dd631c4a5d93552d0bd88e29485389caa))
+
+
+### Bug Fixes
+
+* native Taipei addresses abstaining or returning Taiwan's centroid ([#201](https://github.com/Mokto/opengeocoding/issues/201)) ([8055894](https://github.com/Mokto/opengeocoding/commit/8055894616655fdbff0149de6c97dbcad7792877))
+* repair New Zealand suburb and town comma addresses ([#200](https://github.com/Mokto/opengeocoding/issues/200)) ([5e96fbe](https://github.com/Mokto/opengeocoding/commit/5e96fbe74c60bd5bb2d290559047a6b8635502fa))
+
 ## [0.14.0](https://github.com/Mokto/opengeocoding/compare/v0.13.0...v0.14.0) (2026-10-19)
 
 
