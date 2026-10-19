@@ -1246,6 +1246,54 @@ async fn resolve_follows_the_authored_facts() {
         let point = got.geo_coordinates.as_option().unwrap();
         assert!(metres((point.lon as f64, point.lat as f64), (125.0, 20.0)) < 5.);
     }
+    for suburb in ["Kōwhai Bay", "Kowhai Bay"] {
+        for number in ["5a", "10-12", "2/19"] {
+            let query = format!("{number} Orchard Road, {suburb}, Harbourton, New Zealand");
+            let parsed = resolver.parse(&query).await.unwrap();
+            assert_eq!(parsed["road"], "orchard road", "{query}: {parsed:?}");
+            assert_eq!(parsed["city"], "harbourton", "{query}: {parsed:?}");
+            assert_eq!(
+                parsed["suburb"],
+                suburb.to_lowercase(),
+                "{query}: {parsed:?}"
+            );
+            let found = resolver.resolve(&query).await.unwrap();
+            assert!(found.good_match, "{query}: {found:?}");
+            let details = found.address_details.as_option().unwrap();
+            assert_eq!(details.country_code, "nz", "{query}: {found:?}");
+            assert_eq!(details.town, "Harbourton", "{query}: {found:?}");
+            assert_eq!(details.house_number, number, "{query}: {found:?}");
+            let point = found.geo_coordinates.as_option().unwrap();
+            assert!(
+                metres(
+                    (point.lon as f64, point.lat as f64),
+                    house(street("Orchard Road"), number)
+                ) < 5.,
+                "{query}: {found:?}"
+            );
+        }
+    }
+    let found = resolver
+        .resolve("5a Orchard Road, Fern Bay, Harbourton, New Zealand")
+        .await
+        .unwrap();
+    assert!(found.good_match, "{found:?}");
+    let point = found.geo_coordinates.as_option().unwrap();
+    assert!(
+        metres((point.lon as f64, point.lat as f64), (170.15, -40.0)) < 5.,
+        "{found:?}"
+    );
+    for query in [
+        "99 Orchard Road, Kōwhai Bay, Harbourton, New Zealand",
+        "3/19 Orchard Road, Kōwhai Bay, Harbourton, New Zealand",
+        "5a Orchard Road, Missing Bay, Harbourton, New Zealand",
+        "5a Orchard Road, Kōwhai Bay, Eastport, New Zealand",
+        "5a Orchard Road, Kōwhai Bay, Harbourton, Australia",
+        "5a Orchard Road, Kōwhai Bay, Harbourton, NZ-AUK, New Zealand",
+    ] {
+        let found = resolver.resolve(query).await.unwrap();
+        assert!(!found.good_match, "{query}: {found:?}");
+    }
     for (number, precise) in [
         ("702", true),
         ("703", true),

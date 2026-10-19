@@ -54,6 +54,54 @@ pub const WIKIDATA: &[(&str, &str)] = &[
 
 pub const PLACES: &[Place] = &[
     place!(
+        "nz",
+        "country",
+        "",
+        "NZ",
+        "",
+        5_000_000,
+        (170.0, -40.0),
+        "",
+        "New Zealand",
+        &[("en", "New Zealand")]
+    ),
+    place!(
+        "nz-region",
+        "region",
+        "",
+        "NZ",
+        "NZ-WGN",
+        100_000,
+        (170.0, -40.0),
+        "nz",
+        "Testland",
+        &[("en", "Testland")]
+    ),
+    place!(
+        "nz-harbourton",
+        "locality",
+        "town",
+        "NZ",
+        "NZ-WGN",
+        20_000,
+        (170.0, -40.0),
+        "nz-region",
+        "Harbourton",
+        &[("en", "Harbourton")]
+    ),
+    place!(
+        "nz-eastport",
+        "locality",
+        "town",
+        "NZ",
+        "NZ-WGN",
+        10_000,
+        (171.0, -40.0),
+        "nz-region",
+        "Eastport",
+        &[("en", "Eastport")]
+    ),
+    place!(
         "za",
         "country",
         "",
@@ -1147,6 +1195,28 @@ pub const STREETS: &[Street] = &[
         lon: 123.02,
         lat: 25.0,
         numbers: &["131", "999"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Orchard Road",
+        postcode: "",
+        city: "Kōwhai Bay",
+        cc: "NZ",
+        lon: 170.001,
+        lat: -40.0,
+        numbers: &["5a", "10-12", "2/19", "19", "1"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Orchard Road",
+        postcode: "",
+        city: "Fern Bay",
+        cc: "NZ",
+        lon: 170.15,
+        lat: -40.0,
+        numbers: &["5a"],
     },
     Street {
         class: "residential",
