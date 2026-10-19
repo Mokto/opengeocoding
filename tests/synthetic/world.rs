@@ -979,6 +979,42 @@ pub const PLACES: &[Place] = &[
         &[("en", "Posthaven")]
     ),
     place!(
+        "tw",
+        "country",
+        "",
+        "TW",
+        "",
+        20_000_000,
+        (125.0, 20.0),
+        "",
+        "臺灣",
+        &[("en", "Taiwan")]
+    ),
+    place!(
+        "tw-qingshan",
+        "region",
+        "",
+        "TW",
+        "TW-TPE",
+        1_000_000,
+        (123.0, 25.0),
+        "tw",
+        "青山市",
+        &[("en", "Qingshan")]
+    ),
+    place!(
+        "tw-guanghua",
+        "locality",
+        "city",
+        "TW",
+        "TW-TPE",
+        50_000,
+        (123.0, 25.0),
+        "tw-qingshan",
+        "光華區",
+        &[("en", "Guanghua District")]
+    ),
+    place!(
         "kr",
         "country",
         "",
@@ -1127,6 +1163,39 @@ const RECOVERY_STREET: Street = Street {
 };
 
 pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "明光路3段389巷6弄",
+        postcode: "",
+        city: "光華區",
+        cc: "TW",
+        lon: 123.0,
+        lat: 25.0,
+        numbers: &["11", "11之2"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "市民大道五段",
+        postcode: "",
+        city: "光華區",
+        cc: "TW",
+        lon: 123.01,
+        lat: 25.0,
+        numbers: &["131", "7"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "市民大道五段13巷",
+        postcode: "",
+        city: "光華區",
+        cc: "TW",
+        lon: 123.02,
+        lat: 25.0,
+        numbers: &["131", "999"],
+    },
     Street {
         class: "residential",
         length: 0.0,

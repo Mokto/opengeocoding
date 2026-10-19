@@ -592,11 +592,10 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
                     road_key(expanded) == road_key(&d.road)
                         && country_matches(&expected_country(address), Some(d))
                 }))
-        && house.split(whitespace).collect::<String>().to_lowercase()
-            == d.house_number
-                .split(whitespace)
-                .collect::<String>()
-                .to_lowercase()
+        && crate::index::schema::number_key(&house.split(whitespace).collect::<String>())
+            == crate::index::schema::number_key(
+                &d.house_number.split(whitespace).collect::<String>(),
+            )
 }
 
 pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
@@ -672,7 +671,14 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
 
 /// One road, or one with a single word misspelt as the index corrects it: "West 54th Srteet" is
 /// the candidate's "West 54th Street" when the index found it by that correction.
-fn roads_agree(typed: &str, found: &str) -> bool {
+pub(crate) fn roads_agree(typed: &str, found: &str) -> bool {
+    if (!typed.is_ascii() || !found.is_ascii())
+        && (typed.contains(['路', '街', '道', '段', '巷', '弄'])
+            || found.contains(['路', '街', '道', '段', '巷', '弄']))
+    {
+        let typed = fold(typed);
+        return !typed.is_empty() && typed == fold(found);
+    }
     let (typed, found) = (road_key(typed), road_key(found));
     if typed == found {
         return true;

@@ -12,7 +12,7 @@ The draw balances the 12 districts and suffix/alley/lane/section/plain classes, 
 
 ```sh
 curl -fL -o SOURCE/taipei.csv 'https://data.taipei/api/frontstage/tpeod/dataset/resource.download?rid=ce76ca0c-7f94-4935-ab47-1d2a41ca2abb'
-(cd SOURCE && duckdb -f REPO/docs/taipei-csv.sql)
+(cd SOURCE && duckdb -f REPO/tests/registry/taipei-csv.sql)
 target/release/evaluate sample-tw --taipei SOURCE/taipei-4326-2026-10-19.csv --seed tw-2026-10 --out tests/registry/tw.seeds.jsonl
 target/release/evaluate build-gold --seeds tests/registry/tw.seeds.jsonl --out tests/registry/tw.jsonl --taipei SOURCE/taipei-4326-2026-10-19.csv
 ```
@@ -44,4 +44,4 @@ These are measurements on the documented last-known-good local world index (buil
 
 The speed comparator reports no slowdown, but the second identical-binary run was substantially faster on this non-isolated host; no speedup or production-latency claim follows. The documented fresh-service grpcurl hang remains a known failure even though these runs happened to pass that check. Human review of source points remains pending.
 
-Run the offline checks with cargo test --locked and python3 docs/test-registry-exports.py. Run one country with evaluate run --corpus tests/registry/CC.jsonl --index DIR --out RUN_DIR. This source-only addition changes neither resolver behavior nor the builder hash.
+Run the offline checks with cargo test --locked and python3 tests/registry/test-registry-exports.py. Run one country with evaluate run --corpus tests/registry/CC.jsonl --index DIR --out RUN_DIR. This source-only addition changes neither resolver behavior nor the builder hash.

@@ -9,7 +9,7 @@ The exporter first obtains every current source OBJECTID in disjoint ranges, rej
 A building key hashes road ID and the structured building number (NUL separated); choose the lowest address ID per key. All native/ASCII forms stay together. The original LINZ ASCII string is used, not a generated romanization. Complete ranges remain ranges; endpoints are not expanded into houses. Unit queries accept the published full unit/number or its structured building number at the source point within 150 m; this measures building/geographic recovery, not apartment identity. Distinct properties can share a base number, especially on rural access roads, so the key is a conservative hold-out group, not a claim that all units are one physical building. The point belongs to the selected registry row. No surveyed-entrance precision is claimed.
 
 ```sh
-python3 -u docs/export-linz-addresses.py --out SOURCE/linz-2026-10-19 --seed nz-2026-10
+python3 -u tests/registry/export-linz-addresses.py --out SOURCE/linz-2026-10-19 --seed nz-2026-10
 target/release/evaluate sample-nz --linz SOURCE/linz-2026-10-19/linz.json --seed nz-2026-10 --out tests/registry/nz.seeds.jsonl
 target/release/evaluate build-gold --seeds tests/registry/nz.seeds.jsonl --out tests/registry/nz.jsonl --linz SOURCE/linz-2026-10-19/linz.json
 ```
@@ -38,4 +38,4 @@ These are measurements on the documented last-known-good local world index (buil
 
 The speed comparator reports no slowdown, but the second identical-binary run was substantially faster on this non-isolated host; no speedup or production-latency claim follows. The documented fresh-service grpcurl hang remains a known failure even though these runs happened to pass that check. Human review of source points remains pending.
 
-Run the offline checks with cargo test --locked and python3 docs/test-registry-exports.py. Run one country with evaluate run --corpus tests/registry/CC.jsonl --index DIR --out RUN_DIR. This source-only addition changes neither resolver behavior nor the builder hash.
+Run the offline checks with cargo test --locked and python3 tests/registry/test-registry-exports.py. Run one country with evaluate run --corpus tests/registry/CC.jsonl --index DIR --out RUN_DIR. This source-only addition changes neither resolver behavior nor the builder hash.

@@ -785,8 +785,12 @@ fn irish_provinces(places: &[Place], regions: &HashMap<String, u32>) -> Vec<(Str
 /// (administrative units, road, number) of a Chinese road address, the units most general
 /// first: "上海市虹口区中山北一路295号" -> (["上海市", "虹口区"], "中山北一路", "295").
 fn chinese(q: &str) -> Option<(Vec<String>, String, String)> {
-    static NUMBER: LazyLock<regex::Regex> =
-        LazyLock::new(|| regex::Regex::new(r"(\d+)(?:[至-]\d+)?[号號]").unwrap());
+    static NUMBER: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(
+                r"([0-9]+(?:之[0-9]+)?)(?:[至-][0-9]+)?[号號](?:(?:地下)?[一二三四五六七八九十百0-9]+[楼樓])?$",
+            )
+            .unwrap()
+    });
     let part = q.split([',', '，']).find(|p| p.contains(['号', '號']))?;
     let t: String = part
         .chars()
@@ -802,13 +806,17 @@ fn chinese(q: &str) -> Option<(Vec<String>, String, String)> {
     let before = ["中国", "中國", "臺灣", "台灣", "台湾"]
         .iter()
         .fold(before, |b, p| b.strip_prefix(p).unwrap_or(b));
-    if before.is_empty() || !before.chars().all(|c| c as u32 >= 0x3040) {
+    if before.is_empty()
+        || !before
+            .chars()
+            .all(|c| c as u32 >= 0x3040 || c.is_ascii_digit())
+    {
         return None;
     }
     let mut units = vec![];
     let mut start = 0;
     for (i, c) in before.char_indices() {
-        if "省市区區县縣镇鎮乡鄉".contains(c) {
+        if i > start && "省市区區县縣镇鎮乡鄉".contains(c) {
             units.push(before[start..i + c.len_utf8()].to_string());
             start = i + c.len_utf8();
         }
@@ -1905,6 +1913,54 @@ impl Index {
 
     pub(crate) fn parse_address(&self, q: &str, corroboration: bool) -> Result<Option<Parsed>> {
         let mut parsed = self.parser.parse(q)?;
+        if q.contains('號')
+            && let Some((units, road, number)) = chinese(q)
+            && let [state, city] = units.as_slice()
+            && state.ends_with('市')
+            && city.ends_with('區')
+        {
+            let native = q.split([',', '，']).find(|p| p.contains('號'));
+            if let Some(native) = native {
+                let cc = self.country(field(&parsed, "country"));
+                let city_key = name_key(city);
+                let state_key = name_key(state);
+                if !self
+                    .places(city, cc.as_deref(), Some(state), &|p| p.named(city_key))
+                    .iter()
+                    .any(|hit| {
+                        let Hit::Place(id) = hit else { return false };
+                        self.chain(*id)
+                            .iter()
+                            .any(|&p| self.places[p as usize].named(state_key))
+                    })
+                {
+                    return Ok(None);
+                }
+                let mut repaired = Vec::new();
+                for (key, value) in parsed.iter() {
+                    if matches!(key.as_str(), "road" | "house_number") {
+                        continue;
+                    }
+                    if matches!(
+                        key.as_str(),
+                        "city" | "suburb" | "city_district" | "state" | "state_district"
+                    ) {
+                        if !native.contains(value.as_str()) {
+                            return Ok(None);
+                        }
+                        continue;
+                    }
+                    repaired.push((key.clone(), value.clone()));
+                }
+                repaired.extend([
+                    ("state".into(), state.clone()),
+                    ("city".into(), city.clone()),
+                    ("road".into(), road),
+                    ("house_number".into(), number),
+                ]);
+                parsed = repaired.into();
+            }
+        }
         // Repairing the parse also changes structured fallbacks; require a corroborated house first.
         if let Some((aligned, _)) = self.nz_comma_house(q, &parsed)? {
             return Ok(Some(aligned));
@@ -2165,6 +2221,14 @@ impl Index {
     }
 
     fn country(&self, text: &str) -> Option<String> {
+        // The analyzer drops tokens of 40+ bytes; losing an address must not leave a bare country.
+        if text.len() >= 40
+            && text
+                .split(|c: char| !c.is_alphanumeric())
+                .any(|word| word.len() >= 40)
+        {
+            return None;
+        }
         let folded = fold(text);
         if folded.is_empty() {
             return None;
@@ -2624,6 +2688,8 @@ impl Index {
     ) -> Vec<Hit> {
         let base = || self.musts(self.f.names, road);
         let long = long_words(road);
+        let exact = (!road.is_ascii() && road.contains(['路', '街', '道', '段', '巷', '弄']))
+            .then(|| fold(road));
         if self.musts(self.f.names, road).is_empty() {
             return vec![];
         }
@@ -2760,13 +2826,29 @@ impl Index {
                     })
                     .take(STREET_CANDIDATES)
                     .collect(),
-                _ => self.top_of(Kind::Street, cc, cl, STREET_CANDIDATES),
+                // ponytail: exact native names are filtered below; 1,000 segments cap the scan
+                // until an indexed exact-name field can replace it.
+                _ => self.top_of(
+                    Kind::Street,
+                    cc,
+                    cl,
+                    if exact.is_some() {
+                        1000
+                    } else {
+                        STREET_CANDIDATES
+                    },
+                ),
             };
-            if !long.is_empty() {
+            if !long.is_empty() || exact.is_some() {
                 top.retain(|&a| {
                     use tantivy::schema::Value as _;
                     let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
                     names_hold(doc.get_all(self.f.name).filter_map(|v| v.as_str()), &long)
+                        && exact.as_ref().is_none_or(|road| {
+                            doc.get_all(self.f.name)
+                                .filter_map(|v| v.as_str())
+                                .any(|name| fold(name) == *road)
+                        })
                 });
             }
             if top.is_empty() {
@@ -3363,7 +3445,21 @@ impl Index {
             let towns = units.iter().rev().map(String::as_str).chain(city);
             let mut street = None;
             for town in towns {
-                let hits = self.streets(&road, Some(&number), Some(town), None, cc);
+                let hits: Vec<_> = self
+                    .streets(&road, Some(&number), Some(town), None, cc)
+                    .into_iter()
+                    .filter(|hit| {
+                        let Hit::Street { place, .. } = hit else {
+                            return false;
+                        };
+                        let chain = self.chain(*place);
+                        units.iter().all(|unit| {
+                            chain
+                                .iter()
+                                .any(|&p| self.places[p as usize].named(name_key(unit)))
+                        })
+                    })
+                    .collect();
                 if let Some(h) = hits.iter().find(|h| {
                     matches!(
                         h,
@@ -4708,6 +4804,59 @@ mod tests {
     /// Builds a tiny index through the builder's own number and reverse writers, then reads houses
     /// back by distance: nearest first, only within the radius, across streets, with postcodes.
     #[test]
+    fn native_roads_are_filtered_before_the_ranked_children_hide_a_house() {
+        let dir = std::env::temp_dir().join(format!("native-roads-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let (_, mut writer, f) = schema::create(dir.to_str().unwrap(), 1, 15_000_000);
+        for sid in 0..32u64 {
+            let name = if sid == 31 {
+                "明光路3段".to_string()
+            } else {
+                format!("明光路3段{sid}巷")
+            };
+            writer
+                .add_document(tantivy::doc!(
+                    f.kind => "s", f.names => name.clone(), f.name => name,
+                    f.country => "TW", f.id => sid, f.place => 0u64,
+                    f.importance => 32 - sid, f.x => 123.0, f.y => 25.0
+                ))
+                .unwrap();
+        }
+        writer.commit().unwrap();
+        drop(writer);
+        let (x, y) = schema::pack(123.0, 25.0, 0);
+        let spill = schema::NumberSpill::new(dir.join(".numbers-spill"), 1);
+        spill.add(vec![schema::Bucket {
+            short: vec![schema::Num::new(31, "237", x, y).ok().unwrap()],
+            long: vec![],
+        }]);
+        spill.write_fsts(dir.to_str().unwrap(), 1, &|sid, slot| (sid, slot));
+        std::fs::write(
+            dir.join("places.tsv"),
+            "country\t\tTW\t\t\t0\t123\t25\t123\t25\t123\t25\t\t臺灣\ten=Taiwan\n",
+        )
+        .unwrap();
+        let index = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
+        let found = index.streets("明光路三段", Some("237"), None, None, Some("tw"));
+        assert!(matches!(
+            found.as_slice(),
+            [Hit::Street { sid: 31, number: Some(number), .. }] if number == "237"
+        ));
+        let missing = index.streets("明光路三段", Some("999"), None, None, Some("tw"));
+        assert!(matches!(
+            missing.as_slice(),
+            [Hit::Street {
+                sid: 31,
+                number: None,
+                ..
+            }]
+        ));
+        drop(index);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn reverse_finds_the_nearest_houses() {
         let dir = std::env::temp_dir().join(format!("reverse-houses-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -5469,6 +5618,35 @@ mod tests {
             chinese("学院路18号, Beijing 100083, China"),
             Some((vec![], "学院路".into(), "18".into()))
         );
+        for query in [
+            "臺北市松山區南京東路五段３８９巷６弄１１號, Taiwan",
+            "臺北市松山區南京東路五段389巷6弄11號, Taiwan",
+            "臺北市松山區南京東路五段３８９巷６弄１１號三樓, Taiwan",
+        ] {
+            assert_eq!(
+                chinese(query),
+                Some((
+                    vec!["臺北市".into(), "松山區".into()],
+                    "南京東路五段389巷6弄".into(),
+                    "11".into()
+                ))
+            );
+        }
+        assert_eq!(
+            chinese("臺北市松山區市民大道五段１３１號七樓, Taiwan"),
+            Some((
+                vec!["臺北市".into(), "松山區".into()],
+                "市民大道五段".into(),
+                "131".into()
+            ))
+        );
+        assert_eq!(
+            chinese("臺北市松山區南京東路三段２６９巷６之４號二樓, Taiwan")
+                .unwrap()
+                .2,
+            "6之4"
+        );
+        assert_eq!(chinese("臺北市松山區南京東路11號未知商店"), None);
         assert_eq!(chinese("10 Downing Street"), None);
     }
 

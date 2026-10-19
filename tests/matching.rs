@@ -42,6 +42,43 @@ fn multilingual_normalization() {
 }
 
 #[test]
+fn taiwanese_number_roles_are_not_road_typos() {
+    let details = AddressDetails {
+        country_code: "tw".into(),
+        road: "明光路3段389巷6弄".into(),
+        house_number: "11之2".into(),
+        ..Default::default()
+    };
+    for (road, number, agrees) in [
+        ("明光路三段３８９巷６弄", "１１之２號", true),
+        ("明光路3段389巷6弄", "11之2", true),
+        ("明光路四段389巷6弄", "11之2", false),
+        ("明光路3段388巷6弄", "11之2", false),
+        ("明光路3段389巷5弄", "11之2", false),
+        ("明光路3段389巷6弄", "11", false),
+        ("明光路3段389巷6弄", "2之11", false),
+    ] {
+        assert_eq!(
+            road_agrees(
+                &parsed(&[("road", road), ("house_number", number)]),
+                Some(&details)
+            ),
+            agrees,
+            "{road} {number}"
+        );
+    }
+    let mut dropped = details;
+    dropped.road = "明光路三段三百八十九巷六弄十一巷".into();
+    assert!(!road_agrees(
+        &parsed(&[
+            ("road", "明光路三段三百八十九巷六弄十二巷"),
+            ("house_number", "11之2"),
+        ]),
+        Some(&dropped)
+    ));
+}
+
+#[test]
 fn public_country_names_and_regions() {
     for (name, code) in [
         ("France", "fr"),
