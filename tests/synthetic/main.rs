@@ -1272,6 +1272,23 @@ fn osm_site_boundaries_do_not_become_house_points() {
 }
 
 #[test]
+fn source_unit_columns_keep_each_units_point_and_the_building_key() {
+    let unit_street = street("Courtyard Lane");
+    for number in ["1/47", "2/47", "3A/49B", "4/51-53"] {
+        let query = format!("{number} Courtyard Lane, Harbourton");
+        let found = index().suggest(&query, 5, Some("NZ"), None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert!(
+            metres((found[0].x, found[0].y), house(unit_street, number)) < 5.,
+            "{query}"
+        );
+    }
+    let found = index().suggest("47 Courtyard Lane, Harbourton", 5, Some("NZ"), None, false);
+    assert_eq!(found[0].kind, "address");
+    assert!(metres((found[0].x, found[0].y), house(unit_street, "47")) < 5.);
+}
+
+#[test]
 fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
     for (number, postcode, town) in [
         ("31", "ZZ1 1AA", Some("Posthaven")),
@@ -1373,6 +1390,28 @@ async fn resolve_follows_the_authored_facts() {
         assert!(got.good_match, "{query}: {got:?}");
         let point = got.geo_coordinates.as_option().unwrap();
         assert!(metres((point.lon as f64, point.lat as f64), (125.0, 20.0)) < 5.);
+    }
+    for number in ["1/47", "2/47", "3A/49B", "4/51-53"] {
+        let query = format!("{number} Courtyard Lane, Kōwhai Bay, Harbourton, New Zealand");
+        let found = resolver.resolve(&query).await.unwrap();
+        assert!(found.good_match, "{query}: {found:?}");
+        assert_eq!(
+            found.address_details.as_option().unwrap().house_number,
+            number.to_lowercase()
+        );
+        let point = found.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres(
+                (point.lon as f64, point.lat as f64),
+                house(street("Courtyard Lane"), number)
+            ) < 5.,
+            "{query}: {found:?}"
+        );
+    }
+    for number in ["3/47", "4/51", "4/53"] {
+        let query = format!("{number} Courtyard Lane, Kōwhai Bay, Harbourton, New Zealand");
+        let found = resolver.resolve(&query).await.unwrap();
+        assert!(!found.good_match, "{query}: {found:?}");
     }
     for road in ["Orchard Road", "Orchard Rd", "East Orchard Road"] {
         let expected = if road == "Orchard Rd" {

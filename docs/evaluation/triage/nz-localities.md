@@ -1,6 +1,6 @@
 # New Zealand comma-separated localities
 
-Partial improvement for [#195](https://github.com/Mokto/opengeocoding/issues/195), using the LINZ corpus from [#190 at `69fabda`](https://github.com/Mokto/opengeocoding/tree/69fabda651486f9623e38c5f19e534da5009a112). This is not a unit-number fallback or a new index-data import.
+Investigation for [#195](https://github.com/Mokto/opengeocoding/issues/195), using the LINZ corpus from [#190 at `69fabda`](https://github.com/Mokto/opengeocoding/tree/69fabda651486f9623e38c5f19e534da5009a112). The first sections record the comma-locality repair; the unit-column follow-up below recovers exact unit keys from existing index inputs, without a unit-to-building fallback or a gold-data import.
 
 ## Confirmed defect and repair
 
@@ -34,7 +34,7 @@ The NZ sample contains 428 location/hold-out groups, not 545 independent locatio
 
 The index is the documented last-known-good full build `4fb1fd818b46b2f6`, fingerprint `e6df26bed27b`, not a rebuilt current-builder index. The runtime change does not change the builder hash. The final local gold speed comparison fails at SearchAddress p99 (+13%, 3.6 to 4.1 ms); the other gated percentiles/totals pass. Timings on this shared, busy host are not an isolated speed verification or a speedup claim; CI quality and measured speed must be reviewed separately.
 
-## Remaining failures
+## Remaining failures after the comma repair
 
 - **Literal units without indexed slash keys:** `1/19 Benchmark Drive` has no `1/19` key; building `19` is indexed about 3 m from the LINZ point, with Massey as its source locality. This change deliberately does not substitute building `19` or house `1` for the requested unit form.
 - **Building/unit point disagreement:** `106/25 Charlesworth Drive` lacks the slash key, and indexed building `25` is about 221 m from the selected LINZ unit point, beyond the unchanged 150 m tolerance. The point discrepancy does not establish which source is defective. The source locality is Allenton; neither LINZ nor that street document supplies a postcode.
@@ -56,7 +56,7 @@ INDEX_DIR=/path/to/full-index cargo test --locked --test rpc -- --ignored --noca
 
 Formatting, Clippy, `cargo test --locked` and the model-backed synthetic check pass locally. The model-backed RPC suite has one passing test and one failure: its CDG landmark assertion receives the same `Tunnel Cdgval` street with landmarks on or off. The unchanged base reproduces that failure on this older index; it was not weakened or fixed as part of the NZ change. Native libpostal models are required for the latter checks. The documented fresh-service grpcurl SearchAddress hang remains a known interoperability failure even when an individual evaluator run reports it passing.
 
-## Exact-road follow-up to #200
+## Exact-road follow-up to #200 (initial #204 head)
 
 The next comparison uses merged main `5e96fbe` as its base. Token lookup can return a longer street name before the requested name: `116 Main Road, Fairfield, Dunedin, New Zealand` selects Main South Road about 4.1 km away, despite an indexed Main Road house within a metre of the LINZ point. `3/638 Maddisons Road, Rolleston, New Zealand` instead selects East Maddisons Road about 6.7 km away.
 
@@ -73,4 +73,46 @@ SearchAddress passes rise from 8,511 to 8,512 of 10,978 scored checks. NZ plain 
 
 The local speed comparison reports no gated slowdown, but the identical-binary baseline repetitions themselves differ by 31% in forward total time. These runs were not isolated; they establish answer stability, not a speedup or stable latency. CI quality and measured speed remain separate gates.
 
-The synthetic world adds a more prominent East Orchard Road sharing numbers with Orchard Road. Its model-backed check fails on the base, selecting East Orchard Road for an Orchard Road query, and passes with the repair. Checks cover abbreviations, suffixes, complete ranges, exact slash numbers and numbers found only on the longer road. The unit check covers Māori/ASCII aliases. Formatting, Clippy, unit tests and the model-backed synthetic check pass; the model-backed RPC check retains the same CDG landmark failure on both base and candidate. Missing unit keys and source-coordinate disagreements remain unresolved.
+The synthetic world adds a more prominent East Orchard Road sharing numbers with Orchard Road. Its model-backed check fails on the base, selecting East Orchard Road for an Orchard Road query, and passes with the repair. Checks cover abbreviations, suffixes, complete ranges, exact slash numbers and numbers found only on the longer road. The unit check covers Māori/ASCII aliases. Formatting, Clippy, unit tests and the model-backed synthetic check pass; the model-backed RPC check retains the same CDG landmark failure on both base and candidate. At this stage, missing unit keys and source-coordinate disagreements remained unresolved.
+
+## Unit columns and street-cell lookup
+
+The existing Overture `2026-09-23.1` input contains 362,823 NZ rows with nonempty ASCII alphanumeric unit identifiers. The builder projected `number` but omitted `unit`; its OpenAddresses reader likewise omitted `unit`. The same frozen OpenAddresses inputs also contain 1,631 Rotorua rows with units. The input rows for `1/19 Benchmark Drive`, `106/25 Charlesworth Drive` and `3/638 Maddisons Road` already carry the separate number/unit fields and the correct unit points. No LINZ gold snapshot or additional source was imported.
+
+For NZ, the builder now adds `unit/number` alongside the original number in the same input row. This preserves the building keys, street weights and centroid contributions while retaining each unit's source point. It keeps complete suffixes and ranges; already combined numbers, number lists and non-alphanumeric unit labels do not acquire guessed aliases. Other countries keep their original number handling. The format of the index files is unchanged, but the builder identity changes from `a7481f0be4727233` to `9d4006a4eec15abb` and requires a rebuild. On these full inputs, the number-key count rises from 501,588,251 to 501,924,359.
+
+The new synthetic source fixture also exposed a separate SuggestAddress lookup defect. It deduplicated a street's grid cells by name before checking which cell held the number. Suggestions now check the candidate cells first, then deduplicate returned streets/addresses. The existing candidate and geographic bounds remain in place. The fixture uses units hundreds of metres apart, tests separate source number/unit columns as well as a retained building key, and checks full suffix/range forms and missing-unit/endpoint guards.
+
+### Initial separate code and index experiments (11,057 cases)
+
+Both full indexes were rebuilt from the same unchanged Overture, OpenAddresses, OSM and GeoNames files. The base rebuild is fingerprint `4cfc1e4547bd`, the unit-key rebuild `74a1eec034f5`; these are successful current-builder builds, not the older index used above. Two base-runtime repetitions, and two suggestion-fix repetitions on the base index, have zero answer/scoring drift. A single identical runtime binary reads both offline index outputs for the index-only comparison. All runs use the same evaluator, models, reference data and 11,057-case corpus. `--no-direct` disables only the optional evaluator-side index diagnostics; all four RPCs, scoring and transport checks still run.
+
+| Experiment | SearchAddress passes | SuggestAddress passes |
+| --- | ---: | ---: |
+| Existing runtime, rebuilt base index | 8,510 | 6,744 |
+| Suggestion fix, same base index | 8,510 | 6,859 |
+| Same fixed runtime, unit-key index | 8,582 | 6,894 |
+
+The code-only gain is 115 full-string suggestions, including 12 NZ queries. The index-only gain is 72 NZ SearchAddress passes and 35 NZ suggestions. Both comparisons and their combined diff have no newly failing or worse-class cases; region and reverse answers are unchanged. The original two issue examples and Maddisons Road now pass with their exact slash numbers, `goodMatch=true`, and points within 2 m of the LINZ expectations. Charlesworth does not require a source-coordinate correction or a wider tolerance: its unit row already had the correct point, unlike the representative building key used by the rejected fallback probe.
+
+NZ SearchAddress rises from 390 to 462/545, including unit 19 to 91/94; plain 117/129, suffix 124/146, native/ASCII 121/166 and range 9/10 are unchanged. NZ suggestions rise from 226 to 273/545, including unit 7 to 42/94. Three unit queries remain too coarse, and other locality/parser/coverage failures remain. One remaining unit query is held out and was not inspected for tuning. Shared LINZ ancestry and the 428 location groups still limit these results to diagnostic fidelity, not national accuracy or independent coordinate validation.
+
+All 1,000 unscored address responses are unchanged between base and candidate. The 864 differences from the older accepted snapshot pre-exist on both sides; the snapshot was not regenerated. No expectations, tolerances, labels, hold-outs or corpus rows changed.
+
+Formatting, Clippy, unit tests and model-backed synthetic checks pass. The model-backed RPC suite retains the same CDG landmark failure on both fresh indexes; `search_diagnostics` passes. Local code/index comparison speed tables pass, but the identical-runtime repetition itself fails speed (SearchAddress p99 +23% on the shared host). These runs establish answer stability, not stable latency or a speedup; CI quality and measured speed must be reviewed separately.
+
+### Rebased 15,006-case gate
+
+After `main` added the Taipei repair and AU/DK/ES corpora, the branch was rebased onto `7f3e72b` and all comparisons were repeated with that 15,006-case suite. The same two frozen-input indexes were reused because neither merge changed the builder. Both complete base runs, and both fixed-runtime runs on the base index, have zero answer/scoring drift.
+
+| Experiment | SearchAddress / 14,927 | SuggestAddress / 15,009 |
+| --- | ---: | ---: |
+| Main runtime, base index | 11,949 | 7,696 |
+| Fixed runtime, same base index | 11,950 | 7,830 |
+| Same fixed runtime, unit-key index | 12,022 | 7,865 |
+
+Relative to current main, this is 73 additional SearchAddress passes (the exact-road fix plus 72 unit cases) and 169 suggestions (134 from checking street cells, 35 from unit keys). There are no newly failing or worse-class cases. ResolveRegion remains 3,319/3,338 and reverse country checks 14,515/14,639. NZ SearchAddress is 389 to 462/545, including unit 19 to 91/94; suggestions remain the same 226 to 273/545 improvement. The 1,000-address comparison still has zero changed answers, without replacing the accepted snapshot.
+
+One attempted base repetition lost its local service after 11,027 cases and recorded 3,900 connection errors; no panic was logged, and the process-exit cause was not captured. That failed run was retained, not resumed or counted as an accuracy comparison. A fresh baseline check and the subsequent comparisons ran without overlapping model-backed tests, with a launcher recording native-binary checksums and child exits. All those service processes exited successfully; the baseline's completed answers match its earlier successful full run. No evaluator request retries were added.
+
+The final combined and index-only timing comparisons pass their local thresholds, but the code-only timing comparison fails on this shared host (SearchAddress total +17%, SuggestAddress total +19%, ReverseGeocode total +16%). These inconsistent timings do not establish a speedup or dismiss a slowdown. The updated PR still requires both current-head CI quality and measured-speed reports.

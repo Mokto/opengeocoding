@@ -1701,6 +1701,7 @@ impl Index {
         let road_text = road.join(" ");
         let mut streets = vec![];
         let mut seen = std::collections::HashSet::new();
+        let mut segments = std::collections::HashSet::new();
         // the best place of the scope alone first: "5th avenue, new york" is Manhattan's
         // before any other in the state
         let phases: Vec<Option<&[u32]>> = match scope {
@@ -1708,7 +1709,7 @@ impl Index {
             other => vec![other],
         };
         for ids in phases {
-            if streets.len() >= want {
+            if seen.len() >= want {
                 break;
             }
             let mut cl: Vec<_> = base.iter().map(|(o, q)| (*o, q.box_clone())).collect();
@@ -1726,8 +1727,8 @@ impl Index {
                 let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
                 let name = best_name(&doc, self.f.name, &road_text);
                 let (sid, place) = (self.fast(a, "id") as u32, self.fast(a, "place") as u32);
-                // a street crossing a cell edge is indexed in parts
-                if seen.insert((fold(&name), place)) {
+                seen.insert((fold(&name), place));
+                if segments.insert(sid) {
                     streets.push((a, sid, place, name));
                 }
             }
@@ -1753,7 +1754,13 @@ impl Index {
         });
         let mut houses = vec![];
         let mut plain = vec![];
+        // Each cell holds different houses; deduplicate names only after checking the number.
+        let mut answered = std::collections::HashSet::new();
         for (a, sid, place, name) in streets {
+            let key = (fold(&name), place);
+            if answered.contains(&key) {
+                continue;
+            }
             let mut found = false;
             if let Some(n) = &number {
                 let shard = &self.numbers[sid as usize % self.numbers.len()];
@@ -1797,14 +1804,18 @@ impl Index {
                     found = true;
                 }
             }
-            if !found {
+            if found {
+                answered.insert(key);
+            } else {
                 plain.push((sid, place, name, a));
             }
         }
         let mut out = houses;
         for (sid, place, name, a) in plain {
-            let xy = (self.fast_f64(a, "x"), self.fast_f64(a, "y"));
-            out.push(self.street_suggestion(a, sid, place, &name, None, xy));
+            if answered.insert((fold(&name), place)) {
+                let xy = (self.fast_f64(a, "x"), self.fast_f64(a, "y"));
+                out.push(self.street_suggestion(a, sid, place, &name, None, xy));
+            }
         }
         out.truncate(want);
         out
