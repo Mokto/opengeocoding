@@ -41,7 +41,6 @@ Autocomplete can also include selected landmark categories: airports, stations, 
 | --- | --- |
 | World index build, including landmarks | **Under 20 min, excluding downloads**, **32.2 GB peak memory**, on an 18-core Apple M5 Max with 64 GB RAM |
 | Built world index | About **16 GB on disk**, excluding libpostal models and build scratch |
-| Forward search, 1 connection | **599 queries/s**, **5.3 ms p95** |
 | Forward search, 16 connections to one serving instance | **2,850 queries/s per instance**, not a multi-pod total; p95 was not recorded in the published summary |
 | Serving process in the search benchmark | **4.2 GiB resident memory** |
 
