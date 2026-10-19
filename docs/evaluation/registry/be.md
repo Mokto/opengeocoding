@@ -1,6 +1,6 @@
 # Belgium
 
-[Evaluation guide](../evaluation.md) · [Source notice](../../tests/registry/be.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/be.NOTICE)
 
 The registry-first sample uses FPS BOSA's official BeStAddress CSV exports for all three regions, under CC BY 4.0. These are not the IGN GeoPackage/WMS derivatives marked noncommercial-only. Retain the downloaded ZIPs and hashes. Downloads publish latest rather than an immutable release; the pinned filenames and SHA256 values identify this capture.
 
