@@ -967,6 +967,23 @@ fn cases() -> Vec<Case> {
             "Meadowln. 4a, 1234 TJ Polderdam, Netherlands",
             at_house("Meadowlaan", "4a"),
         ),
+        // a Danish floor and door beside the house still resolve the building
+        case(
+            "Skibsgade 9, 8500 Havnholm, Denmark",
+            at_house("Skibsgade", "9"),
+        ),
+        case(
+            "Skibsgade 9, st. th, 8500 Havnholm, Denmark",
+            at_house("Skibsgade", "9"),
+        ),
+        case(
+            "Skibsgade 9, 1. tv, 8500 Havnholm, Denmark",
+            at_house("Skibsgade", "9"),
+        ),
+        case(
+            "Skibsgade 9, 2. 3, 8500 Havnholm, Denmark",
+            at_house("Skibsgade", "9"),
+        ),
         case("Paris, Texas", town("us-tx-paris", true)),
         case("Paris, TX, USA", town("us-tx-paris", true)),
         case("us-tx-paris", town("us-tx-paris", true)),
