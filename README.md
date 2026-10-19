@@ -35,11 +35,11 @@ Autocomplete can also include selected landmark categories: airports, stations, 
 
 ## Performance and resources
 
-**A world index built in 6 min 49 s; forward search reached 2,850 queries/s in Linux containers.** These are separate historical measurements, not one combined current-release benchmark:
+**A world index built in under 20 minutes from already-downloaded sources; forward search reached 2,850 queries/s in Linux containers.** These are separate historical measurements, not one combined current-release benchmark:
 
 | Workload | Observed result |
 | --- | --- |
-| World index build, including landmarks | **409 s**, **32.2 GB peak memory**, on an 18-core Apple M5 Max with 64 GB RAM |
+| World index build, including landmarks | **Under 20 min, excluding downloads**, **32.2 GB peak memory**, on an 18-core Apple M5 Max with 64 GB RAM |
 | Built world index | About **16 GB on disk**, excluding libpostal models and build scratch |
 | Forward search, 1 connection | **599 queries/s**, **5.3 ms p95** |
 | Forward search, 16 connections | **2,850 queries/s**; p95 was not recorded in the published summary |
