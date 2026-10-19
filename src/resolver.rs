@@ -588,6 +588,18 @@ impl Core {
                 true,
             ));
         }
+        // The unit of a Danish address is not modelled: its building's house answers, and a
+        // query whose building is not found as a house is resolved as written.
+        if let Some(building) = without_danish_unit(query) {
+            let found = self.resolve(&building)?;
+            if found
+                .address_details
+                .as_option()
+                .is_some_and(|d| !d.house_number.is_empty())
+            {
+                return Ok(found);
+            }
+        }
         // A repeated part ("Kyiv, Kyiv, Ukraine", "Madrid, ES, Spain") answers as the query
         // without it.
         let written = query;

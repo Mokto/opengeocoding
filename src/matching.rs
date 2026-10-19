@@ -941,6 +941,41 @@ pub fn without_parentheses(query: &str, keep: bool) -> Option<String> {
     })
 }
 
+/// `query` without a Danish floor and door written as a comma part of its own ("Mogensgade 9, st.
+/// th, 8500 Grenaa, Denmark"), which names no place of its own: libpostal reads "th" as Thailand
+/// and swallows the house and postcode into the road. The building's house is the answer; the
+/// unit is not modelled. A door that is not th/tv/mf needs Denmark stated, and a part naming
+/// another country keeps the query as written. None without such a part after a house.
+pub fn without_danish_unit(query: &str) -> Option<String> {
+    static UNIT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)^(?:st|kl|\d{1,2})\.\s*(th|tv|mf|\d{1,4}[a-z]?|[a-z])$").unwrap()
+    });
+    let parts: Vec<&str> = query
+        .split(',')
+        .map(|p| p.trim_matches(whitespace))
+        .collect();
+    let at = (1..parts.len())
+        .find(|&i| parts[i - 1].chars().any(|c| c.is_ascii_digit()) && UNIT.is_match(parts[i]))?;
+    // the unit itself is left out: "1. tv" reads as Tuvalu and "st. 1" as São Tomé
+    let countries: Vec<String> = parts
+        .iter()
+        .enumerate()
+        .filter(|&(i, _)| i != at)
+        .map(|(_, p)| expected_country(&parsed_country(p)))
+        .filter(|c| !c.is_empty())
+        .collect();
+    let side = matches!(
+        UNIT.captures(parts[at])?[1].to_lowercase().as_str(),
+        "th" | "tv" | "mf"
+    );
+    let danish = countries.iter().any(|c| c == "dk");
+    (countries.iter().all(|c| c == "dk") && (danish || side)).then(|| {
+        let mut kept = parts;
+        kept.remove(at);
+        kept.join(", ")
+    })
+}
+
 /// `query` with a leading region code moved behind the place it was fused with
 /// ("NJ, WILLIAMSTOWN, United States", which libpostal reads as one state). A country
 /// code ("CA, Toronto, Canada") and a postcode ("PA, 19560") are left alone. None when

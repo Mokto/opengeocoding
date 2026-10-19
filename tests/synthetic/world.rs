@@ -1098,6 +1098,30 @@ pub const PLACES: &[Place] = &[
         "새봄면",
         &[("en", "Saebom")]
     ),
+    place!(
+        "dk",
+        "country",
+        "",
+        "DK",
+        "",
+        5_000_000,
+        (10.0, 56.0),
+        "",
+        "Denmark",
+        &[("en", "Denmark")]
+    ),
+    place!(
+        "dk-havnholm",
+        "locality",
+        "town",
+        "DK",
+        "",
+        20_000,
+        (10.4, 56.4),
+        "dk",
+        "Havnholm",
+        &[("en", "Havnholm")]
+    ),
 ];
 
 /// Administrative polygons besides the towns' (a square of half-side 0.2° each): (division,
@@ -1718,6 +1742,17 @@ pub const STREETS: &[Street] = &[
         lon: 61.497,
         lat: 0.0,
         numbers: &[],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Skibsgade",
+        postcode: "8500",
+        city: "Havnholm",
+        cc: "DK",
+        lon: 10.4,
+        lat: 56.4,
+        numbers: &["9"],
     },
 ];
 

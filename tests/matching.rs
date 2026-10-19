@@ -1180,6 +1180,54 @@ fn a_leading_region_code_is_tried_behind_the_place() {
 }
 
 #[test]
+fn a_danish_floor_and_door_part_is_set_aside_without_touching_other_countries() {
+    let unit = |q| without_danish_unit(q);
+    // the published DAR forms: the unit is its own part, the building keeps the rest
+    for (query, building) in [
+        (
+            "Mogensgade 9, st. th, 8500 Grenaa, Denmark",
+            "Mogensgade 9, 8500 Grenaa, Denmark",
+        ),
+        (
+            "Tjærbyvej 19, st. th, 8930 Randers NØ, Denmark",
+            "Tjærbyvej 19, 8930 Randers NØ, Denmark",
+        ),
+        (
+            "Vestergade 6, 1. tv, 9500 Hobro, Danmark",
+            "Vestergade 6, 9500 Hobro, Danmark",
+        ),
+        (
+            "Broparken 4, 2. 3, 9560 Hadsund, Denmark",
+            "Broparken 4, 9560 Hadsund, Denmark",
+        ),
+        // a side door is Danish enough with no country stated
+        (
+            "Skovvejen 42, st. mf, 6000 Kolding",
+            "Skovvejen 42, 6000 Kolding",
+        ),
+    ] {
+        assert_eq!(unit(query).as_deref(), Some(building), "{query}");
+    }
+    for query in [
+        // no unit, or one libpostal already reads as a floor
+        "Mogensgade 9, 8500 Grenaa, Denmark",
+        "Vendelbogade 64, st., 9800 Hjørring, Denmark",
+        // another country keeps its own TH and NO codes
+        "Mogensgade 9, st. th, Bangkok, Thailand",
+        "9 Soi 3, st. th, Bangkok, TH",
+        "Granveien 5, st. th, 1234 Fjordvik, Norway",
+        // a door that is not th/tv/mf needs Denmark stated
+        "Rue 5, 2. 3, 75001 Paris",
+        "Main Street 5, st. 1, Springfield",
+        // the unit stands after a house, not first
+        "st. th, 8500 Grenaa, Denmark",
+        "Mogensgade, st. th, 8500 Grenaa, Denmark",
+    ] {
+        assert_eq!(unit(query), None, "{query}");
+    }
+}
+
+#[test]
 fn a_suburb_is_its_own_town_only_when_no_road_narrows_it() {
     // Blairgowrie is a suburb the index files under Johannesburg
     let suburb = AddressDetails {
