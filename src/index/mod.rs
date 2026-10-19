@@ -4164,12 +4164,18 @@ impl Index {
     }
 
     pub(crate) fn house_locality_named(&self, hit: &Hit, name: &str) -> bool {
-        let Hit::Street {
-            place,
-            number: Some(_),
-            ..
-        } = hit
-        else {
+        matches!(
+            hit,
+            Hit::Street {
+                number: Some(_),
+                ..
+            }
+        ) && self.street_locality_named(hit, name)
+    }
+
+    /// A town or municipality above the street is named so.
+    pub(crate) fn street_locality_named(&self, hit: &Hit, name: &str) -> bool {
+        let Hit::Street { place, .. } = hit else {
             return false;
         };
         if *place == NONE || name.chars().count() <= 2 {

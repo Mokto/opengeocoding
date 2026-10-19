@@ -1182,6 +1182,31 @@ pub const PLACES: &[Place] = &[
         "Damnica",
         &[("pl", "Damnica")]
     ),
+    // a city whose streets the data files under its districts, themselves localities
+    place!(
+        "pl-stolica",
+        "locality",
+        "city",
+        "PL",
+        "",
+        1_800_000,
+        (18.0, 53.0),
+        "pl",
+        "Stolica",
+        &[("pl", "Stolica")]
+    ),
+    place!(
+        "pl-centrum",
+        "locality",
+        "",
+        "PL",
+        "",
+        100_000,
+        (18.01, 53.0),
+        "pl-stolica",
+        "Centrum",
+        &[("pl", "Centrum")]
+    ),
 ];
 
 /// Administrative polygons besides the towns' (a square of half-side 0.2° each): (division,
@@ -1907,6 +1932,17 @@ pub const STREETS: &[Street] = &[
         lon: 17.39,
         lat: 54.5,
         numbers: &["11"],
+    },
+    Street {
+        class: "residential",
+        length: 0.01,
+        name: "ulica Szeroka",
+        postcode: "",
+        city: "Centrum",
+        cc: "PL",
+        lon: 18.01,
+        lat: 53.0,
+        numbers: &["7"],
     },
     // libpostal leaves "20BS" in the road
     Street {
