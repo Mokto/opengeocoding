@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/Mokto/opengeocoding/compare/v0.13.0...v0.14.0) (2026-10-19)
+
+
+### Features
+
+* add exact suggestion retrieval ([#191](https://github.com/Mokto/opengeocoding/issues/191)) ([097e167](https://github.com/Mokto/opengeocoding/commit/097e167521c3bbd6f1ce4aa777b95f2bc088de1a))
+
 ## [0.13.0](https://github.com/Mokto/opengeocoding/compare/v0.12.1...v0.13.0) (2026-10-19)
 
 
