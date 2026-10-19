@@ -1,0 +1,52 @@
+[
+  {
+    "id": "ph-caliling-western-visayas-2021",
+    "country": "PH",
+    "observed_on": "2021-07-25",
+    "reviewed_on": "2026-10-19",
+    "path": [
+      {"name": "Caliling", "wikidata": "Q31528302"},
+      {"name": "Cauayan", "wikidata": "Q195287"},
+      {"name": "Negros Occidental", "wikidata": "Q13862"},
+      {"name": "Western Visayas", "wikidata": "Q13665"}
+    ],
+    "sources": [
+      {
+        "url": "https://www.ntfelcac.gov.ph/post/news-pna-1148234",
+        "published_on": "2021-07-25",
+        "retrieved_on": "2026-10-19",
+        "supports": [0, 1]
+      },
+      {
+        "url": "https://elibrary.judiciary.gov.ph/thebookshelf/showdocs/5/78545",
+        "published_on": "2017-08-10",
+        "retrieved_on": "2026-10-19",
+        "supports": [2]
+      },
+      {
+        "url": "https://www.wikidata.org/wiki/Q13665",
+        "retrieved_on": "2026-10-19",
+        "supports": [2]
+      }
+    ],
+    "review": "The government report identifies Barangay Caliling in Cauayan, Negros Occidental in July 2021. EO 38 restored Negros Occidental to Region VI upon newspaper publication in August 2017; Western Visayas is Region VI. This is a membership observation, not an uninterrupted interval or an assertion of the exact 2024 transition date. Wikidata Q31528302 identifies Caliling (GeoNames 1709625); an index row lacking that ID needs the exact named Cauayan and Negros Occidental identity chain. The existing indexed Kaliling spelling is not added by this record."
+  },
+  {
+    "id": "no-drammen-viken-2021",
+    "country": "NO",
+    "observed_on": "2021-01-01",
+    "reviewed_on": "2026-10-19",
+    "path": [
+      {"name": "Drammen", "wikidata": "Q26525"},
+      {"name": "Viken", "wikidata": "Q56407178"}
+    ],
+    "sources": [
+      {
+        "url": "https://data.ssb.no/api/klass/v1/classifications/131/correspondsAt?targetClassificationId=104&date=2021-01-01",
+        "retrieved_on": "2026-10-19",
+        "supports": [0]
+      }
+    ],
+    "review": "Statistics Norway's date-scoped correspondence maps municipality 3005 Drammen (classification 131) to county 30 Viken (classification 104) on 2021-01-01. The reviewed Wikidata identities distinguish the municipality from the urban settlement. Codes are historical classification identifiers, not timeless IDs. This observation asserts neither unchanged boundaries nor exact membership endpoints. The historical lookup is a live source inspected on the retrieval date."
+  }
+]

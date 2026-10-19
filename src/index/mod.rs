@@ -2,6 +2,7 @@
 //! Responses keep the Nominatim-style JSON candidate format the resolver reads.
 pub mod area;
 pub mod canon;
+mod history;
 pub mod landmark;
 mod locality;
 pub mod reverse;
@@ -153,7 +154,10 @@ fn iso_by_item<'a>(reference: &'a Value, list: &str) -> HashMap<&'a str, &'a str
 /// Reads `places.tsv` on all cores (about 5 million lines for the world), hashing each place's
 /// names as it goes, and the places whose Wikidata item (the last column) has an ISO 3166-2
 /// code in `iso`, by place number.
-fn load_places(path: &Path, iso: &HashMap<&str, &str>) -> Result<(Vec<Place>, OwnCodes)> {
+fn load_places(
+    path: &Path,
+    iso: &HashMap<&str, &str>,
+) -> Result<(Vec<Place>, OwnCodes, history::History)> {
     use rayon::prelude::*;
     let text = fs::read_to_string(path).with_context(|| path.display().to_string())?;
     let lines: Vec<&str> = text.lines().collect();
@@ -178,7 +182,7 @@ fn load_places(path: &Path, iso: &HashMap<&str, &str>) -> Result<(Vec<Place>, Ow
             Some((i as u32, code.to_string()))
         })
         .collect();
-    let places = lines
+    let places: Vec<Place> = lines
         .par_iter()
         .map(|l| {
             let c: Vec<&str> = l.split('\t').collect();
@@ -209,7 +213,8 @@ fn load_places(path: &Path, iso: &HashMap<&str, &str>) -> Result<(Vec<Place>, Ow
             place
         })
         .collect();
-    Ok((places, own))
+    let history = history::History::load(&places, &lines)?;
+    Ok((places, own, history))
 }
 
 struct Columns {
@@ -444,6 +449,7 @@ pub struct Index {
     /// Streets' lines, for a point with no house in range; absent like `reverse`.
     streets: Option<reverse::Streets>,
     places: Vec<Place>,
+    history: history::History,
     /// Locality points by position, for reverse lookups; built at startup from `places`.
     localities: locality::Localities,
     /// Folded country names and ISO codes -> lowercase country code.
@@ -1738,7 +1744,7 @@ impl Index {
         let below = iso_by_item(&reference, "iso3166_2_lvl6");
         let mut iso = iso_by_item(&reference, "iso3166_2");
         iso.extend(&below);
-        let (mut places, own) = load_places(&dir.join("places.tsv"), &iso)?;
+        let (mut places, own, history) = load_places(&dir.join("places.tsv"), &iso)?;
         let (below_region, own): (Vec<_>, Vec<_>) = own
             .into_iter()
             .partition(|(_, code)| reference["iso3166_2_lvl6"].get(code).is_some());
@@ -1844,6 +1850,7 @@ impl Index {
             areas,
             streets,
             places,
+            history,
             localities,
             countries,
             country_places,
@@ -3345,6 +3352,24 @@ impl Index {
             .filter(|hit| matches!(hit, Hit::Place(id) if self.chain(*id).contains(&region)))
             .collect(),
         )
+    }
+
+    /// Reviewed membership observations, only after current lookups have abstained.
+    pub fn historical_place(&self, query: &str) -> Option<Hit> {
+        if query.chars().count() > 256 {
+            return None;
+        }
+        let parts: Vec<_> = query.split(',').map(str::trim).collect();
+        let [town, ancestor, country] = parts.as_slice() else {
+            return None;
+        };
+        let cc = self.country(country)?;
+        if self.country(ancestor).is_some() || self.country(town).is_some_and(|other| other != cc) {
+            return None;
+        }
+        self.history
+            .find(&self.places, town, ancestor, &cc)
+            .map(Hit::Place)
     }
 
     /// `<cc>, <ISO 3166-2 code>`, as a query for a region by its code.
@@ -5699,7 +5724,7 @@ mod tests {
         let path =
             std::env::temp_dir().join(format!("settlement-twins-{}.tsv", std::process::id()));
         std::fs::write(&path, text).unwrap();
-        let (places, _) = load_places(&path, &HashMap::new()).unwrap();
+        let (places, _, _) = load_places(&path, &HashMap::new()).unwrap();
         std::fs::remove_file(path).unwrap();
         for (place, row) in places.iter().zip(rows) {
             assert_eq!(place.settlement_twin, row.4, "{row:?}");
@@ -5739,7 +5764,7 @@ mod tests {
             ),
         )
         .unwrap();
-        let (places, own) = load_places(&path, &iso).unwrap();
+        let (places, own, _) = load_places(&path, &iso).unwrap();
         std::fs::remove_file(&path).unwrap();
         assert_eq!(places.len(), 2);
         assert_eq!(own, [(0, code.to_string())]);

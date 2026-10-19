@@ -637,6 +637,15 @@ impl Core {
                 return Ok(found);
             }
         }
+        if let Some(hit) = self.index.historical_place(written) {
+            return Ok(accept(
+                format_response(&self.index.render(&hit, true))?,
+                &ParsedAddress::new(),
+                "",
+                "historical_place",
+                true,
+            ));
+        }
         Ok(found)
     }
 

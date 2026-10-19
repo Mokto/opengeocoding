@@ -8,6 +8,7 @@ These investigations preserve the constraints, evidence and limitations of parti
 | --- | --- |
 | [Administrative assignment](administrative-assignment.md) | Import-time geography, containing polygons and validation |
 | [Place-name recovery](place-name-recovery.md) | Supported names, administrative qualifiers and remaining cases |
+| [Historical memberships](historical-memberships.md) | Reviewed, dated membership observations and bounded place recovery |
 | [Postal-town recovery](postal-town-recovery.md) | Source postal towns, settlement identity and bounded recovery |
 | [Lookup internals and optimization history](lookup-history.md) | Lookup behavior and historical performance experiments |
 

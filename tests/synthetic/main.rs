@@ -213,6 +213,22 @@ fn place_slugs_require_a_known_subdivision_and_an_exact_settlement_name() {
 }
 
 #[test]
+fn an_unreviewed_place_cannot_acquire_a_historical_qualifier() {
+    for query in [
+        "Paris, Former Coast, France",
+        "Severnaya Roshcha, Former Coast, Austria",
+        "Paris, Ile-de-France, France",
+        "Paris, Former Coast, United States",
+        "2 Rue de Rivoli, Former Coast, France",
+        "Paris, Former Coast, France, Austria",
+        "Paris, Former Coast",
+        "Paris",
+    ] {
+        assert!(index().historical_place(query).is_none(), "{query}");
+    }
+}
+
+#[test]
 fn a_typed_place_name_lists_every_place_by_size_and_a_country_narrows_it() {
     let paris = |cc| {
         index()
