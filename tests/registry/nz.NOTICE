@@ -1,0 +1,5 @@
+NZ Addresses © Crown copyright — Toitū Te Whenua Land Information New Zealand (LINZ).
+Source: https://catalogue.data.govt.nz/dataset/nz-addresses
+Official distribution: https://linz.maps.arcgis.com/home/item.html?id=3632c8130f034ff8bbfb122a50533550
+Licence: Creative Commons Attribution 4.0 International, https://creativecommons.org/licenses/by/4.0/
+This corpus samples and reformats LINZ address records. Coordinates are requested in WGS84 from the official service. Unit queries test geographic/building recovery, not unit identity. The native and ASCII strings are LINZ's own forms.
