@@ -3140,6 +3140,43 @@ impl Index {
         })
     }
 
+    /// A country/subdivision/name slug. Some(empty) keeps a conflicting code or name from
+    /// falling through to a less constrained interpretation.
+    pub fn place_slug(&self, query: &str) -> Option<Vec<Hit>> {
+        let mut parts = query.trim().splitn(3, '-');
+        let (cc, division, town) = (parts.next()?, parts.next()?, parts.next()?);
+        if cc.len() != 2
+            || !cc.bytes().all(|c| c.is_ascii_alphabetic())
+            || !(1..=3).contains(&division.len())
+            || !division.bytes().all(|c| c.is_ascii_alphanumeric())
+            || town.is_empty()
+            || town.split('-').any(|word| word.is_empty())
+            || !town.chars().all(|c| c.is_alphabetic() || c == '-')
+        {
+            return None;
+        }
+        let cc = self.country(cc)?;
+        let code = format!("{}-{}", cc.to_uppercase(), division.to_uppercase());
+        let Some(region) = self.region_query(&format!("{cc}, {code}")) else {
+            return Some(vec![]);
+        };
+        let town = town.replace('-', " ");
+        let key = name_key(&town);
+        Some(
+            self.places_named(
+                &town,
+                Some(&cc),
+                Some(self.places[region as usize].name(true)),
+                &|p| matches!(p.subtype.as_ref(), "locality" | "localadmin") && p.named(key),
+                false,
+            )
+            .0
+            .into_iter()
+            .filter(|hit| matches!(hit, Hit::Place(id) if self.chain(*id).contains(&region)))
+            .collect(),
+        )
+    }
+
     /// `<cc>, <ISO 3166-2 code>`, as a query for a region by its code.
     fn region_query(&self, q: &str) -> Option<u32> {
         let (cc, code) = q.split_once(", ")?;

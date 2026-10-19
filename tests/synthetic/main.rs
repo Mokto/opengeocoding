@@ -167,6 +167,52 @@ fn geonames_primary_names_survive_deduplication_without_exporting_other_labels()
 }
 
 #[test]
+fn place_slugs_require_a_known_subdivision_and_an_exact_settlement_name() {
+    for (query, id) in [
+        ("us-tx-paris", "us-tx-paris"),
+        ("FR-IDF-PARIS", "fr-paris"),
+        ("at-1-severnaya-roshcha", "at-nordhain"),
+        ("at-2-severnaya-roshcha", "at-northgrove"),
+        ("at-1-северная-роща", "at-nordhain"),
+    ] {
+        let hits = index().place_slug(query).unwrap();
+        let rendered = index().render(&hits[0], true);
+        let want = place(id);
+        assert!(
+            metres(
+                (
+                    rendered["lon"].as_str().unwrap().parse().unwrap(),
+                    rendered["lat"].as_str().unwrap().parse().unwrap()
+                ),
+                (want.lon, want.lat)
+            ) < 5.,
+            "{query}"
+        );
+    }
+    for query in [
+        "us-ga-paris",
+        "us-tx-severnaya-roshcha",
+        "de-nw-paris",
+        "de-tx-paris",
+        "us-zz-paris",
+        "us-tx-missing",
+        "at-1-roshcha",
+    ] {
+        assert!(index().place_slug(query).unwrap().is_empty(), "{query}");
+    }
+    for query in [
+        "Paris",
+        "Paris, France",
+        "us-tx-",
+        "us-tx--paris",
+        "us-tx-paris, france",
+        "102-main-street",
+    ] {
+        assert!(index().place_slug(query).is_none(), "{query}");
+    }
+}
+
+#[test]
 fn a_typed_place_name_lists_every_place_by_size_and_a_country_narrows_it() {
     let paris = |cc| {
         index()
@@ -884,6 +930,18 @@ fn cases() -> Vec<Case> {
         ),
         case("Paris, Texas", town("us-tx-paris", true)),
         case("Paris, TX, USA", town("us-tx-paris", true)),
+        case("us-tx-paris", town("us-tx-paris", true)),
+        case("FR-IDF-PARIS", town("fr-paris", true)),
+        case("at-1-severnaya-roshcha", town("at-nordhain", true)),
+        case("at-1-северная-роща", town("at-nordhain", true)),
+        case("at-2-severnaya-roshcha", town("at-northgrove", true)),
+        case("us-ga-paris", Want::Abstain),
+        case("us-tx-severnaya-roshcha", Want::Abstain),
+        case("de-nw-paris", Want::Abstain),
+        case("de-tx-paris", Want::Abstain),
+        case("us-zz-paris", Want::Abstain),
+        case("us-tx-missing", Want::Abstain),
+        case("at-1-roshcha", Want::Abstain),
         // the larger Paris, when nothing says otherwise
         case("Paris", town("fr-paris", true)),
         case("Delhi", town("in-dl-delhi", true)),
