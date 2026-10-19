@@ -1111,6 +1111,10 @@ fn cases() -> Vec<Case> {
         ),
         case("Świtały 12, 76-231, Poland", at_house("Świtały", "12")),
         case("Jaszcz 10, 76-231, Poland", at_house("Jaszcz", "10")),
+        case(
+            "Rakowice Małe 20BS, 76-231, Poland",
+            at_house("Rakowice Małe", "20bs"),
+        ),
         case("Paris, Texas", town("us-tx-paris", true)),
         case("Paris, TX, USA", town("us-tx-paris", true)),
         case("us-tx-paris", town("us-tx-paris", true)),

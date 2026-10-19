@@ -3708,9 +3708,17 @@ impl Index {
         }
         // libpostal reads a numbered street or village with no street type as a venue ("Świtały
         // 12, 76-231" and "św. Jana 10, 36-050 Sokołów" give a house and no road): only an exact
-        // house on a street of that name answers.
-        if roads.is_empty()
-            && let (Some(n), Some(name)) = (get("house_number").map(house_number), get("house"))
+        // house on a street of that name answers. So with a number it leaves in the road
+        // ("Rakowice Małe 20BS, 59-600").
+        let venue = roads
+            .is_empty()
+            .then(|| get("house").zip(get("house_number").map(house_number)))
+            .flatten();
+        let in_road = (hits.is_empty() && get("house_number").is_none())
+            .then(|| roads.last().and_then(|r| r.rsplit_once(' ')))
+            .flatten()
+            .filter(|(_, n)| n.starts_with(|c: char| c.is_ascii_digit()));
+        if let Some((name, n)) = venue.or(in_road)
             && (city.is_some() || get("postcode").is_some())
         {
             let town = city.map(|c| self.resolve_place(c, cc).unwrap_or_else(|| c.to_string()));

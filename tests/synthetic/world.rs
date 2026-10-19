@@ -1896,6 +1896,18 @@ pub const STREETS: &[Street] = &[
         lat: 54.5,
         numbers: &["12"],
     },
+    // libpostal leaves "20BS" in the road
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Rakowice Małe",
+        postcode: "76-231",
+        city: "Damnica",
+        cc: "PL",
+        lon: 17.36,
+        lat: 54.5,
+        numbers: &["20bs"],
+    },
     // the postcode's centre is nearer the longer name that also holds house 10
     Street {
         class: "residential",
