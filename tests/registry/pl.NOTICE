@@ -1,0 +1,19 @@
+Poland registry-first corpus
+
+Source: Główny Urząd Geodezji i Kartografii (GUGiK), Państwowy Rejestr Granic
+(PRG), official national address-point GML export acquired 19 October 2026.
+https://www.geoportal.gov.pl/pl/dane/panstwowy-rejestr-granic-prg/
+https://opendata.geoportal.gov.pl/prg/adresy/PRG-punkty_adresowe.zip
+
+The official product page states: "Dane PRG są dostępne bezpłatnie i do dowolnego
+wykorzystania" (PRG data are available free of charge and for any use).
+Geoportal terms, Article 3, permit publication with attribution to the source:
+https://www.geoportal.gov.pl/en/about-geoportal/terms-and-conditions/
+The evaluator names these source-specific terms GUGiK-PRG-open-data, not CC BY
+or a blanket worldwide public-domain dedication.
+
+Native names, numbers, postcodes and projected coordinates are adapted from
+source records, with joins through the source GML references. No geocoder's
+answers supply expectations. ASCII variants use BSD-3-Clause deunicode.
+Sampling, projection, source-ID grouping and limitations:
+docs/evaluation/registry/pl.md.

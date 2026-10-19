@@ -1,0 +1,21 @@
+Canada registry-first corpus
+
+Adapted from Statistics Canada, National Address Register, June 2026.
+This does not constitute an endorsement by Statistics Canada of this product.
+Contains information licensed under the Open Government Licence – Yukon.
+
+Statistics Canada Open Licence:
+https://www.statcan.gc.ca/eng/reference/licence
+Open Government Licence – Yukon, version 2.0:
+https://open.yukon.ca/open-government-licence-yukon
+
+Official product and user guide:
+https://www150.statcan.gc.ca/n1/pub/46-26-0002/462600022022001-eng.htm
+https://www150.statcan.gc.ca/n1/pub/46-26-0002/462600022026001-eng.htm
+Official June 2026 archive:
+https://www150.statcan.gc.ca/n1/pub/46-26-0002/2022001/202606.zip
+
+The source-code license does not replace these data terms. The corpus evaluates
+address geography, not mail deliverability. No information is linked to identify
+residents, businesses or organizations. Source field selection, coordinate
+limitations, sampling and regeneration: docs/evaluation/registry/ca.md.

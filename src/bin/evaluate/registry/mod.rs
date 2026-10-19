@@ -9,6 +9,8 @@ mod kartverket;
 mod korea;
 mod linz;
 mod nad;
+mod nar;
+mod prg;
 mod ruian;
 mod swisstopo;
 mod taipei;
@@ -23,6 +25,8 @@ use std::{
 
 pub const ALL: &[Registry] = &[
     nad::REGISTRY,
+    nar::REGISTRY,
+    prg::REGISTRY,
     ban::REGISTRY,
     cartociudad::REGISTRY,
     dar::REGISTRY,
