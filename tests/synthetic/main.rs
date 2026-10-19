@@ -1103,6 +1103,101 @@ fn korean_houses_keep_their_number_and_administrative_hierarchy() {
 }
 
 #[test]
+fn taiwanese_suggestions_keep_building_identity_and_unverified_floors() {
+    for (road, number, stored) in [
+        ("明光路三段389巷6弄", "11", "明光路3段389巷6弄"),
+        ("明光路3段389巷6弄", "11之2", "明光路3段389巷6弄"),
+        ("市民大道五段", "131", "市民大道五段"),
+        ("市民大道5段", "7", "市民大道五段"),
+    ] {
+        let building = format!("青山市光華區{road}{number}號");
+        let plain = index().suggest(&building, 1, None, None, false);
+        assert_eq!(plain.len(), 1, "{building}");
+        assert_eq!(plain[0].kind, "address", "{building}");
+        assert!(plain[0].display_name.starts_with(&format!("{number}, ")));
+        assert!(metres((plain[0].x, plain[0].y), house(street(stored), number)) < 5.);
+        for floor in ["", "三樓", "7樓", "地下二樓"] {
+            for country in ["", ", Taiwan", "，臺灣"] {
+                let query = format!("{building}{floor}{country}");
+                let fullwidth: String = query
+                    .chars()
+                    .map(|c| {
+                        if c.is_ascii_digit() {
+                            char::from_u32(c as u32 + 0xfee0).unwrap()
+                        } else {
+                            c
+                        }
+                    })
+                    .collect();
+                for text in [&query, &fullwidth] {
+                    for cc in [None, Some("TW")] {
+                        let found = index().suggest(text, 1, cc, None, false);
+                        assert_eq!(found.len(), 1, "{text}");
+                        let hit = &found[0];
+                        assert_eq!(hit.kind, "address", "{text}");
+                        assert_eq!(hit.country_code, "tw", "{text}");
+                        assert_eq!(hit.retrieval_id, plain[0].retrieval_id, "{text}");
+                        assert_eq!((hit.x, hit.y), (plain[0].x, plain[0].y), "{text}");
+                        let suffix = text
+                            .split('號')
+                            .nth(1)
+                            .unwrap()
+                            .split([',', '，'])
+                            .next()
+                            .unwrap();
+                        assert_eq!(hit.unverified_suffix, suffix, "{text}");
+                        if !suffix.is_empty() {
+                            assert!(hit.display_name.contains(suffix), "{text}");
+                        }
+                        let retrieved = index().retrieve_suggestion(&hit.retrieval_id).unwrap();
+                        assert_eq!(retrieved.id, plain[0].id, "{text}");
+                        assert_eq!((retrieved.x, retrieved.y), (hit.x, hit.y), "{text}");
+                        assert!(retrieved.unverified_suffix.is_empty(), "{text}");
+                    }
+                }
+            }
+        }
+    }
+    for query in [
+        "青山市光華區明光路三段389巷6弄999號三樓, Taiwan",
+        "青山市光華區明光路三段389巷6弄11之9號三樓, Taiwan",
+        "青山市光華區明光路四段389巷6弄11號三樓, Taiwan",
+        "青山市光華區明光路三段388巷6弄11號三樓, Taiwan",
+        "青山市光華區明光路三段389巷5弄11號三樓, Taiwan",
+        "青山市光華區市民大道五段999號三樓, Taiwan",
+        "碧海市光華區明光路三段389巷6弄11號三樓, Taiwan",
+        "青山市未知區明光路三段389巷6弄11號三樓, Taiwan",
+        "青山市光華區明光路三段389巷6弄11號三樓, France",
+        "青山市光華區明光路三段389巷6弄11號三樓, Alpha, Taiwan",
+        "青山市光華區明光路三段389巷6弄11號三樓, Missingland",
+        "青山市光華區明光路三段389巷6弄11號三樓商店, Taiwan",
+        "999青山市光華區明光路三段389巷6弄11號三樓, Taiwan",
+        "９９９青山市光華區明光路三段389巷6弄11號三樓, Taiwan",
+        "中國青山市光華區明光路三段389巷6弄11號三樓, Taiwan",
+        "青山市光華區明光路三段389巷6弄12345678901號三樓, Taiwan",
+        "青山市光華區明光路三段389巷6弄11-12號三樓, Taiwan",
+        "青山市光華區明光路三段389巷6弄11至12號三樓, Taiwan",
+        "青山市光華區明先路三段389巷6弄11號三樓, Taiwan",
+        "青山市光華區明光路三段389巷6弄",
+    ] {
+        assert!(
+            !index()
+                .suggest(query, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+    let query = "青山市光華區明光路三段389巷6弄11號三樓, Taiwan";
+    assert!(
+        index()
+            .suggest(query, 5, Some("JP"), None, false)
+            .is_empty()
+    );
+    assert!(index().suggest(query, 0, None, None, false).is_empty());
+}
+
+#[test]
 fn osm_site_boundaries_do_not_become_house_points() {
     for (number, point) in [
         ("702", (140.0199, 35.0199)),

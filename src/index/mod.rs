@@ -3359,6 +3359,50 @@ impl Index {
             .flatten()
     }
 
+    fn chinese_streets(
+        &self,
+        units: &[String],
+        road: &str,
+        number: &str,
+        city: Option<&str>,
+        cc: Option<&str>,
+    ) -> Vec<Hit> {
+        let towns = units.iter().rev().map(String::as_str).chain(city);
+        let mut street = None;
+        for town in towns {
+            let hits: Vec<_> = self
+                .streets(road, Some(number), Some(town), None, cc)
+                .into_iter()
+                .filter(|hit| {
+                    let Hit::Street { place, .. } = hit else {
+                        return false;
+                    };
+                    let chain = self.chain(*place);
+                    units.iter().all(|unit| {
+                        chain
+                            .iter()
+                            .any(|&p| self.places[p as usize].named(name_key(unit)))
+                    })
+                })
+                .collect();
+            if let Some(h) = hits.iter().find(|h| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        ..
+                    }
+                )
+            }) {
+                return vec![h.clone()];
+            }
+            if street.is_none() {
+                street = hits.into_iter().next();
+            }
+        }
+        street.into_iter().collect()
+    }
+
     /// Candidates for a free-text query, best first; at most ten. Blocks: call it off the
     /// async executor.
     pub fn search(&self, q: &str) -> Vec<Hit> {
@@ -3442,41 +3486,9 @@ impl Index {
         // Chinese road addresses ("上海市虹口区中山北一路295号"): libpostal splits the road
         // from its number; read them here, scoped by the written district or city.
         if let Some((units, road, number)) = chinese(q) {
-            let towns = units.iter().rev().map(String::as_str).chain(city);
-            let mut street = None;
-            for town in towns {
-                let hits: Vec<_> = self
-                    .streets(&road, Some(&number), Some(town), None, cc)
-                    .into_iter()
-                    .filter(|hit| {
-                        let Hit::Street { place, .. } = hit else {
-                            return false;
-                        };
-                        let chain = self.chain(*place);
-                        units.iter().all(|unit| {
-                            chain
-                                .iter()
-                                .any(|&p| self.places[p as usize].named(name_key(unit)))
-                        })
-                    })
-                    .collect();
-                if let Some(h) = hits.iter().find(|h| {
-                    matches!(
-                        h,
-                        Hit::Street {
-                            number: Some(_),
-                            ..
-                        }
-                    )
-                }) {
-                    return vec![h.clone()];
-                }
-                if street.is_none() {
-                    street = hits.into_iter().next();
-                }
-            }
-            if let Some(h) = street {
-                return vec![h];
+            let hits = self.chinese_streets(&units, &road, &number, city, cc);
+            if !hits.is_empty() {
+                return hits;
             }
         }
         let mut hits = vec![];

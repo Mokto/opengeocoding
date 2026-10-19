@@ -424,6 +424,9 @@ impl Index {
         if text.chars().count() > MAX_TEXT || text.trim().is_empty() || limit == 0 {
             return vec![];
         }
+        if let Some(found) = self.chinese_suggest(text, cc) {
+            return found;
+        }
         if let Some(hits) = self.korean_search(text)
             && !hits.is_empty()
         {
@@ -520,6 +523,67 @@ impl Index {
         });
         out.truncate(limit);
         out
+    }
+
+    fn chinese_suggest(&self, text: &str, cc: Option<&str>) -> Option<Vec<Suggestion>> {
+        if !text.contains('號') {
+            return None;
+        }
+        let (units, road, number) = chinese(text)?;
+        if !matches!(units.as_slice(), [state, city] if state.ends_with('市') && city.ends_with('區'))
+        {
+            return None;
+        }
+        let parts: Vec<_> = text.split([',', '，']).map(str::trim).collect();
+        if !(parts.len() == 1
+            || parts.len() == 2 && self.country(parts[1]).as_deref() == Some("tw"))
+        {
+            return None;
+        }
+        let (building, suffix) = parts[0].rsplit_once('號')?;
+        if schema::number_key(building) != format!("{}{road}{number}", units.concat()) {
+            return None;
+        }
+        let road_key = fold(&road);
+        if road_key.is_empty()
+            || number.len() > MAX_NUMBER
+            || cc.is_some_and(|c| !c.eq_ignore_ascii_case("tw"))
+        {
+            return Some(vec![]);
+        }
+        let suffix = suffix.trim();
+        Some(
+            self.chinese_streets(&units, &road, &number, None, Some("tw"))
+                .into_iter()
+                .filter_map(|hit| {
+                    let Hit::Street {
+                        doc,
+                        sid,
+                        place,
+                        name,
+                        number: Some(found_number),
+                        x,
+                        y,
+                        ..
+                    } = hit
+                    else {
+                        return None;
+                    };
+                    if fold(&name) != road_key || schema::number_key(&found_number) != number {
+                        return None;
+                    }
+                    let mut found =
+                        self.street_suggestion(doc, sid, place, &name, Some(&found_number), (x, y));
+                    if !suffix.is_empty() {
+                        if let Some((at, _)) = found.display_name.match_indices(", ").nth(1) {
+                            found.display_name.insert_str(at, &format!(", {suffix}"));
+                        }
+                        found.unverified_suffix = suffix.into();
+                    }
+                    Some(found)
+                })
+                .collect(),
+        )
     }
 
     fn korean_suggest(&self, text: &str, cc: Option<&str>, want: usize) -> Option<Vec<Suggestion>> {
@@ -796,6 +860,9 @@ impl Index {
     /// the names one edit from `text` (or starting so when `open`) and with its first letter, all
     /// of fit `TYPO`. Reading a short prefix's range is the cost, so it is kept.
     fn name_candidates(&self, text: &str, open: bool, typo: bool) -> Candidates {
+        if text.is_empty() {
+            return Arc::new([]);
+        }
         let key = (Box::<str>::from(text), open, typo);
         if let Some(hit) = self.place_prefixes.lock().unwrap().get(&key) {
             return hit.clone();
