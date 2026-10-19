@@ -395,6 +395,13 @@ fn load_places(dir: &Path) -> (Vec<Place>, HashMap<Str, u32>) {
                             extra.push((key, name));
                         }
                     }
+                    // GeoNames admin1 DK.21 calls this region "South Denmark".
+                    if sub.value(i) == "region" && text(region, i) == Some("DK-83") {
+                        if !names.contains(&"South Denmark") {
+                            names.push("South Denmark");
+                        }
+                        extra.push(("alt_name:en".into(), "South Denmark"));
+                    }
                     let mut parents = vec![];
                     if !hier.is_null(i) {
                         let outer = hier.value(i);

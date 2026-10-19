@@ -432,8 +432,8 @@ impl Core {
                 && ["road", "house_number", "postcode"]
                     .iter()
                     .all(|key| part(address, key).is_empty());
-            // A bare place name means the settlement, not a same-named quarter, county or
-            // region that the index may rank higher.
+            // Without a country, preserve the index's importance order between regions and
+            // villages: a tiny foreign namesake must not displace a region.
             viable.sort_by_cached_key(|(i, f)| {
                 (
                     !town_named(address, f.address_details.as_option()),
@@ -441,6 +441,11 @@ impl Core {
                         match candidates[*i]["addresstype"].as_str() {
                             Some("city" | "town") => 0,
                             Some("municipality") => 1,
+                            Some("region" | "state" | "province")
+                                if country.is_empty() && tier == "raw" =>
+                            {
+                                2
+                            }
                             Some("village") => 2,
                             _ => 3,
                         }

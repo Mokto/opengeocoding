@@ -148,6 +148,7 @@
 {"kind": "region", "qid": "Q99", "queries": ["California, USA"], "admin_level": 4, "must_pass": true}
 {"kind": "region", "qid": "Q1904", "queries": ["Ontario, Canada"], "admin_level": 4}
 {"kind": "region", "qid": "Q26073", "queries": ["Capital Region of Denmark", "Region Hovedstaden, Danmark"], "admin_level": 4}
+{"kind": "region", "qid": "Q26061", "queries": ["South Denmark", "South Denmark, Denmark", "Southern Denmark, Denmark", "Region of Southern Denmark, Denmark", "Syddanmark, Denmark"], "admin_level": 4}
 {"kind": "region", "qid": "Q1439", "queries": ["Texas"], "admin_level": 4}
 {"kind": "region", "qid": "Q36074", "queries": ["Queensland, Australia"], "admin_level": 4}
 {"kind": "region", "qid": "Q5705", "queries": ["Catalunya, Espanya"], "admin_level": 4}

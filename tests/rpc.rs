@@ -198,6 +198,32 @@ async fn checks(env: &mut Env) -> Result<()> {
     );
     println!("PASS: Connect JSON and protobuf search with region enrichment");
 
+    for query in [
+        "South Denmark",
+        "South Denmark, Denmark",
+        "Southern Denmark, Denmark",
+        "Region of Southern Denmark, Denmark",
+        "Syddanmark, Denmark",
+    ] {
+        let found = env.search(query).await?;
+        ensure!(
+            found["addressDetails"]["countryCode"] == "dk",
+            "{query}: {found}"
+        );
+        ensure!(
+            found["addressDetails"]["regionCodes"][0]["code"] == "DK-83",
+            "{query}: {found}"
+        );
+        ensure!(found["goodMatch"] == true, "{query}: {found}");
+    }
+    let ohio = env.search("South Denmark, Ohio, United States").await?;
+    ensure!(ohio["addressDetails"]["countryCode"] == "us", "{ohio}");
+    ensure!(
+        ohio["addressDetails"]["regionCodes"][0]["code"] == "US-OH",
+        "{ohio}"
+    );
+    println!("PASS: Danish region alias and its explicitly qualified Ohio namesake");
+
     for (method, json_body, proto_body) in [
         (
             "SearchAddress",
