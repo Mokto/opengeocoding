@@ -210,6 +210,12 @@ impl Resolver {
         .await?)
     }
 
+    pub async fn retrieve_suggestion(&self, id: &str) -> Result<Option<crate::index::Suggestion>> {
+        let core = self.0.clone();
+        let id = id.to_owned();
+        Ok(tokio::task::spawn_blocking(move || core.index.retrieve_suggestion(&id)).await?)
+    }
+
     /// The address that names a point's region; see `Index::reverse_region`.
     pub async fn reverse_region(&self, lat: f32, lon: f32) -> Result<Option<FullAddress>> {
         let core = self.0.clone();

@@ -147,6 +147,7 @@ enum Names {
 pub struct Suggestion {
     /// Opaque; a place, street, house or postcode of this index.
     pub id: String,
+    pub retrieval_id: String,
     pub display_name: String,
     pub unverified_suffix: String,
     pub kind: &'static str,
@@ -430,6 +431,7 @@ impl Index {
                 .iter()
                 .filter_map(|hit| match hit {
                     Hit::Street {
+                        doc,
                         sid,
                         place,
                         name,
@@ -437,9 +439,16 @@ impl Index {
                         x,
                         y,
                         ..
-                    } if cc.is_none_or(|c| c.eq_ignore_ascii_case("kr")) => Some(
-                        self.street_suggestion(*sid, *place, name, number.as_deref(), (*x, *y)),
-                    ),
+                    } if cc.is_none_or(|c| c.eq_ignore_ascii_case("kr")) => {
+                        Some(self.street_suggestion(
+                            *doc,
+                            *sid,
+                            *place,
+                            name,
+                            number.as_deref(),
+                            (*x, *y),
+                        ))
+                    }
                     _ => None,
                 })
                 .take(limit)
@@ -1085,24 +1094,130 @@ impl Index {
                     })
             })
             .take(want)
-            .map(|(id, l)| Suggestion {
-                id: format!("l{id}"),
-                display_name: format!("{}, {}", self.landmarks.name(l), self.label(l.place)),
-                unverified_suffix: String::new(),
-                kind: "landmark",
-                category: l.category,
-                country_code: self.places[l.place as usize].cc.to_string(),
-                x: l.x as f64,
-                y: l.y as f64,
-                bbox: None,
-            })
+            .map(|(id, _)| self.landmark_suggestion(id))
             .collect()
+    }
+
+    fn landmark_suggestion(&self, id: u32) -> Suggestion {
+        let l = &self.landmarks.list[id as usize];
+        Suggestion {
+            id: format!("l{id}"),
+            retrieval_id: format!("{}/l{id}", self.suggestion_scope),
+            display_name: format!("{}, {}", self.landmarks.name(l), self.label(l.place)),
+            unverified_suffix: String::new(),
+            kind: "landmark",
+            category: l.category,
+            country_code: self.places[l.place as usize].cc.to_string(),
+            x: l.x as f64,
+            y: l.y as f64,
+            bbox: None,
+        }
+    }
+
+    pub fn retrieve_suggestion(&self, id: &str) -> Option<Suggestion> {
+        let (scope, key) = id.split_once('/')?;
+        if scope != self.suggestion_scope {
+            return None;
+        }
+        let (kind, rest) = key.split_at_checked(1)?;
+        match kind {
+            "p" => {
+                let id: u32 = rest.parse().ok()?;
+                self.places.get(id as usize)?;
+                Some(self.place_suggestion(id))
+            }
+            "l" => {
+                let id: u32 = rest.parse().ok()?;
+                self.landmarks.list.get(id as usize)?;
+                Some(self.landmark_suggestion(id))
+            }
+            "s" | "h" | "z" => {
+                let mut parts = rest.split(':');
+                let segment: u32 = parts.next()?.parse().ok()?;
+                let doc: u32 = parts.next()?.parse().ok()?;
+                let number = if kind == "h" {
+                    Some(parts.next()?)
+                } else {
+                    None
+                };
+                if parts.next().is_some() {
+                    return None;
+                }
+                let reader = self.searcher.segment_readers().get(segment as usize)?;
+                let expected = if kind == "z" {
+                    Kind::Postcode
+                } else {
+                    Kind::Street
+                };
+                if doc >= reader.max_doc()
+                    || reader
+                        .alive_bitset()
+                        .is_some_and(|alive| !alive.is_alive(doc))
+                    || !self.columns[segment as usize].runs[expected as usize]
+                        .iter()
+                        .any(|run| run.contains(&doc))
+                {
+                    return None;
+                }
+                let a = tantivy::DocAddress::new(segment, doc);
+                if kind == "z" {
+                    return self.postcode_suggestion(a);
+                }
+                let sid = self.fast(a, "id") as u32;
+                let xy = if let Some(number) = number {
+                    if number.is_empty() || number.len() > MAX_NUMBER {
+                        return None;
+                    }
+                    let mut key = sid.to_be_bytes().to_vec();
+                    key.extend_from_slice(number.as_bytes());
+                    let value = self.numbers[sid as usize % self.numbers.len()].get(&key)?;
+                    let (x, y, _) = schema::unpack(value);
+                    (x, y)
+                } else {
+                    (self.fast_f64(a, "x"), self.fast_f64(a, "y"))
+                };
+                let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
+                Some(self.street_suggestion(
+                    a,
+                    sid,
+                    self.fast(a, "place") as u32,
+                    &stored(&doc, self.f.name),
+                    number,
+                    xy,
+                ))
+            }
+            _ => None,
+        }
+    }
+
+    fn postcode_suggestion(&self, a: tantivy::DocAddress) -> Option<Suggestion> {
+        let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
+        let place = self.fast(a, "place") as u32;
+        let mut display = vec![stored(&doc, self.f.name)];
+        let mut country_code = String::new();
+        if place != NONE {
+            display.push(self.label(place).to_string());
+            country_code = self.places[place as usize].cc.to_string();
+        }
+        Some(Suggestion {
+            id: format!("z{}:{}", country_code, pc_norm(&stored(&doc, self.f.pcode))),
+            retrieval_id: format!("{}/z{}:{}", self.suggestion_scope, a.segment_ord, a.doc_id),
+            display_name: display.join(", "),
+            unverified_suffix: String::new(),
+            kind: "postcode",
+            category: "",
+            country_code,
+            x: self.fast_f64(a, "x"),
+            y: self.fast_f64(a, "y"),
+            bbox: None,
+        })
     }
 
     fn place_suggestion(&self, id: u32) -> Suggestion {
         let pl = &self.places[id as usize];
         Suggestion {
             id: format!("p{id}"),
+            retrieval_id: format!("{}/p{id}", self.suggestion_scope),
             display_name: self.label(id).to_string(),
             unverified_suffix: String::new(),
             kind: place_kind(pl),
@@ -1150,35 +1265,13 @@ impl Index {
         }
         docs.into_iter()
             .filter_map(|a| {
-                let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
-                let (place, x, y) = (
-                    self.fast(a, "place") as u32,
-                    self.fast_f64(a, "x"),
-                    self.fast_f64(a, "y"),
-                );
+                let place = self.fast(a, "place") as u32;
                 if scope.as_ref().is_some_and(|ids| {
                     place == NONE || !self.chain(place).iter().any(|id| ids.contains(id))
                 }) {
                     return None;
                 }
-                let code = stored(&doc, self.f.name);
-                let mut display = vec![code];
-                let mut country_code = String::new();
-                if place != NONE {
-                    display.push(self.label(place).to_string());
-                    country_code = self.places[place as usize].cc.to_string();
-                }
-                Some(Suggestion {
-                    id: format!("z{}:{}", country_code, pc_norm(&stored(&doc, self.f.pcode))),
-                    display_name: display.join(", "),
-                    unverified_suffix: String::new(),
-                    kind: "postcode",
-                    category: "",
-                    country_code,
-                    x,
-                    y,
-                    bbox: None,
-                })
+                self.postcode_suggestion(a)
             })
             .take(limit)
             .collect()
@@ -1633,7 +1726,7 @@ impl Index {
                             continue;
                         }
                     }
-                    houses.push(self.street_suggestion(sid, place, &name, Some(&n), (x, y)));
+                    houses.push(self.street_suggestion(a, sid, place, &name, Some(&n), (x, y)));
                     found = true;
                 }
             }
@@ -1644,7 +1737,7 @@ impl Index {
         let mut out = houses;
         for (sid, place, name, a) in plain {
             let xy = (self.fast_f64(a, "x"), self.fast_f64(a, "y"));
-            out.push(self.street_suggestion(sid, place, &name, None, xy));
+            out.push(self.street_suggestion(a, sid, place, &name, None, xy));
         }
         out.truncate(want);
         out
@@ -1652,6 +1745,7 @@ impl Index {
 
     fn street_suggestion(
         &self,
+        a: tantivy::DocAddress,
         sid: u32,
         place: u32,
         name: &str,
@@ -1674,6 +1768,16 @@ impl Index {
                 Some(n) => format!("h{sid}:{n}"),
                 None => format!("s{sid}"),
             },
+            retrieval_id: format!(
+                "{}/{}{}:{}{}",
+                self.suggestion_scope,
+                if number.is_some() { "h" } else { "s" },
+                a.segment_ord,
+                a.doc_id,
+                number
+                    .map(|n| format!(":{}", schema::number_key(n)))
+                    .unwrap_or_default(),
+            ),
             display_name: display.join(", "),
             unverified_suffix: String::new(),
             kind: if number.is_some() {
@@ -1983,6 +2087,36 @@ mod tests {
 
     fn names(found: &[Suggestion]) -> Vec<&str> {
         found.iter().map(|s| s.display_name.as_str()).collect()
+    }
+
+    #[test]
+    fn retrieval_ids_survive_reopening_and_reject_invalid_references() {
+        let (index, dir) = tiny();
+        let reopened = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
+        let suggestion = index.suggest("paris", 1, None, None, false).remove(0);
+        let found = reopened
+            .retrieve_suggestion(&suggestion.retrieval_id)
+            .unwrap();
+        assert_eq!(found.retrieval_id, suggestion.retrieval_id);
+        assert_eq!((found.x, found.y), (suggestion.x, suggestion.y));
+        for key in [
+            "",
+            "p4294967295",
+            "l4294967295",
+            "s4294967295:0",
+            "s0:4294967295",
+            "z0:4294967295",
+            "h0:0",
+            "s0:0:extra",
+            "💥",
+            "h0:0:",
+            "h0:0:unknown",
+            "x0",
+        ] {
+            let id = format!("{}/{key}", index.suggestion_scope);
+            assert!(index.retrieve_suggestion(&id).is_none(), "{key}");
+        }
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

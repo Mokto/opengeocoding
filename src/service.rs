@@ -208,36 +208,29 @@ impl OpenGeocoding for Service {
                 )
                 .await?;
             Ok(SuggestAddressResponse {
-                suggestions: found
-                    .into_iter()
-                    .map(|s| Suggestion {
-                        id: s.id,
-                        display_name: s.display_name,
-                        geo_coordinates: GeoCoordinates {
-                            lat: s.y as f32,
-                            lon: s.x as f32,
-                            bounding_box: s
-                                .bbox
-                                .map(|[min_lon, min_lat, max_lon, max_lat]| BoundingBox {
-                                    min_lat,
-                                    max_lat,
-                                    min_lon,
-                                    max_lon,
-                                    ..Default::default()
-                                })
-                                .into(),
-                            ..Default::default()
-                        }
-                        .into(),
-                        r#type: s.kind.into(),
-                        country_code: s.country_code,
-                        category: s.category.into(),
-                        unverified_suffix: s.unverified_suffix,
-                        ..Default::default()
-                    })
-                    .collect(),
+                suggestions: found.into_iter().map(Suggestion::from).collect(),
                 ..Default::default()
             })
+        })
+        .await
+    }
+
+    async fn retrieve_suggestion<'a>(
+        &'a self,
+        ctx: RequestContext,
+        request: ServiceRequest<'_, RetrieveSuggestionRequest>,
+    ) -> ServiceResult<impl connectrpc::Encodable<Suggestion> + Send + use<'a>> {
+        self.run(&ctx, "RetrieveSuggestion", async {
+            if request.id.is_empty() || request.id.len() > 256 || request.id.contains('\0') {
+                return Err(ConnectError::invalid_argument("Enter a valid suggestion ID.").into());
+            }
+            self.resolver
+                .retrieve_suggestion(request.id)
+                .await?
+                .map(Suggestion::from)
+                .ok_or_else(|| {
+                    ConnectError::not_found("The suggestion is no longer available.").into()
+                })
         })
         .await
     }
@@ -297,6 +290,36 @@ impl OpenGeocoding for Service {
             })
         })
         .await
+    }
+}
+
+impl From<crate::index::Suggestion> for Suggestion {
+    fn from(s: crate::index::Suggestion) -> Self {
+        Self {
+            id: s.retrieval_id,
+            display_name: s.display_name,
+            geo_coordinates: GeoCoordinates {
+                lat: s.y as f32,
+                lon: s.x as f32,
+                bounding_box: s
+                    .bbox
+                    .map(|[min_lon, min_lat, max_lon, max_lat]| BoundingBox {
+                        min_lat,
+                        max_lat,
+                        min_lon,
+                        max_lon,
+                        ..Default::default()
+                    })
+                    .into(),
+                ..Default::default()
+            }
+            .into(),
+            r#type: s.kind.into(),
+            country_code: s.country_code,
+            category: s.category.into(),
+            unverified_suffix: s.unverified_suffix,
+            ..Default::default()
+        }
     }
 }
 

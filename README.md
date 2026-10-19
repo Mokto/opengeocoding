@@ -66,7 +66,7 @@ curl http://localhost:11121/opengeocoding.OpenGeocoding/SearchAddress \
   -d '{"addressString":"Copenhagen, Denmark"}'
 ```
 
-The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `OpenGeocoding`. The methods are `SearchAddress`, `ResolveRegion`, `ListRegions`, `SuggestAddress` and `ReverseGeocode`. `RefreshRegionMap` and `GetRegionMap` (a Python-style dictionary string) were removed; `ListRegions` returns the same regions as typed messages.
+The contract is `proto/opengeocoding-v1.proto`, package `opengeocoding`, service `OpenGeocoding`. The methods are `SearchAddress`, `ResolveRegion`, `ListRegions`, `SuggestAddress`, `RetrieveSuggestion` and `ReverseGeocode`. `RefreshRegionMap` and `GetRegionMap` (a Python-style dictionary string) were removed; `ListRegions` returns the same regions as typed messages.
 
 The canonical RPC path is `/opengeocoding.OpenGeocoding/*`. The Go package is `github.com/Mokto/opengeocoding/gen/opengeocoding`; the Rust crate is `opengeocoding`, with generated types under `opengeocoding::proto::opengeocoding`.
 
@@ -74,7 +74,7 @@ The canonical RPC path is `/opengeocoding.OpenGeocoding/*`. The Go package is `g
 
 ## Address suggestions
 
-`SuggestAddress` completes text as it is typed and returns up to `limit` (default 5, at most 15) suggestions, each with an opaque `id` (stable for one index), a `display_name`, a point (places also a bounding box when they have an extent), a `type`, a `country_code` and, for a landmark (see Landmarks below), a `category`. `country_code` restricts the answer to one country. There is no second lookup call: the point is in the suggestion.
+`SuggestAddress` completes text as it is typed and returns up to `limit` (default 5, at most 15) suggestions, each with an opaque `id` (stable for one index), a `display_name`, a point (places also a bounding box when they have an extent), a `type`, a `country_code` and, for a landmark (see Landmarks below), a `category`. `country_code` restricts the answer to one country. `RetrieveSuggestion` accepts a suggestion's opaque `id` and returns that exact place, street, indexed house, postcode or landmark with its coordinates. It reads the same immutable index without a session cache or another text search. IDs work across replicas on the same index snapshot and return `not_found` after that snapshot changes; request suggestions again. The returned building does not include unverified floor/unit suffixes typed into a suggestion. The internal suggestion response still includes its point; an authenticated public proxy can omit it and charge only for retrieval.
 
 `focus` (`lat`, `lon` and `scale_km`, default 100, at most 20,000) is the user's position: each place's weight is multiplied by 1 + 1000 / (1 + (d / `scale_km`)²), where d is its distance in km, so by 1,001 at the point, 501 at `scale_km` and about 11 at ten times that. With a focus near Dallas `paris` is Paris, Texas, and `main st, spri` near Hartford lists Springfield, Massachusetts first. It re-ranks the at most 400 best-known places a name or prefix finds and the towns that scope a street; streets, houses, postcodes and landmarks themselves are not ranked by distance.
 
@@ -99,6 +99,17 @@ The gold suite checks suggestions too, with places ranked by population (see Geo
 ```sh
 target/release/evaluate build-gold --seeds tests/gold.suggest.seeds.jsonl --out tests/gold.suggest.jsonl
 ```
+
+### Retrieve a selection
+
+```sh
+curl http://localhost:11121/opengeocoding.OpenGeocoding/RetrieveSuggestion \
+  -H 'Content-Type: application/json' \
+  -H 'Connect-Protocol-Version: 1' \
+  -d '{"id":"<id from SuggestAddress>"}'
+```
+
+Empty IDs, NUL characters and IDs over 256 bytes return `invalid_argument`. Unknown, malformed or stale nonempty IDs return `not_found`. IDs are opaque references, not authorization tokens. The service still requires an authenticated proxy or a trusted network.
 
 ### Landmarks
 

@@ -8,6 +8,7 @@ service OpenGeocoding {
   rpc ResolveRegion(GeoCoordinates) returns (RegionsResponse) {}
   rpc ListRegions(EmptyRequest) returns (RegionsResponse) {}
   rpc SuggestAddress(SuggestAddressRequest) returns (SuggestAddressResponse) {}
+  rpc RetrieveSuggestion(RetrieveSuggestionRequest) returns (Suggestion) {}
   rpc ReverseGeocode(ReverseGeocodeRequest) returns (ReverseGeocodeResponse) {}
 }
 
@@ -161,6 +162,11 @@ message Suggestion {
   // User-entered floor/unit text, also kept in display_name. Not verified: id and point
   // still identify the building. Empty when no suffix interpretation was needed.
   string unverified_suffix = 7;
+}
+
+message RetrieveSuggestionRequest {
+  // Opaque ID returned by SuggestAddress. Valid only for the same index snapshot.
+  string id = 1;
 }
 
 message SuggestAddressResponse {
