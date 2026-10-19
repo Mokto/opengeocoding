@@ -1,0 +1,22 @@
+Denmark registry-first diagnostic corpus
+
+Danmarks Adresseregister (DAR), Klimadatastyrelsen, with addresses and road names
+maintained by the Danish municipalities; distributed through Datafordeleren.
+https://datafordeler.dk/dataoversigt/danmarks-adresseregister-dar/dar-fildownload
+
+© Klimadatastyrelsen. Licensed under CC BY 4.0:
+https://datafordeler.dk/vejledning/brugervilkaar/danmarks-adresseregister-dar/
+https://creativecommons.org/licenses/by/4.0/
+
+This corpus is a sampled, joined, projected and reformatted adaptation. The
+municipalities and Klimadatastyrelsen have not endorsed it. Data is supplied
+without warranties under the source license. The source-code license does not
+replace the data terms.
+
+The pinned source is DAR v4 Current JSON, generation 787. Expectations use the
+house number's linked access point, not a road point or a unit's door point.
+Published floor/door variants check building recovery, not apartment identity.
+Points have distinct technical/accuracy classes; no surveyed entrance accuracy
+or nationwide success rate is claimed. Shared DAR ancestry with index inputs
+limits independence. See docs/evaluation/registry/dk.md for preparation,
+selection, provenance and limitations.
