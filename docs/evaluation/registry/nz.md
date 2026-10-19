@@ -1,6 +1,6 @@
 # New Zealand
 
-[Evaluation guide](../evaluation.md) · [Source notice](../../tests/registry/nz.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/nz.NOTICE)
 
 The source is LINZ's authoritative NZ Addresses, CC BY 4.0, accessed through its official public ArcGIS distribution. No API key, postal directory or commercial geocoder is used. The exporter retains source pages, service metadata and checksums outside the repository. Source postcodes and delivery-route qualifiers are not supplied or tested.
 

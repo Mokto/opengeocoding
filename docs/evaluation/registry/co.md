@@ -1,6 +1,6 @@
 # Colombia — urban Bogotá
 
-[Evaluation guide](../evaluation.md) · [Source notice](../../tests/registry/co.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/co.NOTICE)
 
 The reference is UAECD's official Placa Domiciliaria point layer, distributed through IDECA / Datos Abiertos Bogotá under CC BY 4.0. It covers urban Bogotá, not Colombia nationally. The catalogue describes a 1:1000 map product; plate points are not a guarantee of surveyed entrance accuracy. The service is requested in EPSG:4326, regardless of the catalogue's separately stated native reference system.
 

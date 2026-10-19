@@ -1,6 +1,6 @@
 # Taiwan — Taipei City
 
-[Evaluation guide](../evaluation.md) · [Source notice](../../tests/registry/tw.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/tw.NOTICE)
 
 This municipal diagnostic corpus uses Taipei's official address-point CSV, not a national register. The national catalogue explicitly licenses it under Government Data Open Licence v1. The raw capture is monthly data; retain its checksum and the source metadata beside it. It includes house/floor strings but no people or household records.
 
