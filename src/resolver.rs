@@ -573,6 +573,45 @@ impl Core {
     }
 
     fn resolve(&self, query: &str) -> Result<FullAddress> {
+        let found = self.resolve_written(query)?;
+        let has_house = |found: &FullAddress| {
+            found
+                .address_details
+                .as_option()
+                .is_some_and(|d| !d.house_number.is_empty())
+        };
+        if has_house(&found) {
+            return Ok(found);
+        }
+        // A Danish supplementary place the index files differently breaks the parse of the whole
+        // address; the house, road and postcode still name it. The place is unverified unless
+        // the answer names it.
+        if let Some((kept, place)) = without_danish_place(query) {
+            let mut alt = self.resolve_written(&kept)?;
+            let postcode = query
+                .split(',')
+                .find_map(|p| {
+                    p.trim()
+                        .split_once(' ')
+                        .filter(|(c, _)| c.len() == 4 && c.bytes().all(|b| b.is_ascii_digit()))
+                })
+                .map_or("", |(code, _)| code);
+            if has_house(&alt)
+                && alt
+                    .address_details
+                    .as_option()
+                    .is_some_and(|d| d.postcode.is_empty() || d.postcode == postcode)
+            {
+                if !normalize_place(&alt.display_name).contains(&normalize_place(&place)) {
+                    alt.good_match = false;
+                }
+                return Ok(alt);
+            }
+        }
+        Ok(found)
+    }
+
+    fn resolve_written(&self, query: &str) -> Result<FullAddress> {
         if query.chars().count() <= 256
             && let Some(hits) = self.index.place_slug(query)
         {

@@ -1111,6 +1111,18 @@ pub const PLACES: &[Place] = &[
         &[("en", "Denmark")]
     ),
     place!(
+        "dk-north",
+        "region",
+        "",
+        "DK",
+        "DK-81",
+        600_000,
+        (10.0, 57.0),
+        "dk",
+        "Region Nordjylland",
+        &[("en", "North Denmark Region")]
+    ),
+    place!(
         "dk-havnholm",
         "locality",
         "town",
@@ -1742,6 +1754,17 @@ pub const STREETS: &[Street] = &[
         lon: 61.497,
         lat: 0.0,
         numbers: &[],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Kajgade",
+        postcode: "8600",
+        city: "Postholm",
+        cc: "DK",
+        lon: 10.45,
+        lat: 56.4,
+        numbers: &["5"],
     },
     Street {
         class: "residential",

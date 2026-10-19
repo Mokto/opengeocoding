@@ -373,17 +373,29 @@ impl Typed {
     }
 }
 
+/// A Danish unit part: a floor with or without a door ("st.", "1. th", "st. 11", "1. c"), or a
+/// side door alone.
 fn danish_floor(text: &str) -> bool {
     let folded = text.to_ascii_lowercase().replace('.', " ");
     let words: Vec<_> = folded.split_whitespace().collect();
     let Some(floor) = words.first() else {
         return false;
     };
-    let floor = matches!(*floor, "st" | "kl")
+    let side = |w: &str| matches!(w, "t" | "th" | "tv" | "m" | "mf");
+    // "st. john" is a saint, not a door
+    let door = |w: &str| {
+        side(w)
+            || (w.len() <= 4
+                && w.bytes().all(|b| b.is_ascii_alphanumeric())
+                && (w.len() == 1 || w.bytes().any(|b| b.is_ascii_digit())))
+    };
+    let floored = matches!(*floor, "st" | "kl")
         || (floor.len() <= 2 && floor.bytes().all(|b| b.is_ascii_digit()));
-    floor
-        && (words.len() == 1
-            || words.len() == 2 && matches!(words[1], "t" | "th" | "tv" | "m" | "mf"))
+    match words.len() {
+        1 => floored || matches!(*floor, "th" | "tv" | "mf"),
+        2 => floored && door(words[1]),
+        _ => false,
+    }
 }
 
 impl Index {
@@ -1427,14 +1439,17 @@ impl Index {
                     .filter(|p| p.chars().count() > 3)
                     .and_then(|p| {
                         let cc = self.country(p)?;
-                        (!self
-                            .name_candidates(&fold(p), false, false)
-                            .iter()
-                            .any(|&(id, _, _)| {
-                                self.places[id as usize].subtype.as_ref() == "region"
-                                    || self.own_codes.contains_key(&id)
-                                    || self.subdivision_codes.contains_key(&id)
-                            }))
+                        (!self.name_candidates(&fold(p), false, false).iter().any(
+                            |&(id, fit, _)| {
+                                // "Capital Region of Denmark" only contains the country's name.
+                                // Not for France, whose overseas departments are addressed
+                                // "…, France" under other country codes.
+                                !(fit == INSIDE && cc.eq_ignore_ascii_case("dk"))
+                                    && (self.places[id as usize].subtype.as_ref() == "region"
+                                        || self.own_codes.contains_key(&id)
+                                        || self.subdivision_codes.contains_key(&id))
+                            },
+                        ))
                         .then_some(cc)
                     })
             })
@@ -1490,25 +1505,30 @@ impl Index {
             }
             if postcode.is_some()
                 && number_word.is_some()
-                && (parts.len() == 1 || (parts.len() == 2 && country.is_some()))
+                && (parts.len() == 1 || ((2..=3).contains(&parts.len()) && country.is_some()))
             {
-                let city = parts
-                    .first()
-                    .filter(|p| country.is_none() || self.country(p) != country)
-                    .map(|p| (p.as_str(), typed.open && parts.len() == 1));
-                let found = self.streets_typed(
-                    &road_words,
-                    false,
-                    None,
-                    number_word,
-                    false,
-                    cc,
-                    postcode,
-                    city,
-                    want,
-                );
-                if found.iter().any(|s| s.kind == "address") {
-                    return found;
+                // "9 pittevej, aidt, 8881 thorsø, denmark": a place between the road and the
+                // postcode's town is another name of the house's place, or its postal town
+                let candidates: &[usize] = if parts.len() == 3 { &[1, 0] } else { &[0] };
+                for &at in candidates {
+                    let city = parts
+                        .get(at)
+                        .filter(|p| country.is_none() || self.country(p) != country)
+                        .map(|p| (p.as_str(), typed.open && parts.len() == 1));
+                    let found = self.streets_typed(
+                        &road_words,
+                        false,
+                        None,
+                        number_word,
+                        false,
+                        cc,
+                        postcode,
+                        city,
+                        want,
+                    );
+                    if found.iter().any(|s| s.kind == "address") {
+                        return found;
+                    }
                 }
             }
             let found = if one_part {
@@ -1863,6 +1883,20 @@ impl Index {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn danish_unit_parts_are_floors_doors_and_nothing_else() {
+        for unit in [
+            "st.", "kl.", "1.", "st. th", "1. tv", "st. 11", "2. 3b", "1. c", "th",
+        ] {
+            assert!(danish_floor(unit), "{unit}");
+        }
+        for other in [
+            "st. john", "st john", "12 main", "1. 12345", "th mf", "", "Grenaa", "8500",
+        ] {
+            assert!(!danish_floor(other), "{other}");
+        }
+    }
     use super::*;
 
     #[test]
