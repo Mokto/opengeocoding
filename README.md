@@ -1,6 +1,6 @@
 # OpenGeocoding
 
-**Address search, autocomplete and reverse geocoding — on your infrastructure or through a hosted API.**
+**Kubernetes-native geocoding: address search, autocomplete and reverse geocoding — on your infrastructure or through a hosted API.**
 
 [![Release](https://img.shields.io/github/v/release/Mokto/opengeocoding)](https://github.com/Mokto/opengeocoding/releases) [![License: PolyForm Shield](https://img.shields.io/badge/license-PolyForm_Shield-blue)](LICENSE) [![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/Mokto/opengeocoding?utm_source=badge)
 
@@ -31,21 +31,21 @@ Autocomplete can also include selected landmark categories: airports, stations, 
 - **Operate one serving process.** Parsing, search and reverse lookups share an in-process index. Models and index files are mounted read-only.
 - **Search across languages and scripts.** Indexed local and alternative place names, Unicode normalization and street-abbreviation handling support multilingual inputs.
 - **Distinguish matches from fallbacks.** Structured fields and `goodMatch` let clients identify weaker forward-geocoding answers; it is not a calibrated confidence score.
-- **Choose your deployment.** Linux amd64 and arm64 containers, a Helm chart, readiness checks, Prometheus metrics and graceful shutdown are included.
+- **Kubernetes-native by design.** The Helm chart manages index-build Jobs and serving Deployments through a leader elected with a Kubernetes Lease, with verified index downloads and rolling updates. Linux amd64/arm64 containers, readiness checks, Prometheus metrics and graceful shutdown are included.
 
 ## Performance and resources
 
-**A world index built in under 20 minutes from already-downloaded sources; forward search reached 2,850 queries/s in Linux containers.** These are separate historical measurements, not one combined current-release benchmark:
+**A world index built in under 20 minutes from already-downloaded sources; forward search reached 2,850 queries/s in one serving container.** These are separate historical measurements, not one combined current-release benchmark:
 
 | Workload | Observed result |
 | --- | --- |
 | World index build, including landmarks | **Under 20 min, excluding downloads**, **32.2 GB peak memory**, on an 18-core Apple M5 Max with 64 GB RAM |
 | Built world index | About **16 GB on disk**, excluding libpostal models and build scratch |
 | Forward search, 1 connection | **599 queries/s**, **5.3 ms p95** |
-| Forward search, 16 connections | **2,850 queries/s**; p95 was not recorded in the published summary |
+| Forward search, 16 connections to one serving instance | **2,850 queries/s per instance**, not a multi-pod total; p95 was not recorded in the published summary |
 | Serving process in the search benchmark | **4.2 GiB resident memory** |
 
-The build used already-downloaded sources; downloads and model provisioning are additional. Search numbers are end-to-end Connect JSON requests over keep-alive connections, using 808 address samples, an earlier 11 GB world index and `PARSE_CACHE=0`, in Linux containers on a busy 18-core laptop. They are not hosted API limits or capacity guarantees. See [measurement scope and methodology](docs/development.md#performance-methodology-and-nominatim-comparison).
+The build used already-downloaded sources; downloads and model provisioning are additional. Search numbers are end-to-end Connect JSON requests over keep-alive connections to a **single serving container**, using 808 address samples, an earlier 11 GB world index and `PARSE_CACHE=0`. **Search benchmark CPU:** a busy 18-core laptop; the CPU model and container vCPU allocation were not recorded. This is not a Kubernetes per-pod capacity measurement at a specified CPU budget, nor a hosted API limit. See [measurement scope and methodology](docs/development.md#performance-methodology-and-nominatim-comparison).
 
 ### Compared with Nominatim
 
@@ -104,7 +104,9 @@ Use a query inside your index's coverage if you built a regional index. Readines
 
 ### Deploy on Kubernetes
 
-The [Helm deployment guide](docs/deployment.md#deploy-on-kubernetes) covers building and publishing indexes into an existing S3-compatible bucket, verified downloads into serving pods, and rolling upgrades. Regional builds are supported. A world build requires substantial memory, scratch disk and initial downloads; review the guide before provisioning.
+The [Helm deployment guide](docs/deployment.md#deploy-on-kubernetes) covers building and publishing indexes into an existing S3-compatible bucket, verified downloads into serving pods, and rolling upgrades. Each serving pod runs one geocoder instance with its own read-only index. Regional builds are supported.
+
+The [chart defaults](manifests/values.yaml) request **1 CPU and 6 GiB RAM per serving pod**, with a **16 GiB memory limit and no CPU limit**. A CPU request is not a cap; these defaults are not the recorded benchmark allocation and do not establish 2,850 queries/s on one CPU. A world build requires substantial memory, scratch disk and initial downloads; review the guide before provisioning.
 
 ## Geographic evaluation
 

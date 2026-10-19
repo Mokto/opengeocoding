@@ -45,12 +45,14 @@ This times index construction from local sources, not first installation: source
 
 ### Forward-search throughput, p95 and memory
 
-The [lookup optimization record](indexing.md#lookups) reports a comparison on an earlier **11 GB world index**, using **808 address samples** on a busy **18-core laptop**. The Linux-container results for the optimized build were:
+The [lookup optimization record](indexing.md#lookups) reports a comparison on an earlier **11 GB world index**, using **808 address samples** on a busy **18-core laptop**. Each result measures **one serving instance in one Linux container**, not aggregate traffic across replicas. The CPU model, Docker VM CPU allocation and per-container CPU quota were not recorded; the host's 18 cores must not be presented as the container's assigned vCPU count. The Linux-container results for the optimized build were:
 
 | Connections | Queries/s | Request p95 |
 | --- | ---: | ---: |
 | 1 | 599 | 5.3 ms |
 | 16 | 2,850 | Not recorded in the published summary |
+
+A Kubernetes serving pod runs one such instance, but this benchmark did not measure Kubernetes pods at a fixed CPU allocation. The [chart defaults](../manifests/values.yaml) request 1 CPU and 6 GiB memory per serving pod, set a 16 GiB memory limit and leave CPU unlimited. Requests are scheduling reservations, not CPU caps or a throughput guarantee; the 2,850 queries/s result cannot be attributed to that 1-CPU request.
 
 The serving process used **4.2 GiB resident memory**. The index was bind-mounted from the host and the parse cache was disabled (`PARSE_CACHE=0`); filesystem page-cache state was not recorded. These are end-to-end forward-geocoding requests, not the much smaller timings of an isolated index lookup. Responses were identical to the baseline in that comparison, which establishes no independent accuracy percentage.
 
