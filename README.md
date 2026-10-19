@@ -33,6 +33,26 @@ Autocomplete can also include selected landmark categories: airports, stations, 
 - **Distinguish matches from fallbacks.** Structured fields and `goodMatch` let clients identify weaker forward-geocoding answers; it is not a calibrated confidence score.
 - **Choose your deployment.** Linux amd64 and arm64 containers, a Helm chart, readiness checks, Prometheus metrics and graceful shutdown are included.
 
+## Performance and resources
+
+**A world index built in 6 min 49 s; forward search reached 2,850 queries/s in Linux containers.** These are separate historical measurements, not one combined current-release benchmark:
+
+| Workload | Observed result |
+| --- | --- |
+| World index build, including landmarks | **409 s**, **32.2 GB peak memory**, on an 18-core Apple M5 Max with 64 GB RAM |
+| Built world index | About **16 GB on disk**, excluding libpostal models and build scratch |
+| Forward search, 1 connection | **599 queries/s**, **5.3 ms p95** |
+| Forward search, 16 connections | **2,850 queries/s**; p95 was not recorded in the published summary |
+| Serving process in the search benchmark | **4.2 GiB resident memory** |
+
+The build used already-downloaded sources; downloads and model provisioning are additional. Search numbers are end-to-end Connect JSON requests over keep-alive connections, using 808 address samples, an earlier 11 GB world index and `PARSE_CACHE=0`, in Linux containers on a busy 18-core laptop. They are not hosted API limits or capacity guarantees. See [measurement scope and methodology](docs/development.md#performance-methodology-and-nominatim-comparison).
+
+### Compared with Nominatim
+
+[Nominatim 5.3's installation guide](https://nominatim.org/release-docs/5.3/admin/Installation/#hardware) strongly recommends **128 GB RAM or more for a planet import**, requires **at least 1 TB of disk for a planet installation**, and describes an import taking **around 2.5 days** on a well-configured machine (4–5 days on traditional SSDs). OpenGeocoding instead builds a compact read-only serving index and requires no PostgreSQL/PostGIS service.
+
+**This is operational context, not a like-for-like speedup claim.** The input datasets, indexing work, coverage and hardware differ. Nominatim's import RAM recommendation is not its serving RAM usage. We have not published matched Nominatim queries/s, p95 latency or serving-memory measurements; those comparisons remain unmeasured.
+
 ## Try the hosted API
 
 For the shortest path to a request, create an API key in the [dashboard](https://opengeocoding.com/dashboard) and set `OPENGEOCODING_API_KEY` in your environment:
@@ -106,7 +126,7 @@ Connect JSON and Connect Protobuf are the primary interfaces. **Direct gRPC inte
 | [API](docs/api.md) | Wire contract, request examples, autocomplete, landmarks, reverse geocoding and compatibility |
 | [Deployment](docs/deployment.md) | Docker, Helm, model/index provisioning, configuration and diagnostics |
 | [Index building](docs/indexing.md) | Data inputs, licensing, coverage and historical build/performance measurements |
-| [Development](docs/development.md) | Build requirements, tests, benchmarks, publishing and reference data |
+| [Development](docs/development.md) | Build requirements, tests, performance methodology, Nominatim context, benchmarks and publishing |
 | [Evaluation](docs/evaluation.md) | Corpora, scoring, held-out cases and regression gates |
 | [Provider evaluation](docs/providers.md) | Offline comparisons, request budgets and provider storage restrictions |
 

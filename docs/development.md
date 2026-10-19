@@ -4,7 +4,7 @@
 
 Run commands from the repository root. Historical measurements live in the API and index guides; they are not production capacity guarantees.
 
-[Build and test](#build-and-test) · [Benchmark](#local-performance-benchmark) · [Publishing](#ghcr-publishing) · [Reference data](#reference-data-and-normalization)
+[Build and test](#build-and-test) · [Performance and Nominatim](#performance-methodology-and-nominatim-comparison) · [Benchmark](#local-performance-benchmark) · [Publishing](#ghcr-publishing) · [Reference data](#reference-data-and-normalization)
 
 ## Build and test
 
@@ -32,6 +32,39 @@ SERVICE_IMAGE=opengeocoding LIBPOSTAL_MODELS="$PWD/models/libpostal" INDEX_DIR=o
 ```
 
 CI builds and checks both amd64 and arm64 without downloading models. [CodSpeed](https://codspeed.io/) runs the `benches/` suites in its simulation mode and reports changes in instruction counts: `index` (the index analyzer and house-number keys; `src/index/{schema,canon}.rs`), `matching` (the service's candidate matching; `src/matching.rs`, `src/resolver.rs`, `data/`) and `resolve` (model-backed libpostal parsing of `tests/addresses.tsv`; `src/index/mod.rs`, where the parser lives). A pull request runs only the suites whose files it changes (or all of them when it changes `Cargo.toml`, `Cargo.lock`, `build.rs` or the workflow); pushes to `main` run all of them, so each `main` commit is a complete baseline. Only `resolve` loads models; none loads an index. Run them locally with `cargo bench` (`resolve` needs `LIBPOSTAL_MODELS` set), or `cargo codspeed build && cargo codspeed run`. Index searches, suggestions and reverse lookups are timed end to end by the [full-index gold check](evaluation.md). Regenerate `THIRD_PARTY_NOTICES.txt` with `cargo run --locked --bin notices` after dependency changes. Model-backed RPC tests run separately with provisioned models.
+
+## Performance methodology and Nominatim comparison
+
+The README highlights two separate historical measurements. They are not a benchmark of the current release, and the build, disk and request figures must not be presented as if they came from one deployment.
+
+### World-index build
+
+The [landmark build record](api.md#landmarks) reports a 2026-10-17 build taking **409 seconds**, with a **32.2 GB peak memory footprint**, on an **18-core Apple M5 Max with 64 GB RAM**. The resulting world index was roughly **16 GB**, including administrative polygons, street-reverse files, GeoNames places and landmarks. Source inputs included Overture, OpenAddresses, GeoNames and OSM extracts, including landmark-only extracts.
+
+This times index construction from local sources, not first installation: source downloads, libpostal model provisioning, application compilation, artifact upload and deployment are outside the figure. The index size excludes models, source mirrors and build scratch. It is a single observed build, not an isolated before/after experiment or a memory ceiling.
+
+### Forward-search throughput, p95 and memory
+
+The [lookup optimization record](indexing.md#lookups) reports a comparison on an earlier **11 GB world index**, using **808 address samples** on a busy **18-core laptop**. The Linux-container results for the optimized build were:
+
+| Connections | Queries/s | Request p95 |
+| --- | ---: | ---: |
+| 1 | 599 | 5.3 ms |
+| 16 | 2,850 | Not recorded in the published summary |
+
+The serving process used **4.2 GiB resident memory**. The index was bind-mounted from the host and the parse cache was disabled (`PARSE_CACHE=0`); filesystem page-cache state was not recorded. These are end-to-end forward-geocoding requests, not the much smaller timings of an isolated index lookup. Responses were identical to the baseline in that comparison, which establishes no independent accuracy percentage.
+
+The corresponding host-native run reached 806 queries/s with 3.9 ms p95 over one connection and 5,512 queries/s over 16. Do not combine its throughput with the container's latency or memory figure. Later measurements in the lookup history use different corpora, indexes and cache settings; the 16,000 queries/s result repeats queries with the parse cache enabled and is not the README's headline.
+
+The original summaries do not attach complete per-run manifests, raw latency samples or a p95 for 16 connections. They support historical observations, not an independently reproducible current-release performance claim. No new benchmark was run for this documentation update.
+
+### What the Nominatim figures mean
+
+Source: [Nominatim 5.3 installation prerequisites](https://nominatim.org/release-docs/5.3/admin/Installation/#hardware), checked 2026-10-19. For a planet import it strongly recommends **128 GB RAM or more**; for a planet installation it requires **at least 1 TB disk**, preferably NVMe. It describes a planet import taking **around 2.5 days** on a well-configured machine, or **4–5 days** on traditional SSDs.
+
+These are Nominatim's published planning figures, not measurements from the OpenGeocoding benchmark machine. Nominatim imports an OSM planet into PostgreSQL/PostGIS; OpenGeocoding builds a different, compact serving index from already-processed geographic inputs. Neither the data coverage nor the import work is equivalent. Import-memory recommendations cannot be compared with measured serving-process RSS as a RAM-saving ratio, and a final index size is not comparable to total installation/scratch requirements as a disk-saving ratio.
+
+There is no matched Nominatim throughput, request-p95 or serving-memory result in this record. A numeric speedup or resource-saving percentage would require both services on identified hardware, documented source snapshots and coverage, the same queries and concurrency, explicit cache/warm-up settings, request/error counts, latency distributions, and separate build/serving memory and disk accounting. Measure both under the same protocol or clearly account for adapter overhead, and evaluate geographic correctness separately. The benchmark below speaks Connect JSON; it cannot call a stock Nominatim HTTP endpoint without an adapter.
 
 ## Local performance benchmark
 
