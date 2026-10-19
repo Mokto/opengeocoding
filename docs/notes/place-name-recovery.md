@@ -80,11 +80,11 @@ Regenerate the two affected seeds through `evaluate build-gold --seeds FILE --ou
 
 Re-scoring saved base/head runs changes Zallaq's forward class from `wrong_region` to `pass` on both binaries and re-scores its reverse/region checks. No service response changes for this correction; Gainesville's forward `abstain → pass` is a separate runtime change. No other class changes in the re-score.
 
-### Kaliling: historical geography remains unresolved
+### Kaliling: historical geography was unresolved in this follow-up
 
 [Republic Act No. 12000, section 3](https://www.lawphil.net/statutes/repacts/ra2024/ra_12000_2024.html), approved 2024-06-11, puts Negros Occidental, including its cities, municipalities and barangays, in the Negros Island Region. The indexed Caliling in Cauayan, Negros Occidental therefore does not have Western Visayas as its current ancestor. The named settlement spelling is already preserved by #178; the remaining rejection is the administrative contradiction, not a missing alias.
 
-The old query and its expectations remain untouched and its failure remains visible. Supporting a former region requires dated, source-backed administrative relationships kept distinct from the current parent chain; making Western Visayas a name of the settlement or dropping that qualifier would hide the contradiction. This follow-up does neither.
+At that stage, the old query and its expectations remained untouched and its failure remained visible. Supporting a former region requires dated, source-backed administrative relationships kept distinct from the current parent chain; making Western Visayas a name of the settlement or dropping that qualifier would hide the contradiction. That follow-up did neither. The later [reviewed historical-membership implementation](historical-memberships.md) adds a dated observation of the complete Caliling membership chain without changing its names or current parents.
 
 ### Follow-up validation and limits
 
