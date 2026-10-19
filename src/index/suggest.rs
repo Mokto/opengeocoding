@@ -1568,7 +1568,10 @@ impl Index {
                 ));
                 found
             } else {
-                let ids = self.scope(&parts, typed.open, cc, focus, true);
+                let mut ids = self.scope(&parts, typed.open, cc, focus, true);
+                if ids.is_empty() && country.is_some() {
+                    ids = self.scope(&parts[..parts.len() - 1], false, cc, focus, true);
+                }
                 if ids.is_empty() {
                     vec![]
                 } else {

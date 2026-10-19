@@ -317,6 +317,92 @@ fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
 }
 
 #[test]
+fn joined_city_and_region_suggestions_keep_both_constraints() {
+    let index = index();
+    let want = house(street("Birch Completion Road"), "12");
+    let base = index.suggest(
+        "12 Birch Completion Road, Delhi, ON N4B 1A1, Canada",
+        1,
+        None,
+        None,
+        false,
+    );
+    assert_eq!(base[0].kind, "address");
+    for (query, cc) in [
+        ("12 Birch Completion Road, Delhi ON N4B 1A1, Canada", None),
+        ("Birch Completion Road 12, Delhi ON N4B1A1, Canada", None),
+        ("12 Birch Completion Road, Delhi ON, Canada", None),
+        ("12 Birch Completion Road, Delhi ON N4B 1A1", Some("CA")),
+        ("12 Birch Completion Road, Delhi ON N4B 1A1", None),
+    ] {
+        let found = index.suggest(query, 1, cc, None, false);
+        assert_eq!(found.len(), 1, "{query}");
+        assert_eq!(found[0].kind, "address", "{query}");
+        assert_eq!(found[0].id, base[0].id, "{query}");
+        assert_eq!(found[0].retrieval_id, base[0].retrieval_id);
+        assert!(metres((found[0].x, found[0].y), want) < 2., "{query}");
+        let retrieved = index.retrieve_suggestion(&found[0].retrieval_id).unwrap();
+        assert_eq!((retrieved.x, retrieved.y), (found[0].x, found[0].y));
+    }
+    let suffix = index.suggest(
+        "12A Birch Completion Road, Delhi ON N4B 1A1, Canada",
+        1,
+        None,
+        None,
+        false,
+    );
+    assert_eq!(suffix[0].kind, "address");
+    assert!(suffix[0].id.ends_with(":12a"));
+    assert!(
+        metres(
+            (suffix[0].x, suffix[0].y),
+            house(street("Birch Completion Road"), "12a")
+        ) < 2.
+    );
+    for (query, cc) in [
+        ("12B Birch Completion Road, Delhi ON N4B 1A1, Canada", None),
+        ("12 Birch Completion Road, Delhi QC N4B 1A1, Canada", None),
+        ("12 Birch Completion Road, Delhi ON G1A 0A2, Canada", None),
+        ("12 Birch Completion Road, Delhi ON N4B 1A1, France", None),
+        (
+            "12 Birch Completion Road, Delhi ON N4B 1A1, Canada",
+            Some("US"),
+        ),
+        ("12 Birch Completion Road, Unknown ON N4B 1A1, Canada", None),
+        ("999 Birch Completion Road, Delhi ON N4B 1A1, Canada", None),
+        ("12 Missing Road, Delhi ON N4B 1A1, Canada", None),
+        (
+            "12 Birch Completion Road, Delhi ON, Quebec, N4B 1A1, Canada",
+            None,
+        ),
+    ] {
+        assert!(
+            !index
+                .suggest(query, 5, cc, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+    let query = "12 Birch Completion Road, Harbour ON, Canada";
+    let found = index.suggest(query, 1, None, None, false);
+    let literal = STREETS.iter().find(|s| s.city == "Harbour ON").unwrap();
+    assert_eq!(found[0].kind, "address", "{query}");
+    assert!(metres((found[0].x, found[0].y), house(literal, "12")) < 2.);
+    assert!(
+        index
+            .suggest(
+                "12 Birch Completion Road, Delhi ON, Canada",
+                0,
+                None,
+                None,
+                false
+            )
+            .is_empty()
+    );
+}
+
+#[test]
 fn a_full_address_ending_in_a_country_a_region_name_contains_is_suggested() {
     // "North Denmark Region" contains "Denmark" without being named so
     for (typed, road, number) in [
