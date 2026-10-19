@@ -1637,6 +1637,25 @@ impl Index {
                 }
             }
         }
+        // "ul. M. Kopernika 11": the index names it Mikołaja Kopernika, mostly without "ul."
+        if !out.iter().any(|s| s.kind == "address")
+            && let Some(bare) = crate::matching::bare_road(&typed.parts[0], cc)
+        {
+            let mut parts = typed.parts.clone();
+            parts[0] = bare;
+            let found = self.suggest_streets(
+                &Typed {
+                    parts,
+                    open: typed.open,
+                },
+                cc,
+                focus,
+                want,
+            );
+            if out.is_empty() || found.iter().any(|s| s.kind == "address") {
+                return found;
+            }
+        }
         out.truncate(want);
         out
     }
@@ -2510,6 +2529,11 @@ mod tests {
             .map(|s| s.id)
             .collect();
         assert_eq!(ids[..2], ["h7:12", "h7:120"]);
+        // "ul." (ulica), which the index leaves out
+        assert_eq!(
+            index.suggest("ul. rue de rivoli 12, paris", 5, None, None, false)[0].id,
+            "h7:12"
+        );
         // no such number: the street
         assert_eq!(
             index.suggest("99 rue de rivoli", 5, None, None, false)[0].id,
