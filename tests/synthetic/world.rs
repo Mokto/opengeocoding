@@ -2086,6 +2086,71 @@ pub const FEATURES: &[Feature] = &[
             ("name", "Paris Bakery"),
         ],
     },
+    Feature {
+        shape: Shape::Node,
+        lon: 140.04,
+        lat: 35.02,
+        tags: &[("addr:street", "배움길"), ("addr:housenumber", "704")],
+    },
+    Feature {
+        shape: Shape::Way(0.0001),
+        lon: 140.02,
+        lat: 35.02,
+        tags: &[("addr:street", "배움길"), ("addr:housenumber", "702")],
+    },
+    Feature {
+        shape: Shape::Relation(0.0001),
+        lon: 140.03,
+        lat: 35.02,
+        tags: &[("addr:street", "배움길"), ("addr:housenumber", "703")],
+    },
+    Feature {
+        shape: Shape::Way(0.01),
+        lon: 140.04,
+        lat: 35.02,
+        tags: &[("addr:street", "배움길"), ("addr:housenumber", "704")],
+    },
+    Feature {
+        shape: Shape::Way(0.01),
+        lon: 140.05,
+        lat: 35.02,
+        tags: &[
+            ("addr:street", "배움길"),
+            ("addr:housenumber", "705"),
+            ("addr:postcode", "54399"),
+            ("building", "no"),
+        ],
+    },
+    Feature {
+        shape: Shape::Relation(0.01),
+        lon: 140.06,
+        lat: 35.02,
+        tags: &[
+            ("addr:street", "배움길"),
+            ("addr:housenumber", "706"),
+            ("addr:postcode", "54399"),
+        ],
+    },
+    Feature {
+        shape: Shape::Way(0.01),
+        lon: 140.07,
+        lat: 35.02,
+        tags: &[
+            ("addr:street", "배움길"),
+            ("addr:housenumber", "707"),
+            ("building", "retail"),
+        ],
+    },
+    Feature {
+        shape: Shape::Relation(0.01),
+        lon: 140.08,
+        lat: 35.02,
+        tags: &[
+            ("addr:street", "배움길"),
+            ("addr:housenumber", "708"),
+            ("building", "yes"),
+        ],
+    },
 ];
 
 fn varint(out: &mut Vec<u8>, mut v: u64) {

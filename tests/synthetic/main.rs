@@ -1006,6 +1006,47 @@ fn korean_houses_keep_their_number_and_administrative_hierarchy() {
 }
 
 #[test]
+fn osm_site_boundaries_do_not_become_house_points() {
+    for (number, point) in [
+        ("702", (140.0199, 35.0199)),
+        ("703", (140.0299, 35.0199)),
+        ("704", (140.04, 35.02)),
+        ("707", (140.06, 35.01)),
+        ("708", (140.07, 35.01)),
+    ] {
+        let query = format!("가람도 솔빛시 새봄면 배움길 {number}, South Korea");
+        let found = index().suggest(&query, 5, None, None, false);
+        assert_eq!(found.len(), 1, "{query}");
+        assert_eq!(found[0].kind, "address");
+        assert!(metres((found[0].x, found[0].y), point) < 5.);
+        let reverse = index().reverse_search(point.1, point.0, 5., 1);
+        assert_eq!(reverse[0].1["address"]["house_number"], number);
+    }
+    let postcodes = index().postcode_hits("54399", Some("kr"));
+    assert_eq!(postcodes.len(), 1);
+    let postcode = index().render(&postcodes[0], true);
+    assert!(
+        metres(
+            (
+                postcode["lon"].as_str().unwrap().parse().unwrap(),
+                postcode["lat"].as_str().unwrap().parse().unwrap()
+            ),
+            (140.045, 35.01)
+        ) < 5.
+    );
+    for number in ["705", "706"] {
+        let query = format!("가람도 솔빛시 새봄면 배움길 {number}, South Korea");
+        assert!(
+            index()
+                .suggest(&query, 5, None, None, false)
+                .iter()
+                .all(|s| s.kind == "street"),
+            "{query}"
+        );
+    }
+}
+
+#[test]
 fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
     for (number, postcode, town) in [
         ("31", "ZZ1 1AA", Some("Posthaven")),
@@ -1039,6 +1080,23 @@ fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
 #[ignore = "needs the libpostal models; run with --ignored"]
 async fn resolve_follows_the_authored_facts() {
     let resolver = Resolver::open(dir()).unwrap();
+    for (number, precise) in [
+        ("702", true),
+        ("703", true),
+        ("704", true),
+        ("705", false),
+        ("706", false),
+        ("707", true),
+        ("708", true),
+    ] {
+        let query = format!("가람도 솔빛시 새봄면 배움길 {number}, South Korea");
+        let found = resolver.resolve(&query).await.unwrap();
+        assert_eq!(found.good_match, precise, "{query}: {found:?}");
+        assert_eq!(
+            found.address_details.as_option().unwrap().house_number,
+            if precise { number } else { "" }
+        );
+    }
     for (province, number, lon) in [
         ("가람도", "13-34", 140.0),
         ("가람도", "290", 140.0001),
