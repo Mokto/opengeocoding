@@ -2,6 +2,9 @@ mod bag;
 mod ban;
 mod best;
 mod bogota;
+mod cartociudad;
+mod dar;
+mod gnaf;
 mod kartverket;
 mod korea;
 mod linz;
@@ -21,6 +24,9 @@ use std::{
 pub const ALL: &[Registry] = &[
     nad::REGISTRY,
     ban::REGISTRY,
+    cartociudad::REGISTRY,
+    dar::REGISTRY,
+    gnaf::REGISTRY,
     kartverket::REGISTRY,
     korea::REGISTRY,
     ruian::REGISTRY,
