@@ -159,7 +159,34 @@ impl Resolver {
         let span = tracing::Span::current();
         tokio::task::spawn_blocking(move || {
             let _entered = span.enter();
-            core.index.memoized(|| core.resolve(&query))
+            core.index.memoized(|| {
+                let mut found = core.resolve(&query)?;
+                if found.geo_coordinates.as_option().is_some_and(|g| {
+                    let (road, number) = found
+                        .address_details
+                        .as_option()
+                        .map_or(("", ""), |d| (d.road.as_str(), d.house_number.as_str()));
+                    !core.index.korean_address_matches(
+                        &query,
+                        g.lat as f64,
+                        g.lon as f64,
+                        road,
+                        number,
+                    )
+                }) {
+                    found = FullAddress::default();
+                }
+                if found
+                    .address_details
+                    .as_option()
+                    .is_none_or(|d| d.house_number.is_empty() && d.road.is_empty())
+                    && let Some(hit) = core.index.korean_fallback(&query)
+                {
+                    found = format_response(&core.index.render(&hit, true))?;
+                    METRICS.tiers.with_label_values(&["korean_locality"]).inc();
+                }
+                Ok(found)
+            })
         })
         .await?
     }
@@ -590,6 +617,32 @@ impl Core {
         let query = &query.replace(|ch: char| whitespace(ch) && ch != ' ', " ");
         if PLACEHOLDERS.contains(&query.trim_matches(whitespace).to_lowercase().as_str()) {
             return Ok(FullAddress::default());
+        }
+        let started = std::time::Instant::now();
+        if let Some(hit) = self.index.korean_region(query) {
+            let mut found = format_response(&self.index.render(&hit, true))?;
+            found.good_match = true;
+            METRICS
+                .search
+                .with_label_values(&["korean"])
+                .observe(started.elapsed().as_secs_f64());
+            METRICS.tiers.with_label_values(&["korean"]).inc();
+            return Ok(found);
+        }
+        if let Some(hits) = self.index.korean_search(query) {
+            METRICS
+                .search
+                .with_label_values(&["korean"])
+                .observe(started.elapsed().as_secs_f64());
+            if let [hit] = hits.as_slice() {
+                let mut found = format_response(&self.index.render(hit, true))?;
+                found.good_match = true;
+                METRICS.tiers.with_label_values(&["korean"]).inc();
+                return Ok(found);
+            }
+            if hits.len() > 1 {
+                return Ok(FullAddress::default());
+            }
         }
         let turned = self.parser.reordered(query)?;
         let query = turned.as_deref().unwrap_or(query);

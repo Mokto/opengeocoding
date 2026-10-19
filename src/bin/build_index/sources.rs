@@ -428,6 +428,7 @@ struct Addr<'a> {
     street: Option<&'a str>,
     postcode: Option<&'a str>,
     city: Option<&'a str>,
+    building: bool,
 }
 
 impl<'a> Addr<'a> {
@@ -441,6 +442,7 @@ impl<'a> Addr<'a> {
                 "addr:postcode" => a.postcode = Some(v),
                 "addr:city" => a.city = Some(v),
                 "addr:place" => place = Some(v),
+                "building" | "building:part" if !v.is_empty() && v != "no" => a.building = true,
                 _ => {}
             }
         }
@@ -456,6 +458,7 @@ impl<'a> Addr<'a> {
             street: o(self.street),
             postcode: o(self.postcode),
             city: o(self.city),
+            building: self.building,
         }
     }
 
@@ -582,6 +585,7 @@ struct OwnedAddr {
     street: Option<String>,
     postcode: Option<String>,
     city: Option<String>,
+    building: bool,
 }
 
 /// Per-job buffer, appended to the shared one when rayon drops it.
@@ -593,13 +597,15 @@ impl<T> Drop for Collect<'_, T> {
     }
 }
 
-const ADDR_KEYS: [&str; 6] = [
+const ADDR_KEYS: [&str; 8] = [
     "addr:housenumber",
     "addr:street",
     "addr:postcode",
     "addr:city",
     "addr:place",
     "addr:interpolation",
+    "building",
+    "building:part",
 ];
 
 /// Which of a block's string-table entries are address keys, found on first use. Elements name
@@ -636,14 +642,18 @@ impl Kinds {
     }
 }
 
-/// Addresses of ways, kept from the first pass over the ways so the second doesn't decode them
-/// again: (first node, 4 fields) records, each field a u16 length (MAX for none) and its bytes.
+/// Addresses of ways, kept from the first pass: a u32 node count, i64 node refs, then four
+/// fields, each a u16 length (MAX for none) and its bytes.
 /// Dropping a buffer hands it to the shared list.
 struct Packed<'m>(Vec<u8>, &'m Mutex<Vec<Vec<u8>>>);
 
 impl Packed<'_> {
-    fn put(&mut self, first: i64, a: &Addr) {
-        self.0.extend(first.to_le_bytes());
+    fn put(&mut self, refs: &[i64], a: &Addr) {
+        self.0
+            .extend(u32::try_from(refs.len()).unwrap().to_le_bytes());
+        for r in refs {
+            self.0.extend(r.to_le_bytes());
+        }
         for f in [a.number, a.street, a.postcode, a.city] {
             match f.filter(|s| s.len() < usize::from(u16::MAX)) {
                 Some(s) => {
@@ -665,9 +675,10 @@ impl Drop for Packed<'_> {
 }
 
 /// The records `Packed::put` wrote.
-fn unpack_addrs(mut b: &[u8]) -> impl Iterator<Item = (i64, Addr<'_>)> {
+fn unpack_addrs(mut b: &[u8]) -> impl Iterator<Item = (&[u8], Addr<'_>)> {
     std::iter::from_fn(move || {
-        let (first, rest) = b.split_first_chunk::<8>()?;
+        let (len, rest) = b.split_first_chunk::<4>()?;
+        let (refs, rest) = rest.split_at(u32::from_le_bytes(*len) as usize * 8);
         b = rest;
         let mut field = || {
             let (len, rest) = b.split_first_chunk::<2>()?;
@@ -686,8 +697,9 @@ fn unpack_addrs(mut b: &[u8]) -> impl Iterator<Item = (i64, Addr<'_>)> {
             street,
             postcode,
             city,
+            building: false,
         };
-        Some((i64::from_le_bytes(*first), a))
+        Some((refs, a))
     })
 }
 
@@ -702,10 +714,27 @@ pub(super) fn unpack(v: u64) -> (f64, f64) {
     )
 }
 
-/// Addressed nodes, ways (buildings) and relations (multipolygon buildings), the latter two
-/// located at their (first outer way's) first node. The country is
-/// the containing place's. Returns the number of files read.
-// ponytail: a building's first node is within metres of its centroid.
+fn address_point(mut points: impl Iterator<Item = Option<(f64, f64)>>) -> Option<(f64, f64)> {
+    let first = points.next()??;
+    if !(-180.0..=180.0).contains(&first.0) || !(-90.0..=90.0).contains(&first.1) {
+        return None;
+    }
+    points
+        .all(|p| {
+            p.is_some_and(|(x, y)| {
+                let dx = (x - first.0 + 180.).rem_euclid(360.) - 180.;
+                (-180.0..=180.0).contains(&x)
+                    && (-90.0..=90.0).contains(&y)
+                    && (dx * ((y + first.1) / 2.).to_radians().cos()).hypot(y - first.1) * 111_195.
+                        <= 300.
+            })
+        })
+        .then_some(first)
+}
+
+/// Addressed nodes, buildings and compact sites. Untyped ways/relations keep a house number
+/// only when all vertices fit the approximate 300 m house-copy merge scale; broader street
+/// and postcode metadata survives. The country is the containing place's. Returns files read.
 pub fn osm(dir: &Path, shared: &Shared) -> usize {
     let files = files(dir, ".osm.pbf");
     let size = |p: &Path| std::fs::metadata(p).map_or(0, |m| m.len());
@@ -713,6 +742,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
         format!("osm {}", dir.display()),
         files.iter().map(|f| size(f)).sum(),
     );
+    let skipped = AtomicU64::new(0);
     files.par_iter().for_each(|path| {
         let _counted = Counted(&done, size(path));
         let (offsets, first_way, first_relation) = layout(path);
@@ -722,7 +752,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             first_relation..offsets.len(),
         );
 
-        // 0: addressed relations (multipolygon buildings) and their first way, outer if any
+        // All outer ways are needed to detect a widely spread multipolygon.
         let found = Mutex::new(vec![]);
         for_blobs(
             path,
@@ -736,23 +766,28 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                     let Some(a) = Addr::from(kinds.tags(table, r.raw_tags())) else {
                         continue;
                     };
-                    let ways = || r.members().filter(|m| m.member_type == RelMemberType::Way);
-                    let way = ways()
-                        .find(|m| m.role().is_ok_and(|role| role == "outer"))
-                        .or_else(|| ways().next());
-                    if let Some(w) = way {
-                        mine.0.push((w.member_id, a.owned()));
+                    let ways: Vec<_> = r
+                        .members()
+                        .filter(|m| {
+                            m.member_type == RelMemberType::Way
+                                && m.role().is_ok_and(|role| role != "inner")
+                        })
+                        .map(|m| m.member_id)
+                        .collect();
+                    if !ways.is_empty() {
+                        mine.0.push((ways, a.owned()));
                     }
                 }
             },
         );
         let relations = found.into_inner().unwrap();
-        let mut member_ways: Vec<i64> = relations.iter().map(|(w, _)| *w).collect();
+        let mut member_ways: Vec<i64> = relations
+            .iter()
+            .flat_map(|(ways, _)| ways.iter().copied())
+            .collect();
         member_ways.par_sort_unstable();
         member_ways.dedup();
 
-        // 1: first node of each addressed way and of those relations' ways, and every node of
-        // addr:interpolation ways
         let (refs, firsts, interps, packed) = (
             Mutex::new(vec![]),
             Mutex::new(vec![]),
@@ -779,14 +814,23 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                         mine.0.extend(&i.refs);
                         interp.0.push(i);
                     }
-                    let Some(r) = w.refs().next() else { continue };
-                    if member_ways.binary_search(&w.id()).is_ok() {
-                        first.0.push((w.id(), r));
-                        mine.0.push(r);
-                    }
-                    if let Some(a) = Addr::from(kinds.tags(table, w.raw_tags())) {
-                        mine.0.push(r);
-                        addrs.put(r, &a);
+                    let member = member_ways.binary_search(&w.id()).is_ok();
+                    let addr = Addr::from(kinds.tags(table, w.raw_tags()));
+                    if member || addr.is_some() {
+                        let refs: Vec<_> = w.refs().collect();
+                        if let Some(a) = addr {
+                            let own = if a.building {
+                                &refs[..refs.len().min(1)]
+                            } else {
+                                &refs
+                            };
+                            mine.0.extend(own);
+                            addrs.put(own, &a);
+                        }
+                        if member {
+                            mine.0.extend(&refs);
+                            first.0.push((w.id(), refs));
+                        }
                     }
                 }
             },
@@ -806,7 +850,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
         ends.dedup();
         let ended = Mutex::new(vec![]);
 
-        // 2: addressed nodes, and coordinates of those first nodes
+        // 2: addressed nodes and footprint coordinates
         let coords: Vec<AtomicU64> = (0..needed.len())
             .map(|_| AtomicU64::new(u64::MAX))
             .collect();
@@ -860,13 +904,17 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
         packed.par_iter().for_each_init(
             || Sink::new(shared).ranked(2),
             |sink, chunk| {
-                for (r, a) in unpack_addrs(chunk) {
-                    let Ok(k) = needed.binary_search(&r) else {
-                        continue;
-                    };
-                    let v = coords[k].load(Relaxed);
-                    if v != u64::MAX {
-                        let (x, y) = unpack(v);
+                for (refs, mut a) in unpack_addrs(chunk) {
+                    let points = refs.as_chunks::<8>().0.iter().map(|r| {
+                        let k = needed.binary_search(&i64::from_le_bytes(*r)).ok()?;
+                        let v = coords[k].load(Relaxed);
+                        (v != u64::MAX).then(|| unpack(v))
+                    });
+                    let first = points.clone().next().flatten();
+                    if address_point(points).is_none() && a.number.take().is_some() {
+                        skipped.fetch_add(1, Relaxed);
+                    }
+                    if let Some((x, y)) = first {
                         a.add(sink, x, y);
                     }
                 }
@@ -894,24 +942,46 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
         );
         relations.par_iter().for_each_init(
             || Sink::new(shared).ranked(2),
-            |sink, (way, a)| {
-                let Ok(k) = firsts.binary_search_by_key(way, |(w, _)| *w) else {
+            |sink, (ways, a)| {
+                let Some((x, y)) = ways.first().and_then(|way| {
+                    let k = firsts.binary_search_by_key(way, |(w, _)| *w).ok()?;
+                    coord(*firsts[k].1.first()?)
+                }) else {
+                    skipped.fetch_add(1, Relaxed);
                     return;
                 };
-                if let Some((x, y)) = coord(firsts[k].1) {
-                    sink.add(
-                        None,
-                        x,
-                        y,
-                        a.street.as_deref(),
-                        a.number.as_deref(),
-                        a.postcode.as_deref(),
-                        a.city.as_deref().map(|name| (name, "addr:city")),
-                    );
+                let refs = ways
+                    .iter()
+                    .map(|way| {
+                        firsts
+                            .binary_search_by_key(way, |(w, _)| *w)
+                            .ok()
+                            .map(|k| firsts[k].1.as_slice())
+                    })
+                    .collect::<Option<Vec<_>>>();
+                let precise = a.building
+                    || refs.is_some_and(|refs| {
+                        address_point(refs.into_iter().flatten().map(|&r| coord(r))).is_some()
+                    });
+                if !precise && a.number.is_some() {
+                    skipped.fetch_add(1, Relaxed);
                 }
+                sink.add(
+                    None,
+                    x,
+                    y,
+                    a.street.as_deref(),
+                    a.number.as_deref().filter(|_| precise),
+                    a.postcode.as_deref(),
+                    a.city.as_deref().map(|name| (name, "addr:city")),
+                );
             },
         );
     });
+    eprintln!(
+        "OSM: omitted house numbers on {} untyped ways/relations with incomplete footprints or vertices over 300 m from their address point",
+        skipped.load(Relaxed)
+    );
     files.len()
 }
 
@@ -1045,6 +1115,7 @@ mod tests {
             street: Some("High St".into()),
             postcode: Some("AB1".into()),
             city: None,
+            building: false,
         };
         let (a, c) = (addr("10"), addr("2"));
         let line = [Some((0.0, 0.0)), Some((0.5, 0.0)), Some((1.0, 0.0))];
@@ -1075,6 +1146,19 @@ mod tests {
             ("addr:street", "Main St"),
         ];
         let a = Addr::from(tags.into_iter()).unwrap();
+        assert!(a.building);
+        for (key, value, expected) in [
+            ("building", "no", false),
+            ("building", "retail", true),
+            ("building:part", "yes", true),
+        ] {
+            assert_eq!(
+                Addr::from([("addr:housenumber", "1"), (key, value)].into_iter())
+                    .unwrap()
+                    .building,
+                expected
+            );
+        }
         assert_eq!(
             (a.number, a.street, a.postcode),
             (Some("12;14"), Some("Main St"), None)
@@ -1105,6 +1189,7 @@ mod tests {
         let mut kinds = Kinds::new(&table);
         let tags = [(1u32, 2u32), (3, 4), (5, 6), (7, 8), (99, 1)];
         let a = Addr::from(kinds.tags(&table, tags.into_iter())).unwrap();
+        assert!(a.building);
         assert_eq!(
             (a.number, a.street, a.postcode),
             (Some("12"), Some("Main St"), None)
@@ -1116,20 +1201,52 @@ mod tests {
         let list = Mutex::new(vec![]);
         {
             let mut p = Packed(vec![], &list);
-            p.put(7, &a);
-            p.put(-3, &place);
+            p.put(&[7, 8, 9, 7], &a);
+            p.put(&[-3], &place);
         }
         let list = list.into_inner().unwrap();
         let got: Vec<_> = unpack_addrs(&list[0])
-            .map(|(r, a)| (r, a.number, a.street, a.postcode, a.city))
+            .map(|(refs, a)| {
+                let refs: Vec<_> = refs
+                    .as_chunks::<8>()
+                    .0
+                    .iter()
+                    .map(|r| i64::from_le_bytes(*r))
+                    .collect();
+                (refs, a.number, a.street, a.postcode, a.city)
+            })
             .collect();
         assert_eq!(
             got,
             [
-                (7, Some("12"), Some("Main St"), None, None),
-                (-3, Some("12"), Some("Hamlet"), None, None)
+                (vec![7, 8, 9, 7], Some("12"), Some("Main St"), None, None),
+                (vec![-3], Some("12"), Some("Hamlet"), None, None)
             ]
         );
+    }
+
+    #[test]
+    fn only_compact_complete_footprints_become_address_points() {
+        let first = Some((140., 35.));
+        assert_eq!(
+            address_point([first, Some((140.001, 35.001)), first].into_iter()),
+            first
+        );
+        for points in [
+            vec![],
+            vec![None],
+            vec![first, None],
+            vec![Some((f64::NAN, 35.))],
+            vec![first, Some((140., 91.))],
+            vec![first, Some((140.01, 35.))],
+            vec![first, Some((140., 35.01))],
+            vec![first, first, Some((140.02, 35.)), first],
+        ] {
+            assert_eq!(address_point(points.into_iter()), None);
+        }
+        for (a, b) in [((179.9999, 0.), (-179.9999, 0.)), ((0., 85.), (0.01, 85.))] {
+            assert_eq!(address_point([Some(a), Some(b)].into_iter()), Some(a));
+        }
     }
 
     #[test]

@@ -768,7 +768,7 @@ fn locate_section(out: &mut String, results: &[&Record], cohort: &dyn Fn(&Record
     }
     let _ = write!(
         out,
-        "\n## ReverseGeocode and ResolveRegion\n\nBoth are asked about the point each single-answer case expects. ReverseGeocode: the nearest result is in the expected country (and region, for a locality or finer) and, for a locality with an English Wikidata label, names it; ResolveRegion: one of the regions found is an expected one.\n\n| Check | Cohort | {} |\n|---|---|{}\n",
+        "\n## ReverseGeocode and ResolveRegion\n\nBoth are asked about each case's single expected place, including same-point address alternatives. ReverseGeocode: the nearest result is in the expected country (and region, for a locality or finer) and, for a locality with an English Wikidata label, names it; ResolveRegion: one of the regions found is an expected one.\n\n| Check | Cohort | {} |\n|---|---|{}\n",
         LOCATE_CLASSES.join(" | "),
         "---:|".repeat(LOCATE_CLASSES.len())
     );

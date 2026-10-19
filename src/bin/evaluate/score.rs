@@ -221,11 +221,22 @@ pub fn locate_severity(class: &str) -> usize {
         .unwrap_or(LOCATE_CLASSES.len())
 }
 
-/// The case's single expected place, when it has one with a point to look up.
+/// The case's expected place, including alternatives that differ only in address components.
 pub fn expected_place(expect: &Expect) -> Option<&Expect> {
-    (expect.any_of.is_none() && expect.error.is_none() && rank(&expect.level) > 0)
-        .then_some(expect)
-        .filter(|e| e.point.is_some() && !e.country.is_empty())
+    let first = expect.alternatives().first()?;
+    (expect.error.is_none()
+        && rank(&first.level) > 0
+        && first.point.is_some()
+        && !first.country.is_empty()
+        && expect.alternatives().iter().all(|e| {
+            e.any_of.is_none()
+                && e.error.is_none()
+                && e.point == first.point
+                && e.country == first.country
+                && e.region == first.region
+                && e.level == first.level
+        }))
+    .then_some(first)
 }
 
 /// ReverseGeocode is checked for places of a locality or finer, whose point has a locality or
@@ -1082,7 +1093,46 @@ mod tests {
             any_of: Some(vec![place("locality", &[])]),
             ..Default::default()
         };
-        assert!(!reverse_applies(&any));
+        assert!(reverse_applies(&any));
+    }
+
+    #[test]
+    fn coordinate_checks_include_number_aliases_but_not_ambiguous_places() {
+        let mut road = Expect {
+            level: "house".into(),
+            country: vec!["dk".into()],
+            region: vec!["DK-84".into()],
+            point: Some([55., 12.]),
+            ..Default::default()
+        };
+        road.components.insert("house_number".into(), "12-3".into());
+        let mut lot = road.clone();
+        lot.components.insert("house_number".into(), "45-6".into());
+        let mut expect = Expect {
+            any_of: Some(vec![road, lot]),
+            ..Default::default()
+        };
+        assert!(reverse_applies(&expect));
+        assert!(region_applies(&expect));
+        let alternatives = expect.any_of.as_mut().unwrap();
+        alternatives[1].point = Some([0., 0.]);
+        assert!(!reverse_applies(&expect));
+        assert!(!region_applies(&expect));
+        let first = expect.any_of.as_ref().unwrap()[0].clone();
+        for field in ["country", "region", "level", "error", "any_of"] {
+            let mut other = first.clone();
+            match field {
+                "country" => other.country = vec!["kr".into()],
+                "region" => other.region = vec!["DK-81".into()],
+                "level" => other.level = "locality".into(),
+                "error" => other.error = Some("invalid_argument".into()),
+                _ => other.any_of = Some(vec![first.clone()]),
+            }
+            expect.any_of = Some(vec![first.clone(), other]);
+            assert!(expected_place(&expect).is_none(), "{field}");
+        }
+        expect.any_of = Some(vec![]);
+        assert!(expected_place(&expect).is_none());
     }
 
     #[test]

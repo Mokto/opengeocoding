@@ -423,6 +423,31 @@ impl Index {
         if text.chars().count() > MAX_TEXT || text.trim().is_empty() || limit == 0 {
             return vec![];
         }
+        if let Some(hits) = self.korean_search(text)
+            && !hits.is_empty()
+        {
+            return hits
+                .iter()
+                .filter_map(|hit| match hit {
+                    Hit::Street {
+                        sid,
+                        place,
+                        name,
+                        number,
+                        x,
+                        y,
+                        ..
+                    } if cc.is_none_or(|c| c.eq_ignore_ascii_case("kr")) => Some(
+                        self.street_suggestion(*sid, *place, name, number.as_deref(), (*x, *y)),
+                    ),
+                    _ => None,
+                })
+                .take(limit)
+                .collect();
+        }
+        if let Some(found) = self.korean_suggest(text, cc, limit) {
+            return found;
+        }
         let typed = Typed::new(text);
         let Some(head) = typed.parts.first() else {
             return vec![];
@@ -486,6 +511,42 @@ impl Index {
         });
         out.truncate(limit);
         out
+    }
+
+    fn korean_suggest(&self, text: &str, cc: Option<&str>, want: usize) -> Option<Vec<Suggestion>> {
+        let address = korea::parse(text, true)?;
+        let scope = self.korean_scope(&address)?;
+        if scope.is_empty() || cc.is_some_and(|c| !c.eq_ignore_ascii_case("kr")) {
+            return Some(vec![]);
+        }
+        let open =
+            address.country.is_none() && !text.ends_with(|c: char| c.is_whitespace() || c == ',');
+        let number = (!address.number.is_empty()).then_some(address.number.as_str());
+        let road_open = open && number.is_none();
+        let road = fold(address.road);
+        Some(
+            self.streets_typed(
+                &words_open(address.road, road_open),
+                road_open,
+                Some(&scope),
+                number,
+                open,
+                Some("kr"),
+                None,
+                None,
+                want.max(5),
+            )
+            .into_iter()
+            .filter(|s| {
+                s.display_name
+                    .split(", ")
+                    .nth(usize::from(s.kind == "address"))
+                    .map(fold)
+                    .is_some_and(|name| name == road || road_open && name.starts_with(&road))
+            })
+            .take(want)
+            .collect(),
+        )
     }
 
     /// The most common terms of `field` starting with `prefix`, summed over segments, with the
