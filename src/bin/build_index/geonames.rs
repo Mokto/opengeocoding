@@ -155,7 +155,7 @@ pub fn add_places(
             }
             continue;
         }
-        let parent = assigner.place(r.x, r.y).or_else(|| {
+        let parent = assigner.place_in(r.x, r.y, Some(r.cc)).or_else(|| {
             let name = admin1.get(&r.admin1)?;
             regions.get(&(r.cc, fold(name))).copied()
         });
@@ -257,7 +257,7 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         let cities = root.join("cities.txt");
         std::fs::write(&cities, line("PPL", "Oldname,Untrusted Alias")).unwrap();
-        let assigner = Assigner::new(vec![], vec![]);
+        let assigner = Assigner::new(vec![], vec![], vec![]);
         for (cc, subtype, positions, enriched) in [
             (*b"IN", "locality", vec![(74.9, 18.1)], true),
             (*b"IN", "locality", vec![(74.9, 18.1), (80., 18.1)], true),

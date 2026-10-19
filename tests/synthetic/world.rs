@@ -760,6 +760,54 @@ pub const PLACES: &[Place] = &[
         &[("en", "Sixth of Bramble"), ("fr", "Bramble6")]
     ),
     place!(
+        "at-e",
+        "region",
+        "",
+        "AT",
+        "AT-5",
+        1000000,
+        (80.5, 0.0),
+        "at",
+        "Epsilon",
+        &[]
+    ),
+    place!(
+        "at-eastufer",
+        "locality",
+        "town",
+        "AT",
+        "AT-5",
+        20000,
+        (80.03, 0.0),
+        "at-e",
+        "Eastufer",
+        &[]
+    ),
+    place!(
+        "li-westufer",
+        "locality",
+        "town",
+        "LI",
+        "",
+        20000,
+        (79.999, 0.0),
+        "li",
+        "Westufer",
+        &[]
+    ),
+    place!(
+        "at-falkenstadt",
+        "locality",
+        "town",
+        "AT",
+        "AT-4",
+        20000,
+        (80.7, 0.0),
+        "at-d",
+        "Falkenstadt",
+        &[]
+    ),
+    place!(
         "gb-orchard",
         "microhood",
         "",
@@ -838,6 +886,8 @@ const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
     ("at-g", "region", false, true, 60.0, 0.0, 0.5),
     ("at-d", "region", true, true, 61.0, 0.0, 0.5),
     ("li", "country", true, true, 61.6, 0.0, 0.1),
+    ("li", "country", true, true, 79.5, 0.0, 0.5),
+    ("at-e", "region", true, true, 80.5, 0.0, 0.5),
 ];
 
 /// A street and its houses: (street, postcode, city, cc, lon, lat of house 1, numbers); the houses
@@ -1023,6 +1073,17 @@ pub const STREETS: &[Street] = &[
         lon: 5.505,
         lat: 52.3,
         numbers: &["4a"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Uferweg",
+        postcode: "5555",
+        city: "Eastufer",
+        cc: "AT",
+        lon: 80.001,
+        lat: 0.0,
+        numbers: &["7"],
     },
     Street {
         class: "residential",
@@ -1412,7 +1473,12 @@ fn chain(p: &Place) -> Vec<&'static str> {
 }
 
 /// Localities without a polygon of their own.
-const POINT_ONLY: [&str; 2] = ["de-koeln-feldheim", "us-tx-reno"];
+const POINT_ONLY: [&str; 4] = [
+    "de-koeln-feldheim",
+    "us-tx-reno",
+    "at-eastufer",
+    "li-westufer",
+];
 
 pub fn cover_address_countries(dir: &Path) {
     let mut reader = ParquetRecordBatchReaderBuilder::try_new(
