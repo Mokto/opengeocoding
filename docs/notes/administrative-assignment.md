@@ -1,5 +1,7 @@
 # Administrative assignment at import
 
+[Implementation notes](README.md) · [Evaluation](../evaluation/README.md)
+
 ## Diagnosis
 
 Reproduced at the start on main `a728336`, Overture 2026-09-23.1, builder `83ef195a69f42f93`, full index fingerprint `3e5edffded54`, then gated again after rebasing onto main `f7a6727` and `aa347e9`, including the intervening postal-town, abbreviation and scoped-place-name fixes. The three queries are two locations, not three independent samples. The Grand-Santi observations are held out; they were used for diagnosis and the final gate, not to author the assignment rules or fixtures.

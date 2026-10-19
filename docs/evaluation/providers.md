@@ -1,6 +1,6 @@
 # Provider evaluation guide
 
-[Overview](../README.md) · [Evaluation](evaluation.md) · [Scorecard](../SCORECARD.md)
+[Documentation](../README.md) · [Evaluation](README.md) · [Scorecard](../../SCORECARD.md)
 
 Run commands from the repository root.
 
@@ -8,7 +8,7 @@ Run commands from the repository root.
 
 ## Offline competitor comparisons
 
-[SCORECARD.md](../SCORECARD.md) is the single aggregate comparison record, including unresolved normalization and reproducibility limitations. Its corrected-adapter Google pass is complete, but the measurements remain provisional because some responses still lack required metadata or a supported native type.
+[SCORECARD.md](../../SCORECARD.md) is the single aggregate comparison record, including unresolved normalization and reproducibility limitations. Its corrected-adapter Google pass is complete, but the measurements remain provisional because some responses still lack required metadata or a supported native type.
 
 `evaluate provider NAME` evaluates a competitor's first forward-geocoding result against the same corpus. Adapters live in `src/bin/evaluate/providers/{provider}.rs`; `providers/mod.rs` shares caching, request budgets, scoring and paired reports. It is **offline by default**: a cache miss fails before any network access. Use `--corpus FILE` or `--only REGEX` to select cases; otherwise it reads the gold suite, including registry-first samples. `evaluate mapbox` remains an alias for `evaluate provider mapbox`, with the same cache keys and paths.
 

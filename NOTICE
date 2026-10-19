@@ -47,7 +47,7 @@ coordinates, administrative codes and addresses derived from:
   data © Royal Mail copyright and database right. Source: Office for National Statistics.
 Per-case sources and retrieval dates are recorded in the corpus; `evaluate build-gold` regenerates it
 from tests/gold.seeds.jsonl.
-Reference adjudications in docs/adjudications/168.md also cite the US Census
+Reference adjudications in docs/evaluation/adjudications/168.md also cite the US Census
 Bureau's TIGERweb boundaries (US Government work, public domain), VGIN address
 records, Bahrain's Legislation and Legal Opinion Commission and Ministry of
 Municipalities Affairs and Agriculture, Glorious Vision University's contact

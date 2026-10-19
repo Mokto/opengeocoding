@@ -1,5 +1,7 @@
 # Supported place names and administrative qualifiers (#166)
 
+[Implementation notes](README.md) · [Evaluation](../evaluation/README.md)
+
 ## Reproduction
 
 Base: `a728336`. Full local index: `f2e491ae4811`, builder `83ef195a69f42f93`. Default libpostal models: `65627ea2114b`; reference data: `5cebf4b7a553`. All eleven listed training cases fail at this base: one `far_miss`, five `near_miss`, five `abstain`. The eleven supplied training cases drove the investigation. No held-out aliases, location-specific rules or expectation changes were added; the full-suite regression gate checks held-out cases too.
@@ -70,7 +72,7 @@ The legacy expectation follows [Zallaq, Wikidata Q4117781 revision 2113024205](h
 - [Southern Governorate, Zallaq Residents Hall Project](https://www.southern.gov.bh/en/article/zallaq-residents-hall-project), published 2019-04-01, identifies the governorate's project at Al Zallaq.
 - [Southern Governorate, National Day festivities reach Zallaq](https://www.southern.gov.bh/en/article/national-day-festivities-reach-zallaq22), published 2022-12-11, records its governor and deputy governor attending the governorate's celebrations there.
 - [Southern Area Municipality](https://www.mun.gov.bh/newportal/en/southern-area-municipality/about-municipality) independently includes Al Zallaq landmarks in the southern area.
-- [Southern Governorate, Wikidata Q838532 revision 2529394607](https://www.wikidata.org/w/index.php?title=Q838532&oldid=2529394607) supplies the CC0 ISO code `BH-14`, as in the [Isa Town adjudication](adjudications/168.md).
+- [Southern Governorate, Wikidata Q838532 revision 2529394607](https://www.wikidata.org/w/index.php?title=Q838532&oldid=2529394607) supplies the CC0 ISO code `BH-14`, as in the [Isa Town adjudication](../evaluation/adjudications/168.md).
 
 Inspected 2026-10-19. The seed uses the existing `region_qid` mechanism to source the current governorate separately from the town's identity/point. Generated expectations change only `BH-17` to `BH-14`; the WGS84 point (26.05, 50.4833), 6 km radius, query, country, locality level and `good_match=true` stay unchanged. No government prose, geometry or service-derived expectation is imported. A regression check still rejects `BH-17`.
 

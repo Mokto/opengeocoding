@@ -1,6 +1,6 @@
 # Switzerland
 
-[Evaluation guide](../evaluation.md) · [Source notice](../../tests/registry/ch.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/ch.NOTICE)
 
 **Switzerland** (`ch.seeds.jsonl`, `ch.jsonl`): 520 addresses and 260 damaged variants from the official building-address directory (©swisstopo, its OGD terms), whose STAC item is dated 2026-10-16 and whose CSV asset was updated on 2026-10-15. The export contains 3,304,410 rows. `sample-ch` selects real, official, residential addresses, ranks their EGAIDs by seeded SHA-256, and takes 20 different municipality/street pairs in each of the 26 cantons from its smallest 500 hashes. The sample includes German, French, Italian and Romansh street names. Equal canton weighting is not population weighting; the eligibility filter is particularly restrictive in Valais (3,585 eligible rows) and Graubünden (7,010), so this is not a representative national sample.
 

@@ -95,7 +95,7 @@ mod tests {
             assert!((registry.url)("123").starts_with("https://"));
             assert!(
                 crate::model::root()
-                    .join(format!("docs/registry/{}.md", registry.country))
+                    .join(format!("docs/evaluation/registry/{}.md", registry.country))
                     .is_file()
             );
             assert!(

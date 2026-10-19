@@ -1,6 +1,6 @@
 # United States
 
-[Evaluation guide](../evaluation.md) · [Source notice](../../tests/registry/us.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/us.NOTICE)
 
 **United States** (`us.seeds.jsonl`, `us.jsonl`): the USDOT National Address Database, release r24 (public domain, a work of the federal government; the USDOT disclaims accuracy and the data is not for mailing lists). The 8.5 GB download is a Deflate64 zip that Apple's `unzip` and Python cannot read; use 7-Zip. The text file is 42 GB and 99 million rows, 89.6 million of them plain, live addresses with a house number, street, five-digit ZIP and a city.
 

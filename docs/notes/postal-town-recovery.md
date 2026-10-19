@@ -1,5 +1,7 @@
 # Postal-town recovery
 
+[Implementation notes](README.md) · [Evaluation](../evaluation/README.md)
+
 Follow-up to [#163](https://github.com/Mokto/opengeocoding/issues/163) and the source-metadata preservation in [#176](https://github.com/Mokto/opengeocoding/pull/176). No source, gold expectation, alias table or index format changes. The builder hash remains `5aa58df2c766f429`; no index rebuild is required by this change.
 
 ## Two different remaining mechanisms
