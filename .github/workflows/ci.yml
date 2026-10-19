@@ -38,6 +38,7 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: python3 tests/registry/test-registry-captures.py
+      - run: python3 tests/registry/test-nar-prg-exports.py
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
