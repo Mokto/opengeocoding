@@ -1190,6 +1190,17 @@ pub const STREETS: &[Street] = &[
     Street {
         class: "residential",
         length: 0.0,
+        name: "Maple Scope Road",
+        postcode: "N4B 1A1",
+        city: "Delhi",
+        cc: "CA",
+        lon: -80.49,
+        lat: 42.8532,
+        numbers: &["12", "12a", "12 1/2", "20-24", "24"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
         name: "明光路3段389巷6弄",
         postcode: "",
         city: "光華區",

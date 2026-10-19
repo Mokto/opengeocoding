@@ -515,6 +515,24 @@ impl Index {
         if out.is_empty() {
             out = self.suggest_floor(&typed, cc, focus, limit);
         }
+        if !out.iter().any(|s| s.kind == "address")
+            && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
+            && let Some((building, number)) = crate::matching::canadian_building(text)
+        {
+            let number = schema::number_key(number);
+            let recovered: Vec<_> = self
+                .suggest(building, limit, Some("ca"), focus, landmarks)
+                .into_iter()
+                .filter(|s| {
+                    s.kind == "address"
+                        && s.country_code == "ca"
+                        && s.id.rsplit(':').next() == Some(number.as_str())
+                })
+                .collect();
+            if !recovered.is_empty() {
+                out = recovered;
+            }
+        }
         let mut seen = std::collections::HashSet::new();
         // the filter matches a street's own country, which its place may not be in
         out.retain(|s| {

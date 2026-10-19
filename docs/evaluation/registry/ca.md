@@ -37,7 +37,13 @@ Queries include the building mailing form, a source unit/civic hyphen form when 
 - Municipal/provincial address data can occur in NAR, OpenAddresses, OSM and the index's other inputs. Shared ancestry limits independence. Hold-outs group source locations, not every possible duplicate physical building.
 - No resolver, index builder, scorer, runtime dependency or wire-contract changes belong to this addition. Compilation alone establishes no geographic accuracy.
 
-## Validation
+## Unit/civic resolution
+
+SearchAddress and SuggestAddress try the literal house number first, preserving indexed compound numbers and ranges. If no house is found, a leading alphanumeric unit/civic hyphen form can retry the civic number as the building number. Recovery requires an unambiguous comma-separated Canadian country qualifier, retains the street/locality/province/postcode, and accepts only an indexed Canadian house with the requested civic number. Forward recovery also requires the building result's existing goodMatch checks; a missing requested building is not a good match.
+
+This returns the building, not a verified apartment or unit coordinate. A bare `CA` qualifier is ambiguous with California and does not enable recovery; the suggestion country filter alone is not sufficient either. Spaced fractional civic numbers remain an autocomplete limitation when the building-only form itself is unsupported; synthetic checks retain that baseline failure. Forward search can recover supported fractional building forms.
+
+## Corpus-introduction validation
 
 The archive contains **11,795,284 location rows and 17,362,476 address rows**. Requiring matching CSDs excludes 11,471 locations; another 1,068,910 lack usable BG coordinates, leaving a **10,714,903-location point frame**. The first-stage draw contains 26,000 locations across all thirteen provinces/territories. Of these, 4,247 have no eligible joined address and are not replaced; the normalized capture has **21,753 candidates**, **13,575,893 bytes**, SHA256 **5d02a3da1f7b796d1ef2ffe771501416d4eef638eacb84d559af6dc18e0b7910**. This is not a count of all nationally eligible addresses.
 

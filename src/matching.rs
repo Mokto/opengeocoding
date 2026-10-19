@@ -914,6 +914,29 @@ fn city_related(address: &ParsedAddress, details: Option<&AddressDetails>) -> bo
             .any(|actual| within(&expected, &actual) || within(&actual, &expected))
 }
 
+/// A Canadian unit/civic query as (building query, civic number), after literal house lookup fails.
+pub fn canadian_building(query: &str) -> Option<(&str, &str)> {
+    static UNIT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)^[a-z0-9]+-([1-9][0-9]*[a-z]?(?:\s+[0-9]+/[0-9]+)?)\s+[^,\s]").unwrap()
+    });
+    let query = query.trim_matches(whitespace);
+    let captures = UNIT.captures(query)?;
+    if query.chars().count() > 256 {
+        return None;
+    }
+    let mut canadian = false;
+    for part in query.split(',').skip(1).map(str::trim) {
+        let country = expected_country(&parsed_country(part));
+        if country == "ca" {
+            canadian |= !part.eq_ignore_ascii_case("ca");
+        } else if !country.is_empty() {
+            return None;
+        }
+    }
+    let number = captures.get(1)?;
+    canadian.then(|| (&query[number.start()..], number.as_str()))
+}
+
 /// `query` without the whitespace-separated words equal to `word` (case and dots aside).
 pub fn without_word(query: &str, word: &str) -> String {
     let key = word.trim_matches('.').to_lowercase();
