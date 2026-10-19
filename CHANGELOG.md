@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.1](https://github.com/Mokto/opengeocoding/compare/v0.12.0...v0.12.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* recover dotted str. compounds, damaged strasse suffixes and Straat/Street in road lookup ([#181](https://github.com/Mokto/opengeocoding/issues/181)) ([9794a6d](https://github.com/Mokto/opengeocoding/commit/9794a6d15865376a346e6f7a3a953c3c925e9ce0))
+* stop foreign settlements and conflicting parents in import assignment ([#179](https://github.com/Mokto/opengeocoding/issues/179)) ([0491e8f](https://github.com/Mokto/opengeocoding/commit/0491e8f9f7f5a3e13c455801e1f2bd34bde7dbbc))
+
 ## [0.12.0](https://github.com/Mokto/opengeocoding/compare/v0.11.1...v0.12.0) (2026-10-18)
 
 
