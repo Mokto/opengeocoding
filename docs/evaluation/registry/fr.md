@@ -1,6 +1,6 @@
 # France
 
-[Evaluation guide](../evaluation.md) · [Source notice](../../tests/registry/fr.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/fr.NOTICE)
 
 **France** (`fr.seeds.jsonl`, `fr.jsonl`): 505 locations drawn directly from the Base Adresse Nationale CSV export last modified on 2026-10-16 (Licence Ouverte / Open Licence 2.0), independently of Overture and the index. `sample-fr` keeps municipality-certified addresses with an entrance, building or parcel position, takes the smallest seeded SHA-256 hashes in each department, then selects five distinct communes and street names per department. Paris, Lyon and Marseille arrondissements have separate commune codes. All 96 metropolitan and five overseas departments are covered; other collectivities and Monaco are outside this sample. This balances departments, not population or urban/rural density, and favours communes that publish certified points; it is not a representative national accuracy sample.
 

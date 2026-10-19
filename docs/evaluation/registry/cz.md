@@ -1,6 +1,6 @@
 # Czechia
 
-[Evaluation guide](../evaluation.md) · [Source notice](../../tests/registry/cz.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/cz.NOTICE)
 
 **Czechia** (`cz.seeds.jsonl`, `cz.jsonl`): 329 locations in 234 municipalities across all 14 regions, drawn directly from ČÚZK's RÚIAN address and administrative-hierarchy exports of 2026-09-30 (© Český úřad zeměměřický a katastrální, CC BY 4.0). The national address ZIP contains 6,258 municipality CSVs and 3,022,397 address rows. Preparation keeps the 3,021,489 rows with coordinates, from 6,256 municipalities, joins their municipality to its region from the hierarchy export, and transforms the points to WGS84. The positive S-JTSK CSV columns `Y, X` become `(-Y, -X)` in EPSG:5514 before PROJ converts them; treating them as longitude/latitude or keeping their signs is wrong. This is not a survey-grade coordinate check.
 
@@ -19,7 +19,7 @@ mkdir -p ../ruian-data
   curl -fLO https://vdp.cuzk.gov.cz/vymenny_format/csv/20260930_strukt_ADR.csv.zip
   unzip -p 20260930_OB_ADR_csv.zip 'CSV/*.csv' | iconv -f WINDOWS-1250 -t UTF-8 > 20260930_addresses-utf8.csv
   unzip -p 20260930_strukt_ADR.csv.zip 'strukturovane-CSV/vazby-cr.csv' > 20260930_hierarchy.csv
-  duckdb -f "$REPO/docs/ruian-csv.sql"
+  duckdb -f "$REPO/tests/registry/ruian-csv.sql"
 )
 target/release/evaluate sample-cz --ruian ../ruian-data/ruian-addresses-4326-2026-09-30.csv --seed cz-2026-10 --out tests/registry/cz.seeds.jsonl
 target/release/evaluate build-gold --seeds tests/registry/cz.seeds.jsonl --out tests/registry/cz.jsonl --ruian ../ruian-data/ruian-addresses-4326-2026-09-30.csv

@@ -1,6 +1,6 @@
 # Norway
 
-[Evaluation guide](../evaluation.md) · [Source notice](../../tests/registry/no.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/no.NOTICE)
 
 **Norway** (`no.seeds.jsonl`, `no.jsonl`): 714 road addresses and 357 damaged variants drawn directly from Kartverket's national Matrikkelen–Adresse CSV export of 2026-10-10 (© Kartverket, CC BY 4.0). The file contains 2,603,963 rows, including 2,569,425 road addresses. `sample-no` takes two different street names per municipality, ranked by seeded SHA-256 of the address UUID, from a pool of the smallest 100 hashes per municipality. All 357 Norwegian municipalities in the 15 counties are represented; Svalbard and Jan Mayen are excluded. This weights municipalities equally, not their populations or address counts. It includes 84 houses with letter suffixes and uses the registry's postal town, which need not be the municipality or nearest settlement.
 

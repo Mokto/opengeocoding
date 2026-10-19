@@ -1,6 +1,6 @@
 # Netherlands
 
-[Evaluation guide](../evaluation.md) · [Source notice](../../tests/registry/nl.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/nl.NOTICE)
 
 **Netherlands** (`nl.seeds.jsonl`, `nl.jsonl`): 684 locations and 342 damaged variants drawn directly from Kadaster's BAG GeoPackage of 2026-10-01, distributed by PDOK under CC0-1.0. The sampling frame contains 8,320,999 in-use residential objects with a point and postcode. `sample-nl` ranks the main-address number-designation IDs by seeded SHA-256, keeps the smallest 200 per municipality and suffix class, and selects one plain number and one with a house letter or addition on different streets in each of all 342 municipalities. There are 302 sampled numbers containing letters and 85 with additions (some have both). This weights municipalities equally and deliberately oversamples suffixes, not population or address counts; it is not a representative national accuracy sample. Of the 684 base locations, 129 are held out by the shared location-hash rule.
 
