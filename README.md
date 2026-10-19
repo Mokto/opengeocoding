@@ -35,17 +35,18 @@ Autocomplete can also include selected landmark categories: airports, stations, 
 
 ## Performance and resources
 
-**A world index built in under 20 minutes from already-downloaded sources; forward search reached 2,850 queries/s in one serving container.** These are separate historical measurements, not one combined current-release benchmark:
+**A world index built in under 20 minutes from already-downloaded sources; deployed forward search measured 1,774–2,675 queries/s per pod with 16 concurrent connections.** The build figure is historical; search was measured on release 0.14.0 on 2026-10-19:
 
 | Workload | Observed result |
 | --- | --- |
 | World index build, including landmarks | **Under 20 min, excluding downloads**, **32.2 GB peak memory**, on an 18-core Apple M5 Max with 64 GB RAM |
 | Built world index | About **16 GB on disk**, excluding libpostal models and build scratch |
-| Forward search, 1 connection | **599 queries/s**, **5.3 ms p95** |
-| Forward search, 16 connections to one serving instance | **2,850 queries/s per instance**, not a multi-pod total; p95 was not recorded in the published summary |
-| Serving process in the search benchmark | **4.2 GiB resident memory** |
+| Forward search, 16 connections to one pod | **1,774–2,675 queries/s per pod**, **18.4–29.9 ms p95**, across three 20,000-request runs |
+| Serving process in the search benchmark | About **6.3 GiB process RSS** |
 
-The build used already-downloaded sources; downloads and model provisioning are additional. Search numbers are end-to-end Connect JSON requests over keep-alive connections to a **single serving container**, using 808 address samples, an earlier 11 GB world index and `PARSE_CACHE=0`. **Search benchmark CPU:** a busy 18-core laptop; the CPU model and container vCPU allocation were not recorded. This is not a Kubernetes per-pod capacity measurement at a specified CPU budget, nor a hosted API limit. See [measurement scope and methodology](docs/development.md#performance-methodology-and-nominatim-comparison).
+**Search benchmark CPU:** Intel Core i5-13500 (14 cores/20 threads) on a shared node. The pod requested **1 CPU with no CPU limit** and used an observed **4.1–5.0 CPU cores averaged over each benchmark invocation**; this is not a one-CPU throughput claim.
+
+All **60,000 measured requests completed without errors**. The client ran on another node and called one pod directly over Connect JSON/HTTP keep-alive, bypassing ingress and the public API edge. The workload repeated 1,000 address samples with the parse cache enabled and warmed. The third run was slower; the table includes all three runs, not only the fastest. These short runs are not a sustained-capacity or hosted API guarantee. Build downloads and model provisioning are additional. See the [results and methodology](docs/development.md#performance-methodology-and-nominatim-comparison) and [aggregate measurement record](docs/benchmarks/2026-10-19-search.json).
 
 ### Compared with Nominatim
 
@@ -106,7 +107,7 @@ Use a query inside your index's coverage if you built a regional index. Readines
 
 The [Helm deployment guide](docs/deployment.md#deploy-on-kubernetes) covers building and publishing indexes into an existing S3-compatible bucket, verified downloads into serving pods, and rolling upgrades. Each serving pod runs one geocoder instance with its own read-only index. Regional builds are supported.
 
-The [chart defaults](manifests/values.yaml) request **1 CPU and 6 GiB RAM per serving pod**, with a **16 GiB memory limit and no CPU limit**. A CPU request is not a cap; these defaults are not the recorded benchmark allocation and do not establish 2,850 queries/s on one CPU. A world build requires substantial memory, scratch disk and initial downloads; review the guide before provisioning.
+The [chart defaults](manifests/values.yaml) request **1 CPU and 6 GiB RAM per serving pod**, with a **16 GiB memory limit and no CPU limit**. A CPU request is not a cap: the benchmark pod had these settings but consumed more than one CPU. The measured throughput is not a one-CPU guarantee. A world build requires substantial memory, scratch disk and initial downloads; review the guide before provisioning.
 
 ## Geographic evaluation
 

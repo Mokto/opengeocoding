@@ -1,0 +1,148 @@
+{
+  "measured_on": "2026-10-19",
+  "operation": "SearchAddress",
+  "server": {
+    "release": "0.14.0",
+    "release_commit": "d21d02c592933d62f7d1ffe3a0fb73bfa2877a61",
+    "image": "ghcr.io/mokto/opengeocoding:0.14.0",
+    "image_digest": "sha256:e051c5c68e2455937e73de703e56c6acb12937780cf7e028a085f5afb9f61c2f",
+    "measured_replicas": 1,
+    "host_cpu": "Intel Core i5-13500",
+    "host_physical_cores": 14,
+    "host_logical_cpus": 20,
+    "cpuset": "0-19",
+    "cpu_request": 1,
+    "cpu_limit": null,
+    "memory_request_gib": 6,
+    "memory_limit_gib": 16,
+    "index_id": "2026-09-23.1-2026-10-ff34388b4830",
+    "builder_hash": "a7481f0be4727233",
+    "overture_release": "2026-09-23.1",
+    "source_snapshot": "2026-10",
+    "models_version": "v1",
+    "parse_cache_entries": 65536
+  },
+  "workload": {
+    "source": "tests/addresses.tsv",
+    "source_revision": "e95f4518572086d38be786641500a94ba55ae0cc",
+    "extracted_queries": 1000,
+    "extracted_queries_sha256": "3a71e566713353ab877adb58ca6086a7729056d7bc82ff91cde886a596c553f5",
+    "connections": 16,
+    "requests_per_round": 20000,
+    "rounds": 3,
+    "measured_requests": 60000,
+    "preliminary_queries_per_invocation": 1000,
+    "connection_warmup_requests_per_invocation": 160,
+    "keep_alive": true,
+    "cache_state": "Warmed, repeated 1,000-query corpus; parse cache enabled; no cold-cache reset",
+    "transport": "Direct pod-to-pod Connect JSON over HTTP; no ingress, TLS, auth or metering proxy",
+    "pacing": "Closed loop, 16 concurrent workers; no retries",
+    "isolated_node": false
+  },
+  "client": {
+    "source": "src/bin/benchmark.rs",
+    "source_revision": "e95f4518572086d38be786641500a94ba55ae0cc",
+    "source_sha256": "062da1c94e69f9a9e0f749d7a617194062cdc62c19e67049b8f842cfb269fd04",
+    "build": "Existing benchmark source compiled unchanged as a standalone Rust crate",
+    "dependencies": {
+      "anyhow": "1.0.104",
+      "serde_json": "1.0.153",
+      "reqwest": "0.12.28",
+      "tokio": "1.53.2"
+    },
+    "on_different_node": true,
+    "cpu_request": 2,
+    "cpu_limit": 4,
+    "memory_limit_gib": 2
+  },
+  "resource_sampling": {
+    "cpu": "Container cgroup CPU usage delta over each full invocation, including preliminary queries and warm-up; not a fixed CPU allocation",
+    "memory": "Polling of /proc/1/status VmRSS and container memory.current roughly every 1–2 seconds during each invocation",
+    "notes": "RSS and cgroup-charged memory are distinct accounting measures; they must not be substituted for one another."
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "start_utc": "2026-10-19T11:33:42.630237+00:00",
+      "end_utc": "2026-10-19T11:33:54.819667+00:00",
+      "measured_seconds": 7.476585339,
+      "client_summary": {
+        "calls": 20000,
+        "concurrency": 16,
+        "errors": 0,
+        "mean_ms": 5.97025232989998,
+        "p50_ms": 3.833119,
+        "p95_ms": 18.446326,
+        "p99_ms": 34.694392,
+        "round": 0,
+        "rps": 2675.0179518013792,
+        "service": "live"
+      },
+      "server_container_cpu_cores_over_invocation": 4.8540918261985,
+      "observed_peak_process_rss_gib": 6.288654327392578,
+      "observed_peak_container_charged_memory_gib": 5.228240966796875,
+      "server_throttled_usec_delta": 0,
+      "client_cpu_cores_over_invocation": 0.11977045847599917,
+      "client_throttled_usec_delta": 0,
+      "resource_samples": 8
+    },
+    {
+      "round": 2,
+      "start_utc": "2026-10-19T11:33:58.416187+00:00",
+      "end_utc": "2026-10-19T11:34:09.918632+00:00",
+      "measured_seconds": 7.529515977,
+      "client_summary": {
+        "calls": 20000,
+        "concurrency": 16,
+        "errors": 0,
+        "mean_ms": 6.010375683349982,
+        "p50_ms": 3.7000179999999996,
+        "p95_ms": 19.26877,
+        "p99_ms": 35.874705,
+        "round": 0,
+        "rps": 2656.2132361619133,
+        "service": "live"
+      },
+      "server_container_cpu_cores_over_invocation": 5.030550485434968,
+      "observed_peak_process_rss_gib": 6.292724609375,
+      "observed_peak_container_charged_memory_gib": 5.231792449951172,
+      "server_throttled_usec_delta": 0,
+      "client_cpu_cores_over_invocation": 0.11859751311587731,
+      "client_throttled_usec_delta": 0,
+      "resource_samples": 8
+    },
+    {
+      "round": 3,
+      "start_utc": "2026-10-19T11:34:13.478585+00:00",
+      "end_utc": "2026-10-19T11:34:28.747477+00:00",
+      "measured_seconds": 11.274407443,
+      "client_summary": {
+        "calls": 20000,
+        "concurrency": 16,
+        "errors": 0,
+        "mean_ms": 9.010121672400006,
+        "p50_ms": 5.22813,
+        "p95_ms": 29.858275,
+        "p99_ms": 60.621675,
+        "round": 0,
+        "rps": 1773.9291489254724,
+        "service": "live"
+      },
+      "server_container_cpu_cores_over_invocation": 4.091543691171707,
+      "observed_peak_process_rss_gib": 6.296043395996094,
+      "observed_peak_container_charged_memory_gib": 5.23590087890625,
+      "server_throttled_usec_delta": 0,
+      "client_cpu_cores_over_invocation": 0.09803976957449677,
+      "client_throttled_usec_delta": 0,
+      "resource_samples": 11
+    }
+  ],
+  "limitations": [
+    "Short runs on a shared node and a live instance, not a dedicated sustained-capacity test",
+    "The third round was slower; all three rounds are included",
+    "Latency percentiles are per-round successful-request percentiles, not a pooled percentile",
+    "No raw per-request latency samples were retained",
+    "No accuracy evaluation, build timing, cold-cache test or Nominatim comparison was performed",
+    "All benchmark rounds had zero HTTP/transport/JSON-decoding errors; the target stayed ready with zero pod restarts"
+  ]
+}
