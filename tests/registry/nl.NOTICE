@@ -2,4 +2,4 @@ The registry-first sample tests/registry/nl.jsonl contains addresses and coordin
 Kadaster's BAG GeoPackage of 2026-10-01, distributed by PDOK under CC0-1.0
 (https://service.pdok.nl/kadaster/bag/atom/bag.xml). Coordinates were transformed from
 EPSG:28992 to EPSG:4326 with DuckDB spatial / PROJ. Per-case prepared-CSV checksums and
-retrieval dates are recorded in the corpus; docs/registry/nl.md records the upstream file checksum.
+retrieval dates are recorded in the corpus; docs/evaluation/registry/nl.md records the upstream file checksum.

@@ -1,12 +1,16 @@
 mod bag;
 mod ban;
+mod best;
+mod bogota;
 mod cartociudad;
 mod gnaf;
 mod kartverket;
 mod korea;
+mod linz;
 mod nad;
 mod ruian;
 mod swisstopo;
+mod taipei;
 
 use anyhow::Result;
 use indexmap::IndexMap;
@@ -26,6 +30,10 @@ pub const ALL: &[Registry] = &[
     ruian::REGISTRY,
     bag::REGISTRY,
     swisstopo::REGISTRY,
+    best::REGISTRY,
+    linz::REGISTRY,
+    taipei::REGISTRY,
+    bogota::REGISTRY,
 ];
 
 type Prepare = fn(&Path, &BTreeSet<String>) -> Result<BTreeMap<String, Entry>>;
@@ -99,7 +107,7 @@ mod tests {
             assert!((registry.url)("123").starts_with("https://"));
             assert!(
                 crate::model::root()
-                    .join(format!("docs/registry/{}.md", registry.country))
+                    .join(format!("docs/evaluation/registry/{}.md", registry.country))
                     .is_file()
             );
             assert!(
