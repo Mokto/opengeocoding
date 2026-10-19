@@ -1,0 +1,5 @@
+臺北市門牌位置數值資料 — 臺北市政府民政局 (Taipei City Government, Department of Civil Affairs).
+Source: https://data.gov.tw/dataset/155472
+Distribution: https://data.taipei/dataset/detail?id=b7c8e724-1e98-45ee-a0bd-f3840623ed97
+Licence: Government Data Open Licence, version 1 (政府資料開放授權條款-第1版), https://data.gov.tw/license
+This corpus samples and reformats the official address-point CSV, transforms projected coordinates to WGS84 and adds ASCII-digit forms. Floor queries retain published suffixes but test only the shared building point. Coverage is Taipei City, not all Taiwan. No people or household records are used.
