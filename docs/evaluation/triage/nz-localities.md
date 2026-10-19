@@ -55,3 +55,22 @@ INDEX_DIR=/path/to/full-index cargo test --locked --test rpc -- --ignored --noca
 ```
 
 Formatting, Clippy, `cargo test --locked` and the model-backed synthetic check pass locally. The model-backed RPC suite has one passing test and one failure: its CDG landmark assertion receives the same `Tunnel Cdgval` street with landmarks on or off. The unchanged base reproduces that failure on this older index; it was not weakened or fixed as part of the NZ change. Native libpostal models are required for the latter checks. The documented fresh-service grpcurl SearchAddress hang remains a known interoperability failure even when an individual evaluator run reports it passing.
+
+## Exact-road follow-up to #200
+
+The next comparison uses merged main `5e96fbe` as its base. Token lookup can return a longer street name before the requested name: `116 Main Road, Fairfield, Dunedin, New Zealand` selects Main South Road about 4.1 km away, despite an indexed Main Road house within a metre of the LINZ point. `3/638 Maddisons Road, Rolleston, New Zealand` instead selects East Maddisons Road about 6.7 km away.
+
+The follow-up prefers an exact normalized name among the existing bounded street candidates, before looking for the number. This is opt-in for the corroborated NZ comma repair and for three/four-part NZ queries whose first part is a clean house/road/unit parse agreeing with the whole parse. It does not drop qualifiers, change geographic scopes or substitute a building number. An exact street lacking the requested number remains a street fallback, with `goodMatch=false`. Street aliases also prefer an exact normalized display name over an equally overlapping longer alias.
+
+Applying this preference to every parsed road was rejected: the full gate found four passing queries becoming too coarse, and one too-coarse answer becoming a near miss outside NZ. A parsed road can omit a legitimate name prefix or connecting words; a global exact-name rule is unsafe. The final candidate leaves those lookup paths unchanged.
+
+Two complete base runs have zero answer/scoring drift on the same 11,057-case corpus, evaluator, models and last-known-good full index described above. The final comparison has only two changed answers:
+
+- Main Road: near miss to pass, returning house `116` on Main Road at the source-backed point.
+- Maddisons Road: near miss to too coarse, returning the correct street instead of East Maddisons Road. The full `3/638` key is still missing; this is not a unit-level pass.
+
+SearchAddress passes rise from 8,511 to 8,512 of 10,978 scored checks. NZ plain rises from 116 to 117/129 and the NZ total from 389 to 390/545; suffix 124/146, unit 19/94, native/ASCII 121/166 and range 9/10 are unchanged. SuggestAddress, region and reverse answers are unchanged. There are no newly failing or worse-class cases, and all 1,000 unscored address responses are unchanged. The older accepted snapshot was not regenerated.
+
+The local speed comparison reports no gated slowdown, but the identical-binary baseline repetitions themselves differ by 31% in forward total time. These runs were not isolated; they establish answer stability, not a speedup or stable latency. CI quality and measured speed remain separate gates.
+
+The synthetic world adds a more prominent East Orchard Road sharing numbers with Orchard Road. Its model-backed check fails on the base, selecting East Orchard Road for an Orchard Road query, and passes with the repair. Checks cover abbreviations, suffixes, complete ranges, exact slash numbers and numbers found only on the longer road. The unit check covers Māori/ASCII aliases. Formatting, Clippy, unit tests and the model-backed synthetic check pass; the model-backed RPC check retains the same CDG landmark failure on both base and candidate. Missing unit keys and source-coordinate disagreements remain unresolved.

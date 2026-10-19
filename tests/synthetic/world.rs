@@ -1223,6 +1223,19 @@ pub const STREETS: &[Street] = &[
     Street {
         class: "residential",
         length: 0.0,
+        name: "East Orchard Road",
+        postcode: "",
+        city: "Kōwhai Bay",
+        cc: "NZ",
+        lon: 170.035,
+        lat: -40.0,
+        numbers: &[
+            "5a", "10-12", "2/19", "19", "1", "99", "3/19", "99b", "20-22",
+        ],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
         name: "Orchard Road",
         postcode: "",
         city: "Kōwhai Bay",

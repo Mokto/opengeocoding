@@ -1076,11 +1076,15 @@ fn postal_town(
 /// Boulevard" shows in English rather than as the street's Arabic primary name.
 fn best_name(doc: &tantivy::TantivyDocument, f: Field, query: &str) -> String {
     use tantivy::schema::Value as _;
-    let want: std::collections::HashSet<String> =
-        fold(query).split(' ').map(String::from).collect();
+    let query = fold(query);
+    let want: std::collections::HashSet<&str> = query.split(' ').collect();
     let mut best = (0, String::new());
     for name in doc.get_all(f).filter_map(|v| v.as_str()) {
-        let shared = fold(name).split(' ').filter(|t| want.contains(*t)).count();
+        let folded = fold(name);
+        if folded == query {
+            return name.to_string();
+        }
+        let shared = folded.split(' ').filter(|t| want.contains(*t)).count();
         if best.1.is_empty() || shared > best.0 {
             best = (shared, name.to_string());
         }
@@ -1899,7 +1903,7 @@ impl Index {
         let road = field(&parsed, "road");
         let number = field(&parsed, "house_number");
         let mut hit = self
-            .streets(road, Some(number), Some(suburb), None, Some("nz"))
+            .streets(road, Some(number), Some(suburb), None, Some("nz"), true)
             .into_iter()
             .find(|hit| {
                 matches!(hit, Hit::Street { name, number: Some(n), postal_town, .. }
@@ -2467,6 +2471,7 @@ impl Index {
         city: Option<&str>,
         postcode: Option<&str>,
         cc: Option<&str>,
+        exact: bool,
     ) -> Vec<Hit> {
         let named: Vec<u32> = city
             .into_iter()
@@ -2480,7 +2485,7 @@ impl Index {
                 _ => None,
             })
             .collect();
-        let hits = self.streets_by(road, number, city, &named, postcode, cc);
+        let hits = self.streets_by(road, number, city, &named, postcode, cc, exact);
         if !hits.iter().any(|h| {
             matches!(
                 h,
@@ -2491,7 +2496,7 @@ impl Index {
             )
         }) && let Some(compact) = number.and_then(compact_house_suffix)
         {
-            let found = self.streets(road, Some(&compact), city, postcode, cc);
+            let found = self.streets(road, Some(&compact), city, postcode, cc, exact);
             if found.iter().any(|h| {
                 matches!(
                     h,
@@ -2517,7 +2522,7 @@ impl Index {
                 let mut ids = std::collections::BTreeSet::new();
                 for name in alternatives {
                     let next: Vec<_> = self
-                        .streets_by(&name, number, city, &named, postcode, Some(cc))
+                        .streets_by(&name, number, city, &named, postcode, Some(cc), false)
                         .into_iter()
                         .filter(|h| {
                             matches!(h, Hit::Street { number: Some(_), postcode: own, .. }
@@ -2553,7 +2558,7 @@ impl Index {
             && let Some(name) = self.respelt(road, city, &named, postcode, cc)
         {
             return self
-                .streets_by(&name, number, city, &named, postcode, cc)
+                .streets_by(&name, number, city, &named, postcode, cc, false)
                 .into_iter()
                 .filter(|h| match h {
                     Hit::Street {
@@ -2684,6 +2689,7 @@ impl Index {
         out
     }
 
+    #[expect(clippy::too_many_arguments)]
     fn streets_by(
         &self,
         road: &str,
@@ -2692,6 +2698,7 @@ impl Index {
         named: &[u32],
         postcode: Option<&str>,
         cc: Option<&str>,
+        prefer_exact: bool,
     ) -> Vec<Hit> {
         let base = || self.musts(self.f.names, road);
         let long = long_words(road);
@@ -2818,6 +2825,7 @@ impl Index {
             Some(Hit::Postcode { x, y, .. }) => Some((*x, *y)),
             _ => None,
         };
+        let exact_road = fold(road);
         for (i, scope) in scopes.into_iter().enumerate() {
             let mut cl = base();
             if let Some(s) = scope {
@@ -2857,6 +2865,23 @@ impl Index {
                                 .any(|name| fold(name) == *road)
                         })
                 });
+            }
+            if prefer_exact {
+                let named: Vec<_> = top
+                    .iter()
+                    .copied()
+                    .filter(|&a| {
+                        use tantivy::schema::Value as _;
+                        let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
+                        doc.get_all(self.f.name)
+                            .filter_map(|v| v.as_str())
+                            .any(|name| fold(name) == exact_road)
+                    })
+                    .collect();
+                // An exact road without the number must not borrow a house from a longer name.
+                if !named.is_empty() {
+                    top = named;
+                }
             }
             if top.is_empty() {
                 continue;
@@ -3396,7 +3421,7 @@ impl Index {
         let mut street = None;
         for town in towns {
             let hits: Vec<_> = self
-                .streets(road, Some(number), Some(town), None, cc)
+                .streets(road, Some(number), Some(town), None, cc, false)
                 .into_iter()
                 .filter(|hit| {
                     let Hit::Street { place, .. } = hit else {
@@ -3445,7 +3470,7 @@ impl Index {
         let mut chome = None;
         for (city, street, number) in japanese(q) {
             let city = self.resolve_place(&city, Some("jp")).unwrap_or(city);
-            let hits = self.streets(&street, Some(&number), Some(&city), None, Some("jp"));
+            let hits = self.streets(&street, Some(&number), Some(&city), None, Some("jp"), false);
             let housed = |h: &Hit| {
                 matches!(
                     h,
@@ -3536,6 +3561,23 @@ impl Index {
             }
         }
         if let Some(road) = roads.last().map(|r| without_number_mark(r)) {
+            let exact = cc == Some("nz")
+                && matches!(q.split(',').count(), 3 | 4)
+                && q.rsplit(',')
+                    .next()
+                    .and_then(|c| self.country(c))
+                    .as_deref()
+                    == Some("nz")
+                && self
+                    .parser
+                    .parse(q.split(',').next().unwrap())
+                    .is_ok_and(|head| {
+                        head_aligns(&head)
+                            && one_house(&head)
+                            && ["road", "house_number", "unit"]
+                                .iter()
+                                .all(|key| field(&head, key) == field(&parsed, key))
+                    });
             // libpostal often puts the town in another part: "zürich - birchstrasse 160" gives
             // house "zürich", "fra - seynod - 26 rue de sansy" a first road "fra seynod". The
             // street is the last road; the town, if none is labelled, the first other part that
@@ -3553,6 +3595,7 @@ impl Index {
                 resolved_city.as_deref(),
                 get("postcode"),
                 cc,
+                exact,
             );
             // "70 N Professor St, Oberlin 44074" parses one road "n professor st oberlin": with
             // no town labelled, the road's last words may be it.
@@ -3576,6 +3619,7 @@ impl Index {
                             Some(&town),
                             get("postcode"),
                             cc,
+                            false,
                         );
                         if !hits.is_empty() {
                             break;
@@ -3604,6 +3648,7 @@ impl Index {
                     &[region],
                     None,
                     Some("us"),
+                    false,
                 )
                 .into_iter()
                 .filter(|h| {
@@ -3625,7 +3670,7 @@ impl Index {
         if roads.is_empty()
             && let (Some(n), Some(town)) = (get("house_number").map(house_number), city)
         {
-            let found = self.streets(town, Some(n), Some(town), get("postcode"), cc);
+            let found = self.streets(town, Some(n), Some(town), get("postcode"), cc, false);
             if let Some(h) = found.into_iter().find(|h| {
                 matches!(
                     h,
@@ -4618,6 +4663,22 @@ mod tests {
     }
 
     #[test]
+    fn an_exact_road_alias_beats_extra_words() {
+        let (_, f) = schema::schema();
+        let doc = tantivy::doc!(
+            f.name => "East Kōwhai Road",
+            f.name => "Kōwhai Road"
+        );
+        for query in ["Kōwhai Road", "Kowhai Rd"] {
+            assert_eq!(best_name(&doc, f.name, query), "Kōwhai Road");
+        }
+        assert_eq!(
+            best_name(&doc, f.name, "East Kowhai Rd"),
+            "East Kōwhai Road"
+        );
+    }
+
+    #[test]
     fn nz_comma_alignment_keeps_numbers_units_and_geographic_guards() {
         let pairs = |p: &[(&str, &str)]| -> Vec<(String, String)> {
             p.iter()
@@ -4875,12 +4936,12 @@ mod tests {
         )
         .unwrap();
         let index = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
-        let found = index.streets("明光路三段", Some("237"), None, None, Some("tw"));
+        let found = index.streets("明光路三段", Some("237"), None, None, Some("tw"), false);
         assert!(matches!(
             found.as_slice(),
             [Hit::Street { sid: 31, number: Some(number), .. }] if number == "237"
         ));
-        let missing = index.streets("明光路三段", Some("999"), None, None, Some("tw"));
+        let missing = index.streets("明光路三段", Some("999"), None, None, Some("tw"), false);
         assert!(matches!(
             missing.as_slice(),
             [Hit::Street {
@@ -4958,6 +5019,7 @@ mod tests {
                 Some("Wrongtown"),
                 Some("67890"),
                 Some("US"),
+                false,
             );
             assert!(matches!(found.as_slice(), [Hit::Street { sid: 1002, .. }]));
         }

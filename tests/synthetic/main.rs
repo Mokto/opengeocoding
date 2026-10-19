@@ -1374,6 +1374,37 @@ async fn resolve_follows_the_authored_facts() {
         let point = got.geo_coordinates.as_option().unwrap();
         assert!(metres((point.lon as f64, point.lat as f64), (125.0, 20.0)) < 5.);
     }
+    for road in ["Orchard Road", "Orchard Rd", "East Orchard Road"] {
+        let expected = if road == "Orchard Rd" {
+            "Orchard Road"
+        } else {
+            road
+        };
+        for number in ["5a", "10-12", "2/19"] {
+            let query = format!("{number} {road}, Harbourton, New Zealand");
+            let found = resolver.resolve(&query).await.unwrap();
+            let details = found.address_details.as_option().unwrap();
+            assert!(found.good_match, "{query}: {found:?}");
+            assert_eq!(details.road, expected, "{query}: {found:?}");
+            assert_eq!(details.house_number, number, "{query}: {found:?}");
+            let point = found.geo_coordinates.as_option().unwrap();
+            assert!(
+                metres(
+                    (point.lon as f64, point.lat as f64),
+                    house(street(expected), number)
+                ) < 5.,
+                "{query}: {found:?}"
+            );
+        }
+    }
+    for number in ["99", "3/19", "99b", "20-22"] {
+        let query = format!("{number} Orchard Road, Harbourton, New Zealand");
+        let found = resolver.resolve(&query).await.unwrap();
+        assert!(!found.good_match, "{query}: {found:?}");
+        let details = found.address_details.as_option().unwrap();
+        assert_eq!(details.road, "Orchard Road", "{query}: {found:?}");
+        assert!(details.house_number.is_empty(), "{query}: {found:?}");
+    }
     for suburb in ["Kōwhai Bay", "Kowhai Bay"] {
         for number in ["5a", "10-12", "2/19"] {
             let query = format!("{number} Orchard Road, {suburb}, Harbourton, New Zealand");
