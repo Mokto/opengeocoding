@@ -941,14 +941,18 @@ pub fn without_parentheses(query: &str, keep: bool) -> Option<String> {
     })
 }
 
-/// `query` without a Danish floor and door written as a comma part of its own ("Mogensgade 9, st.
-/// th, 8500 Grenaa, Denmark"), which names no place of its own: libpostal reads "th" as Thailand
-/// and swallows the house and postcode into the road. The building's house is the answer; the
-/// unit is not modelled. A door that is not th/tv/mf needs Denmark stated, and a part naming
-/// another country keeps the query as written. None without such a part after a house.
+/// `query` without a Danish unit written as a comma part of its own: floor and door ("Mogensgade
+/// 9, st. th, 8500 Grenaa, Denmark"), a floor alone ("1.") or a door alone ("1", "3b"). It names no
+/// place, yet libpostal swallows the house and postcode into the road and reads "th" as Thailand.
+/// The building's house is the answer; the unit is not modelled. Only floor and door with a
+/// th/tv/mf door stand without Denmark stated, and a part naming another country keeps the
+/// query as written. None without such a part after a house.
 pub fn without_danish_unit(query: &str) -> Option<String> {
     static UNIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?i)^(?:st|kl|\d{1,2})\.\s*(th|tv|mf|\d{1,4}[a-z]?|[a-z])$").unwrap()
+        Regex::new(
+            r"(?i)^(?:(?:st|kl|\d{1,2})\.(?:\s*([a-zæøå]{1,5}|\d{1,4}[a-z]?))?|\d{1,3}[a-z]?|th|tv|mf)$",
+        )
+        .unwrap()
     });
     let parts: Vec<&str> = query
         .split(',')
@@ -964,15 +968,47 @@ pub fn without_danish_unit(query: &str) -> Option<String> {
         .map(|(_, p)| expected_country(&parsed_country(p)))
         .filter(|c| !c.is_empty())
         .collect();
-    let side = matches!(
-        UNIT.captures(parts[at])?[1].to_lowercase().as_str(),
-        "th" | "tv" | "mf"
-    );
+    let side = UNIT
+        .captures(parts[at])?
+        .get(1)
+        .is_some_and(|door| matches!(door.as_str().to_lowercase().as_str(), "th" | "tv" | "mf"));
     let danish = countries.iter().any(|c| c == "dk");
     (countries.iter().all(|c| c == "dk") && (danish || side)).then(|| {
         let mut kept = parts;
         kept.remove(at);
         kept.join(", ")
+    })
+}
+
+/// A Danish address's supplementary place ("Pittevej 6, Aidt, 8881 Thorsø, Denmark") and the query
+/// without it: between the house and a four-digit postcode part, with Denmark stated. libpostal
+/// then reads the postcode as the house and the road as the town. None without such a part.
+pub fn without_danish_place(query: &str) -> Option<(String, String)> {
+    let parts: Vec<&str> = query
+        .split(',')
+        .map(|p| p.trim_matches(whitespace))
+        .collect();
+    let postcoded = |p: &str| {
+        let (code, town) = p.split_once(' ').unwrap_or((p, ""));
+        code.len() == 4 && code.bytes().all(|b| b.is_ascii_digit()) && !town.is_empty()
+    };
+    let at = (1..parts.len().saturating_sub(1)).find(|&i| {
+        parts[i - 1].chars().any(|c| c.is_ascii_digit())
+            && postcoded(parts[i + 1])
+            && !parts[i].chars().any(|c| c.is_ascii_digit())
+            && (1..=4).contains(&parts[i].split_whitespace().count())
+    })?;
+    let countries: Vec<String> = parts
+        .iter()
+        .enumerate()
+        .filter(|&(i, _)| i != at)
+        .map(|(_, p)| expected_country(&parsed_country(p)))
+        .filter(|c| !c.is_empty())
+        .collect();
+    (!countries.is_empty() && countries.iter().all(|c| c == "dk")).then(|| {
+        let mut kept = parts.clone();
+        kept.remove(at);
+        (kept.join(", "), parts[at].to_owned())
     })
 }
 

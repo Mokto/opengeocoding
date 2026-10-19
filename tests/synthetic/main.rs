@@ -317,6 +317,29 @@ fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
 }
 
 #[test]
+fn a_full_address_ending_in_a_country_a_region_name_contains_is_suggested() {
+    // "North Denmark Region" contains "Denmark" without being named so
+    for (typed, road, number) in [
+        ("Skibsgade 9, 8500 Havnholm, Denmark", "Skibsgade", "9"),
+        (
+            "Skibsgade 9, st. th, 8500 Havnholm, Denmark",
+            "Skibsgade",
+            "9",
+        ),
+        ("Kajgade 5, 8600 Postholm, Denmark", "Kajgade", "5"),
+    ] {
+        let want = house(street(road), number);
+        let found = index().suggest(typed, 5, None, None, false);
+        assert!(
+            found
+                .iter()
+                .any(|s| s.kind == "address" && metres((s.x, s.y), want) < 5.0),
+            "{typed}"
+        );
+    }
+}
+
+#[test]
 fn native_and_numeric_place_names_work_while_the_last_word_is_unfinished() {
     for (text, id) in [
         ("桜森市", "gb-beacon"),

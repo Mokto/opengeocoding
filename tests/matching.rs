@@ -1200,6 +1200,23 @@ fn a_danish_floor_and_door_part_is_set_aside_without_touching_other_countries() 
             "Broparken 4, 2. 3, 9560 Hadsund, Denmark",
             "Broparken 4, 9560 Hadsund, Denmark",
         ),
+        // a floor alone and a door alone, with Denmark stated
+        (
+            "Vendelbogade 64, st., 9800 Hjørring, Denmark",
+            "Vendelbogade 64, 9800 Hjørring, Denmark",
+        ),
+        (
+            "Rosenåen 7, 1., 2600 Glostrup, Denmark",
+            "Rosenåen 7, 2600 Glostrup, Denmark",
+        ),
+        (
+            "Øverødvej 90A, 1, Øverød, 2840 Holte, Denmark",
+            "Øverødvej 90A, Øverød, 2840 Holte, Denmark",
+        ),
+        (
+            "Skovlyporten 6, st. anex, Øverød, 2840 Holte, Denmark",
+            "Skovlyporten 6, Øverød, 2840 Holte, Denmark",
+        ),
         // a side door is Danish enough with no country stated
         (
             "Skovvejen 42, st. mf, 6000 Kolding",
@@ -1209,21 +1226,54 @@ fn a_danish_floor_and_door_part_is_set_aside_without_touching_other_countries() 
         assert_eq!(unit(query).as_deref(), Some(building), "{query}");
     }
     for query in [
-        // no unit, or one libpostal already reads as a floor
         "Mogensgade 9, 8500 Grenaa, Denmark",
-        "Vendelbogade 64, st., 9800 Hjørring, Denmark",
         // another country keeps its own TH and NO codes
         "Mogensgade 9, st. th, Bangkok, Thailand",
         "9 Soi 3, st. th, Bangkok, TH",
         "Granveien 5, st. th, 1234 Fjordvik, Norway",
-        // a door that is not th/tv/mf needs Denmark stated
+        // a door that is not th/tv/mf, a floor alone or a door alone needs Denmark stated
         "Rue 5, 2. 3, 75001 Paris",
         "Main Street 5, st. 1, Springfield",
+        "Rue 5, 2., 75001 Paris",
+        "Main Street 5, 12, Springfield",
+        "Soi 5, th, Bangkok",
+        "Soi 5, th, Bangkok, Thailand",
+        // a postcode is no door
+        "Mogensgade 9, 8500, Denmark",
         // the unit stands after a house, not first
         "st. th, 8500 Grenaa, Denmark",
         "Mogensgade, st. th, 8500 Grenaa, Denmark",
     ] {
         assert_eq!(unit(query), None, "{query}");
+    }
+}
+
+#[test]
+fn a_danish_supplementary_place_is_set_aside_only_between_house_and_postcode() {
+    let place = |q| without_danish_place(q);
+    assert_eq!(
+        place("Pittevej 6, Aidt, 8881 Thorsø, Denmark"),
+        Some(("Pittevej 6, 8881 Thorsø, Denmark".into(), "Aidt".into()))
+    );
+    assert_eq!(
+        place("Helmklit 214, Nr Fjand, 6990 Ulfborg, Danmark"),
+        Some((
+            "Helmklit 214, 6990 Ulfborg, Danmark".into(),
+            "Nr Fjand".into()
+        ))
+    );
+    for query in [
+        "Pittevej 6, 8881 Thorsø, Denmark",
+        // Denmark must be stated, and no other country
+        "Pittevej 6, Aidt, 8881 Thorsø",
+        "Rue 6, Aidt, 8881 Thorsø, France",
+        "Rue 6, Aidt, 8881 Thorsø, Denmark, France",
+        // the place stands after a house and before a four-digit postcode and town
+        "Pittevej, Aidt, 8881 Thorsø, Denmark",
+        "Pittevej 6, Aidt, Thorsø 8881, Denmark",
+        "Pittevej 6, Aidt 2, 8881 Thorsø, Denmark",
+    ] {
+        assert_eq!(place(query), None, "{query}");
     }
 }
 
