@@ -306,19 +306,31 @@ impl Core {
                 if !named_in_english
                     && country_matches(country, details)
                     && road_agrees(address, details)
-                    && (self.index.house_locality_named(&hits[index], city)
-                        || (candidate["address"]["postal_town"]
-                            .as_str()
-                            .is_some_and(|town| names_agree(city, town))
-                            && postcode_matches(postcode, details)
-                            && state_consistent(address, details)
-                            && !state_code_conflict(address, details)))
                 {
-                    judged.to_mut()[index]
-                        .address_details
-                        .get_or_insert_default()
-                        .city = city.into();
-                    continue;
+                    let postal_town = candidate["address"]["postal_town"]
+                        .as_str()
+                        .is_some_and(|town| names_agree(city, town))
+                        && (postcode_matches(postcode, details)
+                            || (tier == "raw"
+                                && self.index.isolated_house_without_postcode(
+                                    &hits[index],
+                                    postcode,
+                                    country,
+                                )));
+                    let administrative_twin =
+                        self.index.house_admin_locality_named(&hits[index], city)
+                            && (postcode.is_empty() || postcode_agrees(postcode, details));
+                    if self.index.house_locality_named(&hits[index], city)
+                        || ((postal_town || administrative_twin)
+                            && state_consistent(address, details)
+                            && !state_code_conflict(address, details))
+                    {
+                        judged.to_mut()[index]
+                            .address_details
+                            .get_or_insert_default()
+                            .city = city.into();
+                        continue;
+                    }
                 }
                 let eligible = match candidate["addresstype"].as_str() {
                     Some("city" | "town" | "village" | "municipality" | "hamlet") => true,

@@ -59,6 +59,7 @@ struct Place {
     /// A county that is a city in all but name: Overture has Birmingham only as a county with
     /// a same-named neighbourhood inside, and no locality.
     city_like: bool,
+    settlement_twin: bool,
 }
 
 impl Place {
@@ -155,6 +156,19 @@ fn load_places(path: &Path, iso: &HashMap<&str, &str>) -> Result<(Vec<Place>, Ow
     use rayon::prelude::*;
     let text = fs::read_to_string(path).with_context(|| path.display().to_string())?;
     let lines: Vec<&str> = text.lines().collect();
+    let settlements: std::collections::HashSet<(&str, &str, &str)> = lines
+        .par_iter()
+        .filter_map(|line| {
+            let mut fields = line.split('\t');
+            if !matches!(fields.next()?, "locality" | "localadmin") {
+                return None;
+            }
+            let country = fields.nth(1)?;
+            let region = fields.next()?;
+            let item = fields.nth(11)?;
+            (!region.is_empty() && !item.is_empty()).then_some((country, region, item))
+        })
+        .collect();
     let own = lines
         .par_iter()
         .enumerate()
@@ -184,6 +198,8 @@ fn load_places(path: &Path, iso: &HashMap<&str, &str>) -> Result<(Vec<Place>, Ow
                 en: Place::english(f(14)),
                 keys: Box::default(),
                 city_like: false,
+                settlement_twin: matches!(f(0), "county" | "region" | "macroregion")
+                    && settlements.contains(&(f(2), f(3), f(15))),
             };
             let mut keys: Vec<u64> = place.all_names().map(name_key).collect();
             keys.sort_unstable();
@@ -756,6 +772,7 @@ fn irish_provinces(places: &[Place], regions: &HashMap<String, u32>) -> Vec<(Str
                     names,
                     keys: keys.into(),
                     city_like: false,
+                    settlement_twin: false,
                 },
             ))
         })
@@ -3801,6 +3818,91 @@ impl Index {
         })
     }
 
+    pub(crate) fn house_admin_locality_named(&self, hit: &Hit, name: &str) -> bool {
+        let Hit::Street {
+            place,
+            number: Some(_),
+            ..
+        } = hit
+        else {
+            return false;
+        };
+        if *place == NONE || name.chars().count() <= 2 {
+            return false;
+        }
+        let key = name_key(name);
+        self.chain(*place).iter().any(|&id| {
+            let place = &self.places[id as usize];
+            place.settlement_twin && place.named(key)
+        })
+    }
+
+    pub(crate) fn isolated_house_without_postcode(
+        &self,
+        hit: &Hit,
+        postcode: &str,
+        country: &str,
+    ) -> bool {
+        use tantivy::schema::Value as _;
+        let Hit::Street {
+            name,
+            number: Some(number),
+            postcode: Some(actual),
+            x,
+            y,
+            ..
+        } = hit
+        else {
+            return false;
+        };
+        let (wanted, actual) = (pc_norm(postcode), pc_norm(actual));
+        let numeric_typo = crate::matching::postcode_shape(country, &wanted) == Some(true)
+            && wanted.len() == actual.len()
+            && wanted
+                .bytes()
+                .chain(actual.bytes())
+                .all(|b| b.is_ascii_digit())
+            && wanted
+                .bytes()
+                .zip(actual.bytes())
+                .filter(|(a, b)| a != b)
+                .count()
+                == 1;
+        if country.is_empty() || !(numeric_typo || self.knows_postcode(postcode, Some(country))) {
+            return false;
+        }
+        let terms = self.musts(self.f.names, name);
+        if terms.is_empty() {
+            return false;
+        }
+        let streets = self.top_of(Kind::Street, Some(country), terms, 1000);
+        if streets.len() == 1000 {
+            return false;
+        }
+        let mut found = false;
+        for a in streets {
+            let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
+            if doc.get_all(self.f.pcode).any(|value| {
+                value
+                    .as_str()
+                    .is_some_and(|pc| crate::matching::postcodes_compatible(postcode, pc))
+            }) {
+                return false;
+            }
+            let sid = self.fast(a, "id") as u32;
+            let mut key = sid.to_be_bytes().to_vec();
+            key.extend_from_slice(schema::number_key(number).as_bytes());
+            if let Some(value) = self.numbers[sid as usize % self.numbers.len()].get(&key) {
+                let (lon, lat, _) = schema::unpack(value);
+                if ((lon - x) * y.to_radians().cos()).hypot(lat - y) * 111_195. > 100. {
+                    return false;
+                }
+                found = true;
+            }
+        }
+        found
+    }
+
     pub fn details(&self, id: u64) -> Value {
         let Some(pl) = (id < STREET)
             .then(|| self.places.get(id as usize))
@@ -5200,6 +5302,36 @@ mod tests {
         assert_eq!(irish_province("IE-D"), Some("IE-L"));
         assert_eq!(irish_province("GB-ENG"), None);
         assert_eq!(title("københavn v"), "København V");
+    }
+
+    #[test]
+    fn an_administrative_settlement_twin_needs_the_same_source_identity_and_geography() {
+        let rows = [
+            ("locality", "GB", "GB-WLS", "Q999900001", false),
+            ("region", "GB", "GB-WLS", "Q999900001", true),
+            ("county", "GB", "GB-WLS", "Q999900002", false),
+            ("region", "FR", "GB-WLS", "Q999900001", false),
+            ("region", "GB", "GB-ENG", "Q999900001", false),
+            ("region", "GB", "GB-WLS", "", false),
+            ("locality", "GB", "GB-WLS", "", false),
+            ("county", "GB", "GB-WLS", "Q999900001", true),
+        ];
+        let text: String = rows
+            .iter()
+            .map(|(kind, cc, region, item, _)| {
+                format!(
+                    "{kind}\t\t{cc}\t{region}\t0\t100\t1\t2\t1\t2\t1\t2\t\tTwinport\t\t{item}\n"
+                )
+            })
+            .collect();
+        let path =
+            std::env::temp_dir().join(format!("settlement-twins-{}.tsv", std::process::id()));
+        std::fs::write(&path, text).unwrap();
+        let (places, _) = load_places(&path, &HashMap::new()).unwrap();
+        std::fs::remove_file(path).unwrap();
+        for (place, row) in places.iter().zip(rows) {
+            assert_eq!(place.settlement_twin, row.4, "{row:?}");
+        }
     }
 
     #[test]

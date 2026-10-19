@@ -986,7 +986,41 @@ async fn resolve_follows_the_authored_facts() {
         assert_eq!(details.county, "Posthaven");
         assert_eq!(details.state, "Mailshire");
     }
+    let got = resolver
+        .resolve("61 Quay Road, Harbor City, United Kingdom")
+        .await
+        .unwrap();
+    let details = got.address_details.as_option().unwrap();
+    assert_eq!(details.house_number, "61", "{got:?}");
+    assert_eq!(details.village, "Dockward", "{got:?}");
+    assert_eq!(details.state, "Harbor City", "{got:?}");
+    assert!(details.postcode.is_empty(), "{got:?}");
+    assert!(got.good_match, "{got:?}");
+    let point = got.geo_coordinates.as_option().unwrap();
+    assert!(metres((point.lon as f64, point.lat as f64), (35.001, 12.0)) < 5.);
+    for postcode in ["6799", "6781"] {
+        let query = format!("Dispatchveien 51, {postcode} Postalvik, Norway");
+        let got = resolver.resolve(&query).await.unwrap();
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.house_number, "51", "{query}: {got:?}");
+        assert_eq!(details.postcode, "6780", "{query}: {got:?}");
+        assert_eq!(details.village, "Birchlet", "{query}: {got:?}");
+        assert_eq!(details.county, "Postalvik", "{query}: {got:?}");
+        assert!(!got.good_match, "{query}: {got:?}");
+        let point = got.geo_coordinates.as_option().unwrap();
+        assert!(metres((point.lon as f64, point.lat as f64), (18.001, 62.0)) < 5.);
+    }
     for query in [
+        "61 Quay Road, Harbor City, France",
+        "61 Quay Road, Harbor City, England, United Kingdom",
+        "61 Quay Road, ZZ2 2AA Harbor City, United Kingdom",
+        "Dispatchveien 51, 6782 Postalvik, Norway",
+        "Dispatchveien 51, 6791 Postalvik, Norway",
+        "Dispatchveien 99, 6799 Postalvik, Norway",
+        "Dispatchveien 51, 6799 Postalvik, France",
+        "Dispatchveien 51, 6799 Postalvik, Sweden",
+        "Dispatchveien 51, 6799 Postalvik, Vestland, Norway",
+        "Twin Road 51, 6799 Postalvik, Norway",
         "7 Acacia Straat, 9992 Veldhaven, South Africa",
         "7 Acacia Straat, 9991 Veldhaven, France",
         "9 Acacia Straat, 9991 Veldhaven, South Africa",
