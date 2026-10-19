@@ -40,7 +40,7 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
-      - run: python3 docs/test-registry-exports.py
+      - run: python3 tests/registry/test-registry-exports.py
       # Resolves addresses through libpostal over the synthetic world of tests/synthetic.
       - run: cargo test --locked --test synthetic -- --ignored
 
