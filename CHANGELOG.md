@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.13.0](https://github.com/Mokto/opengeocoding/compare/v0.12.1...v0.13.0) (2026-10-19)
+
+
+### Features
+
+* resolve "South Denmark" as the Danish region DK-83 ([#187](https://github.com/Mokto/opengeocoding/issues/187)) ([69dcf9a](https://github.com/Mokto/opengeocoding/commit/69dcf9a82fdc7d9ce0a7f8607b39c8d1ce8558b5))
+
+
+### Bug Fixes
+
+* recover remaining source-backed postal-town houses ([#186](https://github.com/Mokto/opengeocoding/issues/186)) ([589c018](https://github.com/Mokto/opengeocoding/commit/589c018964ac3183efe3bf15c6a8b1384e2688ef))
+* resolve native Korean road and land-lot addresses within their administrative hierarchy ([#184](https://github.com/Mokto/opengeocoding/issues/184)) ([a165cab](https://github.com/Mokto/opengeocoding/commit/a165cabff55336cddf017f12d3cad3e4303081b7))
+* resolve subdivision-coded place names and correct Zallaq's region ([#189](https://github.com/Mokto/opengeocoding/issues/189)) ([a672736](https://github.com/Mokto/opengeocoding/commit/a6727368e17b7468624fdefacf5346809d05084b))
+
 ## [0.12.1](https://github.com/Mokto/opengeocoding/compare/v0.12.0...v0.12.1) (2026-10-19)
 
 

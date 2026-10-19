@@ -1,6 +1,6 @@
 [package]
 name = "opengeocoding"
-version = "0.12.1"
+version = "0.13.0"
 edition = "2024"
 # PolyForm Shield 1.0.0 has no SPDX identifier.
 license-file = "LICENSE"
