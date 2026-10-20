@@ -1,0 +1,357 @@
+[
+  {
+    "id": "no-ssb-2017",
+    "country": "NO",
+    "reviewed_on": "2026-10-20",
+    "review": "Statistics Norway's date-scoped KLASS correspondence maps each municipality (classification 131) to its county (classification 104) on the observation date. Codes are read at that date, not as timeless identifiers; municipalities are linked to Wikidata through their municipality number (P2504) valid on that date, and counties through a reviewed table. A municipality is observed in that county on that date; unchanged boundaries and membership intervals are not asserted.",
+    "license": "CC-BY-4.0",
+    "attribution": "Statistics Norway (SSB), KLASS classifications 131 and 104, CC BY 4.0, https://www.ssb.no/en/diverse/lisens",
+    "membership": [
+      {
+        "url": "https://data.ssb.no/api/klass/v1/classifications/131/correspondsAt?targetClassificationId=104&date=2017-12-31",
+        "sha256": "95fa2ab963db029198d0f8e369ad5bce592e262e808153cb2bdea58c73fa272b",
+        "retrieved_on": "2026-10-20"
+      }
+    ],
+    "identity": {
+      "url": "https://query.wikidata.org/sparql?format=json&query=SELECT+%3Fitem+%3Fvalue+%3Fstart+%3Fend+WHERE+%7B+%3Fitem+p%3AP2504+%3Fs+.+%3Fs+ps%3AP2504+%3Fvalue+%3B+wikibase%3Arank+%3Frank+.+FILTER%28%3Frank+%21%3D+wikibase%3ADeprecatedRank%29+OPTIONAL+%7B+%3Fs+pq%3AP580+%3Fstart+%7D+OPTIONAL+%7B+%3Fs+pq%3AP582+%3Fend+%7D+%7D+ORDER+BY+%3Fvalue+%3Fitem+%3Fstart+%3Fend",
+      "sha256": "3ec810a5396a6db8cc99462578300d25903078f23f1e8b3ad122d90fb01644d4",
+      "retrieved_on": "2026-10-20"
+    },
+    "ancestors": {
+      "16": {
+        "name": "Sør-Trøndelag",
+        "wikidata": "Q50628"
+      },
+      "17": {
+        "name": "Nord-Trøndelag",
+        "wikidata": "Q50629"
+      }
+    }
+  },
+  {
+    "id": "no-ssb-2019",
+    "country": "NO",
+    "reviewed_on": "2026-10-20",
+    "review": "Statistics Norway's date-scoped KLASS correspondence maps each municipality (classification 131) to its county (classification 104) on the observation date. Codes are read at that date, not as timeless identifiers; municipalities are linked to Wikidata through their municipality number (P2504) valid on that date, and counties through a reviewed table. A municipality is observed in that county on that date; unchanged boundaries and membership intervals are not asserted.",
+    "license": "CC-BY-4.0",
+    "attribution": "Statistics Norway (SSB), KLASS classifications 131 and 104, CC BY 4.0, https://www.ssb.no/en/diverse/lisens",
+    "membership": [
+      {
+        "url": "https://data.ssb.no/api/klass/v1/classifications/131/correspondsAt?targetClassificationId=104&date=2019-12-31",
+        "sha256": "2ddf723d99d14dd920bd3be6d2884d8f10d64ed6f633cad0d2192f9ee6c2ea3f",
+        "retrieved_on": "2026-10-20"
+      }
+    ],
+    "identity": {
+      "url": "https://query.wikidata.org/sparql?format=json&query=SELECT+%3Fitem+%3Fvalue+%3Fstart+%3Fend+WHERE+%7B+%3Fitem+p%3AP2504+%3Fs+.+%3Fs+ps%3AP2504+%3Fvalue+%3B+wikibase%3Arank+%3Frank+.+FILTER%28%3Frank+%21%3D+wikibase%3ADeprecatedRank%29+OPTIONAL+%7B+%3Fs+pq%3AP580+%3Fstart+%7D+OPTIONAL+%7B+%3Fs+pq%3AP582+%3Fend+%7D+%7D+ORDER+BY+%3Fvalue+%3Fitem+%3Fstart+%3Fend",
+      "sha256": "3ec810a5396a6db8cc99462578300d25903078f23f1e8b3ad122d90fb01644d4",
+      "retrieved_on": "2026-10-20"
+    },
+    "ancestors": {
+      "01": {
+        "name": "Østfold",
+        "wikidata": "Q50614"
+      },
+      "02": {
+        "name": "Akershus",
+        "wikidata": "Q50615"
+      },
+      "04": {
+        "name": "Hedmark",
+        "wikidata": "Q50616"
+      },
+      "05": {
+        "name": "Oppland",
+        "wikidata": "Q50617"
+      },
+      "06": {
+        "name": "Buskerud",
+        "wikidata": "Q50618"
+      },
+      "07": {
+        "name": "Vestfold",
+        "wikidata": "Q50619"
+      },
+      "08": {
+        "name": "Telemark",
+        "wikidata": "Q2254"
+      },
+      "09": {
+        "name": "Aust-Agder",
+        "wikidata": "Q50621"
+      },
+      "10": {
+        "name": "Vest-Agder",
+        "wikidata": "Q50623"
+      },
+      "11": {
+        "name": "Rogaland",
+        "wikidata": "Q50624"
+      },
+      "12": {
+        "name": "Hordaland",
+        "wikidata": "Q50625"
+      },
+      "14": {
+        "name": "Sogn og Fjordane",
+        "wikidata": "Q50626"
+      },
+      "15": {
+        "name": "Møre og Romsdal",
+        "wikidata": "Q50627"
+      },
+      "18": {
+        "name": "Nordland",
+        "wikidata": "Q50630"
+      },
+      "19": {
+        "name": "Troms",
+        "wikidata": "Q50631"
+      },
+      "20": {
+        "name": "Finnmark",
+        "wikidata": "Q50632"
+      },
+      "50": {
+        "name": "Trøndelag",
+        "wikidata": "Q127676"
+      }
+    }
+  },
+  {
+    "id": "no-ssb-2023",
+    "country": "NO",
+    "reviewed_on": "2026-10-20",
+    "review": "Statistics Norway's date-scoped KLASS correspondence maps each municipality (classification 131) to its county (classification 104) on the observation date. Codes are read at that date, not as timeless identifiers; municipalities are linked to Wikidata through their municipality number (P2504) valid on that date, and counties through a reviewed table. A municipality is observed in that county on that date; unchanged boundaries and membership intervals are not asserted.",
+    "license": "CC-BY-4.0",
+    "attribution": "Statistics Norway (SSB), KLASS classifications 131 and 104, CC BY 4.0, https://www.ssb.no/en/diverse/lisens",
+    "membership": [
+      {
+        "url": "https://data.ssb.no/api/klass/v1/classifications/131/correspondsAt?targetClassificationId=104&date=2023-12-31",
+        "sha256": "cf8bee3202ff95e8a4873d735533220c402acceafc4cea86a0b36f6e90f64c55",
+        "retrieved_on": "2026-10-20"
+      }
+    ],
+    "identity": {
+      "url": "https://query.wikidata.org/sparql?format=json&query=SELECT+%3Fitem+%3Fvalue+%3Fstart+%3Fend+WHERE+%7B+%3Fitem+p%3AP2504+%3Fs+.+%3Fs+ps%3AP2504+%3Fvalue+%3B+wikibase%3Arank+%3Frank+.+FILTER%28%3Frank+%21%3D+wikibase%3ADeprecatedRank%29+OPTIONAL+%7B+%3Fs+pq%3AP580+%3Fstart+%7D+OPTIONAL+%7B+%3Fs+pq%3AP582+%3Fend+%7D+%7D+ORDER+BY+%3Fvalue+%3Fitem+%3Fstart+%3Fend",
+      "sha256": "3ec810a5396a6db8cc99462578300d25903078f23f1e8b3ad122d90fb01644d4",
+      "retrieved_on": "2026-10-20"
+    },
+    "ancestors": {
+      "11": {
+        "name": "Rogaland",
+        "wikidata": "Q50624"
+      },
+      "15": {
+        "name": "Møre og Romsdal",
+        "wikidata": "Q50627"
+      },
+      "18": {
+        "name": "Nordland",
+        "wikidata": "Q50630"
+      },
+      "30": {
+        "name": "Viken",
+        "wikidata": "Q56407178"
+      },
+      "34": {
+        "name": "Innlandet",
+        "wikidata": "Q56404886"
+      },
+      "38": {
+        "name": "Vestfold og Telemark",
+        "wikidata": "Q56405721"
+      },
+      "42": {
+        "name": "Agder",
+        "wikidata": "Q2729021"
+      },
+      "46": {
+        "name": "Vestland",
+        "wikidata": "Q56407177"
+      },
+      "50": {
+        "name": "Trøndelag",
+        "wikidata": "Q127676"
+      },
+      "54": {
+        "name": "Troms og Finnmark",
+        "wikidata": "Q52600648"
+      }
+    }
+  },
+  {
+    "id": "fr-insee-cog-2015",
+    "country": "FR",
+    "reviewed_on": "2026-10-20",
+    "review": "Insee's Code officiel géographique lists every commune existing on 1 January 2015 with its region code; region names come from the same release. Communes are linked to Wikidata through their Insee code (P374) valid on that date, regions through a reviewed table (the 2015 codes, not today's). A commune is observed in that region on that date; communes in regions unchanged by the 2016 reform are not imported.",
+    "license": "etalab-2.0",
+    "attribution": "Insee, Code officiel géographique, Licence Ouverte / Open Licence 2.0, https://www.etalab.gouv.fr/licence-ouverte-open-licence/",
+    "membership": [
+      {
+        "url": "https://www.insee.fr/fr/statistiques/fichier/2560698/comsimp2015-txt.zip",
+        "sha256": "a0d0a211d029bb565f4ae0728a05fcd218195736e79fe513d93ce46f283360c8",
+        "retrieved_on": "2026-10-20"
+      },
+      {
+        "url": "https://www.insee.fr/fr/statistiques/fichier/2560698/reg2015-txt.zip",
+        "sha256": "f943f206fbc4d2d2766738a66169e3788a0c1e42b9fbed637d728fc6c76ba227",
+        "retrieved_on": "2026-10-20"
+      }
+    ],
+    "identity": {
+      "url": "https://query.wikidata.org/sparql?format=json&query=SELECT+%3Fitem+%3Fvalue+%3Fstart+%3Fend+WHERE+%7B+%3Fitem+p%3AP374+%3Fs+.+%3Fs+ps%3AP374+%3Fvalue+%3B+wikibase%3Arank+%3Frank+.+FILTER%28%3Frank+%21%3D+wikibase%3ADeprecatedRank%29+OPTIONAL+%7B+%3Fs+pq%3AP580+%3Fstart+%7D+OPTIONAL+%7B+%3Fs+pq%3AP582+%3Fend+%7D+%7D+ORDER+BY+%3Fvalue+%3Fitem+%3Fstart+%3Fend",
+      "sha256": "ea56ac9f3842d2cc675f8f77075b98187f0fdc8923127dfd351891a694f8ac16",
+      "retrieved_on": "2026-10-20"
+    },
+    "ancestors": {
+      "21": {
+        "name": "Champagne-Ardenne",
+        "wikidata": "Q14103"
+      },
+      "22": {
+        "name": "Picardie",
+        "wikidata": "Q13950"
+      },
+      "23": {
+        "name": "Haute-Normandie",
+        "wikidata": "Q16961"
+      },
+      "24": {
+        "name": "Centre",
+        "wikidata": "Q13947"
+      },
+      "25": {
+        "name": "Basse-Normandie",
+        "wikidata": "Q16954"
+      },
+      "26": {
+        "name": "Bourgogne",
+        "wikidata": "Q1173"
+      },
+      "31": {
+        "name": "Nord-Pas-de-Calais",
+        "wikidata": "Q16987"
+      },
+      "41": {
+        "name": "Lorraine",
+        "wikidata": "Q22248793"
+      },
+      "42": {
+        "name": "Alsace",
+        "wikidata": "Q22010895"
+      },
+      "43": {
+        "name": "Franche-Comté",
+        "wikidata": "Q60846019"
+      },
+      "54": {
+        "name": "Poitou-Charentes",
+        "wikidata": "Q17009"
+      },
+      "72": {
+        "name": "Aquitaine",
+        "wikidata": "Q1179"
+      },
+      "73": {
+        "name": "Midi-Pyrénées",
+        "wikidata": "Q16393"
+      },
+      "74": {
+        "name": "Limousin",
+        "wikidata": "Q1190"
+      },
+      "82": {
+        "name": "Rhône-Alpes",
+        "wikidata": "Q463"
+      },
+      "83": {
+        "name": "Auvergne",
+        "wikidata": "Q1152"
+      },
+      "91": {
+        "name": "Languedoc-Roussillon",
+        "wikidata": "Q17005"
+      }
+    }
+  },
+  {
+    "id": "it-anpr",
+    "country": "IT",
+    "reviewed_on": "2026-10-20",
+    "review": "The ANPR/Istat historical archive dates each comune's name and province. An interval ending since 2000 in a province other than the comune's current one (or, for a suppressed comune, in a province that no longer exists) is observed on its last day. Comuni are linked to Wikidata through their cadastral code (P806), which survives province changes; provinces through a reviewed table keyed by the Istat code and plate code of the time.",
+    "license": "CC-BY-4.0",
+    "attribution": "Ministero dell'Interno, ANPR archivio storico dei comuni (with Istat), CC BY 4.0, https://www.anagrafenazionale.interno.it/note-legali/",
+    "membership": [
+      {
+        "url": "https://www.anagrafenazionale.interno.it/wp-content/uploads/ANPR_archivio_comuni.csv",
+        "sha256": "2a83f63414e43eae4ceba69b3c752d41fe8d091ff5a793fed3a5733041535530",
+        "retrieved_on": "2026-10-20"
+      }
+    ],
+    "identity": {
+      "url": "https://query.wikidata.org/sparql?format=json&query=SELECT+%3Fitem+%3Fvalue+%3Fstart+%3Fend+WHERE+%7B+%3Fitem+p%3AP806+%3Fs+.+%3Fs+ps%3AP806+%3Fvalue+%3B+wikibase%3Arank+%3Frank+.+FILTER%28%3Frank+%21%3D+wikibase%3ADeprecatedRank%29+OPTIONAL+%7B+%3Fs+pq%3AP580+%3Fstart+%7D+OPTIONAL+%7B+%3Fs+pq%3AP582+%3Fend+%7D+%7D+ORDER+BY+%3Fvalue+%3Fitem+%3Fstart+%3Fend",
+      "sha256": "3a8259ca1860201e6ddc517337cb4a800d08caf41001c6c13f230b39fe306954",
+      "retrieved_on": "2026-10-20"
+    },
+    "ancestors": {
+      "015/MI": {
+        "name": "Milano",
+        "wikidata": "Q15121"
+      },
+      "025/BL": {
+        "name": "Belluno",
+        "wikidata": "Q16126"
+      },
+      "041/PU": {
+        "name": "Pesaro e Urbino",
+        "wikidata": "Q16241"
+      },
+      "044/AP": {
+        "name": "Ascoli Piceno",
+        "wikidata": "Q16117"
+      },
+      "071/FG": {
+        "name": "Foggia",
+        "wikidata": "Q15129"
+      },
+      "072/BA": {
+        "name": "Bari",
+        "wikidata": "Q16123"
+      },
+      "091/NU": {
+        "name": "Nuoro",
+        "wikidata": "Q16220"
+      },
+      "092/CA": {
+        "name": "Cagliari",
+        "wikidata": "Q16149"
+      },
+      "095/OR": {
+        "name": "Oristano",
+        "wikidata": "Q16225"
+      },
+      "097/LC": {
+        "name": "Lecco",
+        "wikidata": "Q16199"
+      },
+      "104/OT": {
+        "name": "Olbia-Tempio",
+        "wikidata": "Q16224"
+      },
+      "105/OG": {
+        "name": "Ogliastra",
+        "wikidata": "Q16223"
+      },
+      "106/VS": {
+        "name": "Medio Campidano",
+        "wikidata": "Q16207"
+      },
+      "107/CI": {
+        "name": "Carbonia-Iglesias",
+        "wikidata": "Q16152"
+      }
+    }
+  }
+]

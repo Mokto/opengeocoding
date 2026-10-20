@@ -938,7 +938,7 @@ pub async fn run(options: Options) -> Result<i32> {
         },
         "consumer": { "git": git(&["rev-parse", "HEAD"]), "dirty": !git(&["status", "--porcelain", "--untracked-files=no"]).is_empty() },
         "reference_data_sha256": sha256_file(&root().join("data/reference.json"))?,
-        "historical_memberships_sha256": opengeocoding::eval::sha256_hex(include_bytes!("../../../data/historical_memberships.json")),
+        "historical_memberships_sha256": opengeocoding::index::historical_reference_sha256(),
         "max_rps": options.max_rps,
         "repeat": options.repeat,
         "budget": options.budget,

@@ -611,7 +611,25 @@ impl Core {
         Ok(found)
     }
 
+    /// Reviewed historical memberships answer only where the current lookups found no good match.
     fn resolve_written(&self, query: &str) -> Result<FullAddress> {
+        let found = self.resolve_current(query)?;
+        if found.good_match {
+            return Ok(found);
+        }
+        match self.index.historical_place(query) {
+            Some(hit) => Ok(accept(
+                format_response(&self.index.render(&hit, true))?,
+                &ParsedAddress::new(),
+                "",
+                "historical_place",
+                true,
+            )),
+            None => Ok(found),
+        }
+    }
+
+    fn resolve_current(&self, query: &str) -> Result<FullAddress> {
         if query.chars().count() <= 256
             && let Some(hits) = self.index.place_slug(query)
         {
@@ -705,15 +723,6 @@ impl Core {
             if !found.display_name.is_empty() {
                 return Ok(found);
             }
-        }
-        if let Some(hit) = self.index.historical_place(written) {
-            return Ok(accept(
-                format_response(&self.index.render(&hit, true))?,
-                &ParsedAddress::new(),
-                "",
-                "historical_place",
-                true,
-            ));
         }
         Ok(found)
     }

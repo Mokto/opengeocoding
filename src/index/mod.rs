@@ -9,6 +9,7 @@ pub mod reverse;
 pub mod schema;
 
 use anyhow::{Context, Result};
+pub use history::reference_sha256 as historical_reference_sha256;
 use schema::{Fields, fold, pc_norm};
 use serde_json::{Map, Value, json};
 use std::{
