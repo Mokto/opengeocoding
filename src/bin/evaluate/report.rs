@@ -977,16 +977,30 @@ fn expected_countries(c: &Case) -> String {
     }
 }
 
-/// One cell of the per-country table: passing checks on both sides out of those checked.
-fn country_cell([checked, base, head]: [usize; 3]) -> String {
+/// Two cells of the per-country table: passing checks on both sides out of those checked, and
+/// the same as a percentage.
+fn country_cells([checked, base, head]: [usize; 3]) -> [String; 2] {
+    let pct = |n| format!("{:.1}%", 100. * n as f64 / checked as f64);
     match (checked, base == head) {
-        (0, _) => "-".into(),
-        (_, true) => format!("{head} / {checked}"),
-        _ => format!(
-            "{base} → {head} / {checked} ({:+})",
-            head as i64 - base as i64
-        ),
+        (0, _) => ["-".into(), "-".into()],
+        (_, true) => [format!("{head} / {checked}"), pct(head)],
+        _ => [
+            format!(
+                "{base} → {head} / {checked} ({:+})",
+                head as i64 - base as i64
+            ),
+            format!("{} → {}", pct(base), pct(head)),
+        ],
     }
+}
+
+/// "Belgium, France" for "be,fr": the English names of a joined group of country codes.
+fn country_label(codes: &str) -> String {
+    codes
+        .split(',')
+        .map(|cc| opengeocoding::matching::country_name(cc).unwrap_or(cc))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// Per country (the expected one; a case with several is counted in the joined group), the
@@ -1020,15 +1034,20 @@ fn by_country(counts: &BTreeMap<String, BTreeMap<&str, [usize; 3]>>) -> String {
         "\n## Pass rate by country\n\nPassing checks out of those checked, baseline → candidate, for the {} expected countr{} where any RPC changed. A case that expects several countries has its own row. Counts are checks, not independent locations.\n\n| Country | {} |\n|---|{}\n",
         rows.len(),
         if rows.len() == 1 { "y" } else { "ies" },
-        RPCS.join(" | "),
-        "---:|".repeat(RPCS.len())
+        RPCS.map(|rpc| format!("{rpc} | %")).join(" | "),
+        "---:|".repeat(2 * RPCS.len())
     );
     for (country, rpcs, ..) in &rows[..shown] {
         let cells: Vec<_> = RPCS
             .iter()
-            .map(|rpc| country_cell(rpcs.get(rpc).copied().unwrap_or_default()))
+            .flat_map(|rpc| country_cells(rpcs.get(rpc).copied().unwrap_or_default()))
             .collect();
-        let _ = writeln!(out, "| {country} | {} |", cells.join(" | "));
+        let _ = writeln!(
+            out,
+            "| {} | {} |",
+            country_label(country),
+            cells.join(" | ")
+        );
     }
     if rows.len() > shown {
         let _ = writeln!(
@@ -2089,20 +2108,21 @@ mod tests {
             ("dk", "ReverseGeocode", [1883, 1882, 1882]),
             ("fr", "SearchAddress", [505, 498, 498]),
             ("no", "SearchAddress", [714, 709, 705]),
+            ("be,fr", "ResolveRegion", [4, 2, 3]),
         ] {
             counts.entry(country.into()).or_default().insert(rpc, c);
         }
         let table = by_country(&counts);
-        assert!(table.contains("for the 2 expected countries where any RPC changed"));
-        // the largest change first, an RPC nobody asked about as a dash, an unchanged one without
-        // an arrow, and a country that did not change not at all
+        assert!(table.contains("for the 3 expected countries where any RPC changed"));
+        // the largest change first, by English name, an RPC nobody asked about as a dash, an
+        // unchanged one without an arrow, and a country that did not change not at all
         assert!(
             table.contains(
-                "| dk | 1779 → 1867 / 1883 (+88) | 293 → 1838 / 1883 (+1545) | 1882 / 1883 | - |\n| no | 709 → 705 / 714 (-4) | - | - | - |\n"
+                "| Denmark | 1779 → 1867 / 1883 (+88) | 94.5% → 99.2% | 293 → 1838 / 1883 (+1545) | 15.6% → 97.6% | 1882 / 1883 | 99.9% | - | - |\n| Norway | 709 → 705 / 714 (-4) | 99.3% → 98.7% | - | - | - | - | - | - |\n| Belgium, France | - | - | - | - | - | - | 2 → 3 / 4 (+1) | 50.0% → 75.0% |\n"
             ),
             "{table}"
         );
-        assert!(!table.contains("| fr |"), "{table}");
+        assert!(!table.contains("| France |"), "{table}");
         counts.retain(|country, _| country == "fr");
         assert_eq!(by_country(&counts), "");
     }

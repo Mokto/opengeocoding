@@ -15,6 +15,7 @@ pub type ParsedAddress = IndexMap<String, String>;
 #[derive(Deserialize)]
 struct Reference {
     countries: HashMap<String, String>,
+    country_names: HashMap<String, String>,
     #[serde(default)]
     overrides: HashMap<String, FullAddress>,
     region_countries: HashMap<String, String>,
@@ -26,6 +27,11 @@ static REFERENCE: LazyLock<Reference> = LazyLock::new(|| {
     serde_json::from_str(include_str!(concat!(env!("OUT_DIR"), "/reference.json")))
         .expect("generated reference data")
 });
+
+/// A country code's CLDR English name ("es" → "Spain").
+pub fn country_name(code: &str) -> Option<&'static str> {
+    REFERENCE.country_names.get(code).map(String::as_str)
+}
 
 pub fn search_override(query: &str) -> Option<FullAddress> {
     REFERENCE.overrides.get(query).cloned()
