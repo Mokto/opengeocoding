@@ -1010,15 +1010,31 @@ fn country_label(codes: &str) -> String {
 }
 
 /// Per country (the expected one; a case with several is counted in the joined group), the
-/// passing checks of each RPC on both sides, for the countries where any of them changed, those
-/// with the largest change first.
-fn by_country(counts: &BTreeMap<String, BTreeMap<&str, [usize; 3]>>) -> String {
+/// passing checks of each RPC on both sides: the countries where any of them changed, those with
+/// the largest change first, and every country by name as a folded table for the report's end,
+/// where its length can't push the changed cases past a comment's limit.
+fn by_country(counts: &BTreeMap<String, BTreeMap<&str, [usize; 3]>>) -> (String, String) {
     const RPCS: [&str; 4] = [
         "SearchAddress",
         "SuggestAddress",
         "ReverseGeocode",
         "ResolveRegion",
     ];
+    if counts.is_empty() {
+        return Default::default();
+    }
+    let header = format!(
+        "| Country | {} |\n|---|{}\n",
+        RPCS.map(|rpc| format!("{rpc} | %")).join(" | "),
+        "---:|".repeat(2 * RPCS.len())
+    );
+    let row = |country: &str, rpcs: &BTreeMap<&str, [usize; 3]>| {
+        let cells: Vec<_> = RPCS
+            .iter()
+            .flat_map(|rpc| country_cells(rpcs.get(rpc).copied().unwrap_or_default()))
+            .collect();
+        format!("| {} | {} |\n", country_label(country), cells.join(" | "))
+    };
     let mut rows: Vec<_> = counts
         .iter()
         .map(|(country, rpcs)| {
@@ -1031,38 +1047,40 @@ fn by_country(counts: &BTreeMap<String, BTreeMap<&str, [usize; 3]>>) -> String {
         })
         .filter(|(.., moved)| *moved > 0)
         .collect();
-    if rows.is_empty() {
-        return String::new();
-    }
     rows.sort_by_key(|(country, _, delta, moved)| (std::cmp::Reverse(*moved), *delta, *country));
-    let shown = rows.len().min(40);
-    let mut out = format!(
-        "\n## Pass rate by country\n\nPassing checks out of those checked, baseline → candidate, for the {} expected countr{} where any RPC changed. A case that expects several countries has its own row. Counts are checks, not independent locations.\n\n| Country | {} |\n|---|{}\n",
-        rows.len(),
-        if rows.len() == 1 { "y" } else { "ies" },
-        RPCS.map(|rpc| format!("{rpc} | %")).join(" | "),
-        "---:|".repeat(2 * RPCS.len())
+    let mut out = String::from("\n## Pass rate by country\n\n");
+    if rows.is_empty() {
+        out += "No expected country's passing checks changed.\n";
+    } else {
+        let shown = rows.len().min(40);
+        let _ = write!(
+            out,
+            "Passing checks out of those checked, baseline → candidate, for the {} expected countr{} where any RPC changed. A case that expects several countries has its own row. Counts are checks, not independent locations.\n\n{header}",
+            rows.len(),
+            if rows.len() == 1 { "y" } else { "ies" },
+        );
+        for (country, rpcs, ..) in &rows[..shown] {
+            out += &row(country, rpcs);
+        }
+        if rows.len() > shown {
+            let _ = writeln!(
+                out,
+                "\n{} more countries changed, with smaller changes.",
+                rows.len() - shown
+            );
+        }
+    }
+    let mut every: Vec<_> = counts
+        .iter()
+        .map(|(country, rpcs)| (country_label(country), row(country, rpcs)))
+        .collect();
+    every.sort();
+    let every = fold(
+        &format!("Pass rate of every country ({})", every.len()),
+        &(header + &every.into_iter().map(|(_, row)| row).collect::<String>()),
+        false,
     );
-    for (country, rpcs, ..) in &rows[..shown] {
-        let cells: Vec<_> = RPCS
-            .iter()
-            .flat_map(|rpc| country_cells(rpcs.get(rpc).copied().unwrap_or_default()))
-            .collect();
-        let _ = writeln!(
-            out,
-            "| {} | {} |",
-            country_label(country),
-            cells.join(" | ")
-        );
-    }
-    if rows.len() > shown {
-        let _ = writeln!(
-            out,
-            "\n{} more countries changed, with smaller changes.",
-            rows.len() - shown
-        );
-    }
-    out
+    (out, every)
 }
 
 fn passing(name: &str, [base, head]: [usize; 2], total: usize, changed: usize) -> String {
@@ -1361,7 +1379,8 @@ pub fn diff(
         let changed = changed_checks.get(name).copied().unwrap_or(0);
         summary += &passing(name, [c[1], c[2]], c[0], changed);
     }
-    summary += &by_country(&country_counts);
+    let (countries, every_country) = by_country(&country_counts);
+    summary += &countries;
     let mut added_counts: BTreeMap<(&str, &str), [usize; 2]> = BTreeMap::new();
     let mut added = 0;
     for (id, record) in new.iter().filter(|(id, _)| !old.contains_key(*id)) {
@@ -1508,6 +1527,7 @@ pub fn diff(
     if must {
         reasons.push("must-pass cases failing".into());
     }
+    report += &every_country;
     let failed = !reasons.is_empty();
     if failed {
         let _ = writeln!(report, "\nGate: FAIL ({}).", reasons.join(", "));
@@ -2110,7 +2130,7 @@ mod tests {
     }
 
     #[test]
-    fn countries_show_passing_checks_on_both_sides_where_any_changed() {
+    fn countries_show_passing_checks_where_any_changed_and_every_country_folded() {
         let mut counts: BTreeMap<String, BTreeMap<&str, [usize; 3]>> = BTreeMap::new();
         for (country, rpc, c) in [
             ("dk", "SearchAddress", [1883, 1779, 1867]),
@@ -2122,7 +2142,7 @@ mod tests {
         ] {
             counts.entry(country.into()).or_default().insert(rpc, c);
         }
-        let table = by_country(&counts);
+        let (table, every) = by_country(&counts);
         assert!(table.contains("for the 3 expected countries where any RPC changed"));
         // the largest change first, by English name, an RPC nobody asked about as a dash, an
         // unchanged one without an arrow, and a country that did not change not at all
@@ -2133,8 +2153,27 @@ mod tests {
             "{table}"
         );
         assert!(!table.contains("| France |"), "{table}");
+        // every country, unchanged ones too, by name in the folded table
+        assert!(
+            every.contains("<summary><b>Pass rate of every country (4)</b></summary>"),
+            "{every}"
+        );
+        assert!(
+            every.contains("| Belgium, France | - | - | - | - | - | - | 2 → 3 / 4 (+1) | 50.0% → 75.0% |\n| Denmark |"),
+            "{every}"
+        );
+        assert!(
+            every.contains("| France | 498 / 505 | 98.6% | - | - | - | - | - | - |\n| Norway |"),
+            "{every}"
+        );
         counts.retain(|country, _| country == "fr");
-        assert_eq!(by_country(&counts), "");
+        let (table, every) = by_country(&counts);
+        assert!(
+            table.contains("No expected country's passing checks changed."),
+            "{table}"
+        );
+        assert!(every.contains("| France | 498 / 505 |"), "{every}");
+        assert_eq!(by_country(&BTreeMap::new()), Default::default());
     }
 
     #[test]
