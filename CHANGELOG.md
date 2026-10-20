@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.17.0](https://github.com/Mokto/opengeocoding/compare/v0.16.0...v0.17.0) (2026-10-20)
+
+
+### Features
+
+* add a 48-market OSM address source-consistency benchmark to gold ([#219](https://github.com/Mokto/opengeocoding/issues/219)) ([7a02601](https://github.com/Mokto/opengeocoding/commit/7a02601cfd50b6cc3034febcfada7075c4daa6ae))
+* import historical memberships from official datasets ([#218](https://github.com/Mokto/opengeocoding/issues/218)) ([5db596c](https://github.com/Mokto/opengeocoding/commit/5db596c5982ed35eb5056281c782c76f4321fee9)), closes [#216](https://github.com/Mokto/opengeocoding/issues/216)
+* resolve and suggest Australian unit, state-code and suburb addresses ([#215](https://github.com/Mokto/opengeocoding/issues/215)) ([98595d0](https://github.com/Mokto/opengeocoding/commit/98595d0f8b7fe68d98b1bdc222cb0ea20edd31e6))
+* show country names and pass-rate percentages in the gold diff country table ([#221](https://github.com/Mokto/opengeocoding/issues/221)) ([2d5b95d](https://github.com/Mokto/opengeocoding/commit/2d5b95d4141e02616f58bec4dcbb2aabd8f17a03))
+
+
+### Bug Fixes
+
+* answer Polish village, ul.-prefixed and ulica-named street addresses with the exact house ([#211](https://github.com/Mokto/opengeocoding/issues/211)) ([8240db2](https://github.com/Mokto/opengeocoding/commit/8240db2183b7626d6feabc338c52c257ad53183b))
+* find Portuguese houses under the national register's abbreviated street names ([#224](https://github.com/Mokto/opengeocoding/issues/224)) ([94e6674](https://github.com/Mokto/opengeocoding/commit/94e6674c7128bcd055e37c5a21a908736488edf2))
+* suggest houses on date-named roads and keep the best street part first ([#213](https://github.com/Mokto/opengeocoding/issues/213)) ([ef1d055](https://github.com/Mokto/opengeocoding/commit/ef1d0553f0b41e057b40cc294a79e9e2f42a6a1e))
+
+
+### Performance Improvements
+
+* time a 2,000-case sample and check the rest of the gold suite 16 at a time ([#217](https://github.com/Mokto/opengeocoding/issues/217)) ([62345f3](https://github.com/Mokto/opengeocoding/commit/62345f3c3ca04963b4888c060111591a7ffe8e98))
+
 ## [0.16.0](https://github.com/Mokto/opengeocoding/compare/v0.15.0...v0.16.0) (2026-10-20)
 
 
