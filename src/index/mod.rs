@@ -2555,6 +2555,32 @@ impl Index {
             })
             .collect();
         let hits = self.streets_by(road, number, city, &named, postcode, cc, exact);
+        // Bogotá's register keys "# 86B-18" as "86B 18"
+        if cc == Some("co")
+            && let Some(plate) = number.and_then(crate::matching::colombian_plate)
+            && !hits.iter().any(|h| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        ..
+                    }
+                )
+            })
+        {
+            let found = self.streets(road, Some(&plate), city, postcode, cc, exact);
+            if found.iter().any(|h| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        ..
+                    }
+                )
+            }) {
+                return found;
+            }
+        }
         let housed = hits.iter().any(|h| {
             matches!(
                 h,

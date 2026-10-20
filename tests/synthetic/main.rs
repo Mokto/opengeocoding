@@ -1733,6 +1733,30 @@ async fn resolve_follows_the_authored_facts() {
         let got = resolver.resolve(query).await.unwrap();
         assert!(!got.good_match, "{query}: {got:?}");
     }
+    for (number, query) in [
+        ("86B 18", "AC 43 S # 86B-18, Bogotá, Colombia"),
+        ("86B 18", "Avenida Calle 43 S # 86B-18, Bogotá, Colombia"),
+        ("86B 18", "Avenida Calle 43 S 86B 18, Bogotá, Colombia"),
+        ("54D 35 S", "AC 43 S # 54D-35 S, Bogotá, Colombia"),
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres(
+                (at.lon as f64, at.lat as f64),
+                house(street("AC 43 S"), number)
+            ) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
+    for query in [
+        "AC 43 S # 86B-19, Bogotá, Colombia",
+        "AC 44 S # 86B-18, Bogotá, Colombia",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(!got.good_match, "{query}: {got:?}");
+    }
     for number in ["12", "12a", "12 1/2"] {
         for unit in ["100", "A", "BSMT", "UPPR", "APT"] {
             let query = format!("{unit}-{number} Maple Scope Road, Delhi, ON N4B 1A1, Canada");
