@@ -1109,6 +1109,25 @@ fn cases() -> Vec<Case> {
             "Skibsgade 9, 2. 3, 8500 Havnholm, Denmark",
             at_house("Skibsgade", "9"),
         ),
+        case("Świtały 12, 76-231, Poland", at_house("Świtały", "12")),
+        case("Jaszcz 10, 76-231, Poland", at_house("Jaszcz", "10")),
+        case(
+            "ul. M. Kopernika 11, 76-231 Damnica, Poland",
+            at_house("Mikołaja Kopernika", "11"),
+        ),
+        case(
+            "ul. Mikołaja Kopernika 11, 76-231 Damnica",
+            at_house("Mikołaja Kopernika", "11"),
+        ),
+        case("Szeroka 7, Stolica, Poland", at_house("ulica Szeroka", "7")),
+        case(
+            "Szeroka, Stolica, Poland",
+            Want::At(house(street("ulica Szeroka"), "7"), 1200.0, true),
+        ),
+        case(
+            "Rakowice Małe 20BS, 76-231, Poland",
+            at_house("Rakowice Małe", "20bs"),
+        ),
         case("Paris, Texas", town("us-tx-paris", true)),
         case("Paris, TX, USA", town("us-tx-paris", true)),
         case("us-tx-paris", town("us-tx-paris", true)),

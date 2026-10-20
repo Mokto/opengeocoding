@@ -365,6 +365,23 @@ impl Core {
                         continue;
                     }
                 }
+                // A street the data files under a district of the town stated (Warsaw's
+                // Śródmieście) is in that town.
+                if !named_in_english
+                    && country_matches(country, details)
+                    && details.is_some_and(|d| {
+                        d.house_number.is_empty()
+                            && !d.road.is_empty()
+                            && roads_agree(part(address, "road"), &d.road)
+                    })
+                    && self.index.street_locality_named(&hits[index], city)
+                {
+                    judged.to_mut()[index]
+                        .address_details
+                        .get_or_insert_default()
+                        .city = city.into();
+                    continue;
+                }
                 let eligible = match candidate["addresstype"].as_str() {
                     Some("city" | "town" | "village" | "municipality" | "hamlet") => true,
                     Some(

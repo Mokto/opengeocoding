@@ -2510,20 +2510,19 @@ impl Index {
                 return found;
             }
         }
-        if hits.is_empty()
-            && number.is_some_and(|n| !n.trim().is_empty())
-            && let Some(cc) = cc
-        {
-            let alternatives = crate::matching::road_expansions(road, cc);
+        if hits.is_empty() && number.is_some_and(|n| !n.trim().is_empty()) {
+            let mut alternatives = cc
+                .map(|cc| crate::matching::road_expansions(road, cc))
+                .unwrap_or_default();
+            alternatives.extend(crate::matching::bare_road(road, cc));
             if !alternatives.is_empty()
-                && (!named.is_empty()
-                    || postcode.is_some_and(|p| self.postcode_exists(p, Some(cc))))
+                && (!named.is_empty() || postcode.is_some_and(|p| self.postcode_exists(p, cc)))
             {
                 let mut found = vec![];
                 let mut ids = std::collections::BTreeSet::new();
                 for name in alternatives {
                     let next: Vec<_> = self
-                        .streets_by(&name, number, city, &named, postcode, Some(cc), false)
+                        .streets_by(&name, number, city, &named, postcode, cc, false)
                         .into_iter()
                         .filter(|h| {
                             matches!(h, Hit::Street { number: Some(_), postcode: own, .. }
@@ -3032,7 +3031,30 @@ impl Index {
             if let Some(n) = number.as_deref().filter(|n| !n.is_empty()) {
                 let mut key = vec![];
                 let mut conflicting = false;
-                for &a in &top {
+                // Of the streets holding the house, those named exactly as written first (Jaszcz,
+                // not Wybudowanie pod Jaszcz nearer the postcode's centre).
+                let folded = fold(road);
+                let as_written = |a: &DocAddress| {
+                    use tantivy::schema::Value as _;
+                    self.searcher
+                        .doc::<tantivy::TantivyDocument>(*a)
+                        .is_ok_and(|doc| {
+                            doc.get_all(self.f.name)
+                                .filter_map(|v| v.as_str())
+                                .any(|name| fold(name) == folded)
+                        })
+                };
+                let mut by_name: Vec<DocAddress> = top
+                    .iter()
+                    .copied()
+                    .filter(|&a| lookup(a, n).is_some())
+                    .collect();
+                if by_name.len() > 1 {
+                    by_name.sort_by_cached_key(|a| {
+                        (!with_postcode.contains(a), !in_named(a), !as_written(a))
+                    });
+                }
+                for &a in &by_name {
                     let sid = self.fast(a, "id") as u32;
                     key.clear();
                     key.extend_from_slice(&sid.to_be_bytes());
@@ -3684,6 +3706,35 @@ impl Index {
                 return vec![h];
             }
         }
+        // libpostal reads a numbered street or village with no street type as a venue ("Świtały
+        // 12, 76-231" and "św. Jana 10, 36-050 Sokołów" give a house and no road): only an exact
+        // house on a street of that name answers. So with a number it leaves in the road
+        // ("Rakowice Małe 20BS, 59-600").
+        let venue = roads
+            .is_empty()
+            .then(|| get("house").zip(get("house_number").map(house_number)))
+            .flatten();
+        let in_road = (hits.is_empty() && get("house_number").is_none())
+            .then(|| roads.last().and_then(|r| r.rsplit_once(' ')))
+            .flatten()
+            .filter(|(_, n)| n.starts_with(|c: char| c.is_ascii_digit()));
+        if let Some((name, n)) = venue.or(in_road)
+            && (city.is_some() || get("postcode").is_some())
+        {
+            let town = city.map(|c| self.resolve_place(c, cc).unwrap_or_else(|| c.to_string()));
+            let found = self.streets(name, Some(n), town.as_deref(), get("postcode"), cc, false);
+            if let Some(h) = found.into_iter().find(|h| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        ..
+                    }
+                )
+            }) {
+                return vec![h];
+            }
+        }
         let road_as_place = hits.is_empty() && get("house_number").is_none();
         if get("road").is_none() || road_as_place {
             // libpostal's labels for place-only text are unreliable ("Doha, Ad Dawhah, Qatar"
@@ -4114,12 +4165,18 @@ impl Index {
     }
 
     pub(crate) fn house_locality_named(&self, hit: &Hit, name: &str) -> bool {
-        let Hit::Street {
-            place,
-            number: Some(_),
-            ..
-        } = hit
-        else {
+        matches!(
+            hit,
+            Hit::Street {
+                number: Some(_),
+                ..
+            }
+        ) && self.street_locality_named(hit, name)
+    }
+
+    /// A town or municipality above the street is named so.
+    pub(crate) fn street_locality_named(&self, hit: &Hit, name: &str) -> bool {
+        let Hit::Street { place, .. } = hit else {
             return false;
         };
         if *place == NONE || name.chars().count() <= 2 {
