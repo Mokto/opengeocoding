@@ -2129,7 +2129,7 @@ pub const STREETS: &[Street] = &[
         cc: "FR",
         lon: 2.34,
         lat: 48.86,
-        numbers: &["1", "2", "3", "4", "5", "6", "7bis", "8a"],
+        numbers: &["1", "2", "3", "4", "5", "6", "7bis", "8a", "9 C"],
     },
     Street {
         class: "residential",
