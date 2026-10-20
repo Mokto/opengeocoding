@@ -847,6 +847,24 @@ impl Core {
         } else {
             query
         };
+        // "Kalverstraat 9999, 1012 NX Centrum": libpostal reads a postcode of digits and letters
+        // as the road, or its letters alone ("1234", road "nx")
+        let joined = format!("{} {}", part(&address, "postcode"), part(&address, "road"));
+        let written = joined.trim();
+        let compact = normalize_postcode(written);
+        if !part(&address, "road").is_empty()
+            && compact.len() >= 5
+            && compact.chars().any(|c| c.is_ascii_digit())
+            && compact.chars().any(char::is_alphabetic)
+            && query.to_lowercase().contains(&written.to_lowercase())
+            && self.index.knows_postcode(
+                written,
+                Some(expected_country(&address).as_str()).filter(|c| !c.is_empty()),
+            )
+        {
+            address.shift_remove("road");
+            address.insert("postcode".into(), written.to_owned());
+        }
         // Repeated fields ("Karnataka, India, India") reach the parser as one "india india".
         if let Some(stated) = address.get_mut("country") {
             let words: Vec<_> = stated.split(' ').collect();
@@ -998,6 +1016,18 @@ impl Core {
                 return Ok(accept(chosen.found, &address, &postcode, "raw", road_found));
             }
             weak = Some(chosen);
+        }
+        // "2725-377 Mem Martins": the postcode's place has another name than the town, which
+        // only a stated country lets stand for it. The postcode and the town can state it.
+        if let Some(name) = self
+            .postcode_country(query, stated_address, &postcode)
+            .and_then(|cc| self.index.country_name(&cc))
+            .filter(|name| !query.ends_with(name))
+        {
+            let found = self.resolve_once(&format!("{query}, {name}"))?;
+            if !found.display_name.is_empty() {
+                return Ok(found);
+            }
         }
         if weak.is_none()
             && let Some(found) = self.fallbacks(query, &address, &country, &postcode)?
@@ -1352,6 +1382,49 @@ impl Core {
             near |= hit;
         }
         !postcode.is_empty() && any && !near
+    }
+
+    /// The one country a query that states none is in by its postcode: Portugal for a postcode
+    /// written as only Portugal writes them, else the one country where the postcode's own
+    /// places, or the query's candidates that hold it, have the stated town within 10 km. A code
+    /// several countries use ("10115") says nothing alone.
+    fn postcode_country(
+        &self,
+        query: &str,
+        address: &ParsedAddress,
+        postcode: &str,
+    ) -> Option<String> {
+        if postcode.is_empty() || !part(address, "country").is_empty() {
+            return None;
+        }
+        if portuguese_postcode(postcode) {
+            return Some("pt".into());
+        }
+        let town = ["city", "city_district", "suburb"]
+            .iter()
+            .map(|key| part(address, key))
+            .find(|t| !t.is_empty())?;
+        // ponytail: only the postcode's 5 most important places are looked at, so a country
+        // whose places of it rank lower is missed; a per-country postcode lookup would lift that.
+        let countries: std::collections::HashSet<String> = self
+            .index
+            .postcode_hits(postcode, None)
+            .into_iter()
+            .map(|hit| self.index.render(&hit, true))
+            .chain(self.search(query).1)
+            .filter_map(|value| {
+                let found = format_response(&value).ok()?;
+                let at = found.geo_coordinates.as_option()?;
+                let details = found.address_details.as_option()?;
+                let cc = details.country_code.to_lowercase();
+                (!cc.is_empty()
+                    && normalize_postcode(&details.postcode) == normalize_postcode(postcode)
+                    && self.index.place_near(town, Some(&cc), at.lat, at.lon, 10.0))
+                .then_some(cc)
+            })
+            .collect();
+        let mut countries = countries.into_iter();
+        countries.next().filter(|_| countries.next().is_none())
     }
 
     /// Structured re-queries of the parsed fields, loosest last.

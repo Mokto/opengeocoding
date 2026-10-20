@@ -51,7 +51,7 @@ The panel writes every query in two synthetic orders ending in `, Portugal`. Por
 
 On the full gold suite, SearchAddress is unchanged (its queries state the country) and SuggestAddress gains 34 checks with none lost: 31 Dutch queries written without commas (`Chopinstraat 51 5481LP Schijndel Netherlands`), two Spanish and one Italian with the number as its own part (`Via Bernardo Clesio, 5, 38122 Trento, Italy`).
 
-Still open without a country: a query whose number the index lacks can get no answer at all when the postcode's place and the stated town differ in name (`Estrada de Mem Martins 9999, 2725-377 Mem Martins`; 3 of 39 such probes), because accepting the postcode for that town requires a stated country. That is a resolver rule for every country, tracked in [#234](https://github.com/Mokto/opengeocoding/issues/234).
+Without a country, a query whose number the index lacks got no answer at all when the postcode's place and the stated town differ in name (`Estrada de Mem Martins 9999, 2725-377 Mem Martins`; 3 of 39 such probes), because accepting the postcode for that town required a stated country. [#234](https://github.com/Mokto/opengeocoding/issues/234) fixed it for every country: a postcode written as Portugal's, or one whose places lie near the stated town in only one country, now supplies the country.
 
 ## Source coverage
 
