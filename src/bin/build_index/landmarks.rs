@@ -400,9 +400,9 @@ fn read_file(path: &Path) -> Vec<Landmark> {
 /// The landmarks of every extract in `dirs`, one per Wikidata item: the copy with the most names,
 /// then a node before a way before a relation, then the lowest id, so overlapping extracts and
 /// thread order don't change the answer.
-// ponytail: decoding blobs is nine tenths of this pass, and it decodes the `--osm` extracts again
-// after the address pass (about 110 s of a world build). Reading landmarks in `sources::osm`'s
-// passes is the upgrade.
+// ponytail: decoding blobs is nine tenths of this pass, and it reads and decodes the `--osm`
+// extracts a second time, beside the address passes. Reading landmarks in `sources::osm`'s passes
+// is the upgrade.
 pub fn read(dirs: &[PathBuf]) -> Vec<Landmark> {
     let files: Vec<PathBuf> = dirs.iter().flat_map(|d| files(d, ".osm.pbf")).collect();
     let size = |p: &Path| std::fs::metadata(p).map_or(0, |m| m.len());
