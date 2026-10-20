@@ -311,17 +311,31 @@ impl Store {
     /// `MANIFEST` it verified; while that still names the current `MANIFEST`, a file of the right
     /// size is kept without rehashing it.
     pub async fn fetch(&self, rel: &str, dir: &Path) -> Result<()> {
+        self.fetch_files(rel, dir, None).await
+    }
+
+    /// [`Self::fetch`], of only the files named in `only` when given.
+    pub async fn fetch_files(
+        &self,
+        rel: &str,
+        dir: &Path,
+        only: Option<&std::collections::BTreeSet<String>>,
+    ) -> Result<()> {
         ensure!(
             self.exists(&format!("{rel}/_COMPLETE")).await?,
             "{rel} is not complete"
         );
         let raw = self.get(&format!("{rel}/MANIFEST")).await?;
         let digest = hex(ring::digest::digest(&ring::digest::SHA256, &raw));
-        let marker = marker(dir);
+        // the marker vouches for the whole directory, which a partial fetch does not check
+        let marker = marker(dir).filter(|_| only.is_none());
         let trusted = marker
             .as_ref()
             .is_some_and(|m| std::fs::read_to_string(m).is_ok_and(|d| d == digest));
         let mut manifest: Manifest = serde_json::from_slice(&raw)?;
+        if let Some(only) = only {
+            manifest.files.retain(|e| only.contains(&e.path));
+        }
         // Largest first, so the biggest files' hashing overlaps the rest of the transfer.
         manifest.files.sort_by_key(|e| std::cmp::Reverse(e.size));
         // Files already on disk count as done at once, so the percentage covers the directory.
