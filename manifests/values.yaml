@@ -124,6 +124,7 @@ index:
       - italy
       - ivory-coast
       - jamaica
+      - japan
       - jordan
       - kazakhstan
       - kenya
@@ -214,7 +215,7 @@ index:
       - zimbabwe
     # Read for SuggestAddress landmarks only (airports, stations and the like that OSM links to
     # Wikidata), not for addresses: the countries the extracts above leave out, whose addresses
-    # come from Overture. About 49 GB in October 2026. Empty: landmarks only where `osm` reads.
+    # come from Overture. About 47 GB in October 2026. Empty: landmarks only where `osm` reads.
     osmLandmarks:
       - australia
       - austria
@@ -233,7 +234,6 @@ index:
       - germany
       - greenland
       - iceland
-      - japan
       - latvia
       - liechtenstein
       - lithuania
