@@ -942,6 +942,19 @@ pub const PLACES: &[Place] = &[
         "Orchard",
         &[("en", "Orchard")],
     ),
+    // a part of Beacon, whose houses are filed under Beacon
+    place!(
+        "gb-quayside",
+        "neighborhood",
+        "",
+        "GB",
+        "",
+        6_000,
+        (30.1, 10.1),
+        "gb-beacon",
+        "Quayside",
+        &[("en", "Quayside")],
+    ),
     place!(
         "gb-harbor-region",
         "region",

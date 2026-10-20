@@ -1758,9 +1758,11 @@ impl Index {
                         Some((name, region)) => (*name, Some(&region[..])),
                         None => (town.as_str(), None),
                     };
-                    // with a postcode, the town alone was looked for already
-                    if postcode.is_none() || region.is_some() {
-                        let by_town = self.streets_typed(
+                    // with a postcode, the town alone was looked for already. A town that is a
+                    // part of the settlement the houses are filed under ("Bahnstraße 20, Wagram
+                    // am Wagram, 3483" is Grafenwörth's) has them in its postcode there.
+                    let by_town = if postcode.is_none() || region.is_some() {
+                        self.streets_typed(
                             &road_words,
                             false,
                             region,
@@ -1770,10 +1772,42 @@ impl Index {
                             postcode,
                             Some((town, typed.open && parts.len() == 1)),
                             want,
-                        );
-                        if by_town.iter().any(|s| s.kind == "address") {
-                            found = by_town;
+                        )
+                    } else {
+                        let settlements: Vec<u32> = ids
+                            .iter()
+                            .flat_map(|&id| {
+                                self.chain(id).into_iter().skip(1).take_while(|&p| {
+                                    matches!(
+                                        self.places[p as usize].subtype.as_ref(),
+                                        "locality"
+                                            | "localadmin"
+                                            | "borough"
+                                            | "macrohood"
+                                            | "neighborhood"
+                                            | "microhood"
+                                    )
+                                })
+                            })
+                            .collect();
+                        if settlements.is_empty() {
+                            vec![]
+                        } else {
+                            self.streets_typed(
+                                &road_words,
+                                false,
+                                Some(&settlements),
+                                number_word,
+                                false,
+                                cc,
+                                postcode,
+                                None,
+                                want,
+                            )
                         }
+                    };
+                    if by_town.iter().any(|s| s.kind == "address") {
+                        found = by_town;
                     }
                 }
                 found
