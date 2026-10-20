@@ -1093,6 +1093,77 @@ fn cases() -> Vec<Case> {
 }
 
 #[test]
+fn canadian_unit_suggestions_identify_buildings_not_apartments_or_range_endpoints() {
+    let index = index();
+    for number in ["12", "12a"] {
+        let query = format!("{number} Maple Scope Road, Delhi, ON N4B 1A1, Canada");
+        let mut base = index.suggest(&query, 1, Some("ca"), None, false);
+        assert_eq!(base.len(), 1, "building control: {query}");
+        let base = base.remove(0);
+        assert_eq!(base.kind, "address", "{query}");
+        for unit in ["100", "A", "BSMT", "UPPR", "APT"] {
+            let query = format!("{unit}-{number} Maple Scope Road, Delhi, ON N4B 1A1, Canada");
+            for landmarks in [false, true] {
+                let found = index.suggest(&query, 1, None, None, landmarks);
+                assert_eq!(found.len(), 1, "{query}");
+                let got = &found[0];
+                assert_eq!((got.kind, got.country_code.as_str()), ("address", "ca"));
+                assert_eq!(
+                    (&got.id, &got.retrieval_id, got.x, got.y),
+                    (&base.id, &base.retrieval_id, base.x, base.y),
+                    "{query}"
+                );
+                assert_eq!(got.display_name, base.display_name);
+                assert!(got.unverified_suffix.is_empty());
+                assert!(metres((got.x, got.y), house(street("Maple Scope Road"), number)) < 2.);
+            }
+            assert!(index.suggest(&query, 1, Some("us"), None, false).is_empty());
+            assert!(index.suggest(&query, 0, None, None, false).is_empty());
+        }
+    }
+    let known_failure = "index: completion does not join a spaced fractional civic number";
+    for query in [
+        "12 1/2 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
+        "100-12 1/2 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
+    ] {
+        assert!(
+            index.suggest(query, 5, Some("ca"), None, false).is_empty(),
+            "fixed, remove its known_failure ({known_failure}): {query}"
+        );
+    }
+    let literal = index.suggest(
+        "20-24 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
+        1,
+        None,
+        None,
+        false,
+    );
+    assert_eq!(literal[0].kind, "address");
+    assert!(
+        metres(
+            (literal[0].x, literal[0].y),
+            house(street("Maple Scope Road"), "20-24")
+        ) < 2.
+    );
+    for query in [
+        "1-999 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
+        "1-12 Maple Scope Road, Delhi, ON M5T 0A8, Canada",
+        "1-12 Maple Scope Road, Delhi, ON N4B 1A1, Australia",
+        "1-12 Maple Scope Road, Delhi, ON N4B 1A1, Poland",
+        "1-12 Maple Scope Road, Missingville, ON N4B 1A1, Canada",
+        "1-12 Missing Road, Delhi, ON N4B 1A1, Canada",
+    ] {
+        assert!(
+            !index
+                .suggest(query, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+}
+
+#[test]
 fn korean_houses_keep_their_number_and_administrative_hierarchy() {
     for (province, number, lon, code) in [
         ("가람도", "13-34", 140.0, "KR-41"),
@@ -1328,6 +1399,46 @@ fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
 #[ignore = "needs the libpostal models; run with --ignored"]
 async fn resolve_follows_the_authored_facts() {
     let resolver = Resolver::open(dir()).unwrap();
+    for number in ["12", "12a", "12 1/2"] {
+        for unit in ["100", "A", "BSMT", "UPPR", "APT"] {
+            let query = format!("{unit}-{number} Maple Scope Road, Delhi, ON N4B 1A1, Canada");
+            let found = resolver.resolve(&query).await.unwrap();
+            assert!(found.good_match, "{query}: {found:?}");
+            let details = found.address_details.as_option().unwrap();
+            assert_eq!(details.country_code, "ca");
+            assert_eq!(details.postcode, "N4B 1A1");
+            assert_eq!(
+                opengeocoding::index::schema::number_key(&details.house_number),
+                opengeocoding::index::schema::number_key(number)
+            );
+            let point = found.geo_coordinates.as_option().unwrap();
+            assert!(
+                metres(
+                    (point.lon as f64, point.lat as f64),
+                    house(street("Maple Scope Road"), number)
+                ) < 2.,
+                "{query}: {found:?}"
+            );
+        }
+    }
+    let literal = resolver
+        .resolve("20-24 Maple Scope Road, Delhi, ON N4B 1A1, Canada")
+        .await
+        .unwrap();
+    assert!(literal.good_match, "{literal:?}");
+    assert_eq!(
+        literal.address_details.as_option().unwrap().house_number,
+        "20-24"
+    );
+    for query in [
+        "1-999 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
+        "APT-999 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
+        "1-12 Maple Scope Road, Delhi, ON M5T 0A8, Canada",
+        "1-12 Missing Road, Delhi, ON N4B 1A1, Canada",
+    ] {
+        let found = resolver.resolve(query).await.unwrap();
+        assert!(!found.good_match, "{query}: {found:?}");
+    }
     for (road, number, want) in [
         ("明光路三段389巷6弄", "11", (123.0, 25.0)),
         ("明光路3段389巷6弄", "11之2", (123.0001, 25.0)),

@@ -1180,6 +1180,46 @@ fn a_leading_region_code_is_tried_behind_the_place() {
 }
 
 #[test]
+fn canadian_unit_prefixes_need_an_unambiguous_canadian_country() {
+    for (unit, number) in [
+        ("100", "18107"),
+        ("A", "12A"),
+        ("BSMT", "51"),
+        ("UPPR", "67"),
+        ("APT", "707B"),
+        ("1", "178 1/2"),
+    ] {
+        let query = format!("{unit}-{number} Maple Road, Delhi, ON N4B 1A1, Canada");
+        let (building, civic) = canadian_building(&query).unwrap();
+        assert_eq!(civic, number);
+        assert_eq!(
+            building,
+            format!("{number} Maple Road, Delhi, ON N4B 1A1, Canada")
+        );
+        assert!(canadian_building(building).is_none());
+    }
+    for query in [
+        "12 Maple Road, Delhi, ON N4B 1A1, Canada",
+        "1-12 Maple Road, Delhi, ON N4B 1A1",
+        "1-12 Maple Road, Delhi, ON N4B 1A1, CA",
+        "1-12 Maple Road, Delhi, Canada, United States",
+        "1-12 Maple Road, Delhi, Australia",
+        "1-12 Maple Road, Delhi, Poland",
+        "1-12 Maple Road, Delhi, New Zealand",
+        "1-12 Maple Road, Delhi, Unknownland",
+        "1-12, Canada",
+        "1-12 , Canada",
+        "1-0 Maple Road, Canada",
+        "1-2-12 Maple Road, Canada",
+        "12 Maple Road, 1-12, Canada",
+    ] {
+        assert_eq!(canadian_building(query), None, "{query}");
+    }
+    let too_long = format!("1-12 {}, Canada", "x".repeat(256));
+    assert!(canadian_building(&too_long).is_none());
+}
+
+#[test]
 fn a_danish_floor_and_door_part_is_set_aside_without_touching_other_countries() {
     let unit = |q| without_danish_unit(q);
     // the published DAR forms: the unit is its own part, the building keeps the rest

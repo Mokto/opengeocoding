@@ -654,7 +654,25 @@ impl Core {
         let query = collapsed.as_deref().unwrap_or(query);
         let named = self.index.with_region_names(query);
         let query = named.as_deref().unwrap_or(query);
-        let found = self.resolve_once(query)?;
+        let mut found = self.resolve_once(query)?;
+        if found
+            .address_details
+            .as_option()
+            .is_none_or(|d| d.house_number.is_empty())
+            && let Some((building, number)) = canadian_building(query)
+        {
+            let recovered = self.resolve(building)?;
+            if recovered.good_match
+                && recovered.address_details.as_option().is_some_and(|d| {
+                    d.country_code == "ca"
+                        && crate::index::schema::number_key(&d.house_number)
+                            == crate::index::schema::number_key(number)
+                })
+            {
+                return Ok(recovered);
+            }
+            found.good_match = false;
+        }
         if !found.display_name.is_empty() {
             return Ok(found);
         }
