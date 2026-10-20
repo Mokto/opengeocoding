@@ -1767,6 +1767,23 @@ async fn resolve_follows_the_authored_facts() {
         let got = resolver.resolve(query).await.unwrap();
         assert!(!got.good_match, "{query}: {got:?}");
     }
+    for query in [
+        "511 林森路二段, 虎尾鎮, 雲林縣, Taiwan",
+        "林森路二段 511, 虎尾鎮, 雲林縣, Taiwan",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.house_number, "511", "{query}: {got:?}");
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres(
+                (at.lon as f64, at.lat as f64),
+                house(street("林森路二段"), "511")
+            ) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
     for number in ["12", "12a", "12 1/2"] {
         for unit in ["100", "A", "BSMT", "UPPR", "APT"] {
             let query = format!("{unit}-{number} Maple Scope Road, Delhi, ON N4B 1A1, Canada");

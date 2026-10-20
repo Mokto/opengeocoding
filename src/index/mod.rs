@@ -2139,12 +2139,22 @@ impl Index {
             .iter()
             .find(|(l, _)| l == "postcode")
             .map(|(_, v)| pc_norm(v));
-        // A US house number can also be a ZIP ("15411 Woodcliffe Trail, IN").
+        // A house number can also be a postcode: a US ZIP ("15411 Woodcliffe Trail, IN") or a
+        // Taiwanese district's three digits ("511 林森路二段, 虎尾鎮"). With a state, or written in
+        // its road's part of the query, it is the house; alone in a part it may be the postcode.
+        let beside_road = |number: &str| {
+            parsed.iter().filter(|(l, _)| l == "road").any(|(_, road)| {
+                q.split(',').any(|part| {
+                    let part = part.to_lowercase();
+                    part.contains(number) && part.contains(road.as_str())
+                })
+            })
+        };
         let house = parsed
             .iter()
             .find(|(l, _)| l == "house_number")
-            .map(|(_, v)| pc_norm(v))
-            .filter(|_| parsed.iter().any(|(l, _)| l == "state"));
+            .filter(|(_, v)| parsed.iter().any(|(l, _)| l == "state") || beside_road(v))
+            .map(|(_, v)| pc_norm(v));
         if let Some((pc, rest)) = self.find_postcode(q, first_cc.as_deref())
             && stated.as_ref().is_none_or(|s| {
                 pc_norm(&pc).len() > s.len() && pc_norm(&pc).starts_with(s.as_str())
