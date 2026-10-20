@@ -1762,7 +1762,8 @@ impl Index {
         let number = number.map(schema::number_key).filter(|n| !n.is_empty());
         let road_text = road.join(" ");
         let mut streets = vec![];
-        let mut seen = std::collections::HashSet::new();
+        // each name's best ranked part: its houses come before those of the name's other parts
+        let mut first = HashMap::new();
         let mut segments = std::collections::HashSet::new();
         // the best place of the scope alone first: "5th avenue, new york" is Manhattan's
         // before any other in the state
@@ -1771,7 +1772,7 @@ impl Index {
             other => vec![other],
         };
         for ids in phases {
-            if seen.len() >= want {
+            if first.len() >= want {
                 break;
             }
             let mut cl: Vec<_> = base.iter().map(|(o, q)| (*o, q.box_clone())).collect();
@@ -1789,7 +1790,7 @@ impl Index {
                 let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
                 let name = best_name(&doc, self.f.name, &road_text);
                 let (sid, place) = (self.fast(a, "id") as u32, self.fast(a, "place") as u32);
-                seen.insert((fold(&name), place));
+                first.entry((fold(&name), place)).or_insert(sid);
                 if segments.insert(sid) {
                     streets.push((a, sid, place, name));
                 }
@@ -1812,6 +1813,7 @@ impl Index {
                 scope_rank(s.2),
                 !name.starts_with(&road_text),
                 name != road_text,
+                first.get(&(name, s.2)) != Some(&s.1),
             )
         });
         let mut houses = vec![];
