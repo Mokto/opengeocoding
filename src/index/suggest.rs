@@ -1813,6 +1813,29 @@ impl Index {
                 return found;
             }
         }
+        // "12 Rua dos Farias": Portugal's register names it "R FARIAS". Only Portugal's form,
+        // which expands no further: other countries' turn back ("straat" <-> "street").
+        if !out.iter().any(|s| s.kind == "address")
+            && typed.parts[0].split(' ').any(has_digit)
+            && cc.is_some_and(|c| c.eq_ignore_ascii_case("pt"))
+        {
+            for road in crate::matching::road_expansions(&typed.parts[0], "pt") {
+                let mut parts = typed.parts.clone();
+                parts[0] = road;
+                let found = self.suggest_streets(
+                    &Typed {
+                        parts,
+                        open: typed.open,
+                    },
+                    cc,
+                    focus,
+                    want,
+                );
+                if found.iter().any(|s| s.kind == "address") {
+                    return found;
+                }
+            }
+        }
         out.truncate(want);
         out
     }
