@@ -2,7 +2,7 @@
 //! extracts. Both feed the same `Sink` as Overture rows, so a house number that several sources
 //! hold on the same street collapses to one FST key.
 use super::{
-    Shared, Sink, country,
+    Shared, Sink, country, numbers_with_unit,
     progress::{self, Progress},
 };
 use osmpbf::{BlobDecode, BlobReader, ByteOffset, PrimitiveBlock, RelMemberType};
@@ -43,6 +43,8 @@ struct Feature<'a> {
 struct Props<'a> {
     #[serde(borrow, default)]
     number: Option<Cow<'a, str>>,
+    #[serde(borrow, default)]
+    unit: Option<Cow<'a, str>>,
     #[serde(borrow, default)]
     street: Option<Cow<'a, str>>,
     #[serde(borrow, default)]
@@ -311,12 +313,13 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
                             .filter(|c| !c.trim().is_empty())
                             .map(|name| (name, "city"))
                             .or_else(|| p.district.as_deref().map(|name| (name, "district")));
+                        let numbers = numbers_with_unit(cc, p.number.as_deref(), p.unit.as_deref());
                         sink.add(
                             Some(cc),
                             x,
                             y,
                             p.street.as_deref(),
-                            p.number.as_deref(),
+                            numbers.as_deref(),
                             p.postcode.as_deref(),
                             city,
                         );
@@ -1251,10 +1254,20 @@ mod tests {
 
     #[test]
     fn openaddresses_feature() {
-        let line = r#"{"type": "Feature", "properties": {"hash": "f", "number": "113", "street": "\u0634\u0627\u0631\u0639", "unit": "", "city": "", "district": "D", "region": "", "postcode": "", "id": "5"}, "geometry": {"type": "Point", "coordinates": [51.63, 24.11]}}"#;
+        let line = r#"{"type": "Feature", "properties": {"hash": "f", "number": "113", "street": "\u0634\u0627\u0631\u0639", "unit": "1", "city": "", "district": "D", "region": "", "postcode": "", "id": "5"}, "geometry": {"type": "Point", "coordinates": [51.63, 24.11]}}"#;
         let f: Feature = serde_json::from_str(line).unwrap();
         assert_eq!(f.properties.street.as_deref(), Some("شارع"));
         assert_eq!(f.properties.district.as_deref(), Some("D"));
+        assert_eq!(f.properties.unit.as_deref(), Some("1"));
+        assert_eq!(
+            numbers_with_unit(
+                *b"NZ",
+                f.properties.number.as_deref(),
+                f.properties.unit.as_deref()
+            )
+            .as_deref(),
+            Some("113;1/113")
+        );
         assert_eq!(f.geometry.unwrap().coordinates[1].as_f64(), Some(24.11));
     }
 }

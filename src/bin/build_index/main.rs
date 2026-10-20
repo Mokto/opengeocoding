@@ -31,6 +31,7 @@ use parquet::arrow::{
 };
 use rayon::prelude::*;
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     fs::File,
     hash::{BuildHasher, BuildHasherDefault, DefaultHasher, Hash},
@@ -1266,6 +1267,25 @@ impl Drop for Sink<'_, '_> {
     }
 }
 
+fn numbers_with_unit<'a>(
+    cc: [u8; 2],
+    number: Option<&'a str>,
+    unit: Option<&str>,
+) -> Option<Cow<'a, str>> {
+    let number = number?;
+    let unit = unit.map(str::trim).filter(|unit| {
+        cc == *b"NZ"
+            && !unit.is_empty()
+            && unit.bytes().all(|b| b.is_ascii_alphanumeric())
+            && !number.trim().is_empty()
+            && !number.contains([';', '/'])
+    });
+    Some(match unit {
+        Some(unit) => Cow::Owned(format!("{number};{unit}/{}", number.trim())),
+        None => Cow::Borrowed(number),
+    })
+}
+
 fn pass_addresses(dir: &Path, shared: &Shared) {
     let tasks = tasks(dir);
     let done = progress::Progress::items(
@@ -1281,6 +1301,7 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                 "country",
                 "street",
                 "number",
+                "unit",
                 "postcode",
                 "postal_city",
                 "address_levels",
@@ -1295,6 +1316,7 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                 s("postcode"),
                 s("postal_city"),
             );
+            let unit = b.column_by_name("unit").map(|v| v.as_string::<i32>());
             let (levels, geom) = (
                 col(&b, "address_levels").as_list::<i32>(),
                 col(&b, "geometry").as_binary::<i32>(),
@@ -1318,12 +1340,14 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                             .flatten()
                             .map(|name| (name, "address_levels"))
                     });
+                let c = country(text(&cc, i));
+                let numbers = numbers_with_unit(c, text(&number, i), unit.and_then(|v| text(v, i)));
                 sink.add(
-                    Some(country(text(&cc, i))),
+                    Some(c),
                     x,
                     y,
                     text(&street, i),
-                    text(&number, i),
+                    numbers.as_deref(),
                     text(&postcode, i),
                     city,
                 );
@@ -2056,6 +2080,32 @@ fn build(args: &[String]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn nz_units_add_exact_keys_without_replacing_buildings() {
+        for (cc, number, unit, expected) in [
+            (*b"NZ", Some("19"), Some("1"), Some("19;1/19")),
+            (*b"NZ", Some("19B"), Some("3A"), Some("19B;3A/19B")),
+            (
+                *b"NZ",
+                Some("151-163"),
+                Some("2"),
+                Some("151-163;2/151-163"),
+            ),
+            (*b"NZ", Some("19"), Some(" 001 "), Some("19;001/19")),
+            (*b"NZ", Some("1/19"), Some("1"), Some("1/19")),
+            (*b"NZ", Some("19;21"), Some("1"), Some("19;21")),
+            (*b"NZ", Some("19"), Some("1;2"), Some("19")),
+            (*b"NZ", Some("19"), Some("1/2"), Some("19")),
+            (*b"NZ", Some("19"), Some(""), Some("19")),
+            (*b"NZ", Some("19"), None, Some("19")),
+            (*b"NZ", Some(""), Some("1"), Some("")),
+            (*b"NZ", None, Some("1"), None),
+            (*b"AU", Some("19"), Some("1"), Some("19")),
+        ] {
+            assert_eq!(numbers_with_unit(cc, number, unit).as_deref(), expected);
+        }
+    }
 
     #[test]
     fn postal_towns_stay_compact_when_streets_merge() {

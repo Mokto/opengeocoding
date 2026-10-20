@@ -1222,7 +1222,20 @@ const RECOVERY_STREET: Street = Street {
     numbers: &["51"],
 };
 
+const SPLIT_UNIT_ROAD: &str = "Courtyard Lane";
+
 pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.04,
+        name: SPLIT_UNIT_ROAD,
+        postcode: "",
+        city: "Kōwhai Bay",
+        cc: "NZ",
+        lon: 170.06,
+        lat: -40.0,
+        numbers: &["47", "1/47", "2/47", "3A/49B", "4/51-53"],
+    },
     Street {
         class: "residential",
         length: 0.0,
@@ -1266,6 +1279,19 @@ pub const STREETS: &[Street] = &[
         lon: 123.02,
         lat: 25.0,
         numbers: &["131", "999"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "East Orchard Road",
+        postcode: "",
+        city: "Kōwhai Bay",
+        cc: "NZ",
+        lon: 170.035,
+        lat: -40.0,
+        numbers: &[
+            "5a", "10-12", "2/19", "19", "1", "99", "3/19", "99b", "20-22",
+        ],
     },
     Street {
         class: "residential",
@@ -1845,7 +1871,12 @@ pub fn road_end(street: &Street) -> f64 {
 /// Where house `number` of the street stands.
 pub fn house(street: &Street, number: &str) -> (f64, f64) {
     let at = street.numbers.iter().position(|n| *n == number).unwrap();
-    (street.lon + 0.00015 * at as f64, street.lat)
+    let spacing = if street.name == SPLIT_UNIT_ROAD {
+        0.01
+    } else {
+        0.00015
+    };
+    (street.lon + spacing * at as f64, street.lat)
 }
 
 fn line(points: &[(f64, f64)]) -> Vec<u8> {
@@ -2201,6 +2232,10 @@ pub fn write_release(dir: &Path) {
         .iter()
         .flat_map(|s| s.numbers.iter().map(move |n| (s, *n)))
         .collect();
+    let units: Vec<_> = rows
+        .iter()
+        .map(|(s, n)| n.split_once('/').filter(|_| s.name == SPLIT_UNIT_ROAD))
+        .collect();
     let levels = {
         let mut b = ListBuilder::new(StructBuilder::new(
             Fields::from(vec![Field::new("value", DataType::Utf8, true)]),
@@ -2222,7 +2257,18 @@ pub fn write_release(dir: &Path) {
         vec![
             ("country", strings(rows.iter().map(|(s, _)| s.cc))),
             ("street", strings(rows.iter().map(|(s, _)| s.name))),
-            ("number", strings(rows.iter().map(|(_, n)| *n))),
+            (
+                "number",
+                strings(
+                    rows.iter()
+                        .zip(&units)
+                        .map(|((_, n), unit)| unit.map_or(*n, |(_, number)| number)),
+                ),
+            ),
+            (
+                "unit",
+                optional(units.iter().map(|unit| unit.map_or("", |(u, _)| u))),
+            ),
             ("postcode", strings(rows.iter().map(|(s, _)| s.postcode))),
             ("postal_city", strings(rows.iter().map(|(s, _)| s.city))),
             ("address_levels", levels),
