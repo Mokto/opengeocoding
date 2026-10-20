@@ -1674,6 +1674,35 @@ fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
 #[ignore = "needs the libpostal models; run with --ignored"]
 async fn resolve_follows_the_authored_facts() {
     let resolver = Resolver::open(dir()).unwrap();
+    // a Japanese town, district or road and its number, in either order
+    for (road, number, query) in [
+        ("朝日町伊勢宮", "472-2", "朝日町伊勢宮 472-2, 松江市, Japan"),
+        (
+            "朝日町伊勢宮",
+            "472-2",
+            "472-2 朝日町伊勢宮, 松江市, 島根県, Japan",
+        ),
+        ("Koyodai", "258-2", "Koyodai 258-2, Matsue, Japan"),
+        ("Koyodai", "258-2", "258-2 Koyodai, 松江市, Japan"),
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.country_code, "jp", "{query}: {got:?}");
+        assert_eq!(details.house_number, number, "{query}: {got:?}");
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres((at.lon as f64, at.lat as f64), house(street(road), number)) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
+    for query in [
+        "朝日町伊勢宮 999, 松江市, Japan",
+        "朝日町伊勢宮 472-2, 松江市, France",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(!got.good_match, "{query}: {got:?}");
+    }
     for number in ["12", "12a", "12 1/2"] {
         for unit in ["100", "A", "BSMT", "UPPR", "APT"] {
             let query = format!("{unit}-{number} Maple Scope Road, Delhi, ON N4B 1A1, Canada");

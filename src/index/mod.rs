@@ -1452,6 +1452,28 @@ fn reversed(
     Ok(country_first.then(|| parts.into_iter().rev().collect::<Vec<_>>().join(", ")))
 }
 
+/// "朝日町伊勢宮 472-2", "472-2 朝日町伊勢宮" or "Koyodai 258-2": a Japanese town, district or
+/// road and its number, which libpostal cuts into unrelated fields when the name is unspaced kanji
+/// or romaji.
+fn japanese_head(head: &str) -> Option<Vec<(String, String)>> {
+    const NUMBER: &str = "[0-9０-９]+(?:[-－‐−][0-9０-９]+)*";
+    static HEAD: LazyLock<[regex::Regex; 2]> = LazyLock::new(|| {
+        [
+            format!(r"^\s*(?<name>\S.*?)\s+(?<number>{NUMBER})\s*$"),
+            format!(r"^\s*(?<number>{NUMBER})\s+(?<name>\S.*?)\s*$"),
+        ]
+        .map(|re| regex::Regex::new(&re).unwrap())
+    });
+    let c = HEAD.iter().find_map(|re| re.captures(head))?;
+    if !c["name"].chars().any(char::is_alphabetic) {
+        return None;
+    }
+    Some(vec![
+        ("road".into(), c["name"].to_lowercase()),
+        ("house_number".into(), c["number"].to_lowercase()),
+    ])
+}
+
 fn one_house(parsed: &[(String, String)]) -> bool {
     ["house_number", "road"]
         .iter()
@@ -1585,7 +1607,27 @@ impl Parser {
                 .cloned()
                 .collect();
             let mut aligned = None;
+            if let Some((_, c)) = &country
+                && matches!(c.as_str(), "japan" | "日本")
+                && let [head, ref rest @ ..] = parts[..]
+                && let Some(house) = japanese_head(head)
+            {
+                let mut a = house;
+                // a district (郡) only prefixes the names of its towns and villages
+                let rest: Vec<&str> = rest
+                    .iter()
+                    .copied()
+                    .filter(|p| !p.trim().ends_with('郡'))
+                    .collect();
+                a.extend(
+                    libpostal(rest.join(",").trim())?
+                        .into_iter()
+                        .filter(|(k, _)| !matches!(k.as_str(), "road" | "house_number")),
+                );
+                aligned = Some(a);
+            }
             match parts[..] {
+                _ if aligned.is_some() => {}
                 [head, tail] if state_part(tail) => {
                     aligned = street_aligned(
                         &libpostal(head.trim())?,
@@ -5865,6 +5907,35 @@ mod tests {
         assert_eq!(kanji_number("二十一"), Some(21));
         assert!(japanese("1600 Pennsylvania Avenue").is_empty());
         assert!(japanese("東京都").is_empty());
+    }
+
+    #[test]
+    fn japanese_town_and_number_heads() {
+        let house = |road: &str, number: &str| {
+            Some(vec![
+                ("road".to_string(), road.to_string()),
+                ("house_number".to_string(), number.to_string()),
+            ])
+        };
+        assert_eq!(
+            japanese_head("朝日町伊勢宮 472-2"),
+            house("朝日町伊勢宮", "472-2")
+        );
+        assert_eq!(japanese_head("828 今津町福岡"), house("今津町福岡", "828"));
+        assert_eq!(japanese_head("Koyodai 258-2"), house("koyodai", "258-2"));
+        assert_eq!(
+            japanese_head("国道１５３号 3380-1"),
+            house("国道１５３号", "3380-1")
+        );
+        assert_eq!(
+            japanese_head("433-1 畦町433-1"),
+            house("畦町433-1", "433-1")
+        );
+        // a number with letters or kanji in it is the parser's to read
+        assert_eq!(japanese_head("中宮 オ9"), None);
+        assert_eq!(japanese_head("浜北袋井線 山科字前田3399"), None);
+        assert_eq!(japanese_head("7-1"), None);
+        assert_eq!(japanese_head("12 34"), None);
     }
 
     #[test]
