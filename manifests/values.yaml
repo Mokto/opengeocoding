@@ -86,7 +86,9 @@ index:
       - cape-verde
       - central-african-republic
       - chad
+      - chile
       - china
+      - colombia
       - congo-brazzaville
       - congo-democratic-republic
       - cook-islands
@@ -146,6 +148,7 @@ index:
       - marshall-islands
       - mauritania
       - mauritius
+      - mexico
       - micronesia
       - moldova
       - monaco
@@ -171,6 +174,7 @@ index:
       - philippines
       - pitcairn-islands
       - polynesie-francaise
+      - portugal
       - romania
       - russia
       - rwanda
@@ -191,6 +195,7 @@ index:
       - swaziland
       - sweden
       - syria
+      - taiwan
       - tajikistan
       - tanzania
       - thailand
@@ -216,15 +221,13 @@ index:
       - zimbabwe
     # Read for SuggestAddress landmarks only (airports, stations and the like that OSM links to
     # Wikidata), not for addresses: the countries the extracts above leave out, whose addresses
-    # come from Overture. About 47 GB in October 2026. Empty: landmarks only where `osm` reads.
+    # come from Overture. About 45 GB in October 2026. Empty: landmarks only where `osm` reads.
     osmLandmarks:
       - australia
       - austria
       - belgium
       - brazil
       - canada
-      - chile
-      - colombia
       - croatia
       - czech-republic
       - denmark
@@ -239,19 +242,16 @@ index:
       - liechtenstein
       - lithuania
       - luxembourg
-      - mexico
       - netherlands
       - new-caledonia
       - new-zealand
       - norway
       - poland
-      - portugal
       - serbia
       - slovakia
       - slovenia
       - spain
       - switzerland
-      - taiwan
       - uruguay
       - us
 

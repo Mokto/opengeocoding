@@ -1111,6 +1111,30 @@ pub const PLACES: &[Place] = &[
         &[("en", "Bogotá")]
     ),
     place!(
+        "tw-yunlin",
+        "region",
+        "",
+        "TW",
+        "TW-YUN",
+        600_000,
+        (123.5, 24.5),
+        "tw",
+        "雲林縣",
+        &[("en", "Yunlin County")]
+    ),
+    place!(
+        "tw-huwei",
+        "locality",
+        "town",
+        "TW",
+        "TW-YUN",
+        70_000,
+        (123.5, 24.5),
+        "tw-yunlin",
+        "虎尾鎮",
+        &[("en", "Huwei")]
+    ),
+    place!(
         "kr",
         "country",
         "",
@@ -1532,6 +1556,29 @@ pub const STREETS: &[Street] = &[
         lon: 123.01,
         lat: 25.0,
         numbers: &["131", "7"],
+    },
+    // 511 is also a postcode here: a house number next to its road must stay the house.
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "林森路二段",
+        postcode: "",
+        city: "虎尾鎮",
+        cc: "TW",
+        lon: 123.5,
+        lat: 24.5,
+        numbers: &["511"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "中正路",
+        postcode: "511",
+        city: "虎尾鎮",
+        cc: "TW",
+        lon: 123.51,
+        lat: 24.5,
+        numbers: &["8"],
     },
     Street {
         class: "residential",

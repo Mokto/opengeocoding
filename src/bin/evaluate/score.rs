@@ -550,7 +550,15 @@ fn score_one(expect: &Expect, response: &Value, confidence: bool) -> Score {
                     && four.len() == 4
                     && four.bytes().all(|b| b.is_ascii_digit())
             });
-        if !actual.is_empty() && compact(actual) != compact(value) && !plus4 {
+        // a house number as the index keys it: full-width digits as ASCII, without the 號/号
+        // that only says "number" ("１１８號" is 118)
+        let same = if key == "house_number" {
+            let key = opengeocoding::index::schema::number_key;
+            compact(&key(actual)) == compact(&key(value))
+        } else {
+            compact(actual) == compact(value)
+        };
+        if !actual.is_empty() && !same && !plus4 {
             result.flags.push(format!("{key}={actual:?}"));
             return done(result, "wrong_component");
         }
@@ -872,6 +880,24 @@ mod tests {
         assert_eq!(
             class(&house, &full("us", 40.7479, -73.9851, true, right_house)),
             "pass"
+        );
+        let mut written = house.clone();
+        written
+            .components
+            .insert("house_number".into(), "３５０號".into());
+        assert_eq!(
+            class(
+                &written,
+                &full("us", 40.7479, -73.9851, true, json!({"houseNumber": "350"}))
+            ),
+            "pass"
+        );
+        assert_eq!(
+            class(
+                &written,
+                &full("us", 40.7479, -73.9851, true, json!({"houseNumber": "352"}))
+            ),
+            "wrong_component"
         );
         let zip4 = json!({"houseNumber": "350", "road": "5th Avenue", "postcode": "10118-0110"});
         assert_eq!(
