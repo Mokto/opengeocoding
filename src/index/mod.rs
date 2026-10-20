@@ -1481,6 +1481,31 @@ fn unit_from_road(parsed: &mut Vec<(String, String)>) {
     }
 }
 
+/// "6 Avenida da Noruega, Ribeira de Pena, Portugal": libpostal reads a number written before a
+/// Portuguese avenida as part of the road (it splits "6 Rua …" and "6 Av. …"). Only with the
+/// country stated as Portugal: "6 Avenida" is a whole street name in Guatemala.
+fn number_from_avenida(parsed: &mut Vec<(String, String)>) {
+    if parsed.iter().any(|(k, _)| k == "house_number")
+        || crate::matching::expected_country(&parsed.iter().cloned().collect()) != "pt"
+    {
+        return;
+    }
+    let Some(at) = parsed.iter().position(|(k, _)| k == "road") else {
+        return;
+    };
+    let Some((number, road)) = parsed[at].1.split_once(' ') else {
+        return;
+    };
+    if !number.is_empty()
+        && number.bytes().all(|b| b.is_ascii_digit())
+        && road.starts_with("avenida ")
+    {
+        let (number, road) = (number.to_string(), road.to_string());
+        parsed[at].1 = road;
+        parsed.insert(at, ("house_number".into(), number));
+    }
+}
+
 /// The process's one libpostal parser.
 pub struct Parser {
     postal: Mutex<rustpostal::LibModules>,
@@ -1653,6 +1678,7 @@ impl Parser {
                 None => whole,
             };
             unit_from_road(&mut parsed);
+            number_from_avenida(&mut parsed);
             parsed.into_iter().collect()
         };
         if self.capacity > 0 {
@@ -2487,7 +2513,7 @@ impl Index {
             })
             .collect();
         let hits = self.streets_by(road, number, city, &named, postcode, cc, exact);
-        if !hits.iter().any(|h| {
+        let housed = hits.iter().any(|h| {
             matches!(
                 h,
                 Hit::Street {
@@ -2495,8 +2521,8 @@ impl Index {
                     ..
                 }
             )
-        }) && let Some(compact) = number.and_then(compact_house_suffix)
-        {
+        });
+        if !housed && let Some(compact) = number.and_then(compact_house_suffix) {
             let found = self.streets(road, Some(&compact), city, postcode, cc, exact);
             if found.iter().any(|h| {
                 matches!(
@@ -2510,7 +2536,10 @@ impl Index {
                 return found;
             }
         }
-        if hits.is_empty() && number.is_some_and(|n| !n.trim().is_empty()) {
+        // Another spelling of the road can hold the house even when the stated one names a
+        // street without it: Portugal's register writes "R FARIAS" beside the map's "Rua dos
+        // Farias".
+        if !housed && number.is_some_and(|n| !n.trim().is_empty()) {
             let mut alternatives = cc
                 .map(|cc| crate::matching::road_expansions(road, cc))
                 .unwrap_or_default();

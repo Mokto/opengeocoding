@@ -605,6 +605,9 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
 }
 
 pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
+    if cc.eq_ignore_ascii_case("pt") {
+        return ctt_road(road);
+    }
     if cc.eq_ignore_ascii_case("za") {
         let road = normalize_place(road);
         return [(" straat", " street"), (" street", " straat")]
@@ -673,6 +676,99 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
     full.iter()
         .map(|suffix| format!("{stem}{suffix} {rest}").trim_end().to_owned())
         .collect()
+}
+
+/// A Portuguese road as the national address register (CTT) writes it, which is how the index
+/// stores most Portuguese houses: "Rua dos Farias" is "R FARIAS", "Bairro de Santa Bárbara" is
+/// "BR S BARBARA", "Rua Tenente Valadim" is "R TEN VALADIM". The register abbreviates the
+/// leading street type, most titles and Santa/Santo, and usually drops the particle after the
+/// type. Only the abbreviations it uses for the large majority of its names are applied ("Marquês" is also a surname, "Monsenhor" mostly stays whole).
+fn ctt_road(road: &str) -> Vec<String> {
+    const TYPES: &[(&str, &str)] = &[
+        ("praceta", "pct"),
+        ("bairro", "br"),
+        ("caminho", "cam"),
+        ("urbanizacao", "urb"),
+        ("sitio", "sit"),
+        ("praca", "pc"),
+        ("beco", "bc"),
+        ("quinta", "qta"),
+        ("calcada", "cc"),
+        ("calcadinha", "ccnh"),
+        ("monte", "mte"),
+        ("casal", "csl"),
+        ("vereda", "vr"),
+        ("canada", "can"),
+        ("quelha", "qlha"),
+        ("rotunda", "rot"),
+        ("escadinhas", "escnh"),
+        ("escadas", "esc"),
+        ("parque", "pq"),
+        ("azinhaga", "az"),
+        ("ladeira", "lad"),
+        ("loteamento", "loteam"),
+        ("jardim", "jrd"),
+        ("conjunto", "conj"),
+        ("zona", "zn"),
+        ("terreiro", "terr"),
+        ("rampa", "ramp"),
+        ("aldeamento", "aldt"),
+        ("herdade", "hrd"),
+        ("viela", "vla"),
+        ("patio", "pto"),
+    ];
+    const TITLES: &[(&str, &str)] = &[
+        ("tenente", "ten"),
+        ("comendador", "comend"),
+        ("comandante", "cmdt"),
+        ("almirante", "alm"),
+        ("conselheiro", "cons"),
+        ("visconde", "visc"),
+        ("brigadeiro", "brig"),
+        ("sargento", "sarg"),
+        ("infante", "inf"),
+        ("frei", "fr"),
+        ("coronel", "cor"),
+        ("arquitecto", "arq"),
+        ("arquiteto", "arq"),
+        ("duque", "dq"),
+        ("embaixador", "emb"),
+        ("doutora", "dra"),
+        ("dom", "d"),
+        ("dona", "d"),
+        ("nossa", "nsa"),
+        ("santa", "s"),
+        ("santo", "s"),
+    ];
+    const PARTICLES: &[&str] = &["da", "do", "das", "dos", "de"];
+    let road = normalize_place(road);
+    let short = |table: &[(&str, &'static str)], w: &str| {
+        table.iter().find(|(full, _)| *full == w).map(|(_, s)| *s)
+    };
+    // the street type, after a house number typed first ("12 rua dos farias")
+    let at = road
+        .split(' ')
+        .position(|w| !w.starts_with(|c: char| c.is_ascii_digit()))
+        .unwrap_or(0);
+    let form = road
+        .split(' ')
+        .enumerate()
+        .filter(|&(i, w)| i != at + 1 || !PARTICLES.contains(&w))
+        .map(|(i, w)| {
+            (i == at)
+                .then(|| short(TYPES, w))
+                .flatten()
+                .or_else(|| short(TITLES, w))
+                .unwrap_or(w)
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    // a bare type ("Rua da") names no street
+    if form.contains(' ') && form != road {
+        vec![form]
+    } else {
+        vec![]
+    }
 }
 
 /// A Polish road as the index may name it: without "ul." (ulica), which most sources leave
