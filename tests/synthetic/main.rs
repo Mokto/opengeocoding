@@ -1802,6 +1802,25 @@ async fn resolve_follows_the_authored_facts() {
         );
     }
     for query in [
+        "Shiv Vihar Plot No.14, 342011, India",
+        "Plot No.14 Shiv Vihar, Jodhpur, 342011, India",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.house_number, "plot no.14", "{query}: {got:?}");
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres(
+                (at.lon as f64, at.lat as f64),
+                house(street("Shiv Vihar"), "Plot No.14")
+            ) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
+    for query in [
+        "Shastri Nagar Plot No.15, 342003, India",
+        "Shiv Vihar Plot No.14, 342003, India",
         "Shastri Nagar D-113, 342003, India",
         "Shastri Nagar D-112, 342099, India",
         "Shastri Nagar D-112, Delhi, India",

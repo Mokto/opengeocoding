@@ -4526,6 +4526,71 @@ impl Index {
             .collect()
     }
 
+    /// The houses whose number is one of `numbers` (as keyed) on the streets named `road` that
+    /// hold `postcode` or (`near`) lie within 5 km of a point, or with no road on the streets
+    /// holding `postcode`; on streets `named` accepts, nearest the point first, at most 20.
+    #[expect(clippy::too_many_arguments)]
+    pub fn houses_numbered(
+        &self,
+        numbers: &[String],
+        postcode: &str,
+        road: &str,
+        near: bool,
+        cc: Option<&str>,
+        (lat, lon): (f64, f64),
+        named: impl Fn(&str) -> bool,
+    ) -> Vec<Value> {
+        let cos = lat.to_radians().cos().max(0.01);
+        let meters = |x: f64, y: f64| ((x - lon) * cos).hypot(y - lat) * 111_195.0;
+        let pc = pc_norm(postcode);
+        let with_postcode = |mut cl: Vec<(Occur, Box<dyn TQuery>)>, n| {
+            cl.push(must(term(self.f.pcode, &pc)));
+            self.top_of(Kind::Street, cc, cl, n)
+        };
+        let mut seen = std::collections::HashSet::new();
+        let (mut key, mut found) = (vec![], vec![]);
+        let mut look = |docs: Vec<DocAddress>, found: &mut Vec<_>| {
+            for a in docs {
+                if !seen.insert(a) {
+                    continue;
+                }
+                let sid = self.fast(a, "id") as u32;
+                for n in numbers {
+                    key.clear();
+                    key.extend_from_slice(&sid.to_be_bytes());
+                    key.extend_from_slice(n.as_bytes());
+                    if let Some(v) = self.numbers[sid as usize % self.numbers.len()].get(&key) {
+                        let (x, y, own) = schema::unpack(v);
+                        found.push((meters(x, y), a, n, x, y, own));
+                    }
+                }
+            }
+        };
+        if !pc.is_empty() {
+            let n = if road.is_empty() { 1000 } else { 200 };
+            look(with_postcode(self.musts(self.f.names, road), n), &mut found);
+        }
+        // the street's namesakes around the answer when its postcode holds none of the numbers
+        if near && !road.is_empty() && found.is_empty() {
+            let near = self
+                .top_of(Kind::Street, cc, self.musts(self.f.names, road), 200)
+                .into_iter()
+                .filter(|&a| meters(self.fast_f64(a, "x"), self.fast_f64(a, "y")) < 5_000.0)
+                .collect();
+            look(near, &mut found);
+        }
+        found.sort_by(|p, q| p.0.total_cmp(&q.0));
+        found
+            .into_iter()
+            .filter_map(|(_, a, n, x, y, own)| {
+                let hit = self.house_hit(a, n.clone(), x, y, own)?;
+                matches!(&hit, Hit::Street { name, .. } if name.split('\x1f').any(&named))
+                    .then(|| self.render(&hit, true))
+            })
+            .take(20)
+            .collect()
+    }
+
     /// House `number` of street document `a`, at its position and with its postcode slot.
     fn house_hit(&self, a: DocAddress, number: String, x: f64, y: f64, own: u8) -> Option<Hit> {
         use tantivy::schema::Value as _;

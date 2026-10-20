@@ -551,10 +551,16 @@ fn score_one(expect: &Expect, response: &Value, confidence: bool) -> Score {
                     && four.bytes().all(|b| b.is_ascii_digit())
             });
         // a house number as the index keys it: full-width digits as ASCII, without the 號/号
-        // that only says "number" ("１１８號" is 118)
+        // that only says "number" ("１１８號" is 118), and a Czech number with the type RÚIAN
+        // gives it ("č.ev. 346" is evidential number 346)
         let same = if key == "house_number" {
             let key = opengeocoding::index::schema::number_key;
-            compact(&key(actual)) == compact(&key(value))
+            let actual = key(actual);
+            let untyped = ["č.p. ", "č.ev. "]
+                .iter()
+                .find_map(|t| actual.strip_prefix(t))
+                .unwrap_or(&actual);
+            compact(untyped) == compact(&key(value))
         } else {
             compact(actual) == compact(value)
         };
@@ -899,6 +905,21 @@ mod tests {
             ),
             "wrong_component"
         );
+        for (number, want) in [("č.ev. 350", "pass"), ("č.ev. 352", "wrong_component")] {
+            assert_eq!(
+                class(
+                    &house,
+                    &full(
+                        "us",
+                        40.7479,
+                        -73.9851,
+                        true,
+                        json!({"houseNumber": number})
+                    )
+                ),
+                want
+            );
+        }
         let zip4 = json!({"houseNumber": "350", "road": "5th Avenue", "postcode": "10118-0110"});
         assert_eq!(
             class(&house, &full("us", 40.7479, -73.9851, true, zip4)),

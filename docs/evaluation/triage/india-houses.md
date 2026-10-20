@@ -4,23 +4,57 @@ Part of [issue #222](https://github.com/Mokto/opengeocoding/issues/222). India's
 
 ## What failed
 
-Of 81 non-held-out Indian panel queries, 35 passed. The index held the house in most of the failures, and `SuggestAddress` often listed it first, but libpostal misread Indian civic identifiers. `D-112 Shastri Nagar` and `CK43/103 Dalmandi Road` parse as one road. `001 madhosinghana, sirsa, v.p.o madhosinghana` parses as a house name. With no road, SearchAddress fell back to the postcode.
+Of 81 non-held-out Indian panel queries, 35 passed. The index held the house in most of the failures, and `SuggestAddress` often listed it first, but libpostal misread Indian civic identifiers:
+
+- `D-112 Shastri Nagar` and `CK43/103 Dalmandi Road` parse as one road.
+- `001 madhosinghana, sirsa, v.p.o madhosinghana` parses as a house name.
+- Numbers of several words, such as `Plot No.14`, `Survey No.49` or `GAT No. 720`, are split.
+
+With no road, SearchAddress fell back to the postcode. Malaysia (`Lot 25`, `PT 421`), Thailand (`367 หมู่ 1`), the Philippines (`Purok 6`) and Indonesia (`RT 02/04`) show the same patterns.
 
 ## Change
 
-When the answer has no house, SearchAddress now asks the completion lookup (which reads no parse) for the query's houses. It accepts the house only when the query states the house's number as one of its words, contains every word of the house's street, and contains the house's postcode or town (city, town, village, municipality, suburb, city district or hamlet; a county is not enough). The house must also be in the answer's country, or in the country the query names when there is no answer. A stated postcode that differs from the house's rules it out. Each answer considers up to five suggestions; if those that pass these checks lie more than 200 m apart, no house is chosen. The fallback only runs when the query has a word containing a digit besides the answer's postcode.
+When the answer has no house, SearchAddress looks for the house the query names:
+
+- **Answer is a postcode:** the completion lookup, which reads no parse. If that finds nothing, the postcode's streets are searched for a number of several words written in the query.
+- **Answer is a street:** the same-named streets that hold the postcode. When the parse read no house number, same-named streets within 5 km are searched too.
+
+A town or no answer gets no lookup. Those are the most frequent answers without a house and the least often recovered, so leaving them out keeps the cost low.
+
+A house is accepted only when all of these hold:
+
+- Its number is written in the query, as one to four whole words of one part.
+- Every word of its street is in the query.
+- The query contains its postcode or town (city, town, village, municipality, suburb, city district or hamlet; a county is not enough).
+- The words beside the number belong to its street or its places, and at least one belongs to the street. `Heyrovského č.p. 470, Olomouc` is not house č.p. 470 of a street named Olomouc, and `Dublin 4` is a district, not house 4.
+- Any other number in the query is explained: it is the postcode or part of the street.
+- It is in the answer's country.
+
+A stated postcode that differs from the house's rules the house out. If the houses found are not one house within 200 m, no house is chosen. A number of several words is not searched for when its words belong to the answer's road, or when it contains the postcode (`TX 75460`).
+
+**Scoring change.** The evaluator now compares a Czech house number with RÚIAN's type mark (`č.ev. 346`) as the number (`346`), just as it already compares `118號` as 118. Re-scoring the base run changed no class. On the change's run, 64 `cz_evidential` cases moved from `wrong_component` to pass, all within 150 m of the registry point.
 
 ## Measurement
 
 Local world index, builder `1929034e0fce080d`, base `main` at `70cb37b`, one request per case, all 21,282 gold cases:
 
-- SearchAddress 17,790 → 18,077 passes. SuggestAddress, ReverseGeocode and ResolveRegion are unchanged, and no case is newly failing.
-- India 72 → 88 / 143 checks. Other markets: UAE +32, Romania +27, Saudi Arabia +18, Thailand +17, Nigeria +15, Ireland +14, Malaysia +13. The registry cohorts also gain (Spain, New Zealand, Canada, Switzerland, France and Poland).
-- **Three cases have a worse failure class** (too coarse → near miss): `2 Avenue West 2995, Prince Albert`, `Calle Centenario 505, Calvillo` and `255 중앙로, 순천시`. Each answer now names the same house that its other-order query already answered on the base. The index places that house 0.2–0.5 km from the OSM node. This is a disagreement between sources, not a different house, but it still fails the gate.
-- The local speed section is not evidence: SuggestAddress and ReverseGeocode, which this change does not touch, slowed as much as SearchAddress while other jobs ran on the machine.
+- SearchAddress passed 17,790 → 18,177 cases. SuggestAddress, ReverseGeocode and ResolveRegion are unchanged, and no case is newly failing.
+- India 72 → 102 of 143 checks. Elsewhere: Czechia +52, Malaysia +40, UAE +31, Thailand +30, Philippines +27, Nigeria +20, Romania +20, Saudi Arabia +18, Vietnam +11, Indonesia +10, China +9.
+- **Two cases have a worse failure class** (too coarse → near miss):
+  - `Calle Centenario 505, Calvillo`
+  - `255 중앙로, 순천시`
+
+  Each now names the house its other-order query already answered on the base. The index places that house 0.2–0.5 km from the OSM node. That is a disagreement between sources, not a different house, but it still fails the gate.
+- **Speed**, measured A/B on 4,000 interleaved SearchAddress requests (each the faster of two):
+  - All requests: −2% total and −3% at p90. Shared-machine noise dominates these numbers.
+  - Answers without a house that contain a digit: 0.035 ms more on average.
+  - A first version that used the completion lookup for every answer without a house added 0.137 ms and measured p90 +17% in CI.
 
 ## Remaining Indian failures
 
-The largest remaining group is house numbers the source stores as several words: `Plot No.14`, `Survey No.49`, `GAT No. 720`, `flat 1`, `1st floor`, `Ration Shop 54`. Malaysia (`Lot 25`, `PT 421`), Thailand (`367 หมู่ 1`), the Philippines (`Purok 6`) and Indonesia (`RT 02/04`, `Blok I4`) show the same pattern. A whole-word number check does not match these numbers, and the completion lookup does not suggest them. Some of them are local identifiers, while floors and shop labels are unit information that the source tags as house numbers. They are left for a separate change.
+- Numbers whose label is also a word of the street.
+- Floors and shop labels that the source tags as house numbers (`1st floor`, `Ration Shop 54`).
+- Answers at town level, where no lookup runs now.
+- Streets the index lacks.
 
 Pakistan is not in the panel, and no other corpus covers it, so this change makes no claim about Pakistan.

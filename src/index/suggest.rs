@@ -1558,6 +1558,42 @@ impl Index {
 
     /// Streets, and houses when a number is typed, with the road in the first part and the
     /// town after a comma ("12 main st, spring"). With no comma the town may still end the text.
+    /// The houses `suggest` would list for a whole address, without its places, landmarks
+    /// and fallbacks: the search's lookup for a house its parse missed.
+    pub fn suggest_houses(&self, text: &str, cc: Option<&str>, limit: usize) -> Vec<Suggestion> {
+        let text = text.trim_start();
+        if text.chars().count() > MAX_TEXT || text.trim().is_empty() || limit == 0 {
+            return vec![];
+        }
+        let mut out = match self.chinese_suggest(text, cc) {
+            Some(found) => found,
+            None => {
+                // the whole address is written: its last word is finished
+                let typed = Typed {
+                    open: false,
+                    ..Typed::new(text)
+                };
+                if typed.parts.is_empty() {
+                    return vec![];
+                }
+                let found = self.suggest_streets(&typed, cc, None, limit);
+                if found.iter().any(|s| s.kind == "address") {
+                    found
+                } else {
+                    self.suggest_number_comma(&typed, cc, None, limit)
+                }
+            }
+        };
+        out.retain(|s| {
+            s.kind == "address"
+                && cc.is_none_or(|c| {
+                    s.country_code.is_empty() || s.country_code.eq_ignore_ascii_case(c)
+                })
+        });
+        out.truncate(limit);
+        out
+    }
+
     fn suggest_streets(
         &self,
         typed: &Typed,
