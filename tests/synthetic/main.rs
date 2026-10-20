@@ -1397,6 +1397,30 @@ fn cases() -> Vec<Case> {
             want: town("de-koeln", true),
             known_failure: "index: search does not fold the oe digraph for ö, as suggest does",
         },
+        // With no country, a postcode and a town near it in one country place the query there,
+        // when the postcode's place has another name (Feldheim is in Köln's 50667). France has
+        // 50667 too, in Nordville.
+        case(
+            "Ulstrasse 99, 50667 Feldheim",
+            Want::At(house(street("Ulstrasse"), "25"), 300.0, false),
+        ),
+        case(
+            "50667 Feldheim",
+            Want::At(house(street("Ulstrasse"), "25"), 1000.0, true),
+        ),
+        case(
+            "Rue Haute 9, 50667 Nordville",
+            Want::At(house(street("Rue Haute"), "3"), 300.0, false),
+        ),
+        case("Ulstrasse 99, 50667 Nordville", town("fr-nordville", false)),
+        case(
+            "Rue Haute 9, 50667 Feldheim",
+            Want::At(house(street("Ulstrasse"), "25"), 1000.0, false),
+        ),
+        case(
+            "Weverstraat 99, 1234 NX Centrum",
+            Want::At(house(street("Weverstraat"), "2"), 300.0, false),
+        ),
         case("Atlantis, France", Want::Abstain),
         case("Paris, Germany", Want::Abstain),
         case("75460", Want::At((-95.5559, 33.66), 1000.0, true)),

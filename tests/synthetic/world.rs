@@ -221,6 +221,19 @@ pub const PLACES: &[Place] = &[
         "Polderdam",
         &[("en", "Polderdam")]
     ),
+    // 2 km from Weverstraat; Stolica in Poland has a district of this name too
+    place!(
+        "nl-polderdam-centrum",
+        "locality",
+        "village",
+        "NL",
+        "",
+        500,
+        (5.54, 52.3),
+        "nl-polderdam",
+        "Centrum",
+        &[("nl", "Centrum")]
+    ),
     place!(
         "fr",
         "country",
@@ -1894,6 +1907,29 @@ pub const STREETS: &[Street] = &[
         lat: 61.20,
         numbers: &["5"],
     },
+    // France has Köln's postcode 50667 too, in Nordville
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Rue Haute",
+        postcode: "50667",
+        city: "Nordville",
+        cc: "FR",
+        lon: 2.005,
+        lat: 47.5,
+        numbers: &["3"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Weverstraat",
+        postcode: "1234 NX",
+        city: "Polderdam",
+        cc: "NL",
+        lon: 5.51,
+        lat: 52.3,
+        numbers: &["2"],
+    },
     Street {
         class: "residential",
         length: 0.0,
@@ -2493,9 +2529,10 @@ fn chain(p: &Place) -> Vec<&'static str> {
 }
 
 /// Localities without a polygon of their own.
-const POINT_ONLY: [&str; 5] = [
+const POINT_ONLY: [&str; 6] = [
     "gb-harbor-city",
     "de-koeln-feldheim",
+    "nl-polderdam-centrum",
     "us-tx-reno",
     "at-eastufer",
     "li-westufer",
