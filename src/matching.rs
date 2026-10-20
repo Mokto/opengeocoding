@@ -1070,6 +1070,40 @@ pub fn without_danish_place(query: &str) -> Option<(String, String)> {
     })
 }
 
+/// `query` without the unit of an Australian "unit/number" house ("71/206 Phillip Street,
+/// Mount Pleasant QLD 4740"), which libpostal keeps as one house number the index may not
+/// hold. The building's house answers then, as for "Unit 71, 206 Phillip Street". Australia
+/// must be stated, or a part must end in a state code and postcode ("VIC 3065"); Czech,
+/// Polish and other slashed numbers mean something else. None without such a number.
+pub fn without_australian_unit(query: &str) -> Option<String> {
+    static UNIT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^[A-Za-z]?\d{1,5}[A-Za-z]?/(\d{1,6}[A-Za-z]?(?:-\d{1,6}[A-Za-z]?)?\s+\S.*)$")
+            .unwrap()
+    });
+    static STATE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i)\b(?:act|nsw|nt|qld|sa|tas|vic|wa)\s+\d{4}$").unwrap());
+    let parts: Vec<&str> = query
+        .split(',')
+        .map(|p| p.trim_matches(whitespace))
+        .collect();
+    let (at, unit) = parts
+        .iter()
+        .enumerate()
+        .find_map(|(i, p)| Some((i, UNIT.captures(p)?)))?;
+    let countries: Vec<String> = parts
+        .iter()
+        .map(|p| expected_country(&parsed_country(p)))
+        .filter(|c| !c.is_empty())
+        .collect();
+    let australian = countries.iter().any(|c| c == "au") || parts.iter().any(|p| STATE.is_match(p));
+    if !australian || countries.iter().any(|c| c != "au") {
+        return None;
+    }
+    let mut kept = parts.clone();
+    kept[at] = unit.get(1)?.as_str();
+    Some(kept.join(", "))
+}
+
 /// `query` with a leading region code moved behind the place it was fused with
 /// ("NJ, WILLIAMSTOWN, United States", which libpostal reads as one state). A country
 /// code ("CA, Toronto, Canada") and a postcode ("PA, 19560") are left alone. None when

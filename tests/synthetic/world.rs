@@ -1207,6 +1207,55 @@ pub const PLACES: &[Place] = &[
         "Centrum",
         &[("pl", "Centrum")]
     ),
+    place!(
+        "au",
+        "country",
+        "",
+        "AU",
+        "",
+        25_000_000,
+        (135.0, -25.0),
+        "",
+        "Australia",
+        &[("en", "Australia")]
+    ),
+    place!(
+        "au-qld",
+        "region",
+        "",
+        "AU",
+        "AU-QLD",
+        5_000_000,
+        (145.0, -22.0),
+        "au",
+        "Queensland",
+        &[("en", "Queensland")]
+    ),
+    // a region whose later word is the country's name
+    place!(
+        "au-sa",
+        "region",
+        "",
+        "AU",
+        "AU-SA",
+        1_800_000,
+        (135.0, -30.0),
+        "au",
+        "South Australia",
+        &[("en", "South Australia")]
+    ),
+    place!(
+        "au-wattleford",
+        "locality",
+        "town",
+        "AU",
+        "",
+        20_000,
+        (149.2, -21.2),
+        "au-qld",
+        "Wattleford",
+        &[("en", "Wattleford")]
+    ),
 ];
 
 /// Administrative polygons besides the towns' (a square of half-side 0.2° each): (division,
@@ -1978,6 +2027,29 @@ pub const STREETS: &[Street] = &[
         lon: 17.3,
         lat: 54.52,
         numbers: &["10"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Banksia Street",
+        postcode: "4740",
+        city: "Wattleford",
+        cc: "AU",
+        lon: 149.2,
+        lat: -21.2,
+        numbers: &["206", "208", "210", "8/206"],
+    },
+    // its addresses name a suburb that is no place of its own
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Waratah Avenue",
+        postcode: "4740",
+        city: "Kingsford",
+        cc: "AU",
+        lon: 149.21,
+        lat: -21.2,
+        numbers: &["3"],
     },
 ];
 
