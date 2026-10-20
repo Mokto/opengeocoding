@@ -320,21 +320,10 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
             "tuning".into()
         }
     });
-    table("By expected country (per-case evidence, not rates)", &|c| {
-        let mut countries: Vec<_> = c
-            .expect
-            .iter()
-            .flat_map(|e| e.alternatives())
-            .flat_map(|a| a.country.clone())
-            .collect();
-        countries.sort();
-        countries.dedup();
-        if countries.is_empty() {
-            "-".into()
-        } else {
-            countries.join(",")
-        }
-    });
+    table(
+        "By expected country (per-case evidence, not rates)",
+        &expected_countries,
+    );
     let must: Vec<_> = scored
         .iter()
         .filter(|r| case(r).must_pass && r.class != "pass")
@@ -971,6 +960,86 @@ fn latency(
 }
 
 /// "| SearchAddress | 3759 | 3340 | 3342 | +2 (+0.1%) | 5 |", a row of the diff's summary table.
+/// The countries a case expects, comma-joined ("-" for none).
+fn expected_countries(c: &Case) -> String {
+    let mut countries: Vec<_> = c
+        .expect
+        .iter()
+        .flat_map(|e| e.alternatives())
+        .flat_map(|a| a.country.clone())
+        .collect();
+    countries.sort();
+    countries.dedup();
+    if countries.is_empty() {
+        "-".into()
+    } else {
+        countries.join(",")
+    }
+}
+
+/// One cell of the per-country table: passing checks on both sides out of those checked.
+fn country_cell([checked, base, head]: [usize; 3]) -> String {
+    match (checked, base == head) {
+        (0, _) => "-".into(),
+        (_, true) => format!("{head} / {checked}"),
+        _ => format!(
+            "{base} → {head} / {checked} ({:+})",
+            head as i64 - base as i64
+        ),
+    }
+}
+
+/// Per country (the expected one; a case with several is counted in the joined group), the
+/// passing checks of each RPC on both sides, for the countries where any of them changed, those
+/// with the largest change first.
+fn by_country(counts: &BTreeMap<String, BTreeMap<&str, [usize; 3]>>) -> String {
+    const RPCS: [&str; 4] = [
+        "SearchAddress",
+        "SuggestAddress",
+        "ReverseGeocode",
+        "ResolveRegion",
+    ];
+    let mut rows: Vec<_> = counts
+        .iter()
+        .map(|(country, rpcs)| {
+            let delta: i64 = rpcs.values().map(|c| c[2] as i64 - c[1] as i64).sum();
+            let moved: i64 = rpcs
+                .values()
+                .map(|c| (c[2] as i64 - c[1] as i64).abs())
+                .sum();
+            (country, rpcs, delta, moved)
+        })
+        .filter(|(.., moved)| *moved > 0)
+        .collect();
+    if rows.is_empty() {
+        return String::new();
+    }
+    rows.sort_by_key(|(country, _, delta, moved)| (std::cmp::Reverse(*moved), *delta, *country));
+    let shown = rows.len().min(40);
+    let mut out = format!(
+        "\n## Pass rate by country\n\nPassing checks out of those checked, baseline → candidate, for the {} expected countr{} where any RPC changed. A case that expects several countries has its own row. Counts are checks, not independent locations.\n\n| Country | {} |\n|---|{}\n",
+        rows.len(),
+        if rows.len() == 1 { "y" } else { "ies" },
+        RPCS.join(" | "),
+        "---:|".repeat(RPCS.len())
+    );
+    for (country, rpcs, ..) in &rows[..shown] {
+        let cells: Vec<_> = RPCS
+            .iter()
+            .map(|rpc| country_cell(rpcs.get(rpc).copied().unwrap_or_default()))
+            .collect();
+        let _ = writeln!(out, "| {country} | {} |", cells.join(" | "));
+    }
+    if rows.len() > shown {
+        let _ = writeln!(
+            out,
+            "\n{} more countries changed, with smaller changes.",
+            rows.len() - shown
+        );
+    }
+    out
+}
+
 fn passing(name: &str, [base, head]: [usize; 2], total: usize, changed: usize) -> String {
     let delta = if base == head {
         "0".into()
@@ -1045,6 +1114,7 @@ pub fn diff(
     // Per check kind: checked, base passing, head passing, head's other classes.
     let mut suggest_counts: BTreeMap<&str, [usize; 2 + SUGGEST_CLASSES.len()]> = BTreeMap::new();
     let mut added_counts: BTreeMap<&str, [usize; 2]> = BTreeMap::new();
+    let mut country_counts: BTreeMap<String, BTreeMap<&str, [usize; 3]>> = BTreeMap::new();
     let mut added_failures = String::new();
     for (id, record) in &new {
         for (name, check) in &record.suggest {
@@ -1086,6 +1156,22 @@ pub fn diff(
         let cohort = cases
             .get(id.as_str())
             .map_or("?".into(), |c| c.cohort.clone());
+        let country = cases
+            .get(id.as_str())
+            .map_or("-".into(), |c| expected_countries(c));
+        let mut tally = |rpc: &'static str, base: bool, head: bool| {
+            let c = country_counts
+                .entry(country.clone())
+                .or_default()
+                .entry(rpc)
+                .or_default();
+            *c = [c[0] + 1, c[1] + usize::from(base), c[2] + usize::from(head)];
+        };
+        if !cases.get(id.as_str()).is_some_and(|c| {
+            c.suggest_address.is_some() || c.expect.as_ref().is_some_and(|e| e.level == "landmark")
+        }) {
+            tally("SearchAddress", a.class == "pass", b.class == "pass");
+        }
         let counts = by_cohort.entry(cohort.clone()).or_default();
         *counts.entry("cases").or_default() += 1;
         let kinds = drift(
@@ -1113,6 +1199,7 @@ pub fn diff(
             if ca != cb {
                 *changed_checks.entry(name.as_str()).or_default() += 1;
             }
+            tally("SuggestAddress", ca == "pass", cb == "pass");
             let counts = suggest_counts.entry(name).or_default();
             counts[0] += 1;
             counts[1] += usize::from(ca == "pass");
@@ -1143,6 +1230,7 @@ pub fn diff(
             if ca != cb {
                 *changed_checks.entry(name).or_default() += 1;
             }
+            tally(name, ca == "pass", cb == "pass");
             let counts = locate_counts.entry(name).or_default();
             counts[0] += 1;
             counts[1] += usize::from(ca == "pass");
@@ -1248,6 +1336,7 @@ pub fn diff(
         let changed = changed_checks.get(name).copied().unwrap_or(0);
         summary += &passing(name, [c[1], c[2]], c[0], changed);
     }
+    summary += &by_country(&country_counts);
     let mut added_counts: BTreeMap<(&str, &str), [usize; 2]> = BTreeMap::new();
     let mut added = 0;
     for (id, record) in new.iter().filter(|(id, _)| !old.contains_key(*id)) {
@@ -1989,6 +2078,33 @@ mod tests {
             );
         }
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn countries_show_passing_checks_on_both_sides_where_any_changed() {
+        let mut counts: BTreeMap<String, BTreeMap<&str, [usize; 3]>> = BTreeMap::new();
+        for (country, rpc, c) in [
+            ("dk", "SearchAddress", [1883, 1779, 1867]),
+            ("dk", "SuggestAddress", [1883, 293, 1838]),
+            ("dk", "ReverseGeocode", [1883, 1882, 1882]),
+            ("fr", "SearchAddress", [505, 498, 498]),
+            ("no", "SearchAddress", [714, 709, 705]),
+        ] {
+            counts.entry(country.into()).or_default().insert(rpc, c);
+        }
+        let table = by_country(&counts);
+        assert!(table.contains("for the 2 expected countries where any RPC changed"));
+        // the largest change first, an RPC nobody asked about as a dash, an unchanged one without
+        // an arrow, and a country that did not change not at all
+        assert!(
+            table.contains(
+                "| dk | 1779 → 1867 / 1883 (+88) | 293 → 1838 / 1883 (+1545) | 1882 / 1883 | - |\n| no | 709 → 705 / 714 (-4) | - | - | - |\n"
+            ),
+            "{table}"
+        );
+        assert!(!table.contains("| fr |"), "{table}");
+        counts.retain(|country, _| country == "fr");
+        assert_eq!(by_country(&counts), "");
     }
 
     #[test]
