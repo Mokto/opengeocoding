@@ -373,6 +373,17 @@ impl Typed {
     }
 }
 
+/// A house number written as a part of its own, "12", "12A" or "nº 12", as the number:
+/// short enough not to be a postcode.
+fn comma_number(part: &str) -> Option<&str> {
+    let number = super::house_number(part);
+    let digits = number.bytes().take_while(u8::is_ascii_digit).count();
+    (matches!(digits, 1..=4)
+        && number.len() <= digits + 1
+        && number.bytes().skip(digits).all(|b| b.is_ascii_alphabetic()))
+    .then_some(number)
+}
+
 /// A Danish unit part: a floor with or without a door ("st.", "1. th", "st. 11", "1. c"), or a
 /// side door alone.
 fn danish_floor(text: &str) -> bool {
@@ -1606,7 +1617,11 @@ impl Index {
             .map(|(_, rest)| Typed::new(rest).parts)
             .unwrap_or_else(|| typed.parts[1..].to_vec());
         let postcode = extracted.as_ref().map(|(pc, _)| pc.as_str());
-        let raw: Vec<&str> = typed.parts[0].split(' ').collect();
+        // "Rua José Relvas nº 13": the mark says only that a number follows
+        let raw: Vec<&str> = typed.parts[0]
+            .split(' ')
+            .filter(|w| !matches!(w.to_lowercase().as_str(), "nº" | "n.º" | "n°" | "n.°"))
+            .collect();
         // the number: the first or last word, when a road remains; both when both could be
         // ("11 Listopada 26" is house 26 on a road named for a date)
         let number_at = (raw.len() > 1)
@@ -1641,7 +1656,7 @@ impl Index {
             }
             if postcode.is_some()
                 && number_word.is_some()
-                && (parts.len() == 1 || ((2..=3).contains(&parts.len()) && country.is_some()))
+                && (parts.len() <= 1 || ((2..=3).contains(&parts.len()) && country.is_some()))
             {
                 // "9 pittevej, aidt, 8881 thorsø, denmark": a place between the road and the
                 // postcode's town is another name of the house's place, or its postal town
@@ -1813,13 +1828,64 @@ impl Index {
                 return found;
             }
         }
+        // "Rua dos Farias 12 2955-243 Pinhal Novo": a known postcode after the number starts
+        // the town's part
+        if !out.iter().any(|s| s.kind == "address")
+            && let [whole] = typed.parts.as_slice()
+        {
+            let words: Vec<&str> = whole.split(' ').collect();
+            let at = (2..words.len()).find(|&i| {
+                has_digit(words[i - 1])
+                    && has_digit(words[i])
+                    && (words[i].len() >= 5 || words[i].contains(|c: char| !c.is_ascii_digit()))
+                    && self.postcode_exists(words[i], cc)
+            });
+            if let Some(at) = at {
+                let found = self.suggest_streets(
+                    &Typed {
+                        parts: vec![words[..at].join(" "), words[at..].join(" ")],
+                        open: typed.open,
+                    },
+                    cc,
+                    focus,
+                    want,
+                );
+                if found.iter().any(|s| s.kind == "address") {
+                    return found;
+                }
+            }
+        }
+        // "Rua Pereira Charula, 12, 5340-278 Macedo de Cavaleiros": the number as its own part
+        if !out.iter().any(|s| s.kind == "address")
+            && let [road, number, rest @ ..] = typed.parts.as_slice()
+            && !road.split(' ').any(has_digit)
+            && let Some(number) = comma_number(number)
+        {
+            let mut parts = vec![format!("{road} {number}")];
+            parts.extend_from_slice(rest);
+            let found = self.suggest_streets(
+                &Typed {
+                    parts,
+                    open: typed.open,
+                },
+                cc,
+                focus,
+                want,
+            );
+            if found.iter().any(|s| s.kind == "address") {
+                return found;
+            }
+        }
         // "12 Rua dos Farias": Portugal's register names it "R FARIAS". Only Portugal's form,
         // which expands no further: other countries' turn back ("straat" <-> "street").
         if !out.iter().any(|s| s.kind == "address")
             && typed.parts[0].split(' ').any(has_digit)
-            && cc.is_some_and(|c| c.eq_ignore_ascii_case("pt"))
+            && cc.map_or_else(
+                || postcode.is_some_and(crate::matching::portuguese_postcode),
+                |c| c.eq_ignore_ascii_case("pt"),
+            )
         {
-            for road in crate::matching::road_expansions(&typed.parts[0], "pt") {
+            for road in crate::matching::road_expansions(&raw.join(" "), "pt") {
                 let mut parts = typed.parts.clone();
                 parts[0] = road;
                 let found = self.suggest_streets(
@@ -2132,6 +2198,21 @@ mod tests {
             "st. john", "st john", "12 main", "1. 12345", "th mf", "", "Grenaa", "8500",
         ] {
             assert!(!danish_floor(other), "{other}");
+        }
+    }
+
+    #[test]
+    fn a_house_number_part_is_short_and_may_carry_its_mark() {
+        for (part, number) in [
+            ("12", "12"),
+            ("12A", "12A"),
+            ("nº 12", "12"),
+            ("1234", "1234"),
+        ] {
+            assert_eq!(comma_number(part), Some(number), "{part}");
+        }
+        for other in ["12345", "2955-243", "12AB", "Lisboa", "", "1. th"] {
+            assert_eq!(comma_number(other), None, "{other}");
         }
     }
     use super::*;

@@ -322,6 +322,12 @@ fn portuguese_houses_are_suggested_on_the_registers_abbreviated_street() {
     for typed in [
         "12 Rua dos Farias, Pinhal, Portugal",
         "Rua dos Farias 12, 2955-243 Pinhal, Portugal",
+        // the forms Portuguese addresses are written in, often without the country
+        "Rua dos Farias 12, 2955-243 Pinhal",
+        "Rua dos Farias, 12, 2955-243 Pinhal",
+        "Rua dos Farias, 12, 2955-243",
+        "Rua dos Farias nº 12, 2955-243 Pinhal",
+        "Rua dos Farias 12 2955-243 Pinhal",
     ] {
         let found = index().suggest(typed, 5, None, None, false);
         assert!(!found.is_empty(), "{typed}");
@@ -1152,6 +1158,10 @@ fn cases() -> Vec<Case> {
         ),
         case(
             "Rua dos Farias 12, Pinhal, Portugal",
+            at_house("R FARIAS", "12"),
+        ),
+        case(
+            "Rua dos Farias, 12, 2955-243 Pinhal",
             at_house("R FARIAS", "12"),
         ),
         case(
