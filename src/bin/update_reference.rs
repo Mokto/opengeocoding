@@ -139,6 +139,7 @@ async fn main() -> Result<()> {
         .await?;
     let categories = Categories::parse(&unicode)?;
     let mut countries: BTreeMap<String, String> = BTreeMap::new();
+    let mut country_names: BTreeMap<String, String> = BTreeMap::new();
     let info = downloads
         .get(
             "https://download.geonames.org/export/dump/countryInfo.txt",
@@ -168,12 +169,15 @@ async fn main() -> Result<()> {
         let names = data["main"][language]["localeDisplayNames"]["territories"]
             .as_object()
             .context("CLDR territories")?;
-        for (code, name) in names {
-            let code = code.split('-').next().unwrap_or("").to_lowercase();
+        for (key, name) in names {
+            let code = key.split('-').next().unwrap_or("").to_lowercase();
             if code.len() == 2
                 && code.chars().all(|c| c.is_ascii_alphabetic())
                 && valid.contains(&code)
             {
+                if language == "en" && !key.contains('-') {
+                    country_names.insert(code.clone(), name.as_str().unwrap_or("").into());
+                }
                 countries.insert(categories.clean(name.as_str().unwrap_or("")), code.clone());
                 countries.insert(code.clone(), code);
             }
@@ -249,6 +253,7 @@ async fn main() -> Result<()> {
         out.join("reference.json"),
         pretty(&json!({
             "countries": countries,
+            "country_names": country_names,
             "region_countries": regions,
             "iso3166_2": iso3166_2,
             "iso3166_2_lvl6": iso3166_2_lvl6,
