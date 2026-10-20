@@ -2097,6 +2097,41 @@ pub const STREETS: &[Street] = &[
         lat: -21.2,
         numbers: &["206", "208", "210", "8/206"],
     },
+    // written street before number, which libpostal reads as a venue
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Panorama Place",
+        postcode: "4740",
+        city: "Wattleford",
+        cc: "AU",
+        lon: 149.205,
+        lat: -21.2,
+        numbers: &["1", "2", "3"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Railway Terrace",
+        postcode: "4740",
+        city: "Wattleford",
+        cc: "AU",
+        lon: 149.195,
+        lat: -21.2,
+        numbers: &["8", "9"],
+    },
+    // starts with its town's name, so is no village street of that town
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Wattleford Vista",
+        postcode: "4740",
+        city: "Wattleford",
+        cc: "AU",
+        lon: 149.25,
+        lat: -21.2,
+        numbers: &["1", "2", "3"],
+    },
     // its addresses name a suburb that is no place of its own
     Street {
         class: "residential",

@@ -1273,6 +1273,14 @@ fn cases() -> Vec<Case> {
             "8/206 Banksia Street, Wattleford QLD 4740, Australia",
             at_house("Banksia Street", "8/206"),
         ),
+        case(
+            "Panorama Place 3, Wattleford, QLD, 4740, Australia",
+            at_house("Panorama Place", "3"),
+        ),
+        case(
+            "Railway Terrace 9, Wattleford, QLD, 4740, Australia",
+            at_house("Railway Terrace", "9"),
+        ),
         case("Paris, Texas", town("us-tx-paris", true)),
         case("Paris, TX, USA", town("us-tx-paris", true)),
         case("us-tx-paris", town("us-tx-paris", true)),
@@ -1688,6 +1696,18 @@ async fn resolve_follows_the_authored_facts() {
             );
         }
     }
+    // a venue's number is no house on a street that only starts with the town's name
+    let venue = resolver
+        .resolve("Grand Hotel 3, Wattleford, QLD, 4740, Australia")
+        .await
+        .unwrap();
+    assert!(
+        venue
+            .address_details
+            .as_option()
+            .is_none_or(|d| d.house_number.is_empty()),
+        "{venue:?}"
+    );
     let literal = resolver
         .resolve("20-24 Maple Scope Road, Delhi, ON N4B 1A1, Canada")
         .await

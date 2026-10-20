@@ -3715,10 +3715,10 @@ impl Index {
                 .collect();
             hits = found.into_iter().take(1).collect();
         }
-        // "Santiago, Metropolitana, Chile" parses "santiago" as a road: without a house number,
-        // an unmatched road is tried as a place name too.
         // Village addresses ("Libá 156, 351 31 Libá"): the number belongs to the village,
-        // indexed as a street of that name. Only an exact house answers.
+        // indexed as a street of that name, not another the search returns ("Maleny Vista");
+        // an unspaced name ("帯屋町二丁目" for "帯屋町") is taken as found. Only an exact house
+        // answers.
         if roads.is_empty()
             && let (Some(n), Some(town)) = (get("house_number").map(house_number), city)
         {
@@ -3728,23 +3728,37 @@ impl Index {
                     h,
                     Hit::Street {
                         number: Some(_),
+                        name,
                         ..
-                    }
+                    } if fold(name) == fold(town) || !name.contains(' ')
                 )
             }) {
                 return vec![h];
             }
         }
         // libpostal reads a numbered street or village with no street type as a venue ("Świtały
-        // 12, 76-231" and "św. Jana 10, 36-050 Sokołów" give a house and no road): only an exact
-        // house on a street of that name answers. So with a number it leaves in the road
-        // ("Rakowice Małe 20BS, 59-600").
+        // 12, 76-231" and "św. Jana 10, 36-050 Sokołów" give a house and no road), and a street
+        // before its number too ("Panorama Place 3, Maleny"): only an exact house on a street of
+        // that name answers. So with a number it leaves in the road ("Rakowice Małe 20BS,
+        // 59-600"), or in a venue that ends in a street type ("Railway Terrace 9, Mount
+        // Pleasant").
         let venue = roads
             .is_empty()
             .then(|| get("house").zip(get("house_number").map(house_number)))
             .flatten();
+        let street_type = |name: &str| {
+            name.split_whitespace().last().is_some_and(|w| {
+                let f = fold(w);
+                canon::canon(&f).is_some() || canon::is_canonical(&f)
+            })
+        };
         let in_road = (hits.is_empty() && get("house_number").is_none())
-            .then(|| roads.last().and_then(|r| r.rsplit_once(' ')))
+            .then(|| match roads.last() {
+                Some(r) => r.rsplit_once(' '),
+                None => get("house")
+                    .and_then(|h| h.rsplit_once(' '))
+                    .filter(|(name, _)| street_type(name)),
+            })
             .flatten()
             .filter(|(_, n)| n.starts_with(|c: char| c.is_ascii_digit()));
         if let Some((name, n)) = venue.or(in_road)
@@ -3764,6 +3778,8 @@ impl Index {
                 return vec![h];
             }
         }
+        // "Santiago, Metropolitana, Chile" parses "santiago" as a road: without a house number,
+        // an unmatched road is tried as a place name too.
         let road_as_place = hits.is_empty() && get("house_number").is_none();
         if get("road").is_none() || road_as_place {
             // libpostal's labels for place-only text are unreliable ("Doha, Ad Dawhah, Qatar"
