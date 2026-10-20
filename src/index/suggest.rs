@@ -1607,16 +1607,18 @@ impl Index {
             .unwrap_or_else(|| typed.parts[1..].to_vec());
         let postcode = extracted.as_ref().map(|(pc, _)| pc.as_str());
         let raw: Vec<&str> = typed.parts[0].split(' ').collect();
-        // the number: the first or last word, when a road remains
+        // the number: the first or last word, when a road remains; both when both could be
+        // ("11 Listopada 26" is house 26 on a road named for a date)
         let number_at = (raw.len() > 1)
             .then(|| {
                 [0, raw.len() - 1]
                     .into_iter()
-                    .find(|&i| has_digit(raw[i]) && raw[i].len() <= MAX_NUMBER)
+                    .filter(|&i| has_digit(raw[i]) && raw[i].len() <= MAX_NUMBER)
             })
+            .into_iter()
             .flatten();
         let mut tries: Vec<(Option<usize>, Vec<&str>)> = vec![];
-        if let Some(i) = number_at {
+        for i in number_at {
             tries.push((
                 Some(i),
                 raw.iter()
@@ -1919,7 +1921,8 @@ impl Index {
         let number = number.map(schema::number_key).filter(|n| !n.is_empty());
         let road_text = road.join(" ");
         let mut streets = vec![];
-        let mut seen = std::collections::HashSet::new();
+        // each name's best ranked part: its houses come before those of the name's other parts
+        let mut first = HashMap::new();
         let mut segments = std::collections::HashSet::new();
         // the best place of the scope alone first: "5th avenue, new york" is Manhattan's
         // before any other in the state
@@ -1928,7 +1931,7 @@ impl Index {
             other => vec![other],
         };
         for ids in phases {
-            if seen.len() >= want {
+            if first.len() >= want {
                 break;
             }
             let mut cl: Vec<_> = base.iter().map(|(o, q)| (*o, q.box_clone())).collect();
@@ -1946,7 +1949,7 @@ impl Index {
                 let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
                 let name = best_name(&doc, self.f.name, &road_text);
                 let (sid, place) = (self.fast(a, "id") as u32, self.fast(a, "place") as u32);
-                seen.insert((fold(&name), place));
+                first.entry((fold(&name), place)).or_insert(sid);
                 if segments.insert(sid) {
                     streets.push((a, sid, place, name));
                 }
@@ -1969,6 +1972,7 @@ impl Index {
                 scope_rank(s.2),
                 !name.starts_with(&road_text),
                 name != road_text,
+                first.get(&(name, s.2)) != Some(&s.1),
             )
         });
         let mut houses = vec![];
@@ -2346,14 +2350,22 @@ mod tests {
                 ))
                 .unwrap();
         }
-        let mut street = tantivy::doc!(
-            f.kind => "s", f.names => "Rue de Rivoli", f.country => "FR", f.name => "Rue de Rivoli",
-            f.id => 7u64, f.place => 2u64, f.importance => 50u64, f.x => 2.34f64, f.y => 48.86f64
-        );
-        for id in ["2", "1", "0"] {
-            street.add_text(f.ids, id);
+        // Rue de Rivoli crosses a cell edge: a second part (10) holds house 26. Street 11 is
+        // named for a date.
+        for (sid, name, x) in [
+            (7u64, "Rue de Rivoli", 2.34f64),
+            (10, "Rue de Rivoli", 2.36),
+            (11, "11 Listopada", 2.35),
+        ] {
+            let mut street = tantivy::doc!(
+                f.kind => "s", f.names => name, f.country => "FR", f.name => name,
+                f.id => sid, f.place => 2u64, f.importance => 50u64, f.x => x, f.y => 48.86f64
+            );
+            for id in ["2", "1", "0"] {
+                street.add_text(f.ids, id);
+            }
+            writer.add_document(street).unwrap();
         }
-        writer.add_document(street).unwrap();
         for (sid, name, place) in [(8u64, "Examplegade", 10u64), (9, "Scopegade", 11)] {
             writer
                 .add_document(tantivy::doc!(
@@ -2377,6 +2389,8 @@ mod tests {
             (7u32, &["12", "120", "12a"][..]),
             (8, &["12", "120", "12a"][..]),
             (9, &["12"][..]),
+            (10, &["26"][..]),
+            (11, &["26"][..]),
         ] {
             for n in numbers {
                 let mut key = sid.to_be_bytes().to_vec();
@@ -2692,6 +2706,16 @@ mod tests {
         assert_eq!(
             index.suggest("ul. rue de rivoli 12, paris", 5, None, None, false)[0].id,
             "h7:12"
+        );
+        // a house on the street's other part
+        assert_eq!(
+            index.suggest("26 rue de rivoli, paris", 5, None, None, false)[0].id,
+            "h10:26"
+        );
+        // the number last, after a road named for a date
+        assert_eq!(
+            index.suggest("11 listopada 26, paris", 5, None, None, false)[0].id,
+            "h11:26"
         );
         // no such number: the street
         assert_eq!(
