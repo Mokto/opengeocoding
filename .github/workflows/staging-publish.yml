@@ -8,7 +8,7 @@ name: Staging image publish
 # Once both are pushed, the gold jobs run the suite on a full index in a private cluster: both
 # commits' staging images are evaluated there on the same index, and the report comes back through
 # an authenticated endpoint. No code from the pull request runs on GitHub and the cluster holds no
-# GitHub credentials; these jobs only send two commit hashes. They are in this workflow, not a
+# GitHub credentials; these jobs only send two commit hashes and each one's index sources. They are in this workflow, not a
 # separate one, because a workflow started by this one would see this workflow's event instead of
 # the build's, and a called workflow cannot read an environment's secrets.
 #
@@ -168,6 +168,7 @@ jobs:
       group: gold-full-${{ needs.prepare.outputs.pr || needs.prepare.outputs.head }}
       cancel-in-progress: true
     permissions:
+      contents: read
       pull-requests: write
       statuses: write
     env:
@@ -258,10 +259,21 @@ jobs:
           drop gold-full; drop gold-speed
           # The cluster runs two evaluations at a time; wait for a free slot. It evaluates both
           # commits in every run and caches nothing, so speed is timed on one node.
+          # Each side's index is built from that commit's chart sources, read as data, so a change
+          # to them is measured by its own pull request.
+          for side in base head; do
+            sha=$BASE_SHA; [ "$side" = head ] && sha=$HEAD_SHA
+            gh api "repos/$REPO/contents/manifests/values.yaml?ref=$sha" -H 'Accept: application/vnd.github.raw' \
+              | yq -o=json '.index.sources' > "$side-sources.json"
+            jq -e 'type == "object"' "$side-sources.json" > /dev/null
+          done
+          request=$(jq -nc --arg h "$HEAD_SHA" --arg b "$BASE_SHA" \
+            --slurpfile hs head-sources.json --slurpfile bs base-sources.json \
+            '{head_sha: $h, base_sha: $b, head_sources: $hs[0], base_sources: $bs[0]}')
           deadline=$((SECONDS + 5 * 3600)); waiting=""
           while :; do
             code=$(curl -sS -m 30 -o start.json -w '%{http_code}' -X POST -H "Authorization: Bearer $KEY" \
-              -d "$(jq -nc --arg h "$HEAD_SHA" --arg b "$BASE_SHA" '{head_sha: $h, base_sha: $b}')" "$URL/runs")
+              -d "$request" "$URL/runs")
             case "$code" in
               202) break ;;
               409) if [ "$SECONDS" -ge "$deadline" ]; then
