@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.16.0](https://github.com/Mokto/opengeocoding/compare/v0.15.0...v0.16.0) (2026-10-20)
+
+
+### Features
+
+* add Canadian and Polish registry gold corpora ([#207](https://github.com/Mokto/opengeocoding/issues/207)) ([6ef3b5a](https://github.com/Mokto/opengeocoding/commit/6ef3b5a30a90791474900be48cdad23b2e00427a))
+* recover places through reviewed historical memberships ([#198](https://github.com/Mokto/opengeocoding/issues/198)) ([3671e1c](https://github.com/Mokto/opengeocoding/commit/3671e1c8cb17b08bf14168c5077aa9b230038395))
+* report passing checks per expected country in the gold diff ([#212](https://github.com/Mokto/opengeocoding/issues/212)) ([8cbb358](https://github.com/Mokto/opengeocoding/commit/8cbb3589ac4d5caae9296e61b16741e2ef7b8312))
+* suggest native Taipei buildings with unverified floors ([#205](https://github.com/Mokto/opengeocoding/issues/205)) ([dc7dca3](https://github.com/Mokto/opengeocoding/commit/dc7dca30ba16e1bce19a92337955296c11892a9a))
+
+
+### Bug Fixes
+
+* complete addresses with joined city and region qualifiers ([#214](https://github.com/Mokto/opengeocoding/issues/214)) ([f9b47dd](https://github.com/Mokto/opengeocoding/commit/f9b47dd0ff3855b2732e03e9600d4bd22a77d66e))
+* recover Canadian unit-address buildings ([#209](https://github.com/Mokto/opengeocoding/issues/209)) ([02d0d3f](https://github.com/Mokto/opengeocoding/commit/02d0d3f2d1df6fe2178d95fdc6d255fa283ad3a4))
+* resolve and suggest remaining Danish unit and supplementary-place addresses ([#210](https://github.com/Mokto/opengeocoding/issues/210)) ([a98637c](https://github.com/Mokto/opengeocoding/commit/a98637c312d69e37c1501bb19313b735eafadb25))
+* resolve Danish floor and door addresses to their building's house ([#206](https://github.com/Mokto/opengeocoding/issues/206)) ([6116516](https://github.com/Mokto/opengeocoding/commit/611651668a0ad28fb381e01234ab450234ea4895))
+* retain New Zealand unit addresses from source fields ([#204](https://github.com/Mokto/opengeocoding/issues/204)) ([9b32941](https://github.com/Mokto/opengeocoding/commit/9b3294106c6ac35c39b80714792a528fc8a870fc))
+
 ## [0.15.0](https://github.com/Mokto/opengeocoding/compare/v0.14.0...v0.15.0) (2026-10-19)
 
 
