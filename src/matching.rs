@@ -972,6 +972,57 @@ pub fn canadian_building(query: &str) -> Option<(&str, &str)> {
     canadian.then(|| (&query[number.start()..], number.as_str()))
 }
 
+/// "82A AV MERCIER, ..." as "82 A AV MERCIER, ..." and the number "82A": the parser reads a
+/// suffixed number glued to it as part of the road, and spaced as the house.
+pub fn spaced_house_suffix(query: &str) -> Option<(String, String)> {
+    static GLUED: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*([0-9]+)([A-Za-z])\s").unwrap());
+    let c = GLUED.captures(query)?;
+    let rest = &query[c.get(2)?.end()..];
+    Some((
+        format!("{} {}{rest}", &c[1], &c[2]),
+        format!("{}{}", &c[1], &c[2]),
+    ))
+}
+
+/// A Canadian address with its street's direction left out ("31 Thatcher Dr E" as "31 Thatcher
+/// Dr", "162 North Klondike Hwy" as "162 Klondike Hwy"), with its house number and compact
+/// postcode: some sources name the street without it. Only the postcode, which in Canada places a
+/// block face, may confirm the house found.
+pub fn without_street_direction(query: &str) -> Option<(String, String, String)> {
+    static POSTCODE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b([A-Za-z][0-9][A-Za-z]) ?([0-9][A-Za-z][0-9])\b").unwrap());
+    let (head, tail) = query.split_once(',')?;
+    let postcode = POSTCODE.captures(tail)?;
+    let postcode = format!("{}{}", &postcode[1], &postcode[2]).to_uppercase();
+    let words: Vec<&str> = head.split_whitespace().collect();
+    let number = *words.first()?;
+    let direction = |w: &str| {
+        let w = w.trim_end_matches('.').to_lowercase();
+        let w = canon(&w).unwrap_or(w.as_str());
+        matches!(w, "n" | "s" | "e" | "w" | "o" | "ne" | "nw" | "se" | "sw")
+    };
+    if !number.starts_with(|c: char| c.is_ascii_digit()) || words.len() < 4 {
+        return None;
+    }
+    let at = if direction(words[words.len() - 1]) {
+        words.len() - 1
+    } else if direction(words[1]) {
+        1
+    } else {
+        return None;
+    };
+    let kept: Vec<&str> = (words.iter().enumerate())
+        .filter(|(i, _)| *i != at)
+        .map(|(_, w)| *w)
+        .collect();
+    Some((
+        format!("{},{tail}", kept.join(" ")),
+        number.to_owned(),
+        postcode,
+    ))
+}
+
 /// `query` without the whitespace-separated words equal to `word` (case and dots aside).
 pub fn without_word(query: &str, word: &str) -> String {
     let key = word.trim_matches('.').to_lowercase();

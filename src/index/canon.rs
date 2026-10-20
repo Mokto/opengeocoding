@@ -88,6 +88,10 @@ pub const VARIANTS: &[(&str, &str)] = &[
     ("impasse", "imp"),
     ("allee", "all"),
     ("faubourg", "fbg"),
+    ("nord", "n"),
+    ("sud", "s"),
+    ("est", "e"),
+    ("ouest", "o"),
     // Spanish, Colombian
     ("carrera", "kr"),
     ("cra", "kr"),

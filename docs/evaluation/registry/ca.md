@@ -43,6 +43,16 @@ SearchAddress and SuggestAddress try the literal house number first, preserving 
 
 This returns the building, not a verified apartment or unit coordinate. A bare `CA` qualifier is ambiguous with California and does not enable recovery; the suggestion country filter alone is not sufficient either. Spaced fractional civic numbers remain an autocomplete limitation when the building-only form itself is unsupported; synthetic checks retain that baseline failure. Forward search can recover supported fractional building forms.
 
+## Civic suffixes and street directions
+
+Overture's Canadian address rows write about 98,000 suffixed civic numbers as a float and the suffix (`55.0 A`, `29.0 1/2`); the builder stores them as `55A` and `29 1/2`, the forms NAR and Canada Post use. Plain `55` rows stay separate houses: a suffix is never stripped or substituted.
+
+French street directions fold like English ones (`Ouest`/`O`, `Est`/`E`, `Nord`/`N`, `Sud`/`S`), so `1455 Boulevard de Maisonneuve Ouest` finds Overture's `boul. De Maisonneuve O`. The folding is shared by all text, so English and French direction words of any place name now match each other (`South Province` and `Province Sud`).
+
+Two SearchAddress retries run only when the query as written finds no house. A suffix glued to a number the parser reads as part of the road (`82A AV MERCIER`) is retried spaced, and answers only with that exact number. A street direction the source omits (`31 THATCHER DR E` for Overture's `Thatcher DR`) is retried without it, and answers only with a Canadian house of the same number whose postcode equals the one stated; without a postcode in the query there is no retry.
+
+Remaining failures include suffixed buildings the sources lack (several Whitehorse ones), `Robert's RD` against a query's `ROBERTS RD`, and duplicated house numbers on same-named streets of one city.
+
 ## Corpus-introduction validation
 
 The archive contains **11,795,284 location rows and 17,362,476 address rows**. Requiring matching CSDs excludes 11,471 locations; another 1,068,910 lack usable BG coordinates, leaving a **10,714,903-location point frame**. The first-stage draw contains 26,000 locations across all thirteen provinces/territories. Of these, 4,247 have no eligible joined address and are not replaced; the normalized capture has **21,753 candidates**, **13,575,893 bytes**, SHA256 **5d02a3da1f7b796d1ef2ffe771501416d4eef638eacb84d559af6dc18e0b7910**. This is not a count of all nationally eligible addresses.

@@ -608,6 +608,23 @@ impl Core {
                 return Ok(building);
             }
         }
+        if let Some((spaced, number)) = spaced_house_suffix(query) {
+            let alt = self.resolve_written(&spaced)?;
+            if alt.good_match && same_house_number(&alt, &number) {
+                return Ok(alt);
+            }
+        }
+        if let Some((undirected, number, postcode)) = without_street_direction(query) {
+            let alt = self.resolve_written(&undirected)?;
+            if alt.good_match
+                && same_house_number(&alt, &number)
+                && alt.address_details.as_option().is_some_and(|d| {
+                    d.country_code == "ca" && d.postcode.replace(' ', "") == postcode
+                })
+            {
+                return Ok(alt);
+            }
+        }
         // A Danish supplementary place the index files differently breaks the parse of the whole
         // address; the house, road and postcode still name it. The place is unverified unless
         // the answer names it.
@@ -984,6 +1001,9 @@ impl Core {
         }
         if weak.is_none()
             && let Some(found) = self.fallbacks(query, &address, &country, &postcode)?
+            // the country the parser missed still rules out a namesake abroad
+            && (tailed.is_none()
+                || country_matches(&stated_country, found.address_details.as_option()))
         {
             return Ok(found);
         }
@@ -1613,6 +1633,13 @@ impl Core {
         }
         Ok(regions)
     }
+}
+
+fn same_house_number(found: &FullAddress, number: &str) -> bool {
+    found.address_details.as_option().is_some_and(|d| {
+        crate::index::schema::number_key(&d.house_number)
+            == crate::index::schema::number_key(number)
+    })
 }
 
 fn locality(details: Option<&AddressDetails>) -> bool {

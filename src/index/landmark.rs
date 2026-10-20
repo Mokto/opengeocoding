@@ -128,11 +128,18 @@ impl Landmarks {
                     let n = fold(n);
                     key(&n, 0);
                     // "gare du nord" finds "Paris Gare du Nord": its own and English names, from each
-                    // later word that is not a short article
+                    // later word that is not a short article (a direction, "nord" folded to "n", is
+                    // a word)
                     if k.is_empty() || k == "en" || (k != "iata" && OTHER_KEYS.contains(&k)) {
                         let mut at = 0;
                         for w in n.split(' ') {
-                            if at > 0 && (w.len() >= 3 || w.bytes().any(|b| b.is_ascii_digit())) {
+                            let word = w.len() >= 3
+                                || w.bytes().any(|b| b.is_ascii_digit())
+                                || matches!(
+                                    w,
+                                    "n" | "s" | "e" | "w" | "o" | "ne" | "nw" | "se" | "sw"
+                                );
+                            if at > 0 && word {
                                 key(&n[at..], 1);
                             }
                             at += w.len() + 1;
@@ -287,10 +294,11 @@ mod tests {
         let ids = |found: Found| found.to_vec();
         assert_eq!(*l.find("cdg", false), [1]);
         assert_eq!(*l.find("cd", true), [1]);
-        // a later word of the primary name, but not of another language's
-        assert_eq!(*l.find("gare du nord", false), [0]);
-        assert!(ids(l.find("nord", false)).contains(&0));
-        assert!(l.find("du nord", false).is_empty());
+        // a later word of the primary name, but not of another language's; `find` is given
+        // folded text, in which "nord" is "n"
+        assert_eq!(*l.find(&fold("gare du nord"), false), [0]);
+        assert!(ids(l.find(&fold("nord"), false)).contains(&0));
+        assert!(l.find(&fold("du nord"), false).is_empty());
         // the station before the museum, though the museum's name starts with the text
         assert_eq!(ids(l.find("gare", true)), [0, 3]);
         // the airport's tier first

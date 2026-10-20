@@ -403,6 +403,36 @@ fn joined_city_and_region_suggestions_keep_both_constraints() {
 }
 
 #[test]
+fn quebec_directions_and_float_civic_numbers_match_as_written() {
+    let index = index();
+    let road = street("6e Rue O");
+    for (query, number) in [
+        ("870 6e Rue Ouest, Harbour ON, Canada", "870"),
+        ("870 6e Rue O, Harbour ON, Canada", "870"),
+        ("55A 6e Rue Ouest, Harbour ON, Canada", "55.0 A"),
+    ] {
+        let found = index.suggest(query, 1, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert!(
+            metres((found[0].x, found[0].y), house(road, number)) < 2.,
+            "{query}"
+        );
+    }
+    for query in [
+        "55B 6e Rue O, Harbour ON, Canada",
+        "870 6e Rue Est, Harbour ON, Canada",
+    ] {
+        assert!(
+            !index
+                .suggest(query, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+}
+
+#[test]
 fn a_full_address_ending_in_a_country_a_region_name_contains_is_suggested() {
     // "North Denmark Region" contains "Denmark" without being named so
     for (typed, road, number) in [
@@ -1654,6 +1684,25 @@ async fn resolve_follows_the_authored_facts() {
         literal.address_details.as_option().unwrap().house_number,
         "20-24"
     );
+    for (query, number) in [
+        ("870 6e Rue Ouest, Harbour ON, QC G1A 0A3, Canada", "870"),
+        ("55A 6e Rue Ouest, Harbour ON, QC G1A 0A3, Canada", "55.0 A"),
+        (
+            "29 1/2 6e Rue O, Harbour ON, QC G1A 0A3, Canada",
+            "29.0 1/2",
+        ),
+    ] {
+        let found = resolver.resolve(query).await.unwrap();
+        assert!(found.good_match, "{query}: {found:?}");
+        let point = found.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres(
+                (point.lon as f64, point.lat as f64),
+                house(street("6e Rue O"), number)
+            ) < 2.,
+            "{query}: {found:?}"
+        );
+    }
     for query in [
         "1-999 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
         "APT-999 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
