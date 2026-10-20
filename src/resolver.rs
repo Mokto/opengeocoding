@@ -669,11 +669,13 @@ impl Core {
     /// near the answer by a number of several words; one such house or none.
     fn suggested_house(&self, query: &str, found: &FullAddress) -> Result<Option<FullAddress>> {
         use crate::index::schema::{fold, number_key, pc_norm};
-        // a town or nothing: the street is rarely the index's
+        // A town or nothing: the street is rarely the index's, unless the parse lost the number
+        // ("L5-B6 Lake Nauhan Street, Cavinti").
+        let parsed_number = PARSED_NUMBER.get();
         let stated = found
             .address_details
             .as_option()
-            .filter(|d| !d.road.is_empty() || !d.postcode.is_empty());
+            .filter(|d| !d.road.is_empty() || !d.postcode.is_empty() || !parsed_number);
         if stated.is_none() {
             return Ok(None);
         }
@@ -744,7 +746,6 @@ impl Core {
             .geo_coordinates
             .as_option()
             .map_or((0.0, 0.0), |g| (g.lat as f64, g.lon as f64));
-        let parsed_number = PARSED_NUMBER.get();
         let lookup = |around: bool| match stated {
             // A street without the house: its namesakes may hold it, those nearby too when the
             // parse lost the number.
@@ -757,8 +758,9 @@ impl Core {
                 at,
                 named,
             ),
-            // The postcode without the street: the completion lookup, which reads no parse.
-            Some(d) if !around && !d.postcode.is_empty() => self
+            // The postcode or town without the street: the completion lookup, which reads no
+            // parse.
+            Some(_) if !around => self
                 .index
                 .suggest_houses(query, cc, 5)
                 .iter()
