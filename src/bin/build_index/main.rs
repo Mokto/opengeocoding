@@ -1667,6 +1667,21 @@ fn build(args: &[String]) {
         t = Instant::now();
     };
 
+    // `--osm-landmarks` extracts are read for landmarks only: their addresses would change answers
+    // in countries whose addresses come from Overture. On a network volume the passes wait on the
+    // disk with cores idle, so the extracts are read beside them until `write` needs them, in a
+    // pool of their own: in the shared one, each extract holds a worker for its whole file and
+    // the passes starve. Where the passes keep every core busy, the two pools share them.
+    let landmark_dirs: Vec<PathBuf> = osm_dirs
+        .iter()
+        .chain(&opt("--osm-landmarks"))
+        .map(PathBuf::from)
+        .collect();
+    let landmarks = (!landmark_dirs.is_empty()).then(|| {
+        let pool = rayon::ThreadPoolBuilder::new().build().unwrap();
+        std::thread::spawn(move || pool.install(|| landmarks::read(&landmark_dirs)))
+    });
+
     progress::phase("Parse places and boundaries");
     let (mut places, idx) = load_places(&dir.join("division"));
     lap(&format!("places ({})", places.len()));
@@ -1755,15 +1770,8 @@ fn build(args: &[String]) {
             shared.rows.swap(0, Relaxed)
         ));
     }
-    // `--osm-landmarks` extracts are read for landmarks only: their addresses would change answers
-    // in countries whose addresses come from Overture.
-    let landmark_dirs: Vec<PathBuf> = osm_dirs
-        .iter()
-        .chain(&opt("--osm-landmarks"))
-        .map(PathBuf::from)
-        .collect();
-    if !landmark_dirs.is_empty() {
-        let found = landmarks::read(&landmark_dirs);
+    if let Some(reading) = landmarks {
+        let found = reading.join().unwrap();
         let (counts, placeless) = landmarks::write(Path::new(out), &found, &assigner);
         opengeocoding::index::landmark::build(Path::new(out), places.len()).unwrap();
         let counts: Vec<String> = landmarks::CATEGORIES
