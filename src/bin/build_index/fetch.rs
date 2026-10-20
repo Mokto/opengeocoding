@@ -6,7 +6,7 @@ use crate::store::{self, Store};
 use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     io::{BufRead, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     sync::Arc,
@@ -457,6 +457,58 @@ async fn geofabrik(
         return Ok(None);
     }
     let dir = scratch.join(name);
+    let file = |id: &String| format!("{}.osm.pbf", id.replace('/', "_"));
+    // Once a snapshot's mirror is sealed it is never refilled, but an extract can move between
+    // the address and landmark lists: it is then taken from the other list's mirror of the
+    // same fetch. One neither holds needs a new snapshot label.
+    let rel = |list: &str| format!("sources/{}/{list}", src.snapshot);
+    if store.exists(&format!("{}/_COMPLETE", rel(name))).await? {
+        std::fs::create_dir_all(&dir)?;
+        let mut missing: BTreeSet<String> = ids.iter().map(file).collect();
+        let wanted = missing.clone();
+        for list in [
+            name,
+            if name == "osm" {
+                "osm-landmarks"
+            } else {
+                "osm"
+            },
+        ] {
+            if missing.is_empty() || !store.exists(&format!("{}/_COMPLETE", rel(list))).await? {
+                continue;
+            }
+            let held: BTreeSet<String> = store
+                .list(&rel(list))
+                .await?
+                .into_iter()
+                .map(|(n, _)| n)
+                .filter(|n| missing.contains(n))
+                .collect();
+            if !held.is_empty() {
+                println!("{}: {} extracts from the store", rel(list), held.len());
+                store.fetch_files(&rel(list), &dir, Some(&held)).await?;
+                missing.retain(|n| !held.contains(n));
+            }
+        }
+        ensure!(
+            missing.is_empty(),
+            "snapshot {} mirrored no {}; fetching a new extract needs a new snapshot label",
+            src.snapshot,
+            missing.into_iter().collect::<Vec<_>>().join(", ")
+        );
+        // a kept scratch directory may still hold an extract that has left this list
+        for e in std::fs::read_dir(&dir)? {
+            let path = e?.path();
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default();
+            if name.ends_with(".osm.pbf") && !wanted.contains(name) {
+                std::fs::remove_file(&path)?;
+            }
+        }
+        return Ok(Some(dir));
+    }
     let ids = ids.to_vec();
     let (c, client) = (client.clone(), client.clone());
     mirror(
@@ -975,5 +1027,67 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&out).unwrap(), "hello\n");
         assert!(unzip_lines(&zip, "missing.txt", &out, |_| true).is_err());
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn an_extract_moved_between_lists_comes_from_the_other_sealed_mirror() {
+        let base = std::env::temp_dir().join(format!("geofabrik-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::open(&format!("file://{}", base.join("bucket").display())).unwrap();
+        for (list, files) in [
+            ("osm", ["chile", "peru"]),
+            ("osm-landmarks", ["japan", "france"]),
+        ] {
+            let dir = base.join("seed").join(list);
+            std::fs::create_dir_all(&dir).unwrap();
+            for f in files {
+                std::fs::write(dir.join(format!("{f}.osm.pbf")), f).unwrap();
+            }
+            store
+                .publish(&dir, &format!("sources/2026-10/{list}"))
+                .await
+                .unwrap();
+        }
+        let src: Sources =
+            serde_json::from_str(r#"{"overtureRelease": "2026-09-23.1", "snapshot": "2026-10"}"#)
+                .unwrap();
+        let (client, scratch) = (reqwest::Client::new(), base.join("scratch"));
+        std::fs::create_dir_all(scratch.join("osm")).unwrap();
+        // left over from a build when peru was still on the list
+        std::fs::write(scratch.join("osm/peru.osm.pbf"), "peru").unwrap();
+        let ids = |l: &[&str]| l.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let dir = geofabrik(
+            &store,
+            &client,
+            &src,
+            "osm",
+            &ids(&["chile", "japan"]),
+            &scratch,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let mut got: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        got.sort();
+        assert_eq!(got, ["chile.osm.pbf", "japan.osm.pbf"]);
+        assert_eq!(
+            std::fs::read_to_string(dir.join("japan.osm.pbf")).unwrap(),
+            "japan"
+        );
+        let err = geofabrik(
+            &store,
+            &client,
+            &src,
+            "osm",
+            &ids(&["chile", "mexico"]),
+            &scratch,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("mexico.osm.pbf"), "{err}");
+        std::fs::remove_dir_all(&base).unwrap();
     }
 }
