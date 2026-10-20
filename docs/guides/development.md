@@ -53,6 +53,8 @@ Country aliases use public Unicode CLDR and GeoNames data. Administrative-region
 
 To refresh it, run `cargo run --locked --bin update_reference`. This requires network access and changes the checked-in dataset; review it as a data update. Character classes come from the Unicode Character Database version pinned in the generator (currently 16.0.0), not from the toolchain.
 
+Historical memberships from official datasets (`data/historical_memberships.tsv`, provenance in `data/historical_sources.json`) are regenerated with `cargo run --locked --bin update_history -- CACHE_DIR`; see [Historical memberships](../notes/historical-memberships.md#imported-datasets-216) for the inputs, the pinning and how to import a new release.
+
 An optional build-time `REFERENCE_DATA` path can supply a custom reference JSON. Search overrides are empty by default. No private deployments, endpoints or address overrides are included.
 
 Transliteration uses BSD-3-Clause `deunicode`, **not Python Unidecode**. Outputs differ for some scripts and symbols. In a migration comparison of 7,067 geographic/sample strings, 55 normalized outputs differed, including Hebrew and Japanese forms. Matching normalizes both sides consistently, but these differences still need real-address accuracy validation before replacing another service.

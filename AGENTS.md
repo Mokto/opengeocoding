@@ -26,7 +26,7 @@ This is a standalone public Rust geolocation service. Read `README.md` before ch
 - `src/regions.rs`: the regions and region map derived from the index at startup.
 - `src/service.rs`, `src/main.rs`, `src/metrics.rs`: RPCs, process lifecycle and observability.
 - `proto/opengeocoding-v1.proto`, `build.rs`: the single wire contract and build-time generation.
-- `data/`, `src/bin/update_reference.rs`: public reference data and its generator.
+- `data/`, `src/bin/update_reference.rs`: public reference data and its generator. `src/bin/update_history.rs` generates `data/historical_memberships.tsv` and `data/historical_sources.json` (dated memberships from official datasets, read by `src/index/history.rs`); see `docs/notes/historical-memberships.md`.
 - `tests/matching.rs`, `tests/rpc.rs`: regression tests and the model-backed RPC integration test (ignored by default).
 - `src/bin/benchmark.rs`, `src/bin/notices.rs`: SearchAddress benchmark across running services and third-party notice generation.
 - `src/bin/build_index/`: experimental offline Overture-to-Tantivy index builder (polygon assignment, street merging, house-number FSTs; `sources.rs` reads OSM and OpenAddresses; `landmarks.rs` writes `landmarks.tsv` from the OSM extracts, `--osm-landmarks` ones included), plus `job`/`pull`/`hash` subcommands (`job.rs`): fetching and mirroring sources (`fetch.rs`) and publishing and pulling sealed directories in any S3-compatible store (`store.rs`). The service loads its output read-only from `INDEX_DIR`.

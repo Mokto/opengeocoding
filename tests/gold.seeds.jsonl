@@ -3271,3 +3271,6 @@
 {"kind": "landmark", "cohort": "address", "qid": "Q65257487", "queries": ["Raphoe Branch Library, The Diamond, Raphoe, Co. Donegal, F93 VR88, Ireland"], "level": "street", "radius_km": 1.0, "tags": ["wikidata-address", "ie", "house-coverage"], "good_match": null}
 {"kind": "landmark", "cohort": "address", "qid": "Q140277409", "queries": ["23 Seapoint Avenue, Blackrock, Co. Dublin, A94 H2R1, Dún Laoghaire–Rathdown, Ireland"], "level": "house", "radius_km": 1.0, "tags": ["wikidata-address", "ie", "house-coverage"], "good_match": null, "house_number": "23"}
 {"kind": "place", "cohort": "city", "qid": "Q39691881", "queries": ["Boroa, Bizkaia"], "level": "locality", "max_level": "locality", "radius_km": 1, "must_pass": true, "tags": ["neighbourhood", "region_evidence", "same_name_elsewhere"]}
+{"kind": "place", "cohort": "city", "qid": "Q13486", "queries": ["Andria, Bari, Italy"], "radius_km": 10, "tags": ["historical-membership", "it"]}
+{"kind": "place", "cohort": "city", "qid": "Q80593157", "queries": ["Asker, Viken, Norway"], "radius_km": 20, "level": "region", "tags": ["historical-membership", "no"]}
+{"kind": "place", "cohort": "city", "qid": "Q109021", "queries": ["Moss, Viken, Norway"], "radius_km": 15, "level": "region", "tags": ["historical-membership", "no"]}

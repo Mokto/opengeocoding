@@ -1,9 +1,12 @@
 use super::{Place, name_key};
 use anyhow::{Context, Result, ensure};
 use serde::Deserialize;
-use std::{collections::HashMap, time::SystemTime};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    time::SystemTime,
+};
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Identity {
     name: String,
@@ -29,6 +32,32 @@ struct Observation {
     path: Vec<Identity>,
     sources: Vec<Source>,
     review: String,
+}
+
+/// A pinned input of `data/historical_sources.json`, written by `update_history`.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Input {
+    url: String,
+    retrieved_on: String,
+    sha256: String,
+}
+
+/// One official dataset release; each of its rows in `data/historical_memberships.tsv` becomes
+/// an observation `[settlement, ancestors[code]]` whose single edge the `membership` files
+/// support. `identity` links the dataset's codes to Wikidata items.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Snapshot {
+    id: String,
+    country: String,
+    reviewed_on: String,
+    review: String,
+    license: String,
+    attribution: String,
+    membership: Vec<Input>,
+    identity: Input,
+    ancestors: BTreeMap<String, Identity>,
 }
 
 struct Binding {
@@ -77,15 +106,101 @@ fn date(text: &str) -> Result<u64> {
         + day)
 }
 
+const REVIEWED: &str = include_str!("../../data/historical_memberships.json");
+const SOURCES: &str = include_str!("../../data/historical_sources.json");
+const GENERATED: &str = include_str!("../../data/historical_memberships.tsv");
+const HEADER: &str = "snapshot\tcode\tname\twikidata\tancestor\tobserved_on";
+
+/// SHA-256 of every embedded membership file, for run manifests.
+pub fn reference_sha256() -> String {
+    crate::eval::sha256_hex([REVIEWED, SOURCES, GENERATED].concat().as_bytes())
+}
+
+/// Expands the generated rows into observations, for the same validation as reviewed ones.
+fn generated(sources: &str, rows: &str) -> Result<Vec<Observation>> {
+    let snapshots: Vec<Snapshot> =
+        serde_json::from_str(sources).context("historical membership sources")?;
+    let mut by_id = HashMap::new();
+    for snapshot in &snapshots {
+        ensure!(
+            !snapshot.membership.is_empty(),
+            "snapshot without membership evidence"
+        );
+        for input in snapshot.membership.iter().chain([&snapshot.identity]) {
+            ensure!(
+                input.sha256.len() == 64 && input.sha256.bytes().all(|b| b.is_ascii_hexdigit()),
+                "invalid input checksum"
+            );
+            date(&input.retrieved_on)?;
+        }
+        ensure!(
+            !snapshot.license.trim().is_empty() && !snapshot.attribution.trim().is_empty(),
+            "missing snapshot license"
+        );
+        ensure!(
+            by_id.insert(snapshot.id.as_str(), snapshot).is_none(),
+            "duplicate snapshot"
+        );
+    }
+    let mut lines = rows.lines();
+    ensure!(
+        lines.next() == Some(HEADER),
+        "historical membership rows header"
+    );
+    lines
+        .map(|line| {
+            let [id, code, name, item, ancestor, observed_on] = line
+                .split('\t')
+                .collect::<Vec<_>>()
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("historical membership row: {line}"))?;
+            let snapshot = by_id.get(id).context("row of an unknown snapshot")?;
+            let ancestor = snapshot
+                .ancestors
+                .get(ancestor)
+                .context("row of an unknown ancestor")?;
+            Ok(Observation {
+                id: format!("{id}/{code}/{observed_on}"),
+                country: snapshot.country.clone(),
+                observed_on: observed_on.into(),
+                reviewed_on: snapshot.reviewed_on.clone(),
+                path: vec![
+                    Identity {
+                        name: name.into(),
+                        wikidata: Some(item.into()),
+                    },
+                    ancestor.clone(),
+                ],
+                sources: snapshot
+                    .membership
+                    .iter()
+                    .map(|input| Source {
+                        url: input.url.clone(),
+                        published_on: None,
+                        retrieved_on: input.retrieved_on.clone(),
+                        supports: vec![0],
+                    })
+                    .collect(),
+                review: snapshot.review.clone(),
+            })
+        })
+        .collect()
+}
+
+#[cfg(test)]
 fn observations(text: &str) -> Result<Vec<Observation>> {
     let records: Vec<Observation> =
         serde_json::from_str(text).context("reviewed historical memberships")?;
+    validate(records)
+}
+
+fn validate(records: Vec<Observation>) -> Result<Vec<Observation>> {
     let today = 719_163
         + SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)?
             .as_secs()
             / 86_400;
-    let mut ids = std::collections::HashSet::new();
+    let mut ids = HashSet::new();
     for record in &records {
         ensure!(
             !record.id.is_empty() && ids.insert(&record.id),
@@ -109,7 +224,7 @@ fn observations(text: &str) -> Result<Vec<Observation>> {
             observed <= reviewed && reviewed <= today,
             "invalid observation/review dates"
         );
-        let mut items = std::collections::HashSet::new();
+        let mut items = HashSet::new();
         for (i, node) in record.path.iter().enumerate() {
             ensure!(
                 !node.name.trim().is_empty()
@@ -169,19 +284,27 @@ fn observations(text: &str) -> Result<Vec<Observation>> {
 
 impl History {
     pub(super) fn load(places: &[Place], lines: &[&str]) -> Result<Self> {
-        Self::bind(
-            places,
-            lines,
-            include_str!("../../data/historical_memberships.json"),
-        )
+        let started = std::time::Instant::now();
+        let mut records: Vec<Observation> =
+            serde_json::from_str(REVIEWED).context("reviewed historical memberships")?;
+        records.extend(generated(SOURCES, GENERATED)?);
+        let observations = records.len();
+        let history = Self::bind(places, lines, validate(records)?)?;
+        let bindings = history.0.values().flat_map(|m| m.values()).flatten();
+        tracing::info!(
+            observations,
+            bound = bindings.filter(|b| b.places.len() == 1).count(),
+            seconds = started.elapsed().as_secs_f64(),
+            "Historical memberships loaded"
+        );
+        Ok(history)
     }
 
-    fn bind(places: &[Place], lines: &[&str], text: &str) -> Result<Self> {
+    fn bind(places: &[Place], lines: &[&str], records: Vec<Observation>) -> Result<Self> {
         ensure!(
             places.len() == lines.len(),
             "historical identity table length"
         );
-        let records = observations(text)?;
         if records.is_empty() {
             return Ok(Self::default());
         }
@@ -194,14 +317,17 @@ impl History {
         }
         let mut candidates = vec![vec![]; records.len()];
         for (i, place) in places.iter().enumerate() {
-            if !matches!(place.subtype.as_ref(), "locality" | "localadmin") {
+            // Some countries' municipalities are counties in Overture (Norway's kommuner); only a
+            // settlement can bind by its name and parents without its own identity.
+            let settlement = matches!(place.subtype.as_ref(), "locality" | "localadmin");
+            if !settlement && place.subtype.as_ref() != "county" {
                 continue;
             }
             for key in &place.keys {
                 for &r in names.get(key).into_iter().flatten() {
                     let record = &records[r];
                     let mut at = i as u32;
-                    let mut seen = std::collections::HashSet::new();
+                    let mut seen = HashSet::new();
                     let mut matched =
                         record.path[..record.path.len() - 1]
                             .iter()
@@ -217,7 +343,7 @@ impl History {
                                 let identity = match node.wikidata.as_deref() {
                                     Some(wanted) if !item.is_empty() => item == wanted,
                                     // A missing index ID needs two reviewed, adjacent parent identities.
-                                    _ => n == 0 && record.path.len() >= 4,
+                                    _ => n == 0 && record.path.len() >= 4 && settlement,
                                 };
                                 let matched = identity
                                     && place.cc.eq_ignore_ascii_case(&record.country)
@@ -300,6 +426,10 @@ mod tests {
     use super::*;
     use crate::index::NONE;
 
+    fn bind_text(places: &[Place], lines: &[&str], text: &str) -> Result<History> {
+        History::bind(places, lines, observations(text)?)
+    }
+
     fn evidence() -> serde_json::Value {
         serde_json::json!([{
             "id": "authored-2021", "country": "FR", "observed_on": "2021-07-25", "reviewed_on": "2026-10-19",
@@ -359,7 +489,7 @@ mod tests {
     fn only_the_attested_identity_recovers_not_current_descendants_or_namesakes() {
         let (mut places, mut lines) = world();
         let bind = |places: &[Place], lines: &[String]| {
-            History::bind(
+            bind_text(
                 places,
                 &lines.iter().map(String::as_str).collect::<Vec<_>>(),
                 &evidence().to_string(),
@@ -405,7 +535,7 @@ mod tests {
         places[4].parent = 1;
         lines[4] = "Northhaven\t".into();
         let refs: Vec<_> = lines.iter().map(String::as_str).collect();
-        let ambiguous = History::bind(&places, &refs, &evidence().to_string()).unwrap();
+        let ambiguous = bind_text(&places, &refs, &evidence().to_string()).unwrap();
         for town in ["Northhaven", "Nordhaven"] {
             assert_eq!(ambiguous.find(&places, town, "Former Coast", "fr"), None);
         }
@@ -440,7 +570,7 @@ mod tests {
         ]);
         data[0]["sources"][0]["supports"] = serde_json::json!([0]);
         let refs: Vec<_> = lines.iter().map(String::as_str).collect();
-        let history = History::bind(&places, &refs, &data.to_string()).unwrap();
+        let history = bind_text(&places, &refs, &data.to_string()).unwrap();
         assert_eq!(
             history.find(&places, "Northhaven", "Former Coast", "us"),
             Some(6)
@@ -449,13 +579,13 @@ mod tests {
             history.find(&places, "Northhaven", "Former Coast", "fr"),
             None
         );
-        let empty = History::bind(&places, &refs, "[]").unwrap();
+        let empty = bind_text(&places, &refs, "[]").unwrap();
         assert_eq!(
             empty.find(&places, "Northhaven", "Former Coast", "us"),
             None
         );
         places[6].parent = 1;
-        let conflict = History::bind(&places, &refs, &data.to_string()).unwrap();
+        let conflict = bind_text(&places, &refs, &data.to_string()).unwrap();
         assert_eq!(
             conflict.find(&places, "Northhaven", "Former Coast", "us"),
             None
@@ -491,6 +621,101 @@ mod tests {
             let mut data = evidence();
             *data.pointer_mut(pointer).unwrap() = value;
             assert!(observations(&data.to_string()).is_err(), "{pointer}");
+        }
+    }
+
+    fn snapshot() -> serde_json::Value {
+        serde_json::json!([{
+            "id": "authored-2019", "country": "FR", "reviewed_on": "2026-10-19",
+            "review": "Authored dataset release.", "license": "CC0-1.0", "attribution": "Authored.",
+            "membership": [{"url": "https://example.org/register-2019.csv", "retrieved_on": "2026-10-19", "sha256": "0".repeat(64)}],
+            "identity": {"url": "https://example.org/identity.json", "retrieved_on": "2026-10-19", "sha256": "1".repeat(64)},
+            "ancestors": {"9": {"name": "Former Coast", "wikidata": "Q990000004"}}
+        }])
+    }
+
+    const ROWS: &str = "snapshot\tcode\tname\twikidata\tancestor\tobserved_on\n\
+        authored-2019\t1\tGreen District\tQ990000002\t9\t2019-12-31\n";
+
+    #[test]
+    fn a_dataset_row_is_an_observation_of_one_identified_settlement_or_municipality() {
+        let mut embedded: Vec<Observation> = serde_json::from_str(REVIEWED).unwrap();
+        embedded.extend(generated(SOURCES, GENERATED).unwrap());
+        assert!(validate(embedded).is_ok());
+
+        let (mut places, mut lines) = world();
+        let bind = |places: &[Place], lines: &[String]| {
+            let refs: Vec<_> = lines.iter().map(String::as_str).collect();
+            let rows = generated(&snapshot().to_string(), ROWS).unwrap();
+            assert_eq!(rows[0].id, "authored-2019/1/2019-12-31");
+            History::bind(places, &refs, validate(rows).unwrap()).unwrap()
+        };
+        assert_eq!(
+            bind(&places, &lines).find(&places, "Green District", "Former Coast", "fr"),
+            Some(1)
+        );
+        // Norway's municipalities are counties in the index.
+        places[1].subtype = "county".into();
+        assert_eq!(
+            bind(&places, &lines).find(&places, "Green District", "Former Coast", "fr"),
+            Some(1)
+        );
+        lines[1] = "Green District\tQ990000099".into();
+        assert_eq!(
+            bind(&places, &lines).find(&places, "Green District", "Former Coast", "fr"),
+            None
+        );
+        // A county cannot bind by its name and parents alone, as an unlinked settlement can.
+        places[0].subtype = "county".into();
+        let refs: Vec<_> = lines.iter().map(String::as_str).collect();
+        assert_eq!(
+            bind_text(&places, &refs, &evidence().to_string())
+                .unwrap()
+                .find(&places, "Northhaven", "Former Coast", "fr"),
+            None
+        );
+
+        let header = ROWS.lines().next().unwrap();
+        for (rows, pointer, value) in [
+            (
+                ROWS.replacen("snapshot", "dataset", 1),
+                "/0/id",
+                "authored-2019",
+            ),
+            (
+                format!("{header}\nauthored-2019\t1\tGreen District\tQ990000002\t8\t2019-12-31\n"),
+                "/0/id",
+                "authored-2019",
+            ),
+            (
+                format!("{header}\nother\t1\tGreen District\tQ990000002\t9\t2019-12-31\n"),
+                "/0/id",
+                "authored-2019",
+            ),
+            (
+                format!("{header}\nauthored-2019\t1\tGreen District\tQ990000002\t9\n"),
+                "/0/id",
+                "authored-2019",
+            ),
+            (ROWS.into(), "/0/identity/sha256", "not a checksum"),
+            (ROWS.into(), "/0/license", " "),
+        ] {
+            let mut sources = snapshot();
+            *sources.pointer_mut(pointer).unwrap() = value.into();
+            assert!(
+                generated(&sources.to_string(), &rows).is_err(),
+                "{rows} {pointer}"
+            );
+        }
+        for (pointer, value) in [
+            ("/0/reviewed_on", "2019-12-30"),
+            ("/0/membership/0/retrieved_on", "2026-10-20"),
+            ("/0/ancestors/9/wikidata", "Q990000002"),
+        ] {
+            let mut sources = snapshot();
+            *sources.pointer_mut(pointer).unwrap() = value.into();
+            let rows = generated(&sources.to_string(), ROWS).unwrap();
+            assert!(validate(rows).is_err(), "{pointer}");
         }
     }
 }
