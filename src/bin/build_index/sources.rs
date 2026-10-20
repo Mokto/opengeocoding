@@ -322,7 +322,7 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
                             p.street.as_deref(),
                             numbers.as_deref(),
                             postcode.as_deref(),
-                            city,
+                            city.as_slice(),
                         );
                     }
                 },
@@ -484,7 +484,7 @@ impl<'a> Addr<'a> {
             self.street,
             self.number,
             self.postcode,
-            self.city.map(|name| (name, "addr:city")),
+            self.city.map(|name| (name, "addr:city")).as_slice(),
         );
     }
 }
@@ -950,7 +950,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                         .map(|k| &ended[k].1)
                 };
                 for (x, y, street, number, postcode) in i.expand(&line, end) {
-                    sink.add(None, x, y, Some(street), Some(&number), postcode, None);
+                    sink.add(None, x, y, Some(street), Some(&number), postcode, &[]);
                 }
             },
         );
@@ -987,7 +987,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                     a.street.as_deref(),
                     a.number.as_deref().filter(|_| precise),
                     a.postcode.as_deref(),
-                    a.city.as_deref().map(|name| (name, "addr:city")),
+                    a.city.as_deref().map(|name| (name, "addr:city")).as_slice(),
                 );
             },
         );

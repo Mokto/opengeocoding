@@ -1343,6 +1343,26 @@ impl Index {
         }
     }
 
+    /// A street or house suggestion whose street holds no postcode.
+    fn without_postcodes(&self, s: &Suggestion) -> bool {
+        use tantivy::schema::Value as _;
+        let Some((segment, doc)) = s
+            .retrieval_id
+            .split_once('/')
+            .and_then(|(_, key)| key.get(1..)?.split(':').next().zip(key.split(':').nth(1)))
+            .and_then(|(segment, doc)| Some((segment.parse().ok()?, doc.parse().ok()?)))
+        else {
+            return false;
+        };
+        self.searcher
+            .doc::<tantivy::TantivyDocument>(tantivy::DocAddress::new(segment, doc))
+            .is_ok_and(|doc| {
+                doc.get_first(self.f.pcode)
+                    .and_then(|v| v.as_str())
+                    .is_none()
+            })
+    }
+
     fn postcode_suggestion(&self, a: tantivy::DocAddress) -> Option<Suggestion> {
         let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
         let place = self.fast(a, "place") as u32;
@@ -1739,13 +1759,25 @@ impl Index {
                     )
                 };
                 // a suburb the houses' addresses name but their places do not ("2 Clara St,
-                // Randwick" is filed under Sydney), with nothing else after it but the country.
+                // Randwick" is filed under Sydney), with nothing else after it but the country,
+                // or the town around it ("22 Brackenburn Drive, Ohauiti, Tauranga, New Zealand").
                 // A region code written after it ("Kingsford QLD") holds the houses to that region.
+                let town = match parts.as_slice() {
+                    [town] => Some(town.clone()),
+                    [town, _] if country.is_some() => Some(town.clone()),
+                    // both named by the houses, not a floor or door ("rådhuspladsen 1, 4.,
+                    // københavn, denmark")
+                    [suburb, town, _]
+                        if country.is_some() && ![suburb, town].iter().any(|p| has_digit(p)) =>
+                    {
+                        Some(format!("{suburb} {town}"))
+                    }
+                    _ => None,
+                };
                 if number_word.is_some()
                     && !found.iter().any(|s| s.kind == "address")
-                    && (parts.len() == 1 || (parts.len() == 2 && country.is_some()))
-                    && let Some(town) = parts
-                        .first()
+                    && let Some(town) = town
+                        .as_ref()
                         .filter(|p| country.is_none() || self.country(p) != country)
                 {
                     let coded = town.rsplit_once(' ').and_then(|(name, code)| {
@@ -1781,6 +1813,53 @@ impl Index {
             if !found.is_empty() {
                 out = found;
                 break;
+            }
+        }
+        // "4 Church Street, Amberley, 7410, New Zealand": the town places a house on a street
+        // whose source gives it no postcode to contradict (New Zealand's register), or with no
+        // town, the postcode's own
+        if !out.iter().any(|s| s.kind == "address")
+            && raw.iter().any(|w| has_digit(w))
+            && let Some((pc, rest)) = &extracted
+        {
+            let rest = Typed::new(rest).parts;
+            let town = if rest
+                .iter()
+                .any(|p| country.is_none() || self.country(p) != country)
+            {
+                Some(None)
+            } else {
+                self.postcodes(pc, cc)
+                    .into_iter()
+                    .find_map(|hit| match hit {
+                        Hit::Postcode { place, .. } if place != NONE => {
+                            Some(Some(self.places[place as usize].primary.to_string()))
+                        }
+                        _ => None,
+                    })
+            };
+            if let Some(town) = town {
+                let parts = [typed.parts[0].clone()]
+                    .into_iter()
+                    .chain(town)
+                    .chain(rest)
+                    .collect();
+                let found: Vec<_> = self
+                    .suggest_streets(
+                        &Typed {
+                            parts,
+                            open: typed.open,
+                        },
+                        cc,
+                        focus,
+                        want,
+                    )
+                    .into_iter()
+                    .filter(|s| s.kind == "address" && self.without_postcodes(s))
+                    .collect();
+                if !found.is_empty() {
+                    return found;
+                }
             }
         }
         if !out.iter().any(|s| s.kind == "address") && raw.len() > 2 {

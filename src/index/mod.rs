@@ -1056,8 +1056,11 @@ fn postal_town(
     let number = schema::number_key(number);
     let mut town: Option<String> = None;
     for value in doc.get_all(field) {
-        let (pc, house, name, _source): (&str, &str, &str, &str) =
+        let (pc, house, name, source): (&str, &str, &str, &str) =
             serde_json::from_str(value.as_str()?).ok()?;
+        if source == schema::TOWN_CITY {
+            continue;
+        }
         if if pc.is_empty() {
             house != number
         } else {
@@ -1288,11 +1291,11 @@ pub fn street_aligned(
 
 fn nz_localities_aligned(
     head: &[(String, String)],
-    suburb: &str,
+    suburb: Option<&str>,
     city: &str,
     whole: &[(String, String)],
 ) -> Option<Vec<(String, String)>> {
-    let suburb = suburb.trim().to_lowercase();
+    let suburb = suburb.map(|s| s.trim().to_lowercase());
     let city = city.trim().to_lowercase();
     if !head_aligns(head)
         || !one_house(head)
@@ -1304,14 +1307,16 @@ fn nz_localities_aligned(
                 "house_number" | "road" | "unit" | "city" | "suburb" | "city_district" | "house"
             )
         })
-        || [&suburb, &city]
+        || suburb
             .iter()
+            .chain([&city])
             .any(|s| !s.chars().any(char::is_alphabetic) || s.chars().any(|c| c.is_ascii_digit()))
     {
         return None;
     }
     let mut parsed = head.to_vec();
-    parsed.extend([("suburb".into(), suburb), ("city".into(), city)]);
+    parsed.extend(suburb.map(|s| ("suburb".into(), s)));
+    parsed.push(("city".into(), city));
     Some(parsed)
 }
 
@@ -1475,6 +1480,26 @@ fn japanese_head(head: &str) -> Option<Vec<(String, String)>> {
         ("road".into(), c["name"].to_lowercase()),
         ("house_number".into(), c["number"].to_lowercase()),
     ])
+}
+
+/// "Church Street 4, Amberley": a number written after a road that ends in its type, which
+/// libpostal can leave in the road ("church street 4") or read beside a second road. The address
+/// with the number first, and the number.
+pub(crate) fn number_last(q: &str) -> Option<(String, String)> {
+    let (head, rest) = q.split_once(',')?;
+    let (road, number) = head.trim().rsplit_once(char::is_whitespace)?;
+    let road = road.trim();
+    let typed = road.rsplit(char::is_whitespace).next().is_some_and(|w| {
+        let f = fold(w);
+        canon::canon(&f).is_some() || canon::is_canonical(&f)
+    });
+    (typed
+        && road.starts_with(char::is_alphabetic)
+        && number.starts_with(|c: char| c.is_ascii_digit())
+        && number
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '-')))
+    .then(|| (format!("{number} {road},{rest}"), number.to_string()))
 }
 
 fn one_house(parsed: &[(String, String)]) -> bool {
@@ -1963,10 +1988,14 @@ impl Index {
         self.places.len()
     }
 
+    /// "number road, [suburb,] town, New Zealand": the house on that road the suburb and town
+    /// place, where libpostal reads the road or a town across the commas.
     fn nz_comma_house(&self, q: &str, whole: &[(String, String)]) -> Result<Option<(Parsed, Hit)>> {
         let parts: Vec<_> = q.split(',').map(str::trim).collect();
-        let [head, suburb, city, country] = parts.as_slice() else {
-            return Ok(None);
+        let (head, suburb, city, country) = match parts.as_slice() {
+            [head, suburb, city, country] => (*head, Some(*suburb), *city, *country),
+            [head, city, country] => (*head, None, *city, *country),
+            _ => return Ok(None),
         };
         if self.country(country).as_deref() != Some("nz")
             || whole
@@ -1988,21 +2017,47 @@ impl Index {
         };
         let road = field(&parsed, "road");
         let number = field(&parsed, "house_number");
+        // a town alone only repairs a road or town read across the comma
+        if suburb.is_none()
+            && field(&inner, "road") == road
+            && field(&inner, "city") == field(&parsed, "city")
+        {
+            return Ok(None);
+        }
+        let postal = |hit: &Hit, name: &str| {
+            matches!(hit, Hit::Street { postal_town: Some(town), .. }
+                if crate::matching::names_agree(name, town))
+        };
+        let in_town = |hit: &Hit| {
+            self.house_locality_named(hit, city)
+                || self.house_town_named(hit, city)
+                || (suburb.is_none() && postal(hit, city))
+        };
         let mut hit = self
-            .streets(road, Some(number), Some(suburb), None, Some("nz"), true)
+            .streets(
+                road,
+                Some(number),
+                Some(suburb.unwrap_or(city)),
+                None,
+                Some("nz"),
+                true,
+            )
             .into_iter()
             .find(|hit| {
-                matches!(hit, Hit::Street { name, number: Some(n), postal_town, .. }
+                matches!(hit, Hit::Street { name, number: Some(n), .. }
                 if fold(name) == fold(road)
                     && schema::number_key(n) == schema::number_key(number)
-                    && self.house_locality_named(hit, city)
-                    && (self.house_locality_named(hit, suburb)
-                        || postal_town.as_deref().is_some_and(|town| {
-                            crate::matching::names_agree(suburb, town)
-                        })))
+                    && in_town(hit)
+                    && suburb.is_none_or(|suburb| {
+                        self.house_locality_named(hit, suburb) || postal(hit, suburb)
+                    }))
             });
-        if let Some(Hit::Street { city, .. }) = &mut hit {
-            *city = None;
+        // the town only the house's source names is its postal city, as streets_by names it
+        let postal_city = hit.as_ref().is_some_and(|hit| {
+            !self.house_locality_named(hit, city) && self.house_town_named(hit, city)
+        });
+        if let Some(Hit::Street { city: found, .. }) = &mut hit {
+            *found = postal_city.then(|| title(city));
         }
         parsed.push(("country".into(), country.to_lowercase()));
         Ok(hit.map(|hit| (parsed.into(), hit)))
@@ -4353,6 +4408,33 @@ impl Index {
         ) && self.street_locality_named(hit, name)
     }
 
+    /// The house's source names its town so (New Zealand's town_city, around its locality).
+    fn house_town_named(&self, hit: &Hit, name: &str) -> bool {
+        use tantivy::schema::Value as _;
+        let Hit::Street {
+            doc,
+            number: Some(number),
+            ..
+        } = hit
+        else {
+            return false;
+        };
+        let Ok(doc) = self.searcher.doc::<tantivy::TantivyDocument>(*doc) else {
+            return false;
+        };
+        let number = schema::number_key(number);
+        doc.get_all(self.f.postal_town).any(|value| {
+            value
+                .as_str()
+                .and_then(|v| serde_json::from_str::<(&str, &str, &str, &str)>(v).ok())
+                .is_some_and(|(_, house, town, source)| {
+                    source == schema::TOWN_CITY
+                        && house == number
+                        && crate::matching::names_agree(name, town)
+                })
+        })
+    }
+
     /// A town or municipality above the street is named so.
     pub(crate) fn street_locality_named(&self, hit: &Hit, name: &str) -> bool {
         let Hit::Street { place, .. } = hit else {
@@ -4929,13 +5011,14 @@ mod tests {
                 ("road", "orchard road kōwhai bay"),
                 ("city", "harbourton"),
             ]);
-            let aligned = nz_localities_aligned(&head, "Kōwhai Bay", "Harbourton", &whole).unwrap();
+            let aligned =
+                nz_localities_aligned(&head, Some("Kōwhai Bay"), "Harbourton", &whole).unwrap();
             assert_eq!(field(&aligned, "house_number"), number);
             assert_eq!(field(&aligned, "road"), "orchard road");
             assert_eq!(field(&aligned, "suburb"), "kōwhai bay");
             assert_eq!(field(&aligned, "city"), "harbourton");
             assert_eq!(
-                nz_localities_aligned(&head, "Kōwhai Bay", "Harbourton", &aligned).unwrap(),
+                nz_localities_aligned(&head, Some("Kōwhai Bay"), "Harbourton", &aligned).unwrap(),
                 aligned
             );
             for key in [
@@ -4949,14 +5032,17 @@ mod tests {
                 let mut guarded = whole.clone();
                 guarded.push((key.into(), "other".into()));
                 assert!(
-                    nz_localities_aligned(&head, "Kōwhai Bay", "Harbourton", &guarded).is_none()
+                    nz_localities_aligned(&head, Some("Kōwhai Bay"), "Harbourton", &guarded)
+                        .is_none()
                 );
             }
             for (suburb, city) in [("", "Harbourton"), ("Kōwhai Bay", "Harbourton 1234")] {
-                assert!(nz_localities_aligned(&head, suburb, city, &whole).is_none());
+                assert!(nz_localities_aligned(&head, Some(suburb), city, &whole).is_none());
             }
             let changed = pairs(&[("house_number", "999"), ("road", "orchard road")]);
-            assert!(nz_localities_aligned(&changed, "Kōwhai Bay", "Harbourton", &whole).is_none());
+            assert!(
+                nz_localities_aligned(&changed, Some("Kōwhai Bay"), "Harbourton", &whole).is_none()
+            );
         }
         let head = pairs(&[
             ("unit", "2"),
@@ -4965,10 +5051,47 @@ mod tests {
         ]);
         let mut whole = head.clone();
         whole.push(("city".into(), "kōwhai bay harbourton".into()));
-        let aligned = nz_localities_aligned(&head, "Kōwhai Bay", "Harbourton", &whole).unwrap();
+        let aligned =
+            nz_localities_aligned(&head, Some("Kōwhai Bay"), "Harbourton", &whole).unwrap();
         assert_eq!(field(&aligned, "unit"), "2");
         whole[0].1 = "3".into();
-        assert!(nz_localities_aligned(&head, "Kōwhai Bay", "Harbourton", &whole).is_none());
+        assert!(nz_localities_aligned(&head, Some("Kōwhai Bay"), "Harbourton", &whole).is_none());
+    }
+
+    #[test]
+    fn a_number_after_a_typed_road_is_turned_first() {
+        for (q, turned, number) in [
+            (
+                "Church Street 4, Amberley, 7410, New Zealand",
+                "4 Church Street, Amberley, 7410, New Zealand",
+                "4",
+            ),
+            (
+                "Guppy Road 8/233, Taradale, Napier, New Zealand",
+                "8/233 Guppy Road, Taradale, Napier, New Zealand",
+                "8/233",
+            ),
+            (
+                "York Street 15E, Rotorua",
+                "15E York Street, Rotorua",
+                "15E",
+            ),
+        ] {
+            assert_eq!(
+                number_last(q),
+                Some((turned.to_string(), number.to_string())),
+                "{q}"
+            );
+        }
+        // a road without its type, a number already first, no number, no place after it
+        for q in [
+            "Calle Centenario 505, Calvillo, Mexico",
+            "4 Church Street, Amberley",
+            "Church Street, Amberley",
+            "Church Street 4",
+        ] {
+            assert_eq!(number_last(q), None, "{q}");
+        }
     }
 
     #[test]

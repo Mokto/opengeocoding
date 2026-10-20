@@ -126,6 +126,10 @@ pub struct Fields {
     pub postal_town: Field,
 }
 
+/// The source of a `postal_town` entry naming the town around the house's postal locality (New
+/// Zealand's town_city), not the locality itself.
+pub const TOWN_CITY: &str = "town_city";
+
 pub fn schema() -> (Schema, Fields) {
     let mut b = Schema::builder();
     let folded = || {

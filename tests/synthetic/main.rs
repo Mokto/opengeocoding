@@ -1694,6 +1694,30 @@ fn source_unit_columns_keep_each_units_point_and_the_building_key() {
 }
 
 #[test]
+fn a_town_only_the_houses_register_names_places_them() {
+    let (road, town) = world::TOWN_CITY_ROAD;
+    for query in [
+        format!("5 {road}, {town}, New Zealand"),
+        format!("5 {road}, Fernleigh, {town}, New Zealand"),
+        format!("{road} 5, Fernleigh, {town}, New Zealand"),
+    ] {
+        let found = index().suggest(&query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert!(
+            metres((found[0].x, found[0].y), house(street(road), "5")) < 5.,
+            "{query}"
+        );
+    }
+    for query in [
+        format!("6 {road}, {town}, New Zealand"),
+        format!("5 {road}, Westbay, New Zealand"),
+    ] {
+        let found = index().suggest(&query, 5, None, None, false);
+        assert!(found.iter().all(|s| s.kind != "address"), "{query}");
+    }
+}
+
+#[test]
 fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
     for (number, postcode, town) in [
         ("31", "ZZ1 1AA", Some("Posthaven")),
@@ -2027,6 +2051,44 @@ async fn resolve_follows_the_authored_facts() {
         metres((point.lon as f64, point.lat as f64), (170.15, -40.0)) < 5.,
         "{found:?}"
     );
+    // a town only the register names, the suburb before it, and a number after the road
+    let (road, town) = world::TOWN_CITY_ROAD;
+    for (number, query) in [
+        ("5", format!("5 {road}, {town}, New Zealand")),
+        ("7b", format!("7B {road}, Fernleigh, {town}, New Zealand")),
+        ("5", format!("{road} 5, Fernleigh, {town}, New Zealand")),
+        ("5", format!("{road} 5, {town}, New Zealand")),
+        ("5a", "Orchard Road 5a, Harbourton, New Zealand".to_string()),
+    ] {
+        let found = resolver.resolve(&query).await.unwrap();
+        assert!(found.good_match, "{query}: {found:?}");
+        let details = found.address_details.as_option().unwrap();
+        assert_eq!(details.house_number, number, "{query}: {found:?}");
+        let road = if query.contains(road) {
+            road
+        } else {
+            "Orchard Road"
+        };
+        let point = found.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres(
+                (point.lon as f64, point.lat as f64),
+                house(street(road), number)
+            ) < 5.,
+            "{query}: {found:?}"
+        );
+    }
+    for query in [
+        format!("6 {road}, {town}, New Zealand"),
+        format!("5 {road}, Westbay, New Zealand"),
+        format!("5 {road}, Kōwhai Bay, {town}, New Zealand"),
+        format!("5 {road}, Fernleigh, Westbay, New Zealand"),
+        format!("{road} 5, Kōwhai Bay, {town}, New Zealand"),
+        format!("{road} 6, Fernleigh, {town}, New Zealand"),
+    ] {
+        let found = resolver.resolve(&query).await.unwrap();
+        assert!(!found.good_match, "{query}: {found:?}");
+    }
     for query in [
         "99 Orchard Road, Kōwhai Bay, Harbourton, New Zealand",
         "3/19 Orchard Road, Kōwhai Bay, Harbourton, New Zealand",
