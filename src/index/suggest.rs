@@ -1593,13 +1593,14 @@ impl Index {
             .flatten();
         // a stated France also means the places of its overseas departments, which have codes of
         // their own (their streets are France's)
-        let place_cc = cc.filter(|c| {
-            stated
-                || !self
-                    .country_codes
-                    .keys()
-                    .any(|t| super::sovereign(&t.to_lowercase()) == Some(c))
+        static SOVEREIGNS: LazyLock<std::collections::HashSet<&str>> = LazyLock::new(|| {
+            let letters = || b'a'..=b'z';
+            letters()
+                .flat_map(|a| letters().map(move |b| String::from_utf8(vec![a, b]).unwrap()))
+                .filter_map(|t| super::sovereign(&t))
+                .collect()
         });
+        let place_cc = cc.filter(|c| stated || !SOVEREIGNS.contains(c.to_lowercase().as_str()));
         let parts = extracted
             .as_ref()
             .map(|(_, rest)| Typed::new(rest).parts)
@@ -1740,19 +1741,22 @@ impl Index {
                         Some((name, region)) => (*name, Some(&region[..])),
                         None => (town.as_str(), None),
                     };
-                    let by_town = self.streets_typed(
-                        &road_words,
-                        false,
-                        region,
-                        number_word,
-                        false,
-                        cc,
-                        postcode,
-                        Some((town, typed.open && parts.len() == 1)),
-                        want,
-                    );
-                    if by_town.iter().any(|s| s.kind == "address") {
-                        found = by_town;
+                    // with a postcode, the town alone was looked for already
+                    if postcode.is_none() || region.is_some() {
+                        let by_town = self.streets_typed(
+                            &road_words,
+                            false,
+                            region,
+                            number_word,
+                            false,
+                            cc,
+                            postcode,
+                            Some((town, typed.open && parts.len() == 1)),
+                            want,
+                        );
+                        if by_town.iter().any(|s| s.kind == "address") {
+                            found = by_town;
+                        }
                     }
                 }
                 found
