@@ -601,7 +601,7 @@ impl Checker {
         }
     }
 
-    async fn transport(&self, cases: &[&Case], port: Option<u16>) -> Value {
+    async fn transport(&self, cases: &[&Case], grpcurl: tokio::task::JoinHandle<Value>) -> Value {
         let mut mismatches = vec![];
         let checked = cases.iter().take(5).collect::<Vec<_>>();
         for case in &checked {
@@ -640,40 +640,43 @@ impl Checker {
         let regions_ok = rpc_json(&self.client, &self.base, "ListRegions", &json!({}))
             .await
             .is_ok_and(|body| body["regions"].as_array().is_some_and(|r| !r.is_empty()));
-        let grpcurl = match (port, which("grpcurl")) {
-            (Some(port), true) => {
-                let output = tokio::time::timeout(
-                    Duration::from_secs(20),
-                    Command::new("grpcurl")
-                        .args([
-                            "-plaintext",
-                            "-max-time",
-                            "10",
-                            "-d",
-                            r#"{"addressString":"Copenhagen, Denmark"}"#,
-                        ])
-                        .arg(format!("127.0.0.1:{port}"))
-                        .arg(format!("{SERVICE}/SearchAddress"))
-                        .kill_on_drop(true)
-                        .output(),
-                )
-                .await;
-                let passed = matches!(output, Ok(Ok(ref o)) if o.status.success()
-                    && serde_json::from_slice::<Value>(&o.stdout)
-                        .is_ok_and(|v| v["addressDetails"]["countryCode"] == "dk"));
-                // Known failure (README): grpcurl's unary call hangs. Reported, never skipped or retried.
-                json!({ "ok": passed, "known_failure": true })
-            }
-            _ => {
-                json!({ "ok": null, "known_failure": true, "note": "not run: grpcurl unavailable or external service" })
-            }
-        };
+        let grpcurl = grpcurl.await.unwrap_or_else(
+            |error| json!({ "ok": false, "known_failure": true, "error": error.to_string() }),
+        );
         json!({
             "connect_proto_matches_json": { "ok": mismatches.is_empty(), "checked": checked.len(), "mismatches": mismatches },
             "list_regions": { "ok": regions_ok },
             "grpcurl_search_address": grpcurl,
         })
     }
+}
+
+/// Known failure (README): grpcurl's unary call hangs past its own `-max-time`. The hang holds only
+/// its own connection, so the probe runs alongside the cases. Reported, never skipped or retried.
+async fn grpcurl(port: Option<u16>) -> Value {
+    let Some(port) = port.filter(|_| which("grpcurl")) else {
+        return json!({ "ok": null, "known_failure": true, "note": "not run: grpcurl unavailable or external service" });
+    };
+    let output = tokio::time::timeout(
+        Duration::from_secs(11),
+        Command::new("grpcurl")
+            .args([
+                "-plaintext",
+                "-max-time",
+                "10",
+                "-d",
+                r#"{"addressString":"Copenhagen, Denmark"}"#,
+            ])
+            .arg(format!("127.0.0.1:{port}"))
+            .arg(format!("{SERVICE}/SearchAddress"))
+            .kill_on_drop(true)
+            .output(),
+    )
+    .await;
+    let passed = matches!(output, Ok(Ok(ref o)) if o.status.success()
+        && serde_json::from_slice::<Value>(&o.stdout)
+            .is_ok_and(|v| v["addressDetails"]["countryCode"] == "dk"));
+    json!({ "ok": passed, "known_failure": true })
 }
 
 /// Serializes through text like the service does: `to_value` would widen float32 fields
@@ -965,6 +968,12 @@ pub async fn run(options: Options) -> Result<i32> {
         "budget": options.budget,
         "evaluator": env!("CARGO_PKG_VERSION"),
     });
+    // The evaluator's own copy loads while the service loads its.
+    let direct = index_dir.clone().filter(|_| options.direct).map(|dir| {
+        tokio::task::spawn_blocking(move || {
+            Index::open(&dir, std::sync::Arc::new(Parser::setup()?))
+        })
+    });
     let mut local = Local::default();
     let started = async {
         if let Some(rpc) = &options.rpc {
@@ -998,17 +1007,10 @@ pub async fn run(options: Options) -> Result<i32> {
     .await;
     let outcome = match started {
         Ok(base) => {
-            let index = match &index_dir {
-                Some(dir) if options.direct => {
-                    let dir = dir.clone();
-                    Some(
-                        tokio::task::spawn_blocking(move || {
-                            Index::open(&dir, std::sync::Arc::new(Parser::setup()?))
-                        })
-                        .await??,
-                    )
-                }
-                _ => None,
+            let grpcurl = tokio::spawn(grpcurl(local.port));
+            let index = match direct {
+                Some(task) => Some(task.await??),
+                None => None,
             };
             let checker = std::sync::Arc::new(Checker {
                 client: client.clone(),
@@ -1028,7 +1030,7 @@ pub async fn run(options: Options) -> Result<i32> {
                 &results_path,
                 &options,
                 &mut manifest,
-                local.port,
+                grpcurl,
             )
             .await
         }
@@ -1085,7 +1087,7 @@ async fn run_cases(
     results_path: &Path,
     options: &Options,
     manifest: &mut Value,
-    port: Option<u16>,
+    grpcurl: tokio::task::JoinHandle<Value>,
 ) -> Result<()> {
     let write = |manifest: &Value| {
         std::fs::write(
@@ -1153,7 +1155,7 @@ async fn run_cases(
             .filter(|c| c.must_pass && c.expect.as_ref().is_some_and(|e| e.error.is_none()))
             .collect();
         manifest["transport"] = checker
-            .transport(if gating.is_empty() { cases } else { &gating }, port)
+            .transport(if gating.is_empty() { cases } else { &gating }, grpcurl)
             .await;
     }
     manifest["finished_at"] = json!(utc_now());
