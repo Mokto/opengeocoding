@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.17.1](https://github.com/Mokto/opengeocoding/compare/v0.17.0...v0.17.1) (2026-10-20)
+
+
+### Bug Fixes
+
+* answer Canadian suffixed civic numbers and French street directions ([#230](https://github.com/Mokto/opengeocoding/issues/230)) ([a0da3e0](https://github.com/Mokto/opengeocoding/commit/a0da3e07327673e05f8d55a1604fc6a72c1d2ab1))
+* index Japan's OpenStreetMap addresses ([#228](https://github.com/Mokto/opengeocoding/issues/228)) ([8d50bdd](https://github.com/Mokto/opengeocoding/commit/8d50bdd82c78052a03b6291097d57320c3b70ae2))
+* read a Japanese town or road and its number in either order ([#229](https://github.com/Mokto/opengeocoding/issues/229)) ([8efeafa](https://github.com/Mokto/opengeocoding/commit/8efeafa1ac5226416148aff821ad2db84b887947))
+* resolve and suggest Portuguese addresses as they are usually written ([#231](https://github.com/Mokto/opengeocoding/issues/231)) ([43cc3e8](https://github.com/Mokto/opengeocoding/commit/43cc3e8914ef736e5bed48c0253fbf176ff64548))
+* resolve AU streets written before their number to the right street ([#223](https://github.com/Mokto/opengeocoding/issues/223)) ([00818d1](https://github.com/Mokto/opengeocoding/commit/00818d198f9627e6e0fd55da0bedbadde1cae0dd))
+
 ## [0.17.0](https://github.com/Mokto/opengeocoding/compare/v0.16.0...v0.17.0) (2026-10-20)
 
 
