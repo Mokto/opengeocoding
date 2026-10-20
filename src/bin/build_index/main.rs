@@ -1056,17 +1056,23 @@ impl<'s, 'a> Sink<'s, 'a> {
         if !a.within(x, y) {
             return;
         }
-        let mut place = None;
-        let c = match cc {
-            Some(c) => c,
-            None => {
-                let p = a.place(x, y);
-                place = Some(p);
-                match p {
-                    Some(p) => self.shared.countries[p as usize],
-                    None => return,
+        let (mut x, mut y) = (x, y);
+        let (c, place) = match cc {
+            Some(c) => {
+                let mut place = a.place_in(x, y, Some(c));
+                // Some exports write [lat, lon] where GeoJSON wants [lon, lat] (OpenAddresses'
+                // Spanish cadastre layers): a point only its own country holds once turned.
+                if place.is_none()
+                    && let Some(q) = a.place_in(y, x, Some(c))
+                {
+                    (x, y, place) = (y, x, Some(q));
                 }
+                (c, place)
             }
+            None => match a.place(x, y) {
+                Some(p) => (self.shared.countries[p as usize], Some(p)),
+                None => return,
+            },
         };
         if c == [0; 2] || !x.is_finite() || !y.is_finite() {
             return;
@@ -1105,9 +1111,7 @@ impl<'s, 'a> Sink<'s, 'a> {
         if self.key.is_empty() {
             return;
         }
-        let place = place
-            .unwrap_or_else(|| a.place_in(x, y, Some(c)))
-            .unwrap_or(NO_PLACE);
+        let place = place.unwrap_or(NO_PLACE);
         if self.rank == 0 && place != NO_PLACE {
             *self
                 .covered

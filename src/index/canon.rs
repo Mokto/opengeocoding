@@ -111,9 +111,17 @@ pub const VARIANTS: &[(&str, &str)] = &[
     ("psje", "pje"),
     ("privada", "priv"),
     ("cerrada", "cda"),
+    ("nuestra", "ntra"),
+    ("senora", "sra"),
     ("general", "gen"),
     ("gral", "gen"),
     ("gal", "gen"),
+    // Catalan, Basque
+    ("carrer", "cl"),
+    ("kalea", "cl"),
+    ("avinguda", "av"),
+    ("placa", "pl"),
+    ("passeig", "ps"),
     // Portuguese
     ("rua", "r"),
     ("estrada", "estr"),

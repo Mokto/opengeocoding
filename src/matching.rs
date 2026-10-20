@@ -660,6 +660,26 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
     if cc.eq_ignore_ascii_case("co") {
         return bogota_road(road).into_iter().collect();
     }
+    if cc.eq_ignore_ascii_case("es") {
+        // Spain's address registry leaves most articles and prepositions out of a road's name:
+        // "Calle del Castillo" is its "CALLE CASTILLO".
+        let road = normalize_place(road);
+        let all: Vec<&str> = road.split(' ').collect();
+        let mut words: Vec<&str> = all
+            .iter()
+            .copied()
+            .filter(|w| !SPANISH_PARTICLES.contains(w))
+            .collect();
+        let kind = |w: &str| canon(w).is_some() || is_canonical(w);
+        // and Basque names put the type last ("Belakasoro kalea" is its "CALLE BELAKASORO")
+        if words.len() > 1 && kind(words[words.len() - 1]) && !kind(words[0]) {
+            words.rotate_right(1);
+        }
+        return (words.iter().any(|w| !kind(w)) && words != all)
+            .then(|| words.join(" "))
+            .into_iter()
+            .collect();
+    }
     if cc.eq_ignore_ascii_case("za") {
         let road = normalize_place(road);
         return [(" straat", " street"), (" street", " straat")]
@@ -830,6 +850,11 @@ pub(crate) fn portuguese_postcode(postcode: &str) -> bool {
     let b = postcode.trim().as_bytes();
     b.len() == 8 && b[4] == b'-' && b[..4].iter().chain(&b[5..]).all(u8::is_ascii_digit)
 }
+
+/// Spanish, Catalan and Galician articles and prepositions.
+const SPANISH_PARTICLES: &[&str] = &[
+    "de", "del", "la", "las", "los", "el", "dels", "les", "els", "da", "do", "das", "dos",
+];
 
 /// A Polish road as the index may name it: without "ul." (ulica), which most sources leave
 /// out, and without its given names' initials ("ul. M. Kopernika" is Mikołaja Kopernika's

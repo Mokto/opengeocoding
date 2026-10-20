@@ -314,13 +314,14 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
                             .map(|name| (name, "city"))
                             .or_else(|| p.district.as_deref().map(|name| (name, "district")));
                         let numbers = numbers_with_unit(cc, p.number.as_deref(), p.unit.as_deref());
+                        let postcode = p.postcode.as_deref().map(|pc| oa_postcode(cc, pc));
                         sink.add(
                             Some(cc),
                             x,
                             y,
                             p.street.as_deref(),
                             numbers.as_deref(),
-                            p.postcode.as_deref(),
+                            postcode.as_deref(),
                             city,
                         );
                     }
@@ -333,6 +334,16 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
         progress::warn(format!("{bad} unreadable OpenAddresses lines or files"));
     }
     files.len()
+}
+
+/// Spanish postcodes have five digits; the cadastre's OpenAddresses layers drop a leading zero
+/// ("6207" is 06207).
+fn oa_postcode(cc: [u8; 2], pc: &str) -> Cow<'_, str> {
+    if cc == *b"ES" && pc.len() == 4 && pc.bytes().all(|b| b.is_ascii_digit()) {
+        format!("0{pc}").into()
+    } else {
+        pc.into()
+    }
 }
 
 /// Adds a file's size to the progress when its pass ends, however it ends.
@@ -1269,5 +1280,12 @@ mod tests {
             Some("113;1/113")
         );
         assert_eq!(f.geometry.unwrap().coordinates[1].as_f64(), Some(24.11));
+    }
+
+    #[test]
+    fn spanish_cadastre_postcodes_keep_their_leading_zero() {
+        assert_eq!(oa_postcode(*b"ES", "6207"), "06207");
+        assert_eq!(oa_postcode(*b"ES", "16330"), "16330");
+        assert_eq!(oa_postcode(*b"DK", "2100"), "2100");
     }
 }

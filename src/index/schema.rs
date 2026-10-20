@@ -217,8 +217,15 @@ fn with_held_slot(x: u32, slot: u8) -> u32 {
 const NEAR_X: u32 = 186;
 const NEAR_Y: u32 = 71_583;
 
-/// A house being written: street, key, packed point, and the copies averaged into it.
-type Kept = (u32, Vec<u8>, u32, u32, (u64, u64, u64));
+/// A house being written: street, key, packed point, the copies averaged into it, and the first
+/// copy from the same source too far away to be the same house.
+type Kept = (u32, Vec<u8>, u32, u32, (u64, u64, u64), Option<(u32, u32)>);
+
+/// Per shard, a second house of a street's number from the same source, too far from the first
+/// to be one house (two villages of one municipality both have "Calle Mayor 3").
+pub fn far_file(s: usize) -> String {
+    format!("numbers-far-{s:02}.fst")
+}
 
 /// An FST value: longitude in 24 bits (about 2 m), the house's postcode as a 1-based index into
 /// its street's stored `pcode` list (0 = none) in 8 bits, then latitude in 32 bits.
@@ -424,6 +431,8 @@ fn shard(
         fs::File::create(format!("{out}/numbers-{s:02}.fst")).unwrap(),
     );
     let mut fst = tantivy_fst::MapBuilder::new(w).unwrap();
+    let far_out = BufWriter::new(fs::File::create(format!("{out}/{}", far_file(s))).unwrap());
+    let mut far_fst = tantivy_fst::MapBuilder::new(far_out).unwrap();
     let (mut i, mut j, mut n) = (0, 0, 0u64);
     let mut key = Vec::with_capacity(64);
     let (mut posts, mut run, mut run_sid) = (vec![], vec![], 0);
@@ -432,13 +441,19 @@ fn shard(
     // the best source within `NEAR` of the first are averaged: a building with units has one
     // point per unit, and the middle of them beats an edge. `(copies, sum x, sum y)` counts them.
     let mut pending: Option<Kept> = None;
-    let mut emit = |(sid, key, mut x, mut y, (copies, sx, sy)): Kept| {
+    let mut emit = |(sid, key, mut x, mut y, (copies, sx, sy), far): Kept| {
         if copies > 1 {
             x = (x & !0xff_ffff) | (sx / copies) as u32;
             y = (sy / copies) as u32;
         }
         let x = x & ((1 << RANK_SHIFT) - 1);
         fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
+        if let Some((fx, fy)) = far {
+            let fx = fx & ((1 << RANK_SHIFT) - 1);
+            far_fst
+                .insert(&key, ((fx as u64) << 32) | fy as u64)
+                .unwrap();
+        }
         n += 1;
         if sid != run_sid {
             super::reverse::street_postings(&mut run, run_sid, &mut posts);
@@ -465,21 +480,25 @@ fn shard(
         key.extend_from_slice(&sid.to_be_bytes());
         key.extend_from_slice(num);
         match &mut pending {
-            Some((_, kept, px, py, (n, sx, sy))) if *kept == key => {
+            Some((_, kept, px, py, (n, sx, sy), far)) if *kept == key => {
                 let slot = |x: u32| (x >> 24) & 0x3f;
-                if slot(*px) == 0 {
-                    *px |= slot(x) << 24;
-                }
-                let near = (x >> RANK_SHIFT == *px >> RANK_SHIFT)
+                let same_source = x >> RANK_SHIFT == *px >> RANK_SHIFT;
+                let near = same_source
                     && (x & 0xff_ffff).abs_diff(*px & 0xff_ffff) <= NEAR_X
                     && y.abs_diff(*py) <= NEAR_Y;
+                if same_source && !near {
+                    far.get_or_insert((x, y));
+                } else if slot(*px) == 0 {
+                    *px |= slot(x) << 24;
+                }
                 if near {
                     (*n, *sx, *sy) = (*n + 1, *sx + (x & 0xff_ffff) as u64, *sy + y as u64);
                 }
             }
             _ => {
                 let first = ((x & 0xff_ffff) as u64, y as u64);
-                if let Some(done) = pending.replace((sid, key.clone(), x, y, (1, first.0, first.1)))
+                if let Some(done) =
+                    pending.replace((sid, key.clone(), x, y, (1, first.0, first.1), None))
                 {
                     emit(done);
                 }
@@ -490,6 +509,7 @@ fn shard(
         emit(done);
     }
     fst.finish().unwrap();
+    far_fst.finish().unwrap();
     super::reverse::street_postings(&mut run, run_sid, &mut posts);
     super::reverse::write_spill(
         &std::path::Path::new(out).join(super::reverse::SPILL),
@@ -651,6 +671,11 @@ mod tests {
         assert_eq!(one, other);
         let (lon, _, _) = lookup(&out, 1, 7, "9").unwrap();
         assert!((lon - 2.0005).abs() < 3e-5, "{lon}");
+        // the copy a degree away is another house of that number, kept beside it
+        let far = tantivy_fst::Map::from_bytes(fs::read(format!("{out}/{}", far_file(1))).unwrap())
+            .unwrap();
+        let (lon, _, _) = unpack(far.get([&7u32.to_be_bytes()[..], b"9"].concat()).unwrap());
+        assert!((lon - 3.0).abs() < 3e-5, "{lon}");
         fs::remove_dir_all(&dir).unwrap();
     }
 

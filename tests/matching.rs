@@ -1006,6 +1006,14 @@ fn road_abbreviations_are_country_scoped_and_preserve_house_numbers() {
         ("gb", "R. du Bosquet", "Rue du Bosquet", false),
         ("se", "Granvn.", "Granveien", false),
         ("gb", "Willowln.", "Willowlaan", false),
+        ("es", "Calle del Castillo", "CALLE CASTILLO", true),
+        ("es", "Avenida de las Candelas", "AVENIDA CANDELAS", true),
+        ("es", "Carrer del Sagrat Cor", "CALLE SAGRAT COR", true),
+        ("es", "Belakasoro kalea", "CALLE BELAKASORO", true),
+        ("es", "Calle del Castillo", "CALLE CASTILLA", false),
+        ("es", "Calle de la Plaza", "PLAZA", false),
+        ("fr", "Rue du Castillo", "Rue Castillo", false),
+        ("gb", "Calle del Castillo", "CALLE CASTILLO", false),
     ] {
         let address = parsed(&[("house_number", "5b"), ("road", typed), ("country", cc)]);
         let mut details = AddressDetails {
