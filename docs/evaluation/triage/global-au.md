@@ -4,7 +4,9 @@ Triage for [#222](https://github.com/Mokto/opengeocoding/issues/222). The issue'
 
 ## Defect fixed
 
-libpostal reads a street written before its number ("Panorama Place 3, Maleny", "Railway Terrace 9, Mount Pleasant") as a venue. The index tried the village rule first, which looks the town up as a street and accepts any street the name search returns: "Maleny" found house 3 on Maleny Vista, a good match at the wrong street. The venue rule now runs first, a venue that ends in a street type gives up its trailing number, and the village rule only accepts a street named exactly as the town (or an unspaced name such as 帯屋町二丁目). With the fix the panel passes 60/100 searches and 60/100 suggestions; across the whole gold suite 10 cases newly pass, one wrong house becomes a locality, and nothing gets worse.
+libpostal reads a street written before its number ("Panorama Place 3, Maleny", "Railway Terrace 9, Mount Pleasant") as a venue. The index tried the village rule first, which looks the town up as a street and accepts any street the name search returns: "Maleny" found house 3 on Maleny Vista, a good match at the wrong street. The village rule now only accepts a street named exactly as the town (or an unspaced name such as 帯屋町二丁目), so the venue rule after it finds Panorama Place; and a venue that ends in a street type gives up its trailing number. With the fix the panel passes 60/100 searches and 60/100 suggestions; across the whole gold suite 5 cases newly pass, one wrong house becomes a locality, and nothing gets worse.
+
+Running the venue rule before the village rule would also fix queries whose written street loses to a street named like the town ("Sinneslisundet 28, 4443 Tjørhom" answers 28 Tjørhom). It was left out: on CI's index it turns a Japanese abstain into the right house scored `wrong_component`, because the panel expects the chōme in the house number ("２丁目１−27") where the index keeps it in the street ("帯屋町二丁目", "1-27"). That belongs with the Japan triage.
 
 ## Remaining failures (40 queries, 20 address groups)
 

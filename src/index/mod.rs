@@ -3686,6 +3686,27 @@ impl Index {
                 .collect();
             hits = found.into_iter().take(1).collect();
         }
+        // Village addresses ("Libá 156, 351 31 Libá"): the number belongs to the village,
+        // indexed as a street of that name, not another the search returns ("Maleny Vista");
+        // an unspaced name ("帯屋町二丁目" for "帯屋町") is taken as found. Only an exact house
+        // answers.
+        if roads.is_empty()
+            && let (Some(n), Some(town)) = (get("house_number").map(house_number), city)
+        {
+            let found = self.streets(town, Some(n), Some(town), get("postcode"), cc, false);
+            if let Some(h) = found.into_iter().find(|h| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        name,
+                        ..
+                    } if fold(name) == fold(town) || !name.contains(' ')
+                )
+            }) {
+                return vec![h];
+            }
+        }
         // libpostal reads a numbered street or village with no street type as a venue ("Świtały
         // 12, 76-231" and "św. Jana 10, 36-050 Sokołów" give a house and no road), and a street
         // before its number too ("Panorama Place 3, Maleny"): only an exact house on a street of
@@ -3723,27 +3744,6 @@ impl Index {
                         number: Some(_),
                         ..
                     }
-                )
-            }) {
-                return vec![h];
-            }
-        }
-        // Village addresses ("Libá 156, 351 31 Libá"): the number belongs to the village,
-        // indexed as a street of that name, not another the search returns ("Maleny Vista");
-        // an unspaced name ("帯屋町二丁目" for "帯屋町") is taken as found. Only an exact house
-        // answers.
-        if roads.is_empty()
-            && let (Some(n), Some(town)) = (get("house_number").map(house_number), city)
-        {
-            let found = self.streets(town, Some(n), Some(town), get("postcode"), cc, false);
-            if let Some(h) = found.into_iter().find(|h| {
-                matches!(
-                    h,
-                    Hit::Street {
-                        number: Some(_),
-                        name,
-                        ..
-                    } if fold(name) == fold(town) || !name.contains(' ')
                 )
             }) {
                 return vec![h];
