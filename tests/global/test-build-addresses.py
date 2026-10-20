@@ -8,6 +8,9 @@ import unittest
 spec = importlib.util.spec_from_file_location("addresses", Path(__file__).with_name("build-addresses.py"))
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
+spec = importlib.util.spec_from_file_location("adjudicate", Path(__file__).with_name("adjudicate-gnaf.py"))
+adjudicate = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(adjudicate)
 
 
 def node(node_id=1, number="12A", lat="28.6", lon="77.2"):
@@ -98,8 +101,23 @@ class Addresses(unittest.TestCase):
         for snapshot in manifest["snapshots"]:
             self.assertEqual(snapshot["proof"]["script_sha256"], module.file_sha(Path(module.__file__)))
             rows.extend(module.cases(snapshot["records"], snapshot["proof"]))
-        expected = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows).encode()
+        replayed = [json.dumps(r, ensure_ascii=False) + "\n" for r in rows]
+        adjudications = json.loads((root / "adjudications.json").read_bytes())
+        expected = adjudicate.apply(replayed, adjudications).encode()
         self.assertEqual((root / "global-addresses.jsonl").read_bytes(), expected)
+
+    def test_an_adjudication_adds_the_registry_point_and_keeps_the_source_one(self):
+        attrs = {"id": "7", "version": "3", "lat": "-30.0", "lon": "150.0"}
+        r = module.record(attrs, {"addr:housenumber": "12", "addr:street": "Long Road", "addr:postcode": "2000"}, "AU", "Australia", "AUS")
+        lines = [json.dumps(c, ensure_ascii=False) for c in module.cases([r], {"source_sha256": "c" * 64})]
+        adjudications = {"role": "authoritative-alternative-point", "source": {"name": "G-NAF"}, "au": [{"node": 7, "version": 3, "pid": "GA1", "geocode_type": "PC", "point": [-30.01, 150.0], "distance_km": 1.112}]}
+        for case in map(json.loads, adjudicate.apply(lines, adjudications).splitlines()):
+            osm, gnaf = case["expect"]["any_of"]
+            self.assertEqual(osm["point"], [-30.0, 150.0])
+            self.assertEqual(gnaf, {**osm, "point": [-30.01, 150.0]})
+            self.assertEqual(case["adjudication"]["ref"], "GA1")
+        with self.assertRaises(ValueError):
+            adjudicate.apply(lines, {**adjudications, "au": [{**adjudications["au"][0], "version": 2}]})
 
     def test_completed_outputs_are_immutable(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -19,4 +19,10 @@ Each was checked against the August 2026 G-NAF release. Held-out groups were adj
 | Range in the source | 1 | 2 | 155 Horace Street, Sea Lake: Vicmap holds 151-157; G-NAF's 155 has confidence -1 (in no contributor dataset). Matching a number inside a range is not done. |
 | Leading-zero source number | 1 | 2 | OSM "01692" East West Road: G-NAF's 1692 is 4.1 km from the OSM node, so even an exact match would miss the 150 m radius. |
 
-The 16 point disagreements are source conflicts, not resolver defects: the panel's 150 m radius around an OSM node does not hold for rural Australian addresses whose authoritative point is the parcel. One held-out case, 1 Manuka Road, Logan Village, answers the point G-NAF gives its 200 units (192 m) rather than the building record without a unit (71 m); it was not tuned.
+The 16 point disagreements are source conflicts, not resolver defects: the panel's 150 m radius around an OSM node does not hold for rural Australian addresses whose authoritative point is the parcel. For 1 Manuka Road, Logan Village, G-NAF's record without a unit shares its 200 units' point (192 m); the record 71 m away is the range 1-15, with confidence -1.
+
+## Registry adjudication
+
+These 16 groups now also accept G-NAF's point; see [registry adjudications](../global-addresses.md#registry-adjudications). The rule reads only the OSM records and G-NAF, and selects exactly the 16 groups above. Re-scoring the same local run (binaries of #223, same index) against the adjudicated corpus moves 31 queries from near_miss to pass; Sturt Highway 14382 written street first still answers the street. The panel passes **91/100 searches and 92/100 suggestions**. ReverseGeocode now checks the 68 queries with one expected point, all passing.
+
+The remaining 9 failing queries are the 4 groups the rule leaves out (numbers missing from G-NAF, the Horace Street range, the leading zero) and that one street answer.

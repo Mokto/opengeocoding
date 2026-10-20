@@ -26,3 +26,13 @@ English country labels come from GeoNames countryInfo.txt, CC BY 4.0:
 
 This is mapped-source consistency evidence, not independent national accuracy,
 mail deliverability, survey-grade coordinates or endorsement by these providers.
+
+Alternative points for some Australian cases, and tests/global/adjudications.json,
+come from G-NAF (August 2026 release) © Geoscape Australia, licensed by the
+Commonwealth of Australia under the Open G-NAF End User Licence Agreement:
+  https://data.gov.au/data/dataset/geocoded-national-address-file-g-naf
+The Open G-NAF EULA incorporates CC BY 4.0 with an additional mailing restriction:
+G-NAF must not be used to generate addresses or address compilations for sending
+mail unless each address's mail capability is verified using a secondary source.
+These points are a reformatted adaptation, not an endorsed product, supplied as-is
+without warranties. See tests/registry/au.NOTICE for the full terms.

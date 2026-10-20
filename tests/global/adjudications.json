@@ -1,0 +1,197 @@
+{
+  "role": "authoritative-alternative-point",
+  "rule": "Exactly one current principal G-NAF address without unit or level has the source record's complete number, street and postcode, with an address-level default geocode over 0.15 km from the OSM node; its point is accepted as an alternative.",
+  "source": {
+    "name": "G-NAF",
+    "release": "August 2026",
+    "license": "Open G-NAF EULA (CC BY 4.0 with a mailing restriction)",
+    "url": "https://data.gov.au/data/dataset/geocoded-national-address-file-g-naf",
+    "zip": "g-naf_aug26_allstates_gda2020_psv_110.zip",
+    "zip_sha256": "16820cc91c3ea32a3997b88024c8d0e576c1db10fe8645380be49b457e952df5",
+    "datum": "GDA2020"
+  },
+  "counts": {
+    "records": 50,
+    "unique_match": 43,
+    "within_radius": 27,
+    "adjudicated": 16
+  },
+  "au": [
+    {
+      "node": 11303775639,
+      "version": 1,
+      "pid": "GAQLD720465668",
+      "geocode_type": "PC",
+      "point": [
+        -27.762958,
+        153.107812
+      ],
+      "distance_km": 0.192
+    },
+    {
+      "node": 11308684299,
+      "version": 2,
+      "pid": "GAQLD719642783",
+      "geocode_type": "PC",
+      "point": [
+        -26.773178,
+        153.081533
+      ],
+      "distance_km": 0.302
+    },
+    {
+      "node": 3532541607,
+      "version": 2,
+      "pid": "GANSW715362444",
+      "geocode_type": "BC",
+      "point": [
+        -32.059217,
+        149.465207
+      ],
+      "distance_km": 2.718
+    },
+    {
+      "node": 2417365092,
+      "version": 5,
+      "pid": "GANSW717719165",
+      "geocode_type": "BC",
+      "point": [
+        -34.610906,
+        146.073326
+      ],
+      "distance_km": 1.515
+    },
+    {
+      "node": 3624939174,
+      "version": 2,
+      "pid": "GAQLD163362452",
+      "geocode_type": "PC",
+      "point": [
+        -24.589615,
+        145.425984
+      ],
+      "distance_km": 1.408
+    },
+    {
+      "node": 2647041935,
+      "version": 1,
+      "pid": "GANSW718185821",
+      "geocode_type": "PC",
+      "point": [
+        -31.809928,
+        141.881957
+      ],
+      "distance_km": 7.983
+    },
+    {
+      "node": 3630529944,
+      "version": 1,
+      "pid": "GAQLD162607071",
+      "geocode_type": "PC",
+      "point": [
+        -27.222772,
+        145.621022
+      ],
+      "distance_km": 4.28
+    },
+    {
+      "node": 2338783711,
+      "version": 1,
+      "pid": "GANSW718201789",
+      "geocode_type": "BC",
+      "point": [
+        -33.586332,
+        141.40769
+      ],
+      "distance_km": 7.604
+    },
+    {
+      "node": 3404823268,
+      "version": 2,
+      "pid": "GANSW718055602",
+      "geocode_type": "BC",
+      "point": [
+        -30.133934,
+        147.345879
+      ],
+      "distance_km": 1.966
+    },
+    {
+      "node": 3626150293,
+      "version": 2,
+      "pid": "GAQLD425652340",
+      "geocode_type": "PC",
+      "point": [
+        -25.042503,
+        145.436412
+      ],
+      "distance_km": 2.104
+    },
+    {
+      "node": 5572982353,
+      "version": 2,
+      "pid": "GANSW718955690",
+      "geocode_type": "PC",
+      "point": [
+        -31.898841,
+        147.874941
+      ],
+      "distance_km": 1.896
+    },
+    {
+      "node": 14030245366,
+      "version": 1,
+      "pid": "GAQLD425475296",
+      "geocode_type": "PC",
+      "point": [
+        -26.159918,
+        147.94895
+      ],
+      "distance_km": 3.043
+    },
+    {
+      "node": 10982040319,
+      "version": 1,
+      "pid": "GANSW712062806",
+      "geocode_type": "BC",
+      "point": [
+        -30.621033,
+        151.3412
+      ],
+      "distance_km": 0.285
+    },
+    {
+      "node": 2634985670,
+      "version": 2,
+      "pid": "GANSW717553384",
+      "geocode_type": "BC",
+      "point": [
+        -30.118378,
+        144.331307
+      ],
+      "distance_km": 0.544
+    },
+    {
+      "node": 3984123319,
+      "version": 5,
+      "pid": "GAWA_718255765",
+      "geocode_type": "PC",
+      "point": [
+        -34.467474,
+        116.206247
+      ],
+      "distance_km": 0.331
+    },
+    {
+      "node": 4537152831,
+      "version": 2,
+      "pid": "GANSW718190438",
+      "geocode_type": "PC",
+      "point": [
+        -31.008906,
+        141.150293
+      ],
+      "distance_km": 13.655
+    }
+  ]
+}

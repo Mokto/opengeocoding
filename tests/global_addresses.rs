@@ -12,6 +12,21 @@ fn global_address_benchmark_preserves_its_source_records_and_scope() {
     let manifest: Value =
         serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
     let text = fs::read_to_string(root.join("global-addresses.jsonl")).unwrap();
+    let adjudications: Value =
+        serde_json::from_slice(&fs::read(root.join("adjudications.json")).unwrap()).unwrap();
+    let mut alternatives: BTreeMap<(u64, u64), &Value> = adjudications["au"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|a| {
+            let key = (a["node"].as_u64().unwrap(), a["version"].as_u64().unwrap());
+            (key, a)
+        })
+        .collect();
+    assert_eq!(
+        adjudications["counts"]["adjudicated"].as_u64().unwrap() as usize,
+        alternatives.len()
+    );
     let cases: Vec<Value> = text
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
@@ -39,6 +54,10 @@ fn global_address_benchmark_preserves_its_source_records_and_scope() {
         );
         for record in records {
             let node = record["id"].as_u64().unwrap();
+            let version = record["version"].as_u64().unwrap();
+            let alternative = (cc == "au")
+                .then(|| alternatives.remove(&(node, version)))
+                .flatten();
             let queries = record["queries"].as_array().unwrap();
             for (variant, query) in queries.iter().enumerate() {
                 let id = format!("global-osm-{cc}-{node}-{variant}");
@@ -46,12 +65,31 @@ fn global_address_benchmark_preserves_its_source_records_and_scope() {
                 let case = by_id[id.as_str()];
                 assert_eq!(&case["query"], query);
                 assert!(query.as_str().unwrap().chars().count() <= 200);
-                assert_eq!(case["expect"]["country"], serde_json::json!([cc]));
-                assert_eq!(case["expect"]["point"], record["point"]);
-                assert_eq!(case["expect"]["level"], "house");
-                assert_eq!(case["expect"]["radius_km"], 0.15);
+                // an adjudicated record also accepts G-NAF's point, and nothing else
+                let expect = match alternative {
+                    Some(a) => {
+                        let [osm, gnaf] = case["expect"]["any_of"].as_array().unwrap().as_slice()
+                        else {
+                            panic!("{id}: two alternatives");
+                        };
+                        let mut moved = osm.clone();
+                        moved["point"] = a["point"].clone();
+                        assert_eq!(gnaf, &moved);
+                        assert_eq!(case["adjudication"]["ref"], a["pid"]);
+                        assert_eq!(case["adjudication"]["name"], "G-NAF");
+                        osm
+                    }
+                    None => {
+                        assert!(case.get("adjudication").is_none());
+                        &case["expect"]
+                    }
+                };
+                assert_eq!(expect["country"], serde_json::json!([cc]));
+                assert_eq!(expect["point"], record["point"]);
+                assert_eq!(expect["level"], "house");
+                assert_eq!(expect["radius_km"], 0.15);
                 assert_eq!(
-                    case["expect"]["components"]["house_number"],
+                    expect["components"]["house_number"],
                     record["tags"]["addr:housenumber"]
                 );
                 assert_eq!(case["location"], record["location"]);
@@ -86,6 +124,7 @@ fn global_address_benchmark_preserves_its_source_records_and_scope() {
             }
         }
     }
+    assert!(alternatives.is_empty(), "unused adjudications");
     for case in &cases {
         assert!(ids.insert(case["id"].as_str().unwrap().to_owned()));
     }
