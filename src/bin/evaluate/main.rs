@@ -371,7 +371,7 @@ async fn command() -> Result<i32> {
             let addresses =
                 model::validate_addresses(&model::addresses(), &model::address_snapshot())?;
             println!(
-                "{} gold cases, {registry} registry and suggestion cases and {addresses} address cases validated",
+                "{} gold cases, {registry} registry, global and suggestion cases and {addresses} address cases validated",
                 cases.len()
             );
             Ok(0)

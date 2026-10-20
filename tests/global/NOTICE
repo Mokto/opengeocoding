@@ -1,0 +1,28 @@
+Global address source-consistency benchmark
+
+The address records and coordinates in global-addresses.jsonl and the source-record
+snapshots in manifest.json are derived from OpenStreetMap data:
+
+  © OpenStreetMap contributors
+  https://www.openstreetmap.org/copyright
+  https://opendatacommons.org/licenses/odbl/1-0/
+
+This derived address database is made available under the Open Database License
+1.0 (ODbL-1.0). Retain attribution and comply with the licence's applicable
+share-alike requirements when using or distributing derived databases. The
+project's PolyForm Shield source-code licence does not replace this data licence.
+Geofabrik provided the extracts; the manifest records public source URLs, source
+hashes, replication timestamps and selected OSM node IDs/versions.
+
+Country clipping uses Natural Earth 1:10m countries, public domain:
+  https://www.naturalearthdata.com/about/terms-of-use/
+  https://github.com/nvkelso/natural-earth-vector
+  commit ca96624a56bd078437bca8184e78163e5039ad19
+
+English country labels come from GeoNames countryInfo.txt, CC BY 4.0:
+  https://www.geonames.org/
+  https://download.geonames.org/export/dump/countryInfo.txt
+  https://creativecommons.org/licenses/by/4.0/
+
+This is mapped-source consistency evidence, not independent national accuracy,
+mail deliverability, survey-grade coordinates or endorsement by these providers.

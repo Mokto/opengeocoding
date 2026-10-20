@@ -40,10 +40,11 @@ pub fn registry_corpora() -> Vec<PathBuf> {
     found
 }
 
-/// The gold suite: the curated corpus, every registry-first corpus, then the suggestion corpora.
+/// The gold suite: curated, registry-first, global source-consistency and suggestion corpora.
 pub fn suite() -> Vec<PathBuf> {
     let mut files = vec![gold()];
     files.extend(registry_corpora());
+    files.push(root().join("tests/global/global-addresses.jsonl"));
     files.push(gold_landmarks());
     files.push(root().join("tests/gold.suggest.jsonl"));
     files
@@ -291,13 +292,14 @@ pub fn load_corpus(path: &Path) -> Result<Vec<Case>> {
         .collect()
 }
 
-const LICENSES: [&str; 6] = [
+const LICENSES: [&str; 7] = [
     "CC0-1.0",
     "etalab-2.0",
     "US-Government-Public-Domain",
     "OGL-UK-3.0",
     "CC-BY-4.0",
     "swisstopo-OGD",
+    "ODbL-1.0",
 ];
 
 /// Gold corpus integrity: provenance, licence, hold-out rule and well-formed expectations.
@@ -448,6 +450,15 @@ mod tests {
     fn the_gold_suite_has_unique_ids_and_queries_across_its_files() {
         let cases = load_suite().unwrap();
         assert!(cases.len() > load_corpus(&gold()).unwrap().len());
+        let global = load_corpus(&root().join("tests/global/global-addresses.jsonl")).unwrap();
+        assert!(!global.is_empty());
+        assert_eq!(
+            cases
+                .iter()
+                .filter(|c| c.id.starts_with("global-osm-"))
+                .count(),
+            global.len()
+        );
         validate_gold(&cases).unwrap();
     }
 

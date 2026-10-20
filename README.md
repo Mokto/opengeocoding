@@ -113,7 +113,7 @@ The [chart defaults](manifests/values.yaml) request **1 CPU and 6 GiB RAM per se
 
 Coverage depends on the source data and the index you build. Worldwide place coverage does **not** mean complete house-level coverage: substantial gaps remain in parts of Africa and Asia, and coverage varies elsewhere too. Regional indexes should not be treated as a safe geographic filter; out-of-area queries can still match an indexed namesake.
 
-The repository includes authoritative-source evaluation corpora, held-out cases, regression gates and tools for comparing saved runs. These are diagnostic checks, not a production accuracy percentage. Some evaluation registries also supply index data, so agreement is not independent accuracy evidence.
+The repository includes authoritative-source evaluation corpora, held-out cases, regression gates and tools for comparing saved runs. These are diagnostic checks, not a production accuracy percentage. Gold also includes a [48-market OSM address panel](docs/evaluation/global-addresses.md) for broader regression coverage. Some evaluation registries and OSM also supply index data, so agreement is not independent accuracy evidence.
 
 - [Evaluation methodology and regression gates](docs/evaluation/README.md)
 - [Country-specific sources and limitations](docs/evaluation/registry/)

@@ -1,6 +1,6 @@
 # Geographic evaluation
 
-[Documentation](../README.md) · [Provider comparisons](providers.md) · [Coverage](coverage.md) · [Registry sources](registry/)
+[Documentation](../README.md) · [Provider comparisons](providers.md) · [Coverage](coverage.md) · [Registry sources](registry/) · [Global address diagnostics](global-addresses.md)
 
 Run commands from the repository root, including those in the per-country guides.
 
@@ -20,6 +20,7 @@ cargo build --locked --release --bin opengeocoding --bin evaluate
 | Smoke | `target/release/evaluate run --suite smoke --index out --out eval-results/smoke` | Index, models |
 | Pre-release | `target/release/evaluate run --suite gold --index out --out eval-results/gold` | Same |
 | Address snapshots | `target/release/evaluate run --suite addresses --index out --out eval-results/addresses --compare tests/snapshots/addresses.tsv` | Same |
+| Global source consistency only (also included in gold) | `target/release/evaluate run --corpus tests/global/global-addresses.jsonl --index out --out eval-results/global-addresses` | Same; OSM-derived diagnostics, not independent accuracy |
 | Compare | `target/release/evaluate diff BASELINE CANDIDATE` | Two saved runs or snapshots |
 | Re-score | `target/release/evaluate report RUN_DIR --rescore` | A saved run; lists cases whose class changed |
 
@@ -60,9 +61,13 @@ Known limits: Atlanta carries the Slovak name "Athens" in the index and outranks
 
 ### Registry-first samples
 
-The gold seeds above were picked from Overture, the index's own data, and then checked against a registry, so a registry address the index lacks was never sampled and recall cannot be measured. `tests/registry/` holds samples drawn from the registry first. `evaluate check` and `cargo test` validate each `tests/registry/*.jsonl`; `run --corpus tests/registry/us.jsonl` scores one. They are part of the gold suite: `run --suite gold`, `diff` and `report` read `tests/gold.jsonl`, `tests/registry/*.jsonl`, `tests/gold.landmarks.jsonl` and `tests/gold.suggest.jsonl` unless `--corpus` names a file, `evaluate gold-corpus --out FILE` writes the suite as one file (the eval image carries it as `/app/tests/gold.jsonl`, so the CI run scores both), and the run manifest hashes the files in that order. `diff` compares only case ids both sides have, so the pull request that adds a corpus is not gated on it. Candidate-only cases appear in an **Added cases** table with passed/checked counts and success rates by cohort and RPC; unscored searches are excluded, and SuggestAddress counts each applicable check. Those rates describe the new cases, not a base-to-head improvement or independent-location accuracy. No case is `must_pass`; the known failures are labelled.
+The gold seeds above were picked from Overture, the index's own data, and then checked against a registry, so a registry address the index lacks was never sampled and recall cannot be measured. `tests/registry/` holds samples drawn from the registry first. `evaluate check` and `cargo test` validate each `tests/registry/*.jsonl`; `run --corpus tests/registry/us.jsonl` scores one. They are part of the gold suite: `run --suite gold`, `diff` and `report` read `tests/gold.jsonl`, `tests/registry/*.jsonl`, `tests/global/global-addresses.jsonl`, `tests/gold.landmarks.jsonl` and `tests/gold.suggest.jsonl` unless `--corpus` names a file, `evaluate gold-corpus --out FILE` writes the suite as one file (the eval image carries it as `/app/tests/gold.jsonl`, so the CI run scores both), and the run manifest hashes the files in that order. `diff` compares only case ids both sides have, so the pull request that adds a corpus is not gated on it. Candidate-only cases appear in an **Added cases** table with passed/checked counts and success rates by cohort and RPC; unscored searches are excluded, and SuggestAddress counts each applicable check. Those rates describe the new cases, not a base-to-head improvement or independent-location accuracy. No case is `must_pass`; the known failures are labelled.
 
 Per-country sampling, preparation commands, provenance, limitations and baseline results live in [docs/evaluation/registry/](registry/). Add a country there without editing this guide.
+
+### Global source-consistency panel
+
+The [48-market address panel](global-addresses.md) adds 2,400 mapped address groups and 4,796 query variants to the default gold suite. Its `global_osm_*` cohorts preserve source attribution and shared OSM ancestry; these checks provide regression coverage, not independent national accuracy. Existing failures and unresolved source conflicts remain visible without `known_failure` exemptions. The combined suite has 21,279 cases; its absolute gate can fail on the panel's critical diagnostics while relative comparisons still catch regressions on shared cases. The evaluation image includes the corpus and ODbL notice, and `tests/global/**` changes trigger the staging/gold workflow.
 
 ### Runtime fixes exposed by the registries
 

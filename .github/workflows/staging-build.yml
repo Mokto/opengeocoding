@@ -16,6 +16,8 @@ on:
       - Dockerfile
       - tests/gold*.jsonl
       - tests/registry/**
+      - tests/global/**
+      - tests/global_addresses.rs
       - .github/workflows/staging-build.yml
   push:
     branches: [main]
