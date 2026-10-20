@@ -933,6 +933,12 @@ fn latency(
             "skip",
             "not compared, base and head ran at different --max-rps".to_string(),
         )
+    } else if manifests[0]["speed_cases"] != manifests[1]["speed_cases"] {
+        // Timed apart from the other cases or among them, the service is not equally warm.
+        (
+            "skip",
+            "not compared, base and head timed different --speed-cases".to_string(),
+        )
     } else if repeats[0] != repeats[1] {
         (
             "skip",
@@ -1680,6 +1686,10 @@ mod tests {
         assert!(report.contains("--max-rps"), "{report}");
         let report = latency(&ids, &old, &new, [&fast, &fast]);
         assert!(report.contains("<!-- speed: fail -->"), "{report}");
+        let sampled = json!({"repeat": 3, "max_rps": 1e6, "speed_cases": 2000});
+        let report = latency(&ids, &old, &new, [&fast, &sampled]);
+        assert!(report.contains("<!-- speed: skip -->"), "{report}");
+        assert!(report.contains("--speed-cases"), "{report}");
         let untimed = side(&[("a", None), ("b", None), ("c", None)]);
         assert!(latency(&ids, &old, &untimed, [&json!({}), &json!({})]).is_empty());
     }

@@ -57,7 +57,7 @@ fn usage() -> String {
 
 run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare SNAPSHOT_OR_RUN]
             [--fail-on-drift] [--index DIR] [--rpc URL] [--only REGEX] [--max-rps 20] [--budget 20000] (limits default to none with the local service)
-            [--no-direct] [--resume] [--backend-label TEXT] [--repeat 3]
+            [--no-direct] [--resume] [--backend-label TEXT] [--repeat 3] [--speed-cases 2000] [--workers 16]
 provider    mapbox|google|here|tomtom|geoapify|opencage|locationiq|geocodio|arcgis|mapsco --out DIR [--cache DIR] [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
             [--fetch --budget N] [--storage-authorized] (offline by default; fetching may be billed)
             --aggregate-only --fetch --budget N [--resume] (no --cache; retains only aggregates)
@@ -158,6 +158,8 @@ async fn command() -> Result<i32> {
         "backend-label",
         "compare",
         "repeat",
+        "speed-cases",
+        "workers",
         "seeds",
         "seed",
         "population",
@@ -175,9 +177,13 @@ async fn command() -> Result<i32> {
                 bail!("--suite must be smoke, gold or addresses");
             }
             let rpc = args.value("rpc").map(String::from);
-            if rpc.is_some() && args.value("repeat").is_some() {
+            if rpc.is_some()
+                && ["repeat", "speed-cases", "workers"]
+                    .iter()
+                    .any(|f| args.value(f).is_some())
+            {
                 bail!(
-                    "--repeat times the local service only; it would bypass --max-rps with --rpc"
+                    "--repeat, --speed-cases and --workers apply to the local service only; with --rpc every case is timed, one at a time, within --max-rps"
                 );
             }
             // Limits protect an external backend; the spawned local service needs none.
@@ -190,6 +196,15 @@ async fn command() -> Result<i32> {
                 repeat: match &rpc {
                     Some(_) => 1,
                     None => args.value("repeat").map_or(Ok(3), str::parse)?,
+                }
+                .max(1),
+                speed_cases: match &rpc {
+                    Some(_) => usize::MAX,
+                    None => args.value("speed-cases").map_or(Ok(2000), str::parse)?,
+                },
+                workers: match &rpc {
+                    Some(_) => 1,
+                    None => args.value("workers").map_or(Ok(16), str::parse)?,
                 }
                 .max(1),
                 rpc,

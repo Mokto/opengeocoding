@@ -42,6 +42,9 @@ pub struct Options {
     pub compare: Option<PathBuf>,
     pub fail_on_drift: bool,
     pub repeat: usize,
+    /// Cases timed one at a time; the rest run `workers` at a time, untimed.
+    pub speed_cases: usize,
+    pub workers: usize,
 }
 
 /// One rate limit and request budget for the RPCs sent to the service.
@@ -257,12 +260,27 @@ struct Checker {
     metrics: Option<String>,
     /// The same index, loaded here for direct checks.
     index: Option<Index>,
-    /// Requests per case; `ms` is the fastest. Only for the local service, so outside the budget.
+    /// Requests per timed case; `ms` is the fastest. Only for the local service, so outside the budget.
     repeat: usize,
 }
 
 impl Checker {
-    async fn check(&self, case: &Case) -> Result<Record> {
+    /// Untimed cases run alongside others: one request per check and no `ms`, since concurrent
+    /// requests would time each other.
+    async fn check(&self, case: &Case, timed: bool) -> Result<Record> {
+        let mut record = self.answer(case, timed).await?;
+        if !timed {
+            record.ms = None;
+            record.reverse_ms = None;
+            for check in record.suggest.values_mut() {
+                check.ms = None;
+            }
+        }
+        Ok(record)
+    }
+
+    async fn answer(&self, case: &Case, timed: bool) -> Result<Record> {
+        let repeat = if timed { self.repeat } else { 1 };
         let mut record = Record {
             id: case.id.clone(),
             query: case.query.clone(),
@@ -272,10 +290,11 @@ impl Checker {
             || case.expect.as_ref().is_some_and(|e| e.level == "landmark")
         {
             record.class = "unscored".into();
-            record.suggest = self.suggest(case).await;
+            record.suggest = self.suggest(case, repeat).await;
             return Ok(record);
         }
-        let before = match &self.metrics {
+        let metrics = self.metrics.as_ref().filter(|_| timed);
+        let before = match metrics {
             Some(metrics) => index_searches(&self.client, metrics).await,
             None => None,
         };
@@ -289,12 +308,12 @@ impl Checker {
         )
         .await;
         let mut elapsed = started.elapsed();
-        if let (Some(metrics), Some(before)) = (&self.metrics, before)
+        if let (Some(metrics), Some(before)) = (metrics, before)
             && let Some(after) = index_searches(&self.client, metrics).await
         {
             record.backend_calls = Some((after - before).round() as usize);
         }
-        for _ in 1..self.repeat {
+        for _ in 1..repeat {
             let started = Instant::now();
             let _ = rpc_json(
                 &self.client,
@@ -306,8 +325,8 @@ impl Checker {
             elapsed = elapsed.min(started.elapsed());
         }
         record.ms = Some((elapsed.as_secs_f64() * 1e6).round() / 1e3);
-        record.suggest = self.suggest(case).await;
-        (record.reverse_ms, record.reverse) = self.reverse(case).await;
+        record.suggest = self.suggest(case, repeat).await;
+        (record.reverse_ms, record.reverse) = self.reverse(case, repeat).await;
         record.region = self.region(case).await;
         let response = match result {
             Ok(response) => response,
@@ -330,7 +349,7 @@ impl Checker {
 
     /// ReverseGeocode at the case's single expected point (a house where the case is one,
     /// else the nearest locality): its time, and what it answered where the case checks that.
-    async fn reverse(&self, case: &Case) -> (Option<f64>, Option<Located>) {
+    async fn reverse(&self, case: &Case, repeat: usize) -> (Option<f64>, Option<Located>) {
         let Some(expect) = case.expect.as_ref().and_then(expected_place) else {
             return (None, None);
         };
@@ -338,7 +357,7 @@ impl Checker {
         self.budget.take().await;
         let request = json!({ "lat": lat, "lon": lon });
         let (mut fastest, mut found) = (None::<Duration>, Located::default());
-        for _ in 0..self.repeat.max(1) {
+        for _ in 0..repeat.max(1) {
             let started = Instant::now();
             match rpc_json(&self.client, &self.base, "ReverseGeocode", &request).await {
                 Ok(body) => found = reversed(&body),
@@ -384,7 +403,7 @@ impl Checker {
 
     /// The query, and the place's name alone when the corpus ranks it among its namesakes, typed
     /// into SuggestAddress.
-    async fn suggest(&self, case: &Case) -> BTreeMap<String, SuggestCheck> {
+    async fn suggest(&self, case: &Case, repeat: usize) -> BTreeMap<String, SuggestCheck> {
         let mut checks = BTreeMap::new();
         let Some(expect) = case.expect.as_ref().filter(|_| suggestible(case)) else {
             return checks;
@@ -436,7 +455,7 @@ impl Checker {
                 request["includeLandmarks"] = json!(!check.landmarks_off);
             }
             let mut elapsed = None::<std::time::Duration>;
-            for _ in 0..self.repeat.max(1) {
+            for _ in 0..repeat.max(1) {
                 let started = Instant::now();
                 let result = rpc_json(&self.client, &self.base, "SuggestAddress", &request).await;
                 let took = started.elapsed();
@@ -941,6 +960,8 @@ pub async fn run(options: Options) -> Result<i32> {
         "historical_memberships_sha256": opengeocoding::eval::sha256_hex(include_bytes!("../../../data/historical_memberships.json")),
         "max_rps": options.max_rps,
         "repeat": options.repeat,
+        "speed_cases": options.speed_cases,
+        "workers": options.workers,
         "budget": options.budget,
         "evaluator": env!("CARGO_PKG_VERSION"),
     });
@@ -989,14 +1010,17 @@ pub async fn run(options: Options) -> Result<i32> {
                 }
                 _ => None,
             };
-            let checker = Checker {
+            let checker = std::sync::Arc::new(Checker {
                 client: client.clone(),
                 base,
                 budget,
-                metrics: local.metrics.map(|port| format!("http://127.0.0.1:{port}")),
+                metrics: local
+                    .metrics
+                    .filter(|_| options.suite != "gold")
+                    .map(|port| format!("http://127.0.0.1:{port}")),
                 index,
                 repeat: options.repeat,
-            };
+            });
             run_cases(
                 &checker,
                 &cases,
@@ -1033,9 +1057,29 @@ pub async fn run(options: Options) -> Result<i32> {
     Ok(i32::from(failed))
 }
 
+/// The ids of the `n` cases timed: ranked by a hash of the id, so that runs of two commits on one
+/// corpus time the same cases.
+fn speed_sample(cases: &[&Case], n: usize) -> std::collections::HashSet<String> {
+    let mut ranked: Vec<_> = cases
+        .iter()
+        .map(|c| {
+            (
+                ring::digest::digest(&ring::digest::SHA256, c.id.as_bytes()),
+                &c.id,
+            )
+        })
+        .collect();
+    ranked.sort_by(|a, b| a.0.as_ref().cmp(b.0.as_ref()));
+    ranked
+        .into_iter()
+        .take(n)
+        .map(|(_, id)| id.clone())
+        .collect()
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn run_cases(
-    checker: &Checker,
+    checker: &std::sync::Arc<Checker>,
     cases: &[&Case],
     done: &std::collections::HashSet<String>,
     results_path: &Path,
@@ -1057,30 +1101,50 @@ async fn run_cases(
     let mut stopped = None;
     let interrupted = tokio::signal::ctrl_c();
     tokio::pin!(interrupted);
-    for (n, case) in cases.iter().enumerate() {
-        if done.contains(&case.id) {
-            continue;
-        }
-        if checker.budget.used() >= checker.budget.limit {
-            stopped = Some("request budget exhausted");
-            break;
-        }
-        let record = tokio::select! {
-            record = checker.check(case) => record?,
-            _ = &mut interrupted => {
-                stopped = Some("interrupted");
-                break;
+    let sample = speed_sample(cases, options.speed_cases);
+    let (timed, untimed): (Vec<&Case>, Vec<&Case>) = cases
+        .iter()
+        .copied()
+        .filter(|c| !done.contains(&c.id))
+        .partition(|c| sample.contains(&c.id));
+    let mut finished = cases.len() - timed.len() - untimed.len();
+    // The timed cases go first, one at a time, on an otherwise idle service.
+    'phases: for (phase, workers, timed) in
+        [(timed, 1, true), (untimed, options.workers.max(1), false)]
+    {
+        let mut pending = phase.into_iter();
+        let mut running = tokio::task::JoinSet::new();
+        loop {
+            while running.len() < workers
+                && let Some(case) = pending.next()
+            {
+                if checker.budget.used() >= checker.budget.limit {
+                    stopped = Some("request budget exhausted");
+                    break 'phases;
+                }
+                let (checker, case) = (checker.clone(), case.clone());
+                running.spawn(async move { checker.check(&case, timed).await });
             }
-        };
-        writeln!(sink, "{}", serde_json::to_string(&record)?)?;
-        sink.flush()?;
-        println!(
-            "[{}/{}] {:<19} {}",
-            n + 1,
-            cases.len(),
-            record.class,
-            case.id
-        );
+            let record = tokio::select! {
+                joined = running.join_next() => match joined {
+                    Some(record) => record??,
+                    None => break,
+                },
+                _ = &mut interrupted => {
+                    stopped = Some("interrupted");
+                    break 'phases;
+                }
+            };
+            writeln!(sink, "{}", serde_json::to_string(&record)?)?;
+            sink.flush()?;
+            finished += 1;
+            println!(
+                "[{finished}/{}] {:<19} {}",
+                cases.len(),
+                record.class,
+                record.id
+            );
+        }
     }
     if stopped.is_none() {
         let gating: Vec<_> = cases
@@ -1152,7 +1216,7 @@ mod tests {
             ),
             ..Default::default()
         };
-        let (_, reverse) = checker.reverse(&case).await;
+        let (_, reverse) = checker.reverse(&case, 1).await;
         let region = checker.region(&case).await;
         let mut record = Record {
             reverse,
@@ -1216,7 +1280,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let mut checks = checker.suggest(&case).await;
+        let mut checks = checker.suggest(&case, 1).await;
         server.abort();
         assert_eq!(checker.budget.used(), 2);
         assert_eq!(checks.len(), 2);
@@ -1284,7 +1348,7 @@ mod tests {
         };
         for cc in [None, Some("dk".into())] {
             case.suggest_address.as_mut().unwrap().country_code = cc;
-            let record = checker.check(&case).await.unwrap();
+            let record = checker.check(&case, true).await.unwrap();
             assert_eq!(record.class, "unscored");
             assert!(record.reverse.is_none() && record.region.is_none());
             let saved = serde_json::to_value(record).unwrap();
@@ -1312,6 +1376,22 @@ mod tests {
         }
         server.abort();
         assert_eq!(checker.budget.used(), 4);
+    }
+
+    #[test]
+    fn the_speed_sample_depends_on_the_ids_alone() {
+        let cases: Vec<_> = (0..100)
+            .map(|i| Case {
+                id: format!("case-{i}"),
+                ..Default::default()
+            })
+            .collect();
+        let refs: Vec<_> = cases.iter().collect();
+        let sample = speed_sample(&refs, 10);
+        assert_eq!(sample.len(), 10);
+        let reversed: Vec<_> = refs.iter().rev().copied().collect();
+        assert_eq!(speed_sample(&reversed, 10), sample);
+        assert_eq!(speed_sample(&refs[..50], usize::MAX).len(), 50);
     }
 
     #[test]
