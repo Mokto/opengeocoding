@@ -35,3 +35,24 @@ The full 21,282-case gold diff has no newly failing or worse cases. All 48 newly
 
 - **Number absent from the index (18):** no street of the name within 150 m holds the number: Rua da República 15 (Mirandela) and 18 (5200-233), Rua do Corredouro 39, Praceta Frei Rodrigo Egídio 8, Av. Gonçalo Rodrigues Caldeira 19, Rua São Nicolau 18, Rua das Amendoeiras 107, Avenida dos Combatente do Ultramar 1, Avenida Nacional 100, Rua Teófilo Carvalho dos Santos 28, Rua Senhora da Abadia 473, Rua da Ceifeira 3, Largo Doutor Augusto de Oliveira Coimbra 8, Rua Marquês de Pombal 51, Rua da Valinha 90, Rua Comendador Joaquim Mendes Almeida 15, Rua do Queiró 9, and Rua Principal 79 (Santalha), whose nearby street has no houses, so a same-named street 2.4 km away answers. The register street is present in most of these with other numbers; this is source coverage, not a name mismatch.
 - **Names this fix does not bridge (2):** `Avenida Virgílio Ferreira 2` is indexed 3 m away as `Avenida Vergílio Ferreira` (a spelling difference between sources; the misspelling repair runs only when no street matches), and `Rua da GNR 23` as `R DA GUARDA NACIONAL REPUBLICANA` 84 m away (an acronym). Neither is generalized here.
+
+## Native address forms
+
+The panel writes every query in two synthetic orders ending in `, Portugal`. Portuguese addresses are usually written otherwise: `Rua da República, 15, 5370-347 Mirandela`, `Rua José Relvas nº 13, …`, `R. dos Farias 12, …`, often without the country. Seven such forms of each passing panel group (133 tuning queries from 19 groups; the 28 queries of the 4 passing held-out groups were only scored), answered by the same index:
+
+| | SearchAddress before | after | SuggestAddress before | after |
+|---|---:|---:|---:|---:|
+| tuning | 75/133 | 131/133 | 12/133 | 131/133 |
+| held-out | 16/28 | 28/28 | 4/28 | 28/28 |
+
+- Without a stated country, a postcode written `NNNN-NNN` (no other country writes them so) now lets search and SuggestAddress read the road as the register does. A town alone, or a postcode another country could share (`50667`), implies nothing: the resolver retries a query without its country, and a country-scoped spelling found that way would override a stated country.
+- SuggestAddress reads a house number written as its own part (`Rua X, 12, …`, at most four digits and a letter, so not a postcode), skips `nº`, `n.º` and `n°`, and splits a part with no commas before a known postcode that follows the number (`Rua dos Farias 12 2955-243 Pinhal Novo`). A postcode with no town after it now scopes the house too.
+- Not handled: `B.º` for Bairro (2 queries).
+
+On the full gold suite, SearchAddress is unchanged (its queries state the country) and SuggestAddress gains 34 checks with none lost: 31 Dutch queries written without commas (`Chopinstraat 51 5481LP Schijndel Netherlands`), two Spanish and one Italian with the number as its own part (`Via Bernardo Clesio, 5, 38122 Trento, Italy`).
+
+Still open without a country: a query whose number the index lacks can get no answer at all when the postcode's place and the stated town differ in name (`Estrada de Mem Martins 9999, 2725-377 Mem Martins`; 3 of 39 such probes), because accepting the postcode for that town requires a stated country. That is a resolver rule for every country, left for a separate change.
+
+## Source coverage
+
+The 18 absent numbers are coverage, not handling. Portugal's addresses come only from the register; Portugal is among the `osmLandmarks` extracts, read for landmarks only, so OpenStreetMap's Portuguese addresses never reach the index. Adding `portugal` to the `osm` sources would fill some of these gaps, but this panel is drawn from the same OpenStreetMap address nodes, so its Portuguese score would then largely measure the source agreeing with itself: that would be a data change to judge on other evidence, separately from this code.

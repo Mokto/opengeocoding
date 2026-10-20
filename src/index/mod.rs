@@ -2583,6 +2583,9 @@ impl Index {
         // Farias".
         if !housed && number.is_some_and(|n| !n.trim().is_empty()) {
             let mut alternatives = cc
+                .or(postcode
+                    .filter(|p| crate::matching::portuguese_postcode(p))
+                    .map(|_| "pt"))
                 .map(|cc| crate::matching::road_expansions(road, cc))
                 .unwrap_or_default();
             alternatives.extend(crate::matching::bare_road(road, cc));

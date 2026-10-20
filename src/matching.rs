@@ -771,6 +771,14 @@ fn ctt_road(road: &str) -> Vec<String> {
     }
 }
 
+/// "2955-243": no other country writes its postcodes so, which tells a query that names no country
+/// to read its road as Portugal's register does. Only the written shape counts: "50667" could be
+/// German or French, and a country-scoped spelling needs the country to be certain.
+pub(crate) fn portuguese_postcode(postcode: &str) -> bool {
+    let b = postcode.trim().as_bytes();
+    b.len() == 8 && b[4] == b'-' && b[..4].iter().chain(&b[5..]).all(u8::is_ascii_digit)
+}
+
 /// A Polish road as the index may name it: without "ul." (ulica), which most sources leave
 /// out, and without its given names' initials ("ul. M. Kopernika" is Mikołaja Kopernika's
 /// street). Without a stated country, only a road written with "ul." is taken to be Polish.
