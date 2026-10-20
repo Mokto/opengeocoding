@@ -299,6 +299,19 @@ fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
     assert_eq!(found[0].kind, "address");
     assert_eq!(found[0].country_code, "us");
     assert!(metres((found[0].x, found[0].y), house(street("Meadow Road"), "14")) < 5.0);
+    // Quayside is a part of Beacon, whose houses its postcode holds
+    for typed in [
+        "2 High Street, Quayside, AA1 1AA, United Kingdom",
+        "High Street 2, AA1 1AA Quayside",
+    ] {
+        let found = at(typed, None);
+        assert!(!found.is_empty(), "{typed}");
+        assert_eq!(found[0].kind, "address", "{typed}");
+        assert!(
+            metres((found[0].x, found[0].y), house(street("High Street"), "2")) < 5.0,
+            "{typed}"
+        );
+    }
     // the stated country excludes the French street
     assert!(at("Rue de Rivoli 2", Some("US")).is_empty());
     assert_eq!(at("75460", None)[0].kind, "postcode");
