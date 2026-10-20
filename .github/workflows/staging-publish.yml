@@ -8,9 +8,10 @@ name: Staging image publish
 # Once both are pushed, the gold jobs run the suite on a full index in a private cluster: both
 # commits' staging images are evaluated there on the same index, and the report comes back through
 # an authenticated endpoint. No code from the pull request runs on GitHub and the cluster holds no
-# GitHub credentials; these jobs only send two commit hashes and each one's index sources. They are in this workflow, not a
-# separate one, because a workflow started by this one would see this workflow's event instead of
-# the build's, and a called workflow cannot read an environment's secrets.
+# GitHub credentials; these jobs only send two commit hashes and each one's index sources and
+# builder hash. They are in this workflow, not a separate one, because a workflow started by this
+# one would see this workflow's event instead of the build's, and a called workflow cannot read an
+# environment's secrets.
 #
 # `prepare` runs without an environment and picks one: pull requests from the team use
 # gold-trusted, everything else waits for a reviewer's approval in gold-approval. Both environments
@@ -261,15 +262,22 @@ jobs:
           # commits in every run and caches nothing, so speed is timed on one node.
           # Each side's index is built from that commit's chart sources, read as data, so a change
           # to them is measured by its own pull request.
+          # Their builder hashes name the indexes too, so the cluster can send the run to the slot
+          # that already holds them.
           for side in base head; do
             sha=$BASE_SHA; [ "$side" = head ] && sha=$HEAD_SHA
             gh api "repos/$REPO/contents/manifests/values.yaml?ref=$sha" -H 'Accept: application/vnd.github.raw' \
-              | yq -o=json '.index.sources' > "$side-sources.json"
+              > "$side-values.yaml"
+            yq -o=json '.index.sources' "$side-values.yaml" > "$side-sources.json"
             jq -e 'type == "object"' "$side-sources.json" > /dev/null
+            yq '.index.builderHash' "$side-values.yaml" > "$side-builder"
           done
           request=$(jq -nc --arg h "$HEAD_SHA" --arg b "$BASE_SHA" \
             --slurpfile hs head-sources.json --slurpfile bs base-sources.json \
-            '{head_sha: $h, base_sha: $b, head_sources: $hs[0], base_sources: $bs[0]}')
+            --rawfile hb head-builder --rawfile bb base-builder \
+            '{head_sha: $h, base_sha: $b, head_sources: $hs[0], base_sources: $bs[0],
+              head_builder_hash: ($hb | rtrimstr("\n") | select(test("^[0-9a-f]{16}$")) // null),
+              base_builder_hash: ($bb | rtrimstr("\n") | select(test("^[0-9a-f]{16}$")) // null)}')
           deadline=$((SECONDS + 5 * 3600)); waiting=""
           while :; do
             code=$(curl -sS -m 30 -o start.json -w '%{http_code}' -X POST -H "Authorization: Bearer $KEY" \
@@ -282,8 +290,8 @@ jobs:
                    if [ -z "$waiting" ]; then
                      waiting=1; phase_start "waiting for a free slot"
                    fi
-                   progress queued "Both slots of the cluster are busy; the run starts when one is free."
-                   log "Both slots are busy; waited $(dur "$SECONDS") so far, retrying in 60 s"; sleep 60 ;;
+                   progress queued "Both slots of the cluster are busy, or the one holding this run's index is; the run starts when it is free."
+                   log "No slot can take the run yet; waited $(dur "$SECONDS") so far, retrying in 60 s"; sleep 60 ;;
               *) log "Starting the run failed: HTTP $code"; jq -r '.error // empty' start.json
                  echo "FAILED_STEP=starting the run (HTTP $code)" >> "$GITHUB_ENV"; exit 1 ;;
             esac
