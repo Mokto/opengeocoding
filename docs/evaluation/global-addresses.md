@@ -35,6 +35,20 @@ An early admission pilot found phone numbers and Plus Codes misfiled as house nu
 
 Keep the authoritative registry-first corpora and curated global place tests. This benchmark complements them by revealing missing index coverage, number-role failures and country/format problems across more markets. Do not tune against the hold-out, relabel failures or relax expectations to produce green country scores.
 
+## Registry adjudications
+
+Where a national register places the same address elsewhere, the case also accepts the register's point (`expect.any_of`, the OSM expectation first) and records it under `adjudication`. Number, postcode, house level, `goodMatch` and the 150 m radius stay; only the point differs. Such cases have two expected points, so ReverseGeocode no longer checks them.
+
+So far only Australia, against the August 2026 G-NAF release (`G-NAF` in [the notice](../../tests/global/NOTICE)). `adjudicate-gnaf.py find` reads the manifest's records and the official PSV zip, never a service answer, and admits a record when exactly one current principal G-NAF address without unit or level has its complete number, street and postcode, with an address-level default geocode more than 150 m from the OSM node. Of 50 Australian groups, 43 match one G-NAF address; 27 of those lie within 150 m and 16 are adjudicated, at 0.19 to 13.7 km (mostly rural property and building centroids). Leading zeros, ranges and addresses absent from G-NAF are not adjudicated. See the [Australian triage](triage/global-au.md).
+
+```sh
+python3 tests/global/adjudicate-gnaf.py find --manifest tests/global/manifest.json \
+  --gnaf SOURCE/g-naf_aug26_allstates_gda2020_psv_110.zip --release "August 2026" \
+  --out tests/global/adjudications.json
+```
+
+The zip's SHA256 is recorded in `adjudications.json`. A new G-NAF release is a data update: rerun `find`, then the replay and `apply` steps below, and review the corpus diff.
+
 ## Run
 
 The default `evaluate run --suite gold --index SOURCE/index --out eval-results/gold` includes this panel alongside the existing corpora. To run only the panel:
@@ -60,8 +74,13 @@ To reproduce the case file byte-for-byte from the checked-in source-record snaps
 ```sh
 python3 tests/global/build-addresses.py \
   --replay tests/global/manifest.json --out /tmp/global-address-replay
-cmp tests/global/global-addresses.jsonl /tmp/global-address-replay/global-addresses.jsonl
+python3 tests/global/adjudicate-gnaf.py apply \
+  --corpus /tmp/global-address-replay/global-addresses.jsonl \
+  --adjudications tests/global/adjudications.json --out /tmp/global-address-replay/adjudicated.jsonl
+cmp tests/global/global-addresses.jsonl /tmp/global-address-replay/adjudicated.jsonl
 ```
+
+The second step adds the [registry adjudications](#registry-adjudications); it is separate because the manifest binds the generator's hash to the capture.
 
 To resample the original data, retain every PBF named by the manifest, its exact SHA256, the countryInfo.txt snapshot, and the pinned Natural Earth file. A `-latest` URL changes over time; downloading its current contents is a **new data experiment**, not a reproduction. `urls.txt` beside the PBFs records their public Geofabrik URLs, one per line.
 
