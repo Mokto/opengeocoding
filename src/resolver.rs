@@ -650,7 +650,96 @@ impl Core {
                 return Ok(alt);
             }
         }
+        if let Some(house) = self.suggested_house(query, &found)? {
+            return Ok(house);
+        }
         Ok(found)
+    }
+
+    /// A house the parse missed ("D-112 Shastri Nagar, 342003, India" reads as one road) that
+    /// the query still names in full: its number, every word of its street and its postcode or
+    /// town. Found by the completion lookup, which reads no parse; one such house or none.
+    fn suggested_house(&self, query: &str, found: &FullAddress) -> Result<Option<FullAddress>> {
+        use crate::index::schema::{fold, number_key, pc_norm};
+        let stated = found.address_details.as_option();
+        let stated_postcode = stated.map_or(String::new(), |d| pc_norm(&d.postcode));
+        let tokens: Vec<&str> = query
+            .split(|c: char| c == ',' || whitespace(c))
+            .filter(|t| !t.is_empty())
+            .collect();
+        let written: std::collections::HashSet<String> = tokens
+            .iter()
+            .map(|t| pc_norm(t))
+            .chain(query.split(',').map(pc_norm))
+            .collect();
+        let numbered =
+            |t: &&str| t.chars().any(|c| c.is_ascii_digit()) && pc_norm(t) != stated_postcode;
+        if !tokens.iter().any(numbered) {
+            return Ok(None);
+        }
+        let words: std::collections::HashSet<String> =
+            fold(query).split(' ').map(String::from).collect();
+        let named = |name: &str| {
+            let name = fold(name);
+            !name.is_empty() && name.split(' ').all(|w| words.contains(w))
+        };
+        let cc = stated
+            .map(|d| d.country_code.as_str())
+            .filter(|c| !c.is_empty());
+        let mut houses = vec![];
+        for s in self.index.suggest(query, 5, cc, None, false) {
+            let Some(value) = self.index.suggested_house(&s) else {
+                continue;
+            };
+            let house = format_response(&value)?;
+            let Some(d) = house.address_details.as_option() else {
+                continue;
+            };
+            let postcode = pc_norm(&d.postcode);
+            let verified = tokens
+                .iter()
+                .any(|t| number_key(t) == number_key(&d.house_number))
+                && named(&d.road)
+                && (stated_postcode.is_empty()
+                    || postcode.is_empty()
+                    || postcode == stated_postcode)
+                && match cc {
+                    Some(cc) => d.country_code == cc,
+                    None => named(&d.country),
+                }
+                && (!postcode.is_empty() && written.contains(&postcode)
+                    || [
+                        &d.city,
+                        &d.town,
+                        &d.village,
+                        &d.municipality,
+                        &d.suburb,
+                        &d.city_district,
+                        &d.hamlet,
+                    ]
+                    .into_iter()
+                    .any(|p| named(p)));
+            if verified {
+                houses.push(house);
+            }
+        }
+        let point = |f: &FullAddress| f.geo_coordinates.as_option().map(|g| (g.lat, g.lon));
+        let Some(first) = houses.first().and_then(point) else {
+            return Ok(None);
+        };
+        if houses
+            .iter()
+            .any(|h| point(h).is_none_or(|(lat, lon)| km_between(first.0, first.1, lat, lon) > 0.2))
+        {
+            return Ok(None);
+        }
+        Ok(Some(accept(
+            houses.swap_remove(0),
+            &ParsedAddress::new(),
+            "",
+            "suggested_house",
+            true,
+        )))
     }
 
     /// Reviewed historical memberships answer only where the current lookups found no good match.

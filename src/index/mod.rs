@@ -4480,7 +4480,6 @@ impl Index {
     // search reads more cells than it needs, and cells past the antimeridian or poles aren't
     // searched. Upgrade: per-axis ring counts and wrapped columns.
     fn reverse_houses(&self, lat: f64, lon: f64, radius_m: f64, size: usize) -> Vec<(Value, f64)> {
-        use tantivy::schema::Value as _;
         let Some(rev) = &self.reverse else {
             return vec![];
         };
@@ -4522,36 +4521,51 @@ impl Index {
         found
             .into_iter()
             .filter_map(|(m, a, number, x, y, own)| {
-                let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
-                let postcode = (own > 0)
-                    .then(|| {
-                        doc.get_all(self.f.pcode)
-                            .nth(own as usize - 1)?
-                            .as_str()
-                            .map(pc_norm)
-                    })
-                    .flatten();
-                let hit = Hit::Street {
-                    doc: a,
-                    sid: self.fast(a, "id") as u32,
-                    place: self.fast(a, "place") as u32,
-                    name: stored(&doc, self.f.name),
-                    x,
-                    y,
-                    postal_town: postal_town(
-                        &doc,
-                        self.f.postal_town,
-                        &number,
-                        postcode.as_deref(),
-                    ),
-                    number: Some(number),
-                    postcode,
-                    city: None,
-                    cc: String::new(),
-                };
-                Some((self.render(&hit, true), m))
+                Some((self.render(&self.house_hit(a, number, x, y, own)?, true), m))
             })
             .collect()
+    }
+
+    /// House `number` of street document `a`, at its position and with its postcode slot.
+    fn house_hit(&self, a: DocAddress, number: String, x: f64, y: f64, own: u8) -> Option<Hit> {
+        use tantivy::schema::Value as _;
+        let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
+        let postcode = (own > 0)
+            .then(|| {
+                doc.get_all(self.f.pcode)
+                    .nth(own as usize - 1)?
+                    .as_str()
+                    .map(pc_norm)
+            })
+            .flatten();
+        Some(Hit::Street {
+            doc: a,
+            sid: self.fast(a, "id") as u32,
+            place: self.fast(a, "place") as u32,
+            name: stored(&doc, self.f.name),
+            x,
+            y,
+            postal_town: postal_town(&doc, self.f.postal_town, &number, postcode.as_deref()),
+            number: Some(number),
+            postcode,
+            city: None,
+            cc: String::new(),
+        })
+    }
+
+    /// The house a house suggestion of this index names, rendered as a search answer.
+    pub fn suggested_house(&self, s: &Suggestion) -> Option<Value> {
+        let (_, key) = s.retrieval_id.split_once('/')?;
+        let mut parts = key.strip_prefix('h')?.split(':');
+        let (segment, doc) = (parts.next()?.parse().ok()?, parts.next()?.parse().ok()?);
+        let number = parts.next()?;
+        let a = DocAddress::new(segment, doc);
+        let sid = self.fast(a, "id") as u32;
+        let mut key = sid.to_be_bytes().to_vec();
+        key.extend_from_slice(number.as_bytes());
+        let value = self.numbers[sid as usize % self.numbers.len()].get(&key)?;
+        let (x, y, own) = schema::unpack(value);
+        Some(self.render(&self.house_hit(a, number.into(), x, y, own)?, true))
     }
 
     /// Calls `each` with every house of street `sid`: its number, position and postcode slot.
