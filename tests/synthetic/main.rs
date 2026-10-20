@@ -1761,21 +1761,25 @@ async fn resolve_follows_the_authored_facts() {
         ("86B 18", "Avenida Calle 43 S # 86B-18, Bogotá, Colombia"),
         ("86B 18", "Avenida Calle 43 S 86B 18, Bogotá, Colombia"),
         ("54D 35 S", "AC 43 S # 54D-35 S, Bogotá, Colombia"),
+        ("9C 18 E", "CL 22BIS S # 9C-18 E, Bogotá, Colombia"),
+        ("9C 18 E", "Calle 22BIS S 9C-18 E, Bogotá, Colombia"),
     ] {
         let got = resolver.resolve(query).await.unwrap();
         assert!(got.good_match, "{query}: {got:?}");
         let at = got.geo_coordinates.as_option().unwrap();
+        let road = STREETS
+            .iter()
+            .find(|s| s.cc == "CO" && s.numbers.contains(&number))
+            .unwrap();
         assert!(
-            metres(
-                (at.lon as f64, at.lat as f64),
-                house(street("AC 43 S"), number)
-            ) < 5.0,
+            metres((at.lon as f64, at.lat as f64), house(road, number)) < 5.0,
             "{query}: {got:?}"
         );
     }
     for query in [
         "AC 43 S # 86B-19, Bogotá, Colombia",
         "AC 44 S # 86B-18, Bogotá, Colombia",
+        "CL 22BIS S # 9C-19 E, Bogotá, Colombia",
     ] {
         let got = resolver.resolve(query).await.unwrap();
         assert!(!got.good_match, "{query}: {got:?}");

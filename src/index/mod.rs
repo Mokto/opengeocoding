@@ -2954,6 +2954,7 @@ impl Index {
             _ => None,
         };
         let exact_road = fold(road);
+        let mut without_house = None;
         for (i, scope) in scopes.into_iter().enumerate() {
             let mut cl = base();
             if let Some(s) = scope {
@@ -3258,11 +3259,11 @@ impl Index {
                         return vec![found];
                     } else {
                         // only `strict` leaves a held number without a house
-                        return vec![];
+                        return without_house.unwrap_or_default();
                     }
                 }
                 if conflicting {
-                    return vec![];
+                    return without_house.unwrap_or_default();
                 }
             }
             // A street crossing a cell edge is indexed in parts: answer the middle of the parts
@@ -3288,9 +3289,21 @@ impl Index {
             let mid = parts
                 .iter()
                 .fold((0.0, 0.0), |(x, y), p| (x + p.0 / n, y + p.1 / n));
-            return vec![street(a, None, mid, 0)];
+            let found = vec![street(a, None, mid, 0)];
+            // Colombia's county is the municipality, not a province of other towns: Bogotá's
+            // localities sit partly under it and partly under "Bogotá ciudad", so a same-named
+            // street there can hold the house the town's lacks (CL 22BIS S in San Cristóbal and
+            // in Kennedy).
+            if cc == Some("co")
+                && number.as_deref().is_some_and(|n| !n.is_empty())
+                && i + 1 < town_scopes
+            {
+                without_house.get_or_insert(found);
+                continue;
+            }
+            return without_house.unwrap_or(found);
         }
-        vec![]
+        without_house.unwrap_or_default()
     }
 
     fn postcodes(&self, pc: &str, cc: Option<&str>) -> Vec<Hit> {
