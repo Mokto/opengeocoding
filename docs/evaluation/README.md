@@ -1,6 +1,6 @@
 # Geographic evaluation
 
-[Documentation](../README.md) · [Provider comparisons](providers.md) · [Coverage](coverage.md) · [Registry sources](registry/)
+[Documentation](../README.md) · [Provider comparisons](providers.md) · [Coverage](coverage.md) · [Registry sources](registry/) · [Global address diagnostics](global-addresses.md)
 
 Run commands from the repository root, including those in the per-country guides.
 
@@ -20,6 +20,7 @@ cargo build --locked --release --bin opengeocoding --bin evaluate
 | Smoke | `target/release/evaluate run --suite smoke --index out --out eval-results/smoke` | Index, models |
 | Pre-release | `target/release/evaluate run --suite gold --index out --out eval-results/gold` | Same |
 | Address snapshots | `target/release/evaluate run --suite addresses --index out --out eval-results/addresses --compare tests/snapshots/addresses.tsv` | Same |
+| Global source consistency | `target/release/evaluate run --corpus tests/global/global-addresses.jsonl --index out --out eval-results/global-addresses` | Same; OSM-derived diagnostics, not independent accuracy |
 | Compare | `target/release/evaluate diff BASELINE CANDIDATE` | Two saved runs or snapshots |
 | Re-score | `target/release/evaluate report RUN_DIR --rescore` | A saved run; lists cases whose class changed |
 
