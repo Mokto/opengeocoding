@@ -1099,6 +1099,18 @@ pub const PLACES: &[Place] = &[
         &[("en", "Matsue")]
     ),
     place!(
+        "co-bogota",
+        "locality",
+        "city",
+        "CO",
+        "CO-DC",
+        7_000_000,
+        (-60.0, 30.0),
+        "",
+        "Bogotá",
+        &[("en", "Bogotá")]
+    ),
+    place!(
         "kr",
         "country",
         "",
@@ -1438,6 +1450,18 @@ pub const STREETS: &[Street] = &[
         lon: 145.01,
         lat: 40.0,
         numbers: &["258-2"],
+    },
+    // Bogotá's register: "AC" for Avenida Calle, plates keyed "86B 18" for "# 86B-18"
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "AC 43 S",
+        postcode: "",
+        city: "Bogotá",
+        cc: "CO",
+        lon: -60.0,
+        lat: 30.0,
+        numbers: &["86B 18", "54D 35 S"],
     },
     Street {
         class: "residential",

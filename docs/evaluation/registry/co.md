@@ -33,6 +33,10 @@ The three complete source responses contain 213, 221 and 201 principal plates, *
 
 All 567 forward queries are too coarse; all full-string SuggestAddress checks fail. These results do not establish that the index lacks every corresponding house: composite-number representation, parsing and lookup coverage still need separate investigation. No baseline label converts these failures into passes. ReverseGeocode passes the country check at all 567 repeated source points, not house or plate identity. ResolveRegion is unscored.
 
+### Plate and avenue forms
+
+The houses were in the index all along, from OpenAddresses' Bogotá layer, keyed as the register writes them: plate `86B 18` on `AC 43 S`. Queries write the plate `# 86B-18` and often the road `Avenida Calle 43 S`, and neither matched. A Colombian plate is now also looked up in the register's form, and `Avenida Calle`/`Avenida Carrera` also as `AC`/`AK` (and back). On the local world index (builder `9d4006a4eec15abb`, same index both sides), SearchAddress passes 561 of the 567 queries (CL 174/180, every other road type all), held-out locations included, against 0 before. The six failures are two locations whose road glues `BIS` to its number (`CL 59BIS S`, `CL 22BIS S`). SuggestAddress, which does not use this lookup, is unchanged.
+
 The prepared bogota.json is 154,724 bytes, SHA256 080d89ae89ca4e607f22a0c9571d3b9f545c93949ae5d60cb8a3fb381f3db524. Its sources list pins the three request predicates, URLs and response checksums. The source response count, not a national population, is the eligible acquisition-frame denominator.
 
 ## Validation

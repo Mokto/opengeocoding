@@ -598,15 +598,67 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
                     road_key(expanded) == road_key(&d.road)
                         && country_matches(&expected_country(address), Some(d))
                 }))
-        && crate::index::schema::number_key(&house.split(whitespace).collect::<String>())
-            == crate::index::schema::number_key(
-                &d.house_number.split(whitespace).collect::<String>(),
-            )
+        && {
+            let key = |n: &str| {
+                let n = if d.country_code.eq_ignore_ascii_case("co") {
+                    let n = n.trim_start_matches(['#', ' ']);
+                    colombian_plate(n).unwrap_or_else(|| n.to_owned())
+                } else {
+                    n.to_owned()
+                };
+                crate::index::schema::number_key(&n.split(whitespace).collect::<String>())
+            };
+            key(house) == key(&d.house_number)
+        }
+}
+
+/// "Avenida Calle 43 S" as Bogotá's register writes it, "AC 43 S", and back: an avenue
+/// that is also a numbered calle or carrera (AK).
+fn bogota_road(road: &str) -> Option<String> {
+    static LONG: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)^\s*(?:avenida|av\.?)\s+(calle|cl|carrera|kr|cra)\s+(.+)$").unwrap()
+    });
+    static SHORT: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i)^\s*(ac|ak)\s+(.+)$").unwrap());
+    if let Some(c) = LONG.captures(road) {
+        let kind = match c[1].to_lowercase().as_str() {
+            "calle" | "cl" => "AC",
+            _ => "AK",
+        };
+        return Some(format!("{kind} {}", &c[2]));
+    }
+    SHORT.captures(road).map(|c| {
+        let kind = if c[1].eq_ignore_ascii_case("ac") {
+            "Calle"
+        } else {
+            "Carrera"
+        };
+        format!("Avenida {kind} {}", &c[2])
+    })
+}
+
+/// A Colombian plate ("# 86B-18", "54D-35 S": the house 18 m along from the crossing road 86B)
+/// as Bogotá's register keys it, "86B 18" and "54D 35 S". None when it is not one.
+pub(crate) fn colombian_plate(n: &str) -> Option<String> {
+    static PLATE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)^\s*(?:#|no\.?)?\s*(\d+\s?[a-z]?(?:\s?bis)?)\s*-\s*(\d+)(\s+[a-z]+)?\s*$")
+            .unwrap()
+    });
+    let c = PLATE.captures(n)?;
+    Some(format!(
+        "{} {}{}",
+        c[1].replace(' ', ""),
+        &c[2],
+        c.get(3).map_or("", |m| m.as_str())
+    ))
 }
 
 pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
     if cc.eq_ignore_ascii_case("pt") {
         return ctt_road(road);
+    }
+    if cc.eq_ignore_ascii_case("co") {
+        return bogota_road(road).into_iter().collect();
     }
     if cc.eq_ignore_ascii_case("za") {
         let road = normalize_place(road);
