@@ -443,6 +443,9 @@ pub struct Index {
     f: Fields,
     /// Memory-mapped, so cold parts stay in the page cache instead of private memory.
     numbers: Vec<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
+    /// Per shard, a second house of a street's number far from the first (`schema::far_file`);
+    /// absent from hand-built indexes.
+    far: Vec<Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>>,
     /// Absent from hand-built indexes, which then answer reverse lookups with a locality only.
     reverse: Option<reverse::Reverse>,
     /// Administrative polygons for `reverse_region`; absent from hand-built indexes.
@@ -1791,6 +1794,19 @@ impl Index {
                 )?))
             })
             .collect::<Result<_>>()?;
+        let far = (0..shards)
+            .map(|s| {
+                use tantivy::directory::Directory;
+                let name = schema::far_file(s);
+                if !dir.join(&name).exists() {
+                    return Ok(None);
+                }
+                let file = mmap.open_read(Path::new(&name))?;
+                Ok(Some(tantivy_fst::Map::from(tantivy_fst::raw::Fst::new(
+                    file.read_bytes()?,
+                )?)))
+            })
+            .collect::<Result<_>>()?;
         let reverse = if dir.join(reverse::FILE).exists() {
             use tantivy::directory::Directory;
             let file = mmap.open_read(Path::new(reverse::FILE))?;
@@ -1919,6 +1935,7 @@ impl Index {
             country_codes,
             f,
             numbers,
+            far,
             reverse,
             areas,
             streets,
@@ -2554,7 +2571,7 @@ impl Index {
                 _ => None,
             })
             .collect();
-        let hits = self.streets_by(road, number, city, &named, postcode, cc, exact);
+        let hits = self.streets_by(road, number, city, &named, postcode, cc, exact, false);
         // Bogotá's register keys "# 86B-18" as "86B 18"
         if cc == Some("co")
             && let Some(plate) = number.and_then(crate::matching::colombian_plate)
@@ -2622,7 +2639,7 @@ impl Index {
                 let mut ids = std::collections::BTreeSet::new();
                 for name in alternatives {
                     let next: Vec<_> = self
-                        .streets_by(&name, number, city, &named, postcode, cc, false)
+                        .streets_by(&name, number, city, &named, postcode, cc, false, true)
                         .into_iter()
                         .filter(|h| {
                             matches!(h, Hit::Street { number: Some(_), postcode: own, .. }
@@ -2641,7 +2658,7 @@ impl Index {
                         .collect();
                     // "vn." can name two distinct roads, not just two spellings of one.
                     if !found.is_empty() && ids != next_ids {
-                        return vec![];
+                        return hits;
                     }
                     ids = next_ids;
                     found = next;
@@ -2658,7 +2675,7 @@ impl Index {
             && let Some(name) = self.respelt(road, city, &named, postcode, cc)
         {
             return self
-                .streets_by(&name, number, city, &named, postcode, cc, false)
+                .streets_by(&name, number, city, &named, postcode, cc, false, false)
                 .into_iter()
                 .filter(|h| match h {
                     Hit::Street {
@@ -2799,6 +2816,7 @@ impl Index {
         postcode: Option<&str>,
         cc: Option<&str>,
         prefer_exact: bool,
+        strict: bool,
     ) -> Vec<Hit> {
         let base = || self.musts(self.f.names, road);
         let long = long_words(road);
@@ -3154,12 +3172,30 @@ impl Index {
                         (!with_postcode.contains(a), !in_named(a), !as_written(a))
                     });
                 }
+                // A second house of the number far along the street (two villages' "Calle Mayor
+                // 3" in one municipality) is the one only it has the requested postcode for.
+                // Otherwise the first stands, unless `strict` refuses the guess.
+                let house = |a: DocAddress, sid: u32, key: &[u8]| -> Option<u64> {
+                    let shard = sid as usize % self.numbers.len();
+                    let v = self.numbers[shard].get(key)?;
+                    let Some(f) = self.far[shard].as_ref().and_then(|m| m.get(key)) else {
+                        return Some(v);
+                    };
+                    let wanted = postcode.map(pc_norm).filter(|p| !p.is_empty());
+                    let holds =
+                        |v: u64| wanted.is_some() && own_postcode(a, schema::unpack(v).2) == wanted;
+                    match (holds(v), holds(f)) {
+                        (true, false) => Some(v),
+                        (false, true) => Some(f),
+                        _ => (!strict).then_some(v),
+                    }
+                };
                 for &a in &by_name {
                     let sid = self.fast(a, "id") as u32;
                     key.clear();
                     key.extend_from_slice(&sid.to_be_bytes());
                     key.extend_from_slice(n.as_bytes());
-                    if let Some(v) = self.numbers[sid as usize % self.numbers.len()].get(&key) {
+                    if let Some(v) = house(a, sid, &key) {
                         let (x, y, own) = schema::unpack(v);
                         // The town and the postcode disagree: when the house in the town has
                         // another postcode and the requested postcode holds the same street and
@@ -3210,6 +3246,9 @@ impl Index {
                         }
                         // like Nominatim, a found house is the only answer
                         return vec![found];
+                    } else {
+                        // only `strict` leaves a held number without a house
+                        return vec![];
                     }
                 }
                 if conflicting {
@@ -3293,9 +3332,22 @@ impl Index {
         if parts.len() > 1 {
             tries.extend(parts.into_iter().rev());
         }
-        tries
-            .into_iter()
-            .find(|t| !self.places(t, cc, None, &local).is_empty())
+        let (found, outer) = tries.into_iter().find_map(|t| {
+            let places = self.places(&t, cc, None, &local);
+            (!places.is_empty()).then_some((t, places))
+        })?;
+        // "cabanes castelló/castellón": a town written before the province it is in is the town.
+        let head = text.strip_suffix(found.as_str()).map(str::trim);
+        if let Some(head) = head.filter(|h| !h.is_empty())
+            && let (towns, true) = self.places_exact(head, cc, None, &local)
+            && let Some(Hit::Place(town)) = towns.first()
+            && outer
+                .iter()
+                .any(|h| matches!(h, Hit::Place(p) if p != town && self.chain(*town).contains(p)))
+        {
+            return Some(head.to_string());
+        }
+        Some(found)
     }
 
     /// Whether a place named exactly `name` (in country `cc`, if given) has its centre within
@@ -3771,6 +3823,7 @@ impl Index {
                     &[region],
                     None,
                     Some("us"),
+                    false,
                     false,
                 )
                 .into_iter()

@@ -1161,7 +1161,20 @@ fn cases() -> Vec<Case> {
         want,
         known_failure: "",
     };
+    let mayor = |postcode: &str| {
+        let s = STREETS
+            .iter()
+            .find(|s| s.name == "Calle Mayor" && s.postcode == postcode)
+            .unwrap();
+        Want::At(house(s, "3"), 25.0, true)
+    };
     vec![
+        case("Calle Mayor 3, 09120 Villaseca, Spain", mayor("09120")),
+        case("Calle Mayor 3, 09128 Villaseca, Spain", mayor("09128")),
+        case(
+            "Calle del Castillo 2, 09120 Villaseca, Spain",
+            at_house("CALLE CASTILLO", "2"),
+        ),
         case(
             "7 Acacia Straat, 9991 Veldhaven, South Africa",
             at_house("Acacia Street", "7"),

@@ -660,6 +660,26 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
     if cc.eq_ignore_ascii_case("co") {
         return bogota_road(road).into_iter().collect();
     }
+    if cc.eq_ignore_ascii_case("es") {
+        // Spain's address registry leaves most articles and prepositions out of a road's name:
+        // "Calle del Castillo" is its "CALLE CASTILLO".
+        let road = normalize_place(road);
+        let all: Vec<&str> = road.split(' ').collect();
+        let mut words: Vec<&str> = all
+            .iter()
+            .copied()
+            .filter(|w| !SPANISH_PARTICLES.contains(w))
+            .collect();
+        let kind = |w: &str| canon(w).is_some() || is_canonical(w);
+        // and Basque names put the type last ("Belakasoro kalea" is its "CALLE BELAKASORO")
+        if words.len() > 1 && kind(words[words.len() - 1]) && !kind(words[0]) {
+            words.rotate_right(1);
+        }
+        return (words.iter().any(|w| !kind(w)) && words != all)
+            .then(|| words.join(" "))
+            .into_iter()
+            .collect();
+    }
     if cc.eq_ignore_ascii_case("za") {
         let road = normalize_place(road);
         return [(" straat", " street"), (" street", " straat")]
@@ -831,6 +851,11 @@ pub(crate) fn portuguese_postcode(postcode: &str) -> bool {
     b.len() == 8 && b[4] == b'-' && b[..4].iter().chain(&b[5..]).all(u8::is_ascii_digit)
 }
 
+/// Spanish, Catalan and Galician articles and prepositions.
+const SPANISH_PARTICLES: &[&str] = &[
+    "de", "del", "la", "las", "los", "el", "dels", "les", "els", "da", "do", "das", "dos",
+];
+
 /// A Polish road as the index may name it: without "ul." (ulica), which most sources leave
 /// out, and without its given names' initials ("ul. M. Kopernika" is Mikołaja Kopernika's
 /// street). Without a stated country, only a road written with "ul." is taken to be Polish.
@@ -919,6 +944,13 @@ pub fn same_postcode_country(
         })
 }
 
+/// British, Canadian, Dutch, Irish and Portuguese postcodes in full, which name a few buildings
+/// rather than an area.
+static UNIT_POSTCODE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^([A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}|[A-Z]\d[A-Z]\d[A-Z]\d|\d{4}[A-Z]{2}|[A-Z]\d{2}[0-9A-Z]{4}|\d{7})$")
+        .unwrap()
+});
+
 pub fn choose_candidate(
     address: &ParsedAddress,
     country: &str,
@@ -990,6 +1022,36 @@ pub fn choose_candidate(
         .map(|(i, _)| i)
         .collect();
     if let Some(hit) = prefer(postcode_city, "postcode_city") {
+        return Some(hit);
+    }
+    // "1 Plaza La Fuente, Muro de Aguas, 26587": an area postcode several villages share is
+    // centred on one of them; for an address not found, the stated village or town (not a city,
+    // which holds several postcodes), with no postcode of its own to contradict it and near that
+    // centre, agrees with both. A unit postcode ("SW8 1JQ") is finer than any village.
+    let area_postcode = !part(address, "house_number").is_empty()
+        && !UNIT_POSTCODE.is_match(&normalize_postcode(postcode).to_uppercase());
+    let centres: Vec<(f32, f32)> = candidates
+        .iter()
+        .filter(|_| area_postcode)
+        .filter(|item| postcode_agrees(postcode, item.address_details.as_option()))
+        .filter_map(|item| item.geo_coordinates.as_option().map(|g| (g.lat, g.lon)))
+        .collect();
+    let city_near_postcode = candidates
+        .iter()
+        .enumerate()
+        .filter(|(_, item)| {
+            let details = item.address_details.as_option();
+            details.is_some_and(|d| d.postcode.is_empty() && d.city.is_empty())
+                && city_agrees(address, details)
+                && item.geo_coordinates.as_option().is_some_and(|g| {
+                    centres.iter().any(|&(lat, lon)| {
+                        ((g.lon - lon) * lat.to_radians().cos()).hypot(g.lat - lat) * 111.2 < 10.0
+                    })
+                })
+        })
+        .map(|(i, _)| i)
+        .collect();
+    if let Some(hit) = prefer(city_near_postcode, "postcode_city") {
         return Some(hit);
     }
     if postcode.is_empty() {
