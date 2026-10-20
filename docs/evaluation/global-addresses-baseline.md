@@ -4,7 +4,7 @@ These are **source-consistency counts, not national accuracy estimates**. The pa
 
 The resolver, scorer and index builder are unchanged by this dataset addition. On the pinned full index, the new panel has **2,827/4,796 forward passes**, **2,913/4,796 first-five suggestion geography matches**, and **4,794/4,796 country-only reverse matches**. ResolveRegion is unscored. Forward results include **59 critical diagnostics** (54 far misses and five wrong-country results). The benchmark's absolute gate **fails**; no failure exemptions or weaker expectations were added. These diagnostics require source/index/parser/matching attribution before fixes.
 
-A second run with the same immutable binaries, models and index had **zero answer or class changes** across all 4,796 cases, excluding timings. Each run used one request per operation: this is not a latency comparison, production throughput estimate or performance claim. The existing, separate 16,483-case default gold suite passed its absolute quality gate locally.
+A second run with the same immutable binaries, models and index had **zero answer or class changes** across all 4,796 cases, excluding timings. Each run used one request per operation: this is not a latency comparison, production throughput estimate or performance claim. Before this panel was added to the default gold inputs, the existing 16,483-case suite passed its absolute quality gate locally. The combined suite now has 21,279 cases and retains the panel's untriaged failures; inclusion does not make its absolute gate pass.
 
 ## Country panel
 
@@ -60,6 +60,12 @@ A second run with the same immutable binaries, models and index had **zero answe
 | US | 38/100 | 34/50 | 4/50 | 59/100 | 1 |
 | VN | 54/100 | 25/50 | 29/50 | 47/100 | 5 |
 | ZA | 56/100 | 47/50 | 9/50 | 95/100 | 0 |
+
+## Default-gold integration check
+
+A full 21,279-case default-gold run includes all 4,796 panel cases. The relative quality comparison passes across the existing 16,483 shared cases, with unchanged pass counts for all RPCs and no newly failing or worse classes. Every panel answer/class matches the standalone baseline. One unscored fifth suggestion for `Washington, PA` varies between runs of the same immutable service binary; its first result and pass outcome are unchanged.
+
+The combined absolute gate still fails on the panel's 59 untriaged critical diagnostics. The local one-repeat speed comparison also fails (SearchAddress total +14%, SuggestAddress +46%, ReverseGeocode +33%); the run overlapped a Docker build and used the same service binary, so this is not evidence of a code-induced slowdown or a speed pass. The built evaluation image exports exactly 21,279 cases, including 4,796 panel cases, with the same combined-corpus hash as the local evaluator and the ODbL notice present.
 
 ## Source and boundary cautions still requiring adjudication
 

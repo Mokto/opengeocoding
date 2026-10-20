@@ -1,6 +1,6 @@
 # Global address source-consistency benchmark
 
-This compact benchmark contains 2,400 mapped address groups across 48 target markets (50 per market) and 4,796 distinct query variants. It is **not an independent accuracy gold standard**: OpenStreetMap also supplies index data and libpostal training data. It remains separate from `evaluate run --suite gold`; use `--corpus` explicitly. Do not combine its pass rates with registry-first accuracy evidence or call a country nationally validated because it appears here.
+This compact benchmark contains 2,400 mapped address groups across 48 target markets (50 per market) and 4,796 distinct query variants. It is **not an independent accuracy gold standard**: OpenStreetMap also supplies index data and libpostal training data. It is included in `evaluate run --suite gold`, the evaluation image and CI gold comparisons, with separate `global_osm_*` cohorts. Do not combine its pass rates with registry-first accuracy evidence or call a country nationally validated because it appears here.
 
 The checked-in [corpus](../../tests/global/global-addresses.jsonl) needs no upstream downloads to run. The [initial measured baseline](global-addresses-baseline.md) retains failing diagnostics and unresolved source conflicts. The [manifest](../../tests/global/manifest.json) contains the selected source records, country coverage, snapshot hashes and sampling parameters. [Attribution and data licence](../../tests/global/NOTICE).
 
@@ -37,6 +37,8 @@ Keep the authoritative registry-first corpora and curated global place tests. Th
 
 ## Run
 
+The default `evaluate run --suite gold --index SOURCE/index --out eval-results/gold` includes this panel alongside the existing corpora. To run only the panel:
+
 ```sh
 INDEX_DIR=SOURCE/index SERVICE_BINARY=target/release/opengeocoding \
   target/release/evaluate run --suite gold \
@@ -47,7 +49,7 @@ target/release/evaluate report eval-results/global-addresses \
   --corpus tests/global/global-addresses.jsonl
 ```
 
-`--corpus` replaces the default gold inputs despite the `--suite gold` run label. The default CI gold gate retains the existing authoritative-source regression suite and its documented source-ancestry limitations. This diagnostic set deliberately has no `must_pass` or `known_failure` labels. A baseline containing untriaged critical results fails the evaluator's absolute gate; retain and investigate those results rather than making them disappear.
+`--corpus` replaces the default gold inputs despite the `--suite gold` run label. The default CI gold comparison now includes this panel. Candidate-only cases are reported as added cases on introduction; subsequent comparisons gate newly failing or worse shared cases using the existing relative gate. Source-consistency results remain distinguishable by cohort and provenance, not independent national accuracy. This diagnostic set deliberately has no `must_pass` or `known_failure` labels. A baseline containing untriaged critical results fails the evaluator's absolute gate; retain and investigate those results rather than making them disappear.
 
 ## Reproduce
 
@@ -83,4 +85,4 @@ The boundary source is pinned to Natural Earth commit `ca96624a56bd078437bca8184
 - [MESSY STREETS](https://github.com/EdGaere/MessyStreets) and its [paper](https://arxiv.org/abs/2609.01612): useful verbatim-address work, but 92% North America/Europe in the reported sample, with street existence verified around kilometre-scale cells rather than civic-number/building truth.
 - [Wikidata](https://www.wikidata.org/): remains useful independent-source evidence where suitable. The discovery pilot found many road-only descriptions and Plus Codes in address properties; physical-building membership plus a coordinate did not make those strings complete civic addresses. They were not promoted into house-level gold expectations.
 
-These findings are why the broad source-consistency panel is separate from authoritative accuracy evaluation, rather than presented as a universally authoritative global dataset.
+These findings are why the panel retains its source-consistency provenance and separate cohorts within gold, rather than being presented as a universally authoritative global dataset.

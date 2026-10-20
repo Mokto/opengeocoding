@@ -68,6 +68,10 @@ Registry-first and school-sampled evaluation corpora have per-source attribution
 reuse terms in tests/registry/*.NOTICE. These notices accompany the corpora and are
 installed in container images under /usr/local/share/licenses/opengeocoding/registry/.
 
+The global address source-consistency gold corpus in tests/global/ is derived from
+OpenStreetMap under ODbL-1.0, with attribution and additional source terms in
+tests/global/NOTICE. That notice accompanies the corpus in the evaluation image.
+
 tests/snapshots/addresses.tsv contains geocoding results derived from OpenStreetMap
 data via Nominatim. Data © OpenStreetMap contributors, available under the Open
 Database License (ODbL) 1.0: https://www.openstreetmap.org/copyright
