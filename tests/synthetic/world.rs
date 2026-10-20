@@ -1063,6 +1063,42 @@ pub const PLACES: &[Place] = &[
         &[("en", "Guanghua District")]
     ),
     place!(
+        "jp",
+        "country",
+        "",
+        "JP",
+        "",
+        100_000_000,
+        (146.0, 41.0),
+        "",
+        "日本",
+        &[("en", "Japan")]
+    ),
+    place!(
+        "jp-aoba",
+        "region",
+        "",
+        "JP",
+        "JP-04",
+        1_000_000,
+        (145.0, 40.0),
+        "jp",
+        "島根県",
+        &[("en", "Shimane Prefecture")]
+    ),
+    place!(
+        "jp-aoba-city",
+        "locality",
+        "city",
+        "JP",
+        "JP-04",
+        50_000,
+        (145.0, 40.0),
+        "jp-aoba",
+        "松江市",
+        &[("en", "Matsue")]
+    ),
+    place!(
         "kr",
         "country",
         "",
@@ -1286,6 +1322,7 @@ pub const PLACES: &[Place] = &[
 /// subtype, is_land, is_territorial, lon, lat, half-side). Gamma's land stops 0.1° short of its
 /// territorial sea on the west.
 const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
+    ("jp-aoba", "region", true, true, 145.0, 40.0, 0.4),
     ("kr-garam", "region", true, true, 140.0, 35.0, 0.4),
     ("kr-narae", "region", true, true, 142.0, 35.0, 0.4),
     (
@@ -1379,6 +1416,28 @@ pub const STREETS: &[Street] = &[
         lon: 123.0,
         lat: 25.0,
         numbers: &["11", "11之2"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "朝日町伊勢宮",
+        postcode: "",
+        city: "松江市",
+        cc: "JP",
+        lon: 145.0,
+        lat: 40.0,
+        numbers: &["472-2"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Koyodai",
+        postcode: "",
+        city: "松江市",
+        cc: "JP",
+        lon: 145.01,
+        lat: 40.0,
+        numbers: &["258-2"],
     },
     Street {
         class: "residential",
