@@ -1253,6 +1253,53 @@ fn canadian_unit_prefixes_need_an_unambiguous_canadian_country() {
 }
 
 #[test]
+fn glued_house_suffixes_and_canadian_street_directions_have_retry_forms() {
+    assert_eq!(
+        spaced_house_suffix("82A AV MERCIER, SALABERRY-DE-VALLEYFIELD, QC J6S 6L9, Canada"),
+        Some((
+            "82 A AV MERCIER, SALABERRY-DE-VALLEYFIELD, QC J6S 6L9, Canada".into(),
+            "82A".into()
+        ))
+    );
+    for query in ["82 AV MERCIER, Canada", "82AB Mercier, Canada", "Rue 82A"] {
+        assert_eq!(spaced_house_suffix(query), None, "{query}");
+    }
+    for (query, undirected) in [
+        (
+            "31 THATCHER DR E, MOOSE JAW, SK S6J 1L8, Canada",
+            "31 THATCHER DR, MOOSE JAW, SK S6J 1L8, Canada",
+        ),
+        (
+            "162 North Klondike HWY, Whitehorse, YT Y1A 5W5, Canada",
+            "162 Klondike HWY, Whitehorse, YT Y1A 5W5, Canada",
+        ),
+        (
+            "870 6e Rue Ouest, Senneterre, QC J0Y 2M0",
+            "870 6e Rue, Senneterre, QC J0Y 2M0",
+        ),
+    ] {
+        let (got, number, _) = without_street_direction(query).unwrap();
+        assert_eq!(got, undirected);
+        assert_eq!(number, query.split(' ').next().unwrap());
+    }
+    assert_eq!(
+        without_street_direction("31 THATCHER DR E, MOOSE JAW, SK S6J1L8")
+            .unwrap()
+            .2,
+        "S6J1L8"
+    );
+    for query in [
+        "31 THATCHER DR E, MOOSE JAW, Canada",
+        "31 THATCHER DR, MOOSE JAW, SK S6J 1L8",
+        "100 Rue E, Quebec, QC G1A 0A3",
+        "Thatcher Dr E 31, Moose Jaw, SK S6J 1L8",
+        "31 THATCHER DR E",
+    ] {
+        assert_eq!(without_street_direction(query), None, "{query}");
+    }
+}
+
+#[test]
 fn a_danish_floor_and_door_part_is_set_aside_without_touching_other_countries() {
     let unit = |q| without_danish_unit(q);
     // the published DAR forms: the unit is its own part, the building keeps the rest

@@ -1929,6 +1929,18 @@ pub const STREETS: &[Street] = &[
         lat: 46.8,
         numbers: &["12"],
     },
+    // Overture's Canadian rows: the direction abbreviated, a suffixed civic number as a float
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "6e Rue O",
+        postcode: "G1A 0A3",
+        city: "Harbour ON",
+        cc: "CA",
+        lon: -71.205,
+        lat: 46.8,
+        numbers: &["870", "55.0 A", "29.0 1/2"],
+    },
     Street {
         class: "residential",
         length: 0.0,

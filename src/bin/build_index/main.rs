@@ -1286,6 +1286,21 @@ fn numbers_with_unit<'a>(
     })
 }
 
+/// Overture's Canadian rows write a suffixed civic number as a float and its suffix: "55.0 A"
+/// for 55A, "29.0 1/2" for 29 1/2.
+fn float_civic(number: &str) -> Option<String> {
+    let (whole, suffix) = number.trim().split_once(".0 ")?;
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    if !digits(whole) {
+        return None;
+    }
+    if suffix.len() == 1 && suffix.bytes().all(|b| b.is_ascii_alphabetic()) {
+        return Some(format!("{whole}{suffix}"));
+    }
+    let (num, den) = suffix.split_once('/')?;
+    (digits(num) && digits(den)).then(|| format!("{whole} {suffix}"))
+}
+
 fn pass_addresses(dir: &Path, shared: &Shared) {
     let tasks = tasks(dir);
     let done = progress::Progress::items(
@@ -1341,7 +1356,13 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                             .map(|name| (name, "address_levels"))
                     });
                 let c = country(text(&cc, i));
-                let numbers = numbers_with_unit(c, text(&number, i), unit.and_then(|v| text(v, i)));
+                let number = text(&number, i);
+                let civic = number.and_then(float_civic);
+                let numbers = numbers_with_unit(
+                    c,
+                    civic.as_deref().or(number),
+                    unit.and_then(|v| text(v, i)),
+                );
                 sink.add(
                     Some(c),
                     x,
@@ -2104,6 +2125,21 @@ mod tests {
             (*b"AU", Some("19"), Some("1"), Some("19")),
         ] {
             assert_eq!(numbers_with_unit(cc, number, unit).as_deref(), expected);
+        }
+    }
+
+    #[test]
+    fn float_civic_numbers_keep_their_suffix() {
+        for (number, expected) in [
+            ("55.0 A", Some("55A")),
+            ("29.0 1/2", Some("29 1/2")),
+            ("55", None),
+            ("1.6", None),
+            ("55.0 AB", None),
+            ("24.5 KM", None),
+            ("x.0 A", None),
+        ] {
+            assert_eq!(float_civic(number).as_deref(), expected, "{number}");
         }
     }
 
