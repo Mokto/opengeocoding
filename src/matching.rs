@@ -944,6 +944,13 @@ pub fn same_postcode_country(
         })
 }
 
+/// British, Canadian, Dutch, Irish and Portuguese postcodes in full, which name a few buildings
+/// rather than an area.
+static UNIT_POSTCODE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^([A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}|[A-Z]\d[A-Z]\d[A-Z]\d|\d{4}[A-Z]{2}|[A-Z]\d{2}[0-9A-Z]{4}|\d{7})$")
+        .unwrap()
+});
+
 pub fn choose_candidate(
     address: &ParsedAddress,
     country: &str,
@@ -1015,6 +1022,36 @@ pub fn choose_candidate(
         .map(|(i, _)| i)
         .collect();
     if let Some(hit) = prefer(postcode_city, "postcode_city") {
+        return Some(hit);
+    }
+    // "1 Plaza La Fuente, Muro de Aguas, 26587": an area postcode several villages share is
+    // centred on one of them; for an address not found, the stated village or town (not a city,
+    // which holds several postcodes), with no postcode of its own to contradict it and near that
+    // centre, agrees with both. A unit postcode ("SW8 1JQ") is finer than any village.
+    let area_postcode = !part(address, "house_number").is_empty()
+        && !UNIT_POSTCODE.is_match(&normalize_postcode(postcode).to_uppercase());
+    let centres: Vec<(f32, f32)> = candidates
+        .iter()
+        .filter(|_| area_postcode)
+        .filter(|item| postcode_agrees(postcode, item.address_details.as_option()))
+        .filter_map(|item| item.geo_coordinates.as_option().map(|g| (g.lat, g.lon)))
+        .collect();
+    let city_near_postcode = candidates
+        .iter()
+        .enumerate()
+        .filter(|(_, item)| {
+            let details = item.address_details.as_option();
+            details.is_some_and(|d| d.postcode.is_empty() && d.city.is_empty())
+                && city_agrees(address, details)
+                && item.geo_coordinates.as_option().is_some_and(|g| {
+                    centres.iter().any(|&(lat, lon)| {
+                        ((g.lon - lon) * lat.to_radians().cos()).hypot(g.lat - lat) * 111.2 < 10.0
+                    })
+                })
+        })
+        .map(|(i, _)| i)
+        .collect();
+    if let Some(hit) = prefer(city_near_postcode, "postcode_city") {
         return Some(hit);
     }
     if postcode.is_empty() {

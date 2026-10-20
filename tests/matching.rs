@@ -224,6 +224,83 @@ fn country_postcode_conflict_is_rejected() {
 }
 
 #[test]
+fn a_stated_village_near_a_shared_postcode_beats_its_centre() {
+    let address = parsed(&[
+        ("house_number", "1"),
+        ("city", "Muro de Aguas"),
+        ("postcode", "26587"),
+    ]);
+    let placed = |mut c: FullAddress, lat, lon| {
+        c.geo_coordinates = GeoCoordinates {
+            lat,
+            lon,
+            ..Default::default()
+        }
+        .into();
+        c
+    };
+    let centre = placed(candidate("es", "Grávalos", "", "26587"), 42.119, -2.043);
+    let village = |lon| {
+        let mut c = candidate("es", "", "", "");
+        c.address_details.get_or_insert_default().village = "Muro de Aguas".into();
+        placed(c, 42.133, lon)
+    };
+    let chosen = |candidates: &[FullAddress]| {
+        choose_candidate(&address, "es", "26587", candidates).map(|(i, _)| i)
+    };
+    assert_eq!(chosen(&[centre.clone(), village(-2.112)]), Some(1));
+    // a namesake far from the postcode does not, nor a city, which holds several postcodes
+    assert_eq!(chosen(&[centre.clone(), village(-3.5)]), Some(0));
+    let city = placed(candidate("es", "Logroño", "", ""), 42.13, -2.1);
+    let city_address = parsed(&[
+        ("house_number", "1"),
+        ("city", "Logroño"),
+        ("postcode", "26587"),
+    ]);
+    assert_eq!(
+        choose_candidate(&city_address, "es", "26587", &[centre.clone(), city]).map(|(i, _)| i),
+        Some(0)
+    );
+    // nor does the town of a postcode without the address
+    let bare = parsed(&[("city", "Muro de Aguas"), ("postcode", "26587")]);
+    let near = [centre, village(-2.112)];
+    assert_eq!(
+        choose_candidate(&bare, "es", "26587", &near).map(|(i, _)| i),
+        Some(0)
+    );
+    // nor that of a British unit postcode, which names a few buildings
+    let unit = parsed(&[
+        ("house_number", "1"),
+        ("city", "Wigan"),
+        ("postcode", "WN2 5TQ"),
+    ]);
+    let placed = |mut c: FullAddress, lon| {
+        c.geo_coordinates = GeoCoordinates {
+            lat: 53.54,
+            lon,
+            ..Default::default()
+        }
+        .into();
+        c
+    };
+    let near = [
+        placed(candidate("gb", "Hindley", "", "WN2 5TQ"), -2.58),
+        placed(
+            {
+                let mut c = candidate("gb", "", "", "");
+                c.address_details.get_or_insert_default().town = "Wigan".into();
+                c
+            },
+            -2.63,
+        ),
+    ];
+    assert_eq!(
+        choose_candidate(&unit, "gb", "WN2 5TQ", &near).map(|(i, _)| i),
+        Some(0)
+    );
+}
+
+#[test]
 fn mistyped_postcode_is_overruled_by_house_road_and_town() {
     let address = parsed(&[
         ("house_number", "312"),
@@ -1001,7 +1078,7 @@ fn road_abbreviations_are_country_scoped_and_preserve_house_numbers() {
         ("pt", "Rua dos Farias", "R FARIA", false),
         ("pt", "Rua da Cruz", "TV CRUZ", false),
         ("pt", "Rua Manuel da Fonseca", "R MANUEL FONSECA", false),
-        ("es", "Rua dos Farias", "R FARIAS", false),
+        ("es", "Rua Tenente Valadim", "R TEN VALADIM", false),
         ("pt", "R. du Bosquet", "Rue du Bosquet", false),
         ("gb", "R. du Bosquet", "Rue du Bosquet", false),
         ("se", "Granvn.", "Granveien", false),
