@@ -1,0 +1,11 @@
+The registry-first sample tests/registry/it.jsonl contains street names, civic numbers and
+coordinates from ANNCSU (Archivio nazionale dei numeri civici delle strade urbane), national
+address list of 2026-09-15. © Agenzia delle Entrate and Istat, from data certified by the
+municipalities, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+Source: https://www.anncsu.gov.it/it/consultazione-dellarchivio/open-data/ and
+https://www.dati.gov.it/view-dataset/dataset?id=stradari-ed-indirizzari-regionali-e-nazionali-da-anncsu
+Municipality names, province abbreviations and regions come from Istat's SITUAS list of
+municipalities on 2026-09-15 (https://situas.istat.it/), © Istat, licensed under CC BY 4.0.
+Queries were constructed from registry fields joined with that list; coordinates are the
+registry's ETRF2000 latitude/longitude, unchanged. Per-case prepared-CSV checksums are recorded
+in the corpus; docs/evaluation/registry/it.md records the upstream checksums.
