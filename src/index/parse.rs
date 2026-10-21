@@ -554,9 +554,11 @@ impl Parser {
 impl Index {
     /// "Rruga Ymer Puka 7, 4401, Albania": libpostal, which has seen few addresses of some
     /// countries, reads the country written last as a road and the postcode part before it as a
-    /// house number. The rest parsed alone, that part as the postcode, and the country, when the
-    /// country has that postcode and the rest holds a road and a house number. A country read as
-    /// a house is left to the resolver's `country_in_tail`.
+    /// house number. The rest parsed alone, that part as the postcode, and the country, when a
+    /// street of that name and postcode in the country holds the house. Otherwise the postcode
+    /// would scope out the house the unscoped search finds, and a placeholder ("00000") or a
+    /// dialling code ("509, Haiti") would answer as a postcode. A country read as a house is
+    /// left to the resolver's `country_in_tail`.
     fn country_as_road(&self, q: &str, whole: &[(String, String)]) -> Result<Option<Parsed>> {
         let Some((head, last)) = q.rsplit_once(',') else {
             return Ok(None);
@@ -573,14 +575,14 @@ impl Index {
             _ => false,
         };
         if !misread
-            || postcode.is_empty()
             || !postcode.bytes().all(|b| b.is_ascii_digit())
-            || !self
-                .country(&last)
-                .is_some_and(|cc| self.knows_postcode(postcode, Some(&cc)))
+            || postcode.bytes().all(|b| b == b'0')
         {
             return Ok(None);
         }
+        let Some(cc) = self.country(&last) else {
+            return Ok(None);
+        };
         let mut parsed = self.parser.parse(head.trim())?.to_vec();
         // read alone, the part can still be a house number ("1 Rruga Ymer Puka, 4401")
         if let Some((k, _)) = parsed
@@ -590,10 +592,31 @@ impl Index {
         {
             *k = "postcode".into();
         }
-        if !["road", "house_number"]
+        let road = parsed.iter().rev().find(|(k, _)| k == "road");
+        let number = parsed.iter().find(|(k, _)| k == "house_number");
+        let (Some((_, road)), Some((_, number))) = (road, number) else {
+            return Ok(None);
+        };
+        let housed = self
+            .streets(
+                without_number_mark(road),
+                Some(house_number(number)),
+                None,
+                Some(postcode),
+                Some(&cc),
+                false,
+            )
             .iter()
-            .all(|key| parsed.iter().any(|(k, _)| k == key))
-        {
+            .any(|h| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        ..
+                    }
+                )
+            });
+        if !housed {
             return Ok(None);
         }
         parsed.push(("country".into(), last));
