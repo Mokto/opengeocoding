@@ -15,6 +15,11 @@ COUNTRIES = dict(zip(
     "US CA MX BR AR CL CO GB IE FR DE NL BE CH AT ES PT IT DK SE NO FI PL CZ GR HU RO RU TR ZA EG NG SA AE IL IN CN JP KR TW SG MY TH VN ID PH AU NZ".split(),
     "us canada mexico brazil argentina chile colombia united-kingdom ireland-and-northern-ireland france germany netherlands belgium switzerland austria spain portugal italy denmark sweden norway finland poland czech-republic greece hungary romania russia turkey south-africa egypt nigeria gcc-states gcc-states israel-and-palestine india china japan south-korea taiwan malaysia-singapore-brunei malaysia-singapore-brunei thailand vietnam indonesia philippines australia new-zealand".split(),
 ))
+# Added in October 2026: the countries whose OSM extracts gave the full quota of 50 groups.
+COUNTRIES.update(zip(
+    "AL AM AO AZ BA BB BD BG BO BT BY BZ CD CI CM CR CU CY DO DZ EC EE ET GA GE GH GT HR HT IQ IR IS JM JO KE KG KH KZ LA LK LT LU LV MA MD ME MG MK MM MN MT NA NC NI NP PE PK PR PS PY QA RS SI SK SL SR SV SY SZ TJ TM TN TT TZ UA UG UY UZ VE XK ZM ZW".split(),
+    "albania armenia angola azerbaijan bosnia-herzegovina central-america bangladesh bulgaria bolivia bhutan belarus belize congo-democratic-republic ivory-coast cameroon costa-rica cuba cyprus haiti-and-domrep algeria ecuador estonia ethiopia gabon georgia ghana guatemala croatia haiti-and-domrep iraq iran iceland jamaica jordan kenya kyrgyzstan cambodia kazakhstan laos sri-lanka lithuania luxembourg latvia morocco moldova montenegro madagascar macedonia myanmar mongolia malta namibia new-caledonia nicaragua nepal peru pakistan puerto-rico israel-and-palestine paraguay gcc-states serbia slovenia slovakia sierra-leone suriname el-salvador syria swaziland tajikistan turkmenistan tunisia central-america tanzania ukraine uganda uruguay uzbekistan venezuela kosovo zambia zimbabwe".split(),
+))
 BOUNDARY_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_10m_admin_0_countries.geojson"
 BOUNDARY_SHA = "239eec57ac17f100a11e2536cffc56752c318b50ae765b0918ff7aab4ce8f255"
 FIELDS = ["addr:housenumber", "addr:street", "addr:place", "addr:city", "addr:town", "addr:suburb", "addr:district", "addr:state", "addr:province", "addr:postcode", "addr:country"]
@@ -244,6 +249,7 @@ def main():
     parser.add_argument("--countries", nargs="+", choices=list(COUNTRIES), default=list(COUNTRIES))
     parser.add_argument("--count", type=int, default=50)
     parser.add_argument("--seed", default="global-addresses-2026-10")
+    parser.add_argument("--base", type=Path, help="earlier manifest: its countries are kept as captured and only the others are sampled")
     args = parser.parse_args()
     if args.replay:
         manifest = json.loads(args.replay.read_bytes())
@@ -255,6 +261,9 @@ def main():
         parser.error("capture requires --osm, --boundaries, --country-info and --work")
     if not 1 <= args.count <= 100:
         parser.error("count must be between 1 and 100")
+    base = json.loads(args.base.read_bytes()) if args.base else {"coverage": {}, "errors": {}, "snapshots": []}
+    if args.base and (base["seed"] != args.seed or base["errors"] or any(c["target_locations"] != args.count for c in base["coverage"].values())):
+        parser.error("base manifest has a different seed or quota, or errors")
     if file_sha(args.boundaries) != BOUNDARY_SHA:
         parser.error("boundary snapshot checksum differs")
     features = country_features(json.loads(args.boundaries.read_bytes()))
@@ -271,7 +280,7 @@ def main():
     args.work.mkdir(parents=True, exist_ok=True)
     snapshots, errors = [], {}
     with concurrent.futures.ProcessPoolExecutor(max_workers=4) as pool:
-        jobs = {pool.submit(capture, args, country, features[country], countries, urls): country for country in args.countries}
+        jobs = {pool.submit(capture, args, country, features[country], countries, urls): country for country in args.countries if country not in base["coverage"]}
         for job in concurrent.futures.as_completed(jobs):
             country = jobs[job]
             try:
@@ -280,6 +289,7 @@ def main():
                 errors[country] = f"{type(error).__name__}: {error}"
                 print(country, "FAILED", errors[country], flush=True)
     snapshots.sort(key=lambda s: args.countries.index(s["country"]))
+    snapshots = base["snapshots"] + snapshots
     coverage = {}
     corpus = []
     for snapshot in snapshots:

@@ -1,6 +1,6 @@
 # Global address source-consistency benchmark
 
-This compact benchmark contains 2,400 mapped address groups across 48 target markets (50 per market) and 4,796 distinct query variants. It is **not an independent accuracy gold standard**: OpenStreetMap also supplies index data and libpostal training data. It is included in `evaluate run --suite gold`, the evaluation image and CI gold comparisons, with separate `global_osm_*` cohorts. Do not combine its pass rates with registry-first accuracy evidence or call a country nationally validated because it appears here.
+This compact benchmark contains 6,500 mapped address groups across 130 markets (50 per market) and 12,991 distinct query variants. It is **not an independent accuracy gold standard**: OpenStreetMap also supplies index data and libpostal training data. It is included in `evaluate run --suite gold`, the evaluation image and CI gold comparisons, with separate `global_osm_*` cohorts. Do not combine its pass rates with registry-first accuracy evidence or call a country nationally validated because it appears here.
 
 The checked-in [corpus](../../tests/global/global-addresses.jsonl) needs no upstream downloads to run. The [initial measured baseline](global-addresses-baseline.md) retains failing diagnostics and unresolved source conflicts. The [manifest](../../tests/global/manifest.json) contains the selected source records, country coverage, snapshot hashes and sampling parameters. [Attribution and data licence](../../tests/global/NOTICE).
 
@@ -8,7 +8,9 @@ The checked-in [corpus](../../tests/global/global-addresses.jsonl) needs no upst
 
 US, CA, MX, BR, AR, CL, CO; GB, IE, FR, DE, NL, BE, CH, AT, ES, PT, IT, DK, SE, NO, FI, PL, CZ, GR, HU, RO, RU, TR; ZA, EG, NG; SA, AE, IL; IN, CN, JP, KR, TW, SG, MY, TH, VN, ID, PH; AU, NZ.
 
-This is an explicit initial market panel, not every sovereign country or a claim that omitted countries lack usable data. All 48 meet the initial 50-group quota; that is address-source coverage, not passing-answer coverage.
+Added in October 2026, from the same seed and quota: AL, AM, AO, AZ, BA, BB, BD, BG, BO, BT, BY, BZ, CD, CI, CM, CR, CU, CY, DO, DZ, EC, EE, ET, GA, GE, GH, GT, HR, HT, IQ, IR, IS, JM, JO, KE, KG, KH, KZ, LA, LK, LT, LU, LV, MA, MD, ME, MG, MK, MM, MN, MT, NA, NC, NI, NP, PE, PK, PR, PS, PY, QA, RS, SI, SK, SL, SR, SV, SY, SZ, TJ, TM, TN, TT, TZ, UA, UG, UY, UZ, VE, XK, ZM, ZW.
+
+This is an explicit market panel, not every sovereign country or a claim that omitted countries lack usable data. All 130 meet the 50-group quota; that is address-source coverage, not passing-answer coverage. The October 2026 additions are every remaining country whose Geofabrik extract gave the full quota. The others were left out rather than admitted with fewer groups: 67 had fewer than 50 eligible nodes (24 had none, mostly islands), and in 34 small states and territories the 0.05-degree border exclusion leaves no interior at all. Some additions draw on a small pool or one area: Cameroon, Laos, Cyprus, Haiti, Qatar, Jamaica and Costa Rica had 57 to 90 eligible nodes, and Malta's groups come from one quarter-degree cell, Qatar's from two.
 
 ## What the records establish
 
@@ -92,6 +94,8 @@ python3 -u tests/global/build-addresses.py \
   --work SOURCE/global-address-work --out SOURCE/global-address-output \
   --seed global-addresses-2026-10 --count 50
 ```
+
+`--base tests/global/manifest.json` keeps the countries that manifest already holds as captured and samples only the others, appending their cases; the October 2026 additions were captured this way, so the first 48 countries' snapshots record the generator of commit `7a02601` and the rest this one.
 
 Completed country checkpoints bind the source PBF hash/size, country-mask hash, boundary snapshot, country-label snapshot, generator hash, seed and quota. PBFs are checked again after reading. Changed inputs require a fresh working directory. Completed output is immutable; identical replay does not rewrite it. Four independent country workers stream nodes and checkpoint completed countries; progress is emitted during large scans. Source scanning can take minutes and needs scratch disk space for filtered nodes.
 
