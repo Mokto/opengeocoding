@@ -86,6 +86,13 @@ async fn index_searches(client: &Client, metrics: &str) -> Option<f64> {
     Some(searches_in(&text))
 }
 
+/// Builds from before the gauge report none and count as warm.
+fn warming(metrics: &str) -> bool {
+    metrics
+        .lines()
+        .any(|l| l == "opengeocoding_suggest_caches_warm 0")
+}
+
 fn searches_in(metrics: &str) -> f64 {
     metrics
         .lines()
@@ -858,11 +865,35 @@ impl Local {
                 .await
                 .is_ok_and(|r| r.status().is_success())
             {
-                return Ok(base);
+                return self.warmed(client, metrics).await.map(|()| base);
             }
             tokio::time::sleep(Duration::from_millis(200)).await;
         }
         bail!("service did not become ready")
+    }
+
+    /// Waits for the suggestion warm-up the service runs after it is ready, which would otherwise
+    /// share the cores with the first timed cases.
+    async fn warmed(&mut self, client: &Client, metrics: u16) -> Result<()> {
+        for _ in 0..900 {
+            if let Some(status) = self.child.as_mut().and_then(|c| c.try_wait().transpose()) {
+                bail!("service exited with {}", status?);
+            }
+            let text = match client
+                .get(format!("http://127.0.0.1:{metrics}/metrics"))
+                .timeout(Duration::from_secs(1))
+                .send()
+                .await
+            {
+                Ok(response) => response.text().await.ok(),
+                Err(_) => None,
+            };
+            if text.is_some_and(|t| !warming(&t)) {
+                return Ok(());
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+        bail!("service did not finish warming its suggestion caches")
     }
 
     async fn stop(&mut self) {
@@ -1404,6 +1435,20 @@ mod tests {
             nominatim_geolocation_search_candidates_seconds_count{tier=\"loose\"} 2\n\
             nominatim_geolocation_query_tier_total{tier=\"raw\"} 1\n";
         assert_eq!(searches_in(text), 5.);
+    }
+
+    #[test]
+    fn warming_reads_the_services_own_gauge() {
+        use opengeocoding::metrics::METRICS;
+        let text = || {
+            prometheus::TextEncoder::new()
+                .encode_to_string(&METRICS.registry.gather())
+                .unwrap()
+        };
+        assert!(warming(&text()));
+        METRICS.suggest_warm.set(1);
+        assert!(!warming(&text()));
+        assert!(!warming("grpc_server_started_total 0\n"));
     }
 
     #[test]

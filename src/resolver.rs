@@ -139,6 +139,7 @@ impl Resolver {
         std::thread::spawn(move || {
             let started = std::time::Instant::now();
             core.index.warm_suggest();
+            METRICS.suggest_warm.set(1);
             tracing::info!(
                 seconds = started.elapsed().as_secs_f64(),
                 "Suggestion caches warmed"
