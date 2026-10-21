@@ -1,0 +1,112 @@
+use super::*;
+
+pub const PLACES: &[Place] = &[
+    place!(
+        "nz",
+        "country",
+        "",
+        "NZ",
+        "",
+        5_000_000,
+        (170.0, -40.0),
+        "",
+        "New Zealand",
+        &[("en", "New Zealand")]
+    ),
+    place!(
+        "nz-region",
+        "region",
+        "",
+        "NZ",
+        "NZ-WGN",
+        100_000,
+        (170.0, -40.0),
+        "nz",
+        "Testland",
+        &[("en", "Testland")]
+    ),
+    place!(
+        "nz-harbourton",
+        "locality",
+        "town",
+        "NZ",
+        "NZ-WGN",
+        20_000,
+        (170.0, -40.0),
+        "nz-region",
+        "Harbourton",
+        &[("en", "Harbourton")]
+    ),
+    place!(
+        "nz-eastport",
+        "locality",
+        "town",
+        "NZ",
+        "NZ-WGN",
+        10_000,
+        (171.0, -40.0),
+        "nz-region",
+        "Eastport",
+        &[("en", "Eastport")]
+    ),
+];
+
+pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.04,
+        name: SPLIT_UNIT_ROAD,
+        postcode: "",
+        city: "Kōwhai Bay",
+        cc: "NZ",
+        lon: 170.06,
+        lat: -40.0,
+        numbers: &["47", "1/47", "2/47", "3A/49B", "4/51-53"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "East Orchard Road",
+        postcode: "",
+        city: "Kōwhai Bay",
+        cc: "NZ",
+        lon: 170.035,
+        lat: -40.0,
+        numbers: &[
+            "5a", "10-12", "2/19", "19", "1", "99", "3/19", "99b", "20-22",
+        ],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Orchard Road",
+        postcode: "",
+        city: "Kōwhai Bay",
+        cc: "NZ",
+        lon: 170.001,
+        lat: -40.0,
+        numbers: &["5a", "10-12", "2/19", "19", "1"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: TOWN_CITY_ROAD.0,
+        postcode: "",
+        city: "Fernleigh",
+        cc: "NZ",
+        lon: 170.12,
+        lat: -40.01,
+        numbers: &["5", "7b"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Orchard Road",
+        postcode: "",
+        city: "Fern Bay",
+        cc: "NZ",
+        lon: 170.15,
+        lat: -40.0,
+        numbers: &["5a"],
+    },
+];

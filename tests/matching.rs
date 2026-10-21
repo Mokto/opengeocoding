@@ -1,5 +1,9 @@
 use opengeocoding::{
-    matching::*, proto::opengeocoding::*, regions::Regions, resolver::format_response,
+    index::country::{au, ca, dk, ie, tw},
+    matching::*,
+    proto::opengeocoding::*,
+    regions::Regions,
+    resolver::format_response,
 };
 use serde_json::json;
 
@@ -183,7 +187,7 @@ fn postcode_precision() {
 fn eircode_control_separators() {
     for separator in [' ', '\u{1c}', '\u{1d}', '\u{1e}', '\u{1f}'] {
         let code = format!("D02{separator}AF30");
-        assert_eq!(eircode(&format!("Dublin {code} Ireland")), code);
+        assert_eq!(ie::eircode(&format!("Dublin {code} Ireland")), code);
     }
 }
 
@@ -1198,15 +1202,15 @@ fn a_part_that_repeats_another_is_collapsed() {
 #[test]
 fn taiwan_province_is_left_out_only_where_it_is_a_part() {
     assert_eq!(
-        without_taiwan_province("廈門街 21號, 屏東市, 屏東縣, 台灣省, Taiwan").as_deref(),
+        tw::without_taiwan_province("廈門街 21號, 屏東市, 屏東縣, 台灣省, Taiwan").as_deref(),
         Some("廈門街 21號, 屏東市, 屏東縣, Taiwan")
     );
     assert_eq!(
-        without_taiwan_province("1 Main St, Taiwan Province, Taiwan").as_deref(),
+        tw::without_taiwan_province("1 Main St, Taiwan Province, Taiwan").as_deref(),
         Some("1 Main St, Taiwan")
     );
-    assert_eq!(without_taiwan_province("台灣省"), None);
-    assert_eq!(without_taiwan_province("台灣省政府, 南投市"), None);
+    assert_eq!(tw::without_taiwan_province("台灣省"), None);
+    assert_eq!(tw::without_taiwan_province("台灣省政府, 南投市"), None);
 }
 
 #[test]
@@ -1322,13 +1326,13 @@ fn canadian_unit_prefixes_need_an_unambiguous_canadian_country() {
         ("1", "178 1/2"),
     ] {
         let query = format!("{unit}-{number} Maple Road, Delhi, ON N4B 1A1, Canada");
-        let (building, civic) = canadian_building(&query).unwrap();
+        let (building, civic) = ca::canadian_building(&query).unwrap();
         assert_eq!(civic, number);
         assert_eq!(
             building,
             format!("{number} Maple Road, Delhi, ON N4B 1A1, Canada")
         );
-        assert!(canadian_building(building).is_none());
+        assert!(ca::canadian_building(building).is_none());
     }
     for query in [
         "12 Maple Road, Delhi, ON N4B 1A1, Canada",
@@ -1345,10 +1349,10 @@ fn canadian_unit_prefixes_need_an_unambiguous_canadian_country() {
         "1-2-12 Maple Road, Canada",
         "12 Maple Road, 1-12, Canada",
     ] {
-        assert_eq!(canadian_building(query), None, "{query}");
+        assert_eq!(ca::canadian_building(query), None, "{query}");
     }
     let too_long = format!("1-12 {}, Canada", "x".repeat(256));
-    assert!(canadian_building(&too_long).is_none());
+    assert!(ca::canadian_building(&too_long).is_none());
 }
 
 #[test]
@@ -1377,12 +1381,12 @@ fn glued_house_suffixes_and_canadian_street_directions_have_retry_forms() {
             "870 6e Rue, Senneterre, QC J0Y 2M0",
         ),
     ] {
-        let (got, number, _) = without_street_direction(query).unwrap();
+        let (got, number, _) = ca::without_street_direction(query).unwrap();
         assert_eq!(got, undirected);
         assert_eq!(number, query.split(' ').next().unwrap());
     }
     assert_eq!(
-        without_street_direction("31 THATCHER DR E, MOOSE JAW, SK S6J1L8")
+        ca::without_street_direction("31 THATCHER DR E, MOOSE JAW, SK S6J1L8")
             .unwrap()
             .2,
         "S6J1L8"
@@ -1394,13 +1398,13 @@ fn glued_house_suffixes_and_canadian_street_directions_have_retry_forms() {
         "Thatcher Dr E 31, Moose Jaw, SK S6J 1L8",
         "31 THATCHER DR E",
     ] {
-        assert_eq!(without_street_direction(query), None, "{query}");
+        assert_eq!(ca::without_street_direction(query), None, "{query}");
     }
 }
 
 #[test]
 fn a_danish_floor_and_door_part_is_set_aside_without_touching_other_countries() {
-    let unit = |q| without_danish_unit(q);
+    let unit = |q| dk::without_danish_unit(q);
     // the published DAR forms: the unit is its own part, the building keeps the rest
     for (query, building) in [
         (
@@ -1469,7 +1473,7 @@ fn a_danish_floor_and_door_part_is_set_aside_without_touching_other_countries() 
 
 #[test]
 fn a_danish_supplementary_place_is_set_aside_only_between_house_and_postcode() {
-    let place = |q| without_danish_place(q);
+    let place = |q| dk::without_danish_place(q);
     assert_eq!(
         place("Pittevej 6, Aidt, 8881 Thorsø, Denmark"),
         Some(("Pittevej 6, 8881 Thorsø, Denmark".into(), "Aidt".into()))
@@ -1517,7 +1521,7 @@ fn an_australian_slashed_unit_is_set_aside_without_touching_other_countries() {
         ),
     ] {
         assert_eq!(
-            without_australian_unit(query).as_deref(),
+            au::without_australian_unit(query).as_deref(),
             Some(building),
             "{query}"
         );
@@ -1534,7 +1538,7 @@ fn an_australian_slashed_unit_is_set_aside_without_touching_other_countries() {
         // the slash is not a unit before a street
         "1/2 Smith St",
     ] {
-        assert_eq!(without_australian_unit(query), None, "{query}");
+        assert_eq!(au::without_australian_unit(query), None, "{query}");
     }
 }
 

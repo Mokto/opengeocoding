@@ -11,6 +11,8 @@ on:
       - src/matching.rs
       - src/resolver.rs
       - src/index/mod.rs
+      - src/index/parse.rs
+      - src/index/country/**
       - src/index/schema.rs
       - src/index/canon.rs
       - data/**
@@ -54,8 +56,8 @@ jobs:
           picked=()
           pick() { echo "$changed" | grep -Eq "$shared|$2" && picked+=("$1") || true; }
           pick index '^(src/index/(schema|canon)\.rs|benches/index\.rs)$'
-          pick matching '^(src/(matching|resolver)\.rs|data/.*|benches/matching\.rs)$'
-          pick resolve '^(src/index/mod\.rs|benches/resolve\.rs|tests/addresses\.tsv|\.github/actions/libpostal-env/.*)$'
+          pick matching '^(src/(matching|resolver)\.rs|src/index/country/.*|data/.*|benches/matching\.rs)$'
+          pick resolve '^(src/index/(mod|parse)\.rs|src/index/country/.*|benches/resolve\.rs|tests/addresses\.tsv|\.github/actions/libpostal-env/.*)$'
           echo "benches=${picked[*]}" >> "$GITHUB_OUTPUT"
           echo "Benchmarks to run: ${picked[*]:-none}"
       - if: steps.select.outputs.benches != ''

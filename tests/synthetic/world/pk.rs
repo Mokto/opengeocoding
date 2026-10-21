@@ -1,0 +1,78 @@
+use super::*;
+
+pub const PLACES: &[Place] = &[
+    place!(
+        "pk",
+        "country",
+        "",
+        "PK",
+        "",
+        240_000_000,
+        (69.0, 30.0),
+        "",
+        "Pakistan",
+        &[("en", "Pakistan")],
+    ),
+    place!(
+        "pk-sd",
+        "region",
+        "",
+        "PK",
+        "PK-SD",
+        55_000_000,
+        (68.5, 26.0),
+        "pk",
+        "Sindh",
+        &[("en", "Sindh")],
+    ),
+    // A division named for its seat: Gulshan-e-Iqbal's houses are in Karachi Division, not in
+    // the city Karachi.
+    place!(
+        "pk-sd-karachi-division",
+        "county",
+        "",
+        "PK",
+        "PK-SD",
+        20_000_000,
+        (67.05, 24.9),
+        "pk-sd",
+        "Karachi Division",
+        &[("en", "Karachi Division")],
+    ),
+    place!(
+        "pk-sd-karachi",
+        "locality",
+        "city",
+        "PK",
+        "PK-SD",
+        15_000_000,
+        (67.02, 24.85),
+        "pk-sd-karachi-division",
+        "Karachi",
+        &[("en", "Karachi")],
+    ),
+    place!(
+        "pk-sd-gulshan",
+        "locality",
+        "town",
+        "PK",
+        "PK-SD",
+        1_000_000,
+        (67.14, 24.92),
+        "pk-sd-karachi-division",
+        "Gulshan-e-Iqbal Town",
+        &[("en", "Gulshan-e-Iqbal Town")],
+    ),
+];
+
+pub const STREETS: &[Street] = &[Street {
+    class: "residential",
+    length: 0.0,
+    name: "Gulistan e Johar Block 11",
+    postcode: "",
+    city: "Gulshan-e-Iqbal Town",
+    cc: "PK",
+    lon: 67.14,
+    lat: 24.92,
+    numbers: &["A254"],
+}];
