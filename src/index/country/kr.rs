@@ -1,4 +1,5 @@
-use super::*;
+use crate::index::suggest::*;
+use crate::index::*;
 
 pub(super) struct Address<'a> {
     pub areas: Vec<&'a str>,
@@ -268,6 +269,47 @@ impl Index {
             .flat_map(|a| a.containing(lat, lon))
             .find(|&(kind, _)| kind == 1)
             .is_none_or(|(_, p)| self.places[p as usize].named(key))
+    }
+
+    pub(crate) fn korean_suggest(
+        &self,
+        text: &str,
+        cc: Option<&str>,
+        want: usize,
+    ) -> Option<Vec<Suggestion>> {
+        let address = parse(text, true)?;
+        let scope = self.korean_scope(&address)?;
+        if scope.is_empty() || cc.is_some_and(|c| !c.eq_ignore_ascii_case("kr")) {
+            return Some(vec![]);
+        }
+        let open =
+            address.country.is_none() && !text.ends_with(|c: char| c.is_whitespace() || c == ',');
+        let number = (!address.number.is_empty()).then_some(address.number.as_str());
+        let road_open = open && number.is_none();
+        let road = fold(address.road);
+        Some(
+            self.streets_typed(
+                &words_open(address.road, road_open),
+                road_open,
+                Some(&scope),
+                number,
+                open,
+                Some("kr"),
+                None,
+                None,
+                want.max(5),
+            )
+            .into_iter()
+            .filter(|s| {
+                s.display_name
+                    .split(", ")
+                    .nth(usize::from(s.kind == "address"))
+                    .map(fold)
+                    .is_some_and(|name| name == road || road_open && name.starts_with(&road))
+            })
+            .take(want)
+            .collect(),
+        )
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::index::country::{au, ca, dk, ie, pt, tw};
 use crate::{
     index::{Index, Parser, canon::canon},
     matching::*,
@@ -615,7 +616,7 @@ impl Core {
         }
         // Some Australian sources hold "unit/number" houses; elsewhere the building's house
         // answers a unit the index lacks.
-        if let Some(building) = without_australian_unit(query) {
+        if let Some(building) = au::without_australian_unit(query) {
             let building = self.resolve_written(&building)?;
             if has_house(&building) {
                 return Ok(building);
@@ -627,7 +628,7 @@ impl Core {
                 return Ok(alt);
             }
         }
-        if let Some((undirected, number, postcode)) = without_street_direction(query) {
+        if let Some((undirected, number, postcode)) = ca::without_street_direction(query) {
             let alt = self.resolve_written(&undirected)?;
             if alt.good_match
                 && same_house_number(&alt, &number)
@@ -641,7 +642,7 @@ impl Core {
         // A Danish supplementary place the index files differently breaks the parse of the whole
         // address; the house, road and postcode still name it. The place is unverified unless
         // the answer names it.
-        if let Some((kept, place)) = without_danish_place(query) {
+        if let Some((kept, place)) = dk::without_danish_place(query) {
             let mut alt = self.resolve_written(&kept)?;
             let postcode = query
                 .split(',')
@@ -931,7 +932,7 @@ impl Core {
         }
         // The unit of a Danish address is not modelled: its building's house answers, and a
         // query whose building is not found as a house is resolved as written.
-        if let Some(building) = without_danish_unit(query) {
+        if let Some(building) = dk::without_danish_unit(query) {
             let found = self.resolve(&building)?;
             if found
                 .address_details
@@ -961,7 +962,7 @@ impl Core {
             .address_details
             .as_option()
             .is_none_or(|d| d.house_number.is_empty())
-            && let Some((building, number)) = canadian_building(query)
+            && let Some((building, number)) = ca::canadian_building(query)
         {
             let recovered = self.resolve(building)?;
             if recovered.good_match
@@ -1009,7 +1010,7 @@ impl Core {
             }
         }
         // a guess about what the parser made of the province: only a confident answer
-        if let Some(retry) = without_taiwan_province(query) {
+        if let Some(retry) = tw::without_taiwan_province(query) {
             let retried = self.resolve_once(&retry)?;
             if retried.good_match {
                 return Ok(retried);
@@ -1125,7 +1126,7 @@ impl Core {
         }
         let country = expected_country(&address);
         let postcode = if part(&address, "postcode").is_empty() {
-            eircode(query)
+            ie::eircode(query)
         } else {
             part(&address, "postcode").into()
         };
@@ -1647,7 +1648,7 @@ impl Core {
         if postcode.is_empty() || !part(address, "country").is_empty() {
             return None;
         }
-        if portuguese_postcode(postcode) {
+        if pt::portuguese_postcode(postcode) {
             return Some("pt".into());
         }
         let town = ["city", "city_district", "suburb"]

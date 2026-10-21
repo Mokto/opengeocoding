@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use opengeocoding::index::country::ie;
 use opengeocoding::{
     matching::*,
     proto::opengeocoding::*,
@@ -28,7 +29,7 @@ async fn main() -> Result<()> {
             "city" => json!(city_agrees(&address, details.as_ref())),
             "region" => json!(region_agrees(&address, details.as_ref())),
             "road" => json!(road_agrees(&address, details.as_ref())),
-            "eircode" => json!(eircode(string("value"))),
+            "eircode" => json!(ie::eircode(string("value"))),
             "without_country" => json!(without_country(string("value"), &address)),
             "format" => serde_json::to_value(format_response(&input["value"])?)?,
             "benchmark_choose" => {

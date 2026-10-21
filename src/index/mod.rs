@@ -24,7 +24,8 @@ use tantivy::{
     schema::{Field, IndexRecordOption},
 };
 
-mod korea;
+pub mod country;
+use country::{cn_tw, co, cz_sk, ie, jp, pl, pt};
 mod suggest;
 pub use suggest::{Focus, Suggestion};
 
@@ -721,221 +722,6 @@ fn namedetails(pl: &Place, names: &mut Map<String, Value>) {
     }
 }
 
-/// ISO 3166-2:IE's four provinces, above the counties that are Overture's Irish regions: code,
-/// English and Irish name, and counties.
-const IRISH_PROVINCES: [(&str, &str, &str, &[&str]); 4] = [
-    (
-        "IE-C",
-        "Connacht",
-        "Connachta",
-        &["G", "LM", "MO", "RN", "SO"],
-    ),
-    (
-        "IE-L",
-        "Leinster",
-        "Laighin",
-        &[
-            "CW", "D", "KE", "KK", "LS", "LD", "LH", "MH", "OY", "WH", "WX", "WW",
-        ],
-    ),
-    (
-        "IE-M",
-        "Munster",
-        "An Mhumhain",
-        &["CE", "CO", "KY", "LK", "TA", "WD"],
-    ),
-    ("IE-U", "Ulster", "Ulaidh", &["CN", "DL", "MN"]),
-];
-
-fn irish_province(county: &str) -> Option<&'static str> {
-    let county = county.strip_prefix("IE-")?;
-    let province = IRISH_PROVINCES.iter().find(|p| p.3.contains(&county))?;
-    Some(province.0)
-}
-
-/// A place for each Irish province whose counties the index has, by code: Overture has no
-/// provinces. It sits at the mean of its counties' points and is in no other place's chain, so
-/// it changes no search; it gives the province a region row and answers `ie, <code>`.
-fn irish_provinces(places: &[Place], regions: &HashMap<String, u32>) -> Vec<(String, Place)> {
-    IRISH_PROVINCES
-        .iter()
-        .filter_map(|&(code, en, ga, counties)| {
-            let members: Vec<&Place> = counties
-                .iter()
-                .filter_map(|c| regions.get(&format!("IE-{c}")))
-                .map(|&p| &places[p as usize])
-                .collect();
-            let first = members.first()?;
-            let n = members.len() as f32;
-            let bbox = members
-                .iter()
-                .fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |b, p| {
-                    [
-                        b[0].min(p.bbox[0]),
-                        b[1].min(p.bbox[1]),
-                        b[2].max(p.bbox[2]),
-                        b[3].max(p.bbox[3]),
-                    ]
-                });
-            let names: Box<str> = format!("en={en}{SEP}ga={ga}").into();
-            let mut keys = vec![name_key(en), name_key(ga)];
-            keys.sort_unstable();
-            Some((
-                code.to_string(),
-                Place {
-                    subtype: "macroregion".into(),
-                    class: "".into(),
-                    cc: first.cc.clone(),
-                    region: "".into(),
-                    population: members.iter().map(|p| p.population).sum(),
-                    x: members.iter().map(|p| p.x).sum::<f32>() / n,
-                    y: members.iter().map(|p| p.y).sum::<f32>() / n,
-                    bbox,
-                    parent: first.parent,
-                    primary: en.into(),
-                    en: Place::english(&names),
-                    names,
-                    keys: keys.into(),
-                    city_like: false,
-                    settlement_twin: false,
-                },
-            ))
-        })
-        .collect()
-}
-
-/// (administrative units, road, number) of a Chinese road address, the units most general
-/// first: "上海市虹口区中山北一路295号" -> (["上海市", "虹口区"], "中山北一路", "295").
-fn chinese(q: &str) -> Option<(Vec<String>, String, String)> {
-    static NUMBER: LazyLock<regex::Regex> = LazyLock::new(|| {
-        regex::Regex::new(
-                r"([0-9]+(?:之[0-9]+)?)(?:[至-][0-9]+)?[号號](?:(?:地下)?[一二三四五六七八九十百0-9]+[楼樓])?$",
-            )
-            .unwrap()
-    });
-    let part = q.split([',', '，']).find(|p| p.contains(['号', '號']))?;
-    let t: String = part
-        .chars()
-        .filter(|c| !c.is_whitespace())
-        .map(|c| match c {
-            '０'..='９' => char::from_u32(c as u32 - '０' as u32 + '0' as u32).unwrap(),
-            _ => c,
-        })
-        .collect();
-    let m = NUMBER.captures(&t)?;
-    let before = &t[..m.get(0)?.start()];
-    let before = before.trim_start_matches(|c: char| c.is_ascii_digit());
-    let before = ["中国", "中國", "臺灣", "台灣", "台湾"]
-        .iter()
-        .fold(before, |b, p| b.strip_prefix(p).unwrap_or(b));
-    if before.is_empty()
-        || !before
-            .chars()
-            .all(|c| c as u32 >= 0x3040 || c.is_ascii_digit())
-    {
-        return None;
-    }
-    let mut units = vec![];
-    let mut start = 0;
-    for (i, c) in before.char_indices() {
-        if i > start && "省市区區县縣镇鎮乡鄉".contains(c) {
-            units.push(before[start..i + c.len_utf8()].to_string());
-            start = i + c.len_utf8();
-        }
-    }
-    let road = &before[start..];
-    if road.chars().count() < 2 {
-        return None;
-    }
-    Some((units, road.to_string(), m[1].to_string()))
-}
-
-/// Reads 一 to 九十九.
-fn kanji_number(t: &str) -> Option<u32> {
-    let digit = |c: char| {
-        "〇一二三四五六七八九"
-            .chars()
-            .position(|d| d == c)
-            .map(|d| d as u32)
-    };
-    let chars: Vec<char> = t.chars().collect();
-    match chars.as_slice() {
-        ['十'] => Some(10),
-        [c] => digit(*c),
-        ['十', u] => Some(10 + digit(*u)?),
-        [t, '十'] => Some(digit(*t)? * 10),
-        [t, '十', u] => Some(digit(*t)? * 10 + digit(*u)?),
-        _ => None,
-    }
-}
-
-/// Candidate (municipality, street, number) readings of a Japanese block address, most likely
-/// first: "東京都港区芝公園4-2-8" is chōme 4 of 芝公園 in 港区, block 2, house 8, stored as street
-/// "芝公園四丁目" and number "2-8"; towns without chōme store "block-house" under the town.
-fn japanese(q: &str) -> Vec<(String, String, String)> {
-    static POSTCODE: LazyLock<regex::Regex> =
-        LazyLock::new(|| regex::Regex::new(r"〒?\d{3}-\d{4}|^日本国?|,?Japan$").unwrap());
-    static CHOME: LazyLock<regex::Regex> =
-        LazyLock::new(|| regex::Regex::new("([〇一二三四五六七八九十]+)丁目").unwrap());
-    let t: String = q
-        .chars()
-        .filter(|c| !c.is_whitespace())
-        .map(|c| match c {
-            '０'..='９' => char::from_u32(c as u32 - '０' as u32 + '0' as u32).unwrap(),
-            '－' | '−' | '‐' | 'ー' | '―' | '‑' => '-',
-            _ => c,
-        })
-        .collect();
-    let t = POSTCODE.replace_all(&t, "");
-    let t = CHOME.replace_all(&t, |c: &regex::Captures| {
-        kanji_number(&c[1]).map_or(c[0].to_string(), |n| format!("{n}丁目"))
-    });
-    let Some(at) = t.find(|c: char| c.is_ascii_digit()) else {
-        return vec![];
-    };
-    let (prefix, rest) = t.split_at(at);
-    if prefix.is_empty() || !prefix.chars().all(|c| c as u32 >= 0x3040) {
-        return vec![];
-    }
-    let rest = rest
-        .replace("丁目", "-")
-        .replace("番地", "-")
-        .replace(['番', 'の'], "-")
-        .replace('号', "");
-    let numbers: Vec<u32> = rest
-        .split(|c: char| !c.is_ascii_digit() && c != '-')
-        .next()
-        .unwrap_or("")
-        .split('-')
-        .filter_map(|n| n.parse().ok())
-        .collect();
-    if numbers.len() < 2 {
-        return vec![];
-    }
-    let joined = |ns: &[u32]| ns.iter().map(u32::to_string).collect::<Vec<_>>().join("-");
-    let mut out = vec![];
-    for (i, c) in prefix.char_indices().rev() {
-        let end = i + c.len_utf8();
-        if !"都道府県市区郡町村".contains(c) || end == prefix.len() {
-            continue;
-        }
-        let (city, town) = prefix.split_at(end);
-        // the municipality, without its prefecture
-        let city = city
-            .rfind(['都', '道', '府', '県'])
-            .map(|k| &city[k + 3..])
-            .filter(|c| !c.is_empty())
-            .unwrap_or(city);
-        out.push((
-            city.to_string(),
-            format!("{town}{}丁目", numbers[0]),
-            joined(&numbers[1..numbers.len().min(3)]),
-        ));
-        out.push((city.to_string(), town.to_string(), joined(&numbers[..2])));
-    }
-    out
-}
-
 /// "Vas County" -> "Vas", "Departamento de Santa Cruz" -> "Santa Cruz": words that classify a
 /// region rather than name it, which the data's names mostly leave out.
 fn without_admin_word(text: &str) -> Option<String> {
@@ -1301,37 +1087,6 @@ pub fn street_aligned(
         .then(|| head.iter().chain(tail).cloned().collect())
 }
 
-fn nz_localities_aligned(
-    head: &[(String, String)],
-    suburb: Option<&str>,
-    city: &str,
-    whole: &[(String, String)],
-) -> Option<Vec<(String, String)>> {
-    let suburb = suburb.map(|s| s.trim().to_lowercase());
-    let city = city.trim().to_lowercase();
-    if !head_aligns(head)
-        || !one_house(head)
-        || field(head, "house_number") != field(whole, "house_number")
-        || field(head, "unit") != field(whole, "unit")
-        || !whole.iter().all(|(k, _)| {
-            matches!(
-                k.as_str(),
-                "house_number" | "road" | "unit" | "city" | "suburb" | "city_district" | "house"
-            )
-        })
-        || suburb
-            .iter()
-            .chain([&city])
-            .any(|s| !s.chars().any(char::is_alphabetic) || s.chars().any(|c| c.is_ascii_digit()))
-    {
-        return None;
-    }
-    let mut parsed = head.to_vec();
-    parsed.extend(suburb.map(|s| ("suburb".into(), s)));
-    parsed.push(("city".into(), city));
-    Some(parsed)
-}
-
 fn postal_city_aligned(
     head: &[(String, String)],
     tail: &str,
@@ -1472,28 +1227,6 @@ fn reversed(
     Ok(country_first.then(|| parts.into_iter().rev().collect::<Vec<_>>().join(", ")))
 }
 
-/// "朝日町伊勢宮 472-2", "472-2 朝日町伊勢宮" or "Koyodai 258-2": a Japanese town, district or
-/// road and its number, which libpostal cuts into unrelated fields when the name is unspaced kanji
-/// or romaji.
-fn japanese_head(head: &str) -> Option<Vec<(String, String)>> {
-    const NUMBER: &str = "[0-9０-９]+(?:[-－‐−][0-9０-９]+)*";
-    static HEAD: LazyLock<[regex::Regex; 2]> = LazyLock::new(|| {
-        [
-            format!(r"^\s*(?<name>\S.*?)\s+(?<number>{NUMBER})\s*$"),
-            format!(r"^\s*(?<number>{NUMBER})\s+(?<name>\S.*?)\s*$"),
-        ]
-        .map(|re| regex::Regex::new(&re).unwrap())
-    });
-    let c = HEAD.iter().find_map(|re| re.captures(head))?;
-    if !c["name"].chars().any(char::is_alphabetic) {
-        return None;
-    }
-    Some(vec![
-        ("road".into(), c["name"].to_lowercase()),
-        ("house_number".into(), c["number"].to_lowercase()),
-    ])
-}
-
 /// "Church Street 4, Amberley": a number written after a road that ends in its type, which
 /// libpostal can leave in the road ("church street 4") or read beside a second road. The address
 /// with the number first, and the number.
@@ -1540,103 +1273,6 @@ fn unit_from_road(parsed: &mut Vec<(String, String)>) {
         let (road, unit) = (c[1].to_string(), c[2].to_string());
         parsed[at].1 = road;
         parsed.insert(at + 1, ("unit".into(), unit));
-    }
-}
-
-/// "6 Avenida da Noruega, Ribeira de Pena, Portugal": libpostal reads a number written before a
-/// Portuguese avenida as part of the road (it splits "6 Rua …" and "6 Av. …"). Only with the
-/// country stated as Portugal: "6 Avenida" is a whole street name in Guatemala.
-fn number_from_avenida(parsed: &mut Vec<(String, String)>) {
-    if parsed.iter().any(|(k, _)| k == "house_number")
-        || crate::matching::expected_country(&parsed.iter().cloned().collect()) != "pt"
-    {
-        return;
-    }
-    let Some(at) = parsed.iter().position(|(k, _)| k == "road") else {
-        return;
-    };
-    let Some((number, road)) = parsed[at].1.split_once(' ') else {
-        return;
-    };
-    if !number.is_empty()
-        && number.bytes().all(|b| b.is_ascii_digit())
-        && road.starts_with("avenida ")
-    {
-        let (number, road) = (number.to_string(), road.to_string());
-        parsed[at].1 = road;
-        parsed.insert(at, ("house_number".into(), number));
-    }
-}
-
-/// "中正路63巷 22號, 甲仙區, 高雄市": libpostal reads a Taiwanese or Chinese number written
-/// after its road, apart from it, as part of the road, or after a village's name as a unit. A
-/// word of digits ending in 號/号 ("number") is a house number, nothing else.
-fn number_from_cjk_road(parsed: &mut Vec<(String, String)>) {
-    static NUMBER: LazyLock<regex::Regex> =
-        LazyLock::new(|| regex::Regex::new(r"^[0-9０-９]+(?:之[0-9０-９]+)?[號号]$").unwrap());
-    if parsed.iter().any(|(k, _)| k == "house_number") {
-        return;
-    }
-    // "佳崙 386號": a number after a village's name reads as a unit
-    if let Some(unit) = parsed
-        .iter_mut()
-        .find(|(k, v)| k == "unit" && NUMBER.is_match(v))
-    {
-        unit.0 = "house_number".into();
-        return;
-    }
-    let Some(at) = parsed.iter().position(|(k, _)| k == "road") else {
-        return;
-    };
-    let road = &parsed[at].1;
-    let split = match (road.split_once(' '), road.rsplit_once(' ')) {
-        (_, Some((rest, number))) if NUMBER.is_match(number) => Some((rest, number)),
-        (Some((number, rest)), _) if NUMBER.is_match(number) => Some((rest, number)),
-        _ => None,
-    };
-    if let Some((rest, number)) = split {
-        let (rest, number) = (rest.to_string(), number.to_string());
-        parsed[at].1 = rest;
-        parsed.insert(at + 1, ("house_number".into(), number));
-    }
-}
-
-/// Czech and Slovak number marks as the data keys them: a descriptive number ("č.p. 1213") bare,
-/// an evidential one with its mark ("č.ev. 169"), which libpostal leaves on the road
-/// ("topolová č.ev.", "169").
-fn czech_number_marks(parsed: &mut Vec<(String, String)>) {
-    const MARKS: [(&str, &str); 6] = [
-        ("č.p.", ""),
-        ("č. p.", ""),
-        ("čp.", ""),
-        ("č.ev.", "č.ev. "),
-        ("č. ev.", "č.ev. "),
-        ("čev.", "č.ev. "),
-    ];
-    let numeric = |n: &str| n.starts_with(|c: char| c.is_ascii_digit());
-    let mut on_road = None;
-    for (_, v) in parsed.iter_mut().filter(|(k, _)| k == "road") {
-        if let Some((road, written)) = MARKS.iter().find_map(|(mark, written)| {
-            let road = v.strip_suffix(mark)?;
-            (road.is_empty() || road.ends_with(' '))
-                .then(|| (road.trim_end().to_string(), *written))
-        }) {
-            *v = road;
-            on_road = Some(written);
-        }
-    }
-    // "Velký Luh č.ev. 52, 35134 Velký Luh": a village's number, the mark alone read as the road
-    parsed.retain(|(k, v)| k != "road" || !v.is_empty());
-    for (_, n) in parsed.iter_mut().filter(|(k, _)| k == "house_number") {
-        let marked = MARKS.iter().find_map(|(mark, written)| {
-            let rest = n.strip_prefix(mark)?.trim_start();
-            numeric(rest).then(|| format!("{written}{rest}"))
-        });
-        if let Some(marked) = marked {
-            *n = marked;
-        } else if let Some(written) = on_road.filter(|_| numeric(n)) {
-            *n = format!("{written}{n}");
-        }
     }
 }
 
@@ -1760,7 +1396,7 @@ impl Parser {
             if let Some((_, c)) = &country
                 && matches!(c.as_str(), "japan" | "日本")
                 && let [head, ref rest @ ..] = parts[..]
-                && let Some(house) = japanese_head(head)
+                && let Some(house) = jp::japanese_head(head)
             {
                 let mut a = house;
                 // a district (郡) only prefixes the names of its towns and villages
@@ -1870,9 +1506,9 @@ impl Parser {
                 None => whole,
             };
             unit_from_road(&mut parsed);
-            number_from_avenida(&mut parsed);
-            number_from_cjk_road(&mut parsed);
-            czech_number_marks(&mut parsed);
+            pt::number_from_avenida(&mut parsed);
+            cn_tw::number_from_cjk_road(&mut parsed);
+            cz_sk::czech_number_marks(&mut parsed);
             parsed.into_iter().collect()
         };
         if self.capacity > 0 {
@@ -2061,7 +1697,7 @@ impl Index {
         let place_names = suggest::place_names(&places)?;
         let landmarks = landmark::Landmarks::open(dir, places.len())?;
         let mut provinces = HashMap::new();
-        for (code, place) in irish_provinces(&places, &regions) {
+        for (code, place) in ie::irish_provinces(&places, &regions) {
             provinces.insert(code, places.len() as u32);
             places.push(place);
         }
@@ -2112,85 +1748,10 @@ impl Index {
         self.places.len()
     }
 
-    /// "number road, [suburb,] town, New Zealand": the house on that road the suburb and town
-    /// place, where libpostal reads the road or a town across the commas.
-    fn nz_comma_house(&self, q: &str, whole: &[(String, String)]) -> Result<Option<(Parsed, Hit)>> {
-        let parts: Vec<_> = q.split(',').map(str::trim).collect();
-        let (head, suburb, city, country) = match parts.as_slice() {
-            [head, suburb, city, country] => (*head, Some(*suburb), *city, *country),
-            [head, city, country] => (*head, None, *city, *country),
-            _ => return Ok(None),
-        };
-        if self.country(country).as_deref() != Some("nz")
-            || whole
-                .iter()
-                .filter(|(k, _)| k == "country")
-                .any(|(_, country)| self.country(country).as_deref() != Some("nz"))
-        {
-            return Ok(None);
-        }
-        let inner: Vec<_> = whole
-            .iter()
-            .filter(|(k, _)| k != "country")
-            .cloned()
-            .collect();
-        let Some(mut parsed) =
-            nz_localities_aligned(&self.parser.parse(head)?, suburb, city, &inner)
-        else {
-            return Ok(None);
-        };
-        let road = field(&parsed, "road");
-        let number = field(&parsed, "house_number");
-        // a town alone only repairs a road or town read across the comma
-        if suburb.is_none()
-            && field(&inner, "road") == road
-            && field(&inner, "city") == field(&parsed, "city")
-        {
-            return Ok(None);
-        }
-        let postal = |hit: &Hit, name: &str| {
-            matches!(hit, Hit::Street { postal_town: Some(town), .. }
-                if crate::matching::names_agree(name, town))
-        };
-        let in_town = |hit: &Hit| {
-            self.house_locality_named(hit, city)
-                || self.house_town_named(hit, city)
-                || (suburb.is_none() && postal(hit, city))
-        };
-        let mut hit = self
-            .streets(
-                road,
-                Some(number),
-                Some(suburb.unwrap_or(city)),
-                None,
-                Some("nz"),
-                true,
-            )
-            .into_iter()
-            .find(|hit| {
-                matches!(hit, Hit::Street { name, number: Some(n), .. }
-                if fold(name) == fold(road)
-                    && schema::number_key(n) == schema::number_key(number)
-                    && in_town(hit)
-                    && suburb.is_none_or(|suburb| {
-                        self.house_locality_named(hit, suburb) || postal(hit, suburb)
-                    }))
-            });
-        // the town only the house's source names is its postal city, as streets_by names it
-        let postal_city = hit.as_ref().is_some_and(|hit| {
-            !self.house_locality_named(hit, city) && self.house_town_named(hit, city)
-        });
-        if let Some(Hit::Street { city: found, .. }) = &mut hit {
-            *found = postal_city.then(|| title(city));
-        }
-        parsed.push(("country".into(), country.to_lowercase()));
-        Ok(hit.map(|hit| (parsed.into(), hit)))
-    }
-
     pub(crate) fn parse_address(&self, q: &str, corroboration: bool) -> Result<Option<Parsed>> {
         let mut parsed = self.parser.parse(q)?;
         if q.contains('號')
-            && let Some((units, road, number)) = chinese(q)
+            && let Some((units, road, number)) = cn_tw::chinese(q)
             && let [state, city] = units.as_slice()
             && state.ends_with('市')
             && city.ends_with('區')
@@ -2773,7 +2334,7 @@ impl Index {
         let hits = self.streets_by(road, number, city, &named, postcode, cc, exact, false);
         // Bogotá's register keys "# 86B-18" as "86B 18"
         if cc == Some("co")
-            && let Some(plate) = number.and_then(crate::matching::colombian_plate)
+            && let Some(plate) = number.and_then(co::colombian_plate)
             && !hits.iter().any(|h| {
                 matches!(
                     h,
@@ -2826,11 +2387,11 @@ impl Index {
         if !housed && number.is_some_and(|n| !n.trim().is_empty()) {
             let mut alternatives = cc
                 .or(postcode
-                    .filter(|p| crate::matching::portuguese_postcode(p))
+                    .filter(|p| pt::portuguese_postcode(p))
                     .map(|_| "pt"))
                 .map(|cc| crate::matching::road_expansions(road, cc))
                 .unwrap_or_default();
-            alternatives.extend(crate::matching::bare_road(road, cc));
+            alternatives.extend(pl::bare_road(road, cc));
             if !alternatives.is_empty()
                 && (!named.is_empty() || postcode.is_some_and(|p| self.postcode_exists(p, cc)))
             {
@@ -3126,9 +2687,7 @@ impl Index {
         };
         // `streets` looks a Colombian plate up again in the register's form, county included
         let county_house = cc == Some("co")
-            && number.is_some_and(|n| {
-                !n.trim().is_empty() && crate::matching::colombian_plate(n).is_none()
-            });
+            && number.is_some_and(|n| !n.trim().is_empty() && co::colombian_plate(n).is_none());
         let number = number.map(schema::number_key);
         // Streets that hold the requested postcode report it, as Nominatim reports an address's.
         let with_postcode: std::collections::HashSet<DocAddress> =
@@ -3714,26 +3273,6 @@ impl Index {
                 .is_some_and(|&(x0, y0)| houses.iter().all(|&(x, y)| (x - x0).hypot(y - y0) < 0.01))
     }
 
-    /// A US state's region place, by its postal code ("OH") or its name.
-    fn us_state(&self, state: &str) -> Option<u32> {
-        let state = state.trim();
-        if state.len() == 2 {
-            return self
-                .regions
-                .get(&format!("US-{}", state.to_uppercase()))
-                .copied();
-        }
-        let want = name_key(state);
-        self.places(state, Some("us"), None, &|p| {
-            &*p.subtype == "region" && p.named(want)
-        })
-        .into_iter()
-        .find_map(|h| match h {
-            Hit::Place(id) => Some(id),
-            _ => None,
-        })
-    }
-
     /// `query` with a part that is a region's ISO 3166-2 code ("B.C.S" for Baja California Sur)
     /// replaced by the region's name; see [`crate::matching::with_region_names`].
     pub fn with_region_names(&self, query: &str) -> Option<String> {
@@ -3817,50 +3356,6 @@ impl Index {
             .flatten()
     }
 
-    fn chinese_streets(
-        &self,
-        units: &[String],
-        road: &str,
-        number: &str,
-        city: Option<&str>,
-        cc: Option<&str>,
-    ) -> Vec<Hit> {
-        let towns = units.iter().rev().map(String::as_str).chain(city);
-        let mut street = None;
-        for town in towns {
-            let hits: Vec<_> = self
-                .streets(road, Some(number), Some(town), None, cc, false)
-                .into_iter()
-                .filter(|hit| {
-                    let Hit::Street { place, .. } = hit else {
-                        return false;
-                    };
-                    let chain = self.chain(*place);
-                    units.iter().all(|unit| {
-                        chain
-                            .iter()
-                            .any(|&p| self.places[p as usize].named(name_key(unit)))
-                    })
-                })
-                .collect();
-            if let Some(h) = hits.iter().find(|h| {
-                matches!(
-                    h,
-                    Hit::Street {
-                        number: Some(_),
-                        ..
-                    }
-                )
-            }) {
-                return vec![h.clone()];
-            }
-            if street.is_none() {
-                street = hits.into_iter().next();
-            }
-        }
-        street.into_iter().collect()
-    }
-
     /// Candidates for a free-text query, best first; at most ten. Blocks: call it off the
     /// async executor.
     pub fn search(&self, q: &str) -> Vec<Hit> {
@@ -3876,7 +3371,7 @@ impl Index {
         // Japanese block addresses: libpostal splits them, and the data names the chōme
         // ("芝公園四丁目", number "2-8"), so they're read here.
         let mut chome = None;
-        for (city, street, number) in japanese(q) {
+        for (city, street, number) in jp::japanese(q) {
             let city = self.resolve_place(&city, Some("jp")).unwrap_or(city);
             let hits = self.streets(&street, Some(&number), Some(&city), None, Some("jp"), false);
             let housed = |h: &Hit| {
@@ -3943,7 +3438,7 @@ impl Index {
         }
         // Chinese road addresses ("上海市虹口区中山北一路295号"): libpostal splits the road
         // from its number; read them here, scoped by the written district or city.
-        if let Some((units, road, number)) = chinese(q) {
+        if let Some((units, road, number)) = cn_tw::chinese(q) {
             let hits = self.chinese_streets(&units, &road, &number, city, cc);
             if !hits.is_empty() {
                 return hits;
@@ -4392,7 +3887,7 @@ impl Index {
             display.push("Palestine".into());
         }
         if let Some(code) = self.region_code(chain) {
-            if let Some(province) = irish_province(code) {
+            if let Some(province) = ie::irish_province(code) {
                 a.insert("ISO3166-2-lvl5".into(), province.into());
             }
             a.insert("ISO3166-2-lvl4".into(), code.into());
@@ -4884,35 +4379,6 @@ impl Index {
         Some(self.render(&self.house_hit(a, number.into(), x, y, own)?, true))
     }
 
-    /// The one "descriptive/orientation" house ("1213/5") of `streets` whose orientation number
-    /// is `n`: Czech and Slovak data key a house by both, and a street's orientation number alone
-    /// names it.
-    fn combined_number(&self, streets: &[DocAddress], n: &str) -> Option<String> {
-        if !n.starts_with(|c: char| c.is_ascii_digit()) || n.contains(['/', ' ']) {
-            return None;
-        }
-        let suffix = format!("/{n}");
-        let mut found = std::collections::BTreeSet::new();
-        for &a in streets {
-            let place = self.fast(a, "place") as u32;
-            if self
-                .places
-                .get(place as usize)
-                .is_some_and(|p| matches!(&*p.cc, "cz" | "sk"))
-            {
-                self.each_house(self.fast(a, "id") as u32, |key, _, _, _| {
-                    if let Ok(key) = std::str::from_utf8(key)
-                        && key.ends_with(&suffix)
-                    {
-                        found.insert(key.to_string());
-                    }
-                });
-            }
-        }
-        // ponytail: two streets of the name each numbering an entrance `n` stay a street answer
-        (found.len() == 1).then(|| found.pop_first()).flatten()
-    }
-
     /// Calls `each` with every house of street `sid`: its number, position and postcode slot.
     fn each_house(&self, sid: u32, mut each: impl FnMut(&[u8], f64, f64, u8)) {
         use tantivy_fst::{IntoStreamer, Streamer};
@@ -5284,67 +4750,6 @@ mod tests {
             best_name(&doc, f.name, "East Kowhai Rd"),
             "East Kōwhai Road"
         );
-    }
-
-    #[test]
-    fn nz_comma_alignment_keeps_numbers_units_and_geographic_guards() {
-        let pairs = |p: &[(&str, &str)]| -> Vec<(String, String)> {
-            p.iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect()
-        };
-        for number in ["5a", "10-12", "2/19", "19b"] {
-            let head = pairs(&[("house_number", number), ("road", "orchard road")]);
-            let whole = pairs(&[
-                ("house_number", number),
-                ("road", "orchard road kōwhai bay"),
-                ("city", "harbourton"),
-            ]);
-            let aligned =
-                nz_localities_aligned(&head, Some("Kōwhai Bay"), "Harbourton", &whole).unwrap();
-            assert_eq!(field(&aligned, "house_number"), number);
-            assert_eq!(field(&aligned, "road"), "orchard road");
-            assert_eq!(field(&aligned, "suburb"), "kōwhai bay");
-            assert_eq!(field(&aligned, "city"), "harbourton");
-            assert_eq!(
-                nz_localities_aligned(&head, Some("Kōwhai Bay"), "Harbourton", &aligned).unwrap(),
-                aligned
-            );
-            for key in [
-                "state",
-                "state_district",
-                "country",
-                "postcode",
-                "po_box",
-                "level",
-            ] {
-                let mut guarded = whole.clone();
-                guarded.push((key.into(), "other".into()));
-                assert!(
-                    nz_localities_aligned(&head, Some("Kōwhai Bay"), "Harbourton", &guarded)
-                        .is_none()
-                );
-            }
-            for (suburb, city) in [("", "Harbourton"), ("Kōwhai Bay", "Harbourton 1234")] {
-                assert!(nz_localities_aligned(&head, Some(suburb), city, &whole).is_none());
-            }
-            let changed = pairs(&[("house_number", "999"), ("road", "orchard road")]);
-            assert!(
-                nz_localities_aligned(&changed, Some("Kōwhai Bay"), "Harbourton", &whole).is_none()
-            );
-        }
-        let head = pairs(&[
-            ("unit", "2"),
-            ("house_number", "19"),
-            ("road", "orchard road"),
-        ]);
-        let mut whole = head.clone();
-        whole.push(("city".into(), "kōwhai bay harbourton".into()));
-        let aligned =
-            nz_localities_aligned(&head, Some("Kōwhai Bay"), "Harbourton", &whole).unwrap();
-        assert_eq!(field(&aligned, "unit"), "2");
-        whole[0].1 = "3".into();
-        assert!(nz_localities_aligned(&head, Some("Kōwhai Bay"), "Harbourton", &whole).is_none());
     }
 
     #[test]
@@ -6106,12 +5511,12 @@ mod tests {
             ("route 66", "route 66", ""),
         ] {
             let mut parsed = pairs(&[("road", road)]);
-            number_from_cjk_road(&mut parsed);
+            cn_tw::number_from_cjk_road(&mut parsed);
             assert_eq!(field(&parsed, "road"), kept, "{road}");
             assert_eq!(field(&parsed, "house_number"), number, "{road}");
         }
         let mut parsed = pairs(&[("house", "佳崙"), ("unit", "386號")]);
-        number_from_cjk_road(&mut parsed);
+        cn_tw::number_from_cjk_road(&mut parsed);
         assert_eq!(field(&parsed, "house_number"), "386號");
     }
 
@@ -6203,45 +5608,6 @@ mod tests {
         assert_eq!(house_number("№ 43"), "43");
         assert_eq!(house_number("12b"), "12b");
         assert_eq!(house_number("Nordweg"), "Nordweg");
-    }
-
-    #[test]
-    fn czech_number_marks_become_the_datas_keys() {
-        let marked = |parts: &[(&str, &str)]| {
-            let mut parsed: Vec<(String, String)> = parts
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.to_string()))
-                .collect();
-            czech_number_marks(&mut parsed);
-            parsed
-                .iter()
-                .map(|(k, v)| format!("{k}={v}"))
-                .collect::<Vec<_>>()
-        };
-        assert_eq!(
-            marked(&[("road", "roštýnská"), ("house_number", "č.p. 1213")]),
-            ["road=roštýnská", "house_number=1213"]
-        );
-        assert_eq!(
-            marked(&[("road", "topolová č.ev."), ("house_number", "169")]),
-            ["road=topolová", "house_number=č.ev. 169"]
-        );
-        assert_eq!(
-            marked(&[
-                ("road", "č. ev."),
-                ("house_number", "52"),
-                ("city", "velký luh")
-            ]),
-            ["house_number=č.ev. 52", "city=velký luh"]
-        );
-        assert_eq!(
-            marked(&[("road", "náměstí čp."), ("house_number", "4")]),
-            ["road=náměstí", "house_number=4"]
-        );
-        assert_eq!(
-            marked(&[("road", "main street"), ("house_number", "12")]),
-            ["road=main street", "house_number=12"]
-        );
     }
 
     #[test]
@@ -6398,111 +5764,13 @@ mod tests {
     }
 
     #[test]
-    fn chinese_road_addresses() {
-        assert_eq!(
-            chinese("上海市虹口区中山北一路295号, Hongkou 200083, China"),
-            Some((
-                vec!["上海市".into(), "虹口区".into()],
-                "中山北一路".into(),
-                "295".into()
-            ))
-        );
-        assert_eq!(
-            chinese("浙江省海宁市学林街60至62号"),
-            Some((
-                vec!["浙江省".into(), "海宁市".into()],
-                "学林街".into(),
-                "60".into()
-            ))
-        );
-        assert_eq!(
-            chinese("学院路18号, Beijing 100083, China"),
-            Some((vec![], "学院路".into(), "18".into()))
-        );
-        for query in [
-            "臺北市松山區南京東路五段３８９巷６弄１１號, Taiwan",
-            "臺北市松山區南京東路五段389巷6弄11號, Taiwan",
-            "臺北市松山區南京東路五段３８９巷６弄１１號三樓, Taiwan",
-        ] {
-            assert_eq!(
-                chinese(query),
-                Some((
-                    vec!["臺北市".into(), "松山區".into()],
-                    "南京東路五段389巷6弄".into(),
-                    "11".into()
-                ))
-            );
-        }
-        assert_eq!(
-            chinese("臺北市松山區市民大道五段１３１號七樓, Taiwan"),
-            Some((
-                vec!["臺北市".into(), "松山區".into()],
-                "市民大道五段".into(),
-                "131".into()
-            ))
-        );
-        assert_eq!(
-            chinese("臺北市松山區南京東路三段２６９巷６之４號二樓, Taiwan")
-                .unwrap()
-                .2,
-            "6之4"
-        );
-        assert_eq!(chinese("臺北市松山區南京東路11號未知商店"), None);
-        assert_eq!(chinese("10 Downing Street"), None);
-    }
-
-    #[test]
-    fn japanese_block_addresses() {
-        let got = japanese("〒105-0011 東京都港区芝公園４丁目２番８号");
-        assert_eq!(got[0], ("港区".into(), "芝公園4丁目".into(), "2-8".into()));
-        assert_eq!(got[1], ("港区".into(), "芝公園".into(), "4-2".into()));
-        assert_eq!(
-            japanese("東京都千代田区大手町1-1-1")[0],
-            ("千代田区".into(), "大手町1丁目".into(), "1-1".into())
-        );
-        assert_eq!(japanese("大阪府大阪市北区梅田三丁目1-3")[0].1, "梅田3丁目");
-        assert_eq!(kanji_number("二十一"), Some(21));
-        assert!(japanese("1600 Pennsylvania Avenue").is_empty());
-        assert!(japanese("東京都").is_empty());
-    }
-
-    #[test]
-    fn japanese_town_and_number_heads() {
-        let house = |road: &str, number: &str| {
-            Some(vec![
-                ("road".to_string(), road.to_string()),
-                ("house_number".to_string(), number.to_string()),
-            ])
-        };
-        assert_eq!(
-            japanese_head("朝日町伊勢宮 472-2"),
-            house("朝日町伊勢宮", "472-2")
-        );
-        assert_eq!(japanese_head("828 今津町福岡"), house("今津町福岡", "828"));
-        assert_eq!(japanese_head("Koyodai 258-2"), house("koyodai", "258-2"));
-        assert_eq!(
-            japanese_head("国道１５３号 3380-1"),
-            house("国道１５３号", "3380-1")
-        );
-        assert_eq!(
-            japanese_head("433-1 畦町433-1"),
-            house("畦町433-1", "433-1")
-        );
-        // a number with letters or kanji in it is the parser's to read
-        assert_eq!(japanese_head("中宮 オ9"), None);
-        assert_eq!(japanese_head("浜北袋井線 山科字前田3399"), None);
-        assert_eq!(japanese_head("7-1"), None);
-        assert_eq!(japanese_head("12 34"), None);
-    }
-
-    #[test]
     fn names_and_codes() {
         assert_eq!(cjk_stem("東京都"), Some("東京"));
         assert_eq!(cjk_stem("서울특별시"), Some("서울"));
         assert_eq!(cjk_stem("Kyoto"), None);
         assert_eq!(exact_key("上海市"), exact_key("上海"));
-        assert_eq!(irish_province("IE-D"), Some("IE-L"));
-        assert_eq!(irish_province("GB-ENG"), None);
+        assert_eq!(ie::irish_province("IE-D"), Some("IE-L"));
+        assert_eq!(ie::irish_province("GB-ENG"), None);
         assert_eq!(title("københavn v"), "København V");
     }
 

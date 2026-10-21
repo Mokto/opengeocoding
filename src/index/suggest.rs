@@ -1,6 +1,7 @@
 //! Completion of a place, street, house or postcode typed so far. Unlike `search`, it never
 //! calls libpostal, which misreads half-typed words: the last word is a prefix of terms read
 //! from the index's term dictionary, and the commas the user types say where the town starts.
+use super::country::{ca, cz_sk, pl, pt};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 use std::{cmp::Reverse, collections::BinaryHeap, sync::LazyLock};
@@ -25,7 +26,7 @@ const MAX_TEXT: usize = 200;
 /// Entries of each prefix cache: a place entry is at most 400 candidates of 16 bytes, so the
 /// caches stay under about 150 MB however much is typed.
 const MAX_CACHED: usize = 20_000;
-const MAX_NUMBER: usize = 10;
+pub(super) const MAX_NUMBER: usize = 10;
 /// Words of a postcode needed before suggesting one: "75" matches thousands.
 const MIN_POSTCODE: usize = 3;
 /// Characters of a name typed before one a letter off is looked for: "pari" is one edit from
@@ -160,11 +161,6 @@ pub struct Suggestion {
     pub bbox: Option<[f32; 4]>,
 }
 
-/// Bytes of a house number but a Czech evidential mark's: "č.ev. 1057" is as short as "1057".
-fn number_len(n: &str) -> usize {
-    n.strip_prefix("č.ev. ").unwrap_or(n).len()
-}
-
 fn has_digit(w: &str) -> bool {
     w.chars().any(|c| c.is_ascii_digit())
 }
@@ -206,7 +202,7 @@ fn raw_words(text: &str) -> Vec<String> {
 }
 
 /// The words of `text`, the last one as typed when it may be unfinished.
-fn words_open(text: &str, open: bool) -> Vec<String> {
+pub(super) fn words_open(text: &str, open: bool) -> Vec<String> {
     if !open {
         return words(text);
     }
@@ -360,9 +356,9 @@ pub(super) fn place_names(places: &[Place]) -> Result<tantivy_fst::Map<Vec<u8>>>
 }
 
 /// The text as typed, split at the commas, and whether its last word may be unfinished.
-struct Typed {
-    parts: Vec<String>,
-    open: bool,
+pub(super) struct Typed {
+    pub(super) parts: Vec<String>,
+    pub(super) open: bool,
 }
 
 impl Typed {
@@ -387,70 +383,6 @@ fn comma_number(part: &str) -> Option<&str> {
         && number.len() <= digits + 1
         && number.bytes().skip(digits).all(|b| b.is_ascii_alphabetic()))
     .then_some(number)
-}
-
-/// A Danish unit part: a floor with or without a door ("st.", "1. th", "st. 11", "1. c"), or a
-/// side door alone.
-fn danish_floor(text: &str) -> bool {
-    let folded = text.to_ascii_lowercase().replace('.', " ");
-    let words: Vec<_> = folded.split_whitespace().collect();
-    let Some(floor) = words.first() else {
-        return false;
-    };
-    let side = |w: &str| matches!(w, "t" | "th" | "tv" | "m" | "mf");
-    // "st. john" is a saint, not a door
-    let door = |w: &str| {
-        side(w)
-            || (w.len() <= 4
-                && w.bytes().all(|b| b.is_ascii_alphanumeric())
-                && (w.len() == 1 || w.bytes().any(|b| b.is_ascii_digit())))
-    };
-    let floored = matches!(*floor, "st" | "kl")
-        || (floor.len() <= 2 && floor.bytes().all(|b| b.is_ascii_digit()));
-    match words.len() {
-        1 => floored || matches!(*floor, "th" | "tv" | "mf"),
-        2 => floored && door(words[1]),
-        _ => false,
-    }
-}
-
-/// An Australian unit before its building's number: "1/44 Macleay St", "Unit 1 44 Macleay St"
-/// or "Unit 1, 44 Macleay St". The unit as typed, whether a slash joined it to the number, and
-/// the text without it.
-fn australian_unit(typed: &Typed) -> Option<(String, bool, Typed)> {
-    const KIND: &str = r"(?:unit|u|apt|apartment|flat|shop|suite|villa|townhouse|office|level|lvl|l|floor|fl|site)";
-    static SLASH: LazyLock<regex::Regex> =
-        LazyLock::new(|| regex::Regex::new(r"^([A-Za-z]?\d{1,5}[A-Za-z]?)/(\d.*\s.*)$").unwrap());
-    static NAMED: LazyLock<regex::Regex> = LazyLock::new(|| {
-        regex::Regex::new(&format!(
-            r"(?i)^({KIND}\s*[a-z]?\d{{1,5}}[a-z]?)(?:\s+(\d.*\s.*))?$"
-        ))
-        .unwrap()
-    });
-    let head = typed.parts.first()?;
-    let mut parts = typed.parts.clone();
-    let (unit, slash) = if let Some(c) = SLASH.captures(head) {
-        parts[0] = c[2].to_string();
-        (c[1].to_string(), true)
-    } else {
-        let c = NAMED.captures(head)?;
-        match c.get(2) {
-            Some(rest) => parts[0] = rest.as_str().to_string(),
-            None if parts.len() > 1 => {
-                parts.remove(0);
-            }
-            None => return None,
-        }
-        (c[1].to_string(), false)
-    };
-    Some((
-        unit,
-        slash,
-        Typed {
-            parts,
-            open: typed.open,
-        },
-    ))
 }
 
 impl Index {
@@ -590,7 +522,7 @@ impl Index {
         }
         if !out.iter().any(|s| s.kind == "address")
             && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
-            && let Some((building, number)) = crate::matching::canadian_building(text)
+            && let Some((building, number)) = ca::canadian_building(text)
         {
             let number = schema::number_key(number);
             let recovered: Vec<_> = self
@@ -614,103 +546,6 @@ impl Index {
         });
         out.truncate(limit);
         out
-    }
-
-    fn chinese_suggest(&self, text: &str, cc: Option<&str>) -> Option<Vec<Suggestion>> {
-        if !text.contains('號') {
-            return None;
-        }
-        let (units, road, number) = chinese(text)?;
-        if !matches!(units.as_slice(), [state, city] if state.ends_with('市') && city.ends_with('區'))
-        {
-            return None;
-        }
-        let parts: Vec<_> = text.split([',', '，']).map(str::trim).collect();
-        if !(parts.len() == 1
-            || parts.len() == 2 && self.country(parts[1]).as_deref() == Some("tw"))
-        {
-            return None;
-        }
-        let (building, suffix) = parts[0].rsplit_once('號')?;
-        if schema::number_key(building) != format!("{}{road}{number}", units.concat()) {
-            return None;
-        }
-        let road_key = fold(&road);
-        if road_key.is_empty()
-            || number.len() > MAX_NUMBER
-            || cc.is_some_and(|c| !c.eq_ignore_ascii_case("tw"))
-        {
-            return Some(vec![]);
-        }
-        let suffix = suffix.trim();
-        Some(
-            self.chinese_streets(&units, &road, &number, None, Some("tw"))
-                .into_iter()
-                .filter_map(|hit| {
-                    let Hit::Street {
-                        doc,
-                        sid,
-                        place,
-                        name,
-                        number: Some(found_number),
-                        x,
-                        y,
-                        ..
-                    } = hit
-                    else {
-                        return None;
-                    };
-                    if fold(&name) != road_key || schema::number_key(&found_number) != number {
-                        return None;
-                    }
-                    let mut found =
-                        self.street_suggestion(doc, sid, place, &name, Some(&found_number), (x, y));
-                    if !suffix.is_empty() {
-                        if let Some((at, _)) = found.display_name.match_indices(", ").nth(1) {
-                            found.display_name.insert_str(at, &format!(", {suffix}"));
-                        }
-                        found.unverified_suffix = suffix.into();
-                    }
-                    Some(found)
-                })
-                .collect(),
-        )
-    }
-
-    fn korean_suggest(&self, text: &str, cc: Option<&str>, want: usize) -> Option<Vec<Suggestion>> {
-        let address = korea::parse(text, true)?;
-        let scope = self.korean_scope(&address)?;
-        if scope.is_empty() || cc.is_some_and(|c| !c.eq_ignore_ascii_case("kr")) {
-            return Some(vec![]);
-        }
-        let open =
-            address.country.is_none() && !text.ends_with(|c: char| c.is_whitespace() || c == ',');
-        let number = (!address.number.is_empty()).then_some(address.number.as_str());
-        let road_open = open && number.is_none();
-        let road = fold(address.road);
-        Some(
-            self.streets_typed(
-                &words_open(address.road, road_open),
-                road_open,
-                Some(&scope),
-                number,
-                open,
-                Some("kr"),
-                None,
-                None,
-                want.max(5),
-            )
-            .into_iter()
-            .filter(|s| {
-                s.display_name
-                    .split(", ")
-                    .nth(usize::from(s.kind == "address"))
-                    .map(fold)
-                    .is_some_and(|name| name == road || road_open && name.starts_with(&road))
-            })
-            .take(want)
-            .collect(),
-        )
     }
 
     /// The most common terms of `field` starting with `prefix`, summed over segments, with the
@@ -1323,7 +1158,7 @@ impl Index {
                 }
                 let sid = self.fast(a, "id") as u32;
                 let xy = if let Some(number) = number {
-                    if number.is_empty() || number_len(number) > MAX_NUMBER {
+                    if number.is_empty() || cz_sk::number_len(number) > MAX_NUMBER {
                         return None;
                     }
                     let mut key = sid.to_be_bytes().to_vec();
@@ -1489,98 +1324,6 @@ impl Index {
         .collect()
     }
 
-    /// Is the text Australian: Australia filtered for or named, or a part that is a state's
-    /// code or ends with one and a postcode ("Crace ACT 2911")?
-    fn australian(&self, typed: &Typed, cc: Option<&str>) -> bool {
-        if let Some(cc) = cc {
-            return cc.eq_ignore_ascii_case("au");
-        }
-        let state = |w: &str| {
-            self.regions
-                .contains_key(&format!("AU-{}", w.to_uppercase()))
-        };
-        typed.parts[1..].iter().any(|p| {
-            let words: Vec<&str> = p.split(' ').collect();
-            self.country(p).as_deref() == Some("au")
-                || matches!(words.as_slice(), [code] if state(code))
-                || matches!(words.as_slice(), [.., code, pc]
-                    if state(code) && pc.len() == 4 && pc.bytes().all(|b| b.is_ascii_digit()))
-        })
-    }
-
-    /// Houses of an Australian text that finds none as typed: with Australia's state codes and
-    /// postcodes understood when it is not stated, then with a unit before the building's number
-    /// set aside. The unit stays in the display name, unverified.
-    fn suggest_australian(
-        &self,
-        typed: &Typed,
-        cc: Option<&str>,
-        focus: Option<&Focus>,
-        want: usize,
-    ) -> Vec<Suggestion> {
-        if !self.australian(typed, cc) {
-            return vec![];
-        }
-        let houses = |typed: &Typed| -> Vec<Suggestion> {
-            self.suggest_streets(typed, Some("au"), focus, want)
-                .into_iter()
-                .filter(|s| s.kind == "address" && s.country_code == "au")
-                .collect()
-        };
-        if cc.is_none() {
-            let found = houses(typed);
-            if !found.is_empty() {
-                return found;
-            }
-        }
-        let Some((unit, slash, building)) = australian_unit(typed) else {
-            return vec![];
-        };
-        houses(&building)
-            .into_iter()
-            .map(|mut s| {
-                s.display_name = if slash {
-                    format!("{unit}/{}", s.display_name)
-                } else {
-                    format!("{unit}, {}", s.display_name)
-                };
-                s.unverified_suffix = unit.clone();
-                s
-            })
-            .collect()
-    }
-
-    fn suggest_floor(
-        &self,
-        typed: &Typed,
-        cc: Option<&str>,
-        focus: Option<&Focus>,
-        want: usize,
-    ) -> Vec<Suggestion> {
-        if cc.is_some_and(|c| !c.eq_ignore_ascii_case("dk"))
-            || typed.parts.len() < 2
-            || !danish_floor(&typed.parts[1])
-        {
-            return vec![];
-        }
-        let mut building = Typed {
-            parts: typed.parts.clone(),
-            open: typed.open && typed.parts.len() > 2,
-        };
-        let suffix = building.parts.remove(1);
-        self.suggest_streets(&building, Some("dk"), focus, want)
-            .into_iter()
-            .filter(|s| s.kind == "address" && s.country_code == "dk")
-            .map(|mut s| {
-                if let Some((at, _)) = s.display_name.match_indices(", ").nth(1) {
-                    s.display_name.insert_str(at, &format!(", {suffix}"));
-                }
-                s.unverified_suffix = suffix.clone();
-                s
-            })
-            .collect()
-    }
-
     /// Streets, and houses when a number is typed, with the road in the first part and the
     /// town after a comma ("12 main st, spring"). With no comma the town may still end the text.
     /// The houses `suggest` would list for a whole address, without its places, landmarks
@@ -1619,7 +1362,7 @@ impl Index {
         out
     }
 
-    fn suggest_streets(
+    pub(super) fn suggest_streets(
         &self,
         typed: &Typed,
         cc: Option<&str>,
@@ -1701,7 +1444,7 @@ impl Index {
             .then(|| {
                 [0, raw.len() - 1]
                     .into_iter()
-                    .filter(|&i| has_digit(raw[i]) && number_len(raw[i]) <= MAX_NUMBER)
+                    .filter(|&i| has_digit(raw[i]) && cz_sk::number_len(raw[i]) <= MAX_NUMBER)
             })
             .into_iter()
             .flatten();
@@ -1989,7 +1732,7 @@ impl Index {
         }
         // "ul. M. Kopernika 11": the index names it Mikołaja Kopernika, mostly without "ul."
         if !out.iter().any(|s| s.kind == "address")
-            && let Some(bare) = crate::matching::bare_road(&typed.parts[0], cc)
+            && let Some(bare) = pl::bare_road(&typed.parts[0], cc)
         {
             let mut parts = typed.parts.clone();
             parts[0] = bare;
@@ -2059,7 +1802,7 @@ impl Index {
         if !out.iter().any(|s| s.kind == "address")
             && typed.parts[0].split(' ').any(has_digit)
             && cc.map_or_else(
-                || postcode.is_some_and(crate::matching::portuguese_postcode),
+                || postcode.is_some_and(pt::portuguese_postcode),
                 |c| c.eq_ignore_ascii_case("pt"),
             )
         {
@@ -2139,7 +1882,7 @@ impl Index {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn streets_typed(
+    pub(super) fn streets_typed(
         &self,
         road: &[String],
         road_open: bool,
@@ -2318,7 +2061,7 @@ impl Index {
         out
     }
 
-    fn street_suggestion(
+    pub(super) fn street_suggestion(
         &self,
         a: tantivy::DocAddress,
         sid: u32,
@@ -2371,21 +2114,6 @@ impl Index {
 
 #[cfg(test)]
 mod tests {
-
-    #[test]
-    fn danish_unit_parts_are_floors_doors_and_nothing_else() {
-        for unit in [
-            "st.", "kl.", "1.", "st. th", "1. tv", "st. 11", "2. 3b", "1. c", "th",
-        ] {
-            assert!(danish_floor(unit), "{unit}");
-        }
-        for other in [
-            "st. john", "st john", "12 main", "1. 12345", "th mf", "", "Grenaa", "8500",
-        ] {
-            assert!(!danish_floor(other), "{other}");
-        }
-    }
-
     #[test]
     fn a_house_number_part_is_short_and_may_carry_its_mark() {
         for (part, number) in [

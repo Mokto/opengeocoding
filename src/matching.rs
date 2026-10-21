@@ -1,3 +1,4 @@
+use crate::index::country::{co, pt};
 use crate::{
     index::{
         canon::{canon, is_canonical},
@@ -372,23 +373,6 @@ pub fn postcodes_compatible(expected: &str, actual: &str) -> bool {
     })
 }
 
-pub fn eircode(query: &str) -> String {
-    static RE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?i)[ac-fhknprtv-y]\d{2}[\s\x1c-\x1f]?[0-9ac-fhknprtv-y]{4}").unwrap()
-    });
-    let alphanum = |ch: char| ch.is_ascii_alphanumeric() || "İıſK".contains(ch);
-    RE.find_iter(query)
-        .find(|hit| {
-            !query[..hit.start()]
-                .chars()
-                .next_back()
-                .is_some_and(alphanum)
-                && !query[hit.end()..].chars().next().is_some_and(alphanum)
-        })
-        .map(|hit| hit.as_str().to_owned())
-        .unwrap_or_default()
-}
-
 pub fn country_matches(expected: &str, details: Option<&AddressDetails>) -> bool {
     expected.is_empty()
         || details.is_some_and(|d| {
@@ -602,7 +586,7 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
             let key = |n: &str| {
                 let n = if d.country_code.eq_ignore_ascii_case("co") {
                     let n = n.trim_start_matches(['#', ' ']);
-                    colombian_plate(n).unwrap_or_else(|| n.to_owned())
+                    co::colombian_plate(n).unwrap_or_else(|| n.to_owned())
                 } else {
                     n.to_owned()
                 };
@@ -612,53 +596,12 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
         }
 }
 
-/// "Avenida Calle 43 S" as Bogotá's register writes it, "AC 43 S", and back: an avenue
-/// that is also a numbered calle or carrera (AK).
-fn bogota_road(road: &str) -> Option<String> {
-    static LONG: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?i)^\s*(?:avenida|av\.?)\s+(calle|cl|carrera|kr|cra)\s+(.+)$").unwrap()
-    });
-    static SHORT: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?i)^\s*(ac|ak)\s+(.+)$").unwrap());
-    if let Some(c) = LONG.captures(road) {
-        let kind = match c[1].to_lowercase().as_str() {
-            "calle" | "cl" => "AC",
-            _ => "AK",
-        };
-        return Some(format!("{kind} {}", &c[2]));
-    }
-    SHORT.captures(road).map(|c| {
-        let kind = if c[1].eq_ignore_ascii_case("ac") {
-            "Calle"
-        } else {
-            "Carrera"
-        };
-        format!("Avenida {kind} {}", &c[2])
-    })
-}
-
-/// A Colombian plate ("# 86B-18", "54D-35 S": the house 18 m along from the crossing road 86B)
-/// as Bogotá's register keys it, "86B 18" and "54D 35 S". None when it is not one.
-pub(crate) fn colombian_plate(n: &str) -> Option<String> {
-    static PLATE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?i)^\s*(?:#|no\.?)?\s*(\d+\s?[a-z]?(?:\s?bis)?)\s*-\s*(\d+)(\s+[a-z]+)?\s*$")
-            .unwrap()
-    });
-    let c = PLATE.captures(n)?;
-    Some(format!(
-        "{} {}{}",
-        c[1].replace(' ', ""),
-        &c[2],
-        c.get(3).map_or("", |m| m.as_str())
-    ))
-}
-
 pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
     if cc.eq_ignore_ascii_case("pt") {
-        return ctt_road(road);
+        return pt::ctt_road(road);
     }
     if cc.eq_ignore_ascii_case("co") {
-        return bogota_road(road).into_iter().collect();
+        return co::bogota_road(road).into_iter().collect();
     }
     if cc.eq_ignore_ascii_case("es") {
         // Spain's address registry leaves most articles and prepositions out of a road's name:
@@ -750,138 +693,10 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
         .collect()
 }
 
-/// A Portuguese road as the national address register (CTT) writes it, which is how the index
-/// stores most Portuguese houses: "Rua dos Farias" is "R FARIAS", "Bairro de Santa Bárbara" is
-/// "BR S BARBARA", "Rua Tenente Valadim" is "R TEN VALADIM". The register abbreviates the
-/// leading street type, most titles and Santa/Santo, and usually drops the particle after the
-/// type. Only the abbreviations it uses for the large majority of its names are applied ("Marquês" is also a surname, "Monsenhor" mostly stays whole).
-fn ctt_road(road: &str) -> Vec<String> {
-    const TYPES: &[(&str, &str)] = &[
-        ("praceta", "pct"),
-        ("bairro", "br"),
-        ("caminho", "cam"),
-        ("urbanizacao", "urb"),
-        ("sitio", "sit"),
-        ("praca", "pc"),
-        ("beco", "bc"),
-        ("quinta", "qta"),
-        ("calcada", "cc"),
-        ("calcadinha", "ccnh"),
-        ("monte", "mte"),
-        ("casal", "csl"),
-        ("vereda", "vr"),
-        ("canada", "can"),
-        ("quelha", "qlha"),
-        ("rotunda", "rot"),
-        ("escadinhas", "escnh"),
-        ("escadas", "esc"),
-        ("parque", "pq"),
-        ("azinhaga", "az"),
-        ("ladeira", "lad"),
-        ("loteamento", "loteam"),
-        ("jardim", "jrd"),
-        ("conjunto", "conj"),
-        ("zona", "zn"),
-        ("terreiro", "terr"),
-        ("rampa", "ramp"),
-        ("aldeamento", "aldt"),
-        ("herdade", "hrd"),
-        ("viela", "vla"),
-        ("patio", "pto"),
-    ];
-    const TITLES: &[(&str, &str)] = &[
-        ("tenente", "ten"),
-        ("comendador", "comend"),
-        ("comandante", "cmdt"),
-        ("almirante", "alm"),
-        ("conselheiro", "cons"),
-        ("visconde", "visc"),
-        ("brigadeiro", "brig"),
-        ("sargento", "sarg"),
-        ("infante", "inf"),
-        ("frei", "fr"),
-        ("coronel", "cor"),
-        ("arquitecto", "arq"),
-        ("arquiteto", "arq"),
-        ("duque", "dq"),
-        ("embaixador", "emb"),
-        ("doutora", "dra"),
-        ("dom", "d"),
-        ("dona", "d"),
-        ("nossa", "nsa"),
-        ("santa", "s"),
-        ("santo", "s"),
-    ];
-    const PARTICLES: &[&str] = &["da", "do", "das", "dos", "de"];
-    let road = normalize_place(road);
-    let short = |table: &[(&str, &'static str)], w: &str| {
-        table.iter().find(|(full, _)| *full == w).map(|(_, s)| *s)
-    };
-    // the street type, after a house number typed first ("12 rua dos farias")
-    let at = road
-        .split(' ')
-        .position(|w| !w.starts_with(|c: char| c.is_ascii_digit()))
-        .unwrap_or(0);
-    let form = road
-        .split(' ')
-        .enumerate()
-        .filter(|&(i, w)| i != at + 1 || !PARTICLES.contains(&w))
-        .map(|(i, w)| {
-            (i == at)
-                .then(|| short(TYPES, w))
-                .flatten()
-                .or_else(|| short(TITLES, w))
-                .unwrap_or(w)
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
-    // a bare type ("Rua da") names no street
-    if form.contains(' ') && form != road {
-        vec![form]
-    } else {
-        vec![]
-    }
-}
-
-/// "2955-243": no other country writes its postcodes so, which tells a query that names no country
-/// to read its road as Portugal's register does. Only the written shape counts: "50667" could be
-/// German or French, and a country-scoped spelling needs the country to be certain.
-pub(crate) fn portuguese_postcode(postcode: &str) -> bool {
-    let b = postcode.trim().as_bytes();
-    b.len() == 8 && b[4] == b'-' && b[..4].iter().chain(&b[5..]).all(u8::is_ascii_digit)
-}
-
 /// Spanish, Catalan and Galician articles and prepositions.
 const SPANISH_PARTICLES: &[&str] = &[
     "de", "del", "la", "las", "los", "el", "dels", "les", "els", "da", "do", "das", "dos",
 ];
-
-/// A Polish road as the index may name it: without "ul." (ulica), which most sources leave
-/// out, and without its given names' initials ("ul. M. Kopernika" is Mikołaja Kopernika's
-/// street). Without a stated country, only a road written with "ul." is taken to be Polish.
-pub(crate) fn bare_road(road: &str, cc: Option<&str>) -> Option<String> {
-    let initial = |w: &str| {
-        w.strip_suffix('.')
-            .is_some_and(|l| l.chars().count() == 1 && l.chars().all(char::is_alphabetic))
-    };
-    let mut words: Vec<&str> = road.split_whitespace().collect();
-    let ulica = words
-        .first()
-        .is_some_and(|w| matches!(w.to_lowercase().as_str(), "ul." | "ul" | "ulica"));
-    if !cc.map_or(ulica, |c| c.eq_ignore_ascii_case("pl")) {
-        return None;
-    }
-    let before = words.len();
-    if ulica {
-        words.remove(0);
-    }
-    words.retain(|w| !initial(w));
-    (words.len() < before
-        && words
-            .iter()
-            .any(|w| w.chars().filter(|c| c.is_alphabetic()).count() >= 3))
-    .then(|| words.join(" "))
-}
 
 /// One road, or one with a single word misspelt as the index corrects it: "West 54th Srteet" is
 /// the candidate's "West 54th Street" when the index found it by that correction.
@@ -1167,29 +982,6 @@ fn city_related(address: &ParsedAddress, details: Option<&AddressDetails>) -> bo
             .any(|actual| within(&expected, &actual) || within(&actual, &expected))
 }
 
-/// A Canadian unit/civic query as (building query, civic number), after literal house lookup fails.
-pub fn canadian_building(query: &str) -> Option<(&str, &str)> {
-    static UNIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?i)^[a-z0-9]+-([1-9][0-9]*[a-z]?(?:\s+[0-9]+/[0-9]+)?)\s+[^,\s]").unwrap()
-    });
-    let query = query.trim_matches(whitespace);
-    let captures = UNIT.captures(query)?;
-    if query.chars().count() > 256 {
-        return None;
-    }
-    let mut canadian = false;
-    for part in query.split(',').skip(1).map(str::trim) {
-        let country = expected_country(&parsed_country(part));
-        if country == "ca" {
-            canadian |= !part.eq_ignore_ascii_case("ca");
-        } else if !country.is_empty() {
-            return None;
-        }
-    }
-    let number = captures.get(1)?;
-    canadian.then(|| (&query[number.start()..], number.as_str()))
-}
-
 /// "82A AV MERCIER, ..." as "82 A AV MERCIER, ..." and the number "82A": the parser reads a
 /// suffixed number glued to it as part of the road, and spaced as the house.
 pub fn spaced_house_suffix(query: &str) -> Option<(String, String)> {
@@ -1200,44 +992,6 @@ pub fn spaced_house_suffix(query: &str) -> Option<(String, String)> {
     Some((
         format!("{} {}{rest}", &c[1], &c[2]),
         format!("{}{}", &c[1], &c[2]),
-    ))
-}
-
-/// A Canadian address with its street's direction left out ("31 Thatcher Dr E" as "31 Thatcher
-/// Dr", "162 North Klondike Hwy" as "162 Klondike Hwy"), with its house number and compact
-/// postcode: some sources name the street without it. Only the postcode, which in Canada places a
-/// block face, may confirm the house found.
-pub fn without_street_direction(query: &str) -> Option<(String, String, String)> {
-    static POSTCODE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\b([A-Za-z][0-9][A-Za-z]) ?([0-9][A-Za-z][0-9])\b").unwrap());
-    let (head, tail) = query.split_once(',')?;
-    let postcode = POSTCODE.captures(tail)?;
-    let postcode = format!("{}{}", &postcode[1], &postcode[2]).to_uppercase();
-    let words: Vec<&str> = head.split_whitespace().collect();
-    let number = *words.first()?;
-    let direction = |w: &str| {
-        let w = w.trim_end_matches('.').to_lowercase();
-        let w = canon(&w).unwrap_or(w.as_str());
-        matches!(w, "n" | "s" | "e" | "w" | "o" | "ne" | "nw" | "se" | "sw")
-    };
-    if !number.starts_with(|c: char| c.is_ascii_digit()) || words.len() < 4 {
-        return None;
-    }
-    let at = if direction(words[words.len() - 1]) {
-        words.len() - 1
-    } else if direction(words[1]) {
-        1
-    } else {
-        return None;
-    };
-    let kept: Vec<&str> = (words.iter().enumerate())
-        .filter(|(i, _)| *i != at)
-        .map(|(_, w)| *w)
-        .collect();
-    Some((
-        format!("{},{tail}", kept.join(" ")),
-        number.to_owned(),
-        postcode,
     ))
 }
 
@@ -1266,111 +1020,6 @@ pub fn without_parentheses(query: &str, keep: bool) -> Option<String> {
         })
         .into_owned()
     })
-}
-
-/// `query` without a Danish unit written as a comma part of its own: floor and door ("Mogensgade
-/// 9, st. th, 8500 Grenaa, Denmark"), a floor alone ("1.") or a door alone ("1", "3b"). It names no
-/// place, yet libpostal swallows the house and postcode into the road and reads "th" as Thailand.
-/// The building's house is the answer; the unit is not modelled. Only floor and door with a
-/// th/tv/mf door stand without Denmark stated, and a part naming another country keeps the
-/// query as written. None without such a part after a house.
-pub fn without_danish_unit(query: &str) -> Option<String> {
-    static UNIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(
-            r"(?i)^(?:(?:st|kl|\d{1,2})\.(?:\s*([a-zæøå]{1,5}|\d{1,4}[a-z]?))?|\d{1,3}[a-z]?|th|tv|mf)$",
-        )
-        .unwrap()
-    });
-    let parts: Vec<&str> = query
-        .split(',')
-        .map(|p| p.trim_matches(whitespace))
-        .collect();
-    let at = (1..parts.len())
-        .find(|&i| parts[i - 1].chars().any(|c| c.is_ascii_digit()) && UNIT.is_match(parts[i]))?;
-    // the unit itself is left out: "1. tv" reads as Tuvalu and "st. 1" as São Tomé
-    let countries: Vec<String> = parts
-        .iter()
-        .enumerate()
-        .filter(|&(i, _)| i != at)
-        .map(|(_, p)| expected_country(&parsed_country(p)))
-        .filter(|c| !c.is_empty())
-        .collect();
-    let side = UNIT
-        .captures(parts[at])?
-        .get(1)
-        .is_some_and(|door| matches!(door.as_str().to_lowercase().as_str(), "th" | "tv" | "mf"));
-    let danish = countries.iter().any(|c| c == "dk");
-    (countries.iter().all(|c| c == "dk") && (danish || side)).then(|| {
-        let mut kept = parts;
-        kept.remove(at);
-        kept.join(", ")
-    })
-}
-
-/// A Danish address's supplementary place ("Pittevej 6, Aidt, 8881 Thorsø, Denmark") and the query
-/// without it: between the house and a four-digit postcode part, with Denmark stated. libpostal
-/// then reads the postcode as the house and the road as the town. None without such a part.
-pub fn without_danish_place(query: &str) -> Option<(String, String)> {
-    let parts: Vec<&str> = query
-        .split(',')
-        .map(|p| p.trim_matches(whitespace))
-        .collect();
-    let postcoded = |p: &str| {
-        let (code, town) = p.split_once(' ').unwrap_or((p, ""));
-        code.len() == 4 && code.bytes().all(|b| b.is_ascii_digit()) && !town.is_empty()
-    };
-    let at = (1..parts.len().saturating_sub(1)).find(|&i| {
-        parts[i - 1].chars().any(|c| c.is_ascii_digit())
-            && postcoded(parts[i + 1])
-            && !parts[i].chars().any(|c| c.is_ascii_digit())
-            && (1..=4).contains(&parts[i].split_whitespace().count())
-    })?;
-    let countries: Vec<String> = parts
-        .iter()
-        .enumerate()
-        .filter(|&(i, _)| i != at)
-        .map(|(_, p)| expected_country(&parsed_country(p)))
-        .filter(|c| !c.is_empty())
-        .collect();
-    (!countries.is_empty() && countries.iter().all(|c| c == "dk")).then(|| {
-        let mut kept = parts.clone();
-        kept.remove(at);
-        (kept.join(", "), parts[at].to_owned())
-    })
-}
-
-/// `query` without the unit of an Australian "unit/number" house ("71/206 Phillip Street,
-/// Mount Pleasant QLD 4740"), which libpostal keeps as one house number the index may not
-/// hold. The building's house answers then, as for "Unit 71, 206 Phillip Street". Australia
-/// must be stated, or a part must end in a state code and postcode ("VIC 3065"); Czech,
-/// Polish and other slashed numbers mean something else. None without such a number.
-pub fn without_australian_unit(query: &str) -> Option<String> {
-    static UNIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^[A-Za-z]?\d{1,5}[A-Za-z]?/(\d{1,6}[A-Za-z]?(?:-\d{1,6}[A-Za-z]?)?\s+\S.*)$")
-            .unwrap()
-    });
-    static STATE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?i)\b(?:act|nsw|nt|qld|sa|tas|vic|wa)\s+\d{4}$").unwrap());
-    let parts: Vec<&str> = query
-        .split(',')
-        .map(|p| p.trim_matches(whitespace))
-        .collect();
-    let (at, unit) = parts
-        .iter()
-        .enumerate()
-        .find_map(|(i, p)| Some((i, UNIT.captures(p)?)))?;
-    let countries: Vec<String> = parts
-        .iter()
-        .map(|p| expected_country(&parsed_country(p)))
-        .filter(|c| !c.is_empty())
-        .collect();
-    let australian = countries.iter().any(|c| c == "au") || parts.iter().any(|p| STATE.is_match(p));
-    if !australian || countries.iter().any(|c| c != "au") {
-        return None;
-    }
-    let mut kept = parts.clone();
-    kept[at] = unit.get(1)?.as_str();
-    Some(kept.join(", "))
 }
 
 /// `query` with a leading region code moved behind the place it was fused with
@@ -1500,20 +1149,6 @@ pub fn without_redundant_parts(query: &str) -> Option<String> {
     (kept.len() < parts.len()).then(|| kept.join(", "))
 }
 
-/// `query` without a part that is Taiwan Province (台灣省), a province in name only: no place of
-/// the index has it, and the parser can take it for the town. None when no part is.
-pub fn without_taiwan_province(query: &str) -> Option<String> {
-    let parts: Vec<&str> = query.split(',').map(str::trim).collect();
-    let province = |p: &&str| {
-        matches!(
-            p.to_lowercase().as_str(),
-            "台灣省" | "臺灣省" | "台湾省" | "taiwan province"
-        )
-    };
-    let kept: Vec<&str> = parts.iter().filter(|p| !province(p)).copied().collect();
-    (kept.len() < parts.len() && !kept.is_empty()).then(|| kept.join(", "))
-}
-
 /// `query` with a part that is a region's ISO 3166-2 code, written as "B.C.S" or "BCS" after the
 /// first part, replaced by the name `region` gives for the code (uppercase, without the
 /// country): libpostal takes such a code for a house or a town, and a code that only one
@@ -1624,7 +1259,7 @@ pub fn country_in_tail(query: &str, address: &ParsedAddress) -> Option<String> {
     (!expected_country(&candidate).is_empty()).then(|| last.to_owned())
 }
 
-fn parsed_country(text: &str) -> ParsedAddress {
+pub(crate) fn parsed_country(text: &str) -> ParsedAddress {
     ParsedAddress::from_iter([("country".to_owned(), text.to_owned())])
 }
 
