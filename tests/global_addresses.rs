@@ -36,7 +36,7 @@ fn global_address_benchmark_preserves_its_source_records_and_scope() {
         "source-consistency-not-independent-accuracy"
     );
     assert!(manifest["errors"].as_object().unwrap().is_empty());
-    assert_eq!(manifest["coverage"].as_object().unwrap().len(), 48);
+    assert_eq!(manifest["coverage"].as_object().unwrap().len(), 130);
     let by_id: BTreeMap<_, _> = cases
         .iter()
         .map(|case| (case["id"].as_str().unwrap(), case))
@@ -84,7 +84,15 @@ fn global_address_benchmark_preserves_its_source_records_and_scope() {
                         &case["expect"]
                     }
                 };
-                assert_eq!(expect["country"], serde_json::json!([cc]));
+                // a territory also answers as its sovereign country
+                let mut countries = vec![cc.as_str()];
+                countries.extend(match cc.as_str() {
+                    "pr" => Some("us"),
+                    "nc" => Some("fr"),
+                    _ => None,
+                });
+                countries.sort();
+                assert_eq!(expect["country"], serde_json::json!(countries));
                 assert_eq!(expect["point"], record["point"]);
                 assert_eq!(expect["level"], "house");
                 assert_eq!(expect["radius_km"], 0.15);
