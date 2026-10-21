@@ -84,7 +84,15 @@ fn global_address_benchmark_preserves_its_source_records_and_scope() {
                         &case["expect"]
                     }
                 };
-                assert_eq!(expect["country"], serde_json::json!([cc]));
+                // a territory also answers as its sovereign country
+                let mut countries = vec![cc.as_str()];
+                countries.extend(match cc.as_str() {
+                    "pr" => Some("us"),
+                    "nc" => Some("fr"),
+                    _ => None,
+                });
+                countries.sort();
+                assert_eq!(expect["country"], serde_json::json!(countries));
                 assert_eq!(expect["point"], record["point"]);
                 assert_eq!(expect["level"], "house");
                 assert_eq!(expect["radius_km"], 0.15);

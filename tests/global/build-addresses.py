@@ -20,6 +20,8 @@ COUNTRIES.update(zip(
     "AL AM AO AZ BA BB BD BG BO BT BY BZ CD CI CM CR CU CY DO DZ EC EE ET GA GE GH GT HR HT IQ IR IS JM JO KE KG KH KZ LA LK LT LU LV MA MD ME MG MK MM MN MT NA NC NI NP PE PK PR PS PY QA RS SI SK SL SR SV SY SZ TJ TM TN TT TZ UA UG UY UZ VE XK ZM ZW".split(),
     "albania armenia angola azerbaijan bosnia-herzegovina central-america bangladesh bulgaria bolivia bhutan belarus belize congo-democratic-republic ivory-coast cameroon costa-rica cuba cyprus haiti-and-domrep algeria ecuador estonia ethiopia gabon georgia ghana guatemala croatia haiti-and-domrep iraq iran iceland jamaica jordan kenya kyrgyzstan cambodia kazakhstan laos sri-lanka lithuania luxembourg latvia morocco moldova montenegro madagascar macedonia myanmar mongolia malta namibia new-caledonia nicaragua nepal peru pakistan puerto-rico israel-and-palestine paraguay gcc-states serbia slovenia slovakia sierra-leone suriname el-salvador syria swaziland tajikistan turkmenistan tunisia central-america tanzania ukraine uganda uruguay uzbekistan venezuela kosovo zambia zimbabwe".split(),
 ))
+# Territories with their own ISO code also answer as their sovereign country, as in tests/gold.jsonl.
+SOVEREIGN = {"pr": "us", "nc": "fr"}
 BOUNDARY_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_10m_admin_0_countries.geojson"
 BOUNDARY_SHA = "239eec57ac17f100a11e2536cffc56752c318b50ae765b0918ff7aab4ce8f255"
 FIELDS = ["addr:housenumber", "addr:street", "addr:place", "addr:city", "addr:town", "addr:suburb", "addr:district", "addr:state", "addr:province", "addr:postcode", "addr:country"]
@@ -158,7 +160,7 @@ def cases(records, proof):
             components["postcode"] = r["tags"]["addr:postcode"]
         for n, query in enumerate(r["queries"]):
             out.append({"id": f"global-osm-{r['country']}-{r['id']}-{n}", "query": query, "cohort": "global_osm_" + r["country"], "location": r["location"], "holdout": holdout(r["location"]), "must_pass": False,
-                        "expect": {"country": [r["country"]], "level": "house", "max_level": "house", "point": r["point"], "radius_km": 0.15, "region": [], "good_match": True, "components": components},
+                        "expect": {"country": sorted({r["country"], SOVEREIGN.get(r["country"], r["country"])}), "level": "house", "max_level": "house", "point": r["point"], "radius_km": 0.15, "region": [], "good_match": True, "components": components},
                         "source": {"name": "openstreetmap-address-node", "license": "ODbL-1.0", "url": f"https://www.openstreetmap.org/api/0.6/node/{r['id']}/{r['version']}", "ref": str(r["id"]), "version": r["version"], "timestamp": r["timestamp"], "snapshot_sha256": proof["source_sha256"], "evaluation_role": "source-consistency-not-independent-accuracy"},
                         "review": {"status": "source-record-verified", "note": "Mapped address-node coordinate and complete number, not surveyed entrance accuracy. No human positional review."}})
     return out
