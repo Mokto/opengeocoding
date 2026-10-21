@@ -217,6 +217,7 @@ index:
       - uganda
       - ukraine
       - united-kingdom
+      - uruguay
       - us/puerto-rico
       - us/us-virgin-islands
       - uzbekistan
@@ -257,7 +258,6 @@ index:
       - slovenia
       - spain
       - switzerland
-      - uruguay
       - us
 
 # The leader (src/bin/leader): builds the index when the store lacks it, then rolls the serving
