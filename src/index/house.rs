@@ -1,5 +1,18 @@
 use super::*;
 
+/// OSM stores a one-letter house addition with a space ("11 d"). A query writes it glued
+/// ("11d"); [`schema::number_key`] keeps that space, so the glued form is a second key for the
+/// same house.
+pub(super) fn spaced_letter(number: &str) -> Option<String> {
+    let (last, digits) = number.as_bytes().split_last()?;
+    if !last.is_ascii_lowercase() || digits.is_empty() || !digits.iter().all(|b| b.is_ascii_digit())
+    {
+        return None;
+    }
+    let digits = std::str::from_utf8(digits).ok()?;
+    Some(format!("{digits} {}", *last as char))
+}
+
 impl Index {
     /// The houses whose number is one of `numbers` (as keyed) on the streets named `road` that
     /// hold `postcode` or (`near`) lie within 5 km of a point, or with no road on the streets
@@ -31,12 +44,16 @@ impl Index {
                 }
                 let sid = self.fast(a, "id") as u32;
                 for n in numbers {
-                    key.clear();
-                    key.extend_from_slice(&sid.to_be_bytes());
-                    key.extend_from_slice(n.as_bytes());
-                    if let Some(v) = self.numbers[sid as usize % self.numbers.len()].get(&key) {
-                        let (x, y, own) = schema::unpack(v);
-                        found.push((meters(x, y), a, n, x, y, own));
+                    let spaced = spaced_letter(n);
+                    for form in std::iter::once(n.as_str()).chain(spaced.as_deref()) {
+                        key.clear();
+                        key.extend_from_slice(&sid.to_be_bytes());
+                        key.extend_from_slice(form.as_bytes());
+                        if let Some(v) = self.numbers[sid as usize % self.numbers.len()].get(&key) {
+                            let (x, y, own) = schema::unpack(v);
+                            found.push((meters(x, y), a, form.to_string(), x, y, own));
+                            break;
+                        }
                     }
                 }
             }
@@ -64,6 +81,21 @@ impl Index {
             })
             .take(20)
             .collect()
+    }
+
+    /// The stored number and its record. A glued one-letter addition ("11d") is the same
+    /// house as the spaced form OSM stores ("11 d") when the glued key is absent.
+    pub(super) fn house_record(&self, sid: u32, n: &str) -> Option<(String, u64)> {
+        let get = |form: &str| {
+            let mut key = sid.to_be_bytes().to_vec();
+            key.extend_from_slice(form.as_bytes());
+            self.numbers[sid as usize % self.numbers.len()].get(&key)
+        };
+        if let Some(v) = get(n) {
+            return Some((n.to_string(), v));
+        }
+        let alt = spaced_letter(n)?;
+        get(&alt).map(|v| (alt, v))
     }
 
     /// House `number` of street document `a`, at its position and with its postcode slot.
@@ -129,5 +161,18 @@ impl Index {
             let (x, y, own) = schema::unpack(value);
             each(&key[4..], x, y, own);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_glued_letter_is_the_spaced_house_key() {
+        assert_eq!(spaced_letter("11d").as_deref(), Some("11 d"));
+        assert_eq!(spaced_letter("11 d"), None);
+        assert_eq!(spaced_letter("12bis"), None);
+        assert_eq!(spaced_letter("7"), None);
     }
 }

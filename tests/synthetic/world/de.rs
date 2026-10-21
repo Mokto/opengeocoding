@@ -87,6 +87,42 @@ pub const STREETS: &[Street] = &[
         lat: 50.94,
         numbers: &["1", "2", "3"],
     },
+    // OSM keys a one-letter addition with a space; queries write it glued
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Machandelweg",
+        postcode: "50667",
+        city: "Köln",
+        cc: "DE",
+        lon: 6.97,
+        lat: 50.93,
+        numbers: &["11 D"],
+    },
+    // the number in the name is the street, and the next token the house
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Straße 47",
+        postcode: "50667",
+        city: "Köln",
+        cc: "DE",
+        lon: 6.98,
+        lat: 50.94,
+        numbers: &["7 A"],
+    },
+    // a namesake house number the numbered street must not be read as
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Thaler Straße",
+        postcode: "50667",
+        city: "Köln",
+        cc: "DE",
+        lon: 6.99,
+        lat: 50.94,
+        numbers: &["47"],
+    },
     // a street with no houses
     Street {
         class: "residential",
@@ -128,6 +164,14 @@ pub fn cases() -> Vec<Case> {
             at_house("Birkenstrasse", "24"),
         ),
         case("Hohe Strasse 2, Köln", at_house("Hohe Straße", "2")),
+        case(
+            "Machandelweg 11D, 50667 Köln, Germany",
+            at_house("Machandelweg", "11 D"),
+        ),
+        case(
+            "Straße 47 7A, 50667 Köln, Germany",
+            at_house("Straße 47", "7 A"),
+        ),
         case(
             "2 Hohe Straße, Colonia, Germany",
             at_house("Hohe Straße", "2"),

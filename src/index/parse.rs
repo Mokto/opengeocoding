@@ -526,6 +526,7 @@ impl Parser {
             pt::number_from_avenida(&mut parsed);
             cn_tw::number_from_cjk_road(&mut parsed);
             cz_sk::czech_number_marks(&mut parsed);
+            de::numbered_street(q, &mut parsed);
             parsed.into_iter().collect()
         };
         if self.capacity > 0 {
