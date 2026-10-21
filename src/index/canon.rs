@@ -254,10 +254,29 @@ fn chome(text: &mut String) {
     }
 }
 
+/// Arabic as it is searched: hamza on or under alef, madda and wasla as bare alef, ta marbuta as
+/// ha, alef maqsura as ya, without tashkeel or tatweel. OpenStreetMap's `addr:*` tags write
+/// "اسيوط" and "مدينه" for the "أسيوط" and "مدينة" that place names have.
+fn arabic(text: &mut String) {
+    *text = text
+        .chars()
+        .filter_map(|c| match c {
+            'أ' | 'إ' | 'آ' | 'ٱ' => Some('ا'),
+            'ة' => Some('ه'),
+            'ى' => Some('ي'),
+            '\u{640}' | '\u{64b}'..='\u{652}' | '\u{670}' => None,
+            c => Some(c),
+        })
+        .collect();
+}
+
 fn apply(text: &mut String) {
     // "İ" lowercases to "i" plus a combining dot that ASCII folding keeps
     if text.chars().any(|c| ('\u{300}'..='\u{36f}').contains(&c)) {
         text.retain(|c| !('\u{300}'..='\u{36f}').contains(&c));
+    }
+    if text.chars().any(|c| ('\u{600}'..='\u{6ff}').contains(&c)) {
+        arabic(text);
     }
     if let Some(c) = canon(text) {
         text.clear();

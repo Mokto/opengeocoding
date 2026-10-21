@@ -482,6 +482,34 @@ impl Index {
                 return found;
             }
         }
+        // "شارع الكنيسه 5, مركز منفلوط, اسيوط": the word for the town's unit (markaz) is in no
+        // place's name
+        if !out.iter().any(|s| s.kind == "address")
+            && cc.is_none_or(|c| c.eq_ignore_ascii_case("eg"))
+            && typed.parts[1..].iter().any(|p| eg::bare_town(p).is_some())
+        {
+            let parts = typed.parts[..1]
+                .iter()
+                .cloned()
+                .chain(
+                    typed.parts[1..]
+                        .iter()
+                        .map(|p| eg::bare_town(p).unwrap_or_else(|| p.clone())),
+                )
+                .collect();
+            let found = self.suggest_streets(
+                &Typed {
+                    parts,
+                    open: typed.open,
+                },
+                cc,
+                focus,
+                want,
+            );
+            if out.is_empty() || found.iter().any(|s| s.kind == "address") {
+                return found;
+            }
+        }
         // "Rua dos Farias 12 2955-243 Pinhal Novo": a known postcode after the number starts
         // the town's part
         if !out.iter().any(|s| s.kind == "address")

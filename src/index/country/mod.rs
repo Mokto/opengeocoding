@@ -5,6 +5,7 @@ pub mod cn_tw;
 pub mod co;
 pub mod cz_sk;
 pub mod dk;
+pub mod eg;
 pub mod ie;
 pub mod jp;
 pub mod kr;
