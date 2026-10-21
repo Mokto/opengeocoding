@@ -1134,13 +1134,13 @@ fn a_county_with_an_iso_code_adds_it_below_its_region_and_is_listed() {
         index().render(&found[0], true)["address"]["county"],
         "Haut-Rhin"
     );
-    assert_eq!(
-        index()
-            .region_places()
-            .filter(|(c, _)| c.starts_with("FR-"))
-            .count(),
-        2
-    );
+    let mut listed: Vec<_> = index()
+        .region_places()
+        .map(|(code, _)| code)
+        .filter(|code| code.starts_with("FR-"))
+        .collect();
+    listed.sort();
+    assert_eq!(listed, ["FR-68", "FR-IDF", "FR-WF"]);
 }
 
 #[test]
@@ -1164,6 +1164,22 @@ fn an_irish_county_names_its_province_which_is_listed_and_found_by_its_code() {
     assert!(province.get("ISO3166-2-lvl4").is_none());
     let (_, place) = index().region_places().find(|(c, _)| *c == "IE-L").unwrap();
     assert_eq!(index().details(place.into())["admin_level"], 5);
+}
+
+#[test]
+fn a_region_inside_a_territory_with_its_own_code_keeps_the_region_code() {
+    let town = place("wf-lagoonport");
+    let address = &index().reverse(town.lat, town.lon)["address"];
+    assert_eq!(address["ISO3166-2-lvl4"], "WF-RF");
+    let region = &index().reverse_region(town.lat, town.lon)["address"];
+    assert_eq!(region["ISO3166-2-lvl4"], "WF-RF");
+    for (query, code) in [("wf, WF-RF", "WF-RF"), ("fr, FR-WF", "FR-WF")] {
+        let found = index().search(query);
+        assert_eq!(
+            index().render(&found[0], true)["address"]["ISO3166-2-lvl4"],
+            code
+        );
+    }
 }
 
 enum Want {
@@ -2395,6 +2411,34 @@ async fn resolve_follows_the_authored_facts() {
             }),
             "{query}: {found:?}"
         );
+    }
+    // A province made from its counties is found by name, as by its code, in its stated country.
+    for (query, province) in [
+        ("Leinster, Ireland", Some("IE-L")),
+        ("Laighin, Ireland", Some("IE-L")),
+        ("Leinster, France", None),
+        ("Leinster", None),
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        let codes: Vec<_> = got
+            .address_details
+            .as_option()
+            .map(|d| d.region_codes.iter().map(|c| c.code.as_str()).collect())
+            .unwrap_or_default();
+        assert_eq!(
+            codes.contains(&"IE-L"),
+            province.is_some(),
+            "{query}: {got:?}"
+        );
+        if province.is_some() {
+            assert!(got.good_match, "{query}: {got:?}");
+            let at = got.geo_coordinates.as_option().unwrap();
+            let county = place("ie-d");
+            assert!(
+                metres((at.lon as f64, at.lat as f64), (county.lon, county.lat)) < 1.0,
+                "{query}: {got:?}"
+            );
+        }
     }
     let mut wrong = vec![];
     for case in cases() {

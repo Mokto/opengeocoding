@@ -35,6 +35,8 @@ const POINTS: &[(f64, f64, &[&str], &str)] = &[
     (35.89833, 14.5125, &["MT-60"], ""),
     (18.716667, -71.016667, &["DO-02"], ""),
     (4.416667, 114.583333, &["BN-BE"], ""),
+    // Mata-Utu (Q31002), in Uvea inside Wallis and Futuna, whose own code is FR-WF
+    (-13.2827, -176.1737, &["WF-UV"], ""),
     // a region and the subdivision below it
     (48.0734, 7.2376, &["FR-GES", "FR-68"], ""),
     (48.8552, 2.3275, &["FR-IDF", "FR-75C"], ""),
@@ -127,8 +129,6 @@ fn timed(points: &[(f64, f64)], f: impl Fn(f64, f64)) -> String {
 #[ignore = "needs INDEX_DIR, a world index"]
 fn every_listed_code_finds_its_own_region() {
     let index = open();
-    // Wallis and Futuna's three districts: the search finds the territory, not a district
-    const KNOWN: [&str; 3] = ["WF-AL", "WF-SG", "WF-UV"];
     let mut wrong = vec![];
     for (code, place) in index.region_places() {
         let (cc, _) = code.split_once('-').unwrap();
@@ -142,7 +142,7 @@ fn every_listed_code_finds_its_own_region() {
         let finds = ["ISO3166-2-lvl4", "ISO3166-2-lvl5", "ISO3166-2-lvl6"]
             .iter()
             .any(|key| carries(key));
-        if finds == KNOWN.contains(&code) {
+        if !finds {
             wrong.push(format!("{code} (place {place}, finds it: {finds})"));
         }
     }

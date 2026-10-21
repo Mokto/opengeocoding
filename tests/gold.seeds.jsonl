@@ -827,9 +827,10 @@
 {"kind": "region", "qid": "Q44762", "queries": ["Entre Rios, Argentina"], "admin_level": 4, "tags": ["geonames-sample", "ar"]}
 {"kind": "region", "qid": "Q50631", "queries": ["Troms, Norway"], "admin_level": 4, "tags": ["geonames-sample", "no"]}
 {"kind": "region", "qid": "Q54158", "queries": ["Łódź Voivodeship, Poland"], "admin_level": 4, "tags": ["geonames-sample", "pl"]}
-{"kind": "region", "qid": "Q93195", "queries": ["Ulster, Ireland"], "admin_level": 4, "tags": ["geonames-sample", "ie"], "known_failure": "wrong_country: Irish provinces are not places in the index; the service finds Ulster County, New York (2026-10-13)"}
-{"kind": "region", "qid": "Q131438", "queries": ["Munster, Ireland"], "admin_level": 4, "tags": ["geonames-sample", "ie"], "known_failure": "wrong_country: Irish provinces are not places in the index; the service finds Münster, Germany (2026-10-13)"}
+{"kind": "region", "qid": "Q93195", "queries": ["Ulster, Ireland"], "admin_level": 4, "tags": ["geonames-sample", "ie"]}
+{"kind": "region", "qid": "Q131438", "queries": ["Munster, Ireland"], "admin_level": 4, "tags": ["geonames-sample", "ie"]}
 {"kind": "region", "qid": "Q159736", "queries": ["Leinster, Ireland"], "admin_level": 4, "tags": ["geonames-sample", "ie"]}
+{"kind": "region", "qid": "Q164421", "queries": ["Connacht, Ireland"], "admin_level": 4, "tags": ["ie"]}
 {"kind": "region", "qid": "Q187677", "queries": ["Vas County, Hungary"], "admin_level": 4, "tags": ["geonames-sample", "hu"]}
 {"kind": "region", "qid": "Q193317", "queries": ["Pardubice Region, Czechia"], "admin_level": 4, "tags": ["geonames-sample", "cz"]}
 {"kind": "region", "qid": "Q211793", "queries": ["San Martín Department, Peru"], "admin_level": 4, "tags": ["geonames-sample", "pe"]}

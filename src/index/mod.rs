@@ -2574,10 +2574,20 @@ impl Index {
                 }
             }
         }
-        let ids: Vec<(usize, u32)> = ranked
-            .into_iter()
-            .enumerate()
-            .map(|(rank, a)| (rank, self.fast(a, "id") as u32))
+        // The provinces made at startup are in no search index; like `<cc>, <code>`, they need
+        // their country stated.
+        let provinces = self.provinces.values().copied().filter(|&p| {
+            let pl = &self.places[p as usize];
+            cc.is_some_and(|cc| pl.cc.eq_ignore_ascii_case(cc)) && pl.named(want)
+        });
+        let ids: Vec<(usize, u32)> = provinces
+            .map(|p| (0, p))
+            .chain(
+                ranked
+                    .into_iter()
+                    .enumerate()
+                    .map(|(rank, a)| (rank, self.fast(a, "id") as u32)),
+            )
             .filter(|(_, id)| ok(&self.places[*id as usize]))
             .filter(|(_, id)| {
                 long.is_empty() || names_hold(self.places[*id as usize].all_names(), &long)
@@ -4173,18 +4183,19 @@ impl Index {
         hits
     }
 
-    /// The ISO 3166-2 code of a place chain. The lowest subdivision the data names itself beats
-    /// the region code Overture gives the places inside it (the district over its region).
+    /// The ISO 3166-2 code of a place chain: the lowest place with a code of its own or coded
+    /// region, so a district beats its region (UG-108 over UG-C) and a region its coded
+    /// territory (WF-UV over FR-WF).
     fn region_code(&self, chain: &[u32]) -> Option<&str> {
-        let own = chain.iter().find_map(|p| self.own_codes.get(p));
         // A child's inherited region column can disagree with its explicit region parent.
-        own.map(|c| &**c)
-            .or_else(|| {
-                chain
-                    .iter()
-                    .map(|&p| &self.places[p as usize])
-                    .find(|p| p.subtype.as_ref() == "region" && !p.region.is_empty())
-                    .map(|p| &*p.region)
+        chain
+            .iter()
+            .find_map(|p| {
+                let pl = &self.places[*p as usize];
+                self.own_codes.get(p).map(|c| &**c).or_else(|| {
+                    (pl.subtype.as_ref() == "region" && !pl.region.is_empty())
+                        .then_some(&*pl.region)
+                })
             })
             .or_else(|| {
                 chain
