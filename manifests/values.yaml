@@ -45,7 +45,7 @@ index:
     # Labels one fetch of the sources that only publish "latest" (OSM, OpenAddresses, GeoNames).
     # A new label fetches them again. An extract can move between `osm` and `osmLandmarks` under
     # one label; adding one neither list had needs a new label.
-    snapshot: "2026-10"
+    snapshot: "2026-10-21"
     # [min lon, min lat, max lon, max lat] to build a regional index; empty for the world.
     # Overture is then read only where its row groups meet the box.
     bbox: []
@@ -86,6 +86,10 @@ index:
       - cameroon
       - cape-verde
       - central-african-republic
+      # Barbados, Trinidad and Tobago and the smaller Antilles have no extract of
+      # their own. This parent also repeats the country extracts already listed;
+      # duplicate houses collapse.
+      - central-america
       - chad
       - chile
       - china
@@ -134,6 +138,7 @@ index:
       - kazakhstan
       - kenya
       - kiribati
+      - kosovo
       - kyrgyzstan
       - laos
       - lebanon
@@ -184,6 +189,7 @@ index:
       - samoa
       - sao-tome-and-principe
       - senegal-and-gambia
+      - serbia
       - seychelles
       - sierra-leone
       - solomon-islands
@@ -247,7 +253,6 @@ index:
       - new-zealand
       - norway
       - poland
-      - serbia
       - slovakia
       - slovenia
       - spain
