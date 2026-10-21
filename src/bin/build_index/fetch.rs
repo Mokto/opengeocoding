@@ -2,6 +2,7 @@
 //! arrives: a later build, or a rerun after a crash, reads the store instead of upstream. Each
 //! source directory is sealed (`MANIFEST`, `_COMPLETE`) once whole, after which upstream is not
 //! consulted again for it.
+use crate::progress::Progress;
 use crate::store::{self, Store};
 use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
@@ -226,10 +227,12 @@ where
         items.len(),
         items.iter().filter(|(n, _)| stored.contains_key(n)).count()
     );
+    let done = Progress::items(rel.to_string(), items.len() as u64, "files");
     let (produce, permits) = (Arc::new(produce), Arc::new(Semaphore::new(parallel)));
     let mut tasks = JoinSet::new();
     for (name, item) in items {
         let (store, produce, permits) = (store.clone(), produce.clone(), permits.clone());
+        let done = done.clone();
         let (key, local, size) = (
             format!("{rel}/{name}"),
             dir.join(&name),
@@ -249,6 +252,7 @@ where
             } else {
                 false
             };
+            done.add(1);
             anyhow::Ok(kept.then_some(name))
         });
     }
