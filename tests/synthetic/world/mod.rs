@@ -408,9 +408,10 @@ fn chain(p: &Place) -> Vec<&'static str> {
 }
 
 /// Localities without a polygon of their own.
-const POINT_ONLY: [&str; 6] = [
+const POINT_ONLY: [&str; 7] = [
     "gb-harbor-city",
     "de-koeln-feldheim",
+    "es-villaseca-pinedo",
     "nl-polderdam-centrum",
     "us-tx-reno",
     "at-eastufer",
@@ -635,7 +636,11 @@ pub fn write_release(dir: &Path) {
         .collect();
     let units: Vec<_> = rows
         .iter()
-        .map(|(s, n)| n.split_once('/').filter(|_| s.name == SPLIT_UNIT_ROAD))
+        .map(|(s, n)| match s.cc {
+            // CartoCiudad's extension: house 12 B is number 12, unit B
+            "ES" => n.split_once(' ').map(|(number, unit)| (unit, number)),
+            _ => n.split_once('/').filter(|_| s.name == SPLIT_UNIT_ROAD),
+        })
         .collect();
     let levels = {
         let mut b = ListBuilder::new(StructBuilder::new(

@@ -415,6 +415,61 @@ impl Index {
                         found = by_town;
                     }
                 }
+                // "Calle Real 7, Pinedo, Valdegovía, Álava, Spain": a settlement the houses'
+                // places do not name, before the municipality they are filed under. The
+                // municipality must be a town, not only a region, and the settlement no place or
+                // one within 50 km of it; not a Danish floor, which the floor fallback keeps
+                if number_word.is_some()
+                    && !found.iter().any(|s| s.kind == "address")
+                    && parts.len() >= 3
+                    && !has_digit(&parts[0])
+                    && !dk::danish_floor(&parts[0])
+                {
+                    let rest = &parts[1..];
+                    let mut ids = self.scope(rest, typed.open, place_cc, focus, true);
+                    if ids.is_empty() && country.is_some() {
+                        ids = self.scope(&rest[..rest.len() - 1], false, place_cc, focus, true);
+                    }
+                    let towns: Vec<&Place> = ids
+                        .iter()
+                        .map(|&id| &self.places[id as usize])
+                        .filter(|p| matches!(p.subtype.as_ref(), "locality" | "localadmin"))
+                        .collect();
+                    let near = || {
+                        let named: Vec<u32> = self
+                            .places(&parts[0], place_cc, None, &|_| true)
+                            .into_iter()
+                            .filter_map(|h| match h {
+                                Hit::Place(id) => Some(id),
+                                _ => None,
+                            })
+                            .collect();
+                        named.is_empty()
+                            || named.iter().any(|&id| {
+                                let p = &self.places[id as usize];
+                                towns.iter().any(|t| {
+                                    ((p.x - t.x) * t.y.to_radians().cos()).hypot(p.y - t.y) * 111.0
+                                        < 50.0
+                                })
+                            })
+                    };
+                    if !towns.is_empty() && near() {
+                        let by_municipality = self.streets_typed(
+                            &road_words,
+                            false,
+                            Some(&ids),
+                            number_word,
+                            false,
+                            cc,
+                            postcode,
+                            None,
+                            want,
+                        );
+                        if by_municipality.iter().any(|s| s.kind == "address") {
+                            found = by_municipality;
+                        }
+                    }
+                }
                 found
             };
             if !found.is_empty() {

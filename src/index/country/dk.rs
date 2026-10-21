@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 
 /// A Danish unit part: a floor with or without a door ("st.", "1. th", "st. 11", "1. c"), or a
 /// side door alone.
-fn danish_floor(text: &str) -> bool {
+pub(crate) fn danish_floor(text: &str) -> bool {
     let folded = text.to_ascii_lowercase().replace('.', " ");
     let words: Vec<_> = folded.split_whitespace().collect();
     let Some(floor) = words.first() else {

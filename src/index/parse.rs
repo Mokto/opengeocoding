@@ -512,6 +512,12 @@ impl Parser {
                 }
                 _ => {}
             }
+            if aligned.is_none()
+                && let [head, area, town, province] = parts[..]
+                && country.as_ref().is_some_and(|(_, c)| es::spain(c))
+            {
+                aligned = es::area_aligned(&libpostal(head.trim())?, area, town, province, &inner);
+            }
             if aligned.is_none() && parts.len() == 1 {
                 aligned = postal_without_commas(q, &whole, libpostal)?;
             }
