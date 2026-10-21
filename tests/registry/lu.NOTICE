@@ -1,0 +1,4 @@
+Adresses géoréférencées (BD-Adresses) — georeferenced addresses from the national locality and street register (CACLR), published by the Administration du cadastre et de la topographie (ACT).
+Source: https://data.public.lu/en/datasets/adresses-georeferencees-bd-adresses/
+Licence: Creative Commons Zero 1.0 Universal, https://creativecommons.org/publicdomain/zero/1.0/
+This corpus samples and reformats the 2026-10-19 CSV. It is not an unmodified official publication. Published points are parcel or building centroids, not entrances. CC0 does not require attribution; ACT is named anyway.

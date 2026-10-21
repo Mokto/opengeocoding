@@ -1,3 +1,4 @@
+mod act;
 mod bag;
 mod ban;
 mod berlin;
@@ -42,6 +43,7 @@ pub const ALL: &[Registry] = &[
     taipei::REGISTRY,
     bogota::REGISTRY,
     berlin::REGISTRY,
+    act::REGISTRY,
 ];
 
 type Prepare = fn(&Path, &BTreeSet<String>) -> Result<BTreeMap<String, Entry>>;
