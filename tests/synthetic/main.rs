@@ -1842,6 +1842,71 @@ async fn resolve_follows_the_authored_facts() {
         assert!(!got.good_match, "{query}: {got:?}");
     }
     for query in [
+        "D-112 Shastri Nagar, 342003, India",
+        "Shastri Nagar D-112, 342003, India",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(
+            details.house_number.to_lowercase(),
+            "d-112",
+            "{query}: {got:?}"
+        );
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres(
+                (at.lon as f64, at.lat as f64),
+                house(street("Shastri Nagar"), "D-112")
+            ) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
+    for query in [
+        "Shiv Vihar Plot No.14, 342011, India",
+        "Plot No.14 Shiv Vihar, Jodhpur, 342011, India",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.house_number, "plot no.14", "{query}: {got:?}");
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres(
+                (at.lon as f64, at.lat as f64),
+                house(street("Shiv Vihar"), "Plot No.14")
+            ) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
+    let query = "A254 Gulistan e Johar Block 11, Karachi, Pakistan";
+    let got = resolver.resolve(query).await.unwrap();
+    assert!(got.good_match, "{query}: {got:?}");
+    let at = got.geo_coordinates.as_option().unwrap();
+    assert!(
+        metres(
+            (at.lon as f64, at.lat as f64),
+            house(street("Gulistan e Johar Block 11"), "A254")
+        ) < 5.0,
+        "{query}: {got:?}"
+    );
+    for query in [
+        "A254 Gulistan e Johar Block 11, Sindh, Pakistan",
+        "Shastri Nagar Plot No.15, 342003, India",
+        "Shiv Vihar Plot No.14, 342003, India",
+        "Shastri Nagar D-113, 342003, India",
+        "Shastri Nagar D-112, 342099, India",
+        "Shastri Nagar D-112, Delhi, India",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(
+            got.address_details
+                .as_option()
+                .is_none_or(|d| d.house_number.is_empty()),
+            "{query}: {got:?}"
+        );
+    }
+    for query in [
         "511 林森路二段, 虎尾鎮, 雲林縣, Taiwan",
         "林森路二段 511, 虎尾鎮, 雲林縣, Taiwan",
     ] {

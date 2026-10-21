@@ -25,6 +25,13 @@ const ORDERS: [(&str, &[&str]); 4] = [
     ("just_city", &["country", "city"]),
 ];
 
+thread_local! {
+    /// Whether the last address `Core::resolve_once` parsed on this thread had a house number:
+    /// `Core::suggested_house` looks further for a house the parse lost than for one the index
+    /// lacks.
+    static PARSED_NUMBER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 pub struct Resolver(Arc<Core>);
 
 /// An accepted candidate with what it can be told apart by: every name it is known by (English
@@ -656,7 +663,236 @@ impl Core {
                 return Ok(alt);
             }
         }
+        if let Some(house) = self.suggested_house(query, &found)? {
+            return Ok(house);
+        }
         Ok(found)
+    }
+
+    /// A house the parse missed ("D-112 Shastri Nagar, 342003, India" reads as one road, "Plot
+    /// No.14" is one number) that the query still names in full: its number, every word of its
+    /// street and its postcode or town. Found by the completion lookup, which reads no parse, or
+    /// near the answer by a number of several words; one such house or none.
+    fn suggested_house(&self, query: &str, found: &FullAddress) -> Result<Option<FullAddress>> {
+        use crate::index::schema::{fold, number_key, pc_norm};
+        // A town or nothing: the street is rarely the index's, unless the parse lost the number
+        // ("L5-B6 Lake Nauhan Street, Cavinti").
+        let parsed_number = PARSED_NUMBER.get();
+        let stated = found
+            .address_details
+            .as_option()
+            .filter(|d| !d.road.is_empty() || !d.postcode.is_empty() || !parsed_number);
+        if stated.is_none() {
+            return Ok(None);
+        }
+        let stated_postcode = stated.map_or(String::new(), |d| pc_norm(&d.postcode));
+        let tokens: Vec<&str> = query
+            .split(|c: char| c == ',' || whitespace(c))
+            .filter(|t| !t.is_empty())
+            .collect();
+        let written: std::collections::HashSet<String> = tokens
+            .iter()
+            .map(|t| pc_norm(t))
+            .chain(query.split(',').map(pc_norm))
+            .collect();
+        let numbered =
+            |t: &str| t.chars().any(|c| c.is_ascii_digit()) && pc_norm(t) != stated_postcode;
+        // up to four words of one part of the query
+        let mut numbers = vec![];
+        for part in query.split(',') {
+            let words: Vec<&str> = part.split(whitespace).filter(|w| !w.is_empty()).collect();
+            for len in 1..=4 {
+                for run in words.windows(len) {
+                    // a house number never holds the postcode ("TX 75460")
+                    if !stated_postcode.is_empty()
+                        && run.iter().any(|w| pc_norm(w) == stated_postcode)
+                    {
+                        continue;
+                    }
+                    let run = number_key(&run.join(" "));
+                    if numbered(&run) && !numbers.contains(&run) {
+                        numbers.push(run);
+                    }
+                }
+            }
+        }
+        if numbers.is_empty() {
+            return Ok(None);
+        }
+        let words: std::collections::HashSet<String> =
+            fold(query).split(' ').map(String::from).collect();
+        let named = |name: &str| {
+            let name = fold(name);
+            !name.is_empty() && name.split(' ').all(|w| words.contains(w))
+        };
+        let cc = stated
+            .map(|d| d.country_code.as_str())
+            .filter(|c| !c.is_empty());
+        let mut houses = vec![];
+        // A label and a number ("Plot No.14", "Lot 25", "367 หมู่ 1") make a number rare enough
+        // to look for on the answer's postcode; words of the road do not make one.
+        let road: Vec<String> = stated.map_or(vec![], |d| {
+            fold(&d.road).split(' ').map(String::from).collect()
+        });
+        let unroaded: Vec<String> = numbers
+            .iter()
+            .filter(|n| {
+                n.split(' ')
+                    .filter(|w| !w.chars().any(|c| c.is_ascii_digit()))
+                    .all(|w| fold(w).split(' ').all(|f| !road.iter().any(|r| *r == f)))
+            })
+            .cloned()
+            .collect();
+        let spelt: Vec<String> = unroaded
+            .iter()
+            .filter(|n| n.contains(' '))
+            .cloned()
+            .collect();
+        let at = found
+            .geo_coordinates
+            .as_option()
+            .map_or((0.0, 0.0), |g| (g.lat as f64, g.lon as f64));
+        let lookup = |around: bool| match stated {
+            // A street without the house: its namesakes may hold it, those nearby too when the
+            // parse lost the number.
+            Some(d) if !around && !d.road.is_empty() => self.index.houses_numbered(
+                &unroaded,
+                &d.postcode,
+                &d.road,
+                !parsed_number,
+                cc,
+                at,
+                named,
+            ),
+            // The postcode or town without the street: the completion lookup, which reads no
+            // parse.
+            Some(_) if !around => self
+                .index
+                .suggest_houses(query, cc, 5)
+                .iter()
+                .filter_map(|s| self.index.suggested_house(s))
+                .collect::<Vec<_>>(),
+            Some(d)
+                if around && d.road.is_empty() && !d.postcode.is_empty() && !spelt.is_empty() =>
+            {
+                self.index
+                    .houses_numbered(&spelt, &d.postcode, "", false, cc, at, named)
+            }
+            _ => vec![],
+        };
+        // the postcode's houses only when the first lookup names none
+        for around in [false, true] {
+            if around && !houses.is_empty() {
+                break;
+            }
+            for value in lookup(around) {
+                let house = format_response(&value)?;
+                let Some(d) = house.address_details.as_option() else {
+                    continue;
+                };
+                let postcode = pc_norm(&d.postcode);
+                let number = number_key(&d.house_number);
+                // The words written beside the number belong to its street or its places:
+                // "Heyrovského č.p. 470, Olomouc" is not house č.p. 470 of the street Olomouc.
+                let places = [
+                    &d.road,
+                    &d.city,
+                    &d.town,
+                    &d.village,
+                    &d.municipality,
+                    &d.suburb,
+                    &d.city_district,
+                    &d.hamlet,
+                    &d.county,
+                    &d.state_district,
+                    &d.state,
+                    &d.country,
+                    &d.postcode,
+                ];
+                let street: Vec<String> = fold(&d.road).split(' ').map(String::from).collect();
+                let street: Vec<&str> = street.iter().map(String::as_str).collect();
+                let known: std::collections::HashSet<String> = places
+                    .iter()
+                    .flat_map(|p| fold(p).split(' ').map(String::from).collect::<Vec<_>>())
+                    .collect();
+                let beside = query.split(',').any(|part| {
+                    let ws: Vec<&str> = part.split(whitespace).filter(|w| !w.is_empty()).collect();
+                    (1..=4.min(ws.len())).any(|len| {
+                        (0..=ws.len() - len).any(|i| {
+                            let rest = fold(&[&ws[..i], &ws[i + len..]].concat().join(" "));
+                            number_key(&ws[i..i + len].join(" ")) == number
+                                && rest.split(' ').all(|w| w.is_empty() || known.contains(w))
+                                // a number beside its town alone is a district ("Dublin 4")
+                                && (rest.is_empty()
+                                    || rest.split(' ').any(|w| street.contains(&w)))
+                        })
+                    })
+                });
+                // and no other number of the query (a postcode, another house) goes unexplained
+                let explained = |w: &&str| {
+                    let w = number_key(w);
+                    !numbered(&w)
+                        || number.split(' ').any(|n| n == w)
+                        || pc_norm(&w) == postcode
+                        || fold(&w).split(' ').all(|f| known.contains(f))
+                };
+                let verified = numbers.contains(&number)
+                    && beside
+                    && tokens.iter().all(explained)
+                    && named(&d.road)
+                    && (stated_postcode.is_empty()
+                        || postcode.is_empty()
+                        || postcode == stated_postcode)
+                    && match cc {
+                        Some(cc) => d.country_code == cc,
+                        None => named(&d.country),
+                    }
+                    && (!postcode.is_empty() && written.contains(&postcode)
+                        || [
+                            &d.city,
+                            &d.town,
+                            &d.village,
+                            &d.municipality,
+                            &d.suburb,
+                            &d.city_district,
+                            &d.hamlet,
+                        ]
+                        .into_iter()
+                        .any(|p| named(p))
+                        // a district named for its seat ("Karachi Division")
+                        || [&d.county, &d.state_district].into_iter().any(|p| {
+                            p.rsplit_once(' ').is_some_and(|(name, word)| {
+                                matches!(word.to_lowercase().as_str(), "division" | "district")
+                                    && named(name)
+                            })
+                        }));
+                if verified {
+                    houses.push(house);
+                }
+            }
+        }
+        let point = |f: &FullAddress| f.geo_coordinates.as_option().map(|g| (g.lat, g.lon));
+        let Some(first) = houses.first().and_then(point) else {
+            return Ok(None);
+        };
+        let identity = |f: &FullAddress| {
+            f.address_details
+                .as_option()
+                .map(|d| (number_key(&d.house_number), fold(&d.road)))
+        };
+        if houses.iter().any(|h| {
+            identity(h) != identity(&houses[0])
+                || point(h).is_none_or(|(lat, lon)| km_between(first.0, first.1, lat, lon) > 0.2)
+        }) {
+            return Ok(None);
+        }
+        Ok(Some(accept(
+            houses.swap_remove(0),
+            &ParsedAddress::new(),
+            "",
+            "suggested_house",
+            true,
+        )))
     }
 
     /// Reviewed historical memberships answer only where the current lookups found no good match.
@@ -841,6 +1077,7 @@ impl Core {
                 }
             }
         }
+        PARSED_NUMBER.set(!part(&address, "house_number").is_empty());
         let stray = part(&address, "road").to_owned();
         tidy(&mut address);
         self.state_not_country(&mut address);
