@@ -1963,6 +1963,23 @@ async fn resolve_follows_the_authored_facts() {
         "{query}: {got:?}"
     );
     for query in [
+        "5 شارع الكنيسه, مركز منفلوط, اسيوط, 71621, Egypt",
+        "شارع الكنيسه 5, مركز منفلوط, اسيوط, 71621, Egypt",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.house_number, "5", "{query}: {got:?}");
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres(
+                (at.lon as f64, at.lat as f64),
+                house(street("شارع الكنيسه"), "5")
+            ) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
+    for query in [
         "A254 Gulistan e Johar Block 11, Sindh, Pakistan",
         "Shastri Nagar Plot No.15, 342003, India",
         "Shiv Vihar Plot No.14, 342003, India",
