@@ -61,6 +61,7 @@ pub const WIKIDATA: &[(&str, &str)] = &[
     ("wf", "Q35555"),
 ];
 
+mod al;
 mod at;
 mod au;
 mod ca;
@@ -92,6 +93,7 @@ mod za;
 
 pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
     [
+        al::PLACES,
         at::PLACES,
         au::PLACES,
         ca::PLACES,
@@ -198,6 +200,7 @@ pub const TOWN_CITY_ROAD: (&str, &str) = ("Linden Rise", "Eastport");
 
 pub fn cases() -> Vec<crate::Case> {
     [
+        al::cases(),
         at::cases(),
         au::cases(),
         ca::cases(),
@@ -222,6 +225,7 @@ pub fn cases() -> Vec<crate::Case> {
 
 pub static STREETS: LazyLock<Vec<Street>> = LazyLock::new(|| {
     [
+        al::STREETS,
         at::STREETS,
         au::STREETS,
         ca::STREETS,

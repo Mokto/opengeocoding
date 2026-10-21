@@ -634,6 +634,31 @@ impl Index {
                     .copied()
                     .filter(|&a| lookup(a, n).is_some())
                     .collect();
+                // A numbered branch ("Иван Хаџиниколов 2", a lane off Иван Хаџиниколов) is
+                // another street: when the street as written holds the house, the branch's
+                // doesn't answer for it.
+                let branch = |a: &DocAddress| {
+                    use tantivy::schema::Value as _;
+                    self.searcher
+                        .doc::<tantivy::TantivyDocument>(*a)
+                        .is_ok_and(|doc| {
+                            doc.get_all(self.f.name)
+                                .filter_map(|v| v.as_str())
+                                .any(|name| {
+                                    fold(name)
+                                        .strip_prefix(&folded)
+                                        .and_then(|rest| rest.strip_prefix(' '))
+                                        .is_some_and(|rest| {
+                                            !rest.is_empty()
+                                                && rest.bytes().all(|b| b.is_ascii_digit())
+                                        })
+                                })
+                        })
+                };
+                if by_name.len() > 1 && by_name.iter().any(branch) && by_name.iter().any(as_written)
+                {
+                    by_name.retain(|a| !branch(a));
+                }
                 if by_name.len() > 1 {
                     by_name.sort_by_cached_key(|a| {
                         (!with_postcode.contains(a), !in_named(a), !as_written(a))

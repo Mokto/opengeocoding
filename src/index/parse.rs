@@ -552,8 +552,59 @@ impl Parser {
 }
 
 impl Index {
+    /// "Rruga Ymer Puka 7, 4401, Albania": libpostal, which has seen few addresses of some
+    /// countries, reads the country written last as a road and the postcode part before it as a
+    /// house number. The rest parsed alone, that part as the postcode, and the country, when the
+    /// country has that postcode and the rest holds a road and a house number. A country read as
+    /// a house is left to the resolver's `country_in_tail`.
+    fn country_as_road(&self, q: &str, whole: &[(String, String)]) -> Result<Option<Parsed>> {
+        let Some((head, last)) = q.rsplit_once(',') else {
+            return Ok(None);
+        };
+        let postcode = head.rsplit(',').next().unwrap_or("").trim();
+        let last = last.trim().to_lowercase();
+        let misread = match whole {
+            [.., (n, number), (r, road)] => {
+                n == "house_number"
+                    && (number == postcode || number.ends_with(&format!(" {postcode}")))
+                    && r == "road"
+                    && *road == last
+            }
+            _ => false,
+        };
+        if !misread
+            || postcode.is_empty()
+            || !postcode.bytes().all(|b| b.is_ascii_digit())
+            || !self
+                .country(&last)
+                .is_some_and(|cc| self.knows_postcode(postcode, Some(&cc)))
+        {
+            return Ok(None);
+        }
+        let mut parsed = self.parser.parse(head.trim())?.to_vec();
+        // read alone, the part can still be a house number ("1 Rruga Ymer Puka, 4401")
+        if let Some((k, _)) = parsed
+            .iter_mut()
+            .rev()
+            .find(|(k, v)| k == "house_number" && v == postcode)
+        {
+            *k = "postcode".into();
+        }
+        if !["road", "house_number"]
+            .iter()
+            .all(|key| parsed.iter().any(|(k, _)| k == key))
+        {
+            return Ok(None);
+        }
+        parsed.push(("country".into(), last));
+        Ok(Some(parsed.into()))
+    }
+
     pub(crate) fn parse_address(&self, q: &str, corroboration: bool) -> Result<Option<Parsed>> {
         let mut parsed = self.parser.parse(q)?;
+        if let Some(repaired) = self.country_as_road(q, &parsed)? {
+            parsed = repaired;
+        }
         if q.contains('號')
             && let Some((units, road, number)) = cn_tw::chinese(q)
             && let [state, city] = units.as_slice()
