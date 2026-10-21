@@ -2,9 +2,40 @@
 
 **Diagnostic measurements, not an unbiased production-accuracy estimate.** This is a vendor-run evaluation on this repository's gold corpus. Cases overlap the local index's source data; variants of one location are not independent samples. Do not read these tables as a general accuracy ranking.
 
-**Google remains provisional.** The corrected-adapter pass is complete: normalization failures fell from 54 to 36 worldwide, with none in the US/Canada subset. Remaining failures include insufficient metadata and unsupported native types; they are not proof of incorrect Google locations. No Google response data remains for retrospective inspection. The tables show the completed rerun, not guessed corrections to the initial measurement.
+The newest measurement is the provisional 10,876-query table below. The 4,183-query tables after it are an earlier, separate measurement; do not compare percentages across tables.
 
-## Worldwide: identical 4,183 queries
+## Provisional: identical 10,876 queries (21 October 2026)
+
+Google was not measured in this round. Provider responses were collected 17–21 October 2026; the local baseline ran on 20 October 2026. Rates use all selected cases, including known failures, abstentions, API rejections and normalization failures.
+
+| Service | Passed / cases | Pass rate | Only OpenGeocoding passed | Only this provider passed |
+|---|---:|---:|---:|---:|
+| Geoapify | 9,005 / 10,876 | 82.8% | 799 | 928 |
+| OpenGeocoding | 8,876 / 10,876 | 81.6% | — | — |
+| OpenCage | 6,850 / 10,876 | 63.0% | 2,325 | 299 |
+| geocode.maps.co | 5,776 / 10,876 | 53.1% | 3,345 | 245 |
+
+This table is provisional for three reasons:
+
+- **The subset is not a random sample.** The full forward selection has 16,399 cases. Collection is still in progress, and these 10,876 are the cases with responses from all three worldwide providers at 2026-10-21T03:53Z. They are the 8,850 forward cases of the corpus at `dfeca77`, plus 2,026 cases added later: Colombia 565, Canada 550, Australia 522, Belgium 384 and 5 curated cases. The newer Danish, Spanish, Polish, Taiwanese and New Zealand registry cases are not yet included.
+- **The OpenGeocoding baseline is older than the corpus.** It is the clean build at `dfeca77` with a preserved local index, 58 commits before the corpus revision `58fb25f`. Later releases include fixes aimed at some of the newly added Canadian, Australian and Bogotá cases, so this table does not measure the current release. Two complete runs of this binary returned identical responses for all 16,399 forward cases.
+- **Weak countries remain visible.** On the 550 new Canadian registry cases, this baseline passed 353 (64.2%), against 503 for Geocodio and 376 for Geoapify.
+
+| Artifact | Value |
+|---|---|
+| Corpus revision | `58fb25ffc8f20d0ff797642c986bfdf41f7b55e8` |
+| Full 16,399-case forward selection, JSONL SHA-256 | `5cfb112fc5a414351193abaed1c36c7813696e9f70423ed56dc197e7550b0394` |
+| Selected 10,876-case subset, JSONL SHA-256 | `891164a777158bc71b6a3fdc8a3eb6da96fcd16b49c6ba14a0c9ed8180234c79` |
+| Evaluator and provider adapters | revision `dfeca77bddcdd11b6f378741061f0984918e46dd`, binary SHA-256 `1884e64a779bbd9f8f09342155ea00b875dc62577143b33bc646cf0fd428ba45` |
+| Local service binary | revision `dfeca77`, SHA-256 `937f76624d9bb47539a95544ca8d4f1acdc9fe3823f591048feca19ef491789f` |
+| Local index metadata | SHA-256 `e6df26bed27b66adbf167649379a0f7277cfe2a1769719c4e50e9e73ce1675ff` |
+| Local libpostal models | `65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7` |
+
+The forward selection keeps cases with a forward expectation. It excludes RPC error contracts, landmark-level cases and suggestion-only cases. Request settings are those listed under Corpus and reproducibility; scoring uses the evaluator at `dfeca77`.
+
+**Google (earlier measurement only) remains provisional.** The corrected-adapter pass is complete: normalization failures fell from 54 to 36 worldwide, with none in the US/Canada subset. Remaining failures include insufficient metadata and unsupported native types; they are not proof of incorrect Google locations. No Google response data remains for retrospective inspection. The tables show the completed rerun, not guessed corrections to the initial measurement.
+
+## Earlier measurement — worldwide: identical 4,183 queries
 
 Collected 17–18 October 2026; local baseline collected 16 October 2026. Rates use all selected cases, including known failures, abstentions, API rejections and normalization failures.
 
@@ -18,7 +49,7 @@ Collected 17–18 October 2026; local baseline collected 16 October 2026. Rates 
 
 The Google rerun had 42 errors: 36 normalization failures and six query rejections. A normalization failure is **not proof of an incorrect Google location**. Even an all-36-pass scenario would produce 3,663 / 4,183 (87.6%); this is a generous upper bound for those unresolved cases, not a predicted corrected score. The local raw pass count is higher on this corpus, but the remaining interoperability limitations and corpus bias do not support a general accuracy-superiority claim.
 
-## US/Canada: identical 1,395 queries
+## Earlier measurement — US/Canada: identical 1,395 queries
 
 This subset is selected before provider responses: the union of expected-country alternatives must be nonempty and confined to the US or Canada. It includes all eligible cases, not just each provider's successful results. Do not compare these percentages directly with the worldwide table.
 
