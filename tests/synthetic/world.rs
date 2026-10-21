@@ -45,13 +45,15 @@ macro_rules! place {
 /// Paris in France and in Texas, Delhi in India and in Ontario, and Cologne under its German name.
 /// Austria's made-up regions Alpha and Beta lie at the equator, where degrees of longitude and
 /// latitude are as long: Grenzgasse is inside Suedhain's area but nearer Nordhain's point.
-/// Source identities: Haut-Rhin's subdivision item and authored city/region entity pairs.
+/// Source identities: Haut-Rhin's subdivision item, authored city/region entity pairs and
+/// Wallis and Futuna's item, lent to a made-up territory.
 pub const WIKIDATA: &[(&str, &str)] = &[
     ("fr-haut-rhin", "Q12722"),
     ("gb-harbor-region", "Q999900001"),
     ("gb-harbor-city", "Q999900001"),
     ("co-dc", "Q999900002"),
     ("co-bogota", "Q999900002"),
+    ("wf", "Q35555"),
 ];
 
 pub const PLACES: &[Place] = &[
@@ -941,6 +943,44 @@ pub const PLACES: &[Place] = &[
         "Dublin",
         &[("en", "Dublin"), ("ga", "Baile Átha Cliath")],
     ),
+    // A territory with an ISO 3166-2 code of its own (it borrows FR-WF's item) above a region
+    // that has another code.
+    place!(
+        "wf",
+        "dependency",
+        "",
+        "WF",
+        "",
+        10_000,
+        (-150.0, -20.0),
+        "",
+        "Coral Isles",
+        &[("en", "Coral Isles")],
+    ),
+    place!(
+        "wf-reefward",
+        "region",
+        "",
+        "WF",
+        "WF-RF",
+        8_000,
+        (-150.0, -20.0),
+        "wf",
+        "Reefward",
+        &[("en", "Reefward")],
+    ),
+    place!(
+        "wf-lagoonport",
+        "locality",
+        "town",
+        "WF",
+        "WF-RF",
+        1_000,
+        (-150.1, -20.0),
+        "wf-reefward",
+        "Lagoonport",
+        &[("en", "Lagoonport")],
+    ),
     place!(
         "gb",
         "country",
@@ -1554,6 +1594,7 @@ const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
     ("li", "country", true, true, 79.5, 0.0, 0.5),
     ("at-e", "region", true, true, 80.5, 0.0, 0.5),
     ("co-bogota-dc", "county", true, true, -60.0, 30.3, 0.6),
+    ("wf-reefward", "region", true, true, -150.0, -20.0, 0.4),
 ];
 
 /// A street and its houses: (street, postcode, city, cc, lon, lat of house 1, numbers); the houses
