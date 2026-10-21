@@ -2926,6 +2926,7 @@ impl Index {
         }
         let mut scopes: Vec<Option<Box<dyn TQuery>>> = vec![];
         let mut near = None;
+        let mut county_scope = None;
         if let Some(city) = city {
             let ids: Vec<u32> = named
                 .iter()
@@ -2982,6 +2983,7 @@ impl Index {
                 scopes.push(Some(s));
             }
             if let Some(s) = scope(ids.iter().filter(county).collect(), false) {
+                county_scope = Some(scopes.len());
                 scopes.push(Some(s));
             }
             if let Some(s) = scope(ids.iter().filter(named_region).collect(), false) {
@@ -3022,6 +3024,11 @@ impl Index {
             }
             _ => Default::default(),
         };
+        // `streets` looks a Colombian plate up again in the register's form, county included
+        let county_house = cc == Some("co")
+            && number.is_some_and(|n| {
+                !n.trim().is_empty() && crate::matching::colombian_plate(n).is_none()
+            });
         let number = number.map(schema::number_key);
         // Streets that hold the requested postcode report it, as Nominatim reports an address's.
         let with_postcode: std::collections::HashSet<DocAddress> =
@@ -3043,6 +3050,13 @@ impl Index {
             _ => None,
         };
         let exact_road = fold(road);
+        let lookup = |a: DocAddress, n: &str| {
+            let sid = self.fast(a, "id") as u32;
+            let mut key = sid.to_be_bytes().to_vec();
+            key.extend_from_slice(n.as_bytes());
+            self.numbers[sid as usize % self.numbers.len()].get(&key)
+        };
+        let mut without_house = None;
         for (i, scope) in scopes.into_iter().enumerate() {
             let mut cl = base();
             if let Some(s) = scope {
@@ -3071,6 +3085,14 @@ impl Index {
                     },
                 ),
             };
+            // Only a house answers from the county; most of its streets have none.
+            if without_house.is_some()
+                && !top
+                    .iter()
+                    .any(|&a| number.as_deref().is_some_and(|n| lookup(a, n).is_some()))
+            {
+                return without_house.unwrap_or_default();
+            }
             if !long.is_empty() || exact.is_some() {
                 top.retain(|&a| {
                     use tantivy::schema::Value as _;
@@ -3211,12 +3233,6 @@ impl Index {
                     })
                     .flatten()
             };
-            let lookup = |a: DocAddress, n: &str| {
-                let sid = self.fast(a, "id") as u32;
-                let mut key = sid.to_be_bytes().to_vec();
-                key.extend_from_slice(n.as_bytes());
-                self.numbers[sid as usize % self.numbers.len()].get(&key)
-            };
             if city.is_none() && postcode.is_none() && cc.is_none() {
                 // Nothing places the street: answer only when few same-named streets (with the
                 // number) exist, all in one country ("oosterschelde 3", not "66 parks").
@@ -3347,11 +3363,11 @@ impl Index {
                         return vec![found];
                     } else {
                         // only `strict` leaves a held number without a house
-                        return vec![];
+                        return without_house.unwrap_or_default();
                     }
                 }
                 if conflicting {
-                    return vec![];
+                    return without_house.unwrap_or_default();
                 }
             }
             // A street crossing a cell edge is indexed in parts: answer the middle of the parts
@@ -3377,9 +3393,18 @@ impl Index {
             let mid = parts
                 .iter()
                 .fold((0.0, 0.0), |(x, y), p| (x + p.0 / n, y + p.1 / n));
-            return vec![street(a, None, mid, 0)];
+            let found = vec![street(a, None, mid, 0)];
+            // Colombia's county is the municipality, not a province of other towns: Bogotá's
+            // localities sit partly under it and partly under "Bogotá ciudad", so a same-named
+            // street there can hold the house the town's lacks (CL 22BIS S in San Cristóbal and
+            // in Kennedy).
+            if county_house && county_scope == Some(i + 1) {
+                without_house.get_or_insert(found);
+                continue;
+            }
+            return without_house.unwrap_or(found);
         }
-        vec![]
+        without_house.unwrap_or_default()
     }
 
     fn postcodes(&self, pc: &str, cc: Option<&str>) -> Vec<Hit> {

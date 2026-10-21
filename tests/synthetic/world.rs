@@ -45,11 +45,13 @@ macro_rules! place {
 /// Paris in France and in Texas, Delhi in India and in Ontario, and Cologne under its German name.
 /// Austria's made-up regions Alpha and Beta lie at the equator, where degrees of longitude and
 /// latitude are as long: Grenzgasse is inside Suedhain's area but nearer Nordhain's point.
-/// Source identities: Haut-Rhin's subdivision item and an authored city/region entity pair.
+/// Source identities: Haut-Rhin's subdivision item and authored city/region entity pairs.
 pub const WIKIDATA: &[(&str, &str)] = &[
     ("fr-haut-rhin", "Q12722"),
     ("gb-harbor-region", "Q999900001"),
     ("gb-harbor-city", "Q999900001"),
+    ("co-dc", "Q999900002"),
+    ("co-bogota", "Q999900002"),
 ];
 
 pub const PLACES: &[Place] = &[
@@ -1210,6 +1212,32 @@ pub const PLACES: &[Place] = &[
         "松江市",
         &[("en", "Matsue")]
     ),
+    // Colombia's county is the municipality: Bogotá's localities sit partly under the city and
+    // partly beside it under the district, like San Cristóbal.
+    place!(
+        "co-dc",
+        "region",
+        "",
+        "CO",
+        "CO-DC",
+        0,
+        (-60.0, 30.3),
+        "",
+        "Bogotá, Distrito Capital",
+        &[("en", "Capital District"), ("es", "Bogotá")]
+    ),
+    place!(
+        "co-bogota-dc",
+        "county",
+        "",
+        "CO",
+        "CO-DC",
+        0,
+        (-60.0, 30.3),
+        "co-dc",
+        "Bogotá, D.c.",
+        &[("en", "Bogotá, D.c.")]
+    ),
     place!(
         "co-bogota",
         "locality",
@@ -1218,9 +1246,21 @@ pub const PLACES: &[Place] = &[
         "CO-DC",
         7_000_000,
         (-60.0, 30.0),
-        "",
+        "co-bogota-dc",
         "Bogotá",
         &[("en", "Bogotá")]
+    ),
+    place!(
+        "co-san-cristobal",
+        "locality",
+        "",
+        "CO",
+        "CO-DC",
+        400_000,
+        (-60.0, 30.6),
+        "co-bogota-dc",
+        "San Cristóbal",
+        &[("en", "San Cristóbal")]
     ),
     place!(
         "tw-yunlin",
@@ -1513,6 +1553,7 @@ const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
     ("li", "country", true, true, 61.6, 0.0, 0.1),
     ("li", "country", true, true, 79.5, 0.0, 0.5),
     ("at-e", "region", true, true, 80.5, 0.0, 0.5),
+    ("co-bogota-dc", "county", true, true, -60.0, 30.3, 0.6),
 ];
 
 /// A street and its houses: (street, postcode, city, cc, lon, lat of house 1, numbers); the houses
@@ -1661,6 +1702,30 @@ pub const STREETS: &[Street] = &[
         lon: -60.0,
         lat: 30.0,
         numbers: &["86B 18", "54D 35 S"],
+    },
+    // One CL 22BIS S in the city without the house, another in San Cristóbal with it; the
+    // register names no postal city
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "CL 22BIS S",
+        postcode: "",
+        city: "",
+        cc: "CO",
+        lon: -60.05,
+        lat: 30.05,
+        numbers: &["70 12"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "CL 22BIS S",
+        postcode: "",
+        city: "",
+        cc: "CO",
+        lon: -60.0,
+        lat: 30.6,
+        numbers: &["9C 18 E"],
     },
     Street {
         class: "residential",
