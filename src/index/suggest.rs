@@ -25,8 +25,7 @@ const MAX_TEXT: usize = 200;
 /// Entries of each prefix cache: a place entry is at most 400 candidates of 16 bytes, so the
 /// caches stay under about 150 MB however much is typed.
 const MAX_CACHED: usize = 20_000;
-/// Bytes of a house number; "č.ev. 1057" is 11.
-const MAX_NUMBER: usize = 12;
+const MAX_NUMBER: usize = 10;
 /// Words of a postcode needed before suggesting one: "75" matches thousands.
 const MIN_POSTCODE: usize = 3;
 /// Characters of a name typed before one a letter off is looked for: "pari" is one edit from
@@ -159,6 +158,11 @@ pub struct Suggestion {
     pub y: f64,
     /// Places only: min lon, min lat, max lon, max lat.
     pub bbox: Option<[f32; 4]>,
+}
+
+/// Bytes of a house number but a Czech evidential mark's: "č.ev. 1057" is as short as "1057".
+fn number_len(n: &str) -> usize {
+    n.strip_prefix("č.ev. ").unwrap_or(n).len()
 }
 
 fn has_digit(w: &str) -> bool {
@@ -1319,7 +1323,7 @@ impl Index {
                 }
                 let sid = self.fast(a, "id") as u32;
                 let xy = if let Some(number) = number {
-                    if number.is_empty() || number.len() > MAX_NUMBER {
+                    if number.is_empty() || number_len(number) > MAX_NUMBER {
                         return None;
                     }
                     let mut key = sid.to_be_bytes().to_vec();
@@ -1697,7 +1701,7 @@ impl Index {
             .then(|| {
                 [0, raw.len() - 1]
                     .into_iter()
-                    .filter(|&i| has_digit(raw[i]) && raw[i].len() <= MAX_NUMBER)
+                    .filter(|&i| has_digit(raw[i]) && number_len(raw[i]) <= MAX_NUMBER)
             })
             .into_iter()
             .flatten();

@@ -2624,7 +2624,7 @@ pub const STREETS: &[Street] = &[
         cc: "CZ",
         lon: 15.48,
         lat: 49.29,
-        numbers: &["1194", "1194/1", "1213", "1213/5", "č.ev. 169"],
+        numbers: &["1194", "1194/1", "1213", "1213/5", "č.ev. 1057"],
     },
     Street {
         class: "residential",

@@ -350,13 +350,15 @@ fn czech_houses_are_suggested_by_either_number_or_its_mark() {
     for (typed, number) in [
         ("Roštýnská 5, 58901 Třešť, Czechia", "1213/5"),
         ("Roštýnská č.p. 1213, 58901 Třešť, Czechia", "1213"),
-        ("Roštýnská č.ev. 169, 58901 Třešť, Czechia", "č.ev. 169"),
+        ("Roštýnská č.ev. 1057, 58901 Třešť, Czechia", "č.ev. 1057"),
     ] {
         let found = index().suggest(typed, 5, None, None, false);
         assert!(!found.is_empty(), "{typed}");
         assert_eq!(found[0].kind, "address", "{typed}");
         let want = house(street("Roštýnská"), number);
         assert!(metres((found[0].x, found[0].y), want) < 5.0, "{typed}");
+        let retrieved = index().retrieve_suggestion(&found[0].retrieval_id);
+        assert!(retrieved.is_some(), "{typed}");
     }
     // an orientation number no house has is no house
     assert!(
@@ -1367,8 +1369,8 @@ fn cases() -> Vec<Case> {
             at_house("Roštýnská", "1213"),
         ),
         case(
-            "Roštýnská č.ev. 169, 58901 Třešť, Czechia",
-            at_house("Roštýnská", "č.ev. 169"),
+            "Roštýnská č.ev. 1057, 58901 Třešť, Czechia",
+            at_house("Roštýnská", "č.ev. 1057"),
         ),
         case(
             "ul. M. Kopernika 11, 76-231 Damnica, Poland",
