@@ -1,0 +1,152 @@
+name: Gold nightly
+
+# Runs the gold suite on main's newest commit in the private cluster, like staging-publish.yml does
+# for pull requests, and keeps one open issue with every expected country's pass rate. The run
+# compares main with the commit of the previous nightly, so the issue also lists the countries
+# that changed since then. No new commit on main means no new run: the answers would be the same.
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: gold-nightly
+
+env:
+  REPO: ${{ github.repository }}
+  IMAGE: ghcr.io/mokto/opengeocoding-staging
+  MARKER: "<!-- gold-nightly -->"
+
+jobs:
+  gold:
+    if: github.repository == 'Mokto/opengeocoding'
+    runs-on: ubuntu-24.04
+    # Main-only and unattended; staging-publish.yml's notes say what it holds.
+    environment: gold-trusted
+    timeout-minutes: 350
+    permissions:
+      contents: read
+      issues: write
+    env:
+      URL: ${{ vars.GOLD_GATEWAY_URL }}
+      KEY: ${{ secrets.GOLD_GATEWAY_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Pick the commits
+        id: pick
+        run: |
+          set -euo pipefail
+          has_image() {
+            docker manifest inspect "$IMAGE:sha-$1" 2>/dev/null \
+              | jq -e '[.manifests[].platform.architecture] | contains(["amd64","arm64"])' > /dev/null
+          }
+          head=$(gh api "repos/$REPO/commits/main" -q .sha)
+          has_image "$head" || { echo "::error::No multi-architecture staging image for main's ${head:0:7} yet"; exit 1; }
+          # Only an issue this workflow opened is trusted to name the previous commit, and only one
+          # on main: the cluster runs whatever image the hash names.
+          issue=$(gh api "repos/$REPO/issues?state=open&creator=github-actions%5Bbot%5D&per_page=100" --paginate \
+            -q ".[] | select(.pull_request == null and (.body // \"\" | startswith(\"$MARKER\"))) | .number")
+          issue=${issue%%$'\n'*}
+          previous=""
+          if [ -n "$issue" ]; then
+            previous=$(gh api "repos/$REPO/issues/$issue" -q .body | sed -n 's/^<!-- head: \([0-9a-f]\{40\}\) -->$/\1/p' | head -1)
+          fi
+          if [ "$previous" = "$head" ]; then
+            echo "::notice::main is still at ${head:0:7}, which the issue already reports"
+            echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          base=""
+          for sha in "$previous" "$(gh api "repos/$REPO/commits/$head" -q '.parents[0].sha')"; do
+            [ -n "$sha" ] || continue
+            case "$(gh api "repos/$REPO/compare/$sha...$head" -q .status 2>/dev/null)" in ahead) ;; *) continue ;; esac
+            if has_image "$sha"; then base=$sha; break; fi
+          done
+          [ -n "$base" ] || { echo "::error::No earlier main commit with a staging image to compare with"; exit 1; }
+          {
+            echo "skip=false"; echo "head=$head"; echo "base=$base"; echo "issue=$issue"
+          } >> "$GITHUB_OUTPUT"
+      - name: Run the gold suite
+        if: steps.pick.outputs.skip == 'false'
+        env:
+          HEAD_SHA: ${{ steps.pick.outputs.head }}
+          BASE_SHA: ${{ steps.pick.outputs.base }}
+        run: |
+          set -euo pipefail
+          for side in base head; do
+            sha=$BASE_SHA; [ "$side" = head ] && sha=$HEAD_SHA
+            gh api "repos/$REPO/contents/manifests/values.yaml?ref=$sha" -H 'Accept: application/vnd.github.raw' > "$side-values.yaml"
+            yq -o=json '.index.sources' "$side-values.yaml" > "$side-sources.json"
+            yq '.index.builderHash' "$side-values.yaml" > "$side-builder"
+          done
+          request=$(jq -nc --arg h "$HEAD_SHA" --arg b "$BASE_SHA" \
+            --slurpfile hs head-sources.json --slurpfile bs base-sources.json \
+            --rawfile hb head-builder --rawfile bb base-builder \
+            '{head_sha: $h, base_sha: $b, head_sources: $hs[0], base_sources: $bs[0],
+              head_builder_hash: ($hb | rtrimstr("\n") | select(test("^[0-9a-f]{16}$")) // null),
+              base_builder_hash: ($bb | rtrimstr("\n") | select(test("^[0-9a-f]{16}$")) // null)}')
+          deadline=$((SECONDS + 5 * 3600))
+          while :; do
+            code=$(curl -sS -m 30 -o start.json -w '%{http_code}' -X POST -H "Authorization: Bearer $KEY" -d "$request" "$URL/runs")
+            case "$code" in
+              202) break ;;
+              409) [ "$SECONDS" -lt "$deadline" ] || { echo "::error::No free slot after 5 hours"; exit 1; }
+                   sleep 60 ;;
+              *) echo "::error::Starting the run failed: HTTP $code $(jq -r '.error // empty' start.json)"; exit 1 ;;
+            esac
+          done
+          RUN_ID=$(jq -r .id start.json)
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          echo "Run $RUN_ID: ${BASE_SHA:0:7} → ${HEAD_SHA:0:7}"
+          errors=0; last=""
+          while :; do
+            sleep 30
+            if ! curl -sS --fail -m 30 -o run.json -H "Authorization: Bearer $KEY" "$URL/runs/$RUN_ID"; then
+              errors=$((errors + 1))
+              [ "$errors" -lt 20 ] || { echo "::error::The run's endpoint stopped answering (run $RUN_ID)"; exit 1; }
+              continue
+            fi
+            errors=0
+            now=$(jq -r '"\(.status): \(.phase)"' run.json)
+            [ "$now" = "$last" ] || { echo "$(date -u +%H:%M:%S) $now"; last=$now; }
+            case "$(jq -r .status run.json)" in
+              succeeded) break ;;
+              failed) echo "::error::The run failed in step $(jq -r .phase run.json) (run $RUN_ID)"; exit 1 ;;
+            esac
+          done
+          jq -r .report run.json | sed -e '/^<!-- speed: /,/^<!-- speed end -->/d' \
+            -e '/^<!-- headline: /d' -e '/^pass base=[0-9]* head=[0-9]* of [0-9]*/d' > gold.md
+          echo "EXIT=$(jq -r .exit run.json)" >> "$GITHUB_ENV"
+          cp gold.md "$GITHUB_STEP_SUMMARY"
+      - name: Update the issue
+        if: steps.pick.outputs.skip == 'false'
+        env:
+          HEAD_SHA: ${{ steps.pick.outputs.head }}
+          BASE_SHA: ${{ steps.pick.outputs.base }}
+          ISSUE: ${{ steps.pick.outputs.issue }}
+        run: |
+          set -euo pipefail
+          server="$GITHUB_SERVER_URL/$REPO"
+          {
+            echo "$MARKER"
+            echo "<!-- head: $HEAD_SHA -->"
+            echo "Updated $(date -u '+%Y-%m-%d %H:%M') UTC by the [nightly run]($server/actions/runs/$GITHUB_RUN_ID) on \`main\` at [\`${HEAD_SHA:0:7}\`]($server/commit/$HEAD_SHA)."
+            echo "Base → head columns compare it with [\`${BASE_SHA:0:7}\`]($server/compare/$BASE_SHA...$HEAD_SHA), the previous nightly's commit when it still has an image: $([ "$EXIT" = 1 ] && echo 'newly failing or worse cases, listed in the run summary' || echo 'no newly failing or worse cases')."
+            echo
+            # The RPC totals and the changed countries: everything before the report's first fold.
+            sed -e '/^<details>/,$d' -e '/^# Baseline vs candidate/d' gold.md
+            echo
+            echo "## Pass rate of every country"
+            echo
+            sed -n '/<summary><b>Pass rate of every country/,/^<\/details>/p' gold.md | sed '1d;$d'
+          } > body.md
+          if [ -n "$ISSUE" ]; then
+            gh api -X PATCH "repos/$REPO/issues/$ISSUE" -F body=@body.md > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues" -f title="Gold suite: nightly pass rate by country" -F body=@body.md > /dev/null
+          fi
+      - name: Cancel the run
+        if: cancelled() && env.RUN_ID != ''
+        run: |
+          curl -sS -m 30 -X DELETE -H "Authorization: Bearer $KEY" "$URL/runs/$RUN_ID" > /dev/null
