@@ -22,7 +22,8 @@ use geo::{Assigner, KINDS, Poly, wkb_line, wkb_point, wkb_polygons};
 use opengeocoding::index::{
     reverse::{self, StreetSpill, street_edges},
     schema::{
-        self, Bucket, Num, NumberSpill, fold, fold_into, held_slot, pack, pc_norm, with_rank,
+        self, Bucket, Num, NumberSpill, TOWN_CITY, fold, fold_into, held_slot, pack, pc_norm,
+        with_rank,
     },
 };
 use parquet::arrow::{
@@ -1046,7 +1047,7 @@ impl<'s, 'a> Sink<'s, 'a> {
         street: Option<&str>,
         number: Option<&str>,
         postcode: Option<&str>,
-        city: Option<(&str, &'static str)>,
+        cities: &[(&str, &'static str)],
     ) {
         self.rows += 1;
         if self.rows >= SINK_ROWS {
@@ -1098,8 +1099,8 @@ impl<'s, 'a> Sink<'s, 'a> {
         }
         // Village addresses without streets ("Libá 156", OSM addr:place) number within the
         // village, so its name stands in for the street, as in Nominatim.
-        let Some(st) =
-            nonempty(street).or_else(|| nonempty(number).and(nonempty(city.map(|(name, _)| name))))
+        let Some(st) = nonempty(street)
+            .or_else(|| nonempty(number).and(nonempty(cities.first().map(|c| c.0))))
         else {
             return;
         };
@@ -1140,7 +1141,7 @@ impl<'s, 'a> Sink<'s, 'a> {
         if let Some(id) = pc_id {
             push_unique(&mut e.pcs, id, MAX_HELD_POSTCODES);
         }
-        if let Some((city, source)) = city.filter(|(name, _)| !name.trim().is_empty()) {
+        for &(city, source) in cities.iter().filter(|(name, _)| !name.trim().is_empty()) {
             let strings = &self.shared.strings;
             let id = strings.cached(&mut self.cache, city.trim());
             let source = strings.cached(&mut self.cache, source);
@@ -1340,6 +1341,10 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                 col(&b, "address_levels").as_list::<i32>(),
                 col(&b, "geometry").as_binary::<i32>(),
             );
+            let (o, v) = (
+                levels.value_offsets(),
+                levels.values().as_struct().column(0).as_string::<i32>(),
+            );
             for i in 0..b.num_rows() {
                 let Some((x, y)) = (!geom.is_null(i))
                     .then(|| wkb_point(geom.value(i)))
@@ -1347,19 +1352,23 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                 else {
                     continue;
                 };
+                let c = country(text(&cc, i));
+                let level = |at: i32| {
+                    (!levels.is_null(i) && o[i + 1] > o[i] && at >= o[i] && at < o[i + 1])
+                        .then(|| text(v, at as usize))
+                        .flatten()
+                };
                 let city = text(&postal, i)
                     .map(|name| (name, "postal_city"))
-                    .or_else(|| {
-                        let (o, v) = (
-                            levels.value_offsets(),
-                            levels.values().as_struct().column(0).as_string::<i32>(),
-                        );
-                        (!levels.is_null(i) && o[i + 1] > o[i])
-                            .then(|| text(v, o[i + 1] as usize - 1))
-                            .flatten()
-                            .map(|name| (name, "address_levels"))
-                    });
-                let c = country(text(&cc, i));
+                    .or_else(|| level(o[i + 1] - 1).map(|name| (name, "address_levels")));
+                // LINZ's levels are [town_city, suburb_locality]: addresses name the town too
+                // ("49 Foster Road, Riverton/Aparima" is in Thornbury).
+                let town = (c == *b"NZ")
+                    .then(|| level(o[i]))
+                    .flatten()
+                    .filter(|town| city.is_some_and(|(suburb, _)| fold(suburb) != fold(town)))
+                    .map(|name| (name, TOWN_CITY));
+                let cities: Vec<_> = city.into_iter().chain(town).collect();
                 let number = text(&number, i);
                 let civic = number.and_then(float_civic);
                 let numbers = numbers_with_unit(
@@ -1374,7 +1383,7 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                     text(&street, i),
                     numbers.as_deref(),
                     text(&postcode, i),
-                    city,
+                    &cities,
                 );
             }
         }
@@ -1457,7 +1466,7 @@ fn pass_places(dir: &Path, shared: &Shared, segs: &[Mutex<HashMap<SegKey, SegAgg
                     fold_into(street, &mut key);
                     let k: SegKey = (p, with_cell(&key, x, y, &mut cell_key).into());
                     if segs[shard(&k)].lock().unwrap().contains_key(&k) {
-                        sink.add(Some(c), x, y, Some(street), Some(number), None, None);
+                        sink.add(Some(c), x, y, Some(street), Some(number), None, &[]);
                     }
                 }
             }

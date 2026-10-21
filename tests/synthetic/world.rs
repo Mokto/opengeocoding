@@ -1470,6 +1470,10 @@ const RECOVERY_STREET: Street = Street {
 
 const SPLIT_UNIT_ROAD: &str = "Courtyard Lane";
 
+/// A road whose addresses name, like New Zealand's register, a town (town_city) before their
+/// suburb, and the town is not a place the houses are in.
+pub const TOWN_CITY_ROAD: (&str, &str) = ("Linden Rise", "Eastport");
+
 pub const STREETS: &[Street] = &[
     Street {
         class: "residential",
@@ -1640,6 +1644,17 @@ pub const STREETS: &[Street] = &[
         lon: 170.001,
         lat: -40.0,
         numbers: &["5a", "10-12", "2/19", "19", "1"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: TOWN_CITY_ROAD.0,
+        postcode: "",
+        city: "Fernleigh",
+        cc: "NZ",
+        lon: 170.12,
+        lat: -40.01,
+        numbers: &["5", "7b"],
     },
     Street {
         class: "residential",
@@ -2777,11 +2792,14 @@ pub fn write_release(dir: &Path) {
             vec![Box::new(StringBuilder::new()) as _],
         ));
         for (s, _) in &rows {
-            b.values()
-                .field_builder::<StringBuilder>(0)
-                .unwrap()
-                .append_value(s.city);
-            b.values().append(true);
+            let town = (s.name == TOWN_CITY_ROAD.0).then_some(TOWN_CITY_ROAD.1);
+            for level in town.into_iter().chain([s.city]) {
+                b.values()
+                    .field_builder::<StringBuilder>(0)
+                    .unwrap()
+                    .append_value(level);
+                b.values().append(true);
+            }
             b.append(true);
         }
         Arc::new(b.finish()) as ArrayRef

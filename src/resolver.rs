@@ -600,6 +600,12 @@ impl Core {
         if has_house(&found) {
             return Ok(found);
         }
+        if let Some((turned, number)) = crate::index::number_last(query) {
+            let alt = self.resolve_written(&turned)?;
+            if alt.good_match && same_house_number(&alt, &number) {
+                return Ok(alt);
+            }
+        }
         // Some Australian sources hold "unit/number" houses; elsewhere the building's house
         // answers a unit the index lacks.
         if let Some(building) = without_australian_unit(query) {

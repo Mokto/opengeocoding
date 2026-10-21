@@ -116,3 +116,24 @@ Relative to current main, this is 73 additional SearchAddress passes (the exact-
 One attempted base repetition lost its local service after 11,027 cases and recorded 3,900 connection errors; no panic was logged, and the process-exit cause was not captured. That failed run was retained, not resumed or counted as an accuracy comparison. A fresh baseline check and the subsequent comparisons ran without overlapping model-backed tests, with a launcher recording native-binary checksums and child exits. All those service processes exited successfully; the baseline's completed answers match its earlier successful full run. No evaluator request retries were added.
 
 The final combined and index-only timing comparisons pass their local thresholds, but the code-only timing comparison fails on this shared host (SearchAddress total +17%, SuggestAddress total +19%, ReverseGeocode total +16%). These inconsistent timings do not establish a speedup or dismiss a slowdown. The updated PR still requires both current-head CI quality and measured-speed reports.
+
+## Global panel follow-up ([#222](https://github.com/Mokto/opengeocoding/issues/222))
+
+The 48-market panel samples OSM address nodes, whose `addr:city` is usually LINZ's town (`town_city`), not the suburb or locality. On a local world index built with GeoNames `allCountries` postcodes (as CI builds it), the base passed 66 of the 100 NZ searches. Of the 14 tuning groups with a failure, 11 already had the requested house within 150 m of the node: those were parsing, matching and suggestion defects, not coverage. Held-out groups were not inspected.
+
+- **Town as well as suburb.** Overture's NZ `address_levels` are `[town_city, suburb_locality]`; the builder kept only the last. It now also records the town for NZ rows (postal-town source `town_city`), so "49 Foster Road, Riverton/Aparima" finds the house LINZ files under Thornbury, and "22 Brackenburn Drive, Ohauiti, Tauranga" one Overture places in Western Bay of Plenty District. The town is the house's postal city in the answer; its suburb and locality are unchanged. This changes the builder hash.
+- **Three-part comma addresses.** "7 State Highway 30, Te Teko, New Zealand", where libpostal reads the road across the comma, goes through the same corroborated repair as the four-part form; it applies only when the whole parse disagrees with the head's.
+- **Number after the road.** "Church Street 4, Amberley" (libpostal keeps "church street 4" as the road) is resolved again as "4 Church Street, Amberley" when the query as written finds no house, the road ends in a street type, and the turned query gives a good-match house with that number. Restricting it to typed roads and good matches kept "Calle Centenario 505", "Kgapane 13" and "Main Street 988, Springfield, CO" (whose number-first form finds Massachusetts) as they were.
+- **Suggestions.** A postcode no NZ street holds no longer empties the result: the town (or, with none, the postcode's own place) places a house whose street holds no postcode. A suburb and town both named by the houses' source ("Ohauiti, Tauranga") scope the street. A contradicting postcode on a street that holds postcodes still blocks the address.
+
+Local comparison: base `main` at `84ee593` on its index, head on the head builder's index, both from the same inputs (`build.sh` plus GeoNames `allCountries`), all 21,282 cases, one request each; two base runs have zero drift. No newly failing or worse-class case.
+
+| | SearchAddress | SuggestAddress |
+|---|---:|---:|
+| NZ global panel (100) | 66 → 86 | 32 → 84 |
+| NZ LINZ registry (545) | 462 → 534 | 273 → 534 |
+| All cases | 17,805 → 17,925 / 21,203 | 15,303 → 15,696 / 21,287 |
+
+Outside NZ, the number-after-road retry passes cases in IE, GB, ZA, SA, MY and others, and the postcode retry German and other suggestions on streets without postcodes.
+
+Remaining NZ panel tuning failures: a house absent from the Overture snapshot (970 Maraetotara Road), source points 160 m and 1.1 km from the indexed house with only a postcode to place them (McVicar Road, Cloan Road), and a stated town LINZ does not use (Te Hāpua for a Cape Reinga / Te Kao house). Several LINZ registry misses are addresses missing from the Overture snapshot. Local speed tables are not comparable (the base ran cold on a busy host); CI's measured speed is the gate.
