@@ -402,9 +402,7 @@ impl Index {
         let exact_road = fold(road);
         let lookup = |a: DocAddress, n: &str| {
             let sid = self.fast(a, "id") as u32;
-            let mut key = sid.to_be_bytes().to_vec();
-            key.extend_from_slice(n.as_bytes());
-            self.numbers[sid as usize % self.numbers.len()].get(&key)
+            self.house_record(sid, n).map(|(_, v)| v)
         };
         let mut without_house = None;
         for (i, scope) in scopes.into_iter().enumerate() {
@@ -661,9 +659,12 @@ impl Index {
                 };
                 for &a in &by_name {
                     let sid = self.fast(a, "id") as u32;
+                    let Some((form, _)) = self.house_record(sid, n) else {
+                        return without_house.unwrap_or_default();
+                    };
                     key.clear();
                     key.extend_from_slice(&sid.to_be_bytes());
-                    key.extend_from_slice(n.as_bytes());
+                    key.extend_from_slice(form.as_bytes());
                     if let Some(v) = house(a, sid, &key) {
                         let (x, y, own) = schema::unpack(v);
                         // The town and the postcode disagree: when the house in the town has
@@ -673,17 +674,21 @@ impl Index {
                         if i < town_scopes
                             && let Some(wanted) = &wanted
                             && own_postcode(a, own).is_some_and(|o| o != *wanted)
-                            && let Some((b, (x, y, own))) = with_postcode
+                            && let Some((b, form, (x, y, own))) = with_postcode
                                 .iter()
-                                .filter_map(|&b| Some((b, schema::unpack(lookup(b, n)?))))
-                                .filter(|&(b, (_, _, own))| {
+                                .filter_map(|&b| {
+                                    let sid = self.fast(b, "id") as u32;
+                                    let (form, v) = self.house_record(sid, n)?;
+                                    Some((b, form, schema::unpack(v)))
+                                })
+                                .filter(|&(b, _, (_, _, own))| {
                                     own_postcode(b, own).as_ref() == Some(wanted)
                                 })
-                                .min_by_key(|(b, _)| (dist(b), self.fast(*b, "id")))
+                                .min_by_key(|(b, _, _)| (dist(b), self.fast(*b, "id")))
                         {
-                            return vec![street(b, Some(n.to_string()), (x, y), own)];
+                            return vec![street(b, Some(form), (x, y), own)];
                         }
-                        let found = street(a, Some(n.to_string()), (x, y), own);
+                        let found = street(a, Some(form), (x, y), own);
                         // Raw house postcodes can disagree with the nearby-source corroboration above.
                         // A requested postcode centred far away covers too much to contradict the
                         // house's own (Brazil's town-wide "47820-000" for a house in 47821-030).

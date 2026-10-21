@@ -1440,10 +1440,16 @@ impl Core {
                     }
                     // A postal town names its post office, often the next place over (Salcha for
                     // a house the data files under Aurora Lodge): near the house it agrees.
+                    // A city-state is written as the city while the house is filed under a
+                    // borough ("Berlin" for Marzahn-Hellersdorf); that city is the state.
+                    let stated = normalize_place(part(address, "city"));
                     let postal = found.geo_coordinates.as_option().is_some_and(|g| {
                         self.index
                             .place_near(part(address, "city"), cc, g.lat, g.lon, 10.0)
-                    });
+                    }) || found
+                        .address_details
+                        .as_option()
+                        .is_some_and(|d| !stated.is_empty() && normalize_place(&d.state) == stated);
                     return Ok(Some(accept(
                         found,
                         address,

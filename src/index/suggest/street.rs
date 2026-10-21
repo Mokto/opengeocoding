@@ -727,6 +727,13 @@ impl Index {
                     .into_iter()
                     .collect();
                 if numbers.is_empty()
+                    && let Some(alt) = super::super::house::spaced_letter(n)
+                {
+                    let mut alt_key = sid.to_be_bytes().to_vec();
+                    alt_key.extend_from_slice(alt.as_bytes());
+                    numbers.extend(shard.get(&alt_key).map(|v| (alt, v)));
+                }
+                if numbers.is_empty()
                     && let Some(combined) = self.combined_number(&[a], n)
                 {
                     let mut key = sid.to_be_bytes().to_vec();

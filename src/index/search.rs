@@ -437,11 +437,7 @@ impl Index {
             .iter()
             .filter(|&&a| {
                 let sid = self.fast(a, "id") as u32;
-                let mut key = sid.to_be_bytes().to_vec();
-                key.extend_from_slice(number.as_bytes());
-                self.numbers[sid as usize % self.numbers.len()]
-                    .get(&key)
-                    .is_some()
+                self.house_record(sid, &number).is_some()
             })
             .map(|&a| (self.fast_f64(a, "x"), self.fast_f64(a, "y")))
             .collect();
@@ -838,9 +834,7 @@ impl Index {
                 return false;
             }
             let sid = self.fast(a, "id") as u32;
-            let mut key = sid.to_be_bytes().to_vec();
-            key.extend_from_slice(schema::number_key(number).as_bytes());
-            if let Some(value) = self.numbers[sid as usize % self.numbers.len()].get(&key) {
+            if let Some((_, value)) = self.house_record(sid, &schema::number_key(number)) {
                 let (lon, lat, _) = schema::unpack(value);
                 if ((lon - x) * y.to_radians().cos()).hypot(lat - y) * 111_195. > 100. {
                     return false;
