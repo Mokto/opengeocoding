@@ -539,11 +539,15 @@ impl Parser {
         Ok(parsed)
     }
 
-    /// A reversed address ("Country, STATE ZIP, town, number street") in the usual order, for
-    /// the caller to resolve instead. Not done in [`Self::parse`]: the resolver's structured
-    /// re-queries are written country first on purpose.
+    /// A reversed address ("Country, STATE ZIP, town, number street") in the usual order, or an
+    /// Italian one without the frazione the parse runs across ([`it::without_frazione`]), for the
+    /// caller to resolve instead. Not done in [`Self::parse`]: the resolver's structured
+    /// re-queries are written country first on purpose, and the search reads the query's words.
     pub fn reordered(&self, q: &str) -> Result<Option<String>> {
         let whole = self.parse(q)?;
+        if let Some(trimmed) = it::without_frazione(q, &whole) {
+            return Ok(Some(trimmed));
+        }
         let Some(turned) = reversed(q, &whole, |t| Ok(self.parse(t)?.to_vec()))? else {
             return Ok(None);
         };

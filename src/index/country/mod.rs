@@ -8,6 +8,7 @@ pub mod de;
 pub mod dk;
 pub mod eg;
 pub mod ie;
+pub mod it;
 pub mod jp;
 pub mod kr;
 pub mod nz;

@@ -1278,6 +1278,17 @@ fn numbers_with_unit<'a>(
     unit: Option<&str>,
 ) -> Option<Cow<'a, str>> {
     let number = number?;
+    // Italy's register (ANNCSU, through OpenAddresses) puts a civic number's exponent in the
+    // unit: "35" with "A" is civic number 35/A, another house than 35.
+    if cc == *b"IT"
+        && let Some(exponent) = unit
+            .map(str::trim)
+            .filter(|u| (1..=6).contains(&u.len()) && u.bytes().all(|b| b.is_ascii_alphanumeric()))
+        && !number.trim().is_empty()
+        && number.trim().bytes().all(|b| b.is_ascii_digit())
+    {
+        return Some(Cow::Owned(format!("{}/{exponent}", number.trim())));
+    }
     let unit = unit.map(str::trim).filter(|unit| {
         cc == *b"NZ"
             && !unit.is_empty()
@@ -2124,7 +2135,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn nz_units_add_exact_keys_without_replacing_buildings() {
+    fn nz_units_add_exact_keys_and_italian_exponents_join_the_number() {
         for (cc, number, unit, expected) in [
             (*b"NZ", Some("19"), Some("1"), Some("19;1/19")),
             (*b"NZ", Some("19B"), Some("3A"), Some("19B;3A/19B")),
@@ -2144,6 +2155,12 @@ mod tests {
             (*b"NZ", Some(""), Some("1"), Some("")),
             (*b"NZ", None, Some("1"), None),
             (*b"AU", Some("19"), Some("1"), Some("19")),
+            (*b"IT", Some("35"), Some("A"), Some("35/A")),
+            (*b"IT", Some("9"), Some(" BIS "), Some("9/BIS")),
+            (*b"IT", Some("285"), Some("1"), Some("285/1")),
+            (*b"IT", Some("4"), Some("A/4"), Some("4")),
+            (*b"IT", Some("4"), Some(""), Some("4")),
+            (*b"IT", Some("4B"), Some("1"), Some("4B")),
         ] {
             assert_eq!(numbers_with_unit(cc, number, unit).as_deref(), expected);
         }
