@@ -169,6 +169,18 @@ pub struct Suggestion {
     pub bbox: Option<[f32; 4]>,
 }
 
+/// `out` in the country asked for, without repeats, and at most `limit`.
+fn kept(mut out: Vec<Suggestion>, cc: Option<&str>, limit: usize) -> Vec<Suggestion> {
+    let mut seen = std::collections::HashSet::new();
+    // the filter matches a street's own country, which its place may not be in
+    out.retain(|s| {
+        cc.is_none_or(|c| s.country_code.is_empty() || s.country_code.eq_ignore_ascii_case(c))
+            && seen.insert((s.display_name.clone(), s.category))
+    });
+    out.truncate(limit);
+    out
+}
+
 fn has_digit(w: &str) -> bool {
     w.chars().any(|c| c.is_ascii_digit())
 }
@@ -361,6 +373,11 @@ impl Index {
         let Some(head) = typed.parts.first() else {
             return vec![];
         };
+        // the unit is plain to see, and looking for the house with it costs every lookup below
+        let found = self.suggest_us_unit(&typed, cc, focus, limit);
+        if !found.is_empty() {
+            return kept(found, cc, limit);
+        }
         let head_words: Vec<&str> = head.split(' ').collect();
         let one_part = typed.parts.len() == 1;
         if one_part && head.chars().count() < 2 {
@@ -418,6 +435,12 @@ impl Index {
         if out.is_empty() {
             out = self.suggest_floor(&typed, cc, focus, limit);
         }
+        if !out.iter().any(|s| s.kind == "address") {
+            let found = self.suggest_us_repair(&typed, cc, focus, limit);
+            if !found.is_empty() {
+                out = found;
+            }
+        }
         if !out.iter().any(|s| s.kind == "address")
             && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
             && let Some((building, number)) = ca::canadian_building(text)
@@ -436,14 +459,7 @@ impl Index {
                 out = recovered;
             }
         }
-        let mut seen = std::collections::HashSet::new();
-        // the filter matches a street's own country, which its place may not be in
-        out.retain(|s| {
-            cc.is_none_or(|c| s.country_code.is_empty() || s.country_code.eq_ignore_ascii_case(c))
-                && seen.insert((s.display_name.clone(), s.category))
-        });
-        out.truncate(limit);
-        out
+        kept(out, cc, limit)
     }
 
     /// The most common terms of `field` starting with `prefix`, summed over segments, with the

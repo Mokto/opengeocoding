@@ -98,8 +98,9 @@ impl Index {
                 }
             }
         }
-        docs.into_iter()
-            .filter_map(|a| {
+        let found: Vec<_> = docs
+            .iter()
+            .filter_map(|&a| {
                 let place = self.fast(a, "place") as u32;
                 if scope.as_ref().is_some_and(|ids| {
                     place == NONE || !self.chain(place).iter().any(|id| ids.contains(id))
@@ -109,6 +110,34 @@ impl Index {
                 self.postcode_suggestion(a)
             })
             .take(limit)
-            .collect()
+            .collect();
+        // "SW8 1JQ, Lambeth": a postcode's place is a town near it, which need not be in the
+        // district named, so a code written in full stands in the country the names are in.
+        // "Newry, Mourne and Down" is one place's name with a comma in it.
+        match scope {
+            Some(ids) if found.is_empty() => {
+                let mut named = ids;
+                if let [a, b, rest @ ..] = qualifiers
+                    && named.is_empty()
+                {
+                    let joined: Vec<String> = [format!("{a} {b}")]
+                        .into_iter()
+                        .chain(rest.iter().cloned())
+                        .collect();
+                    named = self.scope(&joined, open, cc, None, true);
+                }
+                let mut countries: Vec<String> = named
+                    .iter()
+                    .map(|&id| self.places[id as usize].cc.to_string())
+                    .collect();
+                countries.extend(qualifiers.last().and_then(|p| self.country(p)));
+                docs.into_iter()
+                    .filter_map(|a| self.postcode_suggestion(a))
+                    .filter(|s| countries.contains(&s.country_code))
+                    .take(limit)
+                    .collect()
+            }
+            _ => found,
+        }
     }
 }

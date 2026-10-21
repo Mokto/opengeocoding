@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Case, case, town};
+use crate::*;
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -217,4 +217,22 @@ pub const STREETS: &[Street] = &[
 
 pub fn cases() -> Vec<Case> {
     vec![case("Orchard, United Kingdom", town("gb-orchard", true))]
+}
+
+/// AA1 1AA is filed under Beacon, whose part Quayside is not in its places' chain.
+#[test]
+fn a_whole_postcode_is_suggested_with_a_district_it_is_not_filed_under() {
+    let index = index();
+    for query in ["AA1 1AA, Quayside", "AA1 1AA, Quayside, United Kingdom"] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("postcode"), "{query}");
+        assert_eq!(found[0].country_code, "gb", "{query}");
+    }
+    // a place in another country than the code's
+    assert!(
+        index
+            .suggest("75460, Beacon", 5, None, None, false)
+            .iter()
+            .all(|s| s.kind != "postcode")
+    );
 }

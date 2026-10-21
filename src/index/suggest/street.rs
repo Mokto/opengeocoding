@@ -1,4 +1,5 @@
 use super::*;
+use crate::index::country::us;
 
 /// A house number written as a part of its own, "12", "12A" or "nº 12", as the number:
 /// short enough not to be a postcode.
@@ -130,13 +131,15 @@ impl Index {
             .chars()
             .any(|c| c.is_ascii_digit())
             .then(|| {
-                self.find_postcode(&qualifiers, cc).or_else(|| {
-                    if country.is_some() {
-                        return None;
-                    }
-                    let named = self.country(typed.parts.last()?)?;
-                    self.find_postcode(&qualifiers, Some(&named))
-                })
+                self.find_postcode(&qualifiers, cc)
+                    .or_else(|| self.find_postcode(&us::zip5(&qualifiers), cc))
+                    .or_else(|| {
+                        if country.is_some() {
+                            return None;
+                        }
+                        let named = self.country(typed.parts.last()?)?;
+                        self.find_postcode(&qualifiers, Some(&named))
+                    })
             })
             .flatten();
         // a stated France also means the places of its overseas departments, which have codes of
@@ -303,9 +306,20 @@ impl Index {
                 // Randwick" is filed under Sydney), with nothing else after it but the country,
                 // or the town around it ("22 Brackenburn Drive, Ohauiti, Tauranga, New Zealand").
                 // A region code written after it ("Kingsford QLD") holds the houses to that region.
+                // "941 University Court, Evansville, IN 47712": the town's region by its code
+                // (or "Essex, Irvington Township, NJ 07111", after its county)
+                let region_after = match parts.as_slice() {
+                    [_, code] | [_, _, code] if country.is_none() => self.regions_coded(code, cc),
+                    _ => vec![],
+                };
                 let town = match parts.as_slice() {
                     [town] => Some(town.clone()),
-                    [town, _] if country.is_some() => Some(town.clone()),
+                    [town, _] if country.is_some() || !region_after.is_empty() => {
+                        Some(town.clone())
+                    }
+                    [_, town, _] if !region_after.is_empty() && !has_digit(town) => {
+                        Some(town.clone())
+                    }
                     // both named by the houses, not a floor or door ("rådhuspladsen 1, 4.,
                     // københavn, denmark")
                     [suburb, town, _]
@@ -315,18 +329,25 @@ impl Index {
                     }
                     _ => None,
                 };
-                if number_word.is_some()
-                    && !found.iter().any(|s| s.kind == "address")
+                // a street alone, when its places are not under the town ("Roseburn Street,
+                // Edinburgh" is Murrayfield's, in the City of Edinburgh)
+                let street_only = !raw.iter().any(|w| has_digit(w));
+                if (number_word.is_some() && !found.iter().any(|s| s.kind == "address")
+                    || street_only && found.is_empty())
                     && let Some(town) = town
                         .as_ref()
                         .filter(|p| country.is_none() || self.country(p) != country)
                 {
-                    let coded = town.rsplit_once(' ').and_then(|(name, code)| {
-                        let region = self
-                            .regions
-                            .get(&format!("{}-{code}", cc?).to_uppercase())?;
-                        Some((name, [*region]))
-                    });
+                    let coded = if region_after.is_empty() {
+                        town.rsplit_once(' ').and_then(|(name, code)| {
+                            let region = self
+                                .regions
+                                .get(&format!("{}-{code}", cc?).to_uppercase())?;
+                            Some((name, vec![*region]))
+                        })
+                    } else {
+                        Some((town.as_str(), region_after))
+                    };
                     let (town, region) = match &coded {
                         Some((name, region)) => (*name, Some(&region[..])),
                         None => (town.as_str(), None),
@@ -335,17 +356,26 @@ impl Index {
                     // part of the settlement the houses are filed under ("Bahnstraße 20, Wagram
                     // am Wagram, 3483" is Grafenwörth's) has them in its postcode there.
                     let by_town = if postcode.is_none() || region.is_some() {
-                        self.streets_typed(
-                            &road_words,
-                            false,
-                            region,
-                            number_word,
-                            false,
-                            cc,
-                            postcode,
-                            Some((town, typed.open && parts.len() == 1)),
-                            want,
-                        )
+                        let in_town = |town| {
+                            self.streets_typed(
+                                &road_words,
+                                false,
+                                region,
+                                number_word,
+                                false,
+                                cc,
+                                postcode,
+                                Some((town, typed.open && parts.len() == 1)),
+                                want,
+                            )
+                        };
+                        let found = in_town(town);
+                        match us::municipality(town).filter(|_| region.is_some()) {
+                            Some(name) if !found.iter().any(|s| s.kind == "address") => {
+                                in_town(name)
+                            }
+                            _ => found,
+                        }
                     } else {
                         let settlements: Vec<u32> = ids
                             .iter()
@@ -379,7 +409,9 @@ impl Index {
                             )
                         }
                     };
-                    if by_town.iter().any(|s| s.kind == "address") {
+                    if by_town.iter().any(|s| s.kind == "address")
+                        || street_only && !by_town.is_empty()
+                    {
                         found = by_town;
                     }
                 }
@@ -389,6 +421,12 @@ impl Index {
                 out = found;
                 break;
             }
+        }
+        // "Fulham Road, London, SW6 1HS": no house, and no street in the places named, so the
+        // streets the postcode serves
+        if out.is_empty() && postcode.is_some() && !raw.iter().any(|w| has_digit(w)) {
+            let road = words(&raw.join(" "));
+            out = self.streets_typed(&road, false, None, None, false, cc, postcode, None, want);
         }
         // "4 Church Street, Amberley, 7410, New Zealand": the town places a house the street's
         // postcode list does not name (New Zealand's register, or a Luxembourg house whose
@@ -632,14 +670,7 @@ impl Index {
         // after a comma: in "main st" the "st" is a word being typed.
         if let ([one], true) = (parts, codes) {
             let q = fold(one);
-            if (2..=3).contains(&q.len()) {
-                let suffix = format!("-{}", q.to_uppercase());
-                ids.extend(self.regions.iter().filter_map(|(code, &place)| {
-                    let pl = &self.places[place as usize];
-                    (code.ends_with(&suffix) && cc.is_none_or(|c| pl.cc.eq_ignore_ascii_case(c)))
-                        .then_some(place)
-                }));
-            }
+            ids.extend(self.regions_coded(&q, cc));
             ids.extend(
                 self.countries_named(&q, open)
                     .into_iter()
@@ -684,6 +715,22 @@ impl Index {
         }
         let towns: Vec<String> = towns.into_iter().map(|(p, _)| p).collect();
         (towns != parts).then_some(towns)
+    }
+
+    /// The regions whose ISO 3166-2 code ends with `code` ("IN" is US-IN), in `cc` if given.
+    fn regions_coded(&self, code: &str, cc: Option<&str>) -> Vec<u32> {
+        if !(2..=3).contains(&code.len()) {
+            return vec![];
+        }
+        let suffix = format!("-{}", code.to_uppercase());
+        self.regions
+            .iter()
+            .filter_map(|(code, &place)| {
+                let pl = &self.places[place as usize];
+                (code.ends_with(&suffix) && cc.is_none_or(|c| pl.cc.eq_ignore_ascii_case(c)))
+                    .then_some(place)
+            })
+            .collect()
     }
 
     #[allow(clippy::too_many_arguments)]
