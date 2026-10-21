@@ -1,0 +1,475 @@
+{
+  "count": 100,
+  "coverage": {
+    "ag": {
+      "eligible": 53,
+      "response_sha256": "abc13cddef2c79afe88f02a74c3d9c7d640cc2d9fb807facdde6c20207fa49dc",
+      "selected": 53,
+      "settlements": 58
+    },
+    "ai": {
+      "eligible": 4,
+      "response_sha256": "c75073b2e3c89911ea6b07d392542641b7c504755c7b50c7731bccd28b62519c",
+      "selected": 4,
+      "settlements": 5
+    },
+    "aq": {
+      "eligible": 3,
+      "response_sha256": "4fd5e6cae6fa9acfb236b0ef2585074169cbae972660aa1523482ed247f4f5d0",
+      "selected": 3,
+      "settlements": 3
+    },
+    "as": {
+      "eligible": 50,
+      "response_sha256": "742f9f9669c293d291bd2407496be6eb0f66ce00fd37e632892b5f40825399c7",
+      "selected": 50,
+      "settlements": 63
+    },
+    "bi": {
+      "eligible": 443,
+      "response_sha256": "fb118cacfb2a4caf7697e958b7f71601d5e2dc6a24400a742070f22e0197c44b",
+      "selected": 100,
+      "settlements": 533
+    },
+    "bl": {
+      "eligible": 37,
+      "response_sha256": "7547a013b5850b30cf104e3fa4bf63a1bd899f748bbf6d3187127b10de10401c",
+      "selected": 37,
+      "settlements": 37
+    },
+    "bq": {
+      "eligible": 0,
+      "response_sha256": "97cc0a762602de8f51fa35170a3a5246a81887ab538b5adff21788aaf382e59c",
+      "selected": 0,
+      "settlements": 0
+    },
+    "bs": {
+      "eligible": 60,
+      "response_sha256": "824f84fd99f8f6beab6f91dcd28c1d702655144651eaf07084773f017ee00698",
+      "selected": 60,
+      "settlements": 68
+    },
+    "bv": {
+      "eligible": 0,
+      "response_sha256": "97cc0a762602de8f51fa35170a3a5246a81887ab538b5adff21788aaf382e59c",
+      "selected": 0,
+      "settlements": 0
+    },
+    "cc": {
+      "eligible": 2,
+      "response_sha256": "266a586ca67dbba768a9a7060d497ee6a600530cfd79ddd08774bfc90ecb5943",
+      "selected": 2,
+      "settlements": 2
+    },
+    "cf": {
+      "eligible": 244,
+      "response_sha256": "28c1b35f66ea305c05c0dbea21076c430aebf570a879de8dba6bafb147b60b2f",
+      "selected": 100,
+      "settlements": 256
+    },
+    "ck": {
+      "eligible": 18,
+      "response_sha256": "33868d30bcde527891da7be128c21cc8f04e3460b41ef322c3f64a377122d339",
+      "selected": 18,
+      "settlements": 20
+    },
+    "cx": {
+      "eligible": 2,
+      "response_sha256": "3c6b6392ed0b376f96328eddaabd7d709cfafc5144b49a750e12dd3f2bdacb9d",
+      "selected": 2,
+      "settlements": 3
+    },
+    "dj": {
+      "eligible": 67,
+      "response_sha256": "72f7684856bdfb8102dc5e1920164fbf26f0933bd86b3bee2293562224154c8d",
+      "selected": 67,
+      "settlements": 72
+    },
+    "dm": {
+      "eligible": 67,
+      "response_sha256": "5e49500db4e5ff4ebbc59ee43c7e74d6be6e78cfb717d09afdd8357704d4b07b",
+      "selected": 67,
+      "settlements": 70
+    },
+    "eh": {
+      "eligible": 25,
+      "response_sha256": "ec2d7a9f72990ac1de885fe99a59a463c47600768bc380a719d4f146f4cc361d",
+      "selected": 25,
+      "settlements": 27
+    },
+    "er": {
+      "eligible": 104,
+      "response_sha256": "d31206578aa022ce0a660d8323deb891047ff24acb253e1ae056eac964ed81a9",
+      "selected": 100,
+      "settlements": 107
+    },
+    "fm": {
+      "eligible": 45,
+      "response_sha256": "a2738c789bd0fbc4fe2dd9f8497e7e251e5bd60e2bc9957519f65d9339f6ac07",
+      "selected": 45,
+      "settlements": 47
+    },
+    "gd": {
+      "eligible": 103,
+      "response_sha256": "f12b85f0e34fc737e7448fe3441f962c0082db8cb7b7ca26e490c8f8c326f965",
+      "selected": 100,
+      "settlements": 111
+    },
+    "gf": {
+      "eligible": 43,
+      "response_sha256": "334c93dbc2230a3d4b08ed3521cd92706b2f27c973a4048f665b78b4b5dd600c",
+      "selected": 43,
+      "settlements": 50
+    },
+    "gg": {
+      "eligible": 4,
+      "response_sha256": "0358d7669033bba9a41cec998d2bd2cee4d1172b17d94d259273e33e3b92a543",
+      "selected": 4,
+      "settlements": 5
+    },
+    "gi": {
+      "eligible": 1,
+      "response_sha256": "68d8af9a7b30c1df54a3c155ac3d931e51b865dda8f484d1ace31716bac13170",
+      "selected": 1,
+      "settlements": 1
+    },
+    "gm": {
+      "eligible": 308,
+      "response_sha256": "528d4c7fdcbca5e166c7773c98c38f510525656398487f21b423f8b922ff90d6",
+      "selected": 100,
+      "settlements": 315
+    },
+    "gp": {
+      "eligible": 35,
+      "response_sha256": "1a71216ab6965cb87d7b2481951006cf17a6d47c03c8dd8757f9a80d0a5a765f",
+      "selected": 35,
+      "settlements": 57
+    },
+    "gq": {
+      "eligible": 103,
+      "response_sha256": "ac9cf00ee9e2c0d7e149f40dae40826f5a1f5a4091aab8030a044dae0e829984",
+      "selected": 100,
+      "settlements": 117
+    },
+    "gs": {
+      "eligible": 1,
+      "response_sha256": "9a01485a9ffe89ae5ac3d0793138af00816a351dc6519c941f53d82667778a46",
+      "selected": 1,
+      "settlements": 2
+    },
+    "gw": {
+      "eligible": 57,
+      "response_sha256": "7b769ae6f49ebc64f71d02c11eb986f39339c6c9ec211c6d9af18d5c1eac57ab",
+      "selected": 57,
+      "settlements": 59
+    },
+    "hm": {
+      "eligible": 0,
+      "response_sha256": "97cc0a762602de8f51fa35170a3a5246a81887ab538b5adff21788aaf382e59c",
+      "selected": 0,
+      "settlements": 0
+    },
+    "io": {
+      "eligible": 1,
+      "response_sha256": "be4969da223c6f0d39d0e0bae5d46b51e2a87747200b464deaffaabccd824a80",
+      "selected": 1,
+      "settlements": 1
+    },
+    "ki": {
+      "eligible": 173,
+      "response_sha256": "ebb7f2c67fa31a23e03c2b4f048859a0eb55467adfc6dd00b5dd7ff7b02be1c5",
+      "selected": 100,
+      "settlements": 201
+    },
+    "km": {
+      "eligible": 207,
+      "response_sha256": "d0a54999faab3aaf2aeba30d12d74c0114036f4f65a3cac2b3342efd867ababd",
+      "selected": 100,
+      "settlements": 225
+    },
+    "kn": {
+      "eligible": 32,
+      "response_sha256": "0ac4916ff8fa585f727f3c75ac9bf6b50987de6cd5129be16937788b19885eb0",
+      "selected": 32,
+      "settlements": 35
+    },
+    "kp": {
+      "eligible": 60,
+      "response_sha256": "76eb60d3b34939c9194b1fd58e23037f6d57e3501f78faded025452ffd2426a1",
+      "selected": 60,
+      "settlements": 61
+    },
+    "lc": {
+      "eligible": 107,
+      "response_sha256": "125dd2afc802a7e170e34c4cb5eb2f154e81fe5b10ab59cc566a1080930990b6",
+      "selected": 100,
+      "settlements": 117
+    },
+    "li": {
+      "eligible": 21,
+      "response_sha256": "7c2ecd1edc26bc565d532dd58c5c781b237e673d8093678a23eb9b8ba6e829b9",
+      "selected": 21,
+      "settlements": 23
+    },
+    "lr": {
+      "eligible": 69,
+      "response_sha256": "a0d63c8c6a7809e637431250a29edbb9d8b4b3dc1d4f2ebf8f95b06b878bdd90",
+      "selected": 69,
+      "settlements": 73
+    },
+    "ls": {
+      "eligible": 53,
+      "response_sha256": "30b9b570da2437498c4ade38c0b7250546fd8f2986299cd82be4a478fef7fdeb",
+      "selected": 53,
+      "settlements": 56
+    },
+    "mc": {
+      "eligible": 6,
+      "response_sha256": "40fae436feb66162eeef739d9d4b463a25b4b74e9240b4481a1391a5aeef8582",
+      "selected": 6,
+      "settlements": 7
+    },
+    "mf": {
+      "eligible": 7,
+      "response_sha256": "51259160c5ffc2509eece2458dd97b669f0d59e155784262003edf7f9be6856e",
+      "selected": 7,
+      "settlements": 8
+    },
+    "mo": {
+      "eligible": 4,
+      "response_sha256": "b56a26af466d0c1c1456af2ad5854bd3c02c051e551a2aa53adc9ce33945f607",
+      "selected": 4,
+      "settlements": 4
+    },
+    "mp": {
+      "eligible": 16,
+      "response_sha256": "f11bae8e1185947c88fd896082b55d4b1e0d34fad9bc77a986a42b7900548885",
+      "selected": 16,
+      "settlements": 19
+    },
+    "mq": {
+      "eligible": 14,
+      "response_sha256": "c655eb8e37cf0c456da083db11c7cc66e6280b3b5ee57b2f0e30f7089f0577bb",
+      "selected": 14,
+      "settlements": 17
+    },
+    "mr": {
+      "eligible": 57,
+      "response_sha256": "35dd78cddafc9c6512344afccab0252f934e2b4de4ba8929256eca05b3e1304f",
+      "selected": 57,
+      "settlements": 61
+    },
+    "ms": {
+      "eligible": 3,
+      "response_sha256": "f0ea0d7a3737f291d010ba0f7e277508c978b56f525bbc155e7e74991949ef7b",
+      "selected": 3,
+      "settlements": 6
+    },
+    "mv": {
+      "eligible": 21,
+      "response_sha256": "b8a8eb34e24eada47caa85f4588cd0c1b1a058daf6539ddc68101530f0d6ef8f",
+      "selected": 21,
+      "settlements": 32
+    },
+    "ne": {
+      "eligible": 2573,
+      "response_sha256": "3659ee3715b46bd1df945ff126ba8d2fbfb15b977a9c382b420d5af5fad0772b",
+      "selected": 100,
+      "settlements": 2708
+    },
+    "nf": {
+      "eligible": 4,
+      "response_sha256": "6be35f7256318a84fe77f50f814dc8381d997613af7d85bd83a1fa3c0d827f15",
+      "selected": 4,
+      "settlements": 5
+    },
+    "nr": {
+      "eligible": 8,
+      "response_sha256": "9dc0a13bb16f786e1915e02cee290493cb267ea76305f8ad16bab173362f6811",
+      "selected": 8,
+      "settlements": 9
+    },
+    "nu": {
+      "eligible": 12,
+      "response_sha256": "87aeca243bfea61b8b14de0484ee053704fc6f886a2c8df6ebcc4dda5d7a7ca4",
+      "selected": 12,
+      "settlements": 13
+    },
+    "pg": {
+      "eligible": 165,
+      "response_sha256": "8ff26b3c74370ca39f5a50b1935241e789c616940b01799a77e240d8fc4b5ac6",
+      "selected": 100,
+      "settlements": 183
+    },
+    "pm": {
+      "eligible": 1,
+      "response_sha256": "b1fda376286b8a75865dcc017fa66fc4750e9362466421212d146aa7d6d20b78",
+      "selected": 1,
+      "settlements": 3
+    },
+    "pn": {
+      "eligible": 0,
+      "response_sha256": "4bdbbda45c787d0ca3645c569a8dc6a28b9a3889786dd8577a954af1283ec40d",
+      "selected": 0,
+      "settlements": 1
+    },
+    "pw": {
+      "eligible": 40,
+      "response_sha256": "7b922ffa152b3ee63ebe13dca76ec8f4128380663fc20272ec7232c3a66b2798",
+      "selected": 40,
+      "settlements": 42
+    },
+    "re": {
+      "eligible": 48,
+      "response_sha256": "3a4c14d19d594155d7ff3daf0ed385a827d5a8ac8025fbc92e0b3c93e8c97d69",
+      "selected": 48,
+      "settlements": 49
+    },
+    "sb": {
+      "eligible": 86,
+      "response_sha256": "336a52fabb414c9d97b056783e2317f5ed0edded81b0f9899fd3e5eb5da6054d",
+      "selected": 86,
+      "settlements": 97
+    },
+    "sc": {
+      "eligible": 15,
+      "response_sha256": "6d3a4001f1e00f7657f65393a3e207a1bb97b209cc72f1516e989e10b48ef1b4",
+      "selected": 15,
+      "settlements": 16
+    },
+    "sh": {
+      "eligible": 7,
+      "response_sha256": "4a945bb164b3c3d91eeb5a20ca4c0b9322df574091d6dc55cdeab93d354e54a8",
+      "selected": 7,
+      "settlements": 10
+    },
+    "sj": {
+      "eligible": 0,
+      "response_sha256": "97cc0a762602de8f51fa35170a3a5246a81887ab538b5adff21788aaf382e59c",
+      "selected": 0,
+      "settlements": 0
+    },
+    "sm": {
+      "eligible": 10,
+      "response_sha256": "4e66ad62811b55ac9867eae9e550c4fbbc48f0df41079d49c7eb35800295bd17",
+      "selected": 10,
+      "settlements": 11
+    },
+    "so": {
+      "eligible": 415,
+      "response_sha256": "1a9229ff01d519a1c83f186b897ab6d3734f95694e3a752e141859c8767d2ee4",
+      "selected": 100,
+      "settlements": 424
+    },
+    "ss": {
+      "eligible": 117,
+      "response_sha256": "0f4b965823489579747137b3e94e935f6c5890627cda1769dfcc73869f354f89",
+      "selected": 100,
+      "settlements": 121
+    },
+    "st": {
+      "eligible": 114,
+      "response_sha256": "1f36c51f0ea7a804e918787199a9265cbc1bae2c8d71b43ad45c091057bca8ea",
+      "selected": 100,
+      "settlements": 131
+    },
+    "sx": {
+      "eligible": 10,
+      "response_sha256": "d45e8f1027958a75f5bccf2c5731712ad4ae2feaf30e94492314c55c3ed51f24",
+      "selected": 10,
+      "settlements": 15
+    },
+    "td": {
+      "eligible": 180,
+      "response_sha256": "15d34148c1786022fc557fd4751442a8a118bbfc163c7de1eb28949830c18ddf",
+      "selected": 100,
+      "settlements": 182
+    },
+    "tf": {
+      "eligible": 1,
+      "response_sha256": "fd9b0885557c91ac53b97311094360d3978af697ef0ed11fc9749392fd03d3cf",
+      "selected": 1,
+      "settlements": 2
+    },
+    "tg": {
+      "eligible": 1737,
+      "response_sha256": "5733dd1ad55ae4922c9c0e9b37a3dcf4b84470e02c20e6b0355535636c710097",
+      "selected": 100,
+      "settlements": 1765
+    },
+    "tk": {
+      "eligible": 4,
+      "response_sha256": "6bc9f0186c18c6ecf764434e594b0621b0f4ddab79c0b42ab48407df716a768e",
+      "selected": 4,
+      "settlements": 4
+    },
+    "tl": {
+      "eligible": 81,
+      "response_sha256": "46736bbb9066f3226681de22cde7bf5b7aec9d0963e8b62c10db0ade2b0c10b9",
+      "selected": 81,
+      "settlements": 86
+    },
+    "to": {
+      "eligible": 70,
+      "response_sha256": "54feef4f044d382d0ddd87c5418a4b9a6621b28a84a6e151e1e982dcdd0c2968",
+      "selected": 70,
+      "settlements": 78
+    },
+    "tv": {
+      "eligible": 27,
+      "response_sha256": "c05e144bc0ba71217a82eb8a844a0a0e17c375f06a9c317307f3e8dc103534e2",
+      "selected": 27,
+      "settlements": 31
+    },
+    "um": {
+      "eligible": 4,
+      "response_sha256": "61fc125cd76704bd4f0c290dbe9d16b9f7c2c2897491655b5c683fd0cb11ed4f",
+      "selected": 4,
+      "settlements": 4
+    },
+    "va": {
+      "eligible": 1,
+      "response_sha256": "bfbb587c9c2382d027877f729383392f1d0af280458a94e57c6da9d49a6e74e9",
+      "selected": 1,
+      "settlements": 2
+    },
+    "vc": {
+      "eligible": 60,
+      "response_sha256": "7feafc4da733214ba5122db5bc5edd566d76b66553fdf06a2d64f07ba4cf86c3",
+      "selected": 60,
+      "settlements": 64
+    },
+    "vg": {
+      "eligible": 6,
+      "response_sha256": "ebd590850ed98eebe42f69e77f4a7bab8b88968d26f7443c612195259540cbfb",
+      "selected": 6,
+      "settlements": 9
+    },
+    "vu": {
+      "eligible": 36,
+      "response_sha256": "45166cff1bfc99ed8e454c60fb1667b99d96661cc9ad0dc6c0e81d5f21fd5231",
+      "selected": 36,
+      "settlements": 39
+    },
+    "wf": {
+      "eligible": 35,
+      "response_sha256": "cbb360c1479d2b8e52785390d579dda2c51bcb656b87c3398afb4ba5c83cb6e2",
+      "selected": 35,
+      "settlements": 38
+    },
+    "ws": {
+      "eligible": 230,
+      "response_sha256": "48ec2f1ab885cedaf34998a4325cd2aef91171d7dab09f590af678873e5d6ad5",
+      "selected": 100,
+      "settlements": 259
+    },
+    "yt": {
+      "eligible": 43,
+      "response_sha256": "6e5bad0cf19c7d17714ab8e2f0a9e620719fc6aa49e36a6517a17c847173ffb4",
+      "selected": 43,
+      "settlements": 44
+    }
+  },
+  "query": "SELECT ?item ?label ?pop WHERE {\n  ?area wdt:P297 \"%s\" .\n  { ?item wdt:P17 ?area } UNION { ?item wdt:P131+ ?area }\n  { VALUES ?type { wd:Q515 wd:Q3957 wd:Q532 wd:Q5084 } ?item wdt:P31/wdt:P279* ?type } UNION { ?item wdt:P31 wd:Q486972 }\n  ?item wdt:P625 ?point ; rdfs:label ?label ; wdt:P17/wdt:P297 [] .\n  FILTER(isLiteral(?point))\n  FILTER(LANG(?label) = \"en\")\n  FILTER NOT EXISTS { ?item wdt:P576 [] }\n  OPTIONAL { ?item wdt:P1082 ?pop }\n}",
+  "seed": "wikidata-towns-2026-10"
+}

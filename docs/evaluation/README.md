@@ -67,7 +67,16 @@ Per-country sampling, preparation commands, provenance, limitations and baseline
 
 ### Global source-consistency panel
 
-The [130-market address panel](global-addresses.md) adds 6,500 mapped address groups and 12,991 query variants to the default gold suite. Its `global_osm_*` cohorts preserve source attribution and shared OSM ancestry; these checks provide regression coverage, not independent national accuracy. Existing failures and unresolved source conflicts remain visible without `known_failure` exemptions. The combined suite has 29,478 cases; its absolute gate can fail on the panel's critical diagnostics while relative comparisons still catch regressions on shared cases. The evaluation image includes the corpus and ODbL notice, and `tests/global/**` changes trigger the staging/gold workflow.
+The [172-market address panel](global-addresses.md) adds 8,600 mapped address groups and 17,186 query variants to the default gold suite. Its `global_osm_*` cohorts preserve source attribution and shared OSM ancestry; these checks provide regression coverage, not independent national accuracy. Existing failures and unresolved source conflicts remain visible without `known_failure` exemptions. The combined suite has 36,920 cases; its absolute gate can fail on the panel's critical diagnostics while relative comparisons still catch regressions on shared cases. The evaluation image includes the corpus and ODbL notice, and `tests/global/**` changes trigger the staging/gold workflow.
+
+### Town-level cases
+
+`tests/gold.towns.jsonl` covers the 78 countries and territories that neither the address panel nor a registry corpus reaches, at town level: SearchAddress, SuggestAddress, ReverseGeocode and ResolveRegion for up to 100 settlements per country (3,247 in all), each typed as `Town, Country`. `tests/towns/sample-towns.py` picks them from Wikidata into `tests/gold.towns.seeds.jsonl`: cities, towns, villages and hamlets with coordinates, not administrative units, whose English label no other settlement of the country shares and names no country, half the most populous and the rest in seeded-hash order; it records the query and each response's hash in `tests/towns/manifest.json`. `evaluate build-gold --seeds tests/gold.towns.seeds.jsonl --out tests/gold.towns.jsonl` then reads every expectation from Wikidata, as for the other place seeds. Wikidata files some territories' towns under the sovereign as well for some items only; for the Cook Islands, Niue, Tokelau, Macao, Sint Maarten, the British Virgin Islands and Western Sahara the seeds accept both codes for every town, as the rest of the corpus does for territories. Small territories have only a few settlements (Gibraltar one, Pitcairn none), and some have none with a country Wikidata can name; they stay short rather than padded. These are town lookups, not addresses: most of these places have little house-number addressing.
+
+```sh
+python3 tests/towns/sample-towns.py --countries CC ... --cache SOURCE/towns --out tests/gold.towns.seeds.jsonl --manifest tests/towns/manifest.json
+target/release/evaluate build-gold --seeds tests/gold.towns.seeds.jsonl --out tests/gold.towns.jsonl
+```
 
 ### Runtime fixes exposed by the registries
 

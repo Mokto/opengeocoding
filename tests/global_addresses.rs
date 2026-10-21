@@ -36,7 +36,7 @@ fn global_address_benchmark_preserves_its_source_records_and_scope() {
         "source-consistency-not-independent-accuracy"
     );
     assert!(manifest["errors"].as_object().unwrap().is_empty());
-    assert_eq!(manifest["coverage"].as_object().unwrap().len(), 130);
+    assert_eq!(manifest["coverage"].as_object().unwrap().len(), 172);
     let by_id: BTreeMap<_, _> = cases
         .iter()
         .map(|case| (case["id"].as_str().unwrap(), case))
@@ -54,13 +54,17 @@ fn global_address_benchmark_preserves_its_source_records_and_scope() {
         );
         for record in records {
             let node = record["id"].as_u64().unwrap();
+            // addresses mapped on buildings (`--loose`) are ways, with their own id space
+            let kind = record["type"].as_str().unwrap_or("node");
+            assert!(matches!(kind, "node" | "way"));
+            let prefix = if kind == "way" { "w" } else { "" };
             let version = record["version"].as_u64().unwrap();
             let alternative = (cc == "au")
                 .then(|| alternatives.remove(&(node, version)))
                 .flatten();
             let queries = record["queries"].as_array().unwrap();
             for (variant, query) in queries.iter().enumerate() {
-                let id = format!("global-osm-{cc}-{node}-{variant}");
+                let id = format!("global-osm-{cc}-{prefix}{node}-{variant}");
                 assert!(expected.insert(id.clone()));
                 let case = by_id[id.as_str()];
                 assert_eq!(&case["query"], query);
@@ -87,8 +91,12 @@ fn global_address_benchmark_preserves_its_source_records_and_scope() {
                 // a territory also answers as its sovereign country
                 let mut countries = vec![cc.as_str()];
                 countries.extend(match cc.as_str() {
-                    "pr" => Some("us"),
-                    "nc" => Some("fr"),
+                    "pr" | "gu" | "vi" => Some("us"),
+                    "nc" | "pf" => Some("fr"),
+                    "aw" | "cw" => Some("nl"),
+                    "bm" | "fk" | "ky" | "tc" => Some("gb"),
+                    "ax" => Some("fi"),
+                    "hk" => Some("cn"),
                     _ => None,
                 });
                 countries.sort();
@@ -105,12 +113,15 @@ fn global_address_benchmark_preserves_its_source_records_and_scope() {
                     case["holdout"],
                     holdout(record["location"].as_str().unwrap())
                 );
-                assert_eq!(case["source"]["name"], "openstreetmap-address-node");
+                assert_eq!(
+                    case["source"]["name"],
+                    format!("openstreetmap-address-{kind}")
+                );
                 assert_eq!(case["source"]["license"], "ODbL-1.0");
                 assert_eq!(
                     case["source"]["url"],
                     format!(
-                        "https://www.openstreetmap.org/api/0.6/node/{node}/{}",
+                        "https://www.openstreetmap.org/api/0.6/{kind}/{node}/{}",
                         record["version"].as_u64().unwrap()
                     )
                 );
