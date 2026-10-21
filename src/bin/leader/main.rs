@@ -288,16 +288,15 @@ async fn main() -> Result<()> {
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
-    let _sentry = sentry::init(sentry::ClientOptions {
-        dsn: std::env::var("SENTRY_DSN")
-            .ok()
-            .filter(|s| !s.is_empty())
-            .map(|s| s.parse())
-            .transpose()?,
-        environment: std::env::var("ENV").ok().map(std::borrow::Cow::Owned),
-        release: sentry::release_name!(),
-        ..Default::default()
-    });
+    let mut sentry_options = sentry::ClientOptions::new();
+    sentry_options.dsn = std::env::var("SENTRY_DSN")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.parse())
+        .transpose()?;
+    sentry_options.environment = std::env::var("ENV").ok().map(std::borrow::Cow::Owned);
+    sentry_options.release = sentry::release_name!();
+    let _sentry = sentry::init(sentry_options);
     let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
     tokio::select! {
         r = run() => r,

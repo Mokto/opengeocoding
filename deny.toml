@@ -2,10 +2,6 @@
 all-features = true
 
 [advisories]
-ignore = [
-  { id = "RUSTSEC-2026-0194", reason = "quick-xml 0.39 comes with object_store 0.13 and only parses the operator's own store's responses; object_store 0.14 fixes it" },
-  { id = "RUSTSEC-2026-0195", reason = "quick-xml 0.39 comes with object_store 0.13 and only parses the operator's own store's responses; object_store 0.14 fixes it" },
-]
 
 [licenses]
 allow = [
