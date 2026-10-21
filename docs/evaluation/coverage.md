@@ -8,6 +8,8 @@ This historical audit records coverage counts and source decisions for specific 
 
 The largest gaps in one world build (Overture 2026-09-23.1 with the OSM, OpenAddresses and GeoNames [source inputs](../guides/indexing.md#overture-address-index)), before and after Overture's places were added. [The full measurement](house-number-coverage.tsv) records every country's before/after counts (base builder `4f714061845f4003`, candidate `0a3e9077e88a1702`; the `trial` column records the rejected wider import). Population: [GeoNames countryInfo.txt](https://download.geonames.org/export/dump/countryInfo.txt), retrieved 2026-10-16, SHA-256 `c55f638cfaafb4fe45a9aa15120a0f1f78e8a34a8e1847d7b9320cf740fbc9ab`.
 
+The same measurement on an index from the 0.18.0 builder (`e8c4a1473b15ae4a`, Overture 2026-09-23.1 with the chart's OSM extracts, 21 October 2026) is in [house-number-coverage-0.18.0.tsv](house-number-coverage-0.18.0.tsv). Taiwan rose from 4.3 to 5.5 million houses; the largest gaps did not close: India has 85,265 houses, China 44,624, Indonesia 68,083, Pakistan 96,338, Nigeria 7,248 and Ethiopia 423.
+
 | Country | Population | Houses | Per 1,000 people | Streets with a number | Estimated gap |
 |---|---:|---:|---:|---:|---:|
 | India | 1,464 M | 85,596 | 0 | 13% | 439.1 M |
