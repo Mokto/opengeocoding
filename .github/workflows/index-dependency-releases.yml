@@ -1,0 +1,27 @@
+name: Index dependency releases
+
+# tantivy, tantivy-fst and deunicode are in the builder hash, so upgrading one names a new index
+# and is done by hand (Renovate skips them). This opens one issue per new release instead.
+on:
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    if: github.repository == 'Mokto/opengeocoding'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - name: Open an issue for each new release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ""
+        run: .github/index-dependency-releases.sh
