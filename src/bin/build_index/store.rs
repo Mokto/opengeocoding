@@ -7,6 +7,8 @@
 //! A local directory store hard-links the files of a published or fetched directory instead of
 //! copying them, when they share a file system: nothing writes such a file in place (the builder
 //! recreates its output directory, readers only read), so the copies can share their blocks.
+//! A linked file is checked by size only: it is the store's own file, hashed when it was published,
+//! and rehashing a full index's sources reads about 135 GB, a quarter of an hour on a network disk.
 use crate::progress::Progress;
 use anyhow::{Context, Result, bail, ensure};
 use object_store::{
@@ -352,19 +354,19 @@ impl Store {
                 if matches(&local, &e, trusted).await? {
                     progress.skip(e.size);
                 } else {
-                    let sha = match store.file(&key).filter(|f| link(f, &local).is_ok()) {
+                    let ok = match store.file(&key).filter(|f| link(f, &local).is_ok()) {
                         Some(_) => {
                             progress.add(e.size);
-                            let local = local.clone();
-                            tokio::task::spawn_blocking(move || sha256(&local)).await??
+                            std::fs::metadata(&local)?.len() == e.size
                         }
                         None => {
                             store
                                 .download(&key, e.size, &local, Some(&progress))
                                 .await?
+                                == e.sha256
                         }
                     };
-                    if sha != e.sha256 {
+                    if !ok {
                         let _ = std::fs::remove_file(&local);
                         bail!("{rel}/{} does not match its MANIFEST entry", e.path);
                     }
@@ -539,8 +541,12 @@ mod tests {
         damage(&kept, b"hi");
         store.fetch("indexes/x", &dst).await.unwrap();
         assert_eq!(std::fs::read(&kept).unwrap(), b"hello");
-        // a corrupted object fails the check instead of being served
+        // a linked object is trusted by size: same-size damage is served, a size change fails
         damage(&bucket.join("indexes/x/nested/small.txt"), b"HELLO");
+        std::fs::remove_file(dst.join("nested/small.txt")).unwrap();
+        store.fetch("indexes/x", &dst).await.unwrap();
+        assert_eq!(std::fs::read(&kept).unwrap(), b"HELLO");
+        damage(&bucket.join("indexes/x/nested/small.txt"), b"HELLO!");
         std::fs::remove_file(dst.join("nested/small.txt")).unwrap();
         assert!(store.fetch("indexes/x", &dst).await.is_err());
         std::fs::remove_dir_all(&base).unwrap();
