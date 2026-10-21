@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.18.1](https://github.com/Mokto/opengeocoding/compare/v0.18.0...v0.18.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* delete an earlier build's sources from a kept scratch volume ([#259](https://github.com/Mokto/opengeocoding/issues/259)) ([f3b90f1](https://github.com/Mokto/opengeocoding/commit/f3b90f1a32afa941f7e8bc12af72da370eb1ac90))
+* **deps:** update rustls, rustls-webpki and webpki roots for RUSTSEC-2026-0346 to 0349 and 0381 to 0383 ([0b331b3](https://github.com/Mokto/opengeocoding/commit/0b331b35dbeed0edd4d8a9ab1c113bb6541c66aa))
+* find Arabic houses written with the number before the street ([#262](https://github.com/Mokto/opengeocoding/issues/262)) ([d205d6d](https://github.com/Mokto/opengeocoding/commit/d205d6d7031ef50b559e106c0211f4b840944839))
+* find Czech houses by orientation number alone and by č.p. or č.ev. mark ([#260](https://github.com/Mokto/opengeocoding/issues/260)) ([454ed5b](https://github.com/Mokto/opengeocoding/commit/454ed5bc1ad90e547eadf180afcc3560411fbacc))
+* find Irish provinces by name and keep Wallis and Futuna district codes ([#167](https://github.com/Mokto/opengeocoding/issues/167)) ([#251](https://github.com/Mokto/opengeocoding/issues/251)) ([8307ab0](https://github.com/Mokto/opengeocoding/commit/8307ab09eb58e035684ad034470402c56fb359b5))
+* index Brazil's OSM addresses ([#284](https://github.com/Mokto/opengeocoding/issues/284)) ([15c66ce](https://github.com/Mokto/opengeocoding/commit/15c66ce6b4406c2d0abd221bcd899fec94cf1ef4))
+
+
+### Performance Improvements
+
+* trust hard-linked store files by size instead of rehashing them ([#255](https://github.com/Mokto/opengeocoding/issues/255)) ([d17f3b5](https://github.com/Mokto/opengeocoding/commit/d17f3b568e0ca9f2230c15688247dc80e09c93ab))
+
 ## [0.18.0](https://github.com/Mokto/opengeocoding/compare/v0.17.1...v0.18.0) (2026-10-21)
 
 
