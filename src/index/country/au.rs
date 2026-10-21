@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 /// An Australian unit before its building's number: "1/44 Macleay St", "Unit 1 44 Macleay St"
 /// or "Unit 1, 44 Macleay St". The unit as typed, whether a slash joined it to the number, and
 /// the text without it.
-pub(in crate::index) fn australian_unit(typed: &Typed) -> Option<(String, bool, Typed)> {
+fn australian_unit(typed: &Typed) -> Option<(String, bool, Typed)> {
     const KIND: &str = r"(?:unit|u|apt|apartment|flat|shop|suite|villa|townhouse|office|level|lvl|l|floor|fl|site)";
     static SLASH: LazyLock<regex::Regex> =
         LazyLock::new(|| regex::Regex::new(r"^([A-Za-z]?\d{1,5}[A-Za-z]?)/(\d.*\s.*)$").unwrap());
@@ -80,7 +80,7 @@ pub fn without_australian_unit(query: &str) -> Option<String> {
 impl Index {
     /// Is the text Australian: Australia filtered for or named, or a part that is a state's
     /// code or ends with one and a postcode ("Crace ACT 2911")?
-    pub(in crate::index) fn australian(&self, typed: &Typed, cc: Option<&str>) -> bool {
+    fn australian(&self, typed: &Typed, cc: Option<&str>) -> bool {
         if let Some(cc) = cc {
             return cc.eq_ignore_ascii_case("au");
         }

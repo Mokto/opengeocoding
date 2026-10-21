@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 
 /// ISO 3166-2:IE's four provinces, above the counties that are Overture's Irish regions: code,
 /// English and Irish name, and counties.
-pub(crate) const IRISH_PROVINCES: [(&str, &str, &str, &[&str]); 4] = [
+const IRISH_PROVINCES: [(&str, &str, &str, &[&str]); 4] = [
     (
         "IE-C",
         "Connacht",

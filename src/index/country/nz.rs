@@ -1,6 +1,6 @@
 use crate::index::*;
 
-pub(crate) fn nz_localities_aligned(
+fn nz_localities_aligned(
     head: &[(String, String)],
     suburb: Option<&str>,
     city: &str,

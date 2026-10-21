@@ -103,7 +103,7 @@ impl Index {
         towns.is_empty().then_some(Hit::Place(region))
     }
 
-    pub(super) fn korean_scope(&self, address: &Address<'_>) -> Option<Vec<u32>> {
+    fn korean_scope(&self, address: &Address<'_>) -> Option<Vec<u32>> {
         let country = match address.country {
             Some(country) => Some(self.country(country)?),
             None => None,

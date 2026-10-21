@@ -1,7 +1,7 @@
 use crate::index::*;
 
 /// Reads 一 to 九十九.
-pub(crate) fn kanji_number(t: &str) -> Option<u32> {
+fn kanji_number(t: &str) -> Option<u32> {
     let digit = |c: char| {
         "〇一二三四五六七八九"
             .chars()
