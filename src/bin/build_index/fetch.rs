@@ -480,7 +480,8 @@ async fn geofabrik(
     let file = |id: &String| format!("{}.osm.pbf", id.replace('/', "_"));
     // Once a snapshot's mirror is sealed it is never refilled, but an extract can move between
     // the address and landmark lists: it is then taken from the other list's mirror of the
-    // same fetch. One neither holds needs a new snapshot label.
+    // same fetch. One neither holds is fetched on its own into `geofabrik/<file>`, so adding an
+    // extract costs that extract, not a new label that fetches every source again.
     let rel = |list: &str| format!("sources/{}/{list}", src.snapshot);
     if store.exists(&format!("{}/_COMPLETE", rel(name))).await? {
         std::fs::create_dir_all(&dir)?;
@@ -510,12 +511,28 @@ async fn geofabrik(
                 missing.retain(|n| !held.contains(n));
             }
         }
-        ensure!(
-            missing.is_empty(),
-            "snapshot {} mirrored no {}; fetching a new extract needs a new snapshot label",
-            src.snapshot,
-            missing.into_iter().collect::<Vec<_>>().join(", ")
-        );
+        let mut upstream = Vec::new();
+        for f in missing {
+            let added = format!("sources/{}/geofabrik/{f}", src.snapshot);
+            if store.exists(&format!("{added}/_COMPLETE")).await? {
+                println!("{added}: from the store");
+                store
+                    .fetch_files(&added, &dir, Some(&BTreeSet::from([f])))
+                    .await?;
+            } else {
+                upstream.push((f, added));
+            }
+        }
+        if !upstream.is_empty() {
+            let urls = geofabrik_urls(client).await?;
+            for (f, added) in upstream {
+                let id = ids.iter().find(|id| file(id) == f).expect("named by ids");
+                let url = urls
+                    .get(id)
+                    .with_context(|| format!("no Geofabrik extract {id}"))?;
+                add_extract(store, client, url, &added, &dir, &f).await?;
+            }
+        }
         prune(&dir, &wanted)?;
         return Ok(Some(dir));
     }
@@ -527,30 +544,13 @@ async fn geofabrik(
         &dir,
         2,
         || async move {
-            let index: serde_json::Value = c
-                .get("https://download.geofabrik.de/index-v1-nogeom.json")
-                .send()
-                .await?
-                .error_for_status()?
-                .json()
-                .await?;
-            let urls: BTreeMap<&str, &str> = index["features"]
-                .as_array()
-                .context("Geofabrik index")?
-                .iter()
-                .filter_map(|f| {
-                    Some((
-                        f["properties"]["id"].as_str()?,
-                        f["properties"]["urls"]["pbf"].as_str()?,
-                    ))
-                })
-                .collect();
+            let urls = geofabrik_urls(&c).await?;
             ids.iter()
                 .map(|id| {
                     let url = urls
-                        .get(id.as_str())
+                        .get(id)
                         .with_context(|| format!("no Geofabrik extract {id}"))?;
-                    Ok((format!("{}.osm.pbf", id.replace('/', "_")), url.to_string()))
+                    Ok((format!("{}.osm.pbf", id.replace('/', "_")), url.clone()))
                 })
                 .collect()
         },
@@ -564,6 +564,48 @@ async fn geofabrik(
     )
     .await?;
     Ok(Some(dir))
+}
+
+/// Geofabrik's extract ids and their `.osm.pbf` URLs.
+async fn geofabrik_urls(client: &reqwest::Client) -> Result<BTreeMap<String, String>> {
+    let index: serde_json::Value = client
+        .get("https://download.geofabrik.de/index-v1-nogeom.json")
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    Ok(index["features"]
+        .as_array()
+        .context("Geofabrik index")?
+        .iter()
+        .filter_map(|f| {
+            Some((
+                f["properties"]["id"].as_str()?.to_string(),
+                f["properties"]["urls"]["pbf"].as_str()?.to_string(),
+            ))
+        })
+        .collect())
+}
+
+/// Downloads one extract into `dir/name` and seals it alone at `rel`, so the next build with
+/// the same snapshot takes it from the store.
+async fn add_extract(
+    store: &Store,
+    client: &reqwest::Client,
+    url: &str,
+    rel: &str,
+    dir: &Path,
+    name: &str,
+) -> Result<()> {
+    let local = dir.join(name);
+    ensure!(http_get(client, url, &local).await?, "{url} not found");
+    store.upload(&local, &format!("{rel}/{name}"), None).await?;
+    store
+        .seal(rel, store::hash_all(dir, &[name.to_string()]).await?)
+        .await?;
+    println!("{rel}: sealed, from {url}");
+    Ok(())
 }
 
 /// Copies the row groups of an Overture GeoParquet file whose `bbox` statistics meet `b` into
@@ -1040,7 +1082,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn an_extract_moved_between_lists_comes_from_the_other_sealed_mirror() {
+    async fn an_extract_comes_from_the_other_list_or_is_added_to_a_sealed_snapshot() {
         let base = std::env::temp_dir().join(format!("geofabrik-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let store = Store::open(&format!("file://{}", base.join("bucket").display())).unwrap();
@@ -1087,7 +1129,30 @@ mod tests {
             std::fs::read_to_string(dir.join("japan.osm.pbf")).unwrap(),
             "japan"
         );
-        let err = geofabrik(
+        // an extract neither list holds is fetched alone, sealed, and reused by the next build
+        let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/mexico.osm.pbf", server.local_addr().unwrap());
+        std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            let (mut conn, _) = server.accept().unwrap();
+            let _ = conn.read(&mut [0; 4096]).unwrap();
+            conn.write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Length: 6\r\nConnection: close\r\n\r\nmexico",
+            )
+            .unwrap();
+        });
+        let added = "sources/2026-10/geofabrik/mexico.osm.pbf";
+        add_extract(
+            &store,
+            &client,
+            &url,
+            added,
+            &base.join("other"),
+            "mexico.osm.pbf",
+        )
+        .await
+        .unwrap();
+        let dir = geofabrik(
             &store,
             &client,
             &src,
@@ -1096,8 +1161,16 @@ mod tests {
             &scratch,
         )
         .await
-        .unwrap_err();
-        assert!(err.to_string().contains("mexico.osm.pbf"), "{err}");
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            store::walk(&dir).unwrap(),
+            ["chile.osm.pbf", "mexico.osm.pbf"]
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join("mexico.osm.pbf")).unwrap(),
+            "mexico"
+        );
         std::fs::remove_dir_all(&base).unwrap();
     }
     #[tokio::test]

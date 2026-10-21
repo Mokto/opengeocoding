@@ -44,7 +44,7 @@ index:
     overtureRelease: "2026-09-23.1"
     # Labels one fetch of the sources that only publish "latest" (OSM, OpenAddresses, GeoNames).
     # A new label fetches them again. An extract can move between `osm` and `osmLandmarks` under
-    # one label; adding one neither list had needs a new label.
+    # one label, and one neither list had is fetched on its own, without a new label.
     snapshot: "2026-10-21"
     # [min lon, min lat, max lon, max lat] to build a regional index; empty for the world.
     # Overture is then read only where its row groups meet the box.
