@@ -6,7 +6,7 @@ name: Cancel the checks of a closed pull request
 # cluster. pull_request_target runs this file from the default branch, so it works for forks, and
 # it executes nothing from the pull request.
 on:
-  pull_request_target:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] runs nothing from the pull request
     types: [closed]
 
 permissions: {}

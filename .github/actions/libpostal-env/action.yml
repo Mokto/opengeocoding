@@ -9,7 +9,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       id: libpostal
       with:
         path: ${{ env.LIBPOSTAL_PREFIX }}
@@ -25,7 +25,7 @@ runs:
         cd /tmp/libpostal && ./bootstrap.sh
         CFLAGS="-std=gnu99" ./configure --prefix="$LIBPOSTAL_PREFIX" --datadir="$LIBPOSTAL_MODELS" --disable-data-download ${{ runner.arch == 'ARM64' && '--disable-sse2' || '' }}
         make -j4 && make install
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       id: models
       if: inputs.models == 'true'
       with:

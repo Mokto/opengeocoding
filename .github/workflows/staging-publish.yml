@@ -18,7 +18,7 @@ name: Staging image publish
 # only accept workflows from main and hold the endpoint key (GOLD_GATEWAY_KEY) and URL
 # (GOLD_GATEWAY_URL).
 on:
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] see above
     workflows: [Staging image build]
     types: [completed]
 
@@ -41,7 +41,7 @@ jobs:
           pattern: staging-image-*
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -181,12 +181,15 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Start the run
-        run: |
+        run: | # zizmor: ignore[github-env] through setenv
           set -euo pipefail
           # Comment updates are best effort; a failed one never fails the run.
           cat > "$RUNNER_TEMP/lib.sh" <<'LIB'
           PHASES="$RUNNER_TEMP/phases.tsv"   # step, start, end (empty while it runs), tab-separated
           log() { echo "$(date -u +%H:%M:%S) $*"; }
+          # Values can come from the gateway or the head commit's report: a newline would add
+          # variables (BASH_ENV, LD_PRELOAD) to a job holding the gateway key.
+          setenv() { printf '%s=%s\n' "$1" "$(printf %s "$2" | tr -d '\r\n')" >> "$GITHUB_ENV"; }
           dur() { printf '%dm%02ds' $(($1 / 60)) $(($1 % 60)); }
           phase_end() {
             [ -s "$PHASES" ] || return 0
@@ -285,7 +288,7 @@ jobs:
             case "$code" in
               202) break ;;
               409) if [ "$SECONDS" -ge "$deadline" ]; then
-                     log "No free slot after 5 hours"; echo "FAILED_STEP=no free slot after 5 hours" >> "$GITHUB_ENV"; exit 1
+                     log "No free slot after 5 hours"; setenv FAILED_STEP "no free slot after 5 hours"; exit 1
                    fi
                    if [ -z "$waiting" ]; then
                      waiting=1; phase_start "waiting for a free slot"
@@ -293,15 +296,15 @@ jobs:
                    progress queued "Both slots of the cluster are busy, or the one holding this run's index is; the run starts when it is free."
                    log "No slot can take the run yet; waited $(dur "$SECONDS") so far, retrying in 60 s"; sleep 60 ;;
               *) log "Starting the run failed: HTTP $code"; jq -r '.error // empty' start.json
-                 echo "FAILED_STEP=starting the run (HTTP $code)" >> "$GITHUB_ENV"; exit 1 ;;
+                 setenv FAILED_STEP "starting the run (HTTP $code)"; exit 1 ;;
             esac
           done
           phase_end
           RUN_ID=$(jq -r .id start.json)
-          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          setenv RUN_ID "$RUN_ID"
           log "Run $RUN_ID accepted after $(dur "$SECONDS") in the queue"
       - name: Wait for the run
-        run: |
+        run: | # zizmor: ignore[github-env] through setenv
           set -euo pipefail
           . "$RUNNER_TEMP/lib.sh"
           # The gateway is polled every 10 s, the comment edited on a change or every 30 s: GITHUB_TOKEN
@@ -335,7 +338,7 @@ jobs:
             else
               errors=$((errors + 1)); log "The endpoint did not answer ($errors of 60)"
               [ "$errors" -lt 60 ] || {
-                echo "FAILED_STEP=the run's endpoint stopped answering" >> "$GITHUB_ENV"
+                setenv FAILED_STEP "the run's endpoint stopped answering"
                 progress "lost contact with the run" "The run's endpoint stopped answering${phase:+ during \`$phase\`}. The run may still be going in the cluster; this job gave up after 60 failed polls, 10 minutes."
                 echo "::error title=Gold run lost::The endpoint stopped answering${phase:+ during $phase}; the run may still be going in the cluster (run $RUN_ID)"
                 exit 1
@@ -345,7 +348,7 @@ jobs:
           done
           phase_end
           if [ "$status" != succeeded ]; then
-            echo "FAILED_STEP=$phase" >> "$GITHUB_ENV"
+            setenv FAILED_STEP "$phase"
             took=$(dur $(($(date +%s) - began)))
             note="The run failed in step \`$phase\` after $took. This is a failure of the run, not a verdict on the change: nothing here says the commit regresses. The step's own log stays in the cluster; give a maintainer the run id."
             progress "run failed in $phase" "$note"
@@ -355,9 +358,9 @@ jobs:
           fi
           log "Done: $(timing_line)"
           jq -r .report run.json > report.md
-          echo "EXIT=$(jq -r .exit run.json)" >> "$GITHUB_ENV"
+          setenv EXIT "$(jq -r .exit run.json)"
       - name: Report
-        run: |
+        run: | # zizmor: ignore[github-env] through setenv
           set -euo pipefail
           . "$RUNNER_TEMP/lib.sh"
           # evaluate diff puts the speed comparison between these two lines; it gets its own comment
@@ -366,8 +369,8 @@ jobs:
           sed '/^<!-- speed: /,/^<!-- speed end -->/d' report.md > gold.md
           speed=$(sed -n 's/^<!-- speed: \([a-z]*\) -->$/\1/p' speed.md)
           headline=$(sed -n 's/^## Speed: //p' speed.md)
-          echo "SPEED=${speed:-none}" >> "$GITHUB_ENV"
-          echo "SPEED_HEADLINE=${headline:-not measured by the evaluator of this head commit}" >> "$GITHUB_ENV"
+          setenv SPEED "${speed:-none}"
+          setenv SPEED_HEADLINE "${headline:-not measured by the evaluator of this head commit}"
           # The gateway's own "pass base=N head=M" line repeats the summary table; an older evaluator's
           # headline line is dropped too.
           sed -i -e '/^<!-- headline: /d' -e '/^pass base=[0-9]* head=[0-9]* of [0-9]*/d' gold.md
