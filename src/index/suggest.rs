@@ -1688,10 +1688,11 @@ impl Index {
             })
             .into_iter()
             .flatten();
-        let mut tries: Vec<(Option<usize>, Vec<&str>)> = vec![];
+        let mut tries: Vec<(Option<String>, bool, Vec<&str>)> = vec![];
         for i in number_at {
             tries.push((
-                Some(i),
+                Some(raw[i].to_owned()),
+                i == raw.len() - 1,
                 raw.iter()
                     .enumerate()
                     .filter(|&(j, _)| j != i)
@@ -1700,11 +1701,22 @@ impl Index {
             ));
         }
         // "route 66": a digit word that is part of the road
-        tries.push((None, raw.clone()));
+        tries.push((None, false, raw.clone()));
+        // "Muurlantie 340 A": OpenStreetMap keys some houses with the space
+        if raw.len() > 2 {
+            for start in [0, raw.len() - 2] {
+                let number = raw[start..start + 2].join(" ");
+                if number.len() <= MAX_NUMBER && compact_house_suffix(&number).is_some() {
+                    let mut road = raw.clone();
+                    road.drain(start..start + 2);
+                    tries.push((Some(number), start > 0, road));
+                }
+            }
+        }
         let mut out = vec![];
-        for (number, road) in tries {
-            let number_word = number.map(|i| raw[i]);
-            let number_open = typed.open && one_part && number == Some(raw.len() - 1);
+        for (number, at_end, road) in tries {
+            let number_word = number.as_deref();
+            let number_open = typed.open && one_part && at_end;
             let road_open = typed.open && one_part && !number_open;
             let road_words = words_open(&road.join(" "), road_open);
             if road_words.is_empty() {

@@ -294,6 +294,22 @@ fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
             "{typed}"
         );
     }
+    // a letter after a space, as some sources key the house
+    for typed in [
+        "Rue de Rivoli 9 C, 75001 Paris, France",
+        "9 C Rue de Rivoli, Paris",
+    ] {
+        let found = at(typed, None);
+        assert!(!found.is_empty(), "{typed}");
+        assert_eq!(found[0].kind, "address", "{typed}");
+        assert!(
+            metres(
+                (found[0].x, found[0].y),
+                house(street("Rue de Rivoli"), "9 C")
+            ) < 5.0,
+            "{typed}"
+        );
+    }
     let found = at("14 Meadow Road, Bayport, IL", None);
     assert!(!found.is_empty());
     assert_eq!(found[0].kind, "address");
