@@ -1628,6 +1628,32 @@ fn czech_number_marks(parsed: &mut Vec<(String, String)>) {
     }
 }
 
+/// "5 شارع الكنيسه, مركز منفلوط, …": libpostal reads a number written before an Arabic street
+/// as part of the road (or of a house name) and lets the road run on past the comma, but parses
+/// the same address with the number after the street. That order, and the number, when the
+/// number heads the first part and at least two words follow it: one word after it is a dated
+/// name ("15 مايو", "6 أكتوبر"). The caller keeps it only if libpostal then reads the number
+/// as the house number.
+fn arabic_number_last(q: &str) -> Option<(String, String)> {
+    let (head, rest) = q.split_once(',').unwrap_or((q, ""));
+    let (number, street) = head.trim().split_once(' ')?;
+    let street = street.trim();
+    (!number.is_empty()
+        && number.bytes().all(|b| b.is_ascii_digit())
+        && street.split_whitespace().count() >= 2
+        && street
+            .chars()
+            .any(|c| ('\u{0600}'..='\u{06ff}').contains(&c)))
+    .then(|| {
+        let tail = if rest.is_empty() {
+            String::new()
+        } else {
+            format!(",{rest}")
+        };
+        (format!("{street} {number}{tail}"), number.to_string())
+    })
+}
+
 /// The process's one libpostal parser.
 pub struct Parser {
     postal: Mutex<rustpostal::LibModules>,
@@ -1687,7 +1713,19 @@ impl Parser {
                     .into_iter()
                     .collect())
             };
-            let whole = libpostal(q)?;
+            let mut whole = libpostal(q)?;
+            let mut swapped = None;
+            if let Some((turned, number)) = arabic_number_last(q) {
+                let found = libpostal(&turned)?;
+                if found
+                    .iter()
+                    .any(|(k, v)| k == "house_number" && v.rsplit(' ').next() == Some(&number))
+                {
+                    whole = found;
+                    swapped = Some(turned);
+                }
+            }
+            let q = swapped.as_deref().unwrap_or(q);
             let mut parts: Vec<&str> = q.split(',').collect();
             // "…, NJ 07111, United States": the country part is set aside while the rest aligns
             let country = match whole.last() {
