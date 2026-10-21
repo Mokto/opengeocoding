@@ -6,7 +6,7 @@ mod place;
 mod postcode;
 mod street;
 
-use super::country::{ca, cz_sk, pl, pt};
+use super::country::{ca, cz_sk, eg, pl, pt};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 pub(super) use place::place_names;
@@ -123,6 +123,7 @@ pub(super) struct Caches {
     labels: Mutex<HashMap<u32, Arc<str>>>,
     /// Every folded country name and its code, sorted.
     country_names: std::sync::OnceLock<Vec<(String, String)>>,
+    egyptian_counties: std::sync::OnceLock<Vec<u32>>,
 }
 
 fn remember<V: Clone>(cache: &Mutex<HashMap<u32, V>>, id: u32, make: impl FnOnce() -> V) -> V {

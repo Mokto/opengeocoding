@@ -553,6 +553,18 @@ mod tests {
         assert_eq!(fold("5 AVENUE"), fold("5th Avenue"));
         assert_eq!(fold("21st St"), "21 st");
         assert_eq!(fold("İstanbul"), "istanbul");
+        for (a, b) in [
+            ("أسيوط", "اسيوط"),
+            ("الإسماعيلية", "الاسماعيليه"),
+            ("مدينة", "مدينه"),
+            ("بنى سويف", "بني سويف"),
+            ("آر8", "ار8"),
+            ("ٱلقاهرة", "القاهره"),
+            ("مُحَمَّد", "محمد"),
+            ("شـارع", "شارع"),
+        ] {
+            assert_eq!(fold(a), b, "{a}");
+        }
         assert_eq!(fold("東京都"), "東京 京都");
         assert_eq!(fold("東京"), "東京");
         assert_eq!(fold("서울특별시"), "서울 울특 특별 별시");
