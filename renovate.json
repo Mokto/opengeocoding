@@ -12,10 +12,9 @@
       "groupName": "non-major dependencies"
     },
     {
-      "description": "These change the builder hash, which names a new index",
+      "description": "These change the builder hash; index-dependency-releases.yml opens an issue instead",
       "matchPackageNames": ["/^tantivy/", "deunicode"],
-      "groupName": "index format dependencies",
-      "addLabels": ["builder-hash"]
+      "enabled": false
     }
   ]
 }
