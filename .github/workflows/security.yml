@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         checks: [advisories, bans licenses sources]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # A newly published advisory must not fail unrelated pull requests; the nightly run reports it.
     continue-on-error: ${{ matrix.checks == 'advisories' && github.event_name == 'pull_request' }}
     permissions:
@@ -29,7 +29,7 @@ jobs:
           command: check ${{ matrix.checks }}
 
   zizmor:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       security-events: write
@@ -43,7 +43,7 @@ jobs:
 
   secrets:
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:

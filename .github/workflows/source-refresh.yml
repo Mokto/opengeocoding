@@ -19,7 +19,7 @@ concurrency:
 jobs:
   refresh:
     if: github.repository == 'Mokto/opengeocoding'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       # A PAT, not GITHUB_TOKEN: a pull request opened with GITHUB_TOKEN does not trigger CI or
       # the gold gate.

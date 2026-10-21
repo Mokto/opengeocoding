@@ -13,7 +13,7 @@ permissions: {}
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     concurrency:
       group: staging-build-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -23,7 +23,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
 
   gold:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     concurrency:
       group: gold-full-${{ github.event.pull_request.number }}
       cancel-in-progress: true
