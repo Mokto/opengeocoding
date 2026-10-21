@@ -1470,6 +1470,30 @@ pub const PLACES: &[Place] = &[
         "Damnica",
         &[("pl", "Damnica")]
     ),
+    place!(
+        "cz",
+        "country",
+        "",
+        "CZ",
+        "",
+        10_000_000,
+        (15.5, 49.8),
+        "",
+        "Czechia",
+        &[("en", "Czechia")]
+    ),
+    place!(
+        "cz-trest",
+        "locality",
+        "town",
+        "CZ",
+        "",
+        6_000,
+        (15.48, 49.29),
+        "cz",
+        "Třešť",
+        &[("cs", "Třešť")]
+    ),
     // a city whose streets the data files under its districts, themselves localities
     place!(
         "pl-stolica",
@@ -2588,6 +2612,19 @@ pub const STREETS: &[Street] = &[
         lon: 17.3,
         lat: 54.52,
         numbers: &["10"],
+    },
+    // Czech houses keyed by descriptive and orientation number together ("1213/5"), by the
+    // descriptive number alone, and an evidential number with its mark
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Roštýnská",
+        postcode: "589 01",
+        city: "Třešť",
+        cc: "CZ",
+        lon: 15.48,
+        lat: 49.29,
+        numbers: &["1194", "1194/1", "1213", "1213/5", "č.ev. 169"],
     },
     Street {
         class: "residential",
