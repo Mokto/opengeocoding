@@ -10,7 +10,11 @@ use anyhow::{Context, Result};
 use indexmap::IndexMap;
 use opengeocoding::eval::{Row, read_tsv, write_tsv};
 use serde_json::Value;
-use std::{collections::BTreeMap, fmt::Write as _, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
+    path::Path,
+};
 
 /// One row per case so a PR diff shows exactly which answers changed; the manifest lives beside it.
 pub const SNAPSHOT_COLUMNS: [&str; 15] = [
@@ -1010,10 +1014,9 @@ fn country_label(codes: &str) -> String {
 }
 
 /// Per country (the expected one; a case with several is counted in the joined group), the
-/// passing checks of each RPC on both sides: the countries where any of them changed, those with
-/// the largest change first, and every country by name as a folded table for the report's end,
-/// where its length can't push the changed cases past a comment's limit.
-fn by_country(counts: &BTreeMap<String, BTreeMap<&str, [usize; 3]>>) -> (String, String) {
+/// passing checks of each RPC on both sides, for the countries where any of them changed, those
+/// with the largest change first. Every country is in `by_evidence`, at the report's end.
+fn by_country(counts: &BTreeMap<String, BTreeMap<&str, [usize; 3]>>) -> String {
     const RPCS: [&str; 4] = [
         "SearchAddress",
         "SuggestAddress",
@@ -1021,7 +1024,7 @@ fn by_country(counts: &BTreeMap<String, BTreeMap<&str, [usize; 3]>>) -> (String,
         "ResolveRegion",
     ];
     if counts.is_empty() {
-        return Default::default();
+        return String::new();
     }
     let header = format!(
         "| Country | {} |\n|---|{}\n",
@@ -1070,17 +1073,119 @@ fn by_country(counts: &BTreeMap<String, BTreeMap<&str, [usize; 3]>>) -> (String,
             );
         }
     }
-    let mut every: Vec<_> = counts
-        .iter()
-        .map(|(country, rpcs)| (country_label(country), row(country, rpcs)))
-        .collect();
-    every.sort();
-    let every = fold(
-        &format!("Pass rate of every country ({})", every.len()),
-        &(header + &every.into_iter().map(|(_, row)| row).collect::<String>()),
+    out
+}
+
+/// Passing checks per country (as `by_country`) by where the expectation comes from: `osm` for
+/// the OpenStreetMap address panel, which the index reads itself in many countries; otherwise
+/// `registry`, `places` (curated Wikidata places), `towns` or `constructed`.
+#[derive(Default)]
+struct Evidence {
+    independent: BTreeMap<String, EvidenceRow>,
+    osm: BTreeMap<String, EvidenceRow>,
+}
+
+type EvidenceRow = (BTreeSet<&'static str>, BTreeMap<&'static str, [usize; 3]>);
+
+fn evidence(case: &Case) -> &'static str {
+    let source = case
+        .source
+        .as_ref()
+        .and_then(|s| s["name"].as_str())
+        .unwrap_or("");
+    if source.starts_with("openstreetmap") {
+        "osm"
+    } else if case.cohort == "town" {
+        "towns"
+    } else if source == "wikidata" {
+        "places"
+    } else if source.is_empty() || source == "constructed" {
+        "constructed"
+    } else {
+        "registry"
+    }
+}
+
+/// One RPC's passing checks out of those checked, and the rate: `18/20 · 90.0%`, or
+/// `17→18/20 · 85.0%→90.0%` when it changed.
+fn rate_cell([checked, base, head]: [usize; 3]) -> String {
+    let pct = |n| format!("{:.1}%", 100. * n as f64 / checked as f64);
+    match checked {
+        0 => "-".into(),
+        _ if base == head => format!("{head}/{checked} · {}", pct(head)),
+        _ => format!("{base}→{head}/{checked} · {}→{}", pct(base), pct(head)),
+    }
+}
+
+/// Every country's passing checks in two folded tables, independent sources and agreement with
+/// OpenStreetMap, between markers the nightly gold issue reads. Each starts with their sum.
+fn by_evidence(counts: &Evidence) -> String {
+    const RPCS: [&str; 4] = [
+        "SearchAddress",
+        "SuggestAddress",
+        "ReverseGeocode",
+        "ResolveRegion",
+    ];
+    if counts.independent.is_empty() && counts.osm.is_empty() {
+        return String::new();
+    }
+    let table = |rows: &BTreeMap<String, EvidenceRow>, kinds: bool| {
+        let cells = |rpcs: &BTreeMap<&str, [usize; 3]>| {
+            RPCS.map(|rpc| rate_cell(rpcs.get(rpc).copied().unwrap_or_default()))
+                .join(" | ")
+        };
+        let mut all: BTreeMap<&str, [usize; 3]> = BTreeMap::new();
+        for (_, rpcs) in rows.values() {
+            for (rpc, c) in rpcs {
+                let t = all.entry(rpc).or_default();
+                *t = [t[0] + c[0], t[1] + c[1], t[2] + c[2]];
+            }
+        }
+        let kind = |k: &BTreeSet<&str>| match (kinds, k.is_empty()) {
+            (false, _) => String::new(),
+            (true, true) => " |".into(),
+            (true, false) => format!(" {} |", k.iter().copied().collect::<Vec<_>>().join(", ")),
+        };
+        let mut out = format!(
+            "| Country |{} {} |\n|---|{}{}\n| **All** |{} {} |\n",
+            if kinds { " Evidence |" } else { "" },
+            RPCS.join(" | "),
+            if kinds { "---|" } else { "" },
+            "---:|".repeat(RPCS.len()),
+            kind(&BTreeSet::new()),
+            cells(&all)
+        );
+        let mut named: Vec<_> = rows
+            .iter()
+            .map(|(country, (k, rpcs))| (country_label(country), k, rpcs))
+            .collect();
+        named.sort();
+        for (label, k, rpcs) in named {
+            let _ = writeln!(out, "| {label} |{} {} |", kind(k), cells(rpcs));
+        }
+        out
+    };
+    let mut out = String::from(
+        "\n<!-- by-evidence -->\n## Pass rate by country and evidence\n\nIndependent sources are registers, curated Wikidata places and Wikidata towns, none of them the index's own data. OpenStreetMap cases check agreement with mapped addresses, which the index itself reads in many countries: consistency, not accuracy. Each cell is passing checks / checked · rate, baseline → candidate where it changed.\n",
+    );
+    let countries = |n: usize| format!("{n} countr{}", if n == 1 { "y" } else { "ies" });
+    out += &fold(
+        &format!(
+            "Independent sources ({})",
+            countries(counts.independent.len())
+        ),
+        &table(&counts.independent, true),
         false,
     );
-    (out, every)
+    out += &fold(
+        &format!(
+            "Agreement with OpenStreetMap ({})",
+            countries(counts.osm.len())
+        ),
+        &table(&counts.osm, false),
+        false,
+    );
+    out + "<!-- by-evidence end -->\n"
 }
 
 fn passing(name: &str, [base, head]: [usize; 2], total: usize, changed: usize) -> String {
@@ -1158,6 +1263,7 @@ pub fn diff(
     let mut suggest_counts: BTreeMap<&str, [usize; 2 + SUGGEST_CLASSES.len()]> = BTreeMap::new();
     let mut added_counts: BTreeMap<&str, [usize; 2]> = BTreeMap::new();
     let mut country_counts: BTreeMap<String, BTreeMap<&str, [usize; 3]>> = BTreeMap::new();
+    let mut evidence_counts = Evidence::default();
     let mut added_failures = String::new();
     for (id, record) in &new {
         for (name, check) in &record.suggest {
@@ -1202,13 +1308,28 @@ pub fn diff(
         let country = cases
             .get(id.as_str())
             .map_or("-".into(), |c| expected_countries(c));
+        let kind = cases
+            .get(id.as_str())
+            .map_or("constructed", |c| evidence(c));
         let mut tally = |rpc: &'static str, base: bool, head: bool| {
-            let c = country_counts
+            let add = |c: &mut [usize; 3]| {
+                *c = [c[0] + 1, c[1] + usize::from(base), c[2] + usize::from(head)];
+            };
+            add(country_counts
                 .entry(country.clone())
                 .or_default()
                 .entry(rpc)
-                .or_default();
-            *c = [c[0] + 1, c[1] + usize::from(base), c[2] + usize::from(head)];
+                .or_default());
+            let row = if kind == "osm" {
+                evidence_counts.osm.entry(country.clone()).or_default()
+            } else {
+                evidence_counts
+                    .independent
+                    .entry(country.clone())
+                    .or_default()
+            };
+            row.0.insert(kind);
+            add(row.1.entry(rpc).or_default());
         };
         if !cases.get(id.as_str()).is_some_and(|c| {
             c.suggest_address.is_some() || c.expect.as_ref().is_some_and(|e| e.level == "landmark")
@@ -1379,7 +1500,7 @@ pub fn diff(
         let changed = changed_checks.get(name).copied().unwrap_or(0);
         summary += &passing(name, [c[1], c[2]], c[0], changed);
     }
-    let (countries, every_country) = by_country(&country_counts);
+    let countries = by_country(&country_counts);
     summary += &countries;
     let mut added_counts: BTreeMap<(&str, &str), [usize; 2]> = BTreeMap::new();
     let mut added = 0;
@@ -1527,7 +1648,7 @@ pub fn diff(
     if must {
         reasons.push("must-pass cases failing".into());
     }
-    report += &every_country;
+    report += &by_evidence(&evidence_counts);
     let failed = !reasons.is_empty();
     if failed {
         let _ = writeln!(report, "\nGate: FAIL ({}).", reasons.join(", "));
@@ -2130,7 +2251,7 @@ mod tests {
     }
 
     #[test]
-    fn countries_show_passing_checks_where_any_changed_and_every_country_folded() {
+    fn countries_show_passing_checks_where_any_changed() {
         let mut counts: BTreeMap<String, BTreeMap<&str, [usize; 3]>> = BTreeMap::new();
         for (country, rpc, c) in [
             ("dk", "SearchAddress", [1883, 1779, 1867]),
@@ -2142,7 +2263,7 @@ mod tests {
         ] {
             counts.entry(country.into()).or_default().insert(rpc, c);
         }
-        let (table, every) = by_country(&counts);
+        let table = by_country(&counts);
         assert!(table.contains("for the 3 expected countries where any RPC changed"));
         // the largest change first, by English name, an RPC nobody asked about as a dash, an
         // unchanged one without an arrow, and a country that did not change not at all
@@ -2153,27 +2274,53 @@ mod tests {
             "{table}"
         );
         assert!(!table.contains("| France |"), "{table}");
-        // every country, unchanged ones too, by name in the folded table
-        assert!(
-            every.contains("<summary><b>Pass rate of every country (4)</b></summary>"),
-            "{every}"
-        );
-        assert!(
-            every.contains("| Belgium, France | - | - | - | - | - | - | 2 → 3 / 4 (+1) | 50.0% → 75.0% |\n| Denmark |"),
-            "{every}"
-        );
-        assert!(
-            every.contains("| France | 498 / 505 | 98.6% | - | - | - | - | - | - |\n| Norway |"),
-            "{every}"
-        );
         counts.retain(|country, _| country == "fr");
-        let (table, every) = by_country(&counts);
-        assert!(
-            table.contains("No expected country's passing checks changed."),
-            "{table}"
+        assert!(by_country(&counts).contains("No expected country's passing checks changed."),);
+        assert_eq!(by_country(&BTreeMap::new()), "");
+    }
+
+    #[test]
+    fn every_country_is_split_by_evidence_with_a_sum_first() {
+        let case = |cohort: &str, source: Option<&str>| Case {
+            cohort: cohort.into(),
+            source: source.map(|name| serde_json::json!({ "name": name })),
+            ..Default::default()
+        };
+        assert_eq!(
+            evidence(&case("global_osm_ke", Some("openstreetmap-address-way"))),
+            "osm"
         );
-        assert!(every.contains("| France | 498 / 505 |"), "{every}");
-        assert_eq!(by_country(&BTreeMap::new()), Default::default());
+        assert_eq!(evidence(&case("town", Some("wikidata"))), "towns");
+        assert_eq!(evidence(&case("city", Some("wikidata"))), "places");
+        assert_eq!(evidence(&case("dk", Some("dar-json"))), "registry");
+        assert_eq!(evidence(&case("malformed", None)), "constructed");
+        let mut counts = Evidence::default();
+        let mut add = |osm: bool, country: &str, kind: &'static str, rpc: &'static str, c| {
+            let rows = if osm {
+                &mut counts.osm
+            } else {
+                &mut counts.independent
+            };
+            let row = rows.entry(country.into()).or_default();
+            row.0.insert(kind);
+            row.1.insert(rpc, c);
+        };
+        add(false, "dk", "registry", "SearchAddress", [100, 90, 95]);
+        add(false, "dk", "places", "SearchAddress", [100, 90, 95]);
+        add(false, "ke", "towns", "SearchAddress", [10, 5, 5]);
+        add(true, "ke", "osm", "SearchAddress", [100, 75, 75]);
+        let text = by_evidence(&counts);
+        assert!(text.starts_with("\n<!-- by-evidence -->\n"), "{text}");
+        assert!(text.ends_with("<!-- by-evidence end -->\n"), "{text}");
+        assert!(
+            text.contains("<summary><b>Independent sources (2 countries)</b></summary>\n\n| Country | Evidence | SearchAddress | SuggestAddress | ReverseGeocode | ResolveRegion |\n|---|---|---:|---:|---:|---:|\n| **All** | | 95→100/110 · 86.4%→90.9% | - | - | - |\n| Denmark | places, registry | 90→95/100 · 90.0%→95.0% | - | - | - |\n| Kenya | towns | 5/10 · 50.0% | - | - | - |\n"),
+            "{text}"
+        );
+        assert!(
+            text.contains("<summary><b>Agreement with OpenStreetMap (1 country)</b></summary>\n\n| Country | SearchAddress | SuggestAddress | ReverseGeocode | ResolveRegion |\n|---|---:|---:|---:|---:|\n| **All** | 75/100 · 75.0% | - | - | - |\n| Kenya | 75/100 · 75.0% | - | - | - |\n"),
+            "{text}"
+        );
+        assert_eq!(by_evidence(&Evidence::default()), "");
     }
 
     #[test]

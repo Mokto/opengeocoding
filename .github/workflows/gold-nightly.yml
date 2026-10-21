@@ -33,6 +33,9 @@ jobs:
       KEY: ${{ secrets.GOLD_GATEWAY_KEY }}
       GH_TOKEN: ${{ github.token }}
     steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
       - name: Pick the commits
         id: pick
         run: |
@@ -111,41 +114,15 @@ jobs:
         run: |
           set -euo pipefail
           server="$GITHUB_SERVER_URL/$REPO"
-          gh api "repos/$REPO/contents/data/reference.json?ref=$HEAD_SHA" -H 'Accept: application/vnd.github.raw' \
-            | jq -r '.country_names[]' > countries.txt
-          {
-            echo "$MARKER"
-            echo "<!-- head: $HEAD_SHA -->"
-            echo "Updated $(date -u '+%Y-%m-%d %H:%M') UTC by the [nightly run]($server/actions/runs/$GITHUB_RUN_ID) on \`main\` at [\`${HEAD_SHA:0:7}\`]($server/commit/$HEAD_SHA)."
-            echo
-            # The report diffs the run with itself, so its RPC table's base and head columns are equal.
-            awk -F'|' '
-              /^\| RPC / { print "| RPC | Checked | Passing |"; print "|---|---:|---:|"; t = 1; next }
-              t && /^\|---/ { next }
-              t && /^\| / { for (i = 2; i <= 5; i++) gsub(/ /, "", $i)
-                            printf "| %s | %s | %s (%.1f%%) |\n", $2, $3, $5, $3 ? 100 * $5 / $3 : 0; next }
-              t { exit }' gold.md
-            echo
-            echo "## Pass rate of every country with at least $MIN cases"
-            echo
-            # A row's SearchAddress cell is "PASS / CHECKED" or "BASE → HEAD / CHECKED (+N)"; a row
-            # naming several countries is a territory expected together with its country.
-            sed -n '/<summary><b>Pass rate of every country/,/^<\/details>/p' gold.md | sed '1d;$d' |
-              awk -F'|' -v min="$MIN" -v missing=missing.txt '
-                NR == FNR { cases[$0] = 0; next }
-                $2 == " - " { next }
-                !/^\| / || $2 == " Country " { print; next }
-                { split($3, s, "/ "); n = s[2] + 0; name = substr($2, 2, length($2) - 2) }
-                n >= min { print }
-                { k = split(name, names, ", "); for (i = 1; i <= k; i++) if (names[i] in cases) cases[names[i]] += n }
-                END { for (c in cases) if (cases[c] < min) print c " (" cases[c] ")" > missing }' countries.txt -
-            echo
-            echo "## Countries with fewer than $MIN cases"
-            echo
-            echo "SearchAddress cases in brackets, counting those that expect a territory and its country together."
-            echo
-            sort missing.txt | paste -sd ';' - | sed 's/;/ · /g'
-          } > body.md
+          gh api "repos/$REPO/contents/data/reference.json?ref=$HEAD_SHA" -H 'Accept: application/vnd.github.raw' > reference.json
+          previous=()
+          if [ -n "$ISSUE" ]; then
+            gh api "repos/$REPO/issues/$ISSUE" -q .body > previous.md
+            previous=(--previous previous.md)
+          fi
+          python3 .github/scripts/gold-nightly-issue.py --report gold.md "${previous[@]}" --reference reference.json \
+            --head "$HEAD_SHA" --run-url "$server/actions/runs/$GITHUB_RUN_ID" --server "$server" \
+            --date "$(date -u '+%Y-%m-%d %H:%M') UTC" --min "$MIN" --out body.md
           if [ -n "$ISSUE" ]; then
             gh api -X PATCH "repos/$REPO/issues/$ISSUE" -F body=@body.md > /dev/null
           else
