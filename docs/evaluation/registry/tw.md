@@ -29,7 +29,7 @@ The raw CSV has **1,157,763 rows**. The declared number/coordinate rules and exc
 | Section | 123 | 0 |
 | House suffix | 114 | 0 |
 
-All 240 native building strings and 240 ASCII-digit controls abstain. The 142 published floor forms have one pass, 69 abstentions, 21 too-coarse results and **51 far misses**. Every critical query was parsed and compared with its source-backed building-only control: libpostal isolates the house and floor, but the consumer returns Taiwan's country centroid, 127–138 km away. Fifty raw full-query lookups return only Taiwan; one has no raw candidate. This is attributed to loss of the supplied Taipei hierarchy in matching/fallback, not to failure to parse the floor or proof that the houses are missing. The original 51 critical cases were recorded in tw.labels.jsonl. The introduction changed no tolerance or expectation and retained every failure; verified label changes after the runtime repair are described below. Other failures remain unlabelled.
+All 240 native building strings and 240 ASCII-digit controls abstain. The 142 published floor forms have one pass, 69 abstentions, 21 too-coarse results and **51 far misses**. Every critical query was parsed and compared with its source-backed building-only control: libpostal isolates the house and floor, but the consumer returns Taiwan's country centroid, 127–138 km away. Fifty raw full-query lookups return only Taiwan; one has no raw candidate. This is attributed to loss of the supplied Taipei hierarchy in matching/fallback, not to failure to parse the floor or proof that the houses are missing. The original 51 critical cases were recorded in tw.labels.jsonl, since removed (see below). The introduction changed no tolerance or expectation and retained every failure; verified label changes after the runtime repair are described below. Other failures remain unlabelled.
 
 At this baseline, SuggestAddress found none of the 622 complete strings. ReverseGeocode passed the country check at all 622 repeated source points, without validating the building, district or unit. ResolveRegion is unscored. The single forward pass was not evidence of general Taiwanese address support.
 
@@ -74,3 +74,25 @@ The official raw capture was downloaded again and matched its pinned checksum. T
 For all 38 non-held-out suffix-building groups, a 1 km source-point inspection found the exact road and base house number but neither the requested `之` key nor its hyphen spelling on the inspected matching street segments. None is borrowed from its base house. The six remaining labelled floor cases belong to these inspected groups; their current forward failure is `too_coarse`, not a country-centroid miss. This bounded evidence does not prove upstream or global index absence. Any source/import work is a separate experiment and must preserve the corpus's authoritative expectations.
 
 The other 10 suffix location groups remain evaluation-only. No new failure labels, source import, tolerance increase, case deletion or evaluator retry was used. The authored synthetic checks cover exact numbers and hierarchy, country conflicts, full-width forms, missing suffixes, rejected ranges/prefixes, and unchanged building retrieval with unverified floors. The model-backed RPC suite retains the previously reproduced CDG landmark fixture failure on this older index; the documented grpcurl SearchAddress hang remains a known failure.
+
+### OSM suffix numbers and the last labels
+
+[Indexing Taiwan's OSM addresses (#233)](https://github.com/Mokto/opengeocoding/pull/233) supplied the missing `之` keys; it changed import sources only, not query logic. The OSM extract keys about 1.4 million Taiwanese house numbers with `之`, most as `N之M號`, which `number_key` stores as `N之M`. On a Taipei-bbox index from the current builder (1929034e0fce080d) with the chart's Taiwan extract, using the same evaluator, models and reference data:
+
+| Pattern class | Queries | SearchAddress | SuggestAddress |
+|---|---:|---:|---:|
+| Alley | 127 | 127 | 127 |
+| Lane | 127 | 127 | 127 |
+| Plain | 131 | 129 | 128 |
+| Section | 123 | 123 | 123 |
+| House suffix | 114 | 112 | 112 |
+| Total | 622 | 618 | 617 |
+
+There are no critical results. Two runs of the same binary have zero answer drift. Full-index CI on #233 also reported the labelled floor cases moving from too_coarse to pass. All six labels are verified fixed and removed, so tw.labels.jsonl no longer exists. Regenerating with `build-gold`, dated on the capture's 2026-10-19 retrieval, first reproduced the corpus byte for byte; removing the labels changed only those six cases. Re-scoring the saved run changes zero classes.
+
+Remaining failures:
+
+- **Missing data (suffix, non-held-out):** 雙和街31巷20弄31之4號, both digit forms. The Taiwan extract has 31, 31之1 and 31之2 on that alley, but not 31之4. SearchAddress returns the alley with goodMatch=false (too_coarse) instead of borrowing another house, and suggestion has no candidate.
+- **Evaluation-only (plain, held-out):** 園區街3號, both digit forms, abstains in SearchAddress; three plain held-out suggestion queries are missing. These were not inspected.
+
+The local world index in `~/opengeocoding-index` is built from `~/geodata/osm`, which lacks the five extracts #233 moved, so its Taipei suffix results (0/114) understate the chart's index. These numbers measure this municipal sample, not national Taiwan accuracy, floor or apartment coverage.
