@@ -293,8 +293,11 @@ jobs:
                    if [ -z "$waiting" ]; then
                      waiting=1; phase_start "waiting for a free slot"
                    fi
-                   progress queued "Both slots of the cluster are busy, or the one holding this run's index is; the run starts when it is free."
-                   log "No slot can take the run yet; waited $(dur "$SECONDS") so far, retrying in 60 s"; sleep 60 ;;
+                   # the reason goes into a public comment: plain words only
+                   reason=$({ jq -r '.reason // empty' start.json 2> /dev/null || true; } | tr -cd "[:alnum:] .,'-" | cut -c1-300)
+                   [ -n "$reason" ] || reason="Both slots of the cluster are busy, or the one holding this run's index is."
+                   progress queued "$reason The run starts as soon as a slot can take it."
+                   log "No slot can take the run yet: $reason Waited $(dur "$SECONDS") so far, retrying in 60 s"; sleep 60 ;;
               *) log "Starting the run failed: HTTP $code"; jq -r '.error // empty' start.json
                  setenv FAILED_STEP "starting the run (HTTP $code)"; exit 1 ;;
             esac
