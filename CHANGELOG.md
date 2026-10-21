@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.19.0](https://github.com/Mokto/opengeocoding/compare/v0.18.1...v0.19.0) (2026-10-21)
+
+
+### Features
+
+* add a Berlin house-coordinate gold corpus for Germany ([#304](https://github.com/Mokto/opengeocoding/issues/304)) ([2810c15](https://github.com/Mokto/opengeocoding/commit/2810c153b12d04a17af8f26f216cbf88b772eb28))
+* split every country's gold pass rates by evidence and keep a history in the nightly issue ([#297](https://github.com/Mokto/opengeocoding/issues/297)) ([0eca74f](https://github.com/Mokto/opengeocoding/commit/0eca74fb0ef58785b247e1d25bf9528cfacb8686))
+
+
+### Bug Fixes
+
+* fetch an OSM extract added under a sealed snapshot on its own ([#308](https://github.com/Mokto/opengeocoding/issues/308)) ([577440b](https://github.com/Mokto/opengeocoding/commit/577440b0677296dc51a01149c23b03ef0ea46323))
+* index OSM addresses for Kosovo, Serbia and the Antilles ([#301](https://github.com/Mokto/opengeocoding/issues/301)) ([6dcf747](https://github.com/Mokto/opengeocoding/commit/6dcf747b0350c979b1f76161ca21097f80ae4532))
+* index Uruguay's OSM addresses ([#303](https://github.com/Mokto/opengeocoding/issues/303)) ([a6229da](https://github.com/Mokto/opengeocoding/commit/a6229dae3be1a1da4ff2795466ccafaaaad9dab9))
+* suggest a Luxembourg house when the postcode is written after the town ([#305](https://github.com/Mokto/opengeocoding/issues/305)) ([d397ffa](https://github.com/Mokto/opengeocoding/commit/d397ffae393af6b65608d78fccd5ad587720300b))
+
 ## [0.18.1](https://github.com/Mokto/opengeocoding/compare/v0.18.0...v0.18.1) (2026-10-21)
 
 
