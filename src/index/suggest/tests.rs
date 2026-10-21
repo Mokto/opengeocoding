@@ -226,6 +226,43 @@ fn tiny() -> (Index, std::path::PathBuf) {
             "4",
             &en("4"),
         ),
+        place(
+            "country",
+            "",
+            "LU",
+            "",
+            660_000,
+            6.1,
+            49.6,
+            "",
+            "Luxembourg",
+            &en("Luxembourg"),
+        ),
+        // a Belgian province: its name is the country's, so the country is not set from it
+        place(
+            "region",
+            "",
+            "BE",
+            "BE-WLX",
+            300_000,
+            5.6,
+            49.8,
+            "",
+            "Luxembourg",
+            &en("Luxembourg"),
+        ),
+        place(
+            "locality",
+            "village",
+            "LU",
+            "",
+            6_000,
+            6.01,
+            49.83,
+            "12",
+            "Mertzig",
+            &en("Mertzig"),
+        ),
     ];
     std::fs::write(dir.join("places.tsv"), places.concat()).unwrap();
 
@@ -262,6 +299,10 @@ fn tiny() -> (Index, std::path::PathBuf) {
             f.kind => "s", f.names => name, f.country => "FR", f.name => name,
             f.id => sid, f.place => 2u64, f.importance => 50u64, f.x => x, f.y => 48.86f64
         );
+        // house 12 has no postcode of its own; house 13 carries this other code
+        if sid == 7 {
+            street.add_text(f.pcode, "11111");
+        }
         for id in ["2", "1", "0"] {
             street.add_text(f.ids, id);
         }
@@ -282,16 +323,32 @@ fn tiny() -> (Index, std::path::PathBuf) {
             f.place => 2u64, f.importance => 10u64, f.x => 2.336f64, f.y => 48.862f64
         ))
         .unwrap();
+    // house 6 has no postcode; another house on the street carries 11111
+    writer
+        .add_document(tantivy::doc!(
+            f.kind => "s", f.names => "Rue de Colmar-Berg", f.country => "LU",
+            f.name => "Rue de Colmar-Berg", f.pcode => "11111",
+            f.id => 12u64, f.place => 14u64, f.ids => "14", f.ids => "12",
+            f.importance => 50u64, f.x => 6.01f64, f.y => 49.83f64
+        ))
+        .unwrap();
+    writer
+        .add_document(tantivy::doc!(
+            f.kind => "z", f.pcode => "9169", f.name => "9169", f.country => "LU",
+            f.place => 14u64, f.importance => 10u64, f.x => 6.01f64, f.y => 49.83f64
+        ))
+        .unwrap();
     writer.commit().unwrap();
     drop(writer);
 
     let mut fst = tantivy_fst::MapBuilder::memory();
     for (sid, numbers) in [
-        (7u32, &["12", "120", "12a"][..]),
+        (7u32, &["12", "120", "12a", "13"][..]),
         (8, &["12", "120", "12a"][..]),
         (9, &["12"][..]),
         (10, &["26"][..]),
         (11, &["26"][..]),
+        (12, &["6"][..]),
     ] {
         for n in numbers {
             let mut key = sid.to_be_bytes().to_vec();
@@ -299,9 +356,11 @@ fn tiny() -> (Index, std::path::PathBuf) {
             let (x, y) = match sid {
                 7 => (2.3 + n.len() as f64 / 100.0, 48.86),
                 8 => (12.57, 55.68),
+                12 => (6.01, 49.83),
                 _ => (12.0, 55.0),
             };
-            let (x, y) = schema::pack(x, y, 0);
+            let slot = u8::from(sid == 7 && *n == "13");
+            let (x, y) = schema::pack(x, y, slot);
             fst.insert(key, (x as u64) << 32 | y as u64).unwrap();
         }
     }
@@ -637,5 +696,58 @@ fn completes_streets_houses_and_postcodes() {
             .suggest("rue de riv", 5, Some("us"), None, false)
             .is_empty()
     );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn a_house_without_its_own_postcode_still_answers_the_town() {
+    let (index, dir) = tiny();
+    // 75001 is a known postcode and is not stored on the street. House 12 has no postcode;
+    // house 13 stores a different one. The street's other code must not hide house 12.
+    for query in [
+        "12 rue de rivoli, paris, 75001, france",
+        "rue de rivoli 12, paris, 75001, france",
+        "12, rue de rivoli, paris, 75001, france",
+    ] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found.len(), 1, "{query}");
+        assert_eq!(found[0].id, "h7:12", "{query}");
+        assert_eq!(found[0].kind, "address");
+        assert_eq!(found[0].country_code, "fr");
+    }
+    // the street stores no postcode at all (its other part): the same recovery
+    let other = index.suggest(
+        "26 rue de rivoli, paris, 75001, france",
+        5,
+        None,
+        None,
+        false,
+    );
+    assert_eq!(other.len(), 1);
+    assert_eq!(other[0].id, "h10:26");
+    assert!(
+        index
+            .suggest(
+                "13 rue de rivoli, paris, 75001, france",
+                5,
+                None,
+                None,
+                false
+            )
+            .is_empty()
+    );
+    // "Luxembourg" is also a Belgian province, so the country is not set from the last part.
+    // 9169 is still that country's postcode. House 6 does not carry it; the street's other
+    // code must not hide the house.
+    for query in [
+        "6 Rue de Colmar-Berg, Mertzig, 9169, Luxembourg",
+        "Rue de Colmar-Berg 6, Mertzig, 9169, Luxembourg",
+    ] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found.len(), 1, "{query}");
+        assert_eq!(found[0].id, "h12:6", "{query}");
+        assert_eq!(found[0].kind, "address");
+        assert_eq!(found[0].country_code, "lu");
+    }
     std::fs::remove_dir_all(dir).unwrap();
 }

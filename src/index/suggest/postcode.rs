@@ -1,24 +1,47 @@
 use super::*;
 
 impl Index {
-    /// A street or house suggestion whose street holds no postcode.
-    pub(super) fn without_postcodes(&self, s: &Suggestion) -> bool {
+    /// This house carries no postcode, or the one it carries is `pc`. Other houses on the same
+    /// street may carry postcodes; those do not contradict this house ("6 Rue de Colmar-Berg,
+    /// Mertzig, 9169" sits on a street that also serves other codes).
+    pub(super) fn house_accepts_postcode(&self, s: &Suggestion, pc: &str) -> bool {
         use tantivy::schema::Value as _;
-        let Some((segment, doc)) = s
-            .retrieval_id
-            .split_once('/')
-            .and_then(|(_, key)| key.get(1..)?.split(':').next().zip(key.split(':').nth(1)))
-            .and_then(|(segment, doc)| Some((segment.parse().ok()?, doc.parse().ok()?)))
-        else {
+        let Some((addr, number)) = s.retrieval_id.split_once('/').and_then(|(_, key)| {
+            let rest = key.strip_prefix('h')?;
+            let mut parts = rest.split(':');
+            let segment: u32 = parts.next()?.parse().ok()?;
+            let doc: u32 = parts.next()?.parse().ok()?;
+            let number = parts.next()?;
+            (!number.is_empty()).then(|| (tantivy::DocAddress::new(segment, doc), number))
+        }) else {
             return false;
         };
-        self.searcher
-            .doc::<tantivy::TantivyDocument>(tantivy::DocAddress::new(segment, doc))
-            .is_ok_and(|doc| {
-                doc.get_first(self.f.pcode)
-                    .and_then(|v| v.as_str())
-                    .is_none()
-            })
+        let sid = self.fast(addr, "id") as u32;
+        let Some(shard) = self.numbers.get(sid as usize % self.numbers.len()) else {
+            return false;
+        };
+        let mut key = sid.to_be_bytes().to_vec();
+        key.extend_from_slice(number.as_bytes());
+        let Some(v) = shard.get(&key) else {
+            return false;
+        };
+        let (_, _, own) = schema::unpack(v);
+        if own == 0 {
+            return true;
+        }
+        let Ok(doc) = self.searcher.doc::<tantivy::TantivyDocument>(addr) else {
+            return false;
+        };
+        let stored = doc
+            .get_all(self.f.pcode)
+            .nth(own as usize - 1)
+            .and_then(|v| v.as_str())
+            .map(pc_norm)
+            .filter(|v| !v.is_empty());
+        let Some(stored) = stored else {
+            return false;
+        };
+        super::super::postcode::postcode_not_contradicted(Some(&stored), Some(pc))
     }
 
     pub(super) fn postcode_suggestion(&self, a: tantivy::DocAddress) -> Option<Suggestion> {

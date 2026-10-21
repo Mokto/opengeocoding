@@ -123,10 +123,21 @@ impl Index {
         let stated = cc.is_some();
         let cc = cc.or(country.as_deref());
         let qualifiers = typed.parts[1..].join(", ");
+        // A 4-digit code is read only with a country ("9169" is also a house number). When a
+        // region shares the country's name ("Luxembourg" is a Belgian province, as "Georgia" is
+        // a state), the country is not set above, so try the name once more for the postcode.
         let extracted = qualifiers
             .chars()
             .any(|c| c.is_ascii_digit())
-            .then(|| self.find_postcode(&qualifiers, cc))
+            .then(|| {
+                self.find_postcode(&qualifiers, cc).or_else(|| {
+                    if country.is_some() {
+                        return None;
+                    }
+                    let named = self.country(typed.parts.last()?)?;
+                    self.find_postcode(&qualifiers, Some(&named))
+                })
+            })
             .flatten();
         // a stated France also means the places of its overseas departments, which have codes of
         // their own (their streets are France's)
@@ -379,9 +390,9 @@ impl Index {
                 break;
             }
         }
-        // "4 Church Street, Amberley, 7410, New Zealand": the town places a house on a street
-        // whose source gives it no postcode to contradict (New Zealand's register), or with no
-        // town, the postcode's own
+        // "4 Church Street, Amberley, 7410, New Zealand": the town places a house the street's
+        // postcode list does not name (New Zealand's register, or a Luxembourg house whose
+        // neighbours on the street carry other codes). With no town, the postcode's own place.
         if !out.iter().any(|s| s.kind == "address")
             && raw.iter().any(|w| has_digit(w))
             && let Some((pc, rest)) = &extracted
@@ -419,7 +430,7 @@ impl Index {
                         want,
                     )
                     .into_iter()
-                    .filter(|s| s.kind == "address" && self.without_postcodes(s))
+                    .filter(|s| s.kind == "address" && self.house_accepts_postcode(s, pc))
                     .collect();
                 if !found.is_empty() {
                     return found;
