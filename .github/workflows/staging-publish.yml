@@ -31,7 +31,7 @@ env:
 jobs:
   publish:
     if: github.repository == 'Mokto/opengeocoding' && github.event.workflow_run.conclusion == 'success'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       actions: read
       packages: write
@@ -61,7 +61,7 @@ jobs:
 
   prepare:
     needs: publish
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       pull-requests: write
@@ -160,7 +160,7 @@ jobs:
   gold:
     needs: prepare
     if: needs.prepare.outputs.skip == 'false'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     environment: ${{ needs.prepare.outputs.environment }}
     # A first build of the full index takes hours and can outlast this limit; the run then keeps
     # going in the cluster and a later run reuses its index.
