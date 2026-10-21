@@ -366,7 +366,8 @@ jobs:
           # evaluate diff puts the speed comparison between these two lines; it gets its own comment
           # and status so a slowdown is not buried in, or confused with, the correctness report.
           sed -n '/^<!-- speed: /,/^<!-- speed end -->/p' report.md > speed.md
-          sed '/^<!-- speed: /,/^<!-- speed end -->/d' report.md > gold.md
+          # Every country's pass rates by evidence are for the nightly issue; the artifact keeps them.
+          sed -e '/^<!-- speed: /,/^<!-- speed end -->/d' -e '/^<!-- by-evidence -->/,/^<!-- by-evidence end -->/d' report.md > gold.md
           speed=$(sed -n 's/^<!-- speed: \([a-z]*\) -->$/\1/p' speed.md)
           headline=$(sed -n 's/^## Speed: //p' speed.md)
           setenv SPEED "${speed:-none}"
