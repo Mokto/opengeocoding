@@ -41,9 +41,10 @@ jobs:
   benchmarks:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       # Pull requests run only the benchmarks whose files they change. Pushes to main and manual
       # runs run all of them, so every main commit is a complete baseline for the next pull request.
       - name: Select the benchmarks
@@ -61,7 +62,7 @@ jobs:
           echo "benches=${picked[*]}" >> "$GITHUB_OUTPUT"
           echo "Benchmarks to run: ${picked[*]:-none}"
       - if: steps.select.outputs.benches != ''
-        uses: ./.github/actions/libpostal-env
+        uses: $/.github/actions/libpostal-env
         with:
           models: ${{ contains(steps.select.outputs.benches, 'resolve') }}
       - if: steps.select.outputs.benches != ''

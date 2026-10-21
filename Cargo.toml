@@ -4,6 +4,7 @@ version = "0.18.0"
 edition = "2024"
 # PolyForm Shield 1.0.0 has no SPDX identifier.
 license-file = "LICENSE"
+publish = false
 description = "Address resolution with libpostal, Overture indexes, Connect and gRPC"
 repository = "https://github.com/Mokto/opengeocoding"
 rust-version = "1.99"

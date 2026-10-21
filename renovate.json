@@ -1,0 +1,21 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigestsToSemver"],
+  "timezone": "Europe/Copenhagen",
+  "schedule": ["before 6am on monday"],
+  "minimumReleaseAge": "7 days",
+  "vulnerabilityAlerts": { "schedule": ["at any time"], "minimumReleaseAge": null },
+  "packageRules": [
+    {
+      "description": "Every PR touching Cargo.lock runs the full-index gold gate, so batch the routine bumps",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin"],
+      "groupName": "non-major dependencies"
+    },
+    {
+      "description": "These change the builder hash, which names a new index",
+      "matchPackageNames": ["/^tantivy/", "deunicode"],
+      "groupName": "index format dependencies",
+      "addLabels": ["builder-hash"]
+    }
+  ]
+}

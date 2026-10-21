@@ -47789,7 +47789,7 @@ DEALINGS IN THE SOFTWARE.
 
 ========================================================================
 
-rustls 0.23.45
+rustls 0.23.46
 License: Apache-2.0 OR ISC OR MIT
 Repository: https://github.com/rustls/rustls
                               Apache License
@@ -48771,7 +48771,7 @@ Repository: https://github.com/rustls/rustls-platform-verifier
 
 ========================================================================
 
-rustls-webpki 0.103.15
+rustls-webpki 0.103.16
 License: ISC
 Repository: https://github.com/rustls/webpki
 Except as otherwise noted, this project is licensed under the following
@@ -65417,7 +65417,7 @@ SOFTWARE.
 
 ========================================================================
 
-webpki-root-certs 1.0.9
+webpki-root-certs 1.0.10
 License: CDLA-Permissive-2.0
 Repository: https://github.com/rustls/webpki-roots
 # Community Data License Agreement - Permissive - Version 2.0
@@ -65485,7 +65485,7 @@ insights.
 
 ========================================================================
 
-webpki-roots 1.0.9
+webpki-roots 1.0.10
 License: CDLA-Permissive-2.0
 Repository: https://github.com/rustls/webpki-roots
 # Community Data License Agreement - Permissive - Version 2.0
