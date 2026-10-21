@@ -287,7 +287,8 @@ build:
   # Sources, the house-number spill and the output: about 220 GB for the world. A volume
   # claimed for the pod from storageClassName (the default class when empty), an emptyDir, or
   # an existing claim (the others are deleted with the pod). A claim that outlives the Job keeps
-  # the sources already copied from the store, so the next build re-downloads only what changed;
+  # the sources already copied from the store, so the next build re-downloads only what changed
+  # and deletes the files its sources no longer name;
   # files are reused only when their size and SHA-256 match the store's MANIFEST. The claim must
   # hold `size` and be ReadWriteOnce at least, and it pins the pod to the volume's node or zone.
   scratch:

@@ -212,11 +212,13 @@ where
         + 'static,
     Fut: Future<Output = Result<Vec<(String, T)>>>,
 {
+    std::fs::create_dir_all(dir)?;
     if store.exists(&format!("{rel}/_COMPLETE")).await? {
         println!("{rel}: from the store");
-        return store.fetch(rel, dir).await;
+        store.fetch(rel, dir).await?;
+        let keep = store.list(rel).await?.into_iter().map(|(n, _)| n).collect();
+        return prune(dir, &keep);
     }
-    std::fs::create_dir_all(dir)?;
     let stored: BTreeMap<String, u64> = store.list(rel).await?.into_iter().collect();
     let items = items().await?;
     println!(
@@ -235,23 +237,41 @@ where
         );
         tasks.spawn(async move {
             let _permit = permits.acquire().await?;
-            if let Some(size) = size {
+            let kept = if let Some(size) = size {
                 store.download(&key, size, &local, None).await?;
+                true
             } else if produce(item, local.clone())
                 .await
                 .with_context(|| key.clone())?
             {
                 store.upload(&local, &key, None).await?;
-            }
-            anyhow::Ok(())
+                true
+            } else {
+                false
+            };
+            anyhow::Ok(kept.then_some(name))
         });
     }
+    let mut kept = BTreeSet::new();
     while let Some(r) = tasks.join_next().await {
-        r??;
+        kept.extend(r??);
     }
+    prune(dir, &kept)?;
     let files = store::walk(dir)?;
     store.seal(rel, store::hash_all(dir, &files).await?).await?;
     println!("{rel}: sealed, {} files", files.len());
+    Ok(())
+}
+
+/// Deletes the files in `dir` that `keep` does not name. A kept scratch volume still holds an
+/// earlier build's sources (another Overture release, a dropped extract or layer); left there,
+/// the builder would read them and a new mirror's MANIFEST would name files never uploaded.
+fn prune(dir: &Path, keep: &BTreeSet<String>) -> Result<()> {
+    for f in store::walk(dir)? {
+        if !keep.contains(&f) {
+            std::fs::remove_file(dir.join(&f))?;
+        }
+    }
     Ok(())
 }
 
@@ -496,17 +516,7 @@ async fn geofabrik(
             src.snapshot,
             missing.into_iter().collect::<Vec<_>>().join(", ")
         );
-        // a kept scratch directory may still hold an extract that has left this list
-        for e in std::fs::read_dir(&dir)? {
-            let path = e?.path();
-            let name = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or_default();
-            if name.ends_with(".osm.pbf") && !wanted.contains(name) {
-                std::fs::remove_file(&path)?;
-            }
-        }
+        prune(&dir, &wanted)?;
         return Ok(Some(dir));
     }
     let ids = ids.to_vec();
@@ -1088,6 +1098,54 @@ mod tests {
         .await
         .unwrap_err();
         assert!(err.to_string().contains("mexico.osm.pbf"), "{err}");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+    #[tokio::test]
+    async fn a_kept_scratch_directory_loses_an_earlier_builds_files() {
+        let base = std::env::temp_dir().join(format!("mirror-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::open(&format!("file://{}", base.join("bucket").display())).unwrap();
+        let dir = base.join("scratch/address");
+        std::fs::create_dir_all(&dir).unwrap();
+        // the previous release's part file, and one the new release no longer produces
+        std::fs::write(dir.join("part-old.parquet"), "old").unwrap();
+        std::fs::write(dir.join("gone.parquet"), "gone").unwrap();
+        let fill = || {
+            mirror(
+                &store,
+                "sources/overture/new/address",
+                &dir,
+                1,
+                || async {
+                    Ok(vec![
+                        ("part-new.parquet".to_string(), true),
+                        ("gone.parquet".to_string(), false),
+                    ])
+                },
+                |write: bool, path: PathBuf| {
+                    Box::pin(async move {
+                        if write {
+                            std::fs::write(path, "new")?;
+                        }
+                        Ok(write)
+                    })
+                },
+            )
+        };
+        let listed = |p: &Path| store::walk(p).unwrap();
+        fill().await.unwrap();
+        assert_eq!(listed(&dir), ["part-new.parquet"]);
+        let manifest =
+            std::fs::read_to_string(base.join("bucket/sources/overture/new/address/MANIFEST"))
+                .unwrap();
+        assert!(
+            !manifest.contains("old") && !manifest.contains("gone"),
+            "{manifest}"
+        );
+        // the sealed mirror, fetched into a directory still holding an earlier build's file
+        std::fs::write(dir.join("part-old.parquet"), "old").unwrap();
+        fill().await.unwrap();
+        assert_eq!(listed(&dir), ["part-new.parquet"]);
         std::fs::remove_dir_all(&base).unwrap();
     }
 }
