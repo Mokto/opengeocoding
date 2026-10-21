@@ -40,6 +40,7 @@ jobs:
       - run: python3 tests/registry/test-registry-captures.py
       - run: python3 tests/registry/test-nar-prg-exports.py
       - run: python3 tests/global/test-build-addresses.py
+      - run: python3 tests/towns/test-sample-towns.py
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked

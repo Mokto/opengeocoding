@@ -87,6 +87,32 @@ class Addresses(unittest.TestCase):
             a.add(node(i + 1))
         self.assertEqual(len(a.selected()), 1)
 
+    def test_a_building_keeps_its_own_id_space_and_source_url(self):
+        attrs = {"type": "way", "id": "1", "version": "4", "timestamp": "2026-10-11T00:00:00Z", "lat": "28.6", "lon": "77.2"}
+        way = module.record(attrs, {"addr:housenumber": "12", "addr:street": "Main Road", "addr:city": "Delhi"}, "IN", "India", "IND")
+        point = node(1)
+        self.assertEqual(way["type"], "way")
+        self.assertNotIn("type", point)
+        rows = module.cases([way], {"source_sha256": "d" * 64})
+        self.assertEqual(rows[0]["id"], "global-osm-in-w1-0")
+        self.assertEqual(rows[0]["source"]["url"], "https://www.openstreetmap.org/api/0.6/way/1/4")
+        self.assertEqual(rows[0]["source"]["name"], "openstreetmap-address-way")
+        self.assertIsNone(module.record({**attrs, "type": "relation"}, {"addr:housenumber": "12", "addr:street": "Main Road", "addr:city": "Delhi"}, "IN", "India", "IND"))
+        draw = module.Draw("seed", 50)
+        draw.add(point)
+        draw.add({**point, "type": "way", "location": "other"})
+        self.assertEqual(len(draw.selected()), 2)
+
+    def test_loose_interior_keeps_coasts_and_drops_land_borders(self):
+        from shapely.geometry import Point, box
+        country, neighbour = box(0, 0, 1, 1), box(1, 0, 2, 1)
+        strict, loose = module.interior(country, [neighbour], False), module.interior(country, [neighbour], True)
+        coast, border = Point(0.01, 0.5), Point(0.99, 0.5)
+        self.assertFalse(strict.contains(coast))
+        self.assertTrue(loose.contains(coast))
+        self.assertFalse(loose.contains(border))
+        self.assertTrue(module.interior(box(0, 0, 0.05, 0.05), [], True).contains(Point(0.025, 0.025)))
+
     def test_country_masks_combine_all_parts_instead_of_overwriting_mainland(self):
         mainland = [[[0, 0], [1, 0], [1, 1], [0, 0]]]
         island = [[[10, 10], [11, 10], [11, 11], [10, 10]]]
@@ -97,9 +123,10 @@ class Addresses(unittest.TestCase):
         root = Path(__file__).parent
         manifest = json.loads((root / "manifest.json").read_bytes())
         self.assertEqual(set(manifest["coverage"]), set(module.COUNTRIES))
-        # The first 48 countries were captured by the generator of commit 7a02601, which differs
-        # from this one only in its country list and the lack of --base; later ones by this file.
-        generators = {module.file_sha(Path(module.__file__)), "56540214095fa4880b8eab4debcd51f45db7332f47c35b92ed0e316a3a7363ce"}
+        # Earlier countries keep the generator that captured them (`--base`): the first 48 that of
+        # commit 7a02601, the next 82 that of #283; the rest this file. Each earlier version
+        # differs from this one only in its country list and the options it lacked.
+        generators = {module.file_sha(Path(module.__file__)), "56540214095fa4880b8eab4debcd51f45db7332f47c35b92ed0e316a3a7363ce", "e921aa409b6df9128ad670d927856347c4600ef76a17808f294998cd285dabaa"}
         rows = []
         for snapshot in manifest["snapshots"]:
             self.assertIn(snapshot["proof"]["script_sha256"], generators)

@@ -22,6 +22,12 @@ pub fn gold_landmarks() -> PathBuf {
     root().join("tests/gold.landmarks.jsonl")
 }
 
+/// Town-level cases for the countries the address corpora leave out, generated from
+/// `tests/gold.towns.seeds.jsonl` (`tests/towns/sample-towns.py`).
+pub fn gold_towns() -> PathBuf {
+    root().join("tests/gold.towns.jsonl")
+}
+
 /// Registry-first corpora (`tests/registry/*.jsonl`, generated from the `*.seeds.jsonl` (and `*.labels.jsonl`) beside them).
 pub fn registry_corpora() -> Vec<PathBuf> {
     let mut found: Vec<_> = std::fs::read_dir(root().join("tests/registry"))
@@ -46,6 +52,7 @@ pub fn suite() -> Vec<PathBuf> {
     files.extend(registry_corpora());
     files.push(root().join("tests/global/global-addresses.jsonl"));
     files.push(gold_landmarks());
+    files.push(gold_towns());
     files.push(root().join("tests/gold.suggest.jsonl"));
     files
 }
