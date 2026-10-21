@@ -1,0 +1,60 @@
+name: Source refresh
+
+# Opens a pull request moving the index to Overture's latest release, with a new snapshot label
+# so OSM, OpenAddresses and GeoNames are fetched again too. Closing the pull request declines
+# that release: it is not proposed again.
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-refresh
+
+jobs:
+  refresh:
+    if: github.repository == 'Mokto/opengeocoding'
+    runs-on: ubuntu-24.04
+    steps:
+      # A PAT, not GITHUB_TOKEN: a pull request opened with GITHUB_TOKEN does not trigger CI or
+      # the gold gate.
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+      - name: Propose the latest Overture release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          values=manifests/values.yaml
+          latest=$(curl -fsS --retry 3 https://stac.overturemaps.org/catalog.json | jq -r .latest)
+          [[ $latest =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\.[0-9]+$ ]] || { echo "unexpected release: $latest"; exit 1; }
+          current=$(sed -n 's/^    overtureRelease: "\(.*\)"$/\1/p' "$values")
+          [[ -n $current ]] || { echo "overtureRelease not found in $values"; exit 1; }
+          if [[ $latest == "$current" || $(printf '%s\n' "$current" "$latest" | sort -V | tail -1) != "$latest" ]]; then
+            echo "up to date: $current (latest $latest)"
+            exit 0
+          fi
+          branch="source-refresh/$latest"
+          if [[ $(gh pr list --head "$branch" --state all --json number --jq length) != 0 ]]; then
+            echo "$latest already proposed"
+            exit 0
+          fi
+          snapshot=$(date -u +%F)
+          sed -i -e "s/^    overtureRelease: \".*\"$/    overtureRelease: \"$latest\"/" \
+            -e "s/^    snapshot: \".*\"$/    snapshot: \"$snapshot\"/" "$values"
+          grep -qx "    overtureRelease: \"$latest\"" "$values"
+          grep -qx "    snapshot: \"$snapshot\"" "$values"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "fix: index Overture release $latest"
+          git push origin "$branch"
+          gh pr create --head "$branch" --base main \
+            --title "fix: index Overture release $latest" \
+            --body "Moves \`index.sources.overtureRelease\` from \`$current\` to \`$latest\` and \`index.sources.snapshot\` to \`$snapshot\`, so OSM, OpenAddresses and GeoNames are fetched again too. This names a new index; once released, the leader builds it while the current pods keep serving the old one.
+
+          New source data can change answers like a code change can: read the gold quality and speed comments before merging, and close this pull request to decline the release."
