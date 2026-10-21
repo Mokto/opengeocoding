@@ -2617,4 +2617,19 @@ async fn resolve_follows_the_authored_facts() {
             );
         }
     }
+    // A postcode centred far from the house covers too much to contradict the house's own.
+    for (postcode, good) in [("75466", true), ("75465", false)] {
+        let query = format!("170 Levee Road, {postcode} Paris, United States");
+        let got = resolver.resolve(&query).await.unwrap();
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.house_number, "170", "{query}: {got:?}");
+        assert_eq!(details.postcode, "75466", "{query}: {got:?}");
+        assert_eq!(got.good_match, good, "{query}: {got:?}");
+        let street = STREETS.iter().find(|s| s.name == "Levee Road").unwrap();
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres((at.lon as f64, at.lat as f64), house(street, "170")) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
 }

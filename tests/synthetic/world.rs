@@ -2535,6 +2535,41 @@ pub const STREETS: &[Street] = &[
         lat: 50.97,
         numbers: &[],
     },
+    // One segment of Levee Road holds 75465 (number 172) and 75466 (number 170); most of 75465 is
+    // Gin Road's, so its centre is 6.7 km from them, like a town-wide Brazilian CEP.
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Levee Road",
+        postcode: "75466",
+        city: "Paris",
+        cc: "US",
+        lon: -95.7,
+        lat: 33.5,
+        numbers: &["170"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Levee Road",
+        postcode: "75465",
+        city: "Paris",
+        cc: "US",
+        lon: -95.69985,
+        lat: 33.5,
+        numbers: &["172"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Gin Road",
+        postcode: "75465",
+        city: "Paris",
+        cc: "US",
+        lon: -95.62,
+        lat: 33.5,
+        numbers: &["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+    },
     // houses at the west end of a 2.8 km street
     Street {
         class: "residential",

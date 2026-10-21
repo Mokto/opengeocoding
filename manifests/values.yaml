@@ -78,6 +78,7 @@ index:
       - bolivia
       - bosnia-herzegovina
       - botswana
+      - brazil
       - bulgaria
       - burkina-faso
       - burundi
@@ -222,12 +223,11 @@ index:
       - zimbabwe
     # Read for SuggestAddress landmarks only (airports, stations and the like that OSM links to
     # Wikidata), not for addresses: the countries the extracts above leave out, whose addresses
-    # come from Overture. About 44 GB in October 2026. Empty: landmarks only where `osm` reads.
+    # come from Overture. About 42 GB in October 2026. Empty: landmarks only where `osm` reads.
     osmLandmarks:
       - australia
       - austria
       - belgium
-      - brazil
       - canada
       - croatia
       - czech-republic

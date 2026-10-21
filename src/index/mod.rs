@@ -570,6 +570,18 @@ impl tantivy_fst::Automaton for OneEdit<'_> {
     }
 }
 
+/// A Brazilian CEP is written NNNNN-NNN; some sources keep the dot of its older form (45.160-000).
+fn undotted_cep(pc: String) -> String {
+    let b = pc.as_bytes();
+    let shaped = b.len() == 10
+        && b[2] == b'.'
+        && b[6] == b'-'
+        && b.iter()
+            .enumerate()
+            .all(|(i, c)| i == 2 || i == 6 || c.is_ascii_digit());
+    if shaped { pc.replacen('.', "", 1) } else { pc }
+}
+
 /// A house's own postcode against the stated one. A street typed wrongly and a postcode the
 /// house contradicts are two doubts at once, so the respelt street answers only without the second.
 fn postcode_not_contradicted(own: Option<&str>, stated: Option<&str>) -> bool {
@@ -3423,7 +3435,12 @@ impl Index {
                         }
                         let found = street(a, Some(n.to_string()), (x, y), own);
                         // Raw house postcodes can disagree with the nearby-source corroboration above.
+                        // A requested postcode centred far away covers too much to contradict the
+                        // house's own (Brazil's town-wide "47820-000" for a house in 47821-030).
                         if with_postcode.contains(&a)
+                            && near_postcode.is_some_and(|(px, py)| {
+                                ((px - x) * py.to_radians().cos()).hypot(py - y) * 111.0 < 3.0
+                            })
                             && wanted.as_ref().is_some_and(|wanted| match &found {
                                 Hit::Street {
                                     postcode: Some(actual),
@@ -3510,7 +3527,7 @@ impl Index {
                 let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
                 let get = |f: Field| stored(&doc, f);
                 Hit::Postcode {
-                    display: get(self.f.name),
+                    display: undotted_cep(get(self.f.name)),
                     cc: String::new(),
                     place: self.fast(a, "place") as u32,
                     x: self.fast_f64(a, "x"),
@@ -3524,7 +3541,7 @@ impl Index {
     fn postcode_display(&self, norm: &str, cc: Option<&str>) -> String {
         let cl = vec![must(term(self.f.pcode, norm))];
         match self.top_of(Kind::Postcode, cc, cl, 1).first() {
-            Some(&a) => stored(&self.searcher.doc(a).unwrap(), self.f.name),
+            Some(&a) => undotted_cep(stored(&self.searcher.doc(a).unwrap(), self.f.name)),
             None => norm.to_string(),
         }
     }
@@ -5221,6 +5238,18 @@ const NEAR_LOCALITY_M: f64 = 50_000.0;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ceps_lose_their_old_dot_only() {
+        for (stored, shown) in [
+            ("45.160-000", "45160-000"),
+            ("45160-000", "45160-000"),
+            ("1234.5-678", "1234.5-678"),
+            ("SW1A 2AA", "SW1A 2AA"),
+        ] {
+            assert_eq!(undotted_cep(stored.into()), shown);
+        }
+    }
 
     #[test]
     fn refuses_another_builders_index() {
