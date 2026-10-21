@@ -1556,6 +1556,39 @@ fn number_from_avenida(parsed: &mut Vec<(String, String)>) {
     }
 }
 
+/// "中正路63巷 22號, 甲仙區, 高雄市": libpostal reads a Taiwanese or Chinese number written
+/// after its road, apart from it, as part of the road, or after a village's name as a unit. A
+/// word of digits ending in 號/号 ("number") is a house number, nothing else.
+fn number_from_cjk_road(parsed: &mut Vec<(String, String)>) {
+    static NUMBER: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"^[0-9０-９]+(?:之[0-9０-９]+)?[號号]$").unwrap());
+    if parsed.iter().any(|(k, _)| k == "house_number") {
+        return;
+    }
+    // "佳崙 386號": a number after a village's name reads as a unit
+    if let Some(unit) = parsed
+        .iter_mut()
+        .find(|(k, v)| k == "unit" && NUMBER.is_match(v))
+    {
+        unit.0 = "house_number".into();
+        return;
+    }
+    let Some(at) = parsed.iter().position(|(k, _)| k == "road") else {
+        return;
+    };
+    let road = &parsed[at].1;
+    let split = match (road.split_once(' '), road.rsplit_once(' ')) {
+        (_, Some((rest, number))) if NUMBER.is_match(number) => Some((rest, number)),
+        (Some((number, rest)), _) if NUMBER.is_match(number) => Some((rest, number)),
+        _ => None,
+    };
+    if let Some((rest, number)) = split {
+        let (rest, number) = (rest.to_string(), number.to_string());
+        parsed[at].1 = rest;
+        parsed.insert(at + 1, ("house_number".into(), number));
+    }
+}
+
 /// The process's one libpostal parser.
 pub struct Parser {
     postal: Mutex<rustpostal::LibModules>,
@@ -1749,6 +1782,7 @@ impl Parser {
             };
             unit_from_road(&mut parsed);
             number_from_avenida(&mut parsed);
+            number_from_cjk_road(&mut parsed);
             parsed.into_iter().collect()
         };
         if self.capacity > 0 {
@@ -5889,6 +5923,20 @@ mod tests {
             assert_eq!(field(&parsed, "road"), kept, "{road}");
             assert_eq!(field(&parsed, "unit"), unit, "{road}");
         }
+        for (road, kept, number) in [
+            ("中正路63巷 22號", "中正路63巷", "22號"),
+            ("8之3號 中正路", "中正路", "8之3號"),
+            ("中正路 22", "中正路 22", ""),
+            ("route 66", "route 66", ""),
+        ] {
+            let mut parsed = pairs(&[("road", road)]);
+            number_from_cjk_road(&mut parsed);
+            assert_eq!(field(&parsed, "road"), kept, "{road}");
+            assert_eq!(field(&parsed, "house_number"), number, "{road}");
+        }
+        let mut parsed = pairs(&[("house", "佳崙"), ("unit", "386號")]);
+        number_from_cjk_road(&mut parsed);
+        assert_eq!(field(&parsed, "house_number"), "386號");
     }
 
     #[test]

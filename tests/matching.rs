@@ -1196,6 +1196,20 @@ fn a_part_that_repeats_another_is_collapsed() {
 }
 
 #[test]
+fn taiwan_province_is_left_out_only_where_it_is_a_part() {
+    assert_eq!(
+        without_taiwan_province("廈門街 21號, 屏東市, 屏東縣, 台灣省, Taiwan").as_deref(),
+        Some("廈門街 21號, 屏東市, 屏東縣, Taiwan")
+    );
+    assert_eq!(
+        without_taiwan_province("1 Main St, Taiwan Province, Taiwan").as_deref(),
+        Some("1 Main St, Taiwan")
+    );
+    assert_eq!(without_taiwan_province("台灣省"), None);
+    assert_eq!(without_taiwan_province("台灣省政府, 南投市"), None);
+}
+
+#[test]
 fn a_region_that_only_repeats_the_town_does_not_outweigh_the_stated_country() {
     // "Tokyo" is a city and a prefecture, "Delhi" a city and a union territory
     let found_in_japan = candidate("jp", "Tokyo", "Tokyo", "");

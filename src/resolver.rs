@@ -1008,6 +1008,13 @@ impl Core {
                 return Ok(found);
             }
         }
+        // a guess about what the parser made of the province: only a confident answer
+        if let Some(retry) = without_taiwan_province(query) {
+            let retried = self.resolve_once(&retry)?;
+            if retried.good_match {
+                return Ok(retried);
+            }
+        }
         Ok(found)
     }
 

@@ -1500,6 +1500,20 @@ pub fn without_redundant_parts(query: &str) -> Option<String> {
     (kept.len() < parts.len()).then(|| kept.join(", "))
 }
 
+/// `query` without a part that is Taiwan Province (台灣省), a province in name only: no place of
+/// the index has it, and the parser can take it for the town. None when no part is.
+pub fn without_taiwan_province(query: &str) -> Option<String> {
+    let parts: Vec<&str> = query.split(',').map(str::trim).collect();
+    let province = |p: &&str| {
+        matches!(
+            p.to_lowercase().as_str(),
+            "台灣省" | "臺灣省" | "台湾省" | "taiwan province"
+        )
+    };
+    let kept: Vec<&str> = parts.iter().filter(|p| !province(p)).copied().collect();
+    (kept.len() < parts.len() && !kept.is_empty()).then(|| kept.join(", "))
+}
+
 /// `query` with a part that is a region's ISO 3166-2 code, written as "B.C.S" or "BCS" after the
 /// first part, replaced by the name `region` gives for the code (uppercase, without the
 /// country): libpostal takes such a code for a house or a town, and a code that only one
