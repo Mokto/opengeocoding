@@ -1,0 +1,8 @@
+Hauskoordinaten Berlin, the house-coordinate subset of Adressen Berlin.
+© Amt für Statistik Berlin-Brandenburg and Senatsverwaltung für Stadtentwicklung, Bauen und Wohnen Berlin.
+Source: https://daten.berlin.de/datensaetze/hauskoordinaten-als-teildatenbestand-adressen-berlin-796582aa
+Download: https://gdi.berlin.de/data/adressen_berlin/atom/HKO_EPSG25833.zip
+Licence: Datenlizenz Deutschland – Zero – Version 2.0 (dl-de/zero-2.0), https://www.govdata.de/dl-de/zero-2-0
+Any use is permitted without restrictions or conditions, including a sampled corpus.
+This corpus samples Berlin only. Coordinates were transformed from EPSG:25833 to EPSG:4326.
+It is not a national German address register.
