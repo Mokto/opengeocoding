@@ -160,6 +160,11 @@ pub struct Suggestion {
     pub bbox: Option<[f32; 4]>,
 }
 
+/// Bytes of a house number but a Czech evidential mark's: "č.ev. 1057" is as short as "1057".
+fn number_len(n: &str) -> usize {
+    n.strip_prefix("č.ev. ").unwrap_or(n).len()
+}
+
 fn has_digit(w: &str) -> bool {
     w.chars().any(|c| c.is_ascii_digit())
 }
@@ -1318,7 +1323,7 @@ impl Index {
                 }
                 let sid = self.fast(a, "id") as u32;
                 let xy = if let Some(number) = number {
-                    if number.is_empty() || number.len() > MAX_NUMBER {
+                    if number.is_empty() || number_len(number) > MAX_NUMBER {
                         return None;
                     }
                     let mut key = sid.to_be_bytes().to_vec();
@@ -1673,18 +1678,30 @@ impl Index {
             .map(|(_, rest)| Typed::new(rest).parts)
             .unwrap_or_else(|| typed.parts[1..].to_vec());
         let postcode = extracted.as_ref().map(|(pc, _)| pc.as_str());
-        // "Rua José Relvas nº 13": the mark says only that a number follows
-        let raw: Vec<&str> = typed.parts[0]
-            .split(' ')
-            .filter(|w| !matches!(w.to_lowercase().as_str(), "nº" | "n.º" | "n°" | "n.°"))
-            .collect();
+        // "Rua José Relvas nº 13": the mark says only that a number follows, as "č.p." does for a
+        // Czech descriptive number; an evidential one is keyed with its mark ("č.ev. 169")
+        let mut marked: Vec<String> = vec![];
+        for w in typed.parts[0].split(' ') {
+            match w.to_lowercase().as_str() {
+                "nº" | "n.º" | "n°" | "n.°" | "č.p." | "čp." => {}
+                _ if has_digit(w)
+                    && marked
+                        .last()
+                        .is_some_and(|m| matches!(m.to_lowercase().as_str(), "č.ev." | "čev.")) =>
+                {
+                    *marked.last_mut().unwrap() = format!("č.ev. {w}");
+                }
+                _ => marked.push(w.to_string()),
+            }
+        }
+        let raw: Vec<&str> = marked.iter().map(String::as_str).collect();
         // the number: the first or last word, when a road remains; both when both could be
         // ("11 Listopada 26" is house 26 on a road named for a date)
         let number_at = (raw.len() > 1)
             .then(|| {
                 [0, raw.len() - 1]
                     .into_iter()
-                    .filter(|&i| has_digit(raw[i]) && raw[i].len() <= MAX_NUMBER)
+                    .filter(|&i| has_digit(raw[i]) && number_len(raw[i]) <= MAX_NUMBER)
             })
             .into_iter()
             .flatten();
@@ -2244,6 +2261,13 @@ impl Index {
                     .map(|v| (n.clone(), v))
                     .into_iter()
                     .collect();
+                if numbers.is_empty()
+                    && let Some(combined) = self.combined_number(&[a], n)
+                {
+                    let mut key = sid.to_be_bytes().to_vec();
+                    key.extend_from_slice(combined.as_bytes());
+                    numbers.extend(shard.get(&key).map(|v| (combined, v)));
+                }
                 if number_open {
                     let mut after = key.clone();
                     *after.last_mut().unwrap() += 1;
