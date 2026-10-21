@@ -1,9 +1,8 @@
 name: Gold nightly
 
-# Runs the gold suite on main's newest commit in the private cluster, like staging-publish.yml does
-# for pull requests, and keeps one open issue with every expected country's pass rate. The run
-# compares main with the commit of the previous nightly, so the issue also lists the countries
-# that changed since then. No new commit on main means no new run: the answers would be the same.
+# Runs the gold suite on main's newest commit in the private cluster, without a base to compare
+# with, and keeps one open issue with every expected country's pass rate. No new commit on main
+# means no new run: the answers would be the same.
 on:
   schedule:
     - cron: "0 1 * * *"
@@ -57,35 +56,20 @@ jobs:
             echo "::notice::main is still at ${head:0:7}, which the issue already reports"
             echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          base=""
-          for sha in "$previous" "$(gh api "repos/$REPO/commits/$head" -q '.parents[0].sha')"; do
-            [ -n "$sha" ] || continue
-            case "$(gh api "repos/$REPO/compare/$sha...$head" -q .status 2>/dev/null)" in ahead) ;; *) continue ;; esac
-            if has_image "$sha"; then base=$sha; break; fi
-          done
-          [ -n "$base" ] || { echo "::error::No earlier main commit with a staging image to compare with"; exit 1; }
-          {
-            echo "skip=false"; echo "head=$head"; echo "base=$base"; echo "issue=$issue"
-          } >> "$GITHUB_OUTPUT"
+          { echo "skip=false"; echo "head=$head"; echo "issue=$issue"; } >> "$GITHUB_OUTPUT"
       - name: Run the gold suite
         if: steps.pick.outputs.skip == 'false'
         env:
           HEAD_SHA: ${{ steps.pick.outputs.head }}
-          BASE_SHA: ${{ steps.pick.outputs.base }}
         run: |
           set -euo pipefail
-          for side in base head; do
-            sha=$BASE_SHA; [ "$side" = head ] && sha=$HEAD_SHA
-            gh api "repos/$REPO/contents/manifests/values.yaml?ref=$sha" -H 'Accept: application/vnd.github.raw' > "$side-values.yaml"
-            yq -o=json '.index.sources' "$side-values.yaml" > "$side-sources.json"
-            yq '.index.builderHash' "$side-values.yaml" > "$side-builder"
-          done
-          request=$(jq -nc --arg h "$HEAD_SHA" --arg b "$BASE_SHA" \
-            --slurpfile hs head-sources.json --slurpfile bs base-sources.json \
-            --rawfile hb head-builder --rawfile bb base-builder \
-            '{head_sha: $h, base_sha: $b, head_sources: $hs[0], base_sources: $bs[0],
-              head_builder_hash: ($hb | rtrimstr("\n") | select(test("^[0-9a-f]{16}$")) // null),
-              base_builder_hash: ($bb | rtrimstr("\n") | select(test("^[0-9a-f]{16}$")) // null)}')
+          # Without a base_sha the cluster builds and evaluates the head only.
+          gh api "repos/$REPO/contents/manifests/values.yaml?ref=$HEAD_SHA" -H 'Accept: application/vnd.github.raw' > values.yaml
+          yq -o=json '.index.sources' values.yaml > sources.json
+          yq '.index.builderHash' values.yaml > builder
+          request=$(jq -nc --arg h "$HEAD_SHA" --slurpfile s sources.json --rawfile b builder \
+            '{head_sha: $h, head_sources: $s[0],
+              head_builder_hash: ($b | rtrimstr("\n") | select(test("^[0-9a-f]{16}$")) // null)}')
           deadline=$((SECONDS + 5 * 3600))
           while :; do
             code=$(curl -sS -m 30 -o start.json -w '%{http_code}' -X POST -H "Authorization: Bearer $KEY" -d "$request" "$URL/runs")
@@ -98,7 +82,7 @@ jobs:
           done
           RUN_ID=$(jq -r .id start.json)
           echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
-          echo "Run $RUN_ID: ${BASE_SHA:0:7} → ${HEAD_SHA:0:7}"
+          echo "Run $RUN_ID: ${HEAD_SHA:0:7}"
           errors=0; last=""
           while :; do
             sleep 30
@@ -117,13 +101,11 @@ jobs:
           done
           jq -r .report run.json | sed -e '/^<!-- speed: /,/^<!-- speed end -->/d' \
             -e '/^<!-- headline: /d' -e '/^pass base=[0-9]* head=[0-9]* of [0-9]*/d' > gold.md
-          echo "EXIT=$(jq -r .exit run.json)" >> "$GITHUB_ENV"
           cp gold.md "$GITHUB_STEP_SUMMARY"
       - name: Update the issue
         if: steps.pick.outputs.skip == 'false'
         env:
           HEAD_SHA: ${{ steps.pick.outputs.head }}
-          BASE_SHA: ${{ steps.pick.outputs.base }}
           ISSUE: ${{ steps.pick.outputs.issue }}
           MIN: 100
         run: |
@@ -135,10 +117,14 @@ jobs:
             echo "$MARKER"
             echo "<!-- head: $HEAD_SHA -->"
             echo "Updated $(date -u '+%Y-%m-%d %H:%M') UTC by the [nightly run]($server/actions/runs/$GITHUB_RUN_ID) on \`main\` at [\`${HEAD_SHA:0:7}\`]($server/commit/$HEAD_SHA)."
-            echo "Base → head columns compare it with [\`${BASE_SHA:0:7}\`]($server/compare/$BASE_SHA...$HEAD_SHA), the previous nightly's commit when it still has an image: $([ "$EXIT" = 1 ] && echo 'newly failing or worse cases, listed in the run summary' || echo 'no newly failing or worse cases')."
             echo
-            # The RPC totals and the changed countries: everything before the report's first fold.
-            sed -e '/^<details>/,$d' -e '/^# Baseline vs candidate/d' gold.md
+            # The report diffs the run with itself, so its RPC table's base and head columns are equal.
+            awk -F'|' '
+              /^\| RPC / { print "| RPC | Checked | Passing |"; print "|---|---:|---:|"; t = 1; next }
+              t && /^\|---/ { next }
+              t && /^\| / { for (i = 2; i <= 5; i++) gsub(/ /, "", $i)
+                            printf "| %s | %s | %s (%.1f%%) |\n", $2, $3, $5, $3 ? 100 * $5 / $3 : 0; next }
+              t { exit }' gold.md
             echo
             echo "## Pass rate of every country with at least $MIN cases"
             echo
