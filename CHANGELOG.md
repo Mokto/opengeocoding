@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.18.0](https://github.com/Mokto/opengeocoding/compare/v0.17.1...v0.18.0) (2026-10-21)
+
+
+### Features
+
+* find houses the parse misses in Indian and other civic-number addresses ([#244](https://github.com/Mokto/opengeocoding/issues/244)) ([dc63545](https://github.com/Mokto/opengeocoding/commit/dc635458a347bdfea4ae0835c3098503939b0e80))
+
+
+### Bug Fixes
+
+* find Bogotá houses on a road whose name another locality shares ([#246](https://github.com/Mokto/opengeocoding/issues/246)) ([0b93cbd](https://github.com/Mokto/opengeocoding/commit/0b93cbd7d8c471fcdd9906065c36f84f73ed693a))
+* find Bogotá houses written with plate numbers and avenue road types ([#236](https://github.com/Mokto/opengeocoding/issues/236)) ([8298239](https://github.com/Mokto/opengeocoding/commit/82982395fed3f89227f3ffa9573dd8d55401f160))
+* find New Zealand houses by their town, a number after the road and an unheld postcode ([#247](https://github.com/Mokto/opengeocoding/issues/247)) ([e8a18f9](https://github.com/Mokto/opengeocoding/commit/e8a18f9e31e6cc8d4eace56fbf74a1fb3770e3c4))
+* find Taiwanese houses written with Taiwan Province or a number after the road ([#250](https://github.com/Mokto/opengeocoding/issues/250)) ([519c5c9](https://github.com/Mokto/opengeocoding/commit/519c5c9637f8ca732757ba78a5da0f3898dc81b4))
+* index Finland's OpenStreetMap addresses ([#249](https://github.com/Mokto/opengeocoding/issues/249)) ([7a6beca](https://github.com/Mokto/opengeocoding/commit/7a6beca61e4d3359e498bbbbc644f7988ec7cb78))
+* index OSM addresses for Chile, Colombia, Mexico, Portugal and Taiwan ([#233](https://github.com/Mokto/opengeocoding/issues/233)) ([87f788e](https://github.com/Mokto/opengeocoding/commit/87f788e64da1119715a1e9563c3b0b78be86f42e))
+* let a postcode and town state the country a query leaves out ([#242](https://github.com/Mokto/opengeocoding/issues/242)) ([2121761](https://github.com/Mokto/opengeocoding/commit/21217610620963f732bf2b51bb3bd55fbd099a45))
+* spanish address search: place cadastre points, match registry street spellings, tell villages apart ([#226](https://github.com/Mokto/opengeocoding/issues/226)) ([403b6ef](https://github.com/Mokto/opengeocoding/commit/403b6ef18e8f511ccd9683a295e10aa6bd225f8e))
+* suggest houses for a town that is part of their municipality, within the typed postcode ([#243](https://github.com/Mokto/opengeocoding/issues/243)) ([f654284](https://github.com/Mokto/opengeocoding/commit/f65428461aa20208ac1a6d4f77a505f052d3209c))
+* suggest houses whose number keeps a space before its letter ([#248](https://github.com/Mokto/opengeocoding/issues/248)) ([bf4fd3a](https://github.com/Mokto/opengeocoding/commit/bf4fd3aa2cca85b10b04a356f2f6cb4b396e84de))
+* take an extract moved between the OSM lists from the other sealed mirror ([#240](https://github.com/Mokto/opengeocoding/issues/240)) ([fafe73b](https://github.com/Mokto/opengeocoding/commit/fafe73b0349b675d9b6e586bdde23a1685344d39))
+
+
+### Performance Improvements
+
+* **evaluate:** load the direct index and probe grpcurl while the service starts ([#235](https://github.com/Mokto/opengeocoding/issues/235)) ([50036a3](https://github.com/Mokto/opengeocoding/commit/50036a3f1880f401f3d3fbf2ce91616c63450aa7))
+* read landmark extracts beside the build's other passes ([#241](https://github.com/Mokto/opengeocoding/issues/241)) ([70cb37b](https://github.com/Mokto/opengeocoding/commit/70cb37b141b1c6935cd354c52679591f46360844))
+
 ## [0.17.1](https://github.com/Mokto/opengeocoding/compare/v0.17.0...v0.17.1) (2026-10-20)
 
 
