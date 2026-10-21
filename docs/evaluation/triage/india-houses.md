@@ -26,7 +26,7 @@ A house is accepted only when all of these hold:
 
 - Its number is written in the query, as one to four whole words of one part.
 - Every word of its street is in the query.
-- The query contains its postcode or town (city, town, village, municipality, suburb, city district or hamlet; a county is not enough).
+- The query contains its postcode or town (city, town, village, municipality, suburb, city district or hamlet). A county is not enough, except a division or district named for its seat: `Karachi` names `Karachi Division`, whose houses lie in towns such as Gulshan-e-Iqbal rather than in the city's own place.
 - The words beside the number belong to its street or its places, and at least one belongs to the street. `Heyrovského č.p. 470, Olomouc` is not house č.p. 470 of a street named Olomouc, and `Dublin 4` is a district, not house 4.
 - Any other number in the query is explained: it is the postcode or part of the street.
 - It is in the answer's country.
@@ -58,4 +58,4 @@ The index was the local world index (builder `1929034e0fce080d`) with the OSM ad
 - Answers at town level whose parse found a number, where no lookup runs.
 - Streets the index lacks.
 
-Pakistan is not in the panel, and no other corpus covers it, so this change makes no claim about Pakistan.
+Pakistan is not in the panel, and no other corpus covers it, so this change makes no claim about Pakistan's accuracy. As a local diagnostic only (not committed, OSM-derived, so not independent), I took 300 Pakistani OSM address nodes with a street and a town or postcode, mostly in Karachi. SearchAddress put 135 of them at the node with their number on `main`, 137 with the lookups above, and 170 with the seat rule. The seat rule changed no gold answer.

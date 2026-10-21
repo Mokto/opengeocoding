@@ -852,7 +852,14 @@ impl Core {
                             &d.hamlet,
                         ]
                         .into_iter()
-                        .any(|p| named(p)));
+                        .any(|p| named(p))
+                        // a district named for its seat ("Karachi Division")
+                        || [&d.county, &d.state_district].into_iter().any(|p| {
+                            p.rsplit_once(' ').is_some_and(|(name, word)| {
+                                matches!(word.to_lowercase().as_str(), "division" | "district")
+                                    && named(name)
+                            })
+                        }));
                 if verified {
                     houses.push(house);
                 }

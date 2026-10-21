@@ -1818,7 +1818,19 @@ async fn resolve_follows_the_authored_facts() {
             "{query}: {got:?}"
         );
     }
+    let query = "A254 Gulistan e Johar Block 11, Karachi, Pakistan";
+    let got = resolver.resolve(query).await.unwrap();
+    assert!(got.good_match, "{query}: {got:?}");
+    let at = got.geo_coordinates.as_option().unwrap();
+    assert!(
+        metres(
+            (at.lon as f64, at.lat as f64),
+            house(street("Gulistan e Johar Block 11"), "A254")
+        ) < 5.0,
+        "{query}: {got:?}"
+    );
     for query in [
+        "A254 Gulistan e Johar Block 11, Sindh, Pakistan",
         "Shastri Nagar Plot No.15, 342003, India",
         "Shiv Vihar Plot No.14, 342003, India",
         "Shastri Nagar D-113, 342003, India",
