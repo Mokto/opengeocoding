@@ -125,9 +125,12 @@ jobs:
           HEAD_SHA: ${{ steps.pick.outputs.head }}
           BASE_SHA: ${{ steps.pick.outputs.base }}
           ISSUE: ${{ steps.pick.outputs.issue }}
+          MIN: 100
         run: |
           set -euo pipefail
           server="$GITHUB_SERVER_URL/$REPO"
+          gh api "repos/$REPO/contents/data/reference.json?ref=$HEAD_SHA" -H 'Accept: application/vnd.github.raw' \
+            | jq -r '.country_names[]' > countries.txt
           {
             echo "$MARKER"
             echo "<!-- head: $HEAD_SHA -->"
@@ -137,9 +140,25 @@ jobs:
             # The RPC totals and the changed countries: everything before the report's first fold.
             sed -e '/^<details>/,$d' -e '/^# Baseline vs candidate/d' gold.md
             echo
-            echo "## Pass rate of every country"
+            echo "## Pass rate of every country with at least $MIN cases"
             echo
-            sed -n '/<summary><b>Pass rate of every country/,/^<\/details>/p' gold.md | sed '1d;$d'
+            # A row's SearchAddress cell is "PASS / CHECKED" or "BASE → HEAD / CHECKED (+N)"; a row
+            # naming several countries is a territory expected together with its country.
+            sed -n '/<summary><b>Pass rate of every country/,/^<\/details>/p' gold.md | sed '1d;$d' |
+              awk -F'|' -v min="$MIN" -v missing=missing.txt '
+                NR == FNR { cases[$0] = 0; next }
+                $2 == " - " { next }
+                !/^\| / || $2 == " Country " { print; next }
+                { split($3, s, "/ "); n = s[2] + 0; name = substr($2, 2, length($2) - 2) }
+                n >= min { print }
+                { k = split(name, names, ", "); for (i = 1; i <= k; i++) if (names[i] in cases) cases[names[i]] += n }
+                END { for (c in cases) if (cases[c] < min) print c " (" cases[c] ")" > missing }' countries.txt -
+            echo
+            echo "## Countries with fewer than $MIN cases"
+            echo
+            echo "SearchAddress cases in brackets, counting those that expect a territory and its country together."
+            echo
+            sort missing.txt | paste -sd ';' - | sed 's/;/ · /g'
           } > body.md
           if [ -n "$ISSUE" ]; then
             gh api -X PATCH "repos/$REPO/issues/$ISSUE" -F body=@body.md > /dev/null
