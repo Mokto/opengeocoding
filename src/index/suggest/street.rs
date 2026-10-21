@@ -482,21 +482,13 @@ impl Index {
                 return found;
             }
         }
-        // "شارع الكنيسه 5, مركز منفلوط, اسيوط": the word for the town's unit (markaz) is in no
-        // place's name
+        // "شارع الكنيسه 5, مركز منفلوط, اسيوط": an Egyptian address's town parts as the index
+        // names them
         if !out.iter().any(|s| s.kind == "address")
             && cc.is_none_or(|c| c.eq_ignore_ascii_case("eg"))
-            && typed.parts[1..].iter().any(|p| eg::bare_town(p).is_some())
+            && let Some(towns) = self.egyptian_towns(&typed.parts[1..], cc.is_some())
         {
-            let parts = typed.parts[..1]
-                .iter()
-                .cloned()
-                .chain(
-                    typed.parts[1..]
-                        .iter()
-                        .map(|p| eg::bare_town(p).unwrap_or_else(|| p.clone())),
-                )
-                .collect();
+            let parts = typed.parts[..1].iter().cloned().chain(towns).collect();
             let found = self.suggest_streets(
                 &Typed {
                     parts,
@@ -619,6 +611,23 @@ impl Index {
                 }
             }
         };
+        // an Egyptian town also means its markaz or qism counties, which hold its houses
+        if cc.is_none_or(|c| c.eq_ignore_ascii_case("eg")) {
+            let counties = self
+                .suggest
+                .egyptian_counties
+                .get_or_init(|| eg::counties(&self.places));
+            for at in 0..ids.len() {
+                let pl = &self.places[ids[at] as usize];
+                if pl.cc.eq_ignore_ascii_case("eg") && &*pl.subtype == "locality" {
+                    for c in eg::town_counties(&self.places, counties, &self.chain(ids[at])) {
+                        if !ids.contains(&c) {
+                            ids.push(c);
+                        }
+                    }
+                }
+            }
+        }
         // "main st, il" and "10 downing st, uk": a region's code, a country's name or code. Only
         // after a comma: in "main st" the "st" is a word being typed.
         if let ([one], true) = (parts, codes) {
@@ -640,6 +649,41 @@ impl Index {
         }
         ids.dedup();
         ids
+    }
+
+    /// The town parts of an Egyptian address as the index may hold them, if they differ: without
+    /// the unit words when a place is named so ("مركز منفلوط" is منفلوط), once when the town
+    /// repeats its governorate ("المنيا, المنيا"), and, with the country `stated`, without a
+    /// suburb that names no place ("غرب النوباريه, البحيرة, 22773") while a postcode or two
+    /// places remain.
+    fn egyptian_towns(&self, parts: &[String], stated: bool) -> Option<Vec<String>> {
+        let postcode = |p: &str| p.chars().all(|c| c.is_ascii_digit());
+        let named = |p: &str| {
+            let key = name_key(p);
+            postcode(p)
+                || self.country(p).is_some()
+                || self
+                    .suggest_places(&[p.to_owned()], false, Some("eg"), None, Names::Strict, 8)
+                    .iter()
+                    .any(|&(id, _)| self.places[id as usize].named(key))
+        };
+        let mut towns: Vec<(String, bool)> = parts
+            .iter()
+            .map(|p| match eg::bare_town(p) {
+                Some(bare) if named(&bare) => (bare, true),
+                _ => (p.clone(), named(p)),
+            })
+            .collect();
+        towns.dedup_by(|b, a| fold(&a.0) == fold(&b.0));
+        let places = towns
+            .iter()
+            .filter(|(p, known)| *known && !postcode(p) && self.country(p).is_none())
+            .count();
+        if stated && (places >= 2 || towns.iter().any(|(p, _)| postcode(p))) {
+            towns.retain(|(_, known)| *known);
+        }
+        let towns: Vec<String> = towns.into_iter().map(|(p, _)| p).collect();
+        (towns != parts).then_some(towns)
     }
 
     #[allow(clippy::too_many_arguments)]

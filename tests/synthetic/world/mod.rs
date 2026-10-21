@@ -148,6 +148,15 @@ const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
     ("at-e", "region", true, true, 80.5, 0.0, 0.5),
     ("co-bogota-dc", "county", true, true, -60.0, 30.3, 0.6),
     ("wf-reefward", "region", true, true, -150.0, -20.0, 0.4),
+    (
+        "eg-ast-manfalut-markaz",
+        "county",
+        true,
+        true,
+        31.1,
+        27.31,
+        0.45,
+    ),
 ];
 
 /// A street and its houses: (street, postcode, city, cc, lon, lat of house 1, numbers); the houses
