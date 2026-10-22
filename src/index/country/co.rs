@@ -26,6 +26,24 @@ pub(crate) fn bogota_road(road: &str) -> Option<String> {
     })
 }
 
+/// "AC 43 S # 86B-18" or "Calle 22BIS S 9C-18 E": the road's words and the plate in the
+/// register's form ("86B 18", "9C 18 E"). None when the text ends in no plate.
+pub(crate) fn split_plate(text: &str) -> Option<(Vec<&str>, String)> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let at = words.iter().rposition(|w| w.contains('-'))?;
+    if words.len() - at > 2 {
+        return None;
+    }
+    let plate = colombian_plate(&words[at..].join(" "))?;
+    let mut road = &words[..at];
+    if let Some((last, rest)) = road.split_last()
+        && matches!(last.to_lowercase().as_str(), "#" | "no" | "no.")
+    {
+        road = rest;
+    }
+    (!road.is_empty()).then(|| (road.to_vec(), plate))
+}
+
 /// A Colombian plate ("# 86B-18", "54D-35 S": the house 18 m along from the crossing road 86B)
 /// as Bogotá's register keys it, "86B 18" and "54D 35 S". None when it is not one.
 pub(crate) fn colombian_plate(n: &str) -> Option<String> {

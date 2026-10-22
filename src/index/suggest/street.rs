@@ -1,5 +1,5 @@
 use super::*;
-use crate::index::country::us;
+use crate::index::country::{co, us};
 
 /// A house number written as a part of its own, "12", "12A" or "nº 12", as the number:
 /// short enough not to be a postcode.
@@ -160,7 +160,17 @@ impl Index {
         // "Rua José Relvas nº 13": the mark says only that a number follows, as "č.p." does for a
         // Czech descriptive number; an evidential one is keyed with its mark ("č.ev. 169")
         let mut marked: Vec<String> = vec![];
-        for w in typed.parts[0].split(' ') {
+        // "AC 43 S # 86B-18": a Bogotá plate is one number, keyed "86B 18"
+        let plate = cc
+            .is_some_and(|c| c.eq_ignore_ascii_case("co"))
+            .then(|| co::split_plate(&typed.parts[0]))
+            .flatten();
+        let plated = plate.is_some();
+        if let Some((road, plate)) = plate {
+            marked.extend(road.into_iter().map(String::from));
+            marked.push(plate);
+        }
+        for w in typed.parts[0].split(' ').filter(|_| !plated) {
             match w.to_lowercase().as_str() {
                 "nº" | "n.º" | "n°" | "n.°" | "č.p." | "čp." => {}
                 _ if has_digit(w)
@@ -657,6 +667,39 @@ impl Index {
                 focus,
                 want,
             );
+            if found.iter().any(|s| s.kind == "address") {
+                return found;
+            }
+        }
+        // "Avenida Calle 43 S # 86B-18": Bogotá's register names it "AC 43 S"
+        if !out.iter().any(|s| s.kind == "address")
+            && cc.is_some_and(|c| c.eq_ignore_ascii_case("co"))
+            && let Some(road) = co::bogota_road(&typed.parts[0])
+            && road.len() < typed.parts[0].len()
+            && co::split_plate(&road).is_some()
+        {
+            let mut parts = typed.parts.clone();
+            parts[0] = road;
+            let found = self.suggest_streets(
+                &Typed {
+                    parts,
+                    open: typed.open,
+                },
+                cc,
+                focus,
+                want,
+            );
+            if found.iter().any(|s| s.kind == "address") {
+                return found;
+            }
+        }
+        // "CL 22BIS S # 9C-18 E, Bogotá" names no country: a plate only when Colombia has the
+        // house, as "Rue Beck 2-4, 1222 Luxembourg" is a range elsewhere
+        if !out.iter().any(|s| s.kind == "address")
+            && cc.is_none()
+            && co::split_plate(&typed.parts[0]).is_some()
+        {
+            let found = self.suggest_streets(typed, Some("co"), focus, want);
             if found.iter().any(|s| s.kind == "address") {
                 return found;
             }

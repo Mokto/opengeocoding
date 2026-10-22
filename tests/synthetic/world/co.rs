@@ -1,4 +1,5 @@
 use super::*;
+use crate::*;
 
 pub const PLACES: &[Place] = &[
     // Colombia's county is the municipality: Bogotá's localities sit partly under the city and
@@ -91,3 +92,67 @@ pub const STREETS: &[Street] = &[
         numbers: &["9C 18 E"],
     },
 ];
+
+#[test]
+fn bogota_plates_are_suggested_as_the_registers_houses() {
+    let ac = street("AC 43 S");
+    let san_cristobal = STREETS
+        .iter()
+        .find(|s| s.numbers.contains(&"9C 18 E"))
+        .unwrap();
+    for (typed, cc, want) in [
+        (
+            "AC 43 S # 86B-18, Bogotá, Colombia",
+            None,
+            house(ac, "86B 18"),
+        ),
+        (
+            "Avenida Calle 43 S # 86B-18, Bogotá, Colombia",
+            None,
+            house(ac, "86B 18"),
+        ),
+        (
+            "Avenida Calle 43 S 86B-18, Bogotá",
+            None,
+            house(ac, "86B 18"),
+        ),
+        (
+            "AC 43 S # 54D-35 S, Bogotá",
+            Some("CO"),
+            house(ac, "54D 35 S"),
+        ),
+        (
+            "CL 22BIS S # 9C-18 E, Bogotá, Colombia",
+            None,
+            house(san_cristobal, "9C 18 E"),
+        ),
+        // typed so far: the plate's distance not finished
+        ("AC 43 S # 86B-1", Some("CO"), house(ac, "86B 18")),
+    ] {
+        let found = index().suggest(typed, 5, cc, None, false);
+        assert!(!found.is_empty(), "{typed}");
+        assert_eq!(
+            found[0].kind, "address",
+            "{typed}: {}",
+            found[0].display_name
+        );
+        assert!(
+            metres((found[0].x, found[0].y), want) < 5.0,
+            "{typed}: {}",
+            found[0].display_name
+        );
+    }
+    // another plate is not borrowed
+    for typed in [
+        "AC 43 S # 86B-19, Bogotá, Colombia",
+        "AC 44 S # 86B-18, Bogotá, Colombia",
+    ] {
+        assert!(
+            index()
+                .suggest(typed, 5, None, None, false)
+                .iter()
+                .all(|s| s.kind != "address"),
+            "{typed}"
+        );
+    }
+}
