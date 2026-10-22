@@ -28,6 +28,12 @@ pub fn gold_towns() -> PathBuf {
     root().join("tests/gold.towns.jsonl")
 }
 
+/// Town-level checks of GLEIF legal addresses against the Wikidata settlement their city names,
+/// generated from `tests/gold.gleif.seeds.jsonl` (`tests/gleif/sample-gleif.py`).
+pub fn gold_gleif() -> PathBuf {
+    root().join("tests/gold.gleif.jsonl")
+}
+
 /// Registry-first corpora (`tests/registry/*.jsonl`, generated from the `*.seeds.jsonl` (and `*.labels.jsonl`) beside them).
 pub fn registry_corpora() -> Vec<PathBuf> {
     let mut found: Vec<_> = std::fs::read_dir(root().join("tests/registry"))
@@ -53,6 +59,7 @@ pub fn suite() -> Vec<PathBuf> {
     files.push(root().join("tests/global/global-addresses.jsonl"));
     files.push(gold_landmarks());
     files.push(gold_towns());
+    files.push(gold_gleif());
     files.push(root().join("tests/gold.suggest.jsonl"));
     files
 }

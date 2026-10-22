@@ -1,0 +1,13 @@
+GLEIF town-level address corpus
+
+The queries and postcodes in tests/gold.gleif.seeds.jsonl and
+tests/gold.gleif.jsonl are taken from the GLEIF LEI Golden Copy (legal addresses
+of legal entities), provided by the Global Legal Entity Identifier Foundation
+under CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/) per its LEI
+Data Terms of Use (https://www.gleif.org/en/meta/lei-data-terms-of-use). This
+corpus is not provided, supported, authorized or endorsed by GLEIF or any LEI
+issuer; GLEIF does not warrant the data's accuracy. The file used, its size and
+SHA-256 are recorded in tests/gleif/manifest.json.
+
+Expected points and ISO 3166-2 codes come from Wikidata (CC0 1.0,
+https://www.wikidata.org/), as recorded per case.

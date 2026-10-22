@@ -45,6 +45,7 @@ jobs:
       - run: python3 -m pip install --user --break-system-packages shapely==2.0.7
       - run: python3 tests/global/test-build-addresses.py
       - run: python3 tests/towns/test-sample-towns.py
+      - run: python3 tests/gleif/test-sample-gleif.py
       - run: python3 .github/scripts/test-gold-nightly-issue.py
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
