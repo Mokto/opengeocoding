@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.20.0](https://github.com/Mokto/opengeocoding/compare/v0.19.0...v0.20.0) (2026-10-22)
+
+
+### Features
+
+* report each source mirror's progress in files ([#309](https://github.com/Mokto/opengeocoding/issues/309)) ([f575847](https://github.com/Mokto/opengeocoding/commit/f5758479ee90c4ef7b6660302b4b6c0500bb6175))
+
+
+### Bug Fixes
+
+* **deps:** update non-major dependencies ([#316](https://github.com/Mokto/opengeocoding/issues/316)) ([04f9f6d](https://github.com/Mokto/opengeocoding/commit/04f9f6d63827f8721e8ecffdbdacbf82fc765044))
+* find Berlin's lettered houses and numbered streets ([#307](https://github.com/Mokto/opengeocoding/issues/307)) ([83044da](https://github.com/Mokto/opengeocoding/commit/83044dacf3f3cc5ef1943757fcf2d510e66ff001))
+* find Italian civic numbers with an exponent and addresses that name a frazione ([#321](https://github.com/Mokto/opengeocoding/issues/321)) ([188b351](https://github.com/Mokto/opengeocoding/commit/188b3516d1013252e8170edc4426e74c9b8bb718))
+* read the country libpostal takes for a road after a postcode (Albania, North Macedonia) ([#317](https://github.com/Mokto/opengeocoding/issues/317)) ([8384799](https://github.com/Mokto/opengeocoding/commit/83847997b4f540c1bc179d4a7a29479c8e4e7321))
+* suggest Egyptian addresses written with hamza variants and district prefixes ([#315](https://github.com/Mokto/opengeocoding/issues/315)) ([e8d9814](https://github.com/Mokto/opengeocoding/commit/e8d9814de47bf230d38e8d5a6ecc62c65d895990))
+* suggest US addresses with units, state codes and ZIP+4, and UK postcodes with their district ([#320](https://github.com/Mokto/opengeocoding/issues/320)) ([5e1ebdf](https://github.com/Mokto/opengeocoding/commit/5e1ebdf4d706d792f88d4cdf1de1fb2d75ea7a85))
+* time gold speed cases only after the suggestion warm-up ([#319](https://github.com/Mokto/opengeocoding/issues/319)) ([4a9b0bb](https://github.com/Mokto/opengeocoding/commit/4a9b0bb61998207270d68ee9818904bc9fd4471e))
+
 ## [0.19.0](https://github.com/Mokto/opengeocoding/compare/v0.18.1...v0.19.0) (2026-10-21)
 
 
