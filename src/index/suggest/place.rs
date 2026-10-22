@@ -363,7 +363,18 @@ impl Index {
             let quals: Vec<String> = if split < all.len() {
                 vec![all[split..].join(" ")]
             } else {
-                parts[1..].iter().map(|p| fold(p)).collect()
+                // "Portland, ME 04101": the region, not its postcode, qualifies the town
+                parts[1..]
+                    .iter()
+                    .map(|p| {
+                        let q = fold(p);
+                        let named: Vec<&str> = q
+                            .split(' ')
+                            .filter(|w| !w.bytes().all(|b| b.is_ascii_digit()))
+                            .collect();
+                        if named.is_empty() { q } else { named.join(" ") }
+                    })
+                    .collect()
             };
             // a qualifier of one letter says nothing yet, and no place matches it
             let quals: Vec<String> = quals

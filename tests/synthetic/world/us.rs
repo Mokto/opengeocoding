@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Case, at_house, case, town};
+use crate::*;
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -233,4 +233,51 @@ pub fn cases() -> Vec<Case> {
         // France has this street, Texas has not: the town in Texas, never the French street
         case("Rue de Rivoli, Paris, Texas", town("us-tx-paris", false)),
     ]
+}
+
+/// Township Lane's house is filed under Bayport; only its addresses name Postalton.
+#[test]
+fn us_addresses_are_suggested_with_a_state_zip_unit_or_out_of_order() {
+    let index = index();
+    let want = house(street("Township Lane"), "15");
+    for query in [
+        "15 Township Lane, Postalton, IL 60001",
+        "15 Township Lane, Postalton, IL",
+        "15 Township Lane, Postalton, IL 60001-1234",
+        "15 Township Lane, Postalton Township, IL 60001",
+        "15 Township Lane, Cook, Postalton Township, IL 60001",
+        "15 Township Lane Apt 4, Postalton, IL 60001",
+        "15 Township Lane, Apt 4, Postalton, IL 60001",
+        "15 Township Lane #4, Postalton, IL 60001",
+        "15 Township Lane Postalton IL 60001",
+        "United States, IL 60001, Postalton, 15 Township Lane",
+        // a ZIP or a town the house does not have
+        "15 Township Lane, Postalton, IL 60009",
+        "15 Township Lane, Arbor, IL 60001",
+    ] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert_eq!(found[0].country_code, "us", "{query}");
+        assert!(metres((found[0].x, found[0].y), want) < 5., "{query}");
+        let unit = if query.contains("4,") { "4" } else { "" };
+        assert!(found[0].unverified_suffix.ends_with(unit), "{query}");
+    }
+    // another state holds no such house
+    let query = "15 Township Lane Apt 4, Postalton, GA 60001";
+    assert!(
+        !index
+            .suggest(query, 5, None, None, false)
+            .iter()
+            .any(|s| s.kind == "address" && metres((s.x, s.y), want) < 5.),
+        "{query}"
+    );
+    // the street alone, by the town its addresses name
+    let found = index.suggest("Township Lane, Postalton", 5, None, None, false);
+    assert_eq!(found.first().map(|s| s.kind), Some("street"));
+    let paris = index.suggest("Paris, TX 75460", 5, None, None, false);
+    let want = place("us-tx-paris");
+    assert!(
+        metres((paris[0].x, paris[0].y), (want.lon, want.lat)) < 5.,
+        "Paris, TX 75460"
+    );
 }
