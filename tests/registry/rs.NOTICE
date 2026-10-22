@@ -1,0 +1,18 @@
+The registry-first sample tests/registry/rs.jsonl contains street names, house numbers and
+coordinates from the Address Register (Адресни регистар) of the Republic Geodetic Authority of
+Serbia (Републички геодетски завод, RGZ), house number export of 2025-06-10, made available
+through the Open Data Portal of the Republic of Serbia under the Serbian Open Data Licence
+(Лиценца за коришћење података - Портал отворених података Републике Србије,
+https://data.gov.rs/sr/terms/).
+Source: https://data.gov.rs/sr/datasets/adresni-registar/ (resource "Адресни регистар - кућни
+бројеви (CSV)", https://download.geosrbija.rs/download-api/opendata-proxy/export?category=ar&layer=kucni_broj_ar&geometry=true&fileName=kucni_br_csv&format=csv).
+That address is reachable only from Serbian networks; the copy used here is the export an
+OpenAddresses contributor downloaded from it and posted
+(https://github.com/openaddresses/openaddresses/issues/7199) at
+https://bogdanupload.blob.core.windows.net/openaddresses/kucni_br_csv.zip, downloaded from there
+on 2026-10-22.
+Changes: coordinates were transformed from ETRS89 / UTM zone 34N (EPSG:25834) to EPSG:4326 with
+DuckDB spatial / PROJ, a parenthesised qualifier was dropped from settlement and municipality
+names ("БЕОГРАД (ЗЕМУН)" is written "БЕОГРАД"), and queries were constructed from registry fields.
+Per-case prepared-CSV checksums and retrieval dates are recorded in the corpus;
+docs/evaluation/registry/rs.md records the upstream checksums.
