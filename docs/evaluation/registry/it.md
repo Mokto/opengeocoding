@@ -56,12 +56,14 @@ On a local world index from builder `ce9fa3d2362ead46` (Overture 2026-09-23.1, O
 | Locality | 95 | 95 | 91 |
 | Bilingual | 12 | 25 | 20 |
 
-Overall 311/320 pass; 8 are too coarse and one is a near miss, with no critical result. By placement method, SearchAddress passes 27/27 surveyed points better than 5 m, 4/4 surveyed worse than 5 m, 114/116 and 143/146 derived better and worse than 5 m, and 23/27 portal-placed points. All 320 ReverseGeocode country checks pass; SuggestAddress finds an acceptable full-string result for 91/320.
+Overall 311/320 pass; 8 are too coarse and one is a near miss, with no critical result. By placement method, SearchAddress passes 27/27 surveyed points better than 5 m, 4/4 surveyed worse than 5 m, 114/116 and 143/146 derived better and worse than 5 m, and 23/27 portal-placed points. All 320 ReverseGeocode country checks pass. SuggestAddress finds an acceptable full-string result for 314/320; the six it misses are houses SearchAddress misses too.
 
 When the corpus was added (builder `7ab597c193ca4bf7`) 186/320 passed, 7/100 exponents and 61/95 localities among them, with one far miss. Two changes fixed most of that:
 
 - **Exponents:** Overture carries the register's exponent in its `unit` field, which `build_index` used to drop for Italy, so "35 A" was indexed as a bare "35". It now keys the house "35/A". A house lookup also tries the other spellings of a letter addition ("35/a", "35a", "35 a"), so "35A" finds the register's "35/A" and "12/A" the "12 A" that Tuscany's and Piedmont's regional sources write.
 - **Localities:** libpostal reads a *frazione* between street and municipality into the road ("via praga 3 possidente"), takes it for the road, fuses it with the municipality ("felegara medesano"), takes it for the town or drops it. The resolver then searches the query without it (`country/it.rs`), unless the parse keeps it a place of its own and the municipality the town. The far miss ("VIA FRATELLI COVIELLO 17, SAN CATALDO, Bella (PZ)", answered with San Cataldo in Sicily, 390 km away) was one of these.
+
+SuggestAddress found 91/320 after those changes. It read the province's sigla as a word the town must contain, so "Cordovado (PN)" matched nothing; it now takes the sigla for the province's ISO 3166-2 code, and for the provinces the index has no code for (Aosta, Friuli-Venezia Giulia's four, Sassari) for the province's name. A frazione the houses do not name is left out when the full text finds no house, as SearchAddress does.
 
 The remaining failures:
 

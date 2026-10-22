@@ -338,19 +338,33 @@ impl Index {
                         .as_ref()
                         .filter(|p| country.is_none() || self.country(p) != country)
                 {
+                    // "Rho (MI)": a province's code holds the houses to it, as a region's does;
+                    // a sigla in parentheses that is no code ("Saint-Pierre (AO)") says no more
+                    // than the town
+                    let bracketed = town
+                        .strip_suffix(')')
+                        .and_then(|t| t.rsplit_once(" ("))
+                        .filter(|(_, code)| code.len() == 2);
                     let coded = if region_after.is_empty() {
-                        town.rsplit_once(' ').and_then(|(name, code)| {
-                            let region = self
-                                .regions
-                                .get(&format!("{}-{code}", cc?).to_uppercase())?;
-                            Some((name, vec![*region]))
-                        })
+                        bracketed
+                            .or(town.rsplit_once(' '))
+                            .and_then(|(name, code)| {
+                                let code = format!("{}-{code}", cc?).to_uppercase();
+                                let region = self.regions.get(&code).copied().or_else(|| {
+                                    self.subdivision_codes
+                                        .iter()
+                                        .find(|(_, c)| ***c == *code)
+                                        .map(|(&p, _)| p)
+                                })?;
+                                Some((name, vec![region]))
+                            })
                     } else {
                         Some((town.as_str(), region_after))
                     };
-                    let (town, region) = match &coded {
-                        Some((name, region)) => (*name, Some(&region[..])),
-                        None => (town.as_str(), None),
+                    let (town, region) = match (&coded, bracketed) {
+                        (Some((name, region)), _) => (*name, Some(&region[..])),
+                        (None, Some((name, _))) => (name, None),
+                        (None, None) => (town.as_str(), None),
                     };
                     // with a postcode, the town alone was looked for already. A town that is a
                     // part of the settlement the houses are filed under ("Bahnstraße 20, Wagram

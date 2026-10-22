@@ -6,7 +6,7 @@ mod place;
 mod postcode;
 mod street;
 
-use super::country::{ca, cz_sk, dk, eg, pl, pt};
+use super::country::{ca, cz_sk, dk, eg, it, pl, pt};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 pub(super) use place::place_names;
@@ -454,6 +454,21 @@ impl Index {
                         && s.country_code == "ca"
                         && s.id.rsplit(':').next() == Some(number.as_str())
                 })
+                .collect();
+            if !recovered.is_empty() {
+                out = recovered;
+            }
+        }
+        // "Via Praga 3, Possidente, Avigliano (PZ)": the houses name the municipality, not the
+        // frazione
+        if !out.iter().any(|s| s.kind == "address")
+            && cc.is_none_or(|c| c.eq_ignore_ascii_case("it"))
+            && let Some((trimmed, _, _)) = it::frazione_parts(text)
+        {
+            let recovered: Vec<_> = self
+                .suggest(&trimmed, limit, cc, focus, landmarks)
+                .into_iter()
+                .filter(|s| s.kind == "address")
                 .collect();
             if !recovered.is_empty() {
                 out = recovered;
