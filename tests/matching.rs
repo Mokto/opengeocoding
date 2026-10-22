@@ -177,6 +177,7 @@ fn postcode_precision() {
         ("08019", "", false),
         ("1234 AB", "1234", true),
         ("K1A 0B1", "K1A", true),
+        ("20000", "20'000", true),
     ] {
         assert_eq!(postcodes_compatible(expected, actual), compatible);
         assert_eq!(postcodes_compatible(actual, expected), compatible);
@@ -918,6 +919,8 @@ fn postcodes_are_written_as_the_country_writes_them() {
         ("br", "04815050", "04815-050"),
         ("us", "606011234", "60601-1234"),
         ("us", "60601", "60601"),
+        ("xk", "20'000", "20000"),
+        ("xk", "50 000", "50000"),
         // not ours to rewrite: another alphabet, a prefix, an unknown country, an odd shape
         ("lv", "LV-1050", "LV-1050"),
         ("de", "63628", "63628"),

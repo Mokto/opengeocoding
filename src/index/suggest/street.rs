@@ -122,7 +122,8 @@ impl Index {
             return vec![];
         }
         let stated = cc.is_some();
-        let cc = cc.or(country.as_deref());
+        // Palestine's streets carry its territories' codes, so the places' qualifiers check it
+        let cc = cc.or(country.as_deref().filter(|c| *c != "ps"));
         let qualifiers = typed.parts[1..].join(", ");
         // A 4-digit code is read only with a country ("9169" is also a house number). When a
         // region shares the country's name ("Luxembourg" is a Belgian province, as "Georgia" is
@@ -1053,7 +1054,7 @@ impl Index {
             } else {
                 display.push(self.label(place).to_string());
             }
-            country_code = self.places[place as usize].cc.to_string();
+            country_code = ps::country(&self.places[place as usize].cc).to_string();
         }
         Suggestion {
             id: match number {

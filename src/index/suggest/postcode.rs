@@ -51,7 +51,7 @@ impl Index {
         let mut country_code = String::new();
         if place != NONE {
             display.push(self.label(place).to_string());
-            country_code = self.places[place as usize].cc.to_string();
+            country_code = ps::country(&self.places[place as usize].cc).to_string();
         }
         Some(Suggestion {
             id: format!("z{}:{}", country_code, pc_norm(&stored(&doc, self.f.pcode))),
@@ -128,7 +128,7 @@ impl Index {
                 }
                 let mut countries: Vec<String> = named
                     .iter()
-                    .map(|&id| self.places[id as usize].cc.to_string())
+                    .map(|&id| ps::country(&self.places[id as usize].cc).to_string())
                     .collect();
                 countries.extend(qualifiers.last().and_then(|p| self.country(p)));
                 docs.into_iter()

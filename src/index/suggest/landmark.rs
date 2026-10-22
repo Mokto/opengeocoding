@@ -65,7 +65,7 @@ impl Index {
             unverified_suffix: String::new(),
             kind: "landmark",
             category: l.category,
-            country_code: self.places[l.place as usize].cc.to_string(),
+            country_code: ps::country(&self.places[l.place as usize].cc).to_string(),
             x: l.x as f64,
             y: l.y as f64,
             bbox: None,

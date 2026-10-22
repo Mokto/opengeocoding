@@ -161,7 +161,8 @@ impl Index {
         let pl = &self.places[place as usize];
         let chain = self.chain(place);
         let country_named = quals.iter().any(|(_, ccs)| {
-            ccs.contains(&&*pl.cc) || super::sovereign(&pl.cc).is_some_and(|cc| ccs.contains(&cc))
+            ccs.contains(&ps::country(&pl.cc))
+                || super::sovereign(&pl.cc).is_some_and(|cc| ccs.contains(&cc))
         });
         let matches =
             |n: &str, q: &str, open: bool| n == q || (open && q.len() >= 3 && n.starts_with(q));
@@ -169,7 +170,7 @@ impl Index {
             let open = open_last && i + 1 == quals.len();
             let code = format!("-{}", q.to_uppercase());
             let key = std::cell::LazyCell::new(|| super::name_key(q));
-            ccs.contains(&&*pl.cc)
+            ccs.contains(&ps::country(&pl.cc))
                 || (q.len() <= 3 && pl.region.ends_with(&code))
                 || chain.iter().skip(1).any(|&a| {
                     let names = self.folded_names(a);
@@ -522,7 +523,7 @@ impl Index {
             unverified_suffix: String::new(),
             kind: place_kind(pl),
             category: "",
-            country_code: pl.cc.to_string(),
+            country_code: ps::country(&pl.cc).to_string(),
             x: pl.x as f64,
             y: pl.y as f64,
             // most towns' boxes are the point itself, which zooms a map no better than the point
