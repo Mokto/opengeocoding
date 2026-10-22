@@ -95,10 +95,9 @@ fn normalize(response: &Value) -> Result<Value> {
     }))
 }
 
-// Temporary geocoding, as in the forward collection; v6 reverse rejects `limit` without `types`
-// and returns the finest feature first.
+// v6 reverse rejects `limit` without `types` and returns the finest feature first.
 const REVERSE: super::reverse::Reverse = super::reverse::Reverse {
-    request: |lat, lon| json!({"endpoint": "https://api.mapbox.com/search/geocode/v6/reverse", "longitude": lon, "latitude": lat, "permanent": false, "language": "en", "worldview": "us"}),
+    request: |lat, lon| json!({"endpoint": "https://api.mapbox.com/search/geocode/v6/reverse", "longitude": lon, "latitude": lat, "permanent": true, "language": "en", "worldview": "us"}),
     normalize: reverse_normalize,
 };
 
