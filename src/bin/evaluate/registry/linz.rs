@@ -166,7 +166,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
         let mut provenance = metadata.clone();
         provenance.extend(serde_json::from_value::<serde_json::Map<String, Value>>(json!({"address_id":a.address_id, "road_id":a.road_id, "address":a.full_address, "ascii_address":a.full_address_ascii, "unit":a.unit, "territorial_authority":a.territorial_authority, "coordinate_transform":"LINZ ArcGIS EPSG:2193 to EPSG:4326, outSR=4326", "location_key":"SHA256(road_id, building_number), NUL separated"}))?);
         let numbers = BTreeSet::from([a.building_number(), a.full_address_number.clone()]);
-        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.building_number())]), radius_floor_km: 0.15, provenance, number_aliases: (numbers.len() > 1).then_some(numbers) }))
+        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.building_number())]), radius_floor_km: 0.15, provenance, number_aliases: (numbers.len() > 1).then_some(numbers), places: super::places(a.full_address.split(", ").skip(1).chain([a.territorial_authority.as_str()])) }))
     }).collect()
 }
 
@@ -201,6 +201,10 @@ mod tests {
         assert_eq!(
             entries.values().next().unwrap().number_aliases,
             Some(BTreeSet::from(["12".into(), "2/12".into()]))
+        );
+        assert_eq!(
+            entries.values().next().unwrap().places,
+            ["Town", "Authority"]
         );
         let mut range: Address = serde_json::from_value(a["attributes"].clone()).unwrap();
         range.address_number_high = Some(16);

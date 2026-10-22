@@ -96,3 +96,5 @@ Remaining failures:
 - **Evaluation-only (plain, held-out):** 園區街3號, both digit forms, abstains in SearchAddress; three plain held-out suggestion queries are missing. These were not inspected.
 
 The local world index in `~/opengeocoding-index` is built from `~/geodata/osm`, which lacks the five extracts #233 moved, so its Taipei suffix results (0/114) understate the chart's index. These numbers measure this municipal sample, not national Taiwan accuracy, floor or apartment coverage.
+
+Cases have no `places` for ReverseGeocode to name: the export gives the district only as a code.

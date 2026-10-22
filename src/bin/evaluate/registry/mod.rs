@@ -77,6 +77,19 @@ pub struct Entry {
     pub radius_floor_km: f64,
     pub provenance: Map<String, Value>,
     pub number_aliases: Option<BTreeSet<String>>,
+    /// The source's names for the town or municipality the address is in.
+    pub places: Vec<String>,
+}
+
+/// Distinct non-empty names, in order, for `Entry::places`.
+pub fn places<'a>(names: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut out: Vec<String> = vec![];
+    for name in names.into_iter().map(str::trim).filter(|n| !n.is_empty()) {
+        if !out.iter().any(|o| o == name) {
+            out.push(name.into());
+        }
+    }
+    out
 }
 
 pub fn get(source: &str) -> Option<&'static Registry> {

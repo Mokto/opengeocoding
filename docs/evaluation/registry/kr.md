@@ -57,3 +57,4 @@ The final combined local speed comparison still exceeds the 10% budget: SearchAd
 
 The model-backed synthetic cases check all four endpoints against authored Korean facts. The real-index RPC contract test fails its CDG landmark assertion on both base and head because this local index lacks that landmark; it is not skipped or weakened. grpcurl's documented known failure also reproduces.
 
+Cases have no `places` for ReverseGeocode to name: deunicode spells Hangul unlike the Revised Romanization of the index's names ("천안시" as "ceonansi", not Cheonan-si), so they could not be compared.

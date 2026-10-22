@@ -260,6 +260,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
             radius_floor_km: 0.,
             provenance: metadata.clone(),
             number_aliases,
+            places: super::places([row.part.as_str(), &row.city]),
         }))
     }).collect()
 }

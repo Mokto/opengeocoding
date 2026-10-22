@@ -1030,7 +1030,13 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                     });
                     let expect = match local_entries.get(&(name.to_string(), reference.to_string()))
                     {
-                        Some(entry) => registry::with_number_aliases(expect, &entry.number_aliases),
+                        Some(entry) => {
+                            let mut expect = expect;
+                            if !entry.places.is_empty() {
+                                expect["places"] = json!(entry.places);
+                            }
+                            registry::with_number_aliases(expect, &entry.number_aliases)
+                        }
                         None => expect,
                     };
                     (

@@ -229,7 +229,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
         let a = rows.get(id).with_context(|| format!("BeSt lacks building {id}"))?;
         let mut provenance = metadata.clone();
         provenance.extend(serde_json::from_value::<serde_json::Map<String, Value>>(json!({"address_id":a.registry_id, "municipality_id":a.municipality, "street_id":a.street_id, "region":a.region, "names":a.names, "house_number":a.number, "box_number":a.unit, "coordinate_system":"EPSG:4326", "location_key":"SHA256(region, municipality_id, street_id, house_number), NUL separated"}))?);
-        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number.clone()), ("postcode", a.postcode.clone())]), radius_floor_km: 0.15, provenance, number_aliases: None }))
+        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number.clone()), ("postcode", a.postcode.clone())]), radius_floor_km: 0.15, provenance, number_aliases: None, places: super::places(a.names.iter().map(|(_, _, municipality)| municipality.as_str())) }))
     }).collect()
 }
 

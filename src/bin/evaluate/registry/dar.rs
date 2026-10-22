@@ -236,6 +236,16 @@ pub const REGISTRY: Registry = Registry {
     prepare,
 };
 
+/// A postal district's town: "Aarhus C" and "København NV" are districts of Aarhus and København.
+fn town_of_district(postal_town: &str) -> &str {
+    postal_town
+        .rsplit_once(' ')
+        .filter(|(_, district)| {
+            ["C", "K", "N", "NV", "NØ", "S", "SV", "SØ", "V", "Ø"].contains(district)
+        })
+        .map_or(postal_town, |(town, _)| town)
+}
+
 fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entry>> {
     let snapshot = load(path)?;
     let mut metadata = super::provenance(path)?;
@@ -268,6 +278,11 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
                     radius_floor_km: 0.15,
                     provenance,
                     number_aliases: None,
+                    places: super::places([
+                        a.supplementary.as_deref().unwrap_or_default(),
+                        &a.postal_town,
+                        town_of_district(&a.postal_town),
+                    ]),
                 },
             ))
         })
@@ -292,6 +307,9 @@ mod tests {
         let entries = prepare(&path, &refs).unwrap();
         let entry = &entries["house-1"];
         assert_eq!(entry.components["house_number"], "12A");
+        assert_eq!(entry.places, ["Lilleby", "Testby"]);
+        assert_eq!(town_of_district("København NV"), "København");
+        assert_eq!(town_of_district("Lyngby"), "Lyngby");
         assert!(entry.number_aliases.is_none());
         assert!(prepare(&path, &BTreeSet::from(["missing".into()])).is_err());
         let mut second = data["addresses"][0].clone();

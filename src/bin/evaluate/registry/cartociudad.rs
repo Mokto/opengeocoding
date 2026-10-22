@@ -240,7 +240,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
         provenance.insert("feature_id".into(), json!(a.registry_id));
         provenance.insert("properties".into(), a.properties.clone());
         provenance.insert("location_key".into(), json!("SHA256(province, municipality, address area, street, complete house number), NUL separated"));
-        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number.clone())]), radius_floor_km: 0.15, provenance, number_aliases: None }))
+        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number.clone())]), radius_floor_km: 0.15, provenance, number_aliases: None, places: super::places(a.area.split('/').chain(a.municipality.split('/'))) }))
     }).collect()
 }
 
@@ -264,15 +264,11 @@ mod tests {
         );
         assert!(first.iter().all(|s| s["ref"] == first[0]["ref"]));
         let refs = BTreeSet::from([first[0]["ref"].as_str().unwrap().into()]);
-        assert_eq!(
-            prepare(&path, &refs)
-                .unwrap()
-                .values()
-                .next()
-                .unwrap()
-                .components["house_number"],
-            "12BIS"
-        );
+        let entries = prepare(&path, &refs).unwrap();
+        let entry = entries.values().next().unwrap();
+        assert_eq!(entry.components["house_number"], "12BIS");
+        // a bilingual municipality is named in either language
+        assert_eq!(entry.places, ["Example", "Adibide"]);
         assert!(prepare(&path, &BTreeSet::from(["missing".into()])).is_err());
         let mut duplicate = data["features"][0].clone();
         duplicate["id"] = json!("test-2");

@@ -225,6 +225,9 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
                     radius_floor_km: 0.25,
                     provenance: metadata.clone(),
                     number_aliases,
+                    // deunicode spells Hangul unlike the Revised Romanization the index's
+                    // names use ("천안시" as "ceonansi", not "Cheonan-si"), so names can't be compared
+                    places: vec![],
                 },
             ))
         })
