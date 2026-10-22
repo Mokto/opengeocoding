@@ -47,23 +47,25 @@ An exponent is written "12/A" and accepted as "12/A" or "12A" through `any_of`; 
 
 ## Local baseline
 
-On a local world index from builder `7ab597c193ca4bf7` (Overture 2026-09-23.1, OpenAddresses and OSM), the corpus run alone:
+On a local world index from builder `ce9fa3d2362ead46` (Overture 2026-09-23.1, OpenAddresses and OSM), the corpus run alone:
 
 | Class | Locations | Queries | SearchAddress passes |
 |---|---:|---:|---:|
 | Plain | 100 | 100 | 100 |
-| Exponent | 100 | 100 | 7 |
-| Locality | 95 | 95 | 61 |
-| Bilingual | 12 | 25 | 18 |
+| Exponent | 100 | 100 | 100 |
+| Locality | 95 | 95 | 91 |
+| Bilingual | 12 | 25 | 20 |
 
-Overall 186/320 pass; 124 are too coarse, 7 abstain, one is a near miss, one a goodMatch mismatch and one a far miss. By placement method, SearchAddress passes 18/27 surveyed points better than 5 m, 3/4 surveyed worse than 5 m, 68/116 and 81/146 derived better and worse than 5 m, and 16/27 portal-placed points. All 320 ReverseGeocode country checks pass; SuggestAddress finds an acceptable full-string result for 52/320.
+Overall 311/320 pass; 8 are too coarse and one is a near miss, with no critical result. By placement method, SearchAddress passes 27/27 surveyed points better than 5 m, 4/4 surveyed worse than 5 m, 114/116 and 143/146 derived better and worse than 5 m, and 23/27 portal-placed points. All 320 ReverseGeocode country checks pass; SuggestAddress finds an acceptable full-string result for 91/320.
 
-- **Exponent (93 failures):** the service finds the street but not "35/A". Overture carries the exponent in its `unit` field and `build_index` joins a unit to the number only for New Zealand, so the index holds the register's "35 A" as a bare "35". The seven passes are in areas whose regional OpenAddresses sources write "44/A" themselves (Emilia-Romagna, Friuli-Venezia Giulia, Lombardy, Sicily, South Tyrol). Index data, not matching.
-- **Locality (34 failures):** the *frazione* between street and municipality derails the lookup. Rerun by hand without it, 30 of the 34 find the registry house with goodMatch true; the other four fail without it too (no house for Piscopio and Cerese, 2.1 km off for Montegrazie, 17 km for Mandriola). Parsing or matching, not data.
-- **Bilingual (7 failures):** native Italian forms pass 10/12, the register's other-language forms 8/13. Two native failures are the locality pattern above; the others are other-language names the index has as streets without the house (Srebrničeva ulica, Rue des Clementines, Streda Dorives), as a hamlet (Podlak) or not at all (Murates).
+When the corpus was added (builder `7ab597c193ca4bf7`) 186/320 passed, 7/100 exponents and 61/95 localities among them, with one far miss. Two changes fixed most of that:
 
-### Critical baseline attribution
+- **Exponents:** Overture carries the register's exponent in its `unit` field, which `build_index` used to drop for Italy, so "35 A" was indexed as a bare "35". It now keys the house "35/A". A house lookup also tries the other spellings of a letter addition ("35/a", "35a", "35 a"), so "35A" finds the register's "35/A" and "12/A" the "12 A" that Tuscany's and Piedmont's regional sources write.
+- **Localities:** libpostal reads a *frazione* between street and municipality into the road ("via praga 3 possidente"), takes it for the road, fuses it with the municipality ("felegara medesano"), takes it for the town or drops it. The resolver then searches the query without it (`country/it.rs`), unless the parse keeps it a place of its own and the municipality the town. The far miss ("VIA FRATELLI COVIELLO 17, SAN CATALDO, Bella (PZ)", answered with San Cataldo in Sicily, 390 km away) was one of these.
 
-The one far miss is labelled in `it.labels.jsonl`; it keeps its failing class. "VIA FRATELLI COVIELLO 17, SAN CATALDO, Bella (PZ), Italy" answers the town San Cataldo in Caltanissetta, Sicily, 390 km away, although the raw top candidate is the registry house within 1 m and the stated municipality and province contradict the answer. Without SAN CATALDO the query finds the house with goodMatch true. Matching. Rescoring with the label changed no class.
+The remaining failures:
 
-These are diagnostic results on a local index, not a CI gold run. This registry-first addition changes neither resolver nor index behaviour, nor the builder hash. The documented fresh-service grpcurl SearchAddress hang reproduced as a known failure. Human review of the source points is pending.
+- **Locality (4):** no such house in the index for Piscopio and Cerese; the index's house 11 on Strada Montegrazie is 2.1 km from the register's; and "LUNGOMARE MESU'E TURRIS 48" finds nothing where the index spells the street "Mesu 'e Turris" (written "MESU E" it is found).
+- **Bilingual (5):** every native Italian form passes, and 8/13 of the register's other-language forms. The others are names the index has as streets without the house (Srebrničeva ulica, Rue des Clementines, Streda Dorives), as a hamlet (Podlak) or not at all (Murates).
+
+These are diagnostic results on a local index, not a CI gold run. The documented fresh-service grpcurl SearchAddress hang reproduced as a known failure. Human review of the source points is pending.

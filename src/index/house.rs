@@ -1,16 +1,29 @@
 use super::*;
 
-/// OSM stores a one-letter house addition with a space ("11 d"). A query writes it glued
-/// ("11d"); [`schema::number_key`] keeps that space, so the glued form is a second key for the
-/// same house.
-pub(super) fn spaced_letter(number: &str) -> Option<String> {
-    let (last, digits) = number.as_bytes().split_last()?;
-    if !last.is_ascii_lowercase() || digits.is_empty() || !digits.iter().all(|b| b.is_ascii_digit())
-    {
-        return None;
+/// A number with a letter addition is keyed as its source writes it: glued ("11d"), spaced as OSM
+/// stores one letter ("11 d"), or after a slash as Italian registers write it ("11/a", "9/bis").
+/// [`schema::number_key`] keeps those separators, so the other two spellings are further keys for
+/// the same house, the spaced one first.
+pub(super) fn letter_forms(number: &str) -> Vec<String> {
+    let digits = number.bytes().take_while(u8::is_ascii_digit).count();
+    let (base, rest) = number.split_at(digits);
+    let (sep, letters) = match rest.as_bytes().first() {
+        Some(b' ' | b'/') => rest.split_at(1),
+        _ => ("", rest),
+    };
+    if digits == 0 || letters.is_empty() || !letters.bytes().all(|b| b.is_ascii_lowercase()) {
+        return vec![];
     }
-    let digits = std::str::from_utf8(digits).ok()?;
-    Some(format!("{digits} {}", *last as char))
+    // ponytail: only one letter is tried spaced, as OSM writes it; a stored "12 bis" is missed.
+    let mut seps = vec![""];
+    if letters.len() == 1 {
+        seps.insert(0, " ");
+    }
+    seps.push("/");
+    seps.into_iter()
+        .filter(|s| *s != sep)
+        .map(|s| format!("{base}{s}{letters}"))
+        .collect()
 }
 
 impl Index {
@@ -44,8 +57,9 @@ impl Index {
                 }
                 let sid = self.fast(a, "id") as u32;
                 for n in numbers {
-                    let spaced = spaced_letter(n);
-                    for form in std::iter::once(n.as_str()).chain(spaced.as_deref()) {
+                    let forms = letter_forms(n);
+                    for form in std::iter::once(n.as_str()).chain(forms.iter().map(String::as_str))
+                    {
                         key.clear();
                         key.extend_from_slice(&sid.to_be_bytes());
                         key.extend_from_slice(form.as_bytes());
@@ -83,8 +97,8 @@ impl Index {
             .collect()
     }
 
-    /// The stored number and its record. A glued one-letter addition ("11d") is the same
-    /// house as the spaced form OSM stores ("11 d") when the glued key is absent.
+    /// The stored number and its record, under another [`letter_forms`] spelling when the
+    /// written one is absent ("11d" for OSM's "11 d", "35a" for the register's "35/a").
     pub(super) fn house_record(&self, sid: u32, n: &str) -> Option<(String, u64)> {
         let get = |form: &str| {
             let mut key = sid.to_be_bytes().to_vec();
@@ -94,8 +108,9 @@ impl Index {
         if let Some(v) = get(n) {
             return Some((n.to_string(), v));
         }
-        let alt = spaced_letter(n)?;
-        get(&alt).map(|v| (alt, v))
+        letter_forms(n)
+            .into_iter()
+            .find_map(|alt| get(&alt).map(|v| (alt, v)))
     }
 
     /// House `number` of street document `a`, at its position and with its postcode slot.
@@ -169,10 +184,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_glued_letter_is_the_spaced_house_key() {
-        assert_eq!(spaced_letter("11d").as_deref(), Some("11 d"));
-        assert_eq!(spaced_letter("11 d"), None);
-        assert_eq!(spaced_letter("12bis"), None);
-        assert_eq!(spaced_letter("7"), None);
+    fn a_letter_addition_is_glued_spaced_or_after_a_slash() {
+        assert_eq!(letter_forms("11d"), ["11 d", "11/d"]);
+        assert_eq!(letter_forms("11 d"), ["11d", "11/d"]);
+        assert_eq!(letter_forms("35/a"), ["35 a", "35a"]);
+        assert_eq!(letter_forms("9/bis"), ["9bis"]);
+        assert_eq!(letter_forms("12bis"), ["12/bis"]);
+        for n in ["7", "1/19", "285/1", "a1", "12 b1", "12/"] {
+            assert!(letter_forms(n).is_empty(), "{n}");
+        }
     }
 }
