@@ -150,8 +150,8 @@ impl Index {
         })
     }
 
-    /// Whether `place` lies in what each qualifier names: a country, a region by name or code,
-    /// or any larger place around it.
+    /// Whether `place` lies in what each qualifier names: a country, a region or province by name
+    /// or code ("Rho (MI)"), or any larger place around it.
     pub(super) fn qualifies(
         &self,
         place: u32,
@@ -177,7 +177,16 @@ impl Index {
                         || matches(&names[1], q, open)
                         || ((ccs.is_empty() || country_named)
                             && self.places[a as usize].named(*key))
-                        || (q.len() <= 3 && self.places[a as usize].region.ends_with(&code))
+                        || (q.len() <= 3
+                            && (self.places[a as usize].region.ends_with(&code)
+                                || self
+                                    .subdivision_codes
+                                    .get(&a)
+                                    .is_some_and(|c| c.ends_with(&code))))
+                        || (pl.cc.eq_ignore_ascii_case("it")
+                            && it::uncoded_province(q).is_some_and(|name| {
+                                self.places[a as usize].named(super::name_key(name))
+                            }))
                 })
         })
     }

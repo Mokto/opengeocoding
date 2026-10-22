@@ -5,6 +5,18 @@
 /// province, or drops. The query without it, unless the parse keeps it a place of its own and
 /// the municipality the town.
 pub(crate) fn without_frazione(query: &str, parsed: &[(String, String)]) -> Option<String> {
+    let (trimmed, frazione, town) = frazione_parts(query)?;
+    let words = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+    let apart = parsed
+        .iter()
+        .any(|(k, v)| !matches!(k.as_str(), "road" | "city") && words(v) == frazione);
+    let kept = parsed.iter().any(|(k, v)| k == "city" && words(v) == town);
+    (!(apart && kept)).then_some(trimmed)
+}
+
+/// The query without its second part, when it reads as an Italian house, a frazione and its
+/// municipality: with the frazione and the municipality's name, folded to lower case.
+pub(crate) fn frazione_parts(query: &str) -> Option<(String, String, String)> {
     let parts: Vec<&str> = query.split(',').map(str::trim).collect();
     let [head, frazione, municipality, ..] = parts[..] else {
         return None;
@@ -28,7 +40,6 @@ pub(crate) fn without_frazione(query: &str, parsed: &[(String, String)]) -> Opti
         return None;
     }
     let words = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
-    let frazione = words(&frazione.to_lowercase());
     let town = words(&municipality.to_lowercase());
     let town = town
         .rsplit_once(" (")
@@ -41,14 +52,26 @@ pub(crate) fn without_frazione(query: &str, parsed: &[(String, String)]) -> Opti
     if !town.chars().any(char::is_alphabetic) || town.chars().any(|c| c.is_ascii_digit()) {
         return None;
     }
-    let apart = parsed
-        .iter()
-        .any(|(k, v)| !matches!(k.as_str(), "road" | "city") && words(v) == frazione);
-    let kept = parsed.iter().any(|(k, v)| k == "city" && words(v) == town);
-    (!(apart && kept)).then(|| {
-        let mut kept = parts.clone();
-        kept.remove(1);
-        kept.join(", ")
+    let mut kept = parts.clone();
+    kept.remove(1);
+    Some((
+        kept.join(", "),
+        words(&frazione.to_lowercase()),
+        town.to_string(),
+    ))
+}
+
+/// The province a two-letter sigla ("PN") names where the index has no ISO 3166-2 code for it:
+/// Aosta's is the region's, and Friuli-Venezia Giulia's former provinces and Sassari have none.
+pub(crate) fn uncoded_province(sigla: &str) -> Option<&'static str> {
+    Some(match sigla {
+        "ao" => "Aosta Valley",
+        "go" => "Gorizia",
+        "pn" => "Pordenone",
+        "ts" => "Trieste",
+        "ud" => "Udine",
+        "ss" => "Sassari",
+        _ => return None,
     })
 }
 
