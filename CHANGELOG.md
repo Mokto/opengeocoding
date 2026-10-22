@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.20.2](https://github.com/Mokto/opengeocoding/compare/v0.20.1...v0.20.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* find Korean houses whose 리 the data puts outside the stated 읍 or 면 ([#337](https://github.com/Mokto/opengeocoding/issues/337)) ([d09301b](https://github.com/Mokto/opengeocoding/commit/d09301b89ea7f354b0aeeff0fa2ba84e4892964e))
+* read Kosovo addresses, suggest Palestinian houses under Palestine, and index Bermuda, the Falklands, Jersey, Guernsey and the Isle of Man from OSM ([#342](https://github.com/Mokto/opengeocoding/issues/342)) ([9bd987a](https://github.com/Mokto/opengeocoding/commit/9bd987a537f84bb1ecdc811de5972be9461974bc))
+* suggest Bogotá houses by their plate, as the register keys them ([#336](https://github.com/Mokto/opengeocoding/issues/336)) ([0f62cf2](https://github.com/Mokto/opengeocoding/commit/0f62cf2d017b37563dc89be06f82279e99e366d4))
+* suggest houses of whole addresses written country-first, without commas or a letter off, with a Belgian box or a Brazilian state ([#344](https://github.com/Mokto/opengeocoding/issues/344)) ([855d212](https://github.com/Mokto/opengeocoding/commit/855d212371a7dab8b7014f833964538754050341)), closes [#333](https://github.com/Mokto/opengeocoding/issues/333)
+
+
+### Performance Improvements
+
+* try a Colombian plate once the street lacks the written house ([#339](https://github.com/Mokto/opengeocoding/issues/339)) ([a491c60](https://github.com/Mokto/opengeocoding/commit/a491c6087cc48e65fbfdbf1fb2727e6e76e3286b))
+
 ## [0.20.1](https://github.com/Mokto/opengeocoding/compare/v0.20.0...v0.20.1) (2026-10-22)
 
 
