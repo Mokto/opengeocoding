@@ -95,7 +95,44 @@ def check_bogota():
         assert path.read_bytes() == first
 
 
+def check_onemap():
+    exporter = module("export-onemap-postcodes")
+    assert exporter.draw("test", 3) == exporter.draw("test", 5)[:3] != exporter.draw("other", 3)
+    assert all("010000" <= code <= "829999" for code in exporter.draw("test", 50))
+
+    def response(request, **kwargs):
+        assert request.headers["Authorization"] == "token"
+        params = urllib.parse.parse_qs(urllib.parse.urlsplit(request.full_url).query)
+        page = int(params["pageNum"][0])
+        hit = {"POSTAL": params["searchVal"][0], "BLK_NO": str(page)}
+        return io.BytesIO(json.dumps({"found": 2, "totalNumPages": 2, "pageNum": page, "results": [hit]}).encode())
+
+    with tempfile.TemporaryDirectory() as directory:
+        args = ["--out", directory, "--seed", "test", "--probes", "2", "--pause", "0"]
+        expect_error(lambda: run_main(exporter, args, response))
+        with patch.dict(exporter.os.environ, {"ONEMAP_TOKEN": "token"}):
+            run_main(exporter, args, response)
+        path = Path(directory) / "onemap.json"
+        first = path.read_bytes()
+        probes = json.loads(first)["probes"]
+        assert [p["postal"] for p in probes] == sorted(exporter.draw("test", 2))
+        assert [r["BLK_NO"] for r in probes[0]["results"]] == ["1", "2"]
+        assert b"token" not in first
+        run_main(exporter, args)
+        assert path.read_bytes() == first
+        (Path(directory) / "responses" / f"{probes[0]['postal']}-2.json").write_text('{"found":2,"totalNumPages":2,"pageNum":2,"results":[]}')
+        expect_error(lambda: run_main(exporter, args))
+        assert path.read_bytes() == first
+    with tempfile.TemporaryDirectory() as directory:
+        def unauthorised(request, **kwargs):
+            return io.BytesIO(b'{"error":"Authentication token missing.","found":0,"totalNumPages":0,"pageNum":1,"results":[]}')
+        with patch.dict(exporter.os.environ, {"ONEMAP_TOKEN": "token"}):
+            expect_error(lambda: run_main(exporter, ["--out", directory, "--seed", "test", "--probes", "1"], unauthorised))
+        assert not list(Path(directory).rglob("*.json"))
+
+
 if __name__ == "__main__":
     check_linz()
     check_bogota()
+    check_onemap()
     print("Registry exporter checks passed")

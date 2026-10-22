@@ -14,6 +14,7 @@ mod korea;
 mod linz;
 mod nad;
 mod nar;
+mod onemap;
 mod prg;
 mod ruian;
 mod swisstopo;
@@ -48,6 +49,7 @@ pub const ALL: &[Registry] = &[
     act::REGISTRY,
     anncsu::REGISTRY,
     cnefe::REGISTRY,
+    onemap::REGISTRY,
 ];
 
 type Prepare = fn(&Path, &BTreeSet<String>) -> Result<BTreeMap<String, Entry>>;
