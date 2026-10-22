@@ -1,4 +1,5 @@
 pub mod au;
+pub mod be;
 pub mod br;
 pub mod ca;
 pub mod cn_tw;

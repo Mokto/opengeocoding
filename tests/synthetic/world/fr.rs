@@ -159,3 +159,17 @@ pub fn cases() -> Vec<Case> {
         case("Atlantis, France", Want::Abstain),
     ]
 }
+
+#[test]
+fn a_spaced_suffix_is_kept_in_an_address_written_from_the_country_down() {
+    let found = crate::index().suggest(
+        "France, 75001 Paris, 7 bis Rue de Rivoli",
+        5,
+        None,
+        None,
+        false,
+    );
+    assert_eq!(found.first().map(|s| s.kind), Some("address"));
+    let want = house(street("Rue de Rivoli"), "7bis");
+    assert!(crate::metres((found[0].x, found[0].y), want) < 5.0);
+}
