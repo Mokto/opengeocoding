@@ -235,23 +235,6 @@
       "shared": 1,
       "unmatched_city": 1
     },
-    "br": {
-      "addresses": 2067,
-      "far_namesake": [],
-      "languages": [
-        "en",
-        "pt"
-      ],
-      "response_sha256": [
-        "04b75fdd28e4ba084380151e5c18c990b2e7bd3e8ef00ea638be1329af6ac0c0",
-        "d00197fa6036cdcfd37439e688a1fa3e3b4d103fc404b3a24ef43acd312fab56",
-        "8b262fdf6fc1a6be06a48a6615935410b6bd85fff8dd0eb4c6a29130cb5ff8c6"
-      ],
-      "selected": 6,
-      "settlements": 3,
-      "shared": 11,
-      "unmatched_city": 5
-    },
     "bs": {
       "addresses": 706,
       "far_namesake": [],
@@ -343,7 +326,7 @@
     },
     "cn": {
       "addresses": 2078,
-      "error": "The read operation timed out",
+      "error": "HTTP Error 504: Gateway Timeout",
       "shared": 3
     },
     "cr": {
@@ -1075,7 +1058,7 @@
     },
     "mx": {
       "addresses": 925,
-      "error": "Expecting ':' delimiter: line 175609 column 17 (char 4181086)",
+      "error": "HTTP Error 504: Gateway Timeout",
       "shared": 23
     },
     "my": {
