@@ -8,6 +8,23 @@ pub(super) struct Address<'a> {
     pub country: Option<&'a str>,
 }
 
+/// The address without the 읍, 면 or 동 after its 시, 군 or 구 (or Sejong), where its road name is
+/// unique. The data often puts a 리 straight under its 군, outside the stated 읍 or 면, so a house
+/// that is not under the stated one is looked for in the district.
+fn district<'a>(address: &Address<'a>) -> Option<Address<'a>> {
+    let areas = &address.areas;
+    let keep = areas
+        .iter()
+        .rposition(|w| w.ends_with(['시', '군', '구']))
+        .filter(|&i| i > 0 || areas[0].ends_with("특별자치시"))?;
+    (keep + 1 < areas.len()).then(|| Address {
+        areas: areas[..=keep].to_vec(),
+        road: address.road,
+        number: address.number.clone(),
+        country: address.country,
+    })
+}
+
 pub(super) fn parse(q: &str, partial: bool) -> Option<Address<'_>> {
     let q = q.trim();
     if !q.starts_with(|c| ('가'..='힣').contains(&c)) || q.chars().take(257).count() > 256 {
@@ -145,6 +162,17 @@ impl Index {
         if scope.is_empty() {
             return Some(vec![]);
         }
+        let hits = self.korean_houses(&address, &scope)?;
+        match district(&address) {
+            Some(district) if hits.is_empty() => {
+                let scope = self.korean_scope(&district)?;
+                self.korean_houses(&district, &scope)
+            }
+            _ => Some(hits),
+        }
+    }
+
+    fn korean_houses(&self, address: &Address<'_>, scope: &[u32]) -> Option<Vec<Hit>> {
         let mut cl = self.musts(self.f.names, address.road);
         if cl.is_empty() {
             return Some(vec![]);
@@ -287,11 +315,11 @@ impl Index {
         let number = (!address.number.is_empty()).then_some(address.number.as_str());
         let road_open = open && number.is_none();
         let road = fold(address.road);
-        Some(
+        let typed = |scope: &[u32]| -> Vec<Suggestion> {
             self.streets_typed(
                 &words_open(address.road, road_open),
                 road_open,
-                Some(&scope),
+                Some(scope),
                 number,
                 open,
                 Some("kr"),
@@ -308,8 +336,15 @@ impl Index {
                     .is_some_and(|name| name == road || road_open && name.starts_with(&road))
             })
             .take(want)
-            .collect(),
-        )
+            .collect()
+        };
+        let found = typed(&scope);
+        match district(&address) {
+            Some(district) if found.is_empty() && !road_open => {
+                Some(typed(&self.korean_scope(&district)?))
+            }
+            _ => Some(found),
+        }
     }
 }
 
