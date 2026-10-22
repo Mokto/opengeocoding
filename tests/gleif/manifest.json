@@ -1,0 +1,1722 @@
+{
+  "contains": "SELECT ?q ?o WHERE {\n  hint:Query hint:optimizer \"None\" .\n  VALUES (?q ?o) { %s }\n  ?q wdt:P131+ ?o .\n}",
+  "count": 50,
+  "coverage": {
+    "ad": {
+      "addresses": 160,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "es"
+      ],
+      "response_sha256": [
+        "7650f58a2dee188c19ea63e36d437a46d9fb9265633bc2d1273ebdd874e8e990",
+        "633940c7327cc57bb26a135a565182282de7b81cb04e6d6329c753e9c4360040"
+      ],
+      "selected": 4,
+      "settlements": 1,
+      "shared": 5,
+      "unmatched_city": 1
+    },
+    "ae": {
+      "addresses": 3150,
+      "far_namesake": [],
+      "languages": [
+        "ar",
+        "en"
+      ],
+      "response_sha256": [
+        "9e0b86fc7adf60d0a7c665aedf13eb9e549d67a094d912a98548a7132afea6f9",
+        "78f0655c0703ded51ed6b80de2ec1b00f590e7a8b9ead666f8286ea2c621e5ef"
+      ],
+      "selected": 28,
+      "settlements": 6,
+      "shared": 77,
+      "unmatched_city": 6
+    },
+    "af": {
+      "addresses": 8,
+      "shared": 0
+    },
+    "ag": {
+      "addresses": 22,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "da60bf7baa14275a65058d6d6fc68bf7500482ffe1fb6a4c24d762dd3829d59a",
+        "426d315ffbe22f8f06b7617b8d15d2529f641eac8b69f1c812bb4911c8521fe0"
+      ],
+      "selected": 4,
+      "settlements": 1,
+      "shared": 4,
+      "unmatched_city": 0
+    },
+    "ai": {
+      "addresses": 49,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "183d85a181e23bf8fb52341af1ce21022373f8e25f3bf9db02a82c2d3cacc52f",
+        "5334f7ed15d0064ac17effcaaca5579a7147e25dec9809d272bb9ae699429a15"
+      ],
+      "selected": 7,
+      "settlements": 1,
+      "shared": 8,
+      "unmatched_city": 1
+    },
+    "al": {
+      "addresses": 41,
+      "shared": 0
+    },
+    "am": {
+      "addresses": 47,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "hy"
+      ],
+      "response_sha256": [
+        "b23e88f49044f256cffa465848092d9e141038b363b6e87c360d2f7d1f7c2249",
+        "537cc563f1bcea43026aa4bcf568438155e1241b1bcf4c585d36516931b4d6d6"
+      ],
+      "selected": 1,
+      "settlements": 1,
+      "shared": 1,
+      "unmatched_city": 0
+    },
+    "ao": {
+      "addresses": 43,
+      "shared": 0
+    },
+    "ar": {
+      "addresses": 297,
+      "shared": 0
+    },
+    "as": {
+      "addresses": 3,
+      "shared": 0
+    },
+    "at": {
+      "addresses": 21454,
+      "far_namesake": [],
+      "languages": [
+        "de",
+        "en"
+      ],
+      "response_sha256": [
+        "e18754f91f5a411655603745d30d9a6f0ebcd0d37546ab4ac0c0e193c96dd5b9",
+        "04d3e0f6759f31bfdd656326d54fe80741b3219639193f7fadf80935d39d99fb",
+        "338585cecea441553089f35920d9194c4edaed71f30307a4b5c60fd63e8326aa"
+      ],
+      "selected": 50,
+      "settlements": 50,
+      "shared": 846,
+      "unmatched_city": 239
+    },
+    "aw": {
+      "addresses": 11,
+      "shared": 0
+    },
+    "az": {
+      "addresses": 33,
+      "shared": 0
+    },
+    "ba": {
+      "addresses": 66,
+      "far_namesake": [],
+      "languages": [
+        "bs",
+        "en"
+      ],
+      "response_sha256": [
+        "a081df60dc9bb0e0130ce307ac79d17a91161f433fc9c5d6cca1dc4a29c66aca",
+        "3cb0429b2a58808c462cf756b032f2e3008a522ff9f647e598419e0994e6d7d7"
+      ],
+      "selected": 1,
+      "settlements": 1,
+      "shared": 1,
+      "unmatched_city": 0
+    },
+    "bb": {
+      "addresses": 71,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "3d6944fc0293831900941eab655af8ee92e95383337141023fc1d70ec4abe924",
+        "ceccecb798c4ca9ad0b5bf8a15defc132f704a71e17ddbdd09e9107cc12f89e7"
+      ],
+      "selected": 1,
+      "settlements": 1,
+      "shared": 3,
+      "unmatched_city": 2
+    },
+    "bd": {
+      "addresses": 25,
+      "shared": 0
+    },
+    "bf": {
+      "addresses": 5,
+      "shared": 0
+    },
+    "bg": {
+      "addresses": 3166,
+      "far_namesake": [],
+      "languages": [
+        "bg",
+        "en"
+      ],
+      "response_sha256": [
+        "bc7452eb95b086edd40fe41c3513c19c80478cf96a5f783762a9b628eb40c29a",
+        "4587630a52b27cf8be7fda20097d39c0d239685c7f6b505b3efbeccb460efa05",
+        "dad306fd9d5f705fe79e144f31f14e44442293dc8e3b4dcb0f332dfd956b3a28"
+      ],
+      "selected": 12,
+      "settlements": 3,
+      "shared": 46,
+      "unmatched_city": 2
+    },
+    "bh": {
+      "addresses": 161,
+      "shared": 0
+    },
+    "bi": {
+      "addresses": 3,
+      "shared": 0
+    },
+    "bj": {
+      "addresses": 4,
+      "shared": 0
+    },
+    "bl": {
+      "addresses": 9,
+      "shared": 0
+    },
+    "bm": {
+      "addresses": 299,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "c69665595fb3f6954dd83db14e2929eb22636a56e8609e9a05ea4eef96b98200",
+        "57e1423063e9525b06ab074ff4558cce60a318f2c9ca74729718d771a60f143e"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 79,
+      "unmatched_city": 5
+    },
+    "bn": {
+      "addresses": 10,
+      "shared": 0
+    },
+    "bo": {
+      "addresses": 10,
+      "shared": 0
+    },
+    "bq": {
+      "addresses": 14,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "nl"
+      ],
+      "response_sha256": [
+        "466f86f85e5551a840df0584514a62327d0cc6cdcf9893effecc33fb0fa56c0e"
+      ],
+      "selected": 0,
+      "settlements": 0,
+      "shared": 1,
+      "unmatched_city": 1
+    },
+    "bs": {
+      "addresses": 706,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "3dbaad82d26520ddeb8042113e2b9aac7e31bc117da2e470310dfda6b9534197",
+        "0292a8820f0a7e4120085106b402f61b4b0258b562a1ebfec9645264ca80bdd2"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 101,
+      "unmatched_city": 3
+    },
+    "bt": {
+      "addresses": 8,
+      "shared": 0
+    },
+    "bw": {
+      "addresses": 21,
+      "shared": 0
+    },
+    "by": {
+      "addresses": 12,
+      "shared": 0
+    },
+    "bz": {
+      "addresses": 97,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "367b69a61f4d9c9d14c9c9bd708dd3584e50465d3fe9d48fc9167ca377b13d2c",
+        "1f517c428f1f57ac50207e8d9beae9b24e526cb769e4f07429d31f53f9b6b3ff"
+      ],
+      "selected": 8,
+      "settlements": 1,
+      "shared": 8,
+      "unmatched_city": 0
+    },
+    "cd": {
+      "addresses": 12,
+      "shared": 0
+    },
+    "cg": {
+      "addresses": 3,
+      "shared": 0
+    },
+    "ci": {
+      "addresses": 10,
+      "shared": 0
+    },
+    "ck": {
+      "addresses": 33,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "270d1e8c7c89281dd4aed0ee023e7d59822efce38e13e8918e00bfdb78903cc2",
+        "fd46ad49078a7470928903a486a62b1556ee0930fb0827ab7ef684f8814a68cd"
+      ],
+      "selected": 3,
+      "settlements": 1,
+      "shared": 5,
+      "unmatched_city": 2
+    },
+    "cl": {
+      "addresses": 339,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "es"
+      ],
+      "response_sha256": [
+        "60a3020f4b33891b019aa0e084de85291f72778c162fdf9874caecd26bbb4e23",
+        "6e2bd5ef0da9dca435afdd1c21abbce5c05846ae2e8fb4c8f9ac6ddf0ee80f03"
+      ],
+      "selected": 4,
+      "settlements": 1,
+      "shared": 12,
+      "unmatched_city": 8
+    },
+    "cm": {
+      "addresses": 5,
+      "shared": 0
+    },
+    "cn": {
+      "addresses": 2078,
+      "error": "HTTP Error 504: Gateway Timeout",
+      "shared": 3
+    },
+    "cr": {
+      "addresses": 65,
+      "shared": 0
+    },
+    "cv": {
+      "addresses": 4,
+      "shared": 0
+    },
+    "cw": {
+      "addresses": 156,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "nl"
+      ],
+      "response_sha256": [
+        "e23d7a76c751ce80ee58dac4faa62ab7940e5f5f9ee5101b3c61fafdcc3c6414",
+        "d0ab63ffe0482d597902e33f431845e4b52243bb9ef2b72c92366eb823666fb7"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 15,
+      "unmatched_city": 1
+    },
+    "cy": {
+      "addresses": 5164,
+      "far_namesake": [],
+      "languages": [
+        "el",
+        "en"
+      ],
+      "response_sha256": [
+        "96dfebc62a3f68fa6da60602bda567fb8a91177e2f5710ae5a7ca932c60818ba",
+        "04309ad83f232bd18fb423c32da526aa69322e1d9cdfe1355aef33ce5b7c27d5"
+      ],
+      "selected": 40,
+      "settlements": 5,
+      "shared": 360,
+      "unmatched_city": 178
+    },
+    "dj": {
+      "addresses": 5,
+      "shared": 0
+    },
+    "dm": {
+      "addresses": 17,
+      "shared": 0
+    },
+    "do": {
+      "addresses": 67,
+      "shared": 0
+    },
+    "dz": {
+      "addresses": 4,
+      "shared": 0
+    },
+    "ec": {
+      "addresses": 45,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "es"
+      ],
+      "response_sha256": [
+        "7003f1f9d76e917dbb1edc71665ed642f8589ea9df88c0ded63f0571071d9ea6",
+        "e9ae44040eee6d8829b845701e34d10be720d185e0845c1b7621380307d2fa96"
+      ],
+      "selected": 0,
+      "settlements": 0,
+      "shared": 1,
+      "unmatched_city": 1
+    },
+    "ee": {
+      "addresses": 17777,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "et"
+      ],
+      "response_sha256": [
+        "ad3b7ed78bd12209831c11c81d35ad111212b4f41dbdf25bcf8f211f5128c2d3",
+        "eda1dbc58c7190dd2cbe54851cfda50f9192b7a188d1d3c80889969554c5fd47"
+      ],
+      "selected": 28,
+      "settlements": 8,
+      "shared": 413,
+      "unmatched_city": 41
+    },
+    "eg": {
+      "addresses": 98,
+      "shared": 0
+    },
+    "et": {
+      "addresses": 4,
+      "shared": 0
+    },
+    "fi": {
+      "addresses": 37420,
+      "far_namesake": [
+        "rauma"
+      ],
+      "languages": [
+        "en",
+        "fi"
+      ],
+      "response_sha256": [
+        "9acbaf1044cd55fef5f83cb43767054a27b73dcf4bd9dadcf649c950447bce16",
+        "bbfba615cbc29c4fda5702e985aa371044f364c1f44de46559a962039d3edd04",
+        "01f8dc5820a877ba8c8abf7d0599246cb29450a780b852732cfdeba84438a074"
+      ],
+      "selected": 50,
+      "settlements": 50,
+      "shared": 1114,
+      "unmatched_city": 658
+    },
+    "fj": {
+      "addresses": 14,
+      "shared": 0
+    },
+    "fk": {
+      "addresses": 3,
+      "shared": 0
+    },
+    "fm": {
+      "addresses": 2,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "e788a712dd0d5bec5a469d390dde87f031dac3dfa8398ecb5933d673d6593ff1"
+      ],
+      "selected": 0,
+      "settlements": 0,
+      "shared": 1,
+      "unmatched_city": 1
+    },
+    "fo": {
+      "addresses": 237,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "fo"
+      ],
+      "response_sha256": [
+        "019ed92d7ce4ce741de3b0cede28eac0a38881bd0e7688d5adae7d45d2fa84a1",
+        "cd49f8bafb0f4d1d8670a8e75c9a6747728286210cc3a1a1fafa82424b969157"
+      ],
+      "selected": 2,
+      "settlements": 1,
+      "shared": 3,
+      "unmatched_city": 1
+    },
+    "ga": {
+      "addresses": 2,
+      "shared": 0
+    },
+    "gb": {
+      "addresses": 40552,
+      "error": "HTTP Error 504: Gateway Timeout",
+      "shared": 3174
+    },
+    "gd": {
+      "addresses": 4,
+      "shared": 0
+    },
+    "ge": {
+      "addresses": 68,
+      "shared": 0
+    },
+    "gf": {
+      "addresses": 2,
+      "shared": 0
+    },
+    "gg": {
+      "addresses": 589,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "fc55212e9e7075b52854bed1d2e969309f776bf249bab7e4864eb3bc385fbb5d",
+        "cc59b5b7cd8d11fd41a52af81e10b800bdd0c0b8d0a5febb82f6e5cc025453b5"
+      ],
+      "selected": 2,
+      "settlements": 1,
+      "shared": 157,
+      "unmatched_city": 155
+    },
+    "gh": {
+      "addresses": 43,
+      "shared": 0
+    },
+    "gi": {
+      "addresses": 128,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "4551e2641b439fa1f066b371178b180f6b4c627557540074fc25d23e933828e8"
+      ],
+      "selected": 0,
+      "settlements": 0,
+      "shared": 31,
+      "unmatched_city": 31
+    },
+    "gl": {
+      "addresses": 37,
+      "shared": 0
+    },
+    "gm": {
+      "addresses": 1,
+      "shared": 0
+    },
+    "gn": {
+      "addresses": 3,
+      "shared": 0
+    },
+    "gp": {
+      "addresses": 21,
+      "shared": 0
+    },
+    "gr": {
+      "addresses": 3571,
+      "far_namesake": [],
+      "languages": [
+        "el",
+        "en"
+      ],
+      "response_sha256": [
+        "c35f1da37e4e285a131feda1c93603427aa0c0c8101a44d82f75a9dc04375658",
+        "c9f7c666aeeac5101b1d051d966cc78691634932645297e0b98185f4ffd9a3ac"
+      ],
+      "selected": 19,
+      "settlements": 9,
+      "shared": 58,
+      "unmatched_city": 39
+    },
+    "gt": {
+      "addresses": 29,
+      "shared": 0
+    },
+    "hk": {
+      "addresses": 5134,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "76344352f74a6e4cc81c12c76699af9962d21d196861d1f489bb75242b7a7fc1",
+        "72b3ed3b0b0a87205dfbe991167420e49e6575963bd7e6e13f983bc7fbbb93f1"
+      ],
+      "selected": 0,
+      "settlements": 0,
+      "shared": 242,
+      "unmatched_city": 242
+    },
+    "hn": {
+      "addresses": 8,
+      "shared": 0
+    },
+    "hr": {
+      "addresses": 1262,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "hr"
+      ],
+      "response_sha256": [
+        "09d1ac0b2df3f47c93e3f5f6767be6bf9831ccaba467f0af40b5c823a684769a",
+        "960b351188d9da7bf47fe5cf81f2ed5f68079d3bd3f13bbcfaeb9e9afd80b604"
+      ],
+      "selected": 17,
+      "settlements": 6,
+      "shared": 62,
+      "unmatched_city": 1
+    },
+    "hu": {
+      "addresses": 11383,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "hu"
+      ],
+      "response_sha256": [
+        "4c8ac1e2e0f57f41576aeed36a26cf2d17f2d958a9bfc4fdf2aa5b37db3ceb16",
+        "cc7a59d6ccd6e1fd8c00ad83475ebae76a310de371139ce403f538c967819edb"
+      ],
+      "selected": 50,
+      "settlements": 50,
+      "shared": 558,
+      "unmatched_city": 7
+    },
+    "id": {
+      "addresses": 444,
+      "error": "HTTP Error 504: Gateway Timeout",
+      "shared": 1
+    },
+    "ie": {
+      "addresses": 7496,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "ee27e5b7de02478e34e059588f1b12171a25b167d7d07a2b3749a48d3a6b5375",
+        "bd858da672da7eccbfb0b42a21025725a637656edb276b8d8ef5588d3a55e463",
+        "e97387eafbfb73f0875735db6e07429b504738881aa1e13995025928ad7cfa6d"
+      ],
+      "selected": 44,
+      "settlements": 12,
+      "shared": 581,
+      "unmatched_city": 110
+    },
+    "il": {
+      "addresses": 1140,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "he"
+      ],
+      "response_sha256": [
+        "ec2ddc1500fbfd21278a2f6c936ef03cf7f88adf134e219bf9a3996e3455a977",
+        "3a5dbe36cfb0fd826e4fc43ca678a21593520aed04377483c55d623795c8afde"
+      ],
+      "selected": 22,
+      "settlements": 5,
+      "shared": 33,
+      "unmatched_city": 11
+    },
+    "im": {
+      "addresses": 375,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "291825af59459e3d5bd5255bcc2cde69e083912b970b45b6a994434fe9994fe3",
+        "8d0d77b0d02ec41c372b9766e9d23ab8e02827af2189dead1b1424ea2d456b21"
+      ],
+      "selected": 18,
+      "settlements": 5,
+      "shared": 75,
+      "unmatched_city": 3
+    },
+    "in": {
+      "addresses": 225255,
+      "error": "HTTP Error 504: Gateway Timeout",
+      "shared": 1581
+    },
+    "iq": {
+      "addresses": 30,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "64aa50fe45b172eefb4e7f0def50f37e01de9d4fa0b5c5d0afeb60863c8289ed",
+        "1a3511fb2ace3b6389e729ea81099ad8fe9709fb17813908b9a9198bcd012f39"
+      ],
+      "selected": 1,
+      "settlements": 1,
+      "shared": 1,
+      "unmatched_city": 0
+    },
+    "is": {
+      "addresses": 2609,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "is"
+      ],
+      "response_sha256": [
+        "1c7b2a20fa78dd579b87cd9d05605ce56267f6b3f0dbe8de797a82ef7f1bff27",
+        "a650e86c9aa68c3a0aa865153c21dae35a9fbc245d605fa452940f4b7ee37fea"
+      ],
+      "selected": 33,
+      "settlements": 10,
+      "shared": 120,
+      "unmatched_city": 8
+    },
+    "je": {
+      "addresses": 535,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "f90bd8f6fe6d216578d7d3cb91c97904f36f9868bd82be1faeca740d5f3fa789",
+        "96f460465321f01bb2a0ecdbb3bb5d5ac20961bad81ba1b92bf9fecfeea7b0cf"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 131,
+      "unmatched_city": 6
+    },
+    "jm": {
+      "addresses": 19,
+      "shared": 0
+    },
+    "jo": {
+      "addresses": 30,
+      "shared": 0
+    },
+    "jp": {
+      "addresses": 2303,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "ja"
+      ],
+      "response_sha256": [
+        "8921c2a454e6af5d12d610ec07dad4b3a3e4b7ab391e8d1d48a5712332c002b6",
+        "344bf9e63f816eb809aa0ee0dc6bea4ec808a12a276ef7956250c53536f57996"
+      ],
+      "selected": 4,
+      "settlements": 1,
+      "shared": 69,
+      "unmatched_city": 65
+    },
+    "ke": {
+      "addresses": 77,
+      "shared": 0
+    },
+    "kg": {
+      "addresses": 36,
+      "shared": 0
+    },
+    "kh": {
+      "addresses": 9,
+      "shared": 0
+    },
+    "km": {
+      "addresses": 5,
+      "shared": 0
+    },
+    "kn": {
+      "addresses": 140,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "a25896e0ae0cc322dd133ebc17f3712350aa605f7ff5c01625697a41e41273d9",
+        "53e2cde08e4adf54ebd13d521127a4a696412e1994d328e7bc77a3dbead8e32a"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 13,
+      "unmatched_city": 0
+    },
+    "kw": {
+      "addresses": 87,
+      "shared": 0
+    },
+    "ky": {
+      "addresses": 2383,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "4a930f5cdc13b32b7e68e8d281a0d126b3e9ab3af06a9bf14a688b55697774d1",
+        "12b70aa5a08eb17cbb616dd22e3e01f61df953161da4f01d6a1e22789cb4c30e"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 533,
+      "unmatched_city": 189
+    },
+    "kz": {
+      "addresses": 127,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "4a0ed22a349cfc913e9125453dc191e210c97b699674463699ca56c70f35131f",
+        "c370cb4a1642a000a48400ddc91a07db9183cc4b5475f54279c6ce7cfccbe4e3"
+      ],
+      "selected": 2,
+      "settlements": 1,
+      "shared": 2,
+      "unmatched_city": 0
+    },
+    "la": {
+      "addresses": 9,
+      "shared": 0
+    },
+    "lb": {
+      "addresses": 47,
+      "shared": 0
+    },
+    "lc": {
+      "addresses": 53,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "02176574eda6a721c947507fe298cbf79cdbbca46ab464a4e506f71f915fbc8e",
+        "abd69cec368939ca8e8ed6efc35f3b4aa80819bd0c5f85b48276d11e692c24cd"
+      ],
+      "selected": 1,
+      "settlements": 1,
+      "shared": 6,
+      "unmatched_city": 5
+    },
+    "li": {
+      "addresses": 617,
+      "far_namesake": [],
+      "languages": [
+        "de",
+        "en"
+      ],
+      "response_sha256": [
+        "38f09868b33e3a80ca625913eeb263a7966eedb519ee3354afa9089b64833cb9",
+        "0c8d56b352779de273a67855996648e70784e65cae3227698993821eb9fb7ecd"
+      ],
+      "selected": 46,
+      "settlements": 5,
+      "shared": 196,
+      "unmatched_city": 33
+    },
+    "lk": {
+      "addresses": 70,
+      "shared": 0
+    },
+    "lr": {
+      "addresses": 22,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "47ce5f1bd89028fdcd17e2e57237258966d1821b7e46264f0c9e86a9b72799f1",
+        "1f5ef18e652863007c23aeb1c5ecb7d9abc009e1d210273613dbaf3822baef4e"
+      ],
+      "selected": 3,
+      "settlements": 1,
+      "shared": 3,
+      "unmatched_city": 0
+    },
+    "ls": {
+      "addresses": 3,
+      "shared": 0
+    },
+    "lt": {
+      "addresses": 2738,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "lt"
+      ],
+      "response_sha256": [
+        "573000a2166e45319682708c132bd39fe6287b89c7f6b458e4b2e95b83bffeb8"
+      ],
+      "selected": 0,
+      "settlements": 0,
+      "shared": 113,
+      "unmatched_city": 113
+    },
+    "lv": {
+      "addresses": 2385,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "lv"
+      ],
+      "response_sha256": [
+        "bd5c0bcb8dab28d13483c80eb7a82da75ff75361f5c61ce3a9509d7439ea2ef5",
+        "1001ddd7834bc42b1211185267137224b21f7ab63f7a7348b9a0a924da5a963e"
+      ],
+      "selected": 14,
+      "settlements": 4,
+      "shared": 65,
+      "unmatched_city": 1
+    },
+    "ly": {
+      "addresses": 1,
+      "shared": 0
+    },
+    "ma": {
+      "addresses": 40,
+      "shared": 0
+    },
+    "mc": {
+      "addresses": 394,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "fr"
+      ],
+      "response_sha256": [
+        "e2e1a286299f962880e5d55990c9594857efe916eb69cec4a7fb271844b8d734",
+        "d06a8c5444286cfb55871c1d7437553dbc7e5890d02dc93baf957ad965520f2d"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 19,
+      "unmatched_city": 0
+    },
+    "md": {
+      "addresses": 35,
+      "shared": 0
+    },
+    "me": {
+      "addresses": 31,
+      "shared": 0
+    },
+    "mf": {
+      "addresses": 1,
+      "shared": 0
+    },
+    "mg": {
+      "addresses": 9,
+      "shared": 0
+    },
+    "mh": {
+      "addresses": 67,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "5d8375711a398714648e278fbe83e25d6baf2fca5816c226c961f5704137156e",
+        "0078f99a74d69d7bd0dc0f07474f51ad8b3b3b5575ee534ffa24d6bd6efb111c"
+      ],
+      "selected": 8,
+      "settlements": 1,
+      "shared": 10,
+      "unmatched_city": 2
+    },
+    "mk": {
+      "addresses": 80,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "mk"
+      ],
+      "response_sha256": [
+        "49c224823954690459fa9aacf56c3e780d50ae18288b868f4e860f9072f98b6f",
+        "353c1ce278e1fdb23e462c4474c2a1b9dbf02b6157b711a956bb88de6f0084f3"
+      ],
+      "selected": 1,
+      "settlements": 1,
+      "shared": 1,
+      "unmatched_city": 0
+    },
+    "ml": {
+      "addresses": 7,
+      "shared": 0
+    },
+    "mm": {
+      "addresses": 1,
+      "shared": 0
+    },
+    "mn": {
+      "addresses": 26,
+      "shared": 0
+    },
+    "mo": {
+      "addresses": 38,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "zh"
+      ],
+      "response_sha256": [
+        "9da6dffdb0453b006594745781770ac3fafc41ad114c5f7e711b49c286424f5f"
+      ],
+      "selected": 0,
+      "settlements": 0,
+      "shared": 1,
+      "unmatched_city": 1
+    },
+    "mp": {
+      "addresses": 1,
+      "shared": 0
+    },
+    "mq": {
+      "addresses": 14,
+      "shared": 0
+    },
+    "mr": {
+      "addresses": 9,
+      "shared": 0
+    },
+    "mt": {
+      "addresses": 1934,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "3b8eed195cf1518f0161e1d26eb46986f9c8fd05f60aeac004bd476b255ca9db",
+        "112c48d4a9ec43d09a07d00546d07fd6b70ef232443f7997cb055a6a657da1c1"
+      ],
+      "selected": 50,
+      "settlements": 19,
+      "shared": 197,
+      "unmatched_city": 33
+    },
+    "mu": {
+      "addresses": 885,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "89b038b8da932601c44421461096c089f6982b65dd8b55a53d04927396e1355f",
+        "e1e8fc712a41f2e35e940b833eade3933509ebb8a65ddc501f1dd55653d6c7c1"
+      ],
+      "selected": 26,
+      "settlements": 4,
+      "shared": 164,
+      "unmatched_city": 103
+    },
+    "mv": {
+      "addresses": 13,
+      "shared": 0
+    },
+    "mw": {
+      "addresses": 6,
+      "shared": 0
+    },
+    "mx": {
+      "addresses": 925,
+      "error": "HTTP Error 504: Gateway Timeout",
+      "shared": 23
+    },
+    "my": {
+      "addresses": 572,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "ms"
+      ],
+      "response_sha256": [
+        "2b9955f13ff4808b14813525cd7f37f52cb4f185ef1db00d6bc244d8aa299d0b",
+        "c1e2a1d2257b6ff7d9d87860c38902437b37573eb0bc74193aa459f7508daadf"
+      ],
+      "selected": 16,
+      "settlements": 4,
+      "shared": 42,
+      "unmatched_city": 8
+    },
+    "mz": {
+      "addresses": 8,
+      "shared": 0
+    },
+    "na": {
+      "addresses": 31,
+      "shared": 0
+    },
+    "nc": {
+      "addresses": 22,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "fr"
+      ],
+      "response_sha256": [
+        "4b69279d01d1252926bf68099dbd3bffe37bf5fc3eedda7bb7224f43cfefad8e",
+        "72b3ed3b0b0a87205dfbe991167420e49e6575963bd7e6e13f983bc7fbbb93f1"
+      ],
+      "selected": 1,
+      "settlements": 1,
+      "shared": 1,
+      "unmatched_city": 0
+    },
+    "ne": {
+      "addresses": 2,
+      "shared": 0
+    },
+    "ng": {
+      "addresses": 307,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "66f7dbf4ad6bdfa387e459ac1b3157fc73dc424c420cb120261e0986d979389d",
+        "74f8d0ca81238a502dca8d3d86299ef05a5c36fd0d4310e63e3506320315a6ee"
+      ],
+      "selected": 1,
+      "settlements": 1,
+      "shared": 2,
+      "unmatched_city": 1
+    },
+    "ni": {
+      "addresses": 2,
+      "shared": 0
+    },
+    "np": {
+      "addresses": 20,
+      "shared": 0
+    },
+    "nu": {
+      "addresses": 1,
+      "shared": 0
+    },
+    "om": {
+      "addresses": 82,
+      "shared": 0
+    },
+    "pa": {
+      "addresses": 936,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "es"
+      ],
+      "response_sha256": [
+        "9f6026b2a4170029575a03097e90e92579af5b68f3e91cc7e059c146447af959",
+        "9ec204ead96899b7a712d54d5701b6f13103ad3e47a6eb233d864468ffd0d31c",
+        "5c652f25a2dcf1d03b5b16ecd0aea187ae36c32d1cbe9f19744ae8d5b7f3025b"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 53,
+      "unmatched_city": 1
+    },
+    "pe": {
+      "addresses": 276,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "es"
+      ],
+      "response_sha256": [
+        "914ec07657b25fcb73e57e77cb6954d0082b0a4201d2796c4b2a438afe682575",
+        "1d3852244252daef9cc3fae063a03cf608c603f2fdf091b00798788512a86d58"
+      ],
+      "selected": 3,
+      "settlements": 1,
+      "shared": 3,
+      "unmatched_city": 0
+    },
+    "pf": {
+      "addresses": 14,
+      "shared": 0
+    },
+    "pg": {
+      "addresses": 6,
+      "shared": 0
+    },
+    "ph": {
+      "addresses": 287,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "9f66d225df0720655783098253f5763fc44320109854e19e21fbf23a319abc51",
+        "5372dc8b38af821e0e4d8f32c7367236c2ba3933638c79522b2efbbcd7f648c4"
+      ],
+      "selected": 6,
+      "settlements": 1,
+      "shared": 7,
+      "unmatched_city": 1
+    },
+    "pk": {
+      "addresses": 31,
+      "shared": 0
+    },
+    "pm": {
+      "addresses": 3,
+      "shared": 0
+    },
+    "pr": {
+      "addresses": 143,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "es"
+      ],
+      "response_sha256": [
+        "5e5f1c7842c2ab0e9aec5b2952fbb65296eadbfbfcf166aef262e54f4c690377",
+        "72b3ed3b0b0a87205dfbe991167420e49e6575963bd7e6e13f983bc7fbbb93f1"
+      ],
+      "selected": 5,
+      "settlements": 1,
+      "shared": 5,
+      "unmatched_city": 0
+    },
+    "ps": {
+      "addresses": 43,
+      "shared": 0
+    },
+    "pt": {
+      "addresses": 9736,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "pt"
+      ],
+      "response_sha256": [
+        "5cbdf49d517a6fcaedc2bfe4fb6ca17867f977a84825324ea29a92beca2c80a8",
+        "77b4248fb9352eac6be8df0bcea00d4b6b5dcc327197eb971d37f2842655ab72"
+      ],
+      "selected": 11,
+      "settlements": 2,
+      "shared": 162,
+      "unmatched_city": 144
+    },
+    "py": {
+      "addresses": 55,
+      "shared": 0
+    },
+    "qa": {
+      "addresses": 165,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "8b8178144e9966662c9fab38338693b4a8e323c9ba5aa906d1321f7b005928c2",
+        "c22873836b8fb80d656edb2c3b3d6993f2201d60f2c4c17c6f22e5df28651c6d"
+      ],
+      "selected": 3,
+      "settlements": 1,
+      "shared": 4,
+      "unmatched_city": 1
+    },
+    "re": {
+      "addresses": 17,
+      "shared": 0
+    },
+    "ro": {
+      "addresses": 2693,
+      "far_namesake": [
+        "bucuresti"
+      ],
+      "languages": [
+        "en",
+        "ro"
+      ],
+      "response_sha256": [
+        "dac95e204adcf1664bea7ad3e9a838eddcc211274137ba47cfbde97185a2f5ff",
+        "a9dd3fa27f2069995e4a39b0a6c8ccf88aa8009e00465500afab2e52077cf899",
+        "01f8dc5820a877ba8c8abf7d0599246cb29450a780b852732cfdeba84438a074"
+      ],
+      "selected": 2,
+      "settlements": 2,
+      "shared": 9,
+      "unmatched_city": 7
+    },
+    "rs": {
+      "addresses": 138,
+      "shared": 0
+    },
+    "ru": {
+      "addresses": 452,
+      "shared": 0
+    },
+    "rw": {
+      "addresses": 7,
+      "shared": 0
+    },
+    "sa": {
+      "addresses": 1118,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "f157ff040015e0472671fb173d3f2f73fd5c3a6c7f1bfe99fd1660445c2062b0",
+        "63c275fe8e3e001bb9682f70c30d8a74ceabb7004a98abe605e51be2492a77ce",
+        "9ec249cd35055b796c8f84846ad5fe8e50bdcfbaf4f670e2814df38798114e08"
+      ],
+      "selected": 8,
+      "settlements": 2,
+      "shared": 11,
+      "unmatched_city": 3
+    },
+    "sb": {
+      "addresses": 1,
+      "shared": 0
+    },
+    "sc": {
+      "addresses": 214,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "2dc1051ef5d2d01ff5cb7506303499c3cf3cc71db1ab7d47304ca5dc71b03b9a",
+        "d07f6a3f12c22765dae1b2b69a218f83a7bd54b55322830cdc16b8c70fbe60f6"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 28,
+      "unmatched_city": 8
+    },
+    "sd": {
+      "addresses": 6,
+      "shared": 0
+    },
+    "se": {
+      "addresses": 53595,
+      "far_namesake": [
+        "halmstad",
+        "jarna",
+        "kalmar"
+      ],
+      "languages": [
+        "en",
+        "sv"
+      ],
+      "response_sha256": [
+        "46c8665acc5cd442994cd1e5ac3b9a114fc25b4432d004fa22d5795bb8e490a5",
+        "560ef74a8772fef7330e2abe5e805e5a2109daaa5c1b200704a30cfe83a7ed38",
+        "01f8dc5820a877ba8c8abf7d0599246cb29450a780b852732cfdeba84438a074"
+      ],
+      "selected": 50,
+      "settlements": 47,
+      "shared": 2041,
+      "unmatched_city": 754
+    },
+    "sg": {
+      "addresses": 3472,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "76f2d7efd69ede686aa3bd2e567ab63dd3907a34c2c30dbc339c26e15fd3f08a",
+        "4f912f139d6021d34f21aed57640a8140dff22f60cafdd30d32801ddc749bff5"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 520,
+      "unmatched_city": 4
+    },
+    "sh": {
+      "addresses": 3,
+      "shared": 0
+    },
+    "si": {
+      "addresses": 2350,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "sl"
+      ],
+      "response_sha256": [
+        "849615a7d91b4951c0a43ea41185c3a2d84a9559aa633a65ac8b06742680c379",
+        "43d460d58c99817dbcf02710559ec9493e2145d5e1e462c263e0f4e0cdcd539e"
+      ],
+      "selected": 31,
+      "settlements": 13,
+      "shared": 117,
+      "unmatched_city": 12
+    },
+    "sk": {
+      "addresses": 3276,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "sk"
+      ],
+      "response_sha256": [
+        "435bf6dc0bbff911c0e9d6d8512317d275833118304b462ee37aff99f336ced5",
+        "11ca3696564e91c40c53528fab7aa84c37e8c824a324a036cce48074d08f36f7"
+      ],
+      "selected": 41,
+      "settlements": 18,
+      "shared": 152,
+      "unmatched_city": 76
+    },
+    "sl": {
+      "addresses": 8,
+      "shared": 0
+    },
+    "sm": {
+      "addresses": 56,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "it"
+      ],
+      "response_sha256": [
+        "368aa95aa3553005a3ccbb17aa90d63a96ab295d6ae73521793f42ee785f9fa8",
+        "20b60e159f8dd25975b75307ad0cd8949f83a6e3c65293c13b8fdddccb21fb27"
+      ],
+      "selected": 2,
+      "settlements": 1,
+      "shared": 3,
+      "unmatched_city": 1
+    },
+    "sn": {
+      "addresses": 5,
+      "shared": 0
+    },
+    "sr": {
+      "addresses": 6,
+      "shared": 0
+    },
+    "ss": {
+      "addresses": 1,
+      "shared": 0
+    },
+    "st": {
+      "addresses": 4,
+      "shared": 0
+    },
+    "sv": {
+      "addresses": 21,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "761a4d49ff70a08adf94a35fb70d011bc4cf533547adc83261dadf5bc39af775"
+      ],
+      "selected": 0,
+      "settlements": 0,
+      "shared": 1,
+      "unmatched_city": 1
+    },
+    "sx": {
+      "addresses": 7,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "14ee4bdf7b0e65b35002c8ae13a5664e9159f720b778574d4fd1fe578c5527e1",
+        "2416362fa81e1dae28fde872e6468f5d4df74971a0e6030210678de2b04ce68d"
+      ],
+      "selected": 1,
+      "settlements": 1,
+      "shared": 1,
+      "unmatched_city": 0
+    },
+    "tc": {
+      "addresses": 32,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "b1f2f59a1a801109d93c7f1c4e9e642124fc125d2ebc7668761413b4c2833cbd"
+      ],
+      "selected": 0,
+      "settlements": 0,
+      "shared": 1,
+      "unmatched_city": 1
+    },
+    "td": {
+      "addresses": 2,
+      "shared": 0
+    },
+    "tg": {
+      "addresses": 6,
+      "shared": 0
+    },
+    "th": {
+      "addresses": 717,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "th"
+      ],
+      "response_sha256": [
+        "4d042fd673154c51c12827d465f049d512337dbd4e895a99f7fff9dedfc771b3",
+        "b29347928c27116ac527eee817e80379d019611f6e94d34f3d3481619823eea6"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 20,
+      "unmatched_city": 3
+    },
+    "tj": {
+      "addresses": 9,
+      "shared": 0
+    },
+    "tm": {
+      "addresses": 2,
+      "shared": 0
+    },
+    "tn": {
+      "addresses": 83,
+      "far_namesake": [],
+      "languages": [
+        "ar",
+        "en",
+        "fr"
+      ],
+      "response_sha256": [
+        "b671a452df420a6a2b7b7dfd89f7ffa0f64f51b11e28979402d8fb0188e16662",
+        "9f0493ac895d3650eb6e8e8388c5919e76663a78907842d44d0cb14c3a5ef3c0"
+      ],
+      "selected": 1,
+      "settlements": 1,
+      "shared": 1,
+      "unmatched_city": 0
+    },
+    "tr": {
+      "addresses": 4157,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "tr"
+      ],
+      "response_sha256": [
+        "825834d51229529f09f16814280a1af8e54075683575567461d8ac2de3911233",
+        "a6098bbbd98abfdd2bce27e1aaede71c8d66423763bddf2aa0a8612cce3d6d0b"
+      ],
+      "selected": 25,
+      "settlements": 4,
+      "shared": 263,
+      "unmatched_city": 18
+    },
+    "tt": {
+      "addresses": 32,
+      "shared": 0
+    },
+    "tz": {
+      "addresses": 24,
+      "shared": 0
+    },
+    "ua": {
+      "addresses": 109,
+      "shared": 0
+    },
+    "ug": {
+      "addresses": 27,
+      "shared": 0
+    },
+    "uy": {
+      "addresses": 181,
+      "far_namesake": [],
+      "languages": [
+        "en",
+        "es"
+      ],
+      "response_sha256": [
+        "b6eaa77b23b6de175a66d66091a962793ed24fbaa0081c90f2092031c9ce73f1",
+        "088cac8f551ff965c12b4dfd067bfcd503c6e661679a8a40530a3d5bdc97a250"
+      ],
+      "selected": 4,
+      "settlements": 1,
+      "shared": 4,
+      "unmatched_city": 0
+    },
+    "uz": {
+      "addresses": 34,
+      "shared": 0
+    },
+    "va": {
+      "addresses": 1,
+      "shared": 0
+    },
+    "vc": {
+      "addresses": 36,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "f4d3eed3bffbf3a35f01c5281c295708696404b9c138a568364c39ffbfcbd63a",
+        "b71eebba6a0bf6d3526b7d2fa3766ba8f8bf5e65058fd4dcbeda554754930965"
+      ],
+      "selected": 7,
+      "settlements": 1,
+      "shared": 7,
+      "unmatched_city": 0
+    },
+    "ve": {
+      "addresses": 39,
+      "shared": 0
+    },
+    "vg": {
+      "addresses": 1881,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "fae6dc7fd6f6b022daefe7bcf0533aeb20e9f2d9e0c3ad04ee6861310af6de78",
+        "72b3ed3b0b0a87205dfbe991167420e49e6575963bd7e6e13f983bc7fbbb93f1"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 489,
+      "unmatched_city": 106
+    },
+    "vi": {
+      "addresses": 20,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "25a9d7d612df0ab75e06a6058ab9687eac8b4652603e1ced63b876bf5e602911",
+        "72b3ed3b0b0a87205dfbe991167420e49e6575963bd7e6e13f983bc7fbbb93f1"
+      ],
+      "selected": 1,
+      "settlements": 1,
+      "shared": 2,
+      "unmatched_city": 1
+    },
+    "vn": {
+      "addresses": 175,
+      "shared": 0
+    },
+    "vu": {
+      "addresses": 24,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "0682f9e8347e6cd390518794e981895532f4ab4c5e589beedf7ddd87964c8f99",
+        "602714475b856805883970e4a42f35bb8c7e783cfd98d80397965246e29e62a2"
+      ],
+      "selected": 3,
+      "settlements": 1,
+      "shared": 3,
+      "unmatched_city": 0
+    },
+    "wf": {
+      "addresses": 1,
+      "shared": 0
+    },
+    "ws": {
+      "addresses": 75,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "3ef1d2ce312983f4e6fc9128589398cff957265c9ee7ab62a6e418ed142c2ab1",
+        "b2cf98946fcf8b9f5136813607c9fbfaea9eb8fefaf1893d2eb85334b095cb52"
+      ],
+      "selected": 10,
+      "settlements": 1,
+      "shared": 12,
+      "unmatched_city": 0
+    },
+    "xk": {
+      "addresses": 21,
+      "shared": 0
+    },
+    "ye": {
+      "addresses": 24,
+      "shared": 0
+    },
+    "yt": {
+      "addresses": 3,
+      "shared": 0
+    },
+    "za": {
+      "addresses": 1071,
+      "far_namesake": [],
+      "languages": [
+        "en"
+      ],
+      "response_sha256": [
+        "3d06946cbce46f04355fa22b40cdfa6faddcb1d5c4a3e7563194b452437d78a6",
+        "c2428191c6e8c8c15c19535fdd726f091ad9a2acda538faada7652c42379115d"
+      ],
+      "selected": 20,
+      "settlements": 4,
+      "shared": 51,
+      "unmatched_city": 16
+    },
+    "zm": {
+      "addresses": 19,
+      "shared": 0
+    },
+    "zw": {
+      "addresses": 10,
+      "shared": 0
+    }
+  },
+  "gleif": {
+    "file": "20261022-0000-gleif-goldencopy-lei2-golden-copy.csv.zip",
+    "sha256": "bff3fac4eaba43029842733f845f06253c59a9784014d52226a5015e95772764",
+    "size": 505668000
+  },
+  "min_entities": 3,
+  "min_population": 1000,
+  "namesakes": "SELECT ?item ?name ?point WHERE {\n  hint:Query hint:optimizer \"None\" .\n  VALUES ?name { %s }\n  ?item rdfs:label|skos:altLabel ?name ; wdt:P17/wdt:P297 \"%s\" ; wdt:P625 ?point ; wdt:P1082 [] .\n}",
+  "per_city": 10,
+  "query": "SELECT ?item ?name ?pop WHERE {\n  ?area wdt:P297 \"%s\" .\n  { ?item wdt:P17 ?area } UNION { ?item wdt:P131+ ?area }\n  { VALUES ?type { wd:Q515 wd:Q3957 wd:Q532 wd:Q5084 } ?item wdt:P31/wdt:P279* ?type } UNION { ?item wdt:P31 wd:Q486972 }\n  ?item wdt:P625 ?point ; wdt:P17/wdt:P297 [] .\n  FILTER(isLiteral(?point))\n  FILTER NOT EXISTS { ?item wdt:P576 [] }\n  { ?item rdfs:label ?name } UNION { ?item skos:altLabel ?name }\n  FILTER(LANG(?name) IN (%s))\n  OPTIONAL { ?item wdt:P1082 ?pop }\n}",
+  "seed": "gleif-2026-10"
+}

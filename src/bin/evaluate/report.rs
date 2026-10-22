@@ -1078,7 +1078,8 @@ fn by_country(counts: &BTreeMap<String, BTreeMap<&str, [usize; 3]>>) -> String {
 
 /// Passing checks per country (as `by_country`) by where the expectation comes from: `osm` for
 /// the OpenStreetMap address panel, which the index reads itself in many countries; otherwise
-/// `registry`, `places` (curated Wikidata places), `towns` or `constructed`.
+/// `registry`, `places` (curated Wikidata places), `towns`, `gleif` (company addresses placed by
+/// Wikidata towns) or `constructed`.
 #[derive(Default)]
 struct Evidence {
     independent: BTreeMap<String, EvidenceRow>,
@@ -1097,6 +1098,8 @@ fn evidence(case: &Case) -> &'static str {
         "osm"
     } else if case.cohort == "town" {
         "towns"
+    } else if source == "gleif" {
+        "gleif"
     } else if source == "wikidata" {
         "places"
     } else if source.is_empty() || source == "constructed" {
@@ -1166,7 +1169,7 @@ fn by_evidence(counts: &Evidence) -> String {
         out
     };
     let mut out = String::from(
-        "\n<!-- by-evidence -->\n## Pass rate by country and evidence\n\nIndependent sources are registers, curated Wikidata places and Wikidata towns, none of them the index's own data. OpenStreetMap cases check agreement with mapped addresses, which the index itself reads in many countries: consistency, not accuracy. Each cell is passing checks / checked · rate, baseline → candidate where it changed.\n",
+        "\n<!-- by-evidence -->\n## Pass rate by country and evidence\n\nIndependent sources are registers, curated Wikidata places, Wikidata towns and GLEIF company addresses placed by Wikidata towns, none of them the index's own data. OpenStreetMap cases check agreement with mapped addresses, which the index itself reads in many countries: consistency, not accuracy. Each cell is passing checks / checked · rate, baseline → candidate where it changed.\n",
     );
     let countries = |n: usize| format!("{n} countr{}", if n == 1 { "y" } else { "ies" });
     out += &fold(
@@ -2291,6 +2294,7 @@ mod tests {
             "osm"
         );
         assert_eq!(evidence(&case("town", Some("wikidata"))), "towns");
+        assert_eq!(evidence(&case("gleif", Some("gleif"))), "gleif");
         assert_eq!(evidence(&case("city", Some("wikidata"))), "places");
         assert_eq!(evidence(&case("dk", Some("dar-json"))), "registry");
         assert_eq!(evidence(&case("malformed", None)), "constructed");

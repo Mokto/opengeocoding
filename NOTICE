@@ -75,6 +75,10 @@ Registry-first and school-sampled evaluation corpora have per-source attribution
 reuse terms in tests/registry/*.NOTICE. These notices accompany the corpora and are
 installed in container images under /usr/local/share/licenses/opengeocoding/registry/.
 
+The GLEIF town-level corpus tests/gold.gleif.jsonl takes its queries from GLEIF's
+LEI Golden Copy (CC0-1.0, https://www.gleif.org/en/meta/lei-data-terms-of-use) and
+its expected points and regions from Wikidata (CC0-1.0); see tests/gleif/NOTICE.
+
 The global address source-consistency gold corpus in tests/global/ is derived from
 OpenStreetMap under ODbL-1.0, with attribution and additional source terms in
 tests/global/NOTICE. That notice accompanies the corpus in the evaluation image.

@@ -119,6 +119,7 @@ fn source_url(source: &str, reference: &str) -> String {
     }
     match source {
         "wikidata" => format!("https://www.wikidata.org/wiki/{reference}"),
+        "gleif" => format!("https://search.gleif.org/#/record/{reference}"),
         "ban" => format!("https://adresse.data.gouv.fr/base-adresse-nationale/{reference}"),
         "pdok" => {
             format!("https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id={reference}")
@@ -854,7 +855,7 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                         }
                         .into()
                     });
-                    let expect = json!({
+                    let mut expect = json!({
                         "country": seed.country.clone().unwrap_or_else(|| iso(qid)),
                         "level": level,
                         "max_level": seed.max_level.as_deref().unwrap_or("house"),
@@ -863,6 +864,9 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                         "region": region(Some(seed.region_qid.as_deref().unwrap_or(qid)), &seed.extra_regions),
                         "good_match": good_match,
                     });
+                    if let Some(postcode) = &seed.postcode {
+                        expect["components"] = json!({ "postcode": postcode });
+                    }
                     let case_source = match (&seed.source, &seed.reference) {
                         (Some(name), Some(reference)) => source(name, reference),
                         _ => source("wikidata", qid),
