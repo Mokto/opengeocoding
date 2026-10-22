@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.20.1](https://github.com/Mokto/opengeocoding/compare/v0.20.0...v0.20.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* do not suggest another village's house when a place is left out of a full address ([#331](https://github.com/Mokto/opengeocoding/issues/331)) ([08b7372](https://github.com/Mokto/opengeocoding/commit/08b7372786ce3e6efdeb7eed0301c5ef2412f500))
+* read Angola, Dominica and Congo as themselves, drop calling codes written as postcodes, and suggest houses past an extra place ([#329](https://github.com/Mokto/opengeocoding/issues/329)) ([7351483](https://github.com/Mokto/opengeocoding/commit/7351483ceb94e9f8cf800345e592b5a3d7a2aa77))
+* spanish house extensions and address-area queries in search and suggest ([#322](https://github.com/Mokto/opengeocoding/issues/322)) ([c6c8810](https://github.com/Mokto/opengeocoding/commit/c6c8810a5da0ead21da4636a25e455508f40ace1))
+* suggest Italian addresses written with a province sigla or a frazione ([#326](https://github.com/Mokto/opengeocoding/issues/326)) ([008aad0](https://github.com/Mokto/opengeocoding/commit/008aad086cc3b03bb30931e8c93db383fd6df5f8))
+
 ## [0.20.0](https://github.com/Mokto/opengeocoding/compare/v0.19.0...v0.20.0) (2026-10-22)
 
 
