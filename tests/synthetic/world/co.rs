@@ -126,7 +126,7 @@ fn bogota_plates_are_suggested_as_the_registers_houses() {
         ),
         (
             "Avenida Calle 43 S 86B-18, Bogotá",
-            None,
+            Some("CO"),
             house(ac, "86B 18"),
         ),
         (
@@ -154,16 +154,8 @@ fn bogota_plates_are_suggested_as_the_registers_houses() {
     ] {
         let found = index().suggest(typed, 5, cc, None, false);
         assert!(!found.is_empty(), "{typed}");
-        assert_eq!(
-            found[0].kind, "address",
-            "{typed}: {}",
-            found[0].display_name
-        );
-        assert!(
-            metres((found[0].x, found[0].y), want) < 5.0,
-            "{typed}: {}",
-            found[0].display_name
-        );
+        assert_eq!(found[0].kind, "address", "{typed}");
+        assert!(metres((found[0].x, found[0].y), want) < 5.0, "{typed}");
     }
     // another plate is not borrowed
     for typed in [
