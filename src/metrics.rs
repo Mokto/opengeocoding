@@ -1,4 +1,4 @@
-use prometheus::{CounterVec, HistogramOpts, HistogramVec, Opts, Registry};
+use prometheus::{CounterVec, HistogramOpts, HistogramVec, IntGauge, Opts, Registry};
 use std::sync::LazyLock;
 
 pub struct Metrics {
@@ -9,6 +9,7 @@ pub struct Metrics {
     pub requests: CounterVec,
     pub handled: CounterVec,
     pub duration: HistogramVec,
+    pub suggest_warm: IntGauge,
 }
 
 pub static METRICS: LazyLock<Metrics> = LazyLock::new(|| {
@@ -52,6 +53,11 @@ pub static METRICS: LazyLock<Metrics> = LazyLock::new(|| {
         &["grpc_service", "grpc_method"],
     )
     .unwrap();
+    let suggest_warm = IntGauge::new(
+        "opengeocoding_suggest_caches_warm",
+        "1 once the suggestion caches are warmed after startup",
+    )
+    .unwrap();
     for collector in [
         Box::new(tiers.clone()) as Box<dyn prometheus::core::Collector>,
         Box::new(search.clone()),
@@ -59,6 +65,7 @@ pub static METRICS: LazyLock<Metrics> = LazyLock::new(|| {
         Box::new(requests.clone()),
         Box::new(handled.clone()),
         Box::new(duration.clone()),
+        Box::new(suggest_warm.clone()),
     ] {
         registry.register(collector).unwrap();
     }
@@ -70,5 +77,6 @@ pub static METRICS: LazyLock<Metrics> = LazyLock::new(|| {
         requests,
         handled,
         duration,
+        suggest_warm,
     }
 });
