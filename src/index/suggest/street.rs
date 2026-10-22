@@ -418,7 +418,8 @@ impl Index {
                 // "Calle Real 7, Pinedo, Valdegovía, Álava, Spain": a settlement the houses'
                 // places do not name, before the municipality they are filed under. The
                 // municipality must be a town, not only a region, and the settlement no place or
-                // one within 50 km of it; not a Danish floor, which the floor fallback keeps
+                // one within 50 km of it, with the house within 3 km; not a Danish floor, which
+                // the floor fallback keeps
                 if number_word.is_some()
                     && !found.iter().any(|s| s.kind == "address")
                     && parts.len() >= 3
@@ -435,26 +436,23 @@ impl Index {
                         .map(|&id| &self.places[id as usize])
                         .filter(|p| matches!(p.subtype.as_ref(), "locality" | "localadmin"))
                         .collect();
-                    let near = || {
-                        let named: Vec<u32> = self
-                            .places(&parts[0], place_cc, None, &|_| true)
-                            .into_iter()
-                            .filter_map(|h| match h {
-                                Hit::Place(id) => Some(id),
-                                _ => None,
-                            })
-                            .collect();
-                        named.is_empty()
-                            || named.iter().any(|&id| {
-                                let p = &self.places[id as usize];
-                                towns.iter().any(|t| {
-                                    ((p.x - t.x) * t.y.to_radians().cos()).hypot(p.y - t.y) * 111.0
-                                        < 50.0
-                                })
-                            })
+                    let named: Vec<&Place> = self
+                        .places(&parts[0], place_cc, None, &|_| true)
+                        .into_iter()
+                        .filter_map(|h| match h {
+                            Hit::Place(id) => Some(&self.places[id as usize]),
+                            _ => None,
+                        })
+                        .collect();
+                    let km = |p: &Place, x: f64, y: f64| {
+                        ((p.x as f64 - x) * y.to_radians().cos()).hypot(p.y as f64 - y) * 111.0
                     };
-                    if !towns.is_empty() && near() {
-                        let by_municipality = self.streets_typed(
+                    let near = named.is_empty()
+                        || named
+                            .iter()
+                            .any(|p| towns.iter().any(|t| km(p, t.x as f64, t.y as f64) < 50.0));
+                    if !towns.is_empty() && near {
+                        let mut by_municipality = self.streets_typed(
                             &road_words,
                             false,
                             Some(&ids),
@@ -465,6 +463,12 @@ impl Index {
                             None,
                             want,
                         );
+                        // the settlement named picks among the municipality's same-named streets
+                        if !named.is_empty() {
+                            by_municipality.retain(|s| {
+                                s.kind != "address" || named.iter().any(|p| km(p, s.x, s.y) < 3.0)
+                            });
+                        }
                         if by_municipality.iter().any(|s| s.kind == "address") {
                             found = by_municipality;
                         }

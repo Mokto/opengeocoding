@@ -89,6 +89,18 @@ pub const STREETS: &[Street] = &[
         lat: -19.952,
         numbers: &["12", "14", "16", "18", "20", "12 B", "30 A"],
     },
+    // A street of Pinedo, which the houses file under Villaseca.
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "CALLE ERAS",
+        postcode: "09128",
+        city: "Villaseca",
+        cc: "ES",
+        lon: 50.061,
+        lat: -19.951,
+        numbers: &["5"],
+    },
     // The registry leaves the article out of "Calle del Castillo".
     Street {
         class: "residential",
@@ -155,7 +167,20 @@ fn spanish_houses_are_suggested_with_their_extension_and_village() {
     ));
     // the village holds no streets of its own: they are the municipality's
     assert!(near(
-        "Calle Real 14, Pinedo, Villaseca, Burgos, Spain",
-        house(real, "14")
+        "Calle Eras 5, Pinedo, Villaseca, Burgos, Spain",
+        house(street("CALLE ERAS"), "5")
     ));
+    // but not another village's house
+    assert!(
+        index()
+            .suggest(
+                "Calle Real 14, Pinedo, Villaseca, Burgos, Spain",
+                5,
+                None,
+                None,
+                false
+            )
+            .iter()
+            .all(|s| s.kind != "address")
+    );
 }
