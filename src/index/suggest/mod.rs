@@ -459,7 +459,96 @@ impl Index {
                 out = recovered;
             }
         }
+        // with streets of the road found, a place left out rarely finds its house
+        if !out
+            .iter()
+            .any(|s| s.kind == "address" || s.kind == "street")
+            && let Some(found) = self.suggest_without_place(&typed, cc, focus, limit)
+        {
+            out = found;
+        }
         kept(out, cc, limit)
+    }
+
+    /// "5A Salena road, Jojoima, Kailahun, Sierra Leone" (a district after the town) and "323
+    /// Rue Gabriel Ngoua Obiang, Nzeng Ayong, Libreville, Gabon" (a quarter the houses are not
+    /// filed under): with two or more places between a numbered road and its country, the house
+    /// of that exact number that every place but one names, near the one left out.
+    fn suggest_without_place(
+        &self,
+        typed: &Typed,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        limit: usize,
+    ) -> Option<Vec<Suggestion>> {
+        let parts = &typed.parts;
+        if !(4..=5).contains(&parts.len()) || self.country(parts.last()?).is_none() {
+            return None;
+        }
+        let words: Vec<&str> = parts[0].split(' ').collect();
+        let numbers: Vec<String> = [words.first()?, words.last()?]
+            .into_iter()
+            .filter(|w| words.len() > 1 && has_digit(w))
+            .map(|w| schema::number_key(w))
+            .collect();
+        // a place has to remain beside the road: a postcode alone does not place the house
+        let places = parts[1..parts.len() - 1]
+            .iter()
+            .filter(|p| p.chars().any(char::is_alphabetic))
+            .count();
+        if numbers.is_empty() || places < 2 {
+            return None;
+        }
+        // in the order that most often finds the house: of "road, town, district, country" the
+        // district, of "road, quarter, town, district, country" the quarter
+        let order: &[usize] = if parts.len() == 4 {
+            &[2, 1]
+        } else {
+            &[1, 3, 2]
+        };
+        order.iter().find_map(|&skip| {
+            // a postcode the house does not carry contradicts it
+            if !parts[skip].chars().any(char::is_alphabetic) {
+                return None;
+            }
+            let mut fewer = parts.clone();
+            fewer.remove(skip);
+            let fewer = Typed {
+                parts: fewer,
+                open: typed.open,
+            };
+            let mut found: Vec<_> = self
+                .suggest_streets(&fewer, cc, focus, limit)
+                .into_iter()
+                .filter(|s| {
+                    s.kind == "address"
+                        && s.id
+                            .rsplit(':')
+                            .next()
+                            .is_some_and(|n| numbers.iter().any(|k| k == n))
+                })
+                .collect();
+            // the place left out still has to agree: the house's own address names it, or a
+            // place of that name is near (a quarter the data files the house outside of)
+            let left_out = &parts[skip];
+            if !found.is_empty() {
+                let near: Vec<(f64, f64)> = self
+                    .scope(std::slice::from_ref(left_out), false, cc, None, false)
+                    .iter()
+                    .map(|&id| {
+                        let pl = &self.places[id as usize];
+                        (pl.x as f64, pl.y as f64)
+                    })
+                    .collect();
+                found.retain(|s| {
+                    fold(&s.display_name).contains(&fold(left_out))
+                        || near.iter().any(|&(x, y)| {
+                            ((x - s.x) * s.y.to_radians().cos()).hypot(y - s.y) * 111.195 < 15.0
+                        })
+                });
+            }
+            (!found.is_empty()).then_some(found)
+        })
     }
 
     /// The most common terms of `field` starting with `prefix`, summed over segments, with the

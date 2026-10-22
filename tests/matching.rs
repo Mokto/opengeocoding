@@ -1716,3 +1716,45 @@ fn a_name_and_its_region_name_the_place_whichever_fields_the_parser_chose() {
     assert!(!named_in_region("Kriel", Some(&kriel)));
     assert!(!named_in_region("Kriel, Germany", Some(&kriel)));
 }
+
+#[test]
+fn a_calling_code_in_the_postcode_place_is_dropped() {
+    for (query, expected) in [
+        (
+            "422 Kisiwani, Bunda, 255, Tanzania",
+            "422 Kisiwani, Bunda, Tanzania",
+        ),
+        ("2 رمال الصحراء, +218, Libya", "2 رمال الصحراء, Libya"),
+        ("Sima 501, 00255, Tanzania", "Sima 501, Tanzania"),
+        (
+            "1 Main Road, +27, South Africa",
+            "1 Main Road, South Africa",
+        ),
+    ] {
+        assert_eq!(
+            without_calling_code(query).map(|(q, _)| q).as_deref(),
+            Some(expected),
+            "{query}"
+        );
+    }
+    for query in [
+        // another country's code, a first part, a bare two-digit code, a three-digit postcode
+        "422 Kisiwani, Bunda, 254, Tanzania",
+        "255, Tanzania",
+        "Main Road, 27, South Africa",
+        "Rue 5, Conakry, 224, Guinea",
+        "10 Downing Street, London, 44, United Kingdom",
+    ] {
+        assert_eq!(without_calling_code(query), None, "{query}");
+    }
+}
+
+#[test]
+fn a_place_name_may_be_written_with_word_ends_cut_short() {
+    assert!(cut_short("Petit Soufrière", "Petite Soufriere"));
+    assert!(cut_short("Grand Bay", "Grand Bay"));
+    assert!(!cut_short("Soufrière", "Soufriere"));
+    assert!(!cut_short("Petit Soufrière", "Soufriere"));
+    assert!(!cut_short("Pe Soufrière", "Petite Soufriere"));
+    assert!(!cut_short("Port Louis", "Porto Louisiana"));
+}

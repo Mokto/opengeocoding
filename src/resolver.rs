@@ -414,6 +414,33 @@ impl Core {
                 }
             }
         }
+        // "Petit Soufrière" parses as a house "petit" in a town "soufrière": the place the whole
+        // first part names, a word end cut short ("Petite Soufriere"), is the one meant
+        let first_part = (!city.is_empty()
+            && !part(address, "house").is_empty()
+            && ["road", "house_number", "postcode"]
+                .iter()
+                .all(|key| part(address, key).is_empty()))
+        .then(|| query.split(',').next())
+        .flatten();
+        let spelt_out = |f: &FullAddress| {
+            first_part.is_some_and(|written| {
+                f.display_name
+                    .split(',')
+                    .next()
+                    .is_some_and(|name| cut_short(written, name))
+            })
+        };
+        for index in 0..judged.len() {
+            if spelt_out(&judged[index])
+                && country_matches(country, judged[index].address_details.as_option())
+            {
+                judged.to_mut()[index]
+                    .address_details
+                    .get_or_insert_default()
+                    .city = city.into();
+            }
+        }
         // "Coulsdon, London": the suburb is the more specific part, and it is in the town stated
         // if that town's centre is near. The index doesn't always file it under the town.
         let finer = ["suburb", "city_district"]
@@ -517,6 +544,7 @@ impl Core {
             // villages: a tiny foreign namesake must not displace a region.
             viable.sort_by_cached_key(|(i, f)| {
                 (
+                    !spelt_out(f),
                     !town_named(address, f.address_details.as_option()),
                     if bare {
                         match candidates[*i]["addresstype"].as_str() {
@@ -976,6 +1004,58 @@ impl Core {
                 return Ok(recovered);
             }
             found.good_match = false;
+        }
+        // "4 Rue Des Cafeiers, 237, Cameroon": the country's calling code where the postcode goes,
+        // which some of the data's houses carry as their postcode too ("+237"). It is no postcode.
+        if let Some((uncoded, code)) = without_calling_code(query) {
+            let coded = |f: &FullAddress| {
+                f.address_details.as_option().is_some_and(|d| {
+                    !d.house_number.is_empty()
+                        && d.postcode
+                            .chars()
+                            .filter(char::is_ascii_digit)
+                            .collect::<String>()
+                            == code
+                })
+            };
+            if !found.good_match {
+                // the house the data gives that code ("+233") before a namesake elsewhere
+                let tagged = self
+                    .search(query)
+                    .1
+                    .iter()
+                    .filter_map(|v| format_response(v).ok())
+                    .find(|f| coded(f));
+                if let Some(mut tagged) = tagged {
+                    tagged.good_match = true;
+                    found = tagged;
+                } else {
+                    let parsed_number = PARSED_NUMBER.get();
+                    let retried = self.resolve_once(&uncoded)?;
+                    PARSED_NUMBER.set(parsed_number);
+                    // an answer as written gives way to a house only
+                    if retried.good_match
+                        && (found.display_name.is_empty()
+                            || retried
+                                .address_details
+                                .as_option()
+                                .is_some_and(|d| !d.house_number.is_empty()))
+                    {
+                        found = retried;
+                    }
+                }
+            }
+            if coded(&found)
+                && let Some(d) = found.address_details.as_option_mut()
+            {
+                let postcode = std::mem::take(&mut d.postcode);
+                found.display_name = found
+                    .display_name
+                    .split(", ")
+                    .filter(|p| *p != postcode)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+            }
         }
         if !found.display_name.is_empty() {
             return Ok(found);

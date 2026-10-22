@@ -1119,3 +1119,22 @@ fn subdivisions_are_named_by_the_item_in_the_last_column() {
     assert_eq!(places.len(), 2);
     assert_eq!(own, [(0, code.to_string())]);
 }
+
+#[test]
+fn a_country_name_is_the_country_most_of_its_languages_give_it() {
+    let names = country_names(
+        [
+            ("ai", vec!["Anguilla", "Angola"]),
+            ("ao", vec!["Angola", "Angola", "Angóla"]),
+            ("to", vec!["Tonga", "Toga"]),
+            ("tg", vec!["Togo", "Toga"]),
+        ]
+        .into_iter()
+        .map(|(cc, names)| (cc, names.into_iter())),
+    );
+    assert_eq!(names["angola"], "ao");
+    assert_eq!(names["anguilla"], "ai");
+    // a tie: the first seen, as before
+    assert_eq!(names["toga"], "to");
+    assert_eq!(names["ai"], "ai");
+}
