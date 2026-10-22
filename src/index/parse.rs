@@ -378,9 +378,15 @@ impl Parser {
                     .into_iter()
                     .collect())
             };
-            let mut whole = libpostal(q)?;
+            let kosovo = xk::parsed(q);
+            let mut whole = match &kosovo {
+                Some(read) => read.clone(),
+                None => libpostal(q)?,
+            };
             let mut swapped = None;
-            if let Some((turned, number)) = arabic_number_last(q) {
+            if kosovo.is_none()
+                && let Some((turned, number)) = arabic_number_last(q)
+            {
                 let found = libpostal(&turned)?;
                 if found
                     .iter()
@@ -409,7 +415,7 @@ impl Parser {
                 .filter(|(k, _)| country.is_none() || k != "country")
                 .cloned()
                 .collect();
-            let mut aligned = None;
+            let mut aligned = kosovo.map(|_| inner.clone());
             if let Some((_, c)) = &country
                 && matches!(c.as_str(), "japan" | "日本")
                 && let [head, ref rest @ ..] = parts[..]

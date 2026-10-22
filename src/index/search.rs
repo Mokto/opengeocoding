@@ -521,13 +521,11 @@ impl Index {
             a.insert("country".into(), name.into());
             display.push(name.into());
         }
-        // The index has no PS country: the Gaza Strip and the West Bank are countries of
-        // their own (xg, xw). A query for Palestine names them under PS, and the territory
-        // stays a region so the answer is not only the country.
-        if matches!(
-            a.get("country_code").and_then(Value::as_str),
-            Some("xg" | "xw")
-        ) {
+        // The territory stays a region, so the answer is not only the country.
+        if a.get("country_code")
+            .and_then(Value::as_str)
+            .is_some_and(country::ps::territory)
+        {
             let territory = a.get("country").cloned();
             a.insert("country_code".into(), "ps".into());
             a.insert("country".into(), "Palestine".into());

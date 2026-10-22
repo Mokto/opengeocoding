@@ -88,7 +88,8 @@ pub fn normalize_place(value: &str) -> String {
 pub fn normalize_postcode(value: &str) -> String {
     value
         .chars()
-        .filter(|&ch| ch != '-' && !whitespace(ch))
+        // "20'000": some mapped postcodes group their digits
+        .filter(|&ch| ch != '-' && ch != '\'' && !whitespace(ch))
         .collect::<String>()
         .to_lowercase()
 }
@@ -1452,6 +1453,7 @@ pub fn format_postcode(country_code: &str, postcode: &str) -> String {
             ("cz", r"^(\d{3})(\d{2})$", "$1 $2"),
             ("sk", r"^(\d{3})(\d{2})$", "$1 $2"),
             ("gr", r"^(\d{3})(\d{2})$", "$1 $2"),
+            ("xk", r"^(\d{5})$", "$1"),
         ]
         .into_iter()
         .map(|(cc, re, to)| (cc, Regex::new(re).unwrap(), to))
@@ -1467,7 +1469,7 @@ pub fn format_postcode(country_code: &str, postcode: &str) -> String {
     if compact.is_empty()
         || postcode
             .chars()
-            .any(|c| !c.is_ascii_alphanumeric() && !" -".contains(c))
+            .any(|c| !c.is_ascii_alphanumeric() && !" -'".contains(c))
     {
         return postcode.to_owned();
     }
