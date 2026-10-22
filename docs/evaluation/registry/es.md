@@ -53,4 +53,21 @@ The first standalone run failed its absolute gate on eight far misses at four lo
 
 These are diagnostic results on the documented last-known-good local world index, builder 4fb1fd818b46b2f6 / fingerprint e6df26bed27b, not a successful current-builder rebuild. Existing curated CartoCiudad gold cases remain unchanged. This registry-first addition changes neither resolver/index behavior nor evaluator scoring. The documented fresh-service grpcurl SearchAddress hang remains a known failure despite these runs reporting it passing.
 
+### Extensions and address areas
+
+The suffix failures had one cause in the index: Overture's Spanish rows (`es/countrywide`) carry CartoCiudad's extension as `unit` (number 47, unit B), which the builder dropped, so 47B was keyed as 47. It now keys an alphabetic extension as part of the number (`47b`). The bare number stays a key for the building, ranked after the source's own house 47, so a house 47 keeps its own point instead of the middle of 47, 47A and 47B, and 47 with only 47A and 47B still answers.
+
+Most address-area failures were the parse. libpostal fuses the area and the municipality into one town (`antoñana campezo`) or takes the area for the road (`road=pinedo`). With Spain stated and five parts, the street part is parsed alone, the area becomes a suburb and the municipality the town. Where the municipality has several same-named streets holding the number, the house nearest the area's place answers, and none more than about 1.5 km from it. SuggestAddress skipped the same queries because it scoped streets to the area, which holds none of them; when that finds no house, the parts after the area scope the streets, if they name a town and the area names no place or one within 50 km of it (a named district elsewhere is not dropped); a named area also keeps only houses within 3 km of it.
+
+On local world indexes built from the same sources (base builder `7ab597c193ca4bf7` and this change on it), same evaluator and models:
+
+| Pattern class | Queries | SearchAddress base → head | SuggestAddress base → head |
+|---|---:|---:|---:|
+| Plain | 447 | 437 → 437 | 424 → 442 |
+| Suffix | 452 | 160 → 422 | 133 → 432 |
+| Address area | 397 | 237 → 368 | 2 → 375 (360 with the area checks) |
+| Other road type | 248 | 241 → 242 | 244 → 245 |
+
+Of the 77 SearchAddress failures left, 41 are too coarse (Balearic streets the index names in Catalan without the house, numbered polígonos), 18 near misses (one municipality's same-named streets where the index keeps two copies of a number per 0.1° cell and the area's house is a third, as Pinedo's Calle Real 7 in Valdegovía), the eight labelled far misses, five abstentions and five goodMatch mismatches. In the full gold suite no case fails that passed and no failure class worsens; the changes outside Spain are SuggestAddress passes from the same area rule (Egypt, Sierra Leone, Gabon and others).
+
 Before the Danish addition, the full candidate run had 11,005 cases. It passes its absolute gate while all eight attributed Spanish far misses remain failures. Comparing it with the 8,939-case existing-suite baseline produces zero answer/scoring drift across all four RPCs, with no newly failing or worse-class cases; both new datasets' standalone classifications are unchanged in the full run. The local speed comparator passes, but the identical-binary head is 66–68% faster in total on a non-isolated, differently warmed host, so no speedup or request-latency claim follows. See [Denmark's validation](dk.md#validation) for the later three-country run and its failed, confounded local speed comparison. Check current-head CI quality and measured speed separately in the pull request.

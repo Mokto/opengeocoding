@@ -984,6 +984,12 @@ fn with_cell<'k>(key: &str, x: f64, y: f64, out: &'k mut String) -> &'k str {
 /// its weight: a road with one listed business keeps its segments' middle and importance.
 const PLACES_RANK: u8 = 3;
 
+/// Marks a number derived from a suffixed one ("47" of 47B). It ranks as `BARE_RANK`, after the
+/// source's own house 47, which then keeps its point; Spain reads no OSM addresses, whose rank
+/// it shares.
+const BARE: char = '\u{1}';
+const BARE_RANK: u8 = 2;
+
 /// Rows a sink aggregates before flushing, to bound task-local memory on large files.
 const SINK_ROWS: u64 = 2_000_000;
 
@@ -1153,7 +1159,7 @@ impl<'s, 'a> Sink<'s, 'a> {
                 number
                     .into_iter()
                     .flat_map(|n| n.split(';'))
-                    .map(schema::number_key)
+                    .map(|n| schema::number_key(n.trim_end_matches(BARE)))
                     .filter(|n| !n.is_empty())
                     .collect()
             };
@@ -1176,6 +1182,10 @@ impl<'s, 'a> Sink<'s, 'a> {
             .map(str::trim)
             .filter(|n| !n.is_empty())
         {
+            let (n, rank) = match n.strip_suffix(BARE) {
+                Some(bare) => (bare, BARE_RANK),
+                None => (n, self.rank),
+            };
             self.lower.clear();
             self.lower.push_str(&schema::number_key(n));
             // slot = 1-based position in this task's list for the street; remapped on flush
@@ -1183,7 +1193,7 @@ impl<'s, 'a> Sink<'s, 'a> {
                 .and_then(|id| e.pcs.iter().position(|&p| p == id))
                 .map_or(0, |i| i as u8 + 1);
             let (px, py) = pack(x, y, slot);
-            match Num::new(li, &self.lower, with_rank(px, self.rank), py) {
+            match Num::new(li, &self.lower, with_rank(px, rank), py) {
                 Ok(v) => self.nums.short.push(v),
                 Err(v) => self.nums.long.push(v),
             }
@@ -1288,6 +1298,18 @@ fn numbers_with_unit<'a>(
         && number.trim().bytes().all(|b| b.is_ascii_digit())
     {
         return Some(Cow::Owned(format!("{}/{exponent}", number.trim())));
+    }
+    // CartoCiudad's extension (47 B, 12 BIS) is Overture's unit: part of the house number, as
+    // an address writes it ("47B"). The bare 47 stands for the building only where the source
+    // has no house 47 of its own (`BARE`).
+    if cc == *b"ES"
+        && let Some(ext) = unit.map(str::trim)
+        && !ext.is_empty()
+        && ext.bytes().all(|b| b.is_ascii_alphabetic())
+        && !number.trim().is_empty()
+        && number.trim().bytes().all(|b| b.is_ascii_digit())
+    {
+        return Some(Cow::Owned(format!("{0}{ext};{0}{BARE}", number.trim())));
     }
     let unit = unit.map(str::trim).filter(|unit| {
         cc == *b"NZ"
@@ -2135,7 +2157,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn nz_units_add_exact_keys_and_italian_exponents_join_the_number() {
+    fn units_add_exact_keys_and_join_suffixes_to_the_number() {
         for (cc, number, unit, expected) in [
             (*b"NZ", Some("19"), Some("1"), Some("19;1/19")),
             (*b"NZ", Some("19B"), Some("3A"), Some("19B;3A/19B")),
@@ -2161,6 +2183,12 @@ mod tests {
             (*b"IT", Some("4"), Some("A/4"), Some("4")),
             (*b"IT", Some("4"), Some(""), Some("4")),
             (*b"IT", Some("4B"), Some("1"), Some("4B")),
+            (*b"ES", Some("47"), Some("B"), Some("47B;47\u{1}")),
+            (*b"ES", Some("12"), Some(" BIS "), Some("12BIS;12\u{1}")),
+            (*b"ES", Some("12"), Some("A_A"), Some("12")),
+            (*b"ES", Some("12"), Some("2"), Some("12")),
+            (*b"ES", Some("12-14"), Some("A"), Some("12-14")),
+            (*b"ES", Some("12"), None, Some("12")),
         ] {
             assert_eq!(numbers_with_unit(cc, number, unit).as_deref(), expected);
         }

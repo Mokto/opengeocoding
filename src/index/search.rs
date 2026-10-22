@@ -137,10 +137,11 @@ impl Index {
                     .chain(roads[..roads.len() - 1].iter().copied())
                     .find_map(|t| self.resolve_place(t, cc)),
             };
-            hits = self.streets(
+            hits = self.streets_in(
                 road,
                 get("house_number").map(house_number),
                 resolved_city.as_deref(),
+                es::suburb(cc, get("city").and(get("suburb"))),
                 get("postcode"),
                 cc,
                 exact,
@@ -198,6 +199,7 @@ impl Index {
                     Some("us"),
                     false,
                     false,
+                    None,
                 )
                 .into_iter()
                 .filter(|h| {

@@ -10,6 +10,22 @@ impl Index {
         cc: Option<&str>,
         exact: bool,
     ) -> Vec<Hit> {
+        self.streets_in(road, number, city, None, postcode, cc, exact)
+    }
+
+    /// `streets`, where a `suburb` of the town stated picks between same-named streets that
+    /// hold the number: two villages' "Calle Real 7" in one municipality.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn streets_in(
+        &self,
+        road: &str,
+        number: Option<&str>,
+        city: Option<&str>,
+        suburb: Option<&str>,
+        postcode: Option<&str>,
+        cc: Option<&str>,
+        exact: bool,
+    ) -> Vec<Hit> {
         let named: Vec<u32> = city
             .into_iter()
             .flat_map(|city| {
@@ -22,7 +38,8 @@ impl Index {
                 _ => None,
             })
             .collect();
-        let hits = self.streets_by(road, number, city, &named, postcode, cc, exact, false);
+        let near = suburb.and_then(|s| self.suburb_point(s, &named, cc));
+        let hits = self.streets_by(road, number, city, &named, postcode, cc, exact, false, near);
         // Bogotá's register keys "# 86B-18" as "86B 18"
         if cc == Some("co")
             && let Some(plate) = number.and_then(co::colombian_plate)
@@ -36,7 +53,7 @@ impl Index {
                 )
             })
         {
-            let found = self.streets(road, Some(&plate), city, postcode, cc, exact);
+            let found = self.streets_in(road, Some(&plate), city, suburb, postcode, cc, exact);
             if found.iter().any(|h| {
                 matches!(
                     h,
@@ -59,7 +76,7 @@ impl Index {
             )
         });
         if !housed && let Some(compact) = number.and_then(compact_house_suffix) {
-            let found = self.streets(road, Some(&compact), city, postcode, cc, exact);
+            let found = self.streets_in(road, Some(&compact), city, suburb, postcode, cc, exact);
             if found.iter().any(|h| {
                 matches!(
                     h,
@@ -90,7 +107,7 @@ impl Index {
                 let mut ids = std::collections::BTreeSet::new();
                 for name in alternatives {
                     let next: Vec<_> = self
-                        .streets_by(&name, number, city, &named, postcode, cc, false, true)
+                        .streets_by(&name, number, city, &named, postcode, cc, false, true, near)
                         .into_iter()
                         .filter(|h| {
                             matches!(h, Hit::Street { number: Some(_), postcode: own, .. }
@@ -126,7 +143,9 @@ impl Index {
             && let Some(name) = self.respelt(road, city, &named, postcode, cc)
         {
             return self
-                .streets_by(&name, number, city, &named, postcode, cc, false, false)
+                .streets_by(
+                    &name, number, city, &named, postcode, cc, false, false, near,
+                )
                 .into_iter()
                 .filter(|h| match h {
                     Hit::Street {
@@ -139,6 +158,31 @@ impl Index {
                 .collect();
         }
         hits
+    }
+
+    /// The point of a settlement or neighbourhood named `suburb` within 15 km of a town in
+    /// `towns`.
+    fn suburb_point(&self, suburb: &str, towns: &[u32], cc: Option<&str>) -> Option<(f64, f64)> {
+        let local = |p: &Place| {
+            matches!(
+                &*p.subtype,
+                "locality" | "localadmin" | "macrohood" | "neighborhood" | "microhood"
+            )
+        };
+        self.places(suburb, cc, None, &local)
+            .into_iter()
+            .filter_map(|h| match h {
+                Hit::Place(id) if !towns.contains(&id) => Some(&self.places[id as usize]),
+                _ => None,
+            })
+            .find(|p| {
+                towns.iter().any(|&t| {
+                    let t = &self.places[t as usize];
+                    let km = ((p.x - t.x) * t.y.to_radians().cos()).hypot(p.y - t.y) * 111.0;
+                    km < 15.0
+                })
+            })
+            .map(|p| (p.x as f64, p.y as f64))
     }
 
     /// The name of a street in the stated town or postcode that has every word of `road` but
@@ -268,6 +312,7 @@ impl Index {
         cc: Option<&str>,
         prefer_exact: bool,
         strict: bool,
+        near_suburb: Option<(f64, f64)>,
     ) -> Vec<Hit> {
         let base = || self.musts(self.f.names, road);
         let long = long_words(road);
@@ -659,9 +704,41 @@ impl Index {
                 {
                     by_name.retain(|a| !branch(a));
                 }
+                let from_suburb = |v: u64| {
+                    near_suburb.map_or(0, |(px, py)| {
+                        let (x, y, _) = schema::unpack(v);
+                        (((x - px) * py.to_radians().cos()).hypot(y - py) * 1e4) as u64
+                    })
+                };
+                // Each copy of the number: the stored house and a second one far along the
+                // same street.
+                let copies = |a: DocAddress| -> Vec<u64> {
+                    let sid = self.fast(a, "id") as u32;
+                    let Some((form, v)) = self.house_record(sid, n) else {
+                        return vec![];
+                    };
+                    let mut key = sid.to_be_bytes().to_vec();
+                    key.extend_from_slice(form.as_bytes());
+                    let far = self.far[sid as usize % self.numbers.len()]
+                        .as_ref()
+                        .and_then(|m| m.get(&key));
+                    std::iter::once(v).chain(far).collect()
+                };
+                // Several villages' house of that number: one far from the suburb stated is
+                // another village's.
+                if near_suburb.is_some()
+                    && by_name.iter().map(|&a| copies(a).len()).sum::<usize>() > 1
+                {
+                    by_name.retain(|&a| copies(a).into_iter().any(|h| from_suburb(h) < 150));
+                }
                 if by_name.len() > 1 {
-                    by_name.sort_by_cached_key(|a| {
-                        (!with_postcode.contains(a), !in_named(a), !as_written(a))
+                    by_name.sort_by_cached_key(|&a| {
+                        (
+                            !with_postcode.contains(&a),
+                            !in_named(&a),
+                            !as_written(&a),
+                            near_suburb.and(lookup(a, n)).map_or(0, from_suburb),
+                        )
                     });
                 }
                 // A second house of the number far along the street (two villages' "Calle Mayor
@@ -679,6 +756,9 @@ impl Index {
                     match (holds(v), holds(f)) {
                         (true, false) => Some(v),
                         (false, true) => Some(f),
+                        _ if near_suburb.is_some() => {
+                            Some(std::cmp::min_by_key(v, f, |&h| from_suburb(h)))
+                        }
                         _ => (!strict).then_some(v),
                     }
                 };
