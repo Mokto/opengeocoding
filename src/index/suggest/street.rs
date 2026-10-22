@@ -160,17 +160,7 @@ impl Index {
         // "Rua José Relvas nº 13": the mark says only that a number follows, as "č.p." does for a
         // Czech descriptive number; an evidential one is keyed with its mark ("č.ev. 169")
         let mut marked: Vec<String> = vec![];
-        // "AC 43 S # 86B-18": a Bogotá plate is one number, keyed "86B 18"
-        let plate = cc
-            .is_some_and(|c| c.eq_ignore_ascii_case("co"))
-            .then(|| co::split_plate(&typed.parts[0]))
-            .flatten();
-        let plated = plate.is_some();
-        if let Some((road, plate)) = plate {
-            marked.extend(road.into_iter().map(String::from));
-            marked.push(plate);
-        }
-        for w in typed.parts[0].split(' ').filter(|_| !plated) {
+        for w in typed.parts[0].split(' ') {
             match w.to_lowercase().as_str() {
                 "nº" | "n.º" | "n°" | "n.°" | "č.p." | "čp." => {}
                 _ if has_digit(w)
@@ -195,6 +185,14 @@ impl Index {
             .into_iter()
             .flatten();
         let mut tries: Vec<(Option<String>, bool, Vec<&str>)> = vec![];
+        // "AC 43 S # 86B-18": Bogotá's register keys the plate "86B 18", OpenStreetMap often
+        // "11-23" as written, which the tries after it read
+        let plate = cc
+            .is_some_and(|c| c.eq_ignore_ascii_case("co"))
+            .then(|| co::split_plate(&typed.parts[0]))
+            .flatten();
+        let plated = plate.is_some();
+        tries.extend(plate.map(|(road, plate)| (Some(plate), true, road)));
         for i in number_at {
             tries.push((
                 Some(raw[i].to_owned()),
@@ -220,7 +218,8 @@ impl Index {
             }
         }
         let mut out = vec![];
-        for (number, at_end, road) in tries {
+        let mut plate_streets = vec![];
+        for (i, (number, at_end, road)) in tries.into_iter().enumerate() {
             let number_word = number.as_deref();
             let number_open = typed.open && one_part && at_end;
             let road_open = typed.open && one_part && !number_open;
@@ -500,10 +499,17 @@ impl Index {
                 }
                 found
             };
+            if plated && i == 0 && !found.iter().any(|s| s.kind == "address") {
+                plate_streets = found;
+                continue;
+            }
             if !found.is_empty() {
                 out = found;
                 break;
             }
+        }
+        if out.is_empty() {
+            out = plate_streets;
         }
         // "Fulham Road, London, SW6 1HS": no house, and no street in the places named, so the
         // streets the postcode serves

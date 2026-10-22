@@ -91,6 +91,18 @@ pub const STREETS: &[Street] = &[
         lat: 30.6,
         numbers: &["9C 18 E"],
     },
+    // OpenStreetMap keys a plate as written
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Calle 20",
+        postcode: "",
+        city: "Bogotá",
+        cc: "CO",
+        lon: -59.95,
+        lat: 30.0,
+        numbers: &["11-23"],
+    },
 ];
 
 #[test]
@@ -125,6 +137,16 @@ fn bogota_plates_are_suggested_as_the_registers_houses() {
             "CL 22BIS S # 9C-18 E, Bogotá, Colombia",
             None,
             house(san_cristobal, "9C 18 E"),
+        ),
+        (
+            "Calle 20 11-23, Bogotá, Colombia",
+            None,
+            house(street("Calle 20"), "11-23"),
+        ),
+        (
+            "Calle 20 # 11-23, Bogotá",
+            Some("CO"),
+            house(street("Calle 20"), "11-23"),
         ),
         // typed so far: the plate's distance not finished
         ("AC 43 S # 86B-1", Some("CO"), house(ac, "86B 18")),
