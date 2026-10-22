@@ -1,0 +1,10 @@
+The registry-first sample tests/registry/sg.jsonl contains postal codes, block numbers, road
+names and coordinates from OneMap, the national map of Singapore by the Singapore Land Authority
+(SLA), retrieved through the OneMap Search API (https://www.onemap.gov.sg/apidocs/search).
+Contains information from OneMap Search API accessed in October 2026 from the Singapore Land
+Authority (https://www.onemap.gov.sg/) which is made available under the terms of the Singapore
+Open Data Licence version 1.0 (https://www.onemap.gov.sg/legal/opendatalicence.html). Its use
+does not suggest any official status or endorsement by the SLA.
+Queries were constructed from the block number, road name and postal code of each result;
+coordinates are the API's WGS84 latitude/longitude, unchanged. The retrieval date and a SHA-256
+of the sampled responses are recorded in each case and in docs/evaluation/registry/sg.md.
