@@ -1,0 +1,13 @@
+The registry-first sample tests/registry/br.jsonl contains street names, numbers, localities,
+CEPs and coordinates from CNEFE (Cadastro Nacional de Endereços para Fins Estatísticos),
+2022 Demographic Census release with address coordinates, published by IBGE (Instituto
+Brasileiro de Geografia e Estatística). Source: IBGE, Censo Demográfico 2022, CNEFE,
+https://www.ibge.gov.br/estatisticas/sociais/populacao/38734-cadastro-nacional-de-enderecos-para-fins-estatisticos.html
+and https://ftp.ibge.gov.br/Cadastro_Nacional_de_Enderecos_para_Fins_Estatisticos/Censo_Demografico_2022/Arquivos_CNEFE/CSV/UF/
+IBGE states no licence for these files; data published by the Brazilian federal Executive are
+free to use under Decree 8.777/2016, art. 4 (as amended by Decree 9.903/2019), crediting the
+source. Municipality names and state abbreviations come from IBGE's localidades API
+(https://servicodados.ibge.gov.br/api/v1/localidades/municipios), fetched on 2026-10-22.
+Queries were constructed from registry fields joined with that list; coordinates are the
+registry's SIRGAS 2000 latitude/longitude, unchanged. Per-case prepared-CSV checksums are
+recorded in the corpus; docs/evaluation/registry/br.md records the upstream checksums.
