@@ -57,3 +57,20 @@ The final combined local speed comparison still exceeds the 10% budget: SearchAd
 
 The model-backed synthetic cases check all four endpoints against authored Korean facts. The real-index RPC contract test fails its CDG landmark assertion on both base and head because this local index lacks that landmark; it is not skipped or weakened. grpcurl's documented known failure also reproduces.
 
+
+## Failure classes
+
+On the local full index with builder `17bc2fab0087eddb` (the source set above plus the OSM extracts), every failing school case was compared with the index itself: `evaluate inspect` lists each street line within 1 km of the school point and every house number stored on it. Held-out schools are not inspected; their classes come from the RPC and raw search only.
+
+| Training cases (163 schools) | Road query | Land-lot query |
+|---|---:|---:|
+| Requested house indexed within 250 m: passes | 44 | 0 |
+| Street indexed within 1 km, requested number not on it | 107 | — |
+| No street of that name within 1 km | 12 | — |
+| No indexed house within 250 m carries the lot number | — | 163 |
+
+Every training road query whose house the index holds now passes; all other training failures are missing data, answered with the stated locality (too_coarse), a street (near_miss when the road's centroid lies over 2 km away) or nothing. Only 6 of the 163 land-lot queries even have a street named after their 동 or 리 nearby: the index stores no Korean land-lot numbers. The held-out cohort passes 15 of 44 road queries and none of the 44 land-lot ones.
+
+ReverseGeocode's 100% here checks only the country at the school point, not that the index holds the house. The only national source of Korean entrance coordinates, the juso.go.kr location database (also behind the OpenAddresses `kr_*` files), is released per applicant after a purpose review, so the builder does not read it (see `openaddresses_reviewed.tsv`). Pass rates beyond this need a usable address source, not parser or matching work.
+
+The four parse- and fallback-shaped failures that remained were one: the data puts a 리 straight under its 군, outside the 읍 or 면 the address states, so the house was not in that scope. Road names are unique within a 시, 군 or 구, so a house not found under the stated 읍, 면 or 동 is now looked for in the district, for SearchAddress and for a complete road in SuggestAddress. That passes four training and one held-out road query in both RPCs. The full gold comparison on the same index changes no other answer of any RPC. The four labels of now-passing cases are removed, and the other 20 labels now record the failure observed on this index: none is still a country centroid, a far miss or a short-postcode match.

@@ -86,6 +86,18 @@ pub const PLACES: &[Place] = &[
         "새봄면",
         &[("en", "Saebom")]
     ),
+    place!(
+        "kr-garam-saebyeok",
+        "locality",
+        "village",
+        "KR",
+        "KR-41",
+        500,
+        (140.3, 35.0),
+        "kr-garam-solbit",
+        "새벽리",
+        &[("en", "Saebyeok")]
+    ),
 ];
 
 pub const STREETS: &[Street] = &[
@@ -144,6 +156,17 @@ pub const STREETS: &[Street] = &[
         lat: 35.0,
         numbers: &["45-6", "산45-6"],
     },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "들길",
+        postcode: "12345",
+        city: "새벽리",
+        cc: "KR",
+        lon: 140.3,
+        lat: 35.0,
+        numbers: &["7"],
+    },
 ];
 
 #[test]
@@ -196,7 +219,21 @@ fn korean_houses_keep_their_number_and_administrative_hierarchy() {
         assert_eq!((found.len(), found[0].kind), (1, "address"), "{query}");
         assert!(metres((found[0].x, found[0].y), (lon, 35.)) < 5., "{query}");
     }
+    // 새벽리 sits straight under its 시, as the data often puts a 리 outside its stated 면.
     for query in [
+        "가람도 솔빛시 새봄면 들길 7, South Korea",
+        "가람도 솔빛시 새봄면 들길 7",
+    ] {
+        let found = index().suggest(query, 5, None, None, false);
+        assert_eq!((found.len(), found[0].kind), (1, "address"), "{query}");
+        assert!(
+            metres((found[0].x, found[0].y), (140.3, 35.)) < 5.,
+            "{query}"
+        );
+    }
+    for query in [
+        "나래도 솔빛시 새봄면 들길 7, South Korea",
+        "가람도 솔빛시 없는면 들길 7, South Korea",
         "가람도 솔빛시 새봄면 새로12길 999, South Korea",
         "가람도 솔빛시 새봄면 새로12길 99, South Korea",
         "가람도 솔빛시 새봄면 새로12길 13-34, Japan",
