@@ -243,6 +243,28 @@ fn a_typed_place_name_lists_every_place_by_size_and_a_country_narrows_it() {
 }
 
 #[test]
+fn a_full_address_with_a_place_its_house_is_not_in_is_suggested() {
+    let at = |text: &str| index().suggest(text, 5, None, None, false);
+    let want = house(street("Acacia Street"), "7");
+    for typed in [
+        "7 Acacia Street, Veldhaven, Kloofdal, South Africa",
+        "7 Acacia Street, Kloofdal, Veldhaven, South Africa",
+    ] {
+        let found = at(typed);
+        assert!(!found.is_empty(), "{typed}");
+        assert_eq!(found[0].kind, "address", "{typed}");
+        assert!(metres((found[0].x, found[0].y), want) < 5.0, "{typed}");
+    }
+    // only the number typed, and not when the place left out is elsewhere
+    for typed in [
+        "9 Acacia Street, Veldhaven, Kloofdal, South Africa",
+        "7 Acacia Street, Veldhaven, Verweg, South Africa",
+    ] {
+        assert!(at(typed).iter().all(|s| s.kind != "address"), "{typed}");
+    }
+}
+
+#[test]
 fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
     let at = |text: &str, cc| index().suggest(text, 5, cc, None, false);
     let rivoli = at("Rue de Rivoli 2", None);

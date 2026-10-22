@@ -195,6 +195,35 @@ fn cjk_stem(name: &str) -> Option<&str> {
 
 /// "Vas County" -> "Vas", "Departamento de Santa Cruz" -> "Santa Cruz": words that classify a
 /// region rather than name it, which the data's names mostly leave out.
+/// Each folded name of the countries (and dependencies) to its country, and each code to
+/// itself. A name several carry belongs to the one most of its languages call so: Serbian calls
+/// Anguilla "Angola"; the first seen wins a tie.
+fn country_names<'a, N: Iterator<Item = &'a str>>(
+    countries: impl Iterator<Item = (&'a str, N)>,
+) -> HashMap<String, String> {
+    let mut votes: HashMap<String, Vec<(&str, usize)>> = HashMap::new();
+    let mut codes = vec![];
+    for (cc, names) in countries {
+        codes.push(cc);
+        for name in names {
+            let named = votes.entry(fold(name)).or_default();
+            match named.iter_mut().find(|(c, _)| *c == cc) {
+                Some((_, count)) => *count += 1,
+                None => named.push((cc, 1)),
+            }
+        }
+    }
+    let mut out: HashMap<String, String> = votes
+        .into_iter()
+        .filter_map(|(name, named)| {
+            let (cc, _) = named.iter().rev().max_by_key(|(_, count)| *count)?;
+            Some((name, cc.to_string()))
+        })
+        .collect();
+    out.extend(codes.into_iter().map(|cc| (cc.to_string(), cc.to_string())));
+    out
+}
+
 fn without_admin_word(text: &str) -> Option<String> {
     const WORDS: [&str; 33] = [
         "county",
@@ -579,16 +608,16 @@ impl Index {
             if p.subtype.as_ref() == "country" && !p.cc.is_empty() {
                 country_places.entry(p.cc.to_string()).or_insert(i as u32);
             }
-            if matches!(&*p.subtype, "country" | "dependency") && !p.cc.is_empty() {
-                for n in p.all_names() {
-                    countries.entry(fold(n)).or_insert_with(|| p.cc.to_string());
-                }
-                countries.insert(p.cc.to_string(), p.cc.to_string());
-            }
             if p.subtype.as_ref() == "region" && !p.region.is_empty() {
                 regions.entry(p.region.to_string()).or_insert(i as u32);
             }
         }
+        countries.extend(country_names(
+            places
+                .iter()
+                .filter(|p| matches!(&*p.subtype, "country" | "dependency") && !p.cc.is_empty())
+                .map(|p| (&*p.cc, p.all_names())),
+        ));
         // A code Overture does supply wins, so a later release that names it needs no data change.
         let (mut subdivisions, mut subdivision_codes) = (HashMap::new(), HashMap::new());
         for (place, code) in below_region {
