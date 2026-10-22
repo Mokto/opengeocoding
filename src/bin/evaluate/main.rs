@@ -60,6 +60,7 @@ run         --out DIR [--suite smoke|gold|addresses] [--corpus FILE] [--compare 
             [--no-direct] [--resume] [--backend-label TEXT] [--repeat 3] [--speed-cases 2000] [--workers 16]
 provider    mapbox|google|here|tomtom|geoapify|opencage|locationiq|geocodio|arcgis|mapsco --out DIR [--cache DIR] [--corpus FILE] [--only REGEX] [--compare RUN_DIR]
             [--fetch --budget N] [--storage-authorized] (offline by default; fetching may be billed)
+            --reverse [...]: reverse geocoding at each case's expected point (provider opengeocoding --rpc URL for a local service)
             --aggregate-only --fetch --budget N [--resume] (no --cache; retains only aggregates)
 mapbox      alias for provider mapbox
 diff        BASELINE CANDIDATE [--corpus FILE] [--out FILE] [--fail-on-drift] [--relative]
@@ -224,8 +225,18 @@ async fn command() -> Result<i32> {
             run::run(options).await
         }
         "provider" | "mapbox" => {
-            args.only_flags(&["fetch", "storage-authorized", "aggregate-only", "resume"])?;
+            args.only_flags(&[
+                "fetch",
+                "storage-authorized",
+                "aggregate-only",
+                "resume",
+                "reverse",
+            ])?;
             let aggregate_only = args.flag("aggregate-only");
+            anyhow::ensure!(
+                !(aggregate_only && args.flag("reverse")),
+                "--reverse keeps a cache; it does not combine with --aggregate-only"
+            );
             if aggregate_only {
                 anyhow::ensure!(
                     args.value("cache").is_none(),
@@ -245,7 +256,8 @@ async fn command() -> Result<i32> {
                 ),
             };
             if let Some(option) = args.values.keys().find(|k| {
-                !["out", "cache", "corpus", "only", "compare", "budget"].contains(&k.as_str())
+                !["out", "cache", "corpus", "only", "compare", "budget", "rpc"]
+                    .contains(&k.as_str())
             }) {
                 bail!("unsupported provider option --{option}");
             }
@@ -263,6 +275,8 @@ async fn command() -> Result<i32> {
                 fetch: args.flag("fetch"),
                 budget: args.value("budget").map_or(Ok(0), str::parse)?,
                 compare: args.path("compare"),
+                reverse: args.flag("reverse"),
+                rpc: args.value("rpc").map(String::from),
             };
             if aggregate_only {
                 providers::aggregate::run(options, args.flag("resume")).await

@@ -15,6 +15,7 @@ pub const PROVIDER: Provider = Provider {
     request,
     normalize,
     validate_status: None,
+    reverse: Some(REVERSE),
 };
 
 fn request(query: &str) -> Value {
@@ -57,6 +58,25 @@ fn normalize(response: &Value) -> Result<Value> {
         &result["lon"],
         address,
     )
+}
+
+const REVERSE: super::reverse::Reverse = super::reverse::Reverse {
+    request: |lat, lon| json!({"endpoint": "https://api.geoapify.com/v1/geocode/reverse", "lat": lat, "lon": lon, "format": "json", "lang": "en", "limit": 1}),
+    normalize: reverse_normalize,
+};
+
+fn reverse_normalize(response: &Value) -> Result<Value> {
+    let mut address = normalize(response)?;
+    let result = &response["results"][0];
+    super::reverse::add_places(&mut address, result, super::reverse::PLACES);
+    super::reverse::add_codes(
+        &mut address,
+        [
+            text(result, "iso3166_2"),
+            text(result, "iso3166_2_sublevel"),
+        ],
+    );
+    Ok(address)
 }
 
 #[cfg(test)]

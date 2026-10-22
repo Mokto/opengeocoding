@@ -16,6 +16,7 @@ pub const PROVIDER: Provider = Provider {
     request,
     normalize,
     validate_status: None,
+    reverse: None,
 };
 
 fn request(query: &str) -> Value {

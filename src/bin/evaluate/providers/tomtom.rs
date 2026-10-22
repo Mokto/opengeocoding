@@ -15,6 +15,7 @@ pub const PROVIDER: Provider = Provider {
     request,
     normalize,
     validate_status: None,
+    reverse: Some(REVERSE),
 };
 
 fn request(query: &str) -> Value {
@@ -75,6 +76,55 @@ fn normalize(response: &Value) -> Result<Value> {
         &result["position"]["lon"],
         address,
     )
+}
+
+const REVERSE: super::reverse::Reverse = super::reverse::Reverse {
+    request: |lat, lon| json!({"endpoint": format!("https://api.tomtom.com/search/2/reverseGeocode/{lat},{lon}.json"), "language": "en-US"}),
+    normalize: reverse_normalize,
+};
+
+fn reverse_normalize(response: &Value) -> Result<Value> {
+    let addresses = response["addresses"]
+        .as_array()
+        .context("missing TomTom addresses array")?;
+    let Some(result) = addresses.first() else {
+        return Ok(json!({}));
+    };
+    let native = &result["address"];
+    let country = text(native, "countryCode").to_lowercase();
+    let details = json!({
+        "countryCode": country, "houseNumber": native["streetNumber"], "road": native["streetName"],
+        "postcode": native["postalCode"],
+    });
+    let (lat, lon) = text(result, "position")
+        .split_once(',')
+        .context("missing TomTom position")?;
+    let mut address = full_address(
+        text(native, "freeformAddress"),
+        &json!(lat.trim().parse::<f64>()?),
+        &json!(lon.trim().parse::<f64>()?),
+        details,
+    )?;
+    super::reverse::add_places(
+        &mut address,
+        native,
+        &[
+            ("municipality", "city"),
+            ("municipalitySubdivision", "suburb"),
+            ("countryTertiarySubdivision", "district"),
+            ("countrySecondarySubdivision", "county"),
+            ("countrySubdivisionName", "state"),
+            ("countrySubdivision", "state"),
+        ],
+    );
+    let subdivision = text(native, "countrySubdivisionCode");
+    if !subdivision.is_empty() {
+        super::reverse::add_codes(
+            &mut address,
+            [format!("{}-{subdivision}", country.to_uppercase()).as_str()],
+        );
+    }
+    Ok(address)
 }
 
 #[cfg(test)]

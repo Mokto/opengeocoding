@@ -52,6 +52,15 @@ Cache keys include the exact query, provider endpoint and settings, never the cr
 
 `report.md` includes outcomes by cohort, expected country and holdout. `--compare` re-scores both sides against the current corpus, ignoring `goodMatch`; native confidence scores are not equated with it. The paired table counts both-pass, baseline-only, competitor-only and neither-pass cases, and lists different failure classes. Service-specific error-contract cases are excluded. Known-failure labels do not turn failures into passes. No latency comparison is made from cached responses. The curated corpus remains diagnostic, not an unbiased accuracy estimate: many cases were selected from index inputs, and registry expectations can share upstream sources with providers. Adapter tests use made-up responses; they establish neither live interoperability nor competitive accuracy.
 
+### Reverse geocoding
+
+`--reverse` asks each adapter for the address at every case's expected point instead of geocoding its query; cases qualify as for the gold suite's ReverseGeocode check (one expected place, locality or finer), and cases sharing a point share one request. `evaluate provider opengeocoding --reverse --rpc URL` caches a running OpenGeocoding service's ReverseGeocode answers the same way, so every service is scored by one binary from one kind of cache. Caching, budgets, storage gating and failure handling are as for forward requests; Nominatim's `Unable to geocode` (LocationIQ, maps.co) is an empty answer. Each case gets two classes: the gold suite's reverse check (country, ISO 3166-2 codes and, for a locality, its English name among the answer's places), kept on the record's `reverse`, and the forward rules applied to the answer (distance to the point within the case's radius, level, house number and postcode), its `class`. An answer finer than the case's place is never too fine, and missing region codes are not held against it, as in forward scoring. The report has no paired comparison; pair results offline by case id. Mapbox reverse requests are permanent, as forward ones. Geocodio is US-only by default; give it a US/Canada corpus.
+
+```sh
+target/release/evaluate provider geoapify --reverse --cache eval-results/geoapify-reverse-cache \
+  --out eval-results/geoapify-reverse --fetch --budget N
+```
+
 ### Aggregate-only evaluations
 
 `--aggregate-only` makes one forward request per scored case and retains only aggregate outcome counts, paired pass counts, cohort/holdout and US/Canada groups, request accounting and reproducibility metadata. It never reads or writes a response cache, raw or normalized provider responses, per-case outcomes, coordinates, address summaries or response diagnostics. The output contains `aggregate.json`, `report.md` and an empty lock file, not `results.jsonl`. It requires `--fetch --budget N` and rejects `--cache` and `--storage-authorized`. Use a new output directory.

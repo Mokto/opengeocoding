@@ -15,6 +15,7 @@ pub const PROVIDER: Provider = Provider {
     request,
     normalize,
     validate_status: None,
+    reverse: Some(REVERSE),
 };
 
 fn request(query: &str) -> Value {
@@ -79,6 +80,11 @@ fn normalize(response: &Value) -> Result<Value> {
         address,
     )
 }
+
+const REVERSE: super::reverse::Reverse = super::reverse::Reverse {
+    request: |lat, lon| json!({"endpoint": "https://us1.locationiq.com/v1/reverse", "lat": lat, "lon": lon, "format": "json", "addressdetails": 1, "accept-language": "en"}),
+    normalize: super::reverse::nominatim,
+};
 
 #[cfg(test)]
 mod tests {
