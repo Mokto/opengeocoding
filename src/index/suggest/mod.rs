@@ -529,21 +529,21 @@ impl Index {
                 })
                 .collect();
             // the place left out still has to agree: the house's own address names it, or a
-            // place of that name is near (a quarter the data files the house outside of)
+            // place of that name is near (a district or quarter the data files the house outside
+            // of); a village more than 5 km off has houses of its own
             let left_out = &parts[skip];
             if !found.is_empty() {
-                let near: Vec<(f64, f64)> = self
-                    .scope(std::slice::from_ref(left_out), false, cc, None, false)
-                    .iter()
-                    .map(|&id| {
-                        let pl = &self.places[id as usize];
-                        (pl.x as f64, pl.y as f64)
-                    })
-                    .collect();
+                let places = self.scope(std::slice::from_ref(left_out), false, cc, None, false);
                 found.retain(|s| {
                     fold(&s.display_name).contains(&fold(left_out))
-                        || near.iter().any(|&(x, y)| {
-                            ((x - s.x) * s.y.to_radians().cos()).hypot(y - s.y) * 111.195 < 15.0
+                        || places.iter().any(|&id| {
+                            let pl = &self.places[id as usize];
+                            let village = &*pl.subtype == "locality"
+                                && matches!(&*pl.class, "village" | "hamlet");
+                            let km = ((pl.x as f64 - s.x) * s.y.to_radians().cos())
+                                .hypot(pl.y as f64 - s.y)
+                                * 111.195;
+                            km < if village { 5.0 } else { 15.0 }
                         })
                 });
             }

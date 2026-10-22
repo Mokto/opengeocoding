@@ -26,8 +26,8 @@ pub const PLACES: &[Place] = &[
         "Veldhaven",
         &[("en", "Veldhaven")]
     ),
-    // a quarter beside Veldhaven that the data files none of its houses under, and a town far
-    // from it
+    // a quarter of Veldhaven, around Acacia Street, that the data files none of its houses
+    // under, and a town far from it
     place!(
         "za-kloofdal",
         "locality",
@@ -35,7 +35,7 @@ pub const PLACES: &[Place] = &[
         "ZA",
         "",
         2_000,
-        (25.02, -30.02),
+        (25.012, -30.001),
         "za",
         "Kloofdal",
         &[("en", "Kloofdal")]
