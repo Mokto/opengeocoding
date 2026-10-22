@@ -219,7 +219,11 @@ impl Index {
         tries.extend(plate.map(|(road, plate)| (Some(plate), true, road)));
         let mut out = vec![];
         let mut streets = vec![];
-        for (number, at_end, road) in tries {
+        let last = tries.len() - 1;
+        for (i, (number, at_end, road)) in tries.into_iter().enumerate() {
+            if plated && !streets.is_empty() && i < last {
+                continue;
+            }
             let number_word = number.as_deref();
             let number_open = typed.open && one_part && at_end;
             let road_open = typed.open && one_part && !number_open;
@@ -697,17 +701,6 @@ impl Index {
                 focus,
                 want,
             );
-            if found.iter().any(|s| s.kind == "address") {
-                return found;
-            }
-        }
-        // "CL 22BIS S # 9C-18 E, Bogotá" names no country: a plate only when Colombia has the
-        // house, as "Rue Beck 2-4, 1222 Luxembourg" is a range elsewhere
-        if !out.iter().any(|s| s.kind == "address")
-            && cc.is_none()
-            && co::split_plate(&typed.parts[0]).is_some()
-        {
-            let found = self.suggest_streets(typed, Some("co"), focus, want);
             if found.iter().any(|s| s.kind == "address") {
                 return found;
             }
