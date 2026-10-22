@@ -71,3 +71,5 @@ The remaining failures:
 - **Bilingual (5):** every native Italian form passes, and 8/13 of the register's other-language forms. The others are names the index has as streets without the house (Srebrničeva ulica, Rue des Clementines, Streda Dorives), as a hamlet (Podlak) or not at all (Murates).
 
 These are diagnostic results on a local index, not a CI gold run. The documented fresh-service grpcurl SearchAddress hang reproduced as a known failure. Human review of the source points is pending.
+
+Each case's `places`, the names ReverseGeocode's answer must include one of, are ANNCSU's `localita`, the municipality and its name in the area's other official language.

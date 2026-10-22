@@ -80,3 +80,5 @@ What remains, not fixed here:
 - Sixteen SearchAddress failures. The seven too-coarse and one near-miss case are mostly houses the index lacks (the building-only control is also street- or postcode-level, e.g. Søndre Tangvej 6, Rynkevangen 8, Skolegården 6F): an importer question. Eight are confidence mismatches: the house, number and postcode are right but the answer names a different locality than the source's supplementary name (Bellinge against the index's Kildemose, DAR's abbreviated "Skovshøjr Mk"), so goodMatch stays false by design.
 - 45 full-string SuggestAddress failures, mostly houses whose street is suggested but whose number is absent from the suggestion index.
 - The Thailand path itself (the CI index) was not reproduced locally.
+
+Each case's `places`, the names ReverseGeocode's answer must include one of, are the supplementary town name, the postal town and the postal town without its district ("København NV" is also København).

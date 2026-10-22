@@ -178,7 +178,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
         let a = rows.get(postal).with_context(|| format!("OneMap snapshot lacks eligible postcode {postal}"))?;
         let mut provenance = metadata.clone();
         provenance.insert("record".into(), json!({"postal":a.postal, "blk_no":a.block, "road_name":a.road, "buildings":a.buildings}));
-        Ok((postal.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.block.clone()), ("postcode", a.postal.clone())]), radius_floor_km: 0., provenance, number_aliases: None }))
+        Ok((postal.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.block.clone()), ("postcode", a.postal.clone())]), radius_floor_km: 0., provenance, number_aliases: None, places: vec![] }))
     }).collect()
 }
 

@@ -317,6 +317,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
                     number_aliases: (!a.unit.is_empty()).then(|| {
                         BTreeSet::from([a.number.clone(), format!("{}-{}", a.unit, a.number)])
                     }),
+                    places: super::places([a.city.as_str(), &a.geographic_city]),
                 },
             ))
         })

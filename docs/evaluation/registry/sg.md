@@ -49,3 +49,5 @@ Overall 358/362 pass, all 84 held-out queries among them; 2 are too coarse and 2
 - **Locality (2, matching):** both forms of 624C PUNGGOL CENTRAL answer a Punggol Central street 691 m away. The index holds 624C at 1 m from OneMap's point, and `624C PUNGGOL CENTRAL` without `, SINGAPORE` finds it, so naming the city loses the house.
 
 Neither is labelled `known_failure`; both are noncritical. These are diagnostic results on a local index, not a CI gold run. The documented fresh-service grpcurl SearchAddress hang reproduced as a known failure. Human review of the source points is pending.
+
+Cases have no `places` for ReverseGeocode to name: Singapore has no town level in the OneMap record.

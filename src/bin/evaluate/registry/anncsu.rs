@@ -283,7 +283,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
     lookup(path, refs)?.into_iter().map(|(id, a)| {
         let mut provenance = metadata.clone();
         provenance.insert("record".into(), json!({"progressivo_accesso":a.id, "progressivo_nazionale":a.street_id, "codice_comune":a.municipality_code, "odonimo":a.street, "dizione_lingua1":a.street_lang1, "dizione_lingua2":a.street_lang2, "localita":a.locality, "civico":a.number, "esponente":a.exponent, "specificita":a.specificity, "metodo":a.method}));
-        Ok((id, Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number())]), radius_floor_km: 0., provenance, number_aliases: a.number_aliases() }))
+        Ok((id, Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number())]), radius_floor_km: 0., provenance, number_aliases: a.number_aliases(), places: super::places([a.locality.as_str(), &a.municipality, &a.local_name]) }))
     }).collect()
 }
 

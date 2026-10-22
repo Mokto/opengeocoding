@@ -187,7 +187,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
         let a = rows.get(id).with_context(|| format!("Bogotá lacks eligible plate {id}"))?;
         let mut provenance = metadata.clone();
         provenance.extend(serde_json::from_value::<serde_json::Map<String, Value>>(json!({"plate_id":a.id,"lot_id":a.lot,"road":a.road,"plate_text":a.plate,"plate_type":a.kind,"coordinate_system":"EPSG:4326, official ArcGIS outSR=4326"}))?);
-        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number().unwrap())]), radius_floor_km: 0.15, provenance, number_aliases: None }))
+        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number().unwrap())]), radius_floor_km: 0.15, provenance, number_aliases: None, places: vec![] }))
     }).collect()
 }
 

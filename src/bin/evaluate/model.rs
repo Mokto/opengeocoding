@@ -4,7 +4,7 @@ use opengeocoding::eval::{ADDRESS_COLUMNS, holdout, read_tsv};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
 };
 
@@ -177,8 +177,26 @@ pub struct Located {
     /// answers and from runs that predate them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub places: Option<Vec<String>>,
+    /// The first ReverseGeocode answer's house and point (default when there is none); absent
+    /// from ResolveRegion answers and from runs that predate it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub answer: Option<Answer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
+pub struct Answer {
+    /// `address`, `street` or `locality`, as ReverseGeocode reports it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub layer: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub house_number: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub road: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub postcode: String,
+    pub point: [f64; 2],
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
@@ -226,6 +244,9 @@ pub struct Record {
     pub reverse: Option<Located>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub region: Option<Located>,
+    /// ReverseGeocode `OFFSET_M` from a house case's point.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reverse_offset: Option<Located>,
     /// ReverseGeocode at the case's expected point, the fastest of `repeat` requests.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reverse_ms: Option<f64>,
@@ -409,6 +430,11 @@ pub fn validate_gold(cases: &[Case]) -> Result<()> {
                     .iter()
                     .all(|code| alt.country.contains(&code[..2].to_lowercase())),
                 "{at}: region country"
+            );
+            ensure!(
+                alt.places.iter().all(|p| !p.trim().is_empty())
+                    && alt.places.iter().collect::<BTreeSet<_>>().len() == alt.places.len(),
+                "{at}: places"
             );
         }
     }

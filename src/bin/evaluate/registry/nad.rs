@@ -144,6 +144,8 @@ pub struct Address {
     /// [latitude, longitude]
     pub point: [f64; 2],
     pub placement: String,
+    /// Every usable town column, `city` among them.
+    pub places: Vec<String>,
 }
 
 impl Address {
@@ -224,12 +226,13 @@ fn address(columns: &Columns, fields: &[Cow<'_, str>]) -> Option<Address> {
     if !street_name(street) {
         return None;
     }
-    let city = town([
+    let towns = towns([
         get("Post_City"),
         get("Inc_Muni"),
         get("Uninc_Comm"),
         get("Census_Plc"),
-    ])?;
+    ]);
+    let city = town(&towns)?;
     let (lon, lat) = (
         get("Longitude").parse::<f64>().ok()?,
         get("Latitude").parse::<f64>().ok()?,
@@ -247,16 +250,15 @@ fn address(columns: &Columns, fields: &[Cow<'_, str>]) -> Option<Address> {
         state: state.to_string(),
         zip: zip.to_string(),
         plus4: get("Plus_4").to_string(),
+        places: towns.iter().map(|t| title(t)).collect(),
         point: [lat, lon],
         placement: get("Placement").to_string(),
     })
 }
 
-/// The first usable town, as people write it: without the Census suffix of a designated place
-/// ("Salcha CDP", Utah's "Duck Creek Village CPU") or Wisconsin's "City of" and "Town of", and
-/// passing over a three-letter postal code (Atlanta's "ATL" and "ADK") when a later column names
-/// the town.
-fn town(columns: [&str; 4]) -> Option<&str> {
+/// The usable towns, as people write them: without the Census suffix of a designated place
+/// ("Salcha CDP", Utah's "Duck Creek Village CPU") or Wisconsin's "City of" and "Town of".
+fn towns(columns: [&str; 4]) -> Vec<&str> {
     fn strip<'a>(c: &'a str, affix: &str, front: bool) -> Option<&'a str> {
         let at = if front {
             affix.len()
@@ -267,7 +269,7 @@ fn town(columns: [&str; 4]) -> Option<&str> {
         let (cut, rest) = if front { (head, tail) } else { (tail, head) };
         cut.eq_ignore_ascii_case(affix).then_some(rest)
     }
-    let towns: Vec<&str> = columns
+    columns
         .into_iter()
         .map(|c| {
             [
@@ -281,7 +283,12 @@ fn town(columns: [&str; 4]) -> Option<&str> {
             .unwrap_or(c)
         })
         .filter(|c| usable_city(c))
-        .collect();
+        .collect()
+}
+
+/// The first usable town, passing over a three-letter postal code (Atlanta's "ATL" and "ADK")
+/// when a later column names the town.
+fn town<'a>(towns: &[&'a str]) -> Option<&'a str> {
     towns
         .iter()
         .find(|t| t.chars().count() > 3)
@@ -852,6 +859,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
                     radius_floor_km,
                     provenance: metadata.clone(),
                     number_aliases: None,
+                    places: super::places(row.places.iter().map(String::as_str)),
                 },
             ))
         })
@@ -874,6 +882,7 @@ mod tests {
             plus4: "1234".into(),
             point: [35.6, -78.8],
             placement: "Structure - Rooftop".into(),
+            places: vec!["Holly Springs".into()],
         }
     }
 
@@ -902,13 +911,21 @@ mod tests {
         assert!(!usable_city("UNINCORPORATED"));
         assert!(!usable_city("Not stated"));
         assert!(!usable_city("Denton County"));
-        assert_eq!(town(["Not stated", "", "", "Salcha CDP"]), Some("Salcha"));
-        assert_eq!(town(["ADK", "ATLANTA", "", ""]), Some("ATLANTA"));
+        let town = |columns| town(&towns(columns)).map(String::from);
         assert_eq!(
-            town(["Not stated", "Town of Wausau", "", ""]),
+            town(["Not stated", "", "", "Salcha CDP"]).as_deref(),
+            Some("Salcha")
+        );
+        assert_eq!(town(["ADK", "ATLANTA", "", ""]).as_deref(), Some("ATLANTA"));
+        assert_eq!(
+            town(["Not stated", "Town of Wausau", "", ""]).as_deref(),
             Some("Wausau")
         );
-        assert_eq!(town(["Rye", "", "", ""]), Some("Rye"));
+        assert_eq!(town(["Rye", "", "", ""]).as_deref(), Some("Rye"));
+        assert_eq!(
+            towns(["Raleigh", "City of Raleigh", "", "Not stated"]),
+            ["Raleigh", "Raleigh"]
+        );
         assert!(plain("4B") && plain("PH") && plain("PM5") && plain("A16"));
         assert!(!plain("Office") && !plain("Unit") && !plain("Suite1"));
     }

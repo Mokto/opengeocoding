@@ -1,4 +1,4 @@
-use crate::model::{Located, SuggestCheck, Suggested};
+use crate::model::{Answer, Located, SuggestCheck, Suggested};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -91,6 +91,10 @@ pub struct Expect {
     pub admin_level: Option<u64>,
     #[serde(default)]
     pub components: IndexMap<String, String>,
+    /// Names the source gives the place a house is in (its town, municipality); a
+    /// ReverseGeocode answer must name one of them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub places: Vec<String>,
     #[serde(default)]
     pub good_match: Option<bool>,
 }
@@ -204,10 +208,14 @@ pub fn suggest_severity(class: &str) -> usize {
         .unwrap_or(SUGGEST_CLASSES.len())
 }
 
-/// Ordered from best to worst. An empty answer is better than a wrong one.
-pub const LOCATE_CLASSES: [&str; 6] = [
+/// Ordered from best to worst. An empty answer is better than a wrong one; a street or town where
+/// a house was expected is better than either.
+pub const LOCATE_CLASSES: [&str; 9] = [
     "pass",
+    "no_house",
     "empty",
+    "wrong_postcode",
+    "wrong_house",
     "wrong_place",
     "wrong_region",
     "wrong_country",
@@ -245,6 +253,31 @@ pub fn reverse_applies(expect: &Expect) -> bool {
     expected_place(expect).is_some_and(|e| rank(&e.level) >= rank("locality"))
 }
 
+/// The widest tolerance of a point on the house itself. A wider one marks a parcel, an
+/// interpolated or a building's point, nearer which a neighbour may lie, so ReverseGeocode there
+/// is asked only for a house within it.
+const HOUSE_KM: f64 = 0.15;
+
+/// How far from a house case's point the second ReverseGeocode check asks, in metres.
+pub const OFFSET_M: f64 = 25.;
+
+/// ReverseGeocode is also asked `OFFSET_M` from a house, in a direction fixed by `key`.
+pub fn offset_point(expect: &Expect, key: &str) -> Option<[f64; 2]> {
+    let e = expected_place(expect).filter(|e| e.level == "house")?;
+    let [lat, lon] = e.point?;
+    let hash = opengeocoding::eval::sha256_hex(key.as_bytes());
+    let bearing = (u64::from_str_radix(&hash[..8], 16).ok()? % 360) as f64;
+    let (sin, cos) = bearing.to_radians().sin_cos();
+    let metres_per_degree = 6371008.8f64.to_radians();
+    Some([
+        round(lat + OFFSET_M * cos / metres_per_degree, 7),
+        round(
+            lon + OFFSET_M * sin / (metres_per_degree * lat.to_radians().cos()),
+            7,
+        ),
+    ])
+}
+
 /// ResolveRegion is checked for places in a known region.
 pub fn region_applies(expect: &Expect) -> bool {
     expected_place(expect).is_some_and(|e| !e.region.is_empty() && rank(&e.level) >= rank("region"))
@@ -264,33 +297,88 @@ fn locate_class(expect: &Expect, check_region: bool, found: &Located) -> &'stati
     }
 }
 
-/// The first answer's country, and its region where the place has regions to check. For a
-/// locality with an English Wikidata label (`name`, the case's `suggest.text`), the answer must
-/// also name it among its places: a street or house of the town, not of the next village. Saved
-/// answers without places (older runs) are not checked for it.
-pub fn reverse_class(expect: &Expect, name: Option<&str>, found: &Located) -> &'static str {
-    let class = locate_class(expect, !expect.region.is_empty(), found);
-    let named = |places: &Vec<String>| {
-        let want = opengeocoding::index::schema::fold(name.unwrap_or_default());
-        places
-            .iter()
-            .any(|p| opengeocoding::index::schema::fold(p) == want)
+/// The first answer's country, and its region where the place has regions to check. It must
+/// also name the place among its own: for a locality, its English Wikidata label (`name`, the
+/// case's `suggest.text`), else one of the source's `places`, so a street or house of the town,
+/// not of the next village. At a house's point the answer must be that house: one of its numbers,
+/// within its radius, and its postcode where both have one. `offset` (the answer `OFFSET_M` away)
+/// and a point that is not the house's own (`HOUSE_KM`) ask only for a house within that radius. Saved answers without places or house (older runs)
+/// are not checked for them.
+pub fn reverse_class(
+    expect: &Expect,
+    name: Option<&str>,
+    found: &Located,
+    offset: bool,
+) -> &'static str {
+    let alternatives = expect.alternatives();
+    let first = alternatives.first().unwrap_or(expect);
+    let class = locate_class(first, !first.region.is_empty(), found);
+    if class != "pass" {
+        return class;
+    }
+    let wanted: Vec<&str> = match name {
+        Some(name) if first.level == "locality" => vec![name],
+        _ => first.places.iter().map(String::as_str).collect(),
     };
-    match (&found.places, name) {
-        (Some(places), Some(_))
-            if class == "pass" && expect.level == "locality" && !named(places) =>
-        {
-            "wrong_place"
-        }
-        _ => class,
+    if let Some(places) = &found.places
+        && !wanted.is_empty()
+        && !wanted
+            .iter()
+            .any(|w| places.iter().any(|p| names_place(p, w)))
+    {
+        return "wrong_place";
+    }
+    let (Some(answer), Some(point), "house") = (&found.answer, first.point, first.level.as_str())
+    else {
+        return "pass";
+    };
+    if answer.house_number.is_empty() {
+        "no_house"
+    } else if haversine(point, answer.point) > first.radius_km.unwrap_or(0.) {
+        "wrong_house"
+    } else if offset || first.radius_km.unwrap_or(0.) > HOUSE_KM {
+        "pass"
+    } else if !alternatives.iter().any(|alt| {
+        alt.components
+            .get("house_number")
+            .is_none_or(|n| agrees("house_number", n, &answer.house_number))
+    }) {
+        "wrong_house"
+    } else if first
+        .components
+        .get("postcode")
+        .is_some_and(|pc| !answer.postcode.is_empty() && !agrees("postcode", pc, &answer.postcode))
+    {
+        "wrong_postcode"
+    } else {
+        "pass"
     }
 }
 
-/// Compares like with like: an answer scored without its places (by an evaluator that predates
-/// the check) against one scored with them counts a missing place as a pass on both sides.
-pub fn comparable<'a>(a: &'a Located, b: &'a Located) -> (&'a str, &'a str) {
+/// An answer's place name is the wanted one, compared transliterated and folded without spaces
+/// ("풍계리" is "Punggye-ri"), or one of the languages of a name joined with " - " or "/"
+/// ("Ixelles - Elsene").
+fn names_place(answer: &str, wanted: &str) -> bool {
+    let key = |name: &str| {
+        opengeocoding::index::schema::fold(&deunicode::deunicode(name)).replace(' ', "")
+    };
+    let wanted = key(wanted);
+    !wanted.is_empty()
+        && std::iter::once(answer)
+            .chain(answer.split(" - "))
+            .chain(answer.split('/'))
+            .any(|name| key(name) == wanted)
+}
+
+/// Compares like with like: an answer scored without its places or house (by an evaluator that
+/// predates those checks) against one scored with them counts what only the newer checks fail
+/// as a pass on both sides. Only a locality (`level`) was checked for its name before houses were.
+pub fn comparable<'a>(a: &'a Located, b: &'a Located, level: &str) -> (&'a str, &'a str) {
+    let unnamed = a.places.is_none() || b.places.is_none();
+    let unhoused = a.answer.is_none() || b.answer.is_none();
     let strip = |l: &'a Located| match l.class.as_str() {
-        "wrong_place" if a.places.is_none() || b.places.is_none() => "pass",
+        "wrong_place" if unnamed || (unhoused && level != "locality") => "pass",
+        "no_house" | "wrong_house" | "wrong_postcode" if unhoused => "pass",
         c => c,
     };
     (strip(a), strip(b))
@@ -302,9 +390,19 @@ pub fn region_class(expect: &Expect, found: &Located) -> &'static str {
 
 /// The first result of a ReverseGeocode response.
 pub fn reversed(response: &Value) -> Located {
-    let address = &response["results"][0]["address"];
+    let result = &response["results"][0];
+    let address = &result["address"];
     let d = details(address);
     Located {
+        answer: Some(Answer {
+            layer: text(result, "layer").into(),
+            house_number: text(d, "houseNumber").into(),
+            road: text(d, "road").into(),
+            postcode: text(d, "postcode").into(),
+            point: coordinates(address)
+                .unwrap_or_default()
+                .map(|v| round(v, 6)),
+        }),
         country: text(d, "countryCode").to_lowercase(),
         regions: region_codes(address).into_iter().collect(),
         places: Some(
@@ -543,28 +641,7 @@ fn score_one(expect: &Expect, response: &Value, confidence: bool) -> Score {
             _ => continue,
         };
         let actual = text(d, field);
-        // a ZIP+4 is its ZIP, more precisely
-        let plus4 = key == "postcode"
-            && actual.split_once('-').is_some_and(|(zip, four)| {
-                compact(zip) == compact(value)
-                    && four.len() == 4
-                    && four.bytes().all(|b| b.is_ascii_digit())
-            });
-        // a house number as the index keys it: full-width digits as ASCII, without the 號/号
-        // that only says "number" ("１１８號" is 118), and a Czech number with the type RÚIAN
-        // gives it ("č.ev. 346" is evidential number 346)
-        let same = if key == "house_number" {
-            let key = opengeocoding::index::schema::number_key;
-            let actual = key(actual);
-            let untyped = ["č.p. ", "č.ev. "]
-                .iter()
-                .find_map(|t| actual.strip_prefix(t))
-                .unwrap_or(&actual);
-            compact(untyped) == compact(&key(value))
-        } else {
-            compact(actual) == compact(value)
-        };
-        if !actual.is_empty() && !same && !plus4 {
+        if !actual.is_empty() && !agrees(key, value, actual) {
             result.flags.push(format!("{key}={actual:?}"));
             return done(result, "wrong_component");
         }
@@ -582,6 +659,30 @@ fn score_one(expect: &Expect, response: &Value, confidence: bool) -> Score {
         return done(result, "confidence_mismatch");
     }
     done(result, "pass")
+}
+
+/// An answer's house number or postcode is the expected one.
+fn agrees(key: &str, expected: &str, actual: &str) -> bool {
+    if key == "house_number" {
+        // a house number as the index keys it: full-width digits as ASCII, without the 號/号
+        // that only says "number" ("１１８號" is 118), and a Czech number with the type RÚIAN
+        // gives it ("č.ev. 346" is evidential number 346)
+        let key = opengeocoding::index::schema::number_key;
+        let actual = key(actual);
+        let untyped = ["č.p. ", "č.ev. "]
+            .iter()
+            .find_map(|t| actual.strip_prefix(t))
+            .unwrap_or(&actual);
+        return compact(untyped) == compact(&key(expected));
+    }
+    // a ZIP+4 is its ZIP, more precisely
+    compact(actual) == compact(expected)
+        || (key == "postcode"
+            && actual.split_once('-').is_some_and(|(zip, four)| {
+                compact(zip) == compact(expected)
+                    && four.len() == 4
+                    && four.bytes().all(|b| b.is_ascii_digit())
+            }))
 }
 
 /// `confidence = false` ignores goodMatch, for raw backend hits that have none.
@@ -1056,51 +1157,66 @@ mod tests {
             ("dk", &["DK-84".to_string()][..])
         );
         assert_eq!(
-            reverse_class(&place("locality", &["DK-84"]), None, &found),
+            reverse_class(&place("locality", &["DK-84"]), None, &found, false),
             "pass"
         );
         assert_eq!(
-            reverse_class(&place("locality", &["DK-81"]), None, &found),
+            reverse_class(&place("locality", &["DK-81"]), None, &found, false),
             "wrong_region"
         );
-        assert_eq!(reverse_class(&place("locality", &[]), None, &found), "pass");
+        assert_eq!(
+            reverse_class(&place("locality", &[]), None, &found, false),
+            "pass"
+        );
         let mut abroad = place("locality", &["DK-84"]);
         abroad.country = vec!["se".into()];
-        assert_eq!(reverse_class(&abroad, None, &found), "wrong_country");
-        assert_eq!(reverse_class(&abroad, None, &reversed(&json!({}))), "empty");
+        assert_eq!(reverse_class(&abroad, None, &found, false), "wrong_country");
+        assert_eq!(
+            reverse_class(&abroad, None, &reversed(&json!({})), false),
+            "empty"
+        );
         let failed = Located {
             error: Some("timeout".into()),
             ..Default::default()
         };
-        assert_eq!(reverse_class(&abroad, None, &failed), "error");
+        assert_eq!(reverse_class(&abroad, None, &failed, false), "error");
         // the answer must name the town, in any case and accents, at any of its levels
         let street = reversed(&json!({ "results": [{ "address": { "addressDetails": {
             "countryCode": "al", "road": "Rruga Korça", "village": "Drenovë",
             "county": "Bashkia Korçë" } } }] }));
         let mut korce = place("locality", &[]);
         korce.country = vec!["al".into()];
-        assert_eq!(reverse_class(&korce, Some("Korçë"), &street), "wrong_place");
-        assert_eq!(reverse_class(&korce, Some("drenove"), &street), "pass");
         assert_eq!(
-            reverse_class(&korce, Some("Bashkia Korce"), &street),
+            reverse_class(&korce, Some("Korçë"), &street, false),
+            "wrong_place"
+        );
+        assert_eq!(
+            reverse_class(&korce, Some("drenove"), &street, false),
+            "pass"
+        );
+        assert_eq!(
+            reverse_class(&korce, Some("Bashkia Korce"), &street, false),
             "pass"
         );
         // a wrong region outranks it, and only a locality is checked for its name
         korce.region = vec!["AL-06".into()];
         assert_eq!(
-            reverse_class(&korce, Some("Korçë"), &street),
+            reverse_class(&korce, Some("Korçë"), &street, false),
             "wrong_region"
         );
         korce.region.clear();
         korce.level = "house".into();
-        assert_eq!(reverse_class(&korce, Some("Korçë"), &street), "pass");
+        assert_eq!(
+            reverse_class(&korce, Some("Korçë"), &street, false),
+            "no_house"
+        );
         // a saved answer without places, from an older run, is not checked for it
         let old = Located {
             country: "al".into(),
             ..Default::default()
         };
         korce.level = "locality".into();
-        assert_eq!(reverse_class(&korce, Some("Korçë"), &old), "pass");
+        assert_eq!(reverse_class(&korce, Some("Korçë"), &old, false), "pass");
         let new = Located {
             class: "wrong_place".into(),
             places: Some(vec![]),
@@ -1110,8 +1226,11 @@ mod tests {
             class: "pass".into(),
             ..Default::default()
         };
-        assert_eq!(comparable(&old, &new), ("pass", "pass"));
-        assert_eq!(comparable(&new, &new), ("wrong_place", "wrong_place"));
+        assert_eq!(comparable(&old, &new, "locality"), ("pass", "pass"));
+        assert_eq!(
+            comparable(&new, &new, "locality"),
+            ("wrong_place", "wrong_place")
+        );
         // an empty answer is a smaller failure than a wrong one
         assert!(locate_severity("empty") < locate_severity("wrong_place"));
         assert!(locate_severity("wrong_place") < locate_severity("wrong_region"));
@@ -1141,6 +1260,106 @@ mod tests {
             ..Default::default()
         };
         assert!(reverse_applies(&any));
+    }
+
+    #[test]
+    fn reverse_at_a_house_must_find_that_house_in_its_town() {
+        let mut house = Expect {
+            level: "house".into(),
+            country: vec!["fr".into()],
+            point: Some([48.85, 2.35]),
+            radius_km: Some(0.15),
+            places: vec!["Pont-de-Veyle".into(), "Bourg".into()],
+            ..Default::default()
+        };
+        house
+            .components
+            .insert("house_number".into(), "7 bis".into());
+        house.components.insert("postcode".into(), "01290".into());
+        let answer = |number: &str, postcode: &str, lat: f64, town: &str| {
+            reversed(&json!({ "results": [{ "layer": "address", "address": {
+                "geoCoordinates": { "lat": lat, "lon": 2.35 },
+                "addressDetails": { "countryCode": "fr", "houseNumber": number,
+                    "postcode": postcode, "village": town } } }] }))
+        };
+        let class = |found: &Located, offset| reverse_class(&house, None, found, offset);
+        assert!(names_place("Punggye-ri", "풍계리"));
+        assert!(names_place("M'Tsangamboua", "Mtsangamboua"));
+        assert!(names_place("Ixelles - Elsene", "Elsene"));
+        assert!(names_place("Campezo / Kanpezu", "Kanpezu"));
+        assert!(!names_place("Gangseo-gu", "서구"));
+        assert!(!names_place("Saint-Paul", "Le Port"));
+        let right = answer("7bis", "01290", 48.8501, "Pont-de-Veyle");
+        assert_eq!(class(&right, false), "pass");
+        assert_eq!(class(&answer("7bis", "", 48.8501, "bourg"), false), "pass");
+        assert_eq!(
+            class(&answer("7bis", "01290", 48.8501, "Mâcon"), false),
+            "wrong_place"
+        );
+        assert_eq!(
+            class(&answer("", "", 48.8501, "Pont-de-Veyle"), false),
+            "no_house"
+        );
+        assert_eq!(
+            class(&answer("9", "01290", 48.8501, "Pont-de-Veyle"), false),
+            "wrong_house"
+        );
+        assert_eq!(
+            class(&answer("7bis", "01290", 48.86, "Pont-de-Veyle"), false),
+            "wrong_house"
+        );
+        assert_eq!(
+            class(&answer("7bis", "01300", 48.8501, "Pont-de-Veyle"), false),
+            "wrong_postcode"
+        );
+        // from the offset point any house within the radius will do, but it must be a house
+        assert_eq!(
+            class(&answer("9", "01300", 48.8501, "Pont-de-Veyle"), true),
+            "pass"
+        );
+        assert_eq!(
+            class(&answer("9", "01290", 48.86, "Pont-de-Veyle"), true),
+            "wrong_house"
+        );
+        assert_eq!(
+            class(&answer("", "", 48.8501, "Pont-de-Veyle"), true),
+            "no_house"
+        );
+        // a parcel's point may be nearer a neighbour
+        let parcel = Expect {
+            radius_km: Some(0.3),
+            ..house.clone()
+        };
+        let parcel = |lat| reverse_class(&parcel, None, &answer("9", "01300", lat, "Bourg"), false);
+        assert_eq!((parcel(48.8501), parcel(48.86)), ("pass", "wrong_house"));
+        assert!(locate_severity("no_house") < locate_severity("empty"));
+        assert!(locate_severity("empty") < locate_severity("wrong_house"));
+        assert!(locate_severity("wrong_house") < locate_severity("wrong_place"));
+        // an older run's answer has neither house nor, for a house, a place to compare
+        let mut new = answer("9", "01290", 48.8501, "Pont-de-Veyle");
+        new.class = "wrong_house".into();
+        let old = Located {
+            class: "pass".into(),
+            country: "fr".into(),
+            places: Some(vec!["Bourg".into()]),
+            ..Default::default()
+        };
+        assert_eq!(class(&old, false), "pass");
+        assert_eq!(comparable(&old, &new, "house"), ("pass", "pass"));
+        new.class = "wrong_place".into();
+        assert_eq!(comparable(&old, &new, "house"), ("pass", "pass"));
+        assert_eq!(comparable(&old, &new, "locality"), ("pass", "wrong_place"));
+        assert_eq!(
+            comparable(&new, &new, "house"),
+            ("wrong_place", "wrong_place")
+        );
+        // the offset point is 25 m away, in a direction fixed by the location
+        let at = offset_point(&house, "ban:1").unwrap();
+        assert!((haversine([48.85, 2.35], at) * 1000. - OFFSET_M).abs() < 0.05);
+        assert_eq!(offset_point(&house, "ban:1"), Some(at));
+        assert_ne!(offset_point(&house, "ban:2"), Some(at));
+        house.level = "street".into();
+        assert_eq!(offset_point(&house, "ban:1"), None);
     }
 
     #[test]
