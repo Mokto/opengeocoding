@@ -474,6 +474,11 @@ impl Index {
                 out = recovered;
             }
         }
+        if !out.iter().any(|s| s.kind == "address") {
+            let mut found = self.suggest_repaired(&typed, cc, limit);
+            found.append(&mut out);
+            out = found;
+        }
         // with streets of the road found, a place left out rarely finds its house
         if !out
             .iter()

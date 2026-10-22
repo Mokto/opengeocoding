@@ -1,5 +1,5 @@
 use super::*;
-use crate::index::country::{co, us};
+use crate::index::country::{be, br, co, us};
 
 /// A house number written as a part of its own, "12", "12A" or "nº 12", as the number:
 /// short enough not to be a postcode.
@@ -153,11 +153,15 @@ impl Index {
                 .collect()
         });
         let place_cc = cc.filter(|c| stated || !SOVEREIGNS.contains(c.to_lowercase().as_str()));
+        let postcode = extracted.as_ref().map(|(pc, _)| pc.as_str());
         let parts = extracted
             .as_ref()
             .map(|(_, rest)| Typed::new(rest).parts)
             .unwrap_or_else(|| typed.parts[1..].to_vec());
-        let postcode = extracted.as_ref().map(|(pc, _)| pc.as_str());
+        let parts = match postcode.filter(|pc| br::cep(pc)) {
+            Some(_) => parts.into_iter().map(br::municipality).collect(),
+            None => parts,
+        };
         // "Rua José Relvas nº 13": the mark says only that a number follows, as "č.p." does for a
         // Czech descriptive number; an evidential one is keyed with its mark ("č.ev. 169")
         let mut marked: Vec<String> = vec![];
@@ -174,6 +178,7 @@ impl Index {
                 _ => marked.push(w.to_string()),
             }
         }
+        be::without_box(&mut marked);
         let raw: Vec<&str> = marked.iter().map(String::as_str).collect();
         // the number: the first or last word, when a road remains; both when both could be
         // ("11 Listopada 26" is house 26 on a road named for a date)
@@ -663,10 +668,11 @@ impl Index {
                 }
             }
         }
-        // "Rua Pereira Charula, 12, 5340-278 Macedo de Cavaleiros": the number as its own part
+        // "Rua Pereira Charula, 12, 5340-278 Macedo de Cavaleiros": the number as its own part,
+        // also after a road named by a number ("AVENIDA 2204, 1370, Vilhena - RO")
         if !out.iter().any(|s| s.kind == "address")
             && let [road, number, rest @ ..] = typed.parts.as_slice()
-            && !road.split(' ').any(has_digit)
+            && !road.split(' ').next().is_some_and(has_digit)
             && let Some(number) = comma_number(number)
         {
             let mut parts = vec![format!("{road} {number}")];
@@ -734,6 +740,212 @@ impl Index {
         }
         out.truncate(want);
         out
+    }
+
+    /// A whole address the lookups above take too literally: written from the country down
+    /// ("Norway, 1960 LØKEN, Klapputveien 186"), without commas ("Lyngvegen 20 5382 SKOGSVÅG
+    /// Norway"), with a four-digit postcode and no country ("Grenzweg 5a, 5033 Buchs AG"), or with
+    /// the town or the street a letter off ("Wieherweg 12, 4460 Gelterkinden"). Houses of the
+    /// typed number only, in the postcode and the town typed.
+    pub(super) fn suggest_repaired(
+        &self,
+        typed: &Typed,
+        cc: Option<&str>,
+        want: usize,
+    ) -> Vec<Suggestion> {
+        // a house number and a postcode
+        let coded = typed
+            .parts
+            .iter()
+            .flat_map(|p| p.split(' '))
+            .filter(|w| has_digit(w));
+        if coded.count() < 2 {
+            return vec![];
+        }
+        let mut parts = typed.parts.clone();
+        if parts.len() >= 2 && self.country(&parts[0]).is_some() {
+            parts.reverse();
+        }
+        if let [whole] = parts.as_slice() {
+            parts = self.uncommaed(whole);
+        }
+        let country = parts
+            .last()
+            .filter(|_| parts.len() > 1)
+            .and_then(|p| self.country(p));
+        if country.is_some() {
+            parts.pop();
+        }
+        if cc
+            .zip(country.as_deref())
+            .is_some_and(|(a, b)| !a.eq_ignore_ascii_case(b))
+        {
+            return vec![];
+        }
+        let cc = cc.or(country.as_deref());
+        let [road, rest @ ..] = parts.as_slice() else {
+            return vec![];
+        };
+        let raw: Vec<&str> = road.split(' ').collect();
+        let n = raw.len();
+        // "6 bis Boulevard des Écossais", "Fasanenstrasse 88c"
+        let (number, road) = match raw.as_slice() {
+            [first, second, road @ ..] if !road.is_empty() => {
+                match compact_house_suffix(&format!("{first} {second}")) {
+                    Some(number) => (number, road),
+                    None if has_digit(raw[n - 1]) => (raw[n - 1].to_owned(), &raw[..n - 1]),
+                    None if has_digit(first) => (first.to_string(), &raw[1..]),
+                    None => match compact_house_suffix(&raw[n - 2..].join(" ")) {
+                        Some(number) => (number, &raw[..n - 2]),
+                        None => return vec![],
+                    },
+                }
+            }
+            [road @ .., last] if !road.is_empty() && has_digit(last) => (last.to_string(), road),
+            [first, road @ ..] if !road.is_empty() && has_digit(first) => (first.to_string(), road),
+            _ => return vec![],
+        };
+        let number = number.as_str();
+        // a postcode, before its town or alone, and one town: a part more is a place the
+        // houses may contradict
+        let (mut postcode, mut town) = (None, None);
+        for p in rest {
+            let (head, tail) = p.split_once(' ').unwrap_or((p, ""));
+            if postcode.is_none() && has_digit(head) && head.len() <= 8 && !has_digit(tail) {
+                postcode = Some(head);
+                if !tail.is_empty() && town.replace(tail).is_some() {
+                    return vec![];
+                }
+            } else if town.is_none() && !has_digit(p) {
+                town = Some(p.as_str());
+            } else {
+                return vec![];
+            }
+        }
+        // every lookup below is held to the postcode
+        if cz_sk::number_len(number) > MAX_NUMBER
+            || postcode.is_none_or(|pc| self.docs_with(self.f.pcode, &pc_norm(pc)) == 0)
+        {
+            return vec![];
+        }
+        let houses = |road: &[String], scope: Option<&[u32]>, city: Option<&str>| {
+            let city = city.map(|c| (c, false));
+            self.streets_typed(
+                road,
+                false,
+                scope,
+                Some(number),
+                false,
+                cc,
+                postcode,
+                city,
+                want,
+            )
+            .into_iter()
+            .filter(|s| s.kind == "address")
+            .collect::<Vec<_>>()
+        };
+        // the town as the houses' postal town, or a place of that name or a letter off it
+        // ("Fjordvk"); never the postcode or the town alone when both are typed
+        let towns = std::cell::OnceCell::new();
+        let towns = || {
+            towns.get_or_init(|| town.map(|t| self.scope(&[t.to_owned()], false, cc, None, true)))
+        };
+        let agreeing = |road: &[String]| {
+            let found = houses(road, None, town);
+            match towns() {
+                Some(ids) if found.is_empty() && !ids.is_empty() => houses(road, Some(ids), None),
+                _ => found,
+            }
+        };
+        let road = words(&road.join(" "));
+        let found = agreeing(&road);
+        if !found.is_empty() {
+            return found;
+        }
+        // "Grüt 4, 8752 Nfäels": a postal town one word of which is a letter off, held to the
+        // postcode; a town with more words the postcode's streets lack is another town
+        if let (Some(pc), Some(town)) = (postcode, town) {
+            let typed = words(town);
+            let in_postcode = |w: &str| {
+                self.any_of(
+                    Kind::Street,
+                    cc,
+                    vec![
+                        must(term(self.f.city, w)),
+                        must(term(self.f.pcode, &pc_norm(pc))),
+                    ],
+                )
+            };
+            let mut unknown = (0..typed.len()).filter(|&i| !in_postcode(&typed[i]));
+            if let (Some(i), None) = (unknown.next(), unknown.next())
+                && fuzzable(&typed[i])
+            {
+                let near = self.city_terms_near(&typed[i]);
+                for near in near.iter().filter(|n| **n != typed[i] && in_postcode(n)) {
+                    let mut city = typed.clone();
+                    city[i].clone_from(near);
+                    let found = houses(&road, None, Some(&city.join(" ")));
+                    if !found.is_empty() {
+                        return found;
+                    }
+                }
+            }
+        }
+        let named = towns().as_deref().unwrap_or_default();
+        self.respelt(&road.join(" "), town, named, postcode, cc)
+            .map(|respelt| agreeing(&words(&respelt)))
+            .unwrap_or_default()
+    }
+
+    /// Postal-town words within one edit of `word`, with its first letter.
+    fn city_terms_near(&self, word: &str) -> Vec<String> {
+        let mut out = std::collections::BTreeSet::new();
+        if word.len() > MAX_WORD {
+            return vec![];
+        }
+        for segment in self.searcher.segment_readers() {
+            let Ok(index) = segment.inverted_index(self.f.city) else {
+                continue;
+            };
+            let Ok(mut terms) = index.terms().search(OneEdit(word.as_bytes())).into_stream() else {
+                continue;
+            };
+            while terms.advance() {
+                out.extend(std::str::from_utf8(terms.key()).ok().map(String::from));
+            }
+        }
+        out.into_iter().collect()
+    }
+
+    /// "Lyngvegen 20 5382 SKOGSVÅG Norway": an address typed without commas, split before the
+    /// postcode that follows its house number and before the country that ends it.
+    fn uncommaed(&self, whole: &str) -> Vec<String> {
+        let words: Vec<&str> = whole.split(' ').collect();
+        let code = |w: &str| {
+            w.len() >= 4
+                && w.starts_with(|c: char| c.is_ascii_digit())
+                && w.bytes().all(|b| b.is_ascii_digit() || b == b'-')
+        };
+        let Some(at) = (2..words.len().saturating_sub(1)).find(|&i| {
+            code(words[i])
+                && words[..i].iter().any(|w| has_digit(w))
+                && words[..i].iter().any(|w| !has_digit(w))
+        }) else {
+            return vec![whole.to_owned()];
+        };
+        let mut parts = vec![words[..at].join(" ")];
+        let tail = &words[at..];
+        match (1..=2.min(tail.len() - 2))
+            .find(|&n| self.country(&tail[tail.len() - n..].join(" ")).is_some())
+        {
+            Some(n) => {
+                parts.push(tail[..tail.len() - n].join(" "));
+                parts.push(tail[tail.len() - n..].join(" "));
+            }
+            None => parts.push(tail.join(" ")),
+        }
+        parts
     }
 
     /// Ids of the places the parts name, to scope streets to: those places and all inside them.

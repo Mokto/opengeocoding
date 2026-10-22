@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Case, at_house, case};
+use crate::{Case, at_house, case, index, metres, street};
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -232,4 +232,57 @@ pub fn cases() -> Vec<Case> {
             at_house("Pinevn. - North", "5"),
         ),
     ]
+}
+
+#[test]
+fn a_whole_address_with_one_part_out_of_place_suggests_its_house() {
+    let want = house(street("Granveien"), "5b");
+    for typed in [
+        "Norway, 1234 Fjordvik, Granveien 5B",
+        "Granveien 5B 1234 Fjordvik Norway",
+        // a four-digit postcode is read without its country
+        "Granveien 5B, 1234 Fjordvik",
+        // the town or the street a letter off
+        "Granveien 5B, 1234 Fjordvk, Norway",
+        "Grnaveien 5B, 1234 Fjordvik, Norway",
+    ] {
+        let found = index().suggest(typed, 5, None, None, false);
+        let first = found.iter().find(|s| s.kind == "address");
+        assert!(
+            first.is_some_and(|s| metres((s.x, s.y), want) < 5.0),
+            "{typed}: {:?}",
+            found.iter().map(|s| &s.display_name).collect::<Vec<_>>()
+        );
+    }
+    // a postal town a letter off
+    let found = index().suggest(
+        "Dispatchveien 51, 6780 Psotalvik, Norway",
+        5,
+        None,
+        None,
+        false,
+    );
+    assert_eq!(found.first().map(|s| s.kind), Some("address"));
+    assert!(
+        metres(
+            (found[0].x, found[0].y),
+            house(street("Dispatchveien"), "51")
+        ) < 5.0
+    );
+    // a number the street lacks, another place's postcode or another town of the postcode, and
+    // the house in a country not asked for
+    for (typed, cc) in [
+        ("Granveien 99, 1234 Fjordvik, Norway", None),
+        ("Granveien 5B, 6780 Fjordvik, Norway", None),
+        ("Granveien 5B, 1234 Birchlet, Norway", None),
+        ("Granveien 5B, 1234 Fjordvik", Some("SE")),
+    ] {
+        assert!(
+            index()
+                .suggest(typed, 5, cc, None, false)
+                .iter()
+                .all(|s| s.kind != "address"),
+            "{typed}"
+        );
+    }
 }

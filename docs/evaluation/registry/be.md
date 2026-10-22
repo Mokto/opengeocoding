@@ -30,7 +30,7 @@ Captured 2026-10-19: 7,177,814 rows; 139,940 current rows lack a valid local WGS
 | Box-bearing building | 60 | 143 | 139 |
 | Plain | 40 | 40 | 37 |
 
-There are 60 explicit box queries (56 pass); the other queries at those buildings are box-free language controls. SuggestAddress finds an acceptable full-string result for 319/384 queries. ReverseGeocode passes the country check at all 384 repeated source points; it does not verify the house or box. ResolveRegion is unscored because no ISO expectation is supplied.
+There are 60 explicit box queries (56 pass); the other queries at those buildings are box-free language controls. SuggestAddress finds an acceptable full-string result for 383/384 queries on a world index from builder `17bc2fab0087eddb`, up from 323 before the box after the house number was left out. ReverseGeocode passes the country check at all 384 repeated source points; it does not verify the house or box. ResolveRegion is unscored because no ISO expectation is supplied.
 
 The seven forward failures are four too-coarse answers, one near miss, one far miss and one confidence mismatch. The critical Rue du Tordoir 14, Tubize case is attributed in be.labels.jsonl: the parse preserves the complete address, but the raw house and RPC point are 204 km from BeSt and lack ancestry, while the suggested Tubize street is near the reference. This is an index/import coordinate/ancestry defect, not proof of which upstream source or storage stage introduced it. No expectation was weakened.
 
