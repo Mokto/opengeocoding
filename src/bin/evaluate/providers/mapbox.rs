@@ -17,6 +17,7 @@ pub const PROVIDER: Provider = Provider {
     request,
     normalize,
     validate_status: None,
+    reverse: Some(REVERSE),
 };
 
 fn request(query: &str) -> Value {
@@ -92,6 +93,34 @@ fn normalize(response: &Value) -> Result<Value> {
         "geoCoordinates": {"lat": lat, "lon": lon},
         "addressDetails": address,
     }))
+}
+
+// Temporary geocoding, as in the forward collection; v6 reverse rejects `limit` without `types`
+// and returns the finest feature first.
+const REVERSE: super::reverse::Reverse = super::reverse::Reverse {
+    request: |lat, lon| json!({"endpoint": "https://api.mapbox.com/search/geocode/v6/reverse", "longitude": lon, "latitude": lat, "permanent": false, "language": "en", "worldview": "us"}),
+    normalize: reverse_normalize,
+};
+
+fn reverse_normalize(response: &Value) -> Result<Value> {
+    let mut address = normalize(response)?;
+    let context = &response["features"][0]["properties"]["context"];
+    let names: serde_json::Map<_, _> = ["place", "locality", "neighborhood", "district", "region"]
+        .iter()
+        .map(|k| ((*k).to_string(), context[*k]["name"].clone()))
+        .collect();
+    super::reverse::add_places(
+        &mut address,
+        &names.into(),
+        &[
+            ("place", "city"),
+            ("locality", "suburb"),
+            ("neighborhood", "neighbourhood"),
+            ("district", "county"),
+            ("region", "state"),
+        ],
+    );
+    Ok(address)
 }
 
 #[cfg(test)]

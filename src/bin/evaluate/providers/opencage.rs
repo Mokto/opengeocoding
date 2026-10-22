@@ -15,6 +15,7 @@ pub const PROVIDER: Provider = Provider {
     request,
     normalize,
     validate_status: Some(validate_status),
+    reverse: Some(REVERSE),
 };
 
 fn request(query: &str) -> Value {
@@ -105,6 +106,18 @@ fn normalize(response: &Value) -> Result<Value> {
         &result["geometry"]["lng"],
         address,
     )
+}
+
+const REVERSE: super::reverse::Reverse = super::reverse::Reverse {
+    request: |lat, lon| json!({"endpoint": "https://api.opencagedata.com/geocode/v1/json", "q": format!("{lat},{lon}"), "language": "en", "limit": 1, "no_annotations": 1, "no_record": 1}),
+    normalize: reverse_normalize,
+};
+
+fn reverse_normalize(response: &Value) -> Result<Value> {
+    let mut address = normalize(response)?;
+    let native = &response["results"][0]["components"];
+    super::reverse::add_places(&mut address, native, super::reverse::PLACES);
+    Ok(address)
 }
 
 #[cfg(test)]

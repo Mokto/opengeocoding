@@ -15,6 +15,7 @@ pub const PROVIDER: Provider = Provider {
     request,
     normalize,
     validate_status: None,
+    reverse: Some(REVERSE),
 };
 
 fn request(query: &str) -> Value {
@@ -59,6 +60,26 @@ fn normalize(response: &Value) -> Result<Value> {
         &result["location"]["lng"],
         address,
     )
+}
+
+const REVERSE: super::reverse::Reverse = super::reverse::Reverse {
+    request: |lat, lon| json!({"endpoint": "https://api.geocod.io/v2/reverse", "q": format!("{lat},{lon}"), "limit": 1}),
+    normalize: reverse_normalize,
+};
+
+fn reverse_normalize(response: &Value) -> Result<Value> {
+    let mut address = normalize(response)?;
+    let native = &response["results"][0]["address_components"];
+    super::reverse::add_places(
+        &mut address,
+        native,
+        &[("city", "city"), ("county", "county")],
+    );
+    let (country, state) = (text(native, "country"), text(native, "state"));
+    if !country.is_empty() && !state.is_empty() {
+        super::reverse::add_codes(&mut address, [format!("{country}-{state}").as_str()]);
+    }
+    Ok(address)
 }
 
 #[cfg(test)]

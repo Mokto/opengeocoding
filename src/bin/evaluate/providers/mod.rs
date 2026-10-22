@@ -26,6 +26,7 @@ mod locationiq;
 mod mapbox;
 mod mapsco;
 mod opencage;
+pub mod reverse;
 mod tomtom;
 
 pub struct Provider {
@@ -40,6 +41,7 @@ pub struct Provider {
     request: fn(&str) -> Value,
     normalize: fn(&Value) -> Result<Value>,
     validate_status: Option<fn(&Value) -> Result<()>>,
+    reverse: Option<reverse::Reverse>,
 }
 
 static PROVIDERS: [Provider; 10] = [
@@ -56,7 +58,8 @@ static PROVIDERS: [Provider; 10] = [
 ];
 
 pub fn named(name: &str) -> Result<&'static Provider> {
-    PROVIDERS.iter().find(|p| p.name == name).with_context(|| {
+    let mut all = PROVIDERS.iter().chain([&reverse::OPENGEOCODING]);
+    all.find(|p| p.name == name).with_context(|| {
         format!(
             "unknown provider {name}; expected {}",
             PROVIDERS
@@ -105,6 +108,9 @@ pub struct Options {
     pub fetch: bool,
     pub budget: usize,
     pub compare: Option<PathBuf>,
+    pub reverse: bool,
+    /// The local OpenGeocoding service whose reverse answers are cached like a provider's.
+    pub rpc: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -265,8 +271,15 @@ fn paired(
 }
 
 pub async fn run(options: Options) -> Result<i32> {
+    if options.reverse {
+        return reverse::run(options).await;
+    }
     let started_at = utc_now();
     let provider = options.provider;
+    ensure!(
+        provider.name != reverse::OPENGEOCODING.name,
+        "score OpenGeocoding's forward answers with evaluate run"
+    );
     ensure!(
         options.fetch || options.budget == 0,
         "--budget requires --fetch"
@@ -534,6 +547,8 @@ mod tests {
             fetch: false,
             budget: 0,
             compare: None,
+            reverse: false,
+            rpc: None,
         })
         .await
         .unwrap();
@@ -574,6 +589,8 @@ mod tests {
             fetch: false,
             budget: 0,
             compare: None,
+            reverse: false,
+            rpc: None,
         })
         .await
         .unwrap();
@@ -650,6 +667,8 @@ mod tests {
             fetch: false,
             budget: 0,
             compare: None,
+            reverse: false,
+            rpc: None,
         };
         run(options(provider, "out")).await.unwrap();
         let records: Vec<Record> =
@@ -748,6 +767,8 @@ mod tests {
             fetch,
             budget,
             compare: None,
+            reverse: false,
+            rpc: None,
         };
         assert!(
             run(options(false, 0))

@@ -518,6 +518,8 @@ mod tests {
             fetch: true,
             budget: 6,
             compare: Some(baseline.clone()),
+            reverse: false,
+            rpc: None,
         };
         let mut invalid = options();
         invalid.cache = root.join("must-not-exist");

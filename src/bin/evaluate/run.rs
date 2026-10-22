@@ -149,7 +149,7 @@ async fn rpc(
     Err(code.unwrap_or_else(|| format!("http_{}", status.as_u16())))
 }
 
-async fn rpc_json(
+pub async fn rpc_json(
     client: &Client,
     base: &str,
     method: &str,
@@ -214,7 +214,7 @@ pub fn rescore_suggest(case: &Case, record: &mut Record) {
 }
 
 /// The English Wikidata label of a case's place, which `build-gold` sets as its suggest text.
-fn place_name(case: &Case) -> Option<&str> {
+pub fn place_name(case: &Case) -> Option<&str> {
     case.suggest.as_ref().map(|s| s.text.as_str())
 }
 
