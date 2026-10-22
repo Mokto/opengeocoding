@@ -185,14 +185,6 @@ impl Index {
             .into_iter()
             .flatten();
         let mut tries: Vec<(Option<String>, bool, Vec<&str>)> = vec![];
-        // "AC 43 S # 86B-18": Bogotá's register keys the plate "86B 18", OpenStreetMap often
-        // "11-23" as written, which the tries after it read
-        let plate = cc
-            .is_some_and(|c| c.eq_ignore_ascii_case("co"))
-            .then(|| co::split_plate(&typed.parts[0]))
-            .flatten();
-        let plated = plate.is_some();
-        tries.extend(plate.map(|(road, plate)| (Some(plate), true, road)));
         for i in number_at {
             tries.push((
                 Some(raw[i].to_owned()),
@@ -217,9 +209,17 @@ impl Index {
                 }
             }
         }
+        // "AC 43 S # 86B-18": Bogotá's register keys the plate "86B 18". OpenStreetMap keys many
+        // as written ("11-23"), so the plate comes last, after every try failed to find a house.
+        let plate = cc
+            .is_some_and(|c| c.eq_ignore_ascii_case("co"))
+            .then(|| co::split_plate(&typed.parts[0]))
+            .flatten();
+        let plated = plate.is_some();
+        tries.extend(plate.map(|(road, plate)| (Some(plate), true, road)));
         let mut out = vec![];
-        let mut plate_streets = vec![];
-        for (i, (number, at_end, road)) in tries.into_iter().enumerate() {
+        let mut streets = vec![];
+        for (number, at_end, road) in tries {
             let number_word = number.as_deref();
             let number_open = typed.open && one_part && at_end;
             let road_open = typed.open && one_part && !number_open;
@@ -499,8 +499,10 @@ impl Index {
                 }
                 found
             };
-            if plated && i == 0 && !found.iter().any(|s| s.kind == "address") {
-                plate_streets = found;
+            if plated && !found.iter().any(|s| s.kind == "address") {
+                if streets.is_empty() {
+                    streets = found;
+                }
                 continue;
             }
             if !found.is_empty() {
@@ -509,7 +511,7 @@ impl Index {
             }
         }
         if out.is_empty() {
-            out = plate_streets;
+            out = streets;
         }
         // "Fulham Road, London, SW6 1HS": no house, and no street in the places named, so the
         // streets the postcode serves

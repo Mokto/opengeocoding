@@ -91,7 +91,8 @@ pub const STREETS: &[Street] = &[
         lat: 30.6,
         numbers: &["9C 18 E"],
     },
-    // OpenStreetMap keys a plate as written
+    // OpenStreetMap keys a plate as written; the register form of it elsewhere on the street
+    // must not win over the house as typed
     Street {
         class: "residential",
         length: 0.0,
@@ -101,7 +102,7 @@ pub const STREETS: &[Street] = &[
         cc: "CO",
         lon: -59.95,
         lat: 30.0,
-        numbers: &["11-23"],
+        numbers: &["11-23", "11 23"],
     },
 ];
 
