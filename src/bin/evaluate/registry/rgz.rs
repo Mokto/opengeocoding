@@ -239,7 +239,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
     lookup(path, refs)?.into_iter().map(|(id, a)| {
         let mut provenance = metadata.clone();
         provenance.insert("record".into(), json!({"kucni_broj_id":a.id, "kucni_broj":a.number, "kucni_broj_lat":a.number_lat, "tip_lat":a.kind, "ulica_maticni_broj":a.street_id, "ulica_ime":a.street, "ulica_ime_lat":a.street_lat, "naselje_maticni_broj":a.settlement_id, "naselje_ime":a.settlement, "opstina_maticni_broj":a.municipality_id, "opstina_ime":a.municipality}));
-        Ok((id, Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number_lat.clone())]), radius_floor_km: 0., provenance, number_aliases: a.number_aliases() }))
+        Ok((id, Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number_lat.clone())]), radius_floor_km: 0., provenance, number_aliases: a.number_aliases(), places: super::places([a.place_lat.as_str(), &a.place, &a.settlement, &a.municipality]) }))
     }).collect()
 }
 

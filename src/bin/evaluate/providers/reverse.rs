@@ -159,7 +159,9 @@ pub fn classify(case: &Case, address: &Value, record: &mut Record) {
         admin.region.clear();
         record.flags.push("region_codes_missing".into());
     }
-    found.class = reverse_class(&admin, place_name(case), &found).into();
+    // the forward rules below judge the house, with every alternative's number
+    found.answer = None;
+    found.class = reverse_class(&admin, place_name(case), &found, false).into();
     let mut forward = case.expect.clone().unwrap_or_default();
     forward.max_level = None;
     for alternative in forward.any_of.iter_mut().flatten() {

@@ -65,3 +65,5 @@ Overall 219/296 pass, 38 of the 54 held-out queries among them; 69 are too coars
 - **Cyrillic village name (3, index data):** БЕРЛОВИНЕ 2, ОЈКОВИЦА 256 and БОЖИЦА 388 find no house under the Cyrillic name; their Latin forms pass.
 
 On the index without the Serbia extract there is one more critical result, ЗАСЕЛАК ВЕРДИНЂА 1, ТЕКИЈА answered with Tekija near Paraćin, 119 km away; it passes with the extract and is not labelled. Only the two critical results that remain with the extract carry `known_failure` labels; the others stay visible and unlabelled. These are diagnostic results on local indexes, not a CI gold run. The documented fresh-service grpcurl SearchAddress hang reproduced as a known failure. Human review of the source points is pending.
+
+Each case's `places`, the names ReverseGeocode's answer must include one of, are the place the query names (in Latin and Cyrillic), the settlement and the municipality.
