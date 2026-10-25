@@ -2,9 +2,10 @@ use crate::{
     model::{Case, DirectRaw, Located, Record, SuggestCheck, root},
     report::{diff, sorted, summarize},
     score::{
-        Expect, SUGGEST_LIMIT, details, expected_place, from_index, rank, region_applies,
-        region_class, region_codes, region_flags, resolved, reverse_applies, reverse_class,
-        reversed, score, suggest_rank, suggested, suggested_address, summary_of, text,
+        Expect, SUGGEST_LIMIT, details, expected_place, from_index, offset_point, rank,
+        region_applies, region_class, region_codes, region_flags, resolved, reverse_applies,
+        reverse_class, reversed, score, suggest_rank, suggested, suggested_address, summary_of,
+        text,
     },
 };
 use anyhow::{Context, Result, bail};
@@ -213,6 +214,15 @@ pub fn rescore_suggest(case: &Case, record: &mut Record) {
     }
 }
 
+/// A ReverseGeocode outcome before its answer is read: `answer` is set even without one, so a
+/// diff tells it from an older run's record, which has none.
+fn unanswered() -> Located {
+    Located {
+        answer: Some(Default::default()),
+        ..Default::default()
+    }
+}
+
 /// The English Wikidata label of a case's place, which `build-gold` sets as its suggest text.
 pub fn place_name(case: &Case) -> Option<&str> {
     case.suggest.as_ref().map(|s| s.text.as_str())
@@ -220,11 +230,19 @@ pub fn place_name(case: &Case) -> Option<&str> {
 
 /// Re-scores saved reverse and region answers against the current corpus.
 pub fn rescore_locate(case: &Case, record: &mut Record) {
-    let Some(expect) = case.expect.as_ref().and_then(expected_place) else {
+    let Some(full) = case.expect.as_ref() else {
         return;
     };
-    if let Some(found) = &mut record.reverse {
-        found.class = reverse_class(expect, place_name(case), found).into();
+    let Some(expect) = expected_place(full) else {
+        return;
+    };
+    for (found, offset) in [
+        (&mut record.reverse, false),
+        (&mut record.reverse_offset, true),
+    ] {
+        if let Some(found) = found {
+            found.class = reverse_class(full, place_name(case), found, offset).into();
+        }
     }
     if let Some(found) = &mut record.region {
         found.class = region_class(expect, found).into();
@@ -334,6 +352,7 @@ impl Checker {
         record.ms = Some((elapsed.as_secs_f64() * 1e6).round() / 1e3);
         record.suggest = self.suggest(case, repeat).await;
         (record.reverse_ms, record.reverse) = self.reverse(case, repeat).await;
+        record.reverse_offset = self.reverse_offset(case).await;
         record.region = self.region(case).await;
         let response = match result {
             Ok(response) => response,
@@ -357,13 +376,17 @@ impl Checker {
     /// ReverseGeocode at the case's single expected point (a house where the case is one,
     /// else the nearest locality): its time, and what it answered where the case checks that.
     async fn reverse(&self, case: &Case, repeat: usize) -> (Option<f64>, Option<Located>) {
-        let Some(expect) = case.expect.as_ref().and_then(expected_place) else {
+        let Some((full, expect)) = case
+            .expect
+            .as_ref()
+            .and_then(|full| Some((full, expected_place(full)?)))
+        else {
             return (None, None);
         };
         let [lat, lon] = expect.point.unwrap_or_default();
         self.budget.take().await;
         let request = json!({ "lat": lat, "lon": lon });
-        let (mut fastest, mut found) = (None::<Duration>, Located::default());
+        let (mut fastest, mut found) = (None::<Duration>, unanswered());
         for _ in 0..repeat.max(1) {
             let started = Instant::now();
             match rpc_json(&self.client, &self.base, "ReverseGeocode", &request).await {
@@ -377,8 +400,25 @@ impl Checker {
             fastest = Some(fastest.map_or(took, |f| f.min(took)));
         }
         let ms = fastest.map(|f| (f.as_secs_f64() * 1e6).round() / 1e3);
-        found.class = reverse_class(expect, place_name(case), &found).into();
+        found.class = reverse_class(full, place_name(case), &found, false).into();
         (ms, reverse_applies(expect).then_some(found))
+    }
+
+    /// ReverseGeocode `OFFSET_M` from a house case's point, untimed.
+    async fn reverse_offset(&self, case: &Case) -> Option<Located> {
+        let full = case.expect.as_ref()?;
+        let [lat, lon] = offset_point(full, &case.location)?;
+        self.budget.take().await;
+        let request = json!({ "lat": lat, "lon": lon });
+        let mut found = match rpc_json(&self.client, &self.base, "ReverseGeocode", &request).await {
+            Ok(body) => reversed(&body),
+            Err(error) => Located {
+                error: Some(error),
+                ..unanswered()
+            },
+        };
+        found.class = reverse_class(full, place_name(case), &found, true).into();
+        Some(found)
     }
 
     /// ResolveRegion at the point of a place in a known region.
@@ -1218,12 +1258,17 @@ mod tests {
         let base = format!("http://{}", listener.local_addr().unwrap());
         let app = axum::Router::new().fallback(
             |uri: axum::http::Uri, axum::Json(request): axum::Json<Value>| async move {
-                assert_eq!(request, json!({"lat":55., "lon":12.}));
+                let at = request == json!({"lat":55., "lon":12.});
                 axum::Json(if uri.path().ends_with("/ResolveRegion") {
+                    assert!(at);
                     json!({"regions":[{"countryCode":"dk", "adminCode":"84"}]})
                 } else {
                     assert!(uri.path().ends_with("/ReverseGeocode"));
-                    json!({"results":[{"address":{"addressDetails":{"countryCode":"dk", "regionCodes":[{"code":"DK-84"}]}}}]})
+                    // the offset request is 25 m away, and finds the same house
+                    let point = ["lat", "lon"].map(|k| request[k].as_f64().unwrap());
+                    let metres = crate::score::haversine([55., 12.], point) * 1000.;
+                    assert!(at || (metres - crate::score::OFFSET_M).abs() < 0.1);
+                    json!({"results":[{"layer":"address", "address":{"geoCoordinates":{"lat":55.0001, "lon":12.}, "addressDetails":{"countryCode":"dk", "regionCodes":[{"code":"DK-84"}], "houseNumber":"45"}}}]})
                 })
             },
         );
@@ -1236,13 +1281,14 @@ mod tests {
             repeat: 1,
             budget: Budget {
                 interval: Duration::ZERO,
-                limit: 2,
+                limit: 3,
                 used: AtomicUsize::new(0),
                 next: tokio::sync::Mutex::new(tokio::time::Instant::now()),
             },
         };
-        let alternative = |number| json!({"country":["dk"], "region":["DK-84"], "point":[55.,12.], "level":"house", "components":{"house_number":number}});
+        let alternative = |number| json!({"country":["dk"], "region":["DK-84"], "point":[55.,12.], "radius_km":0.15, "level":"house", "components":{"house_number":number}});
         let case = Case {
+            location: "dar:1".into(),
             expect: Some(
                 serde_json::from_value(json!({"any_of":[alternative("12"),alternative("45")]}))
                     .unwrap(),
@@ -1250,19 +1296,34 @@ mod tests {
             ..Default::default()
         };
         let (_, reverse) = checker.reverse(&case, 1).await;
+        let reverse_offset = checker.reverse_offset(&case).await;
         let region = checker.region(&case).await;
         let mut record = Record {
             reverse,
+            reverse_offset,
             region,
             ..Default::default()
         };
-        assert_eq!(record.reverse.as_ref().unwrap().class, "pass");
-        assert_eq!(record.region.as_ref().unwrap().class, "pass");
+        let classes = |r: &Record| {
+            [&r.reverse, &r.reverse_offset, &r.region].map(|l| l.as_ref().unwrap().class.clone())
+        };
+        assert_eq!(classes(&record), ["pass", "pass", "pass"]);
         rescore_locate(&case, &mut record);
-        assert_eq!(record.reverse.as_ref().unwrap().class, "pass");
-        assert_eq!(record.region.as_ref().unwrap().class, "pass");
+        assert_eq!(classes(&record), ["pass", "pass", "pass"]);
+        // another number is another house at the point, but still a house near it from the offset
+        for found in [&mut record.reverse, &mut record.reverse_offset] {
+            found
+                .as_mut()
+                .unwrap()
+                .answer
+                .as_mut()
+                .unwrap()
+                .house_number = "13".into();
+        }
+        rescore_locate(&case, &mut record);
+        assert_eq!(classes(&record), ["wrong_house", "pass", "pass"]);
         server.abort();
-        assert_eq!(checker.budget.used(), 2);
+        assert_eq!(checker.budget.used(), 3);
     }
 
     #[tokio::test]

@@ -264,6 +264,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
             radius_floor_km: 0.15,
             provenance,
             number_aliases: (!a.flat.is_empty()).then(|| BTreeSet::from([a.number.clone(), format!("{}/{}", a.flat, a.number)])),
+            places: super::places([a.locality.as_str()]),
         }))
     }).collect()
 }

@@ -2,7 +2,7 @@ use crate::{
     model::{Case, Located, Record, SuggestCheck, load_jsonl},
     score::{
         CLASSES, DRIFT_KINDS, LOCATE_CLASSES, SUGGEST_CLASSES, Summary, comparable, critical,
-        drift, haversine, locate_severity, severity, snapshot_point, suggest_class,
+        drift, expected_place, haversine, locate_severity, severity, snapshot_point, suggest_class,
         suggest_severity,
     },
 };
@@ -713,12 +713,18 @@ fn suggest_section(out: &mut String, results: &[&Record], cohort: &dyn Fn(&Recor
     }
 }
 
-/// The checks of a record that ask where a point is: ReverseGeocode and ResolveRegion.
-fn located(record: &Record) -> [(&'static str, Option<&Located>); 2] {
+/// The checks of a record that ask where a point is: ReverseGeocode at the point and off a
+/// house's point, and ResolveRegion. A check's RPC is its name's first word.
+fn located(record: &Record) -> [(&'static str, Option<&Located>); 3] {
     [
         ("ReverseGeocode", record.reverse.as_ref()),
+        ("ReverseGeocode offset", record.reverse_offset.as_ref()),
         ("ResolveRegion", record.region.as_ref()),
     ]
+}
+
+fn rpc_of(check: &'static str) -> &'static str {
+    check.split(' ').next().unwrap_or(check)
 }
 
 fn locate_label(found: &Located) -> String {
@@ -732,8 +738,17 @@ fn locate_label(found: &Located) -> String {
                 .take(3)
                 .map(String::as_str)
                 .collect::<Vec<_>>();
+            let house = found.answer.as_ref().map_or(String::new(), |a| {
+                let parts = [&a.house_number, &a.road, &a.postcode];
+                let parts: Vec<_> = parts
+                    .iter()
+                    .filter(|p| !p.is_empty())
+                    .map(|p| p.as_str())
+                    .collect();
+                format!(" \u{b7} {} {}", a.layer, parts.join(" "))
+            });
             format!(
-                "[{}] {} {}",
+                "[{}] {} {}{house}",
                 found.country,
                 found.regions.join(", "),
                 places.join(", ")
@@ -761,7 +776,7 @@ fn locate_section(out: &mut String, results: &[&Record], cohort: &dyn Fn(&Record
     }
     let _ = write!(
         out,
-        "\n## ReverseGeocode and ResolveRegion\n\nBoth are asked about each case's single expected place, including same-point address alternatives. ReverseGeocode: the nearest result is in the expected country (and region, for a locality or finer) and, for a locality with an English Wikidata label, names it; ResolveRegion: one of the regions found is an expected one.\n\n| Check | Cohort | {} |\n|---|---|{}\n",
+        "\n## ReverseGeocode and ResolveRegion\n\nBoth are asked about each case's single expected place, including same-point address alternatives. ReverseGeocode: the nearest result is in the expected country (and region, where the case has one), names the place (a locality's English Wikidata label, or one of the source's names for a house's town) and, at a house's point, is that house (number, within the case's radius, postcode); `offset` asks 25 m away and wants a house within the radius. ResolveRegion: one of the regions found is an expected one.\n\n| Check | Cohort | {} |\n|---|---|{}\n",
         LOCATE_CLASSES.join(" | "),
         "---:|".repeat(LOCATE_CLASSES.len())
     );
@@ -1393,11 +1408,16 @@ pub fn diff(
             let (Some(fa), Some(fb)) = (fa, fb) else {
                 continue;
             };
-            let (ca, cb) = comparable(fa, fb);
+            let level = cases
+                .get(id.as_str())
+                .and_then(|c| c.expect.as_ref())
+                .and_then(expected_place)
+                .map_or("", |e| e.level.as_str());
+            let (ca, cb) = comparable(fa, fb, level);
             if ca != cb {
                 *changed_checks.entry(name).or_default() += 1;
             }
-            tally(name, ca == "pass", cb == "pass");
+            tally(rpc_of(name), ca == "pass", cb == "pass");
             let counts = locate_counts.entry(name).or_default();
             counts[0] += 1;
             counts[1] += usize::from(ca == "pass");
@@ -1569,23 +1589,28 @@ pub fn diff(
         .iter()
         .filter(|(name, _)| changed_checks.contains_key(*name))
     {
-        let rule = if *name == "ReverseGeocode" {
-            "the nearest result is in the expected country, and region where the place is a locality or finer, and names a locality's English Wikidata label among its places"
-        } else {
-            "one of the regions found is an expected one"
+        let rule = match *name {
+            "ReverseGeocode" => {
+                "the nearest result is in the expected country, and region where the case has one, names the place (a locality's English Wikidata label, or one of the source's names for a house's town) and, at a house's point, is that house: its number, within the case's radius, and its postcode where both have one"
+            }
+            "ReverseGeocode offset" => {
+                "the nearest result 25 m from a house's point is in the expected country, region and place, and is a house within the case's radius of it"
+            }
+            _ => "one of the regions found is an expected one",
         };
+        let failures = &LOCATE_CLASSES[1..];
+        let cells: Vec<_> = c[3..].iter().map(usize::to_string).collect();
         let _ = write!(
             report,
-            "\n## {name}\n\n| Checked | Pass base | Pass head | Change | empty | wrong_place | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n| {} | {} | {} | {:+} | {} | {} | {} | {} | {} |\n\nPasses when {rule}. The last five columns count the head's failures.\n",
+            "\n## {name}\n\n| Checked | Pass base | Pass head | Change | {} |\n|---:|---:|---:|---:|{}\n| {} | {} | {} | {:+} | {} |\n\nPasses when {rule}. The last {} columns count the head's failures.\n",
+            failures.join(" | "),
+            "---:|".repeat(failures.len()),
             c[0],
             c[1],
             c[2],
             c[2] as i64 - c[1] as i64,
-            c[3],
-            c[4],
-            c[5],
-            c[6],
-            c[7]
+            cells.join(" | "),
+            failures.len()
         );
     }
     // Gating lists stay open; the lists to review are folded.
@@ -2138,6 +2163,7 @@ mod tests {
             country: country.into(),
             regions: vec![],
             places: None,
+            answer: None,
             error: None,
         };
         for (side, reverse, region) in [
@@ -2168,7 +2194,7 @@ mod tests {
         );
         assert!(!report.contains("ResolveRegion pass ->"), "{report}");
         assert!(
-            report.contains("## ReverseGeocode\n\n| Checked | Pass base | Pass head | Change | empty | wrong_place | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n| 1 | 1 | 0 | -1 | 0 | 0 | 0 | 1 | 0 |\n"),
+            report.contains("## ReverseGeocode\n\n| Checked | Pass base | Pass head | Change | no_house | empty | wrong_postcode | wrong_house | wrong_place | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n| 1 | 1 | 0 | -1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 |\n"),
             "{report}"
         );
         assert!(!report.contains("## ResolveRegion"), "{report}");
@@ -2242,7 +2268,7 @@ mod tests {
         assert!(report.contains("| full | 2 | 1 | 1 | +0 |"), "{report}");
         for name in ["ReverseGeocode", "ResolveRegion"] {
             assert!(
-                report.contains(&format!("## {name}\n\n| Checked | Pass base | Pass head | Change | empty | wrong_place | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n| 2 | 1 | 1 | +0 |")),
+                report.contains(&format!("## {name}\n\n| Checked | Pass base | Pass head | Change | no_house | empty | wrong_postcode | wrong_house | wrong_place | wrong_region | wrong_country | error |\n|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n| 2 | 1 | 1 | +0 |")),
                 "{report}"
             );
             assert!(

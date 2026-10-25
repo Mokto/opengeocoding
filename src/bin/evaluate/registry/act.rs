@@ -241,6 +241,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
                     radius_floor_km: 0.15,
                     provenance,
                     number_aliases: None,
+                    places: super::places([address.localite.as_str(), &address.commune]),
                 },
             ))
         })

@@ -265,7 +265,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
         let a = rows.get(id).with_context(|| format!("Taipei lacks building {id}"))?;
         let mut provenance = metadata.clone();
         provenance.extend(serde_json::from_value::<serde_json::Map<String, Value>>(json!({"district_code":a.district,"street":a.street,"area":a.area,"lane":a.lane,"alley":a.alley,"house_number":a.raw_number,"floor_address":a.floor.as_ref().map(|f| &f.0),"coordinate_transform":"EPSG:3826 to EPSG:4326, DuckDB spatial / PROJ, always_xy=true","location_key":"SHA256(district, street, area, lane, alley, house number), ASCII digits, NUL separated"}))?);
-        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number.clone())]), radius_floor_km: 0.15, provenance, number_aliases: None }))
+        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number.clone())]), radius_floor_km: 0.15, provenance, number_aliases: None, places: vec![] }))
     }).collect()
 }
 

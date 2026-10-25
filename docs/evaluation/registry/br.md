@@ -104,3 +104,5 @@ Overall 302/316 pass; 6 are too coarse and 8 near misses, with no critical resul
 - **Brasília (1, matching):** "EDF QNM 19 CONJUNTO G, 45, Brasília - DF" answers Brasília though the raw search's first candidate is the house; the `full` form, which names CEILANDIA, passes.
 
 These are diagnostic results on a local index, not a CI gold run. The documented fresh-service grpcurl SearchAddress hang reproduced as a known failure. Human review of the source points is pending.
+
+Each case's `places`, the names ReverseGeocode's answer must include one of, are CNEFE's `DSC_LOCALIDADE` and the IBGE municipality name.

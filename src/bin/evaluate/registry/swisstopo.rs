@@ -25,6 +25,7 @@ pub struct Address {
     pub canton: String,
     city: String,
     municipality: String,
+    municipality_name: String,
     pub lv95: [f64; 2],
 }
 
@@ -73,6 +74,7 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
         "BDG_CATEGORY",
         "ZIP_LABEL",
         "COM_FOSNR",
+        "COM_NAME",
         "COM_CANTON",
         "ADR_STATUS",
         "ADR_OFFICIAL",
@@ -133,6 +135,7 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
             city: city.trim().into(),
             canton: field("COM_CANTON").into(),
             municipality: field("COM_FOSNR").into(),
+            municipality_name: field("COM_NAME").into(),
             lv95: [easting, northing],
         })?;
     }
@@ -296,6 +299,17 @@ pub const REGISTRY: Registry = Registry {
     prepare,
 };
 
+/// A place's name without the canton that tells it from its namesakes: "Buchs AG" and
+/// "Buchs (AG)" are Buchs.
+fn without_canton(name: &str) -> &str {
+    name.rsplit_once(' ')
+        .filter(|(_, canton)| {
+            let canton = canton.trim_start_matches('(').trim_end_matches(')');
+            CANTONS.contains(&canton)
+        })
+        .map_or(name, |(name, _)| name)
+}
+
 fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entry>> {
     let metadata = {
         let mut metadata = super::provenance(path)?;
@@ -320,6 +334,12 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
                     radius_floor_km: 0.,
                     provenance: metadata.clone(),
                     number_aliases: None,
+                    places: super::places([
+                        row.city.as_str(),
+                        without_canton(&row.city),
+                        &row.municipality_name,
+                        without_canton(&row.municipality_name),
+                    ]),
                 },
             ))
         })
@@ -333,13 +353,13 @@ mod tests {
     #[test]
     fn official_rows_and_reframe_axes_define_the_expectations() {
         let path = std::env::temp_dir().join(format!("swisstopo-test-{}.csv", std::process::id()));
-        let header = "ADR_EGAID;STN_LABEL;ADR_NUMBER;BDG_CATEGORY;ZIP_LABEL;COM_FOSNR;COM_CANTON;ADR_STATUS;ADR_OFFICIAL;ADR_EASTING;ADR_NORTHING\n";
+        let header = "ADR_EGAID;STN_LABEL;ADR_NUMBER;BDG_CATEGORY;ZIP_LABEL;COM_FOSNR;COM_NAME;COM_CANTON;ADR_STATUS;ADR_OFFICIAL;ADR_EASTING;ADR_NORTHING\n";
         let rows = [
-            "1;Münstergasse;12a;residential;3011 Bern;351;BE;real;true;2600000;1200000\n",
-            "2;\"Rue du; Lac\";4;residential;2502 Biel/Bienne;371;BE;real;true;2600100;1200100\n",
-            "3;Voie future;5;residential;2502 Biel/Bienne;371;BE;planned;true;2600100;1200100\n",
-            "4;Voie officieuse;5;residential;2502 Biel/Bienne;371;BE;real;false;2600100;1200100\n",
-            "5;Voie invalide;5;residential;2502 Biel/Bienne;371;BE;real;true;NaN;1200100\n",
+            "1;Münstergasse;12a;residential;3011 Bern;351;Bern;BE;real;true;2600000;1200000\n",
+            "2;\"Rue du; Lac\";4;residential;2502 Biel/Bienne;371;Biel/Bienne;BE;real;true;2600100;1200100\n",
+            "3;Voie future;5;residential;2502 Biel/Bienne;371;Biel/Bienne;BE;planned;true;2600100;1200100\n",
+            "4;Voie officieuse;5;residential;2502 Biel/Bienne;371;Biel/Bienne;BE;real;false;2600100;1200100\n",
+            "5;Voie invalide;5;residential;2502 Biel/Bienne;371;Biel/Bienne;BE;real;true;NaN;1200100\n",
         ];
         let write =
             |rows: &[&str]| std::fs::write(&path, format!("{header}{}", rows.concat())).unwrap();
@@ -356,6 +376,10 @@ mod tests {
         assert_eq!(found["1"].postcode, "3011");
         assert_eq!(found["1"].lv95, [2_600_000., 1_200_000.]);
         assert_eq!(found["2"].city, "Biel/Bienne");
+        assert_eq!(found["1"].municipality_name, "Bern");
+        assert_eq!(without_canton("Buchs (AG)"), "Buchs");
+        assert_eq!(without_canton("Veltheim AG"), "Veltheim");
+        assert_eq!(without_canton("St. Gallen"), "St. Gallen");
         assert_eq!(found["2"].street, "Rue du; Lac");
         assert!(lookup(&path, &BTreeSet::from(["absent".into()])).is_err());
         let point =
@@ -365,7 +389,7 @@ mod tests {
         assert!(reframed_point(&json!({"easting":"7", "northing":"NaN"})).is_err());
         assert!(reframed_point(&json!({"easting":"7", "northing":"91"})).is_err());
         assert!(reframed_point(&json!({"error":"unavailable"})).is_err());
-        write(&["1;Münstergasse;12a;residential;3011 Bern;351;BE;real;true;600000;200000\n"]);
+        write(&["1;Münstergasse;12a;residential;3011 Bern;351;Bern;BE;real;true;600000;200000\n"]);
         assert!(sample(&path, "test").is_err());
         std::fs::remove_file(path).unwrap();
     }

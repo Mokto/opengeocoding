@@ -19,6 +19,8 @@ pub struct Address {
     pub postcode: String,
     city: String,
     municipality: String,
+    /// The urban settlement (tettsted) and municipality names.
+    places: [String; 2],
     pub point: [f64; 2],
 }
 
@@ -56,6 +58,8 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
         "Øst",
         "postnummer",
         "poststed",
+        "tettstednavn",
+        "kommunenavn",
     ] {
         ensure!(columns.contains_key(name), "Kartverket CSV missing {name}");
     }
@@ -108,6 +112,7 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
             postcode: postcode.into(),
             city: field("poststed").into(),
             municipality: municipality.into(),
+            places: [field("tettstednavn").into(), field("kommunenavn").into()],
             point: [lat, lon],
         })?;
     }
@@ -288,6 +293,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
                     radius_floor_km: 0.,
                     provenance: metadata.clone(),
                     number_aliases: None,
+                    places: super::places([row.city.as_str(), &row.places[0], &row.places[1]]),
                 },
             ))
         })
@@ -301,13 +307,13 @@ mod tests {
     #[test]
     fn source_rows_not_geocoder_answers_define_the_sample() {
         let path = std::env::temp_dir().join(format!("kartverket-test-{}.csv", std::process::id()));
-        let header = "uuidAdresse;kommunenummer;adressetype;adressenavn;nummer;bokstav;EPSG-kode;Nord;Øst;postnummer;poststed\n";
+        let header = "uuidAdresse;kommunenummer;adressetype;adressenavn;nummer;bokstav;EPSG-kode;Nord;Øst;postnummer;poststed;tettstednavn;kommunenavn\n";
         let rows = [
-            "a;0301;vegadresse;Øvre gate;12;B;4258;59.92;10.78;0123;OSLO\n",
-            "b;0301;vegadresse;\"Nedre; gate\";4;;4258;59.93;10.79;0456;OSLO\n",
-            "c;0301;matrikkeladresse;;4;;4258;59.93;10.79;0456;OSLO\n",
-            "d;0301;vegadresse;Ugyldig;4;;4258;NaN;10.79;0456;OSLO\n",
-            "e;2100;vegadresse;Vei;4;;4258;78;15;9170;LONGYEARBYEN\n",
+            "a;0301;vegadresse;Øvre gate;12;B;4258;59.92;10.78;0123;OSLO;Oslo;Oslo\n",
+            "b;0301;vegadresse;\"Nedre; gate\";4;;4258;59.93;10.79;0456;OSLO;Oslo;Oslo\n",
+            "c;0301;matrikkeladresse;;4;;4258;59.93;10.79;0456;OSLO;Oslo;Oslo\n",
+            "d;0301;vegadresse;Ugyldig;4;;4258;NaN;10.79;0456;OSLO;Oslo;Oslo\n",
+            "e;2100;vegadresse;Vei;4;;4258;78;15;9170;LONGYEARBYEN;Longyearbyen;Svalbard\n",
         ];
         let write =
             |rows: &[&str]| std::fs::write(&path, format!("{header}{}", rows.concat())).unwrap();
@@ -325,6 +331,7 @@ mod tests {
         let found = lookup(&path, &BTreeSet::from(["a".into(), "b".into()])).unwrap();
         assert_eq!(found["a"].number, "12B");
         assert_eq!(found["a"].postcode, "0123");
+        assert_eq!(found["a"].places, ["Oslo", "Oslo"].map(String::from));
         assert_eq!(found["a"].point, [59.92, 10.78]);
         assert!(found["a"].query().starts_with("Øvre gate 12B"));
         assert_eq!(found["b"].street, "Nedre; gate");
@@ -334,7 +341,7 @@ mod tests {
                 .iter()
                 .any(|(k, q, g)| *k == "ascii" && q.starts_with("Ovre gate") && *g == Some(true))
         );
-        write(&["a;0301;vegadresse;Øvre gate;12;B;25833;6640000;263000;0123;OSLO\n"]);
+        write(&["a;0301;vegadresse;Øvre gate;12;B;25833;6640000;263000;0123;OSLO;Oslo;Oslo\n"]);
         assert!(
             sample(&path, "test")
                 .unwrap_err()
