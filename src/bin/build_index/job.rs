@@ -92,6 +92,12 @@ pub fn job(args: Vec<String>) -> Result<()> {
     if let Some(d) = &got.osm_landmarks {
         build.extend(["--osm-landmarks".into(), d.to_string_lossy().into_owned()]);
     }
+    if let Some(d) = &got.korea_shops {
+        build.extend([
+            "--korea-shops".into(),
+            d.join("shops.zip").to_string_lossy().into_owned(),
+        ]);
+    }
     if let Some(b) = sources.bbox() {
         build.extend([
             "--bbox".into(),
@@ -122,7 +128,10 @@ pub fn job(args: Vec<String>) -> Result<()> {
             "models_version": version,
         }))?,
     )?;
-    std::fs::write(out.join("ATTRIBUTION.txt"), attribution(&sources, &out)?)?;
+    std::fs::write(
+        out.join("ATTRIBUTION.txt"),
+        attribution(&sources, &out, got.korea_shops.as_deref())?,
+    )?;
     progress::phase("Verify");
     verify(&out)?;
     progress::phase("Upload");
@@ -191,7 +200,7 @@ fn verify(dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn attribution(sources: &Sources, out: &Path) -> Result<String> {
+fn attribution(sources: &Sources, out: &Path, korea_shops: Option<&Path>) -> Result<String> {
     let mut text = format!(
         "Built from these sources; their licences and attribution requirements apply to the index \
          and to answers derived from it.\n\n\
@@ -209,6 +218,16 @@ fn attribution(sources: &Sources, out: &Path) -> Result<String> {
         text += "GeoNames postal codes: CC BY 4.0, https://www.geonames.org/\n";
     }
     text += "GeoNames populated places: CC BY 4.0, https://www.geonames.org/\n";
+    if let Some(d) = korea_shops {
+        let source: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(d.join("source.json"))?)?;
+        text += &format!(
+            "Small Enterprise and Market Service (소상공인시장진흥공단), {} ({}), via the Korea Public Data Portal, use permitted without restriction ({}): Korean road and land-lot addresses and points of its shops\n",
+            source["dataset"].as_str().unwrap_or(""),
+            source["page"].as_str().unwrap_or(""),
+            source["terms"].as_str().unwrap_or(""),
+        );
+    }
     if let Ok(read) = std::fs::read_to_string(out.join("openaddresses.tsv")) {
         text += "OpenAddresses (https://openaddresses.io), sources read and their licences:\n";
         for line in read.lines().skip(1) {

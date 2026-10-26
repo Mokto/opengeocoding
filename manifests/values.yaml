@@ -38,7 +38,7 @@ index:
   # test` fails when the code and this disagree. Changing it, or anything under sources or
   # modelsVersion, names a new index: the leader builds it while the running pods keep
   # serving the old one.
-  builderHash: "2bf3392e7de7dee5"
+  builderHash: "a99e21988a34b691"
   modelsVersion: v1
   sources:
     overtureRelease: "2026-10-21.0"
@@ -49,6 +49,10 @@ index:
     # [min lon, min lat, max lon, max lat] to build a regional index; empty for the world.
     # Overture is then read only where its row groups meet the box.
     bbox: []
+    # Small Enterprise and Market Service, 2026-06-30; commercial-building addresses only.
+    koreaShops:
+      attachment: FILE_000000003695831
+      sha256: 57aa361544108ff4fc73334f87d2ced61e41fe8638dd70bcd842930f865d2386
     # GeoNames postal-code exports; earlier entries win for a postcode several define.
     geonamesPostal:
       - GB_full.csv
