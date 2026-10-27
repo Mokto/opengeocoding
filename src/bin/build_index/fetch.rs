@@ -836,6 +836,7 @@ async fn openaddresses(
                 .filter(|l| l["layer"] == "addresses" && l["job"].is_u64())
                 .filter(|l| l["source"].as_str().is_some_and(|s| !carried.contains(s)))
                 .collect();
+            let layers = one_layer_per_file(layers);
             println!(
                 "openaddresses: {} address layers not in Overture ({} sources Overture carries)",
                 layers.len(),
@@ -866,10 +867,9 @@ async fn openaddresses(
                         continue;
                     }
                 }
-                let (Some(source), Some(name)) = (layer["source"].as_str(), layer["name"].as_str()) else {
+                let Some(stem) = oa_stem(&layer) else {
                     continue;
                 };
-                let stem = format!("{}-{name}", source.replace('/', "_"));
                 let job = layer["job"].as_u64().unwrap_or_default();
                 items.push((
                     format!("{stem}.geojson.gz"),
@@ -908,6 +908,20 @@ async fn openaddresses(
         },
     )
     .await
+}
+
+/// The file name an OpenAddresses layer is mirrored under.
+fn oa_stem(layer: &serde_json::Value) -> Option<String> {
+    let (source, name) = (layer["source"].as_str()?, layer["name"].as_str()?);
+    Some(format!("{}-{name}", source.replace('/', "_")))
+}
+
+/// The catalogue can list a layer twice (us/wi/la_crosse county did, under two ids with one job);
+/// two downloads of one file race on its `.part`, so only the newest job per file is kept.
+fn one_layer_per_file(mut layers: Vec<serde_json::Value>) -> Vec<serde_json::Value> {
+    layers.sort_by_key(|l| (oa_stem(l), std::cmp::Reverse(l["job"].as_u64())));
+    layers.dedup_by_key(|l| oa_stem(l));
+    layers
 }
 
 enum OaItem {
@@ -978,6 +992,30 @@ pub fn carried_datasets(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn openaddresses_mirrors_each_file_once_from_its_newest_job() {
+        let layer = |source: &str, name: &str, job: u64| serde_json::json!({"source": source, "name": name, "job": job});
+        let kept = one_layer_per_file(vec![
+            layer("us/wi/la_crosse", "county", 815018),
+            layer("us/ca/marin", "county", 7),
+            layer("us/wi/la_crosse", "county", 815018),
+            layer("us/wi/la_crosse", "county", 900000),
+            layer("us/wi/la_crosse", "city", 1),
+        ]);
+        let kept: Vec<_> = kept
+            .iter()
+            .map(|l| (oa_stem(l).unwrap(), l["job"].as_u64().unwrap()))
+            .collect();
+        assert_eq!(
+            kept,
+            [
+                ("us_ca_marin-county".to_string(), 7),
+                ("us_wi_la_crosse-city".to_string(), 1),
+                ("us_wi_la_crosse-county".to_string(), 900000),
+            ]
+        );
+    }
 
     #[test]
     fn sources_validate() {
