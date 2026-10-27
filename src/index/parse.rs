@@ -396,6 +396,18 @@ impl Parser {
                     swapped = Some(turned);
                 }
             }
+            // "Ahtri tn 12, Tallinn": libpostal reads the number into a road with an abbreviated
+            // Estonian street type, not into one written out
+            let mut estonian = false;
+            if swapped.is_none()
+                && crate::matching::expected_country(&whole.iter().cloned().collect()) == "ee"
+                && let Some(full) = ee::full_road(q)
+            {
+                whole = libpostal(&full)?;
+                swapped = Some(full);
+                estonian = true;
+            }
+            let typed = q;
             let q = swapped.as_deref().unwrap_or(q);
             let mut parts: Vec<&str> = q.split(',').collect();
             // "…, NJ 07111, United States": the country part is set aside while the rest aligns
@@ -535,6 +547,9 @@ impl Parser {
                 None => whole,
             };
             unit_from_road(&mut parsed);
+            if estonian {
+                ee::typed_road(&mut parsed, typed);
+            }
             pt::number_from_avenida(&mut parsed);
             cn_tw::number_from_cjk_road(&mut parsed);
             cz_sk::czech_number_marks(&mut parsed);
