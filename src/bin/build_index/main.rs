@@ -739,11 +739,12 @@ struct SegAgg {
     /// Its id in the spilled street edges: position in its shard, then shard.
     id: u32,
     name: Str,
-    /// Sorted, without duplicates.
-    alt: Vec<Str>,
+    /// Sorted, without duplicates, in a box of its size: a world build holds tens of millions.
+    alt: Box<[Str]>,
     sx: i64,
     sy: i64,
-    n: u64,
+    /// Segment rows; all of a world release's are a tenth of `u32::MAX`.
+    n: u32,
 }
 
 impl SegAgg {
@@ -752,9 +753,17 @@ impl SegAgg {
             self.name = other.name;
         }
         for a in other.alt {
-            insert_sorted(&mut self.alt, a);
+            self.alt_name(&a);
         }
         (self.sx, self.sy, self.n) = (self.sx + other.sx, self.sy + other.sy, self.n + other.n);
+    }
+
+    fn alt_name(&mut self, s: &str) {
+        if self.alt.binary_search_by(|a| (**a).cmp(s)).is_err() {
+            let mut alt = std::mem::take(&mut self.alt).into_vec();
+            insert_name(&mut alt, s);
+            self.alt = alt.into();
+        }
     }
 }
 
@@ -841,7 +850,7 @@ fn pass_segments(
                     e.name = primary.into();
                 }
                 for alt in &names[1..] {
-                    insert_name(&mut e.alt, alt);
+                    e.alt_name(alt);
                 }
                 (e.sx, e.sy, e.n) = (e.sx + quantize(x), e.sy + quantize(y), e.n + 1);
                 let street = class.is_null(i) || !NOT_STREETS.contains(&class.value(i));
@@ -880,31 +889,132 @@ struct AddrAgg {
     /// `MAX_POSTCODES` and `MAX_CITIES`.
     pcs: Vec<u32>,
     cities: Vec<u32>,
-    postal_towns: Vec<(u32, u32, u32, u32)>,
+    /// Sorted `town`s.
+    postal_towns: Vec<u64>,
     sx: i64,
     sy: i64,
     n: u64,
 }
 
-impl AddrAgg {
+/// A street as the shared shards hold it until every source is read: `AddrAgg`'s lists in boxes
+/// of their exact size, which for tens of millions of streets saves a fifth of their memory.
+#[derive(Default)]
+struct Street {
+    name: Str,
+    pcs: Box<[u32]>,
+    cities: Box<[u32]>,
+    postal_towns: Box<[u64]>,
+    sx: i64,
+    sy: i64,
+    n: u64,
+}
+
+impl Street {
     fn add(&mut self, other: AddrAgg) {
         if prefer(&other.name, &self.name) {
             self.name = other.name;
         }
-        for p in other.pcs {
-            push_unique(&mut self.pcs, p, MAX_HELD_POSTCODES);
-        }
-        for c in other.cities {
-            insert_sorted(&mut self.cities, c);
-        }
-        if self.postal_towns.is_empty() {
-            self.postal_towns = other.postal_towns;
-        } else {
-            for town in other.postal_towns {
-                insert_sorted(&mut self.postal_towns, town);
+        if !other.pcs.is_empty() {
+            let mut pcs = std::mem::take(&mut self.pcs).into_vec();
+            for p in other.pcs {
+                push_unique(&mut pcs, p, MAX_HELD_POSTCODES);
             }
+            self.pcs = pcs.into();
         }
+        union(&mut self.cities, other.cities);
+        union(&mut self.postal_towns, other.postal_towns);
         (self.sx, self.sy, self.n) = (self.sx + other.sx, self.sy + other.sy, self.n + other.n);
+    }
+}
+
+impl From<AddrAgg> for Street {
+    fn from(a: AddrAgg) -> Street {
+        Street {
+            name: a.name,
+            pcs: a.pcs.into(),
+            cities: a.cities.into(),
+            postal_towns: a.postal_towns.into(),
+            sx: a.sx,
+            sy: a.sy,
+            n: a.n,
+        }
+    }
+}
+
+impl From<Street> for AddrAgg {
+    fn from(s: Street) -> AddrAgg {
+        AddrAgg {
+            name: s.name,
+            pcs: s.pcs.into(),
+            cities: s.cities.into(),
+            postal_towns: s.postal_towns.into(),
+            sx: s.sx,
+            sy: s.sy,
+            n: s.n,
+        }
+    }
+}
+
+/// Makes the sorted, duplicate-free `a` hold `b`'s values too (`b` sorted and duplicate-free).
+fn union<T: Ord + Copy>(a: &mut Box<[T]>, b: Vec<T>) {
+    if b.is_empty() {
+        return;
+    }
+    if a.is_empty() {
+        *a = b.into();
+        return;
+    }
+    let mut out = Vec::with_capacity(a.len() + b.len());
+    let (mut i, mut j) = (0, 0);
+    while i < a.len() && j < b.len() {
+        match a[i].cmp(&b[j]) {
+            std::cmp::Ordering::Less => (out.push(a[i]), i += 1),
+            std::cmp::Ordering::Greater => (out.push(b[j]), j += 1),
+            std::cmp::Ordering::Equal => (out.push(a[i]), (i, j) = (i + 1, j + 1)),
+        };
+    }
+    out.extend_from_slice(&a[i..]);
+    out.extend_from_slice(&b[j..]);
+    *a = out.into();
+}
+
+/// A postal town: its `Pairs` id and either its postcode (top bit set) or, for an address
+/// without one, its house number. The other of the two is always empty, which is what lets
+/// a town take 8 bytes instead of four ids' 16; these are a street's largest list.
+fn town(postcode: bool, pair: u32, value: u32) -> u64 {
+    assert!(pair < 1 << 31, "too many postal towns");
+    (postcode as u64) << 63 | (pair as u64) << 32 | value as u64
+}
+
+/// A `town`'s postcode, house number, city and source, with `empty` for the missing one.
+fn untown(t: u64, pairs: &[Pair], empty: u32) -> (u32, u32, u32, u32) {
+    let (city, source) = pairs[(t >> 32 & 0x7fff_ffff) as usize];
+    let value = t as u32;
+    match t >> 63 {
+        1 => (value, empty, city, source),
+        _ => (empty, value, city, source),
+    }
+}
+
+type Pair = (u32, u32);
+
+/// Postal towns' (city, source) pairs, numbered as first seen.
+#[derive(Default)]
+struct Pairs(Mutex<(HashMap<Pair, u32>, Vec<Pair>)>);
+
+impl Pairs {
+    fn cached(&self, cache: &mut HashMap<Pair, u32>, p: Pair) -> u32 {
+        if let Some(&i) = cache.get(&p) {
+            return i;
+        }
+        let mut g = self.0.lock().unwrap();
+        let (ids, all) = &mut *g;
+        let i = *ids.entry(p).or_insert_with(|| {
+            all.push(p);
+            all.len() as u32 - 1
+        });
+        cache.insert(p, i);
+        i
     }
 }
 
@@ -915,7 +1025,7 @@ const NO_PLACE: u32 = u32::MAX;
 #[derive(Default)]
 struct AddrShard {
     ids: HashMap<AddrKey, u32>,
-    streets: Vec<AddrAgg>,
+    streets: Vec<Street>,
 }
 
 #[derive(Default)]
@@ -945,6 +1055,7 @@ struct Shared<'a> {
     streets: Vec<Mutex<AddrShard>>,
     postcodes: Vec<Mutex<HashMap<PcKey, PcAgg>>>,
     strings: Interner,
+    pairs: Pairs,
     rows: AtomicU64,
     /// Overture's address rows with a street, per country of the containing place.
     covered: Mutex<HashMap<[u8; 2], u64>>,
@@ -959,6 +1070,7 @@ impl<'a> Shared<'a> {
             streets: sharded(),
             postcodes: sharded(),
             strings: Interner::new(),
+            pairs: Pairs::default(),
             rows: AtomicU64::new(0),
             covered: Mutex::default(),
         }
@@ -1000,6 +1112,7 @@ struct Sink<'s, 'a> {
     aggs: Vec<AddrAgg>,
     pcs: HashMap<[u8; 2], HashMap<Str, PcAgg>>,
     cache: HashMap<Str, u32>,
+    pair_cache: HashMap<Pair, u32>,
     /// sid holds the index into `aggs` until the flush remaps it.
     nums: Bucket,
     rows: u64,
@@ -1025,6 +1138,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             aggs: vec![],
             pcs: HashMap::new(),
             cache: HashMap::new(),
+            pair_cache: HashMap::new(),
             nums: Bucket::default(),
             rows: 0,
             key: String::new(),
@@ -1152,20 +1266,18 @@ impl<'s, 'a> Sink<'s, 'a> {
             let id = strings.cached(&mut self.cache, city.trim());
             let source = strings.cached(&mut self.cache, source);
             insert_sorted(&mut e.cities, id);
-            let pc = pc_id.unwrap_or_else(|| strings.cached(&mut self.cache, ""));
-            let numbers = if pc_id.is_some() {
-                vec![String::new()]
-            } else {
-                number
+            let pair = self.shared.pairs.cached(&mut self.pair_cache, (id, source));
+            let towns: Vec<u64> = match pc_id {
+                Some(pc) => vec![town(true, pair, pc)],
+                None => number
                     .into_iter()
                     .flat_map(|n| n.split(';'))
                     .map(|n| schema::number_key(n.trim_end_matches(BARE)))
                     .filter(|n| !n.is_empty())
-                    .collect()
+                    .map(|n| town(false, pair, strings.cached(&mut self.cache, &n)))
+                    .collect(),
             };
-            for n in numbers {
-                let number = strings.cached(&mut self.cache, &n);
-                let town = (pc, number, id, source);
+            for town in towns {
                 if e.postal_towns.is_empty() {
                     e.postal_towns = vec![town];
                 } else {
@@ -1226,7 +1338,13 @@ impl<'s, 'a> Sink<'s, 'a> {
                     None => {
                         let p = s.streets.len() as u32;
                         s.ids.insert(key, p);
-                        s.streets.push(agg);
+                        // Doubling left a quarter of these hundreds of megabytes unused at the
+                        // build's peak; growing by an eighth copies more often, but cheaply.
+                        let len = s.streets.len();
+                        if len == s.streets.capacity() {
+                            s.streets.reserve_exact(len / 8 + 1024);
+                        }
+                        s.streets.push(agg.into());
                         p
                     }
                 };
@@ -1555,7 +1673,7 @@ fn canonical_streets(shards: Vec<Mutex<AddrShard>>, strings: &Strings) -> Canon 
                 .enumerate()
                 .map(|(new, (key, old))| {
                     renumber[old as usize] = new as u32;
-                    let mut agg = std::mem::take(&mut streets[old as usize]);
+                    let mut agg = AddrAgg::from(std::mem::take(&mut streets[old as usize]));
                     if agg.pcs.len() > 1 {
                         let first = agg.pcs.clone();
                         by_text(&mut agg.pcs, MAX_POSTCODES);
@@ -1831,9 +1949,12 @@ fn build(args: &[String]) {
         streets,
         postcodes,
         strings,
+        pairs,
         ..
     } = shared;
+    let empty = strings.id("");
     let strings = strings.table();
+    let pairs = pairs.0.into_inner().unwrap().1;
     let Canon {
         streets,
         renumber,
@@ -1938,7 +2059,7 @@ fn build(args: &[String]) {
                       names: &[&str],
                       pcs: &[u32],
                       cities: &[u32],
-                      postal_towns: &[(u32, u32, u32, u32)],
+                      postal_towns: &[u64],
                       (x, y): (f64, f64),
                       weight: u64| {
         let cities: Vec<&str> = cities.iter().map(|&c| strings.get(c)).collect();
@@ -1961,7 +2082,8 @@ fn build(args: &[String]) {
         }
         let mut towns: Vec<_> = postal_towns
             .iter()
-            .map(|&(pc, number, city, source)| {
+            .map(|&t| {
+                let (pc, number, city, source) = untown(t, &pairs, empty);
                 (
                     strings.get(pc),
                     strings.get(number),
@@ -2033,10 +2155,10 @@ fn build(args: &[String]) {
                         .filter(|a| *a != primary),
                 );
             }
-            let n = st.n + seg.as_ref().map_or(0, |g| g.n);
+            let n = st.n + seg.as_ref().map_or(0, |g| u64::from(g.n));
             // Places contribute no centroid or weight and are admitted only on a known segment.
             let point = match &seg {
-                Some(g) if st.n == 0 => (mean(g.sx, g.n), mean(g.sy, g.n)),
+                Some(g) if st.n == 0 => (mean(g.sx, g.n.into()), mean(g.sy, g.n.into())),
                 _ => (mean(st.sx, st.n), mean(st.sy, st.n)),
             };
             street_doc(
@@ -2082,8 +2204,8 @@ fn build(args: &[String]) {
                 &[],
                 &[],
                 &[],
-                (mean(g.sx, g.n), mean(g.sy, g.n)),
-                g.n,
+                (mean(g.sx, g.n.into()), mean(g.sy, g.n.into())),
+                g.n.into(),
             );
         });
     let seg_only = only.len() as u64;
@@ -2211,22 +2333,46 @@ mod tests {
 
     #[test]
     fn postal_towns_stay_compact_when_streets_merge() {
-        let town = (0, 1, 2, 3);
-        let mut merged = AddrAgg::default();
+        let town = town(false, 2, 1);
+        let mut merged = Street::default();
         for _ in 0..2 {
             merged.add(AddrAgg {
                 postal_towns: vec![town],
                 ..Default::default()
             });
         }
-        assert_eq!(merged.postal_towns, [town]);
-        assert_eq!(std::mem::size_of_val(&merged.postal_towns[0]), 16);
-        assert_eq!(merged.postal_towns.capacity(), 1);
+        assert_eq!(*merged.postal_towns, [town]);
+        assert_eq!(std::mem::size_of_val(&merged.postal_towns[0]), 8);
+        let other = super::town(false, 4, 1);
         merged.add(AddrAgg {
-            postal_towns: vec![(0, 1, 4, 3)],
+            postal_towns: vec![other],
             ..Default::default()
         });
-        assert_eq!(merged.postal_towns, [town, (0, 1, 4, 3)]);
+        assert_eq!(*merged.postal_towns, [town, other]);
+        merged.add(AddrAgg {
+            postal_towns: vec![town - 1, other, other + 1],
+            cities: vec![1, 3],
+            ..Default::default()
+        });
+        assert_eq!(*merged.postal_towns, [town - 1, town, other, other + 1]);
+        merged.add(AddrAgg {
+            cities: vec![2, 3],
+            ..Default::default()
+        });
+        assert_eq!(*merged.cities, [1, 2, 3]);
+    }
+
+    #[test]
+    fn a_postal_town_packs_its_postcode_or_number_with_its_city_and_source() {
+        let pairs = [(7, 8), (9, 10)];
+        assert_eq!(untown(town(true, 1, 5), &pairs, 0), (5, 0, 9, 10));
+        assert_eq!(untown(town(false, 0, 5), &pairs, 0), (0, 5, 7, 8));
+        assert_ne!(town(true, 0, 5), town(false, 0, 5));
+        let p = Pairs::default();
+        let mut cache = HashMap::new();
+        assert_eq!(p.cached(&mut cache, (3, 4)), 0);
+        assert_eq!(p.cached(&mut HashMap::new(), (5, 4)), 1);
+        assert_eq!(p.cached(&mut HashMap::new(), (3, 4)), 0);
     }
 
     #[test]
@@ -2242,8 +2388,8 @@ mod tests {
         for pcs in [ids.clone(), vec![ids[3]]] {
             let key: AddrKey = (*b"us", 0, format!("s{}", shard.streets.len()).into());
             shard.ids.insert(key, shard.streets.len() as u32);
-            shard.streets.push(AddrAgg {
-                pcs,
+            shard.streets.push(Street {
+                pcs: pcs.into(),
                 ..Default::default()
             });
         }

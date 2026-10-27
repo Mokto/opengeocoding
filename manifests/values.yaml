@@ -38,7 +38,7 @@ index:
   # test` fails when the code and this disagree. Changing it, or anything under sources or
   # modelsVersion, names a new index: the leader builds it while the running pods keep
   # serving the old one.
-  builderHash: "17bc2fab0087eddb"
+  builderHash: "2bf3392e7de7dee5"
   modelsVersion: v1
   sources:
     overtureRelease: "2026-10-21.0"

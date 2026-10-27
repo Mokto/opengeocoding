@@ -306,7 +306,35 @@ impl Num {
 pub struct NumberSpill {
     dir: PathBuf,
     files: Vec<Mutex<BufWriter<fs::File>>>,
-    long: Vec<Mutex<Vec<LongNum>>>,
+    /// Numbers longer than `INLINE`, as sid, x, y, length and bytes: kept in memory they were
+    /// most of a gigabyte while every source is read.
+    long: Vec<Mutex<BufWriter<fs::File>>>,
+}
+
+impl LongNum {
+    fn encode(&self, out: &mut Vec<u8>) {
+        for v in [self.sid, self.x, self.y, self.num.len() as u32] {
+            out.extend_from_slice(&v.to_le_bytes());
+        }
+        out.extend_from_slice(self.num.as_bytes());
+    }
+
+    fn read_all(path: &std::path::Path) -> Vec<LongNum> {
+        let bytes = fs::read(path).unwrap();
+        let (mut out, mut rest) = (vec![], &bytes[..]);
+        let word = |b: &[u8]| u32::from_le_bytes(b.try_into().unwrap());
+        while !rest.is_empty() {
+            let len = word(&rest[12..16]) as usize;
+            out.push(LongNum {
+                sid: word(&rest[0..4]),
+                x: word(&rest[4..8]),
+                y: word(&rest[8..12]),
+                num: String::from_utf8(rest[16..16 + len].to_vec()).unwrap(),
+            });
+            rest = &rest[16 + len..];
+        }
+        out
+    }
 }
 
 impl NumberSpill {
@@ -320,7 +348,14 @@ impl NumberSpill {
                 ))
             })
             .collect();
-        let long = (0..shards).map(|_| Mutex::default()).collect();
+        let long = (0..shards)
+            .map(|s| {
+                Mutex::new(BufWriter::with_capacity(
+                    1 << 16,
+                    fs::File::create(dir.join(format!("{s:02}.long"))).unwrap(),
+                ))
+            })
+            .collect();
         NumberSpill { dir, files, long }
     }
 
@@ -328,10 +363,11 @@ impl NumberSpill {
         self.files.len()
     }
 
-    /// Bytes spilled so far, i.e. the in-memory size of the inline numbers.
+    /// Bytes spilled so far, about the in-memory size of the numbers.
     pub fn bytes(&self) -> u64 {
         self.files
             .iter()
+            .chain(&self.long)
             .map(|f| {
                 f.lock()
                     .unwrap()
@@ -349,7 +385,11 @@ impl NumberSpill {
             buf.clear();
             b.short.iter().for_each(|n| n.encode(&mut buf));
             self.files[s].lock().unwrap().write_all(&buf).unwrap();
-            self.long[s].lock().unwrap().extend(b.long);
+            if !b.long.is_empty() {
+                buf.clear();
+                b.long.iter().for_each(|n| n.encode(&mut buf));
+                self.long[s].lock().unwrap().write_all(&buf).unwrap();
+            }
         }
     }
 
@@ -359,15 +399,9 @@ impl NumberSpill {
     /// none, so the result does not depend on the order the rows arrived in.
     pub fn write_fsts(self, out: &str, parallel: usize, resolve: Resolve) -> u64 {
         let n_shards = self.files.len();
-        for f in self.files {
+        for f in self.files.into_iter().chain(self.long) {
             f.into_inner().unwrap().flush().unwrap();
         }
-        let long: Mutex<Vec<Option<Vec<LongNum>>>> = Mutex::new(
-            self.long
-                .into_iter()
-                .map(|l| Some(l.into_inner().unwrap()))
-                .collect(),
-        );
         // A worker takes the next shard as soon as it finishes one, so a slow shard never holds
         // back the rest as it did when shards ran in fixed groups.
         let (next, n) = (AtomicUsize::new(0), AtomicU64::new(0));
@@ -379,7 +413,9 @@ impl NumberSpill {
                         if s >= n_shards {
                             break;
                         }
-                        let long = long.lock().unwrap()[s].take().unwrap();
+                        let path = self.dir.join(format!("{s:02}.long"));
+                        let long = LongNum::read_all(&path);
+                        fs::remove_file(&path).unwrap();
                         let done = self::shard(out, s, n_shards, &self.dir, long, resolve);
                         n.fetch_add(done, Relaxed);
                     }
