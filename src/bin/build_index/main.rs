@@ -885,6 +885,9 @@ fn pass_segments(
 struct AddrAgg {
     name: Str,
     primary: bool,
+    /// Every house of it is a shop's land-lot address, so its name is a neighbourhood's, not a
+    /// road's; reverse lookups skip it.
+    lot: bool,
     /// Interned normalized postcodes, in arrival order (houses refer to positions), and postal city
     /// names, sorted by id. Once every source is read both are sorted by text and cut to
     /// `MAX_POSTCODES` and `MAX_CITIES`.
@@ -903,6 +906,7 @@ struct AddrAgg {
 struct Street {
     name: Str,
     primary: bool,
+    lot: bool,
     pcs: Box<[u32]>,
     cities: Box<[u32]>,
     postal_towns: Box<[u64]>,
@@ -931,6 +935,7 @@ impl Street {
             (self.sx, self.sy, self.n) = (other.sx, other.sy, other.n);
         }
         self.primary |= other.primary;
+        self.lot &= other.lot;
     }
 }
 
@@ -939,6 +944,7 @@ impl From<AddrAgg> for Street {
         Street {
             name: a.name,
             primary: a.primary,
+            lot: a.lot,
             pcs: a.pcs.into(),
             cities: a.cities.into(),
             postal_towns: a.postal_towns.into(),
@@ -954,6 +960,7 @@ impl From<Street> for AddrAgg {
         AddrAgg {
             name: s.name,
             primary: s.primary,
+            lot: s.lot,
             pcs: s.pcs.into(),
             cities: s.cities.into(),
             postal_towns: s.postal_towns.into(),
@@ -1135,6 +1142,8 @@ struct Sink<'s, 'a> {
     /// Whether the houses move their street's point and add to its weight.
     weighs: bool,
     supplemental: bool,
+    /// Whether these rows are land-lot addresses (see `AddrAgg::lot`).
+    lot: bool,
     covered: HashMap<[u8; 2], u64>,
 }
 
@@ -1161,6 +1170,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             rank: 0,
             weighs: true,
             supplemental: false,
+            lot: false,
             covered: HashMap::new(),
         }
     }
@@ -1261,6 +1271,7 @@ impl<'s, 'a> Sink<'s, 'a> {
                 self.aggs.push(AddrAgg {
                     name: st.into(),
                     primary: !self.supplemental,
+                    lot: self.lot,
                     ..Default::default()
                 });
                 m.insert(celled.into(), self.aggs.len() as u32 - 1);
@@ -1268,6 +1279,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             }
         };
         let e = &mut self.aggs[li as usize];
+        e.lot &= self.lot;
         if st != &*e.name && prefer(st, &e.name) {
             e.name = st.into();
         }
@@ -2155,6 +2167,7 @@ fn build(args: &[String]) {
     let seg_sid: Vec<AtomicU32> = (0..seg_count).map(|_| AtomicU32::new(u32::MAX)).collect();
     let seg_at = |id: u32| seg_base[(id & 0xff) as usize] as usize + (id >> 8) as usize;
     let (merged, max_sid) = (AtomicU64::new(0), AtomicU32::new(0));
+    let lots = Mutex::new(HashSet::new());
     streets.par_iter().enumerate().for_each(|(sh, s)| {
         for (pos, ((cc, place, key), st)) in s.iter().enumerate() {
             let sid = ((pos as u32) << 8) | sh as u32;
@@ -2169,6 +2182,8 @@ fn build(args: &[String]) {
                 .flatten();
             if let Some(g) = &seg {
                 seg_sid[seg_at(g.id)].store(sid, Relaxed);
+            } else if st.lot {
+                lots.lock().unwrap().insert(sid);
             }
             let primary = seg.as_ref().map_or(&*st.name, |g| &*g.name);
             let mut names = vec![primary];
@@ -2291,9 +2306,14 @@ fn build(args: &[String]) {
         index.searchable_segment_ids().unwrap().len()
     ));
     progress::phase("Build reverse lookup");
-    let (houses, streets) = reverse::build(Path::new(out), &index, f.kind, |id| {
-        Some(seg_sid[seg_at(id)].load(Relaxed)).filter(|&sid| sid != u32::MAX)
-    })
+    let lots = lots.into_inner().unwrap();
+    let (houses, streets) = reverse::build(
+        Path::new(out),
+        &index,
+        f.kind,
+        |id| Some(seg_sid[seg_at(id)].load(Relaxed)).filter(|&sid| sid != u32::MAX),
+        |sid| !lots.contains(&sid),
+    )
     .unwrap();
     lap(&format!(
         "reverse lookup ({houses} house records, {streets} street records)"
