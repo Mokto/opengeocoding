@@ -602,9 +602,16 @@ impl Index {
                 }
             }
         }
-        // "ul. M. Kopernika 11": the index names it Mikołaja Kopernika, mostly without "ul."
+        // "ul. M. Kopernika 11": the index names it Mikołaja Kopernika, mostly without "ul."; "Vinkli
+        // tn 8" is on Vinkli tänav
+        let respelt = || {
+            pl::bare_road(&typed.parts[0], cc).or_else(|| {
+                cc.filter(|c| c.eq_ignore_ascii_case("ee"))
+                    .and_then(|_| ee::full_road(&typed.parts[0]))
+            })
+        };
         if !out.iter().any(|s| s.kind == "address")
-            && let Some(bare) = pl::bare_road(&typed.parts[0], cc)
+            && let Some(bare) = respelt()
         {
             let mut parts = typed.parts.clone();
             parts[0] = bare;

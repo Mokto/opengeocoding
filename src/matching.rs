@@ -1,4 +1,4 @@
-use crate::index::country::{co, pt};
+use crate::index::country::{co, ee, pt};
 use crate::{
     index::{
         canon::{canon, is_canonical},
@@ -600,6 +600,9 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
 pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
     if cc.eq_ignore_ascii_case("pt") {
         return pt::ctt_road(road);
+    }
+    if cc.eq_ignore_ascii_case("ee") {
+        return ee::full_road(road).into_iter().collect();
     }
     if cc.eq_ignore_ascii_case("co") {
         return co::bogota_road(road).into_iter().collect();
