@@ -936,16 +936,68 @@ fn postcodes_are_written_as_the_country_writes_them() {
 }
 
 #[test]
-fn a_territory_named_as_the_country_matches_its_sovereign() {
+fn a_territory_and_its_sovereign_are_one_country_to_the_lookups() {
     let us = at("us", "", "", "San Juan", "");
     let pr = at("pr", "", "", "San Juan", "");
-    assert!(country_matches("pr", us.address_details.as_option()));
+    let fr = at("fr", "", "", "Saint-Denis", "");
     assert!(country_matches("pr", pr.address_details.as_option()));
-    assert!(!country_matches("us", pr.address_details.as_option()));
+    assert!(country_matches("us", pr.address_details.as_option()));
+    assert!(country_matches("pr", us.address_details.as_option()));
+    assert!(country_matches("re", fr.address_details.as_option()));
     assert!(!country_matches(
         "gl",
         at("dk", "", "", "", "").address_details.as_option()
     ));
+    assert_eq!(filed_country("pr"), "us");
+    assert_eq!(filed_country("HK"), "cn");
+    assert_eq!(filed_country("dk"), "dk");
+}
+
+#[test]
+fn a_country_is_named_with_or_without_its_form_of_state() {
+    for (text, cc) in [
+        ("Palestine", "ps"),
+        ("Republic of Congo", "cg"),
+        ("Democratic Republic of Congo", "cd"),
+        ("  pakistan", "pk"),
+        ("Hong Kong", "hk"),
+        ("Lagos", ""),
+        ("Atlanta, Georgia", ""),
+    ] {
+        assert_eq!(country_named(text), cc, "{text}");
+    }
+}
+
+#[test]
+fn a_region_spelt_another_way_keeps_its_words() {
+    for (written, named) in [
+        ("al iskandariyah", "Kegubernuran Al Iskandariyah"),
+        ("al iskandariyah", "Muḩāfaz̧at al Iskandarīyah"),
+        ("ash sharqiyah", "Al Sharqia Governorate"),
+        ("al gharbiyah", "Gharbiyya Governorate"),
+        ("ad daqahliyah", "Al-Daqahliyah"),
+        ("ad dawhah", "Dawḥa"),
+        ("north jutland", "Jutland du Nord"),
+        ("central jutland", "Jutland centrale"),
+        ("mun.chişinău", "Chișinău"),
+        ("xinjiang uyghur", "Xinjiang Uyghur Autonomous Region"),
+        ("central bosnia", "Central Bosnia Canton"),
+        ("taipei city", "Taipei"),
+    ] {
+        assert_eq!(
+            region_words(written),
+            region_words(named),
+            "{written} / {named}"
+        );
+    }
+    assert_ne!(
+        region_words("north jutland"),
+        region_words("Jutland central")
+    );
+    assert_eq!(
+        region_words("Azad Jammu and Kashmir"),
+        ["azad", "jammu", "kashmir"]
+    );
 }
 
 #[test]

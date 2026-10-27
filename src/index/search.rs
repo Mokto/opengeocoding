@@ -72,10 +72,15 @@ impl Index {
         // A query that only names a country ("Malta", "North Macedonia") means the country,
         // unless it was repeated and the country has a town of that name ("Luxembourg,
         // Luxembourg", "Djibouti, Djibouti").
+        let town = |p: &Place| matches!(&*p.subtype, "locality" | "localadmin");
         if let Some(c) = self.country(q)
             && let Some(&p) = self.country_places.get(&c)
+            // "Lagos" is Laos in some language the data names it in, and a city to everyone: a
+            // name the reference data doesn't give the country yields to a town of that name.
+            && (q.contains(',')
+                || !crate::matching::country_named(q).is_empty()
+                || self.places_exact(q, None, None, &town).0.is_empty())
         {
-            let town = |p: &Place| matches!(&*p.subtype, "locality" | "localadmin");
             if repeated && let (places, true) = self.places_exact(q, Some(&c), None, &town) {
                 return places.into_iter().take(1).collect();
             }
@@ -514,6 +519,7 @@ impl Index {
         let sovereign = a
             .get("country_code")
             .and_then(Value::as_str)
+            .filter(|cc| part_of_sovereign(cc))
             .and_then(sovereign)
             .and_then(|cc| Some((cc, self.country_name(cc)?)));
         if let Some((cc, name)) = sovereign {
@@ -865,4 +871,12 @@ impl Index {
             "centroid": {"type": "Point", "coordinates": [pl.x, pl.y]},
         })
     }
+}
+
+/// The territories an answer files under their sovereign's country: France's overseas
+/// departments, Svalbard and the Caribbean Netherlands are parts of that country. The others
+/// with an ISO 3166-1 code of their own (Puerto Rico, Hong Kong, Curaçao, ...) answer with it,
+/// and keep their sovereign's ISO 3166-2 code (US-PR) as their region.
+pub fn part_of_sovereign(territory: &str) -> bool {
+    matches!(territory, "re" | "gp" | "mq" | "gf" | "yt" | "sj" | "bq")
 }

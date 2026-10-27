@@ -8,3 +8,12 @@ pub(crate) fn territory(cc: &str) -> bool {
 pub(crate) fn country(cc: &str) -> &str {
     if territory(cc) { "ps" } else { cc }
 }
+
+/// The country place a query naming Palestine itself answers with: the larger territory.
+pub(crate) fn country_place(cc: &str) -> &str {
+    if cc.eq_ignore_ascii_case("ps") {
+        "xw"
+    } else {
+        cc
+    }
+}

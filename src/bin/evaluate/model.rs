@@ -34,6 +34,12 @@ pub fn gold_gleif() -> PathBuf {
     root().join("tests/gold.gleif.jsonl")
 }
 
+/// Place strings as people profiles and job postings write them ("City, Region, Country", lower
+/// case, "Hong Kong S.A.R."), generated from `tests/gold.people.seeds.jsonl`.
+pub fn gold_people() -> PathBuf {
+    root().join("tests/gold.people.jsonl")
+}
+
 /// Registry-first corpora (`tests/registry/*.jsonl`, generated from the `*.seeds.jsonl` (and `*.labels.jsonl`) beside them).
 pub fn registry_corpora() -> Vec<PathBuf> {
     let mut found: Vec<_> = std::fs::read_dir(root().join("tests/registry"))
@@ -60,6 +66,7 @@ pub fn suite() -> Vec<PathBuf> {
     files.push(gold_landmarks());
     files.push(gold_towns());
     files.push(gold_gleif());
+    files.push(gold_people());
     files.push(root().join("tests/gold.suggest.jsonl"));
     files
 }

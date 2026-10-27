@@ -1,4 +1,4 @@
-use crate::index::country::{au, ca, dk, ie, pt, tw};
+use crate::index::country::{au, ca, dk, hk_mo, ie, pt, tw};
 use crate::{
     index::{Index, Parser, canon::canon},
     matching::*,
@@ -620,13 +620,232 @@ impl Core {
             kind: string(&candidates[at]["addresstype"]).to_owned(),
             countries: viable
                 .iter()
-                .filter_map(|(_, f)| f.address_details.as_option().map(|d| &d.country_code))
+                .filter_map(|(_, f)| {
+                    f.address_details
+                        .as_option()
+                        .map(|d| filed_country(&d.country_code))
+                })
                 .collect::<std::collections::HashSet<_>>()
                 .len(),
         }))
     }
 
     fn resolve(&self, query: &str) -> Result<FullAddress> {
+        let sar = hk_mo::without_sar(query);
+        let query = sar.as_deref().unwrap_or(query);
+        // "Palestine" is the country, not Palestine, Texas
+        let cc = country_named(query);
+        if !cc.is_empty()
+            && !query.contains(',')
+            && query.trim_matches(whitespace).chars().count() > 3
+            && let Some(hit) = self.index.country_place(&cc)
+        {
+            let mut found = format_response(&self.index.render(&hit, true))?;
+            found.good_match = true;
+            METRICS.tiers.with_label_values(&["country_name"]).inc();
+            return Ok(found);
+        }
+        let found = self.resolve_address(query)?;
+        if (found.display_name.is_empty() || self.stated_country_ignored(query, &found))
+            && let Some(degraded) = self.degraded(query)?
+        {
+            return Ok(degraded);
+        }
+        Ok(found)
+    }
+
+    /// A place-only query ("Srinagar, Jammu and Kashmir, Pakistan") answered outside the country
+    /// it ends with. A street or postcode may place an address abroad; a list of place names
+    /// may not. The country's name as the answer's region ("Atlanta, Georgia") is not a country.
+    fn stated_country_ignored(&self, query: &str, found: &FullAddress) -> bool {
+        let Some(details) = found.address_details.as_option() else {
+            return false;
+        };
+        let Some((rest, last)) = query.rsplit_once(',') else {
+            return false;
+        };
+        let stated = named_country(last);
+        !stated.is_empty()
+            && !rest.trim_matches(whitespace).is_empty()
+            && !query.chars().any(char::is_numeric)
+            && details.road.is_empty()
+            && details.house_number.is_empty()
+            && !country_matches(&stated, Some(details))
+            && ![
+                &details.state,
+                &details.province,
+                &details.region,
+                &details.county,
+            ]
+            .iter()
+            .any(|name| names_agree(last, name))
+    }
+
+    /// For a query no lookup answers, or answers outside the country it ends with: what its
+    /// parts still name in that country, never as a good match. The town with the country,
+    /// unless it lies in another region than the one stated; else the stated region, matched
+    /// by its loose spelling too ("Al Iskandariyah", "North Jutland", "Mun. Chişinău"); else a
+    /// town one edit off or the first of a hyphenated name ("Fes-Ville-Nouvelle"); else the
+    /// country. A lone name with no country loses its last word or what follows a hyphen
+    /// ("San Francisco Bay", "Dallas-Fort Worth Metroplex") and answers only as a settlement.
+    fn degraded(&self, query: &str) -> Result<Option<FullAddress>> {
+        // an address with a number has a street, a house or a postcode to place it by
+        if query.chars().any(char::is_numeric) {
+            return Ok(None);
+        }
+        let parts: Vec<&str> = query
+            .split(',')
+            .map(|p| p.trim_matches(whitespace))
+            .filter(|p| !p.is_empty())
+            .collect();
+        let Some((&last, rest)) = parts.split_last() else {
+            return Ok(None);
+        };
+        let weak = |mut found: FullAddress, tier: &str| {
+            found.good_match = false;
+            METRICS.tiers.with_label_values(&[tier]).inc();
+            Some(found)
+        };
+        let cc = named_country(last);
+        // Réunion's places answer as France's: nothing tells one in Réunion from one in France
+        if crate::index::part_of_sovereign(&cc) {
+            return Ok(None);
+        }
+        if cc.is_empty() {
+            if !rest.is_empty() {
+                return Ok(None);
+            }
+            for shorter in [
+                last.split_once('-').map(|(head, _)| head.trim().to_owned()),
+                last.rsplit_once(whitespace)
+                    .map(|(head, _)| head.trim().to_owned()),
+            ]
+            .into_iter()
+            .flatten()
+            .filter(|s| s.chars().filter(|c| c.is_alphabetic()).count() >= 3)
+            {
+                let found = self.resolve_written(&shorter)?;
+                if found
+                    .address_details
+                    .as_option()
+                    .is_some_and(|d| d.road.is_empty() && locality(Some(d)))
+                {
+                    return Ok(weak(found, "degraded_shortened"));
+                }
+            }
+            return Ok(None);
+        }
+        let in_country = |f: &FullAddress| {
+            f.address_details
+                .as_option()
+                .is_some_and(|d| !d.country_code.is_empty() && d.road.is_empty())
+                && country_matches(&cc, f.address_details.as_option())
+        };
+        let below_country = |f: &FullAddress| {
+            in_country(f)
+                && f.address_details.as_option().is_some_and(|d| {
+                    locality(Some(d))
+                        || !d.region_codes.is_empty()
+                        || !d.county.is_empty()
+                        || !d.state.is_empty()
+                })
+        };
+        let level4 = |f: &FullAddress| {
+            f.address_details.as_option().and_then(|d| {
+                d.region_codes
+                    .iter()
+                    .find(|r| r.admin_level == 4)
+                    .map(|r| r.code.to_uppercase())
+            })
+        };
+        let (town, regions) = match rest {
+            [] => (None, &[][..]),
+            [only] => (None, std::slice::from_ref(only)),
+            [town, regions @ ..] => (Some(*town), regions),
+        };
+        // and whether it is a region: a town the parts also name doesn't rule out another town
+        let mut region = None;
+        for part in regions {
+            if let Some(place) = self.index.region_spelt(part, &cc) {
+                let hit = crate::index::Hit::Place(place);
+                region = Some((format_response(&self.index.render(&hit, true))?, true));
+                break;
+            }
+            // a lone part with the country is the query, which answered nothing
+            if rest.len() == 1 {
+                break;
+            }
+            let found = self.resolve_written(&format!("{part}, {last}"))?;
+            if below_country(&found) {
+                let area = !locality(found.address_details.as_option());
+                region = Some((found, area));
+                break;
+            }
+        }
+        // for a lone part, its town reading comes after its region reading
+        let town = town.or(if rest.len() == 1 && region.is_none() {
+            Some(rest[0])
+        } else {
+            None
+        });
+        if let Some(town) = town {
+            let mut tries = vec![];
+            if rest.len() > 1 {
+                tries.push(town.to_owned());
+            }
+            tries.extend(self.index.similar_place(town, Some(&cc)));
+            // "Taipei City", "Fes-Ville-Nouvelle": the name without what qualifies it, unless a
+            // region is stated ("Athens-Clarke County" is not Athens, Georgia's namesake)
+            let head = town
+                .split_once('-')
+                .map(|(head, _)| head)
+                .or_else(|| town.strip_suffix(" city"))
+                .map(str::trim)
+                .filter(|head| {
+                    region.is_none()
+                        && !head.contains(' ')
+                        && head.chars().filter(|c| c.is_alphabetic()).count() >= 3
+                });
+            tries.extend(head.map(str::to_owned));
+            let stated = region
+                .as_ref()
+                .filter(|(_, area)| *area)
+                .and_then(|(found, _)| level4(found));
+            for tried in tries {
+                let found = self.resolve_written(&format!("{tried}, {last}"))?;
+                let elsewhere = stated
+                    .as_ref()
+                    .is_some_and(|stated| level4(&found).is_some_and(|code| code != *stated));
+                if below_country(&found)
+                    && locality(found.address_details.as_option())
+                    && !elsewhere
+                {
+                    return Ok(weak(found, "degraded_town"));
+                }
+            }
+        }
+        if let Some((region, _)) = region {
+            return Ok(weak(region, "degraded_region"));
+        }
+        let country = match self.index.country_place(&cc) {
+            Some(hit) => format_response(&self.index.render(&hit, true))?,
+            // a territory without a country place of its own, not a town of its name
+            None => Some(self.resolve_written(last)?)
+                .filter(|f| {
+                    f.address_details.as_option().is_some_and(|d| {
+                        !locality(Some(d))
+                            && d.county.is_empty()
+                            && (d.state.is_empty() || d.state == d.country)
+                    })
+                })
+                .unwrap_or_default(),
+        };
+        Ok(in_country(&country)
+            .then(|| weak(country, "degraded_country"))
+            .flatten())
+    }
+
+    fn resolve_address(&self, query: &str) -> Result<FullAddress> {
         let found = self.resolve_written(query)?;
         let has_house = |found: &FullAddress| {
             found
@@ -756,7 +975,7 @@ impl Core {
             !name.is_empty() && name.split(' ').all(|w| words.contains(w))
         };
         let cc = stated
-            .map(|d| d.country_code.as_str())
+            .map(|d| filed_country(&d.country_code))
             .filter(|c| !c.is_empty());
         let mut houses = vec![];
         // A label and a number ("Plot No.14", "Lot 25", "367 หมู่ 1") make a number rare enough
@@ -874,7 +1093,7 @@ impl Core {
                         || postcode.is_empty()
                         || postcode == stated_postcode)
                     && match cc {
-                        Some(cc) => d.country_code == cc,
+                        Some(cc) => filed_country(&d.country_code) == cc,
                         None => named(&d.country),
                     }
                     && (!postcode.is_empty() && written.contains(&postcode)
@@ -1512,9 +1731,10 @@ impl Core {
                                 let other = f.address_details.as_option();
                                 city_agrees(address, other)
                                     && postcode_agrees(postcode, other)
-                                    && other
-                                        .zip(details)
-                                        .is_some_and(|(o, d)| o.country_code != d.country_code)
+                                    && other.zip(details).is_some_and(|(o, d)| {
+                                        filed_country(&o.country_code)
+                                            != filed_country(&d.country_code)
+                                    })
                             })
                     {
                         continue;
@@ -1635,8 +1855,9 @@ impl Core {
             let details = chosen.found.address_details.as_option();
             let fits = (!country.is_empty()
                 || (state_consistent(&place, details)
-                    && details
-                        .is_none_or(|d| postcode_shape(&d.country_code, postcode) != Some(false))))
+                    && details.is_none_or(|d| {
+                        postcode_shape(filed_country(&d.country_code), postcode) != Some(false)
+                    })))
                 && !self.postcode_elsewhere(
                     postcode,
                     &chosen.found,
@@ -1696,7 +1917,7 @@ impl Core {
         ) else {
             return false;
         };
-        let cc = Some(details.country_code.as_str()).filter(|c| !c.is_empty());
+        let cc = Some(filed_country(&details.country_code)).filter(|c| !c.is_empty());
         let hits = self.index.postcode_hits(postcode, cc);
         // A code stored under this country but sited in another ("28007" of Spain, placed in
         // Niger) is not evidence the postcode and the town disagree.
@@ -1754,7 +1975,7 @@ impl Core {
                 let found = format_response(&value).ok()?;
                 let at = found.geo_coordinates.as_option()?;
                 let details = found.address_details.as_option()?;
-                let cc = details.country_code.to_lowercase();
+                let cc = filed_country(&details.country_code).to_lowercase();
                 (!cc.is_empty()
                     && normalize_postcode(&details.postcode) == normalize_postcode(postcode)
                     && self.index.place_near(town, Some(&cc), at.lat, at.lon, 10.0))
@@ -1851,7 +2072,9 @@ impl Core {
                         // a postcode in the shape of the found country's and not of the stated
                         // one's ("5757 BD" is Dutch, not Belgian)
                         || details
-                            .is_some_and(|d| postcode_shaped_for(query, country, &d.country_code))
+                            .is_some_and(|d| {
+                                postcode_shaped_for(query, country, filed_country(&d.country_code))
+                            })
                         || details.is_some_and(|d| {
                             !d.country.is_empty()
                                 && normalize_place(query).contains(&normalize_place(&d.country))
@@ -2046,6 +2269,14 @@ impl Core {
     }
 }
 
+/// The country a part of a query names by its name: a code ("CA", "PA") is as often a state's.
+fn named_country(part: &str) -> String {
+    if part.chars().filter(|c| c.is_alphabetic()).count() < 4 {
+        return String::new();
+    }
+    country_named(part)
+}
+
 fn same_house_number(found: &FullAddress, number: &str) -> bool {
     found.address_details.as_option().is_some_and(|d| {
         crate::index::schema::number_key(&d.house_number)
@@ -2117,7 +2348,7 @@ fn accept(
         .is_some_and(|d| !d.postcode.is_empty())
     {
         let details = found.address_details.get_or_insert_default();
-        let formatted = format_postcode(&details.country_code, &details.postcode);
+        let formatted = format_postcode(filed_country(&details.country_code), &details.postcode);
         if formatted != details.postcode {
             found.display_name = found.display_name.replace(&details.postcode, &formatted);
             details.postcode = formatted;

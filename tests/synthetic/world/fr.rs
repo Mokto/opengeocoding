@@ -156,7 +156,7 @@ pub fn cases() -> Vec<Case> {
             Want::At(house(street("Rue Haute"), "3"), 300.0, false),
         ),
         case("Ulstrasse 99, 50667 Nordville", town("fr-nordville", false)),
-        case("Atlantis, France", Want::Abstain),
+        case("Atlantis, France", town("fr", false)),
     ]
 }
 
