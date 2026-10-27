@@ -10,7 +10,7 @@ Built in Rust, OpenGeocoding combines [libpostal](https://github.com/openvenues/
 
 **[Try the live demo](https://opengeocoding.com/) · [Hosted API docs](https://opengeocoding.com/docs) · [Self-host](#self-host) · [Releases](https://github.com/Mokto/opengeocoding/releases)**
 
-> Source-available under [PolyForm Shield 1.0.0](#license), not OSI open source. The engine and index remain experimental; evaluate coverage and accuracy for your use case before production.
+> Source-available under [PolyForm Shield 1.0.0](#license), not OSI open source. Releases follow semantic versioning: a breaking change to the RPC contract (including the legacy routes), the Helm chart's values or the index store layout is a major release. Coverage and accuracy vary by country; check the [scorecard](SCORECARD.md) and [coverage limitations](docs/evaluation/coverage.md#house-number-coverage) for yours before production.
 
 ## What you can build
 

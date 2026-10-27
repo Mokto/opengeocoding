@@ -8,7 +8,7 @@ Run commands from the repository root. This guide covers source inputs, index co
 
 ## Overture address index
 
-`build_index` builds a Tantivy index and house-number tables from a local [Overture Maps](https://docs.overturemaps.org/) release, without Nominatim. The service loads that index (`src/index/`) and it is its only supported lookup backend. The index remains experimental; the [coverage limitations](../evaluation/coverage.md#house-number-coverage) and [Reverse geocoding](api.md#reverse-geocoding) still apply.
+`build_index` builds a Tantivy index and house-number tables from a local [Overture Maps](https://docs.overturemaps.org/) release, without Nominatim. The service loads that index (`src/index/`) and it is its only supported lookup backend. The [coverage limitations](../evaluation/coverage.md#house-number-coverage) and [Reverse geocoding](api.md#reverse-geocoding) apply.
 
 `build_index job` (see the [deployment guide](deployment.md#deploy-on-kubernetes)) fetches all of the sources below itself. To build by hand, download the `division` and `division_area` (divisions theme), `segment` (transportation) and `address` (addresses) parquet files of one release into same-named directories, about 100 GB in total. This example requires the AWS CLI and the [local build prerequisites](development.md#build-and-test):
 
