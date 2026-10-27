@@ -45,24 +45,24 @@ The place is the settlement; a village-class query names the municipality instea
 
 ## Local baseline
 
-The local world index from builder `17bc2fab0087eddb` (Overture 2026-09-23.1, OpenAddresses and OSM) lacks the Serbia extract the chart reads, so it holds Serbian houses only under Latin street names: SearchAddress passes 143/296, all 148 Latin forms but 5 and no Cyrillic form. The table is a variant of that index built with the same builder and the Serbia extract of 2026-10-20 added (240,994,225 bytes, SHA-256 `b0ee047694202cc0bb6cbcdeaa3084276d16b446e129da54bc66c2deedbf4ed3`), as the chart builds it:
+The local world index from builder `17bc2fab0087eddb` (Overture 2026-09-23.1, OpenAddresses and OSM) lacks the Serbia extract the chart reads, so it holds Serbian houses only under Latin street names: SearchAddress passed 143/296 before the Cyrillic house letter was read in Latin, all 148 Latin forms but 5 and no Cyrillic form. The table is a variant of that index built with the same builder and the Serbia extract of 2026-10-20 added (240,994,225 bytes, SHA-256 `b0ee047694202cc0bb6cbcdeaa3084276d16b446e129da54bc66c2deedbf4ed3`), as the chart builds it:
 
 | Class | Form | Queries | SearchAddress passes |
 |---|---|---:|---:|
 | Plain | cyrillic | 60 | 56 |
 | Plain | latin | 60 | 55 |
-| Letter | cyrillic | 60 | 0 |
+| Letter | cyrillic | 60 | 57 |
 | Letter | latin | 60 | 58 |
-| Village | cyrillic | 28 | 22 |
+| Village | cyrillic | 28 | 25 |
 | Village | latin | 28 | 28 |
 
-Overall 219/296 pass, 38 of the 54 held-out queries among them; 69 are too coarse, 6 near misses and 2 far misses. SuggestAddress finds an acceptable full-string result for 231/296, none of the Cyrillic lettered numbers. All 296 ReverseGeocode country checks pass. A same-binary repeat has zero response drift. The failures:
+Overall 279/296 pass, 51 of the 54 held-out queries among them; 9 are too coarse, 6 near misses and 2 far misses. SuggestAddress finds an acceptable full-string result for 293/296. All 296 ReverseGeocode country checks pass. A same-binary repeat has zero response drift. The failures:
 
-- **Cyrillic house letter (63, matching):** every Cyrillic query with a lettered number ("КАПЕТАНА ДЕРОКА 10А") answers the street. Both sources key the house with a Latin letter ("10a"), and the house lookup does not try the Cyrillic letter's Latin form; the Latin query finds the house.
-- **Raw house not accepted (5, matching):** the raw top candidate is the register's house, but the resolver rejects it: for Belgrade houses the index places in Zemun or Čukarica with the stated city БЕОГРАД (VIKTORA STARČIĆA 14A, both forms of RADOJA PRVULOVIĆA 67), for MILENKA PEVCA 93V in Stari Banovci, and for ЖЕЛЕЗНИЧКА 60, ДОЛАЦ, whose locality is "Dolac (naselje)": the answer is the namesake Dolac near Kraljevo, 137 km away (labelled `known_failure`; the Latin form passes).
+- **Raw house not accepted (6, matching):** the raw top candidate is the register's house, but the resolver rejects it: for Belgrade houses the index places in Zemun or Čukarica with the stated city БЕОГРАД (both forms of VIKTORA STARČIĆA 14A and RADOJA PRVULOVIĆA 67), for MILENKA PEVCA 93V in Stari Banovci, and for ЖЕЛЕЗНИЧКА 60, ДОЛАЦ, whose locality is "Dolac (naselje)": the answer is the namesake Dolac near Kraljevo, 137 km away (labelled `known_failure`; the Latin form passes).
 - **Parser (2):** libpostal splits the settlements VELIKO ORAŠJE and BAČKI JARAK into a road and a city ("veliko", "orašje"), so SKADARSKA 6 answers the village Orašje near Vlasotince, 178 km away (labelled `known_failure`; the Cyrillic form passes), and IVE LOLE RIBARA 31 Jarak near Sremska Mitrovica, 51 km away.
 - **Same number in another settlement (4, matching or index):** GENERALA PAVLA ILIĆA 8, NEGOTIN and KRATKA 11, BAČKA TOPOLA answer, in both scripts, the same street and number in a village of that municipality (Aleksandrovac, Bajša), 16 km and 7 km away, goodMatch true.
 - **Cyrillic village name (3, index data):** БЕРЛОВИНЕ 2, ОЈКОВИЦА 256 and БОЖИЦА 388 find no house under the Cyrillic name; their Latin forms pass.
+- **Cyrillic street (2, parser or index data):** Ј.Н.А. 13А, МОЗГОВО gets no raw candidate under the abbreviated Cyrillic name, and ПРВО НОВО НАСЕЉЕ 3А, ОПОВО answers the town although SuggestAddress finds the house; their Latin forms pass.
 
 On the index without the Serbia extract there is one more critical result, ЗАСЕЛАК ВЕРДИНЂА 1, ТЕКИЈА answered with Tekija near Paraćin, 119 km away; it passes with the extract and is not labelled. Only the two critical results that remain with the extract carry `known_failure` labels; the others stay visible and unlabelled. These are diagnostic results on local indexes, not a CI gold run. The documented fresh-service grpcurl SearchAddress hang reproduced as a known failure. Human review of the source points is pending.
 
