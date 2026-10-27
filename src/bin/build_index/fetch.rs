@@ -160,6 +160,10 @@ pub fn client() -> Result<reqwest::Client> {
 /// the server has no such file.
 pub async fn http_get(client: &reqwest::Client, url: &str, dest: &Path) -> Result<bool> {
     let part = store::part(dest);
+    // The ETag (or date) of the response the `.part` began with. A `.part` an earlier, killed
+    // build left behind is resumed only while the file is unchanged: Geofabrik replaces its
+    // extracts daily, and the old head with the new tail reads as garbage of the right size.
+    let validator = store::part(&part);
     if let Some(dir) = dest.parent() {
         std::fs::create_dir_all(dir)?;
     }
@@ -168,10 +172,16 @@ pub async fn http_get(client: &reqwest::Client, url: &str, dest: &Path) -> Resul
         if attempt > 0 {
             tokio::time::sleep(Duration::from_secs(5 * attempt)).await;
         }
-        let have = std::fs::metadata(&part).map_or(0, |m| m.len());
+        let since = std::fs::read_to_string(&validator).unwrap_or_default();
+        let have = match std::fs::metadata(&part) {
+            Ok(m) if !since.is_empty() => m.len(),
+            _ => 0,
+        };
         let mut request = client.get(url);
         if have > 0 {
-            request = request.header(reqwest::header::RANGE, format!("bytes={have}-"));
+            request = request
+                .header(reqwest::header::RANGE, format!("bytes={have}-"))
+                .header(reqwest::header::IF_RANGE, &since);
         }
         let mut response = match request.send().await {
             Ok(r) => r,
@@ -192,7 +202,17 @@ pub async fn http_get(client: &reqwest::Client, url: &str, dest: &Path) -> Resul
             last = format!("HTTP {status}");
             continue;
         }
-        let append = status == reqwest::StatusCode::PARTIAL_CONTENT;
+        let append = have > 0 && status == reqwest::StatusCode::PARTIAL_CONTENT;
+        if !append {
+            let headers = response.headers();
+            let tag = headers
+                .get(reqwest::header::ETAG)
+                .filter(|t| !t.as_bytes().starts_with(b"W/"))
+                .or_else(|| headers.get(reqwest::header::LAST_MODIFIED))
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or_default();
+            std::fs::write(&validator, tag)?;
+        }
         let mut file = tokio::fs::OpenOptions::new()
             .create(true)
             .write(true)
@@ -213,6 +233,7 @@ pub async fn http_get(client: &reqwest::Client, url: &str, dest: &Path) -> Resul
         file.flush().await?;
         if done {
             std::fs::rename(&part, dest)?;
+            let _ = std::fs::remove_file(&validator);
             return Ok(true);
         }
     }
@@ -1247,6 +1268,50 @@ mod tests {
         assert!(unzip_lines(&zip, "missing.txt", &out, |_| true).is_err());
         std::fs::write(&zip, b"PK\x05\x06").unwrap();
         assert!(crate::sources::zip_entries(&zip).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Serves `body` once, with ETag "new", and returns the request it got.
+    fn serve_once(body: &'static [u8]) -> (String, std::thread::JoinHandle<String>) {
+        use std::io::{Read, Write};
+        let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/x.osm.pbf", server.local_addr().unwrap());
+        let got = std::thread::spawn(move || {
+            let (mut conn, _) = server.accept().unwrap();
+            let mut req = [0; 4096];
+            let n = conn.read(&mut req).unwrap();
+            let head = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nETag: \"new\"\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            conn.write_all(&[head.as_bytes(), body].concat()).unwrap();
+            String::from_utf8_lossy(&req[..n]).to_lowercase()
+        });
+        (url, got)
+    }
+
+    #[tokio::test]
+    async fn a_part_file_is_resumed_only_while_the_file_is_unchanged() {
+        let dir = std::env::temp_dir().join(format!("http-get-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let (dest, client) = (dir.join("x.osm.pbf"), reqwest::Client::new());
+        let (part, validator) = (store::part(&dest), store::part(&store::part(&dest)));
+        // a `.part` without the response it began with is started again
+        std::fs::write(&part, "old head").unwrap();
+        let (url, got) = serve_once(b"new file");
+        assert!(http_get(&client, &url, &dest).await.unwrap());
+        assert!(!got.join().unwrap().contains("range:"));
+        assert_eq!(std::fs::read(&dest).unwrap(), b"new file");
+        assert!(!validator.exists());
+        // one with it asks to resume only if unchanged, and a changed file is taken whole
+        std::fs::write(&part, "old head").unwrap();
+        std::fs::write(&validator, "\"old\"").unwrap();
+        let (url, got) = serve_once(b"newer file");
+        assert!(http_get(&client, &url, &dest).await.unwrap());
+        let got = got.join().unwrap();
+        assert!(got.contains("range: bytes=8-") && got.contains("if-range: \"old\""));
+        assert_eq!(std::fs::read(&dest).unwrap(), b"newer file");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
