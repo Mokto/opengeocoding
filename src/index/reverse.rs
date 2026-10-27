@@ -393,6 +393,7 @@ pub fn build(
     index: &tantivy::Index,
     kind: Field,
     street_of: impl Fn(u32) -> Option<u32> + Sync,
+    has_houses: impl Fn(u32) -> bool,
 ) -> Result<(u64, u64)> {
     let searcher = index.reader()?.searcher();
     let street = Term::from_field_text(kind, "s");
@@ -416,7 +417,9 @@ pub fn build(
     }
     let spill = dir.join(SPILL);
     let doc_of = |sid: u32| docs.get(sid as usize).copied().filter(|&d| d != u32::MAX);
-    let houses = merge(&spill, &dir.join(FILE), doc_of)?;
+    let houses = merge(&spill, &dir.join(FILE), |sid| {
+        doc_of(sid).filter(|_| has_houses(sid))
+    })?;
     fs::remove_dir_all(spill)?;
     let streets = if dir.join(STREETS_SPILL).exists() {
         build_streets(dir, |id| street_of(id).and_then(doc_of))?

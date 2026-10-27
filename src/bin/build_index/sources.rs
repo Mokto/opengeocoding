@@ -544,8 +544,9 @@ pub fn korea_shops(zip: &Path, shared: &Shared) -> usize {
             };
             let postcode = Some(get(at[4])).filter(|p| !p.is_empty());
             let fields: [&str; 7] = std::array::from_fn(|i| get(house_at[i]));
-            for (street, number) in shop_houses(fields) {
+            for (street, number, lot) in shop_houses(fields) {
                 let numbers = Some(number.as_str());
+                sink.lot = lot;
                 sink.add(Some(*b"KR"), x, y, Some(street), numbers, postcode, &[city]);
             }
         }
@@ -567,7 +568,8 @@ const SHOP_COLUMNS: [&str; 7] = [
 /// A shop's houses as (street, number): its road address ("서울특별시 성동구 왕십리로", 114) and
 /// its land lot, whose 리 or 동 is the word before the number in the lot address ("태전동 산
 /// 9-1", "태전동 산9-1").
-fn shop_houses(f: [&str; 7]) -> impl Iterator<Item = (&str, String)> {
+/// A shop's road address, then its land-lot address (marked `true`).
+fn shop_houses(f: [&str; 7]) -> impl Iterator<Item = (&str, String, bool)> {
     let [road, main, sub, lot_address, land, lot_main, lot_sub] = f;
     let numbered = |main: &str, sub: &str| match sub {
         "" | "0" => main.to_string(),
@@ -576,15 +578,19 @@ fn shop_houses(f: [&str; 7]) -> impl Iterator<Item = (&str, String)> {
     let street = road.rsplit(' ').next().filter(|s| !s.is_empty());
     let road = street
         .filter(|_| !main.is_empty())
-        .map(|s| (s, numbered(main, sub)));
+        .map(|s| (s, numbered(main, sub), false));
     let lot_place = lot_address.split(' ').rev().find(|w| {
         let digits = w.strip_prefix('산').unwrap_or(w);
         !digits.is_empty() && !digits.starts_with(|c: char| c.is_ascii_digit())
     });
     let mountain = if land == "산" { "산" } else { "" };
-    let lot = lot_place
-        .filter(|_| !lot_main.is_empty())
-        .map(|p| (p, format!("{mountain}{}", numbered(lot_main, lot_sub))));
+    let lot = lot_place.filter(|_| !lot_main.is_empty()).map(|p| {
+        (
+            p,
+            format!("{mountain}{}", numbered(lot_main, lot_sub)),
+            true,
+        )
+    });
     road.into_iter().chain(lot)
 }
 
@@ -1569,11 +1575,11 @@ mod tests {
                 "297"
             ]),
             [
-                ("왕십리로", "114".to_string()),
-                ("성수동1가", "656-297".to_string())
+                ("왕십리로", "114".to_string(), false),
+                ("성수동1가", "656-297".to_string(), true)
             ]
         );
-        let mountain = [("태전동", "산9-1".to_string())];
+        let mountain = [("태전동", "산9-1".to_string(), true)];
         for lot in [
             "대구광역시 북구 태전동 산 9-1",
             "대구광역시 북구 태전동 산9-1",
@@ -1590,7 +1596,10 @@ mod tests {
                 "209",
                 "0"
             ]),
-            [("중앙로", "82".to_string()), ("만연리", "209".to_string())]
+            [
+                ("중앙로", "82".to_string(), false),
+                ("만연리", "209".to_string(), true)
+            ]
         );
     }
 

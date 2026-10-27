@@ -309,6 +309,7 @@ fn reverse_finds_the_nearest_houses() {
         (1001, "Elm Street", ""),
         (1003, "Oak Street", "67890"),
         (1002, "Oak Street", "67890"),
+        (1004, "Lot Street", ""),
     ] {
         let mut d = tantivy::doc!(
             f.kind => "s", f.names => name.to_lowercase(), f.country => "US", f.id => sid,
@@ -335,12 +336,14 @@ fn reverse_finds_the_nearest_houses() {
             at(1001, "9", 10.05, 50.0, 0),
             at(1002, "1", 11.0, 50.0, 1),
             at(1003, "1", 12.0, 50.0, 1),
+            at(1004, "8", 10.00005, 50.0, 0),
         ],
         long: vec![],
     }]);
     spill.write_fsts(dir.to_str().unwrap(), 1, &|sid, slot| (sid, slot));
     assert_eq!(
-        reverse::build(&dir, &tantivy_index, f.kind, |_| None).unwrap(),
+        // a street without houses for reverse lookups (Korean land-lot addresses) is skipped
+        reverse::build(&dir, &tantivy_index, f.kind, |_| None, |sid| sid != 1004).unwrap(),
         (5, 0)
     );
     std::fs::write(

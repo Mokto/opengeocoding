@@ -169,7 +169,7 @@ mod tests {
         reverse::street_edges(&[[30., 10.], [30.02, 10.]], &mut edges);
         spill.add(&mut edges.into_iter().map(|(k, d)| (k, d, 11)).collect());
         spill.finish();
-        reverse::build(&dir, &index, f.kind, Some)?;
+        reverse::build(&dir, &index, f.kind, Some, |_| true)?;
         drop(index);
         let case: Case = serde_json::from_value(json!({
             "id": "authored", "query": "123 Authored Road 11", "cohort": "synthetic",
