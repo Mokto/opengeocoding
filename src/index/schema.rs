@@ -195,8 +195,8 @@ pub struct LongNum {
 
 /// Where a house came from, in the two top bits of its packed longitude while the builder holds
 /// it (a postcode slot stays under 64): 0 Overture addresses, 1 OpenAddresses, 2 OSM, 3 Overture
-/// places. When sources give
-/// the same house, the better-ranked one is kept.
+/// places and Korea's shop register. When sources give the same house, the better-ranked one is
+/// kept.
 pub const RANK_SHIFT: u32 = 30;
 
 pub fn with_rank(x: u32, rank: u8) -> u32 {

@@ -8,7 +8,7 @@ use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
-    io::{BufRead, Read, Seek, SeekFrom, Write},
+    io::{BufRead, Write},
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -33,6 +33,8 @@ pub struct Sources {
     /// Overture, where OSM's would change the answers.
     #[serde(default)]
     pub osm_landmarks: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub korea_shops: Option<KoreaShops>,
     /// Retired switches (`openaddresses.enabled` and `anyLicence`, `geonamesPlaces`): every source
     /// is always read, and OpenAddresses layers always pass the licence check. Accepted and
     /// ignored so a source list that still has them parses.
@@ -47,6 +49,13 @@ pub struct Sources {
     pub geonames_places: serde::de::IgnoredAny,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct KoreaShops {
+    pub attachment: String,
+    pub sha256: String,
+}
+
 /// Local paths of the fetched sources, for `build_index`.
 pub struct Fetched {
     pub overture: PathBuf,
@@ -56,6 +65,8 @@ pub struct Fetched {
     pub geonames: Vec<PathBuf>,
     /// The directory holding `cities500.txt` and `admin1CodesASCII.txt`.
     pub geonames_places: Option<PathBuf>,
+    /// The directory holding Korea's shop register, `shops.zip`, and its `source.json`.
+    pub korea_shops: Option<PathBuf>,
 }
 
 fn safe(what: &str, value: &str, extra: &str) -> Result<()> {
@@ -75,6 +86,20 @@ impl Sources {
     pub fn validate(&self) -> Result<()> {
         safe("overtureRelease", &self.overture_release, "")?;
         safe("snapshot", &self.snapshot, "")?;
+        if let Some(shops) = &self.korea_shops {
+            ensure!(
+                shops
+                    .attachment
+                    .strip_prefix("FILE_")
+                    .is_some_and(|s| { !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) })
+                    && shops.sha256.len() == 64
+                    && shops
+                        .sha256
+                        .bytes()
+                        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()),
+                "koreaShops needs a FILE_ attachment id and a lowercase SHA-256"
+            );
+        }
         for id in self.osm.iter().chain(&self.osm_landmarks) {
             safe("osm extract", id, "/")?;
         }
@@ -451,11 +476,13 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         .await?;
         anyhow::Ok(Some(dir))
     };
-    let (openaddresses, (osm, osm_landmarks), geonames, geonames_places) = tokio::try_join!(
+    let korea_dir = scratch.join("korea-shops");
+    let (openaddresses, (osm, osm_landmarks), geonames, geonames_places, korea_shops) = tokio::try_join!(
         overture_then_openaddresses,
         osm_files,
         geonames_files,
-        geonames_places
+        geonames_places,
+        korea_shops(store, src, &korea_dir),
     )?;
 
     Ok(Fetched {
@@ -465,7 +492,86 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         openaddresses,
         geonames,
         geonames_places,
+        korea_shops,
     })
+}
+
+/// The data.go.kr page of Korea's shop register (see `sources::korea_shops`).
+const KOREA_SHOPS: &str = "https://www.data.go.kr/data/15083033/fileData.do";
+const OPEN_USE: &str = "이용허락범위 제한 없음";
+
+/// A checksum-pinned attachment, not the changing latest release, so a resumed mirror cannot
+/// mix quarters. The publisher's terms are checked on first fetch; sealed mirrors work offline.
+async fn korea_shops(store: &Store, src: &Sources, dir: &Path) -> Result<Option<PathBuf>> {
+    let Some(shops) = &src.korea_shops else {
+        return Ok(None);
+    };
+    if src
+        .bbox()
+        .is_some_and(|b| !intersects(b, 124.0, 33.0, 132.0, 39.0))
+    {
+        return Ok(None);
+    }
+    let (c, client) = (client()?, client()?);
+    let expected = shops.sha256.clone();
+    mirror(
+        store,
+        &format!("sources/korea-shops/{}", shops.sha256),
+        dir,
+        1,
+        || async move {
+            let page = c
+                .get(KOREA_SHOPS)
+                .send()
+                .await?
+                .error_for_status()?
+                .text()
+                .await?;
+            ensure!(
+                page.contains(OPEN_USE),
+                "{KOREA_SHOPS} no longer grants use without restriction"
+            );
+            let url = format!(
+                "https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId={}&fileDetailSn=1",
+                shops.attachment
+            );
+            let source = serde_json::json!({
+                "dataset": "소상공인시장진흥공단_상가(상권)정보",
+                "sha256": shops.sha256,
+                "page": KOREA_SHOPS,
+                "download": url,
+                "terms": OPEN_USE,
+            });
+            Ok(vec![
+                ("shops.zip".to_string(), url),
+                ("source.json".to_string(), source.to_string()),
+            ])
+        },
+        move |item: String, path: PathBuf| {
+            let c = client.clone();
+            let expected = expected.clone();
+            Box::pin(async move {
+                if path.extension().is_some_and(|e| e == "json") {
+                    tokio::fs::write(&path, item).await?;
+                    return Ok(true);
+                }
+                ensure!(http_get(&c, &item, &path).await?, "{item} not found");
+                ensure!(
+                    store::sha256(&path)? == expected,
+                    "{item}: SHA-256 mismatch"
+                );
+                let entries = crate::sources::zip_entries(&path)
+                    .with_context(|| format!("{item} is not the register's zip"))?;
+                ensure!(
+                    entries.iter().any(|e| e.name.ends_with(b".csv")),
+                    "{item} holds no CSV"
+                );
+                Ok(true)
+            })
+        },
+    )
+    .await?;
+    Ok(Some(dir.to_path_buf()))
 }
 
 /// Mirrors the Geofabrik extracts `ids` into `scratch/<name>`, through `sources/<snapshot>/<name>`.
@@ -746,63 +852,23 @@ async fn overture_within(
     Ok(true)
 }
 
-/// Writes the lines of zip entry `name` that `keep` accepts to `out`. Stored and deflated
-/// entries only, without ZIP64, as GeoNames publishes them.
+/// Writes the lines of zip entry `name` that `keep` accepts to `out`.
 fn unzip_lines(zip: &Path, name: &str, out: &Path, keep: impl Fn(&str) -> bool) -> Result<()> {
-    let mut f = std::fs::File::open(zip)?;
-    let len = f.metadata()?.len();
-    let tail_len = len.min(65_557);
-    f.seek(SeekFrom::End(-(tail_len as i64)))?;
-    let mut tail = vec![0; tail_len as usize];
-    f.read_exact(&mut tail)?;
-    let u16_at = |b: &[u8], i: usize| u16::from_le_bytes([b[i], b[i + 1]]) as u64;
-    let u32_at = |b: &[u8], i: usize| u32::from_le_bytes(b[i..i + 4].try_into().unwrap()) as u64;
-    let end = tail
-        .windows(4)
-        .rposition(|w| w == [0x50, 0x4b, 0x05, 0x06])
-        .context("not a zip file")?;
-    let (cd_size, cd_offset) = (u32_at(&tail, end + 12), u32_at(&tail, end + 16));
-    f.seek(SeekFrom::Start(cd_offset))?;
-    let mut cd = vec![0; cd_size as usize];
-    f.read_exact(&mut cd)?;
-    let mut i = 0;
-    while i + 46 <= cd.len() && u32_at(&cd, i) == 0x0201_4b50 {
-        let (method, csize) = (u16_at(&cd, i + 10), u32_at(&cd, i + 20));
-        let (nlen, elen, clen) = (
-            u16_at(&cd, i + 28),
-            u16_at(&cd, i + 30),
-            u16_at(&cd, i + 32),
-        );
-        let offset = u32_at(&cd, i + 42);
-        let entry = String::from_utf8_lossy(&cd[i + 46..i + 46 + nlen as usize]).into_owned();
-        i += 46 + (nlen + elen + clen) as usize;
-        if entry != name {
-            continue;
+    let entry = crate::sources::zip_entries(zip)?
+        .into_iter()
+        .find(|e| e.name == name.as_bytes())
+        .with_context(|| format!("{} holds no {name}", zip.display()))?;
+    let part = store::part(out);
+    let mut w = std::io::BufWriter::new(std::fs::File::create(&part)?);
+    for line in std::io::BufReader::new(entry.open(zip)?).lines() {
+        let line = line?;
+        if keep(&line) {
+            writeln!(w, "{line}")?;
         }
-        let mut header = [0; 30];
-        f.seek(SeekFrom::Start(offset))?;
-        f.read_exact(&mut header)?;
-        let skip = 30 + u16_at(&header, 26) + u16_at(&header, 28);
-        f.seek(SeekFrom::Start(offset + skip))?;
-        let data = std::io::Read::take(&mut f, csize);
-        let reader: Box<dyn Read> = match method {
-            0 => Box::new(data),
-            8 => Box::new(flate2::read::DeflateDecoder::new(data)),
-            m => bail!("{name}: unsupported zip method {m}"),
-        };
-        let part = store::part(out);
-        let mut w = std::io::BufWriter::new(std::fs::File::create(&part)?);
-        for line in std::io::BufReader::new(reader).lines() {
-            let line = line?;
-            if keep(&line) {
-                writeln!(w, "{line}")?;
-            }
-        }
-        w.into_inner()?.sync_all()?;
-        std::fs::rename(&part, out)?;
-        return Ok(());
     }
-    bail!("{} holds no {name}", zip.display())
+    w.into_inner()?.sync_all()?;
+    std::fs::rename(&part, out)?;
+    Ok(())
 }
 
 /// OpenAddresses address layers whose source Overture's address theme doesn't already carry,
@@ -1034,6 +1100,22 @@ mod tests {
         );
         let json = serde_json::to_string(&old).unwrap();
         assert!(!json.contains("geonamesPlaces") && !json.contains("openaddresses"));
+        assert!(!json.contains("koreaShops"));
+        let pinned = format!(
+            r#"{{"overtureRelease":"r","snapshot":"a","koreaShops":{{"attachment":"FILE_123","sha256":"{}"}}}}"#,
+            "a".repeat(64)
+        );
+        src(&pinned).validate().unwrap();
+        assert!(
+            src(&pinned.replace("FILE_123", "../123"))
+                .validate()
+                .is_err()
+        );
+        assert!(
+            src(&pinned.replace(&"a".repeat(64), "short"))
+                .validate()
+                .is_err()
+        );
         assert_eq!(ok.scope(), "bbox_9.4_47_9.7_47.3");
         assert!(
             src(r#"{"overtureRelease":"../x","snapshot":"a"}"#)
@@ -1120,7 +1202,52 @@ mod tests {
         unzip_lines(&zip, "readme.txt", &out, |_| true).unwrap();
         assert_eq!(std::fs::read_to_string(&out).unwrap(), "hello\n");
         assert!(unzip_lines(&zip, "missing.txt", &out, |_| true).is_err());
+        std::fs::write(&zip, b"PK\x05\x06").unwrap();
+        assert!(crate::sources::zip_entries(&zip).is_err());
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn korean_shops_are_optional_and_a_sealed_mirror_needs_no_upstream() {
+        let base = std::env::temp_dir().join(format!("shops-test-{}", std::process::id()));
+        let store = Store::open(&format!("file://{}", base.join("bucket").display())).unwrap();
+        let mut src: Sources =
+            serde_json::from_str(r#"{"overtureRelease":"r","snapshot":"s"}"#).unwrap();
+        assert!(
+            korea_shops(&store, &src, &base.join("scratch"))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let seed = base.join("seed");
+        std::fs::create_dir_all(&seed).unwrap();
+        std::fs::write(seed.join("shops.zip"), "a pinned attachment").unwrap();
+        std::fs::write(seed.join("source.json"), "{}").unwrap();
+        let hash = store::sha256(&seed.join("shops.zip")).unwrap();
+        src.korea_shops = Some(KoreaShops {
+            attachment: "FILE_123".into(),
+            sha256: hash.clone(),
+        });
+        store
+            .publish(&seed, &format!("sources/korea-shops/{hash}"))
+            .await
+            .unwrap();
+        let got = korea_shops(&store, &src, &base.join("scratch"))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            std::fs::read(got.join("shops.zip")).unwrap(),
+            b"a pinned attachment"
+        );
+        src.bbox = vec![9.0, 50.0, 10.0, 51.0];
+        assert!(
+            korea_shops(&store, &src, &base.join("elsewhere"))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        std::fs::remove_dir_all(base).unwrap();
     }
 
     #[tokio::test]

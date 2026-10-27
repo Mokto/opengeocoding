@@ -49,7 +49,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
        build_index digest DIR [--dump FILE]
@@ -884,6 +884,7 @@ fn pass_segments(
 #[derive(Default)]
 struct AddrAgg {
     name: Str,
+    primary: bool,
     /// Interned normalized postcodes, in arrival order (houses refer to positions), and postal city
     /// names, sorted by id. Once every source is read both are sorted by text and cut to
     /// `MAX_POSTCODES` and `MAX_CITIES`.
@@ -901,6 +902,7 @@ struct AddrAgg {
 #[derive(Default)]
 struct Street {
     name: Str,
+    primary: bool,
     pcs: Box<[u32]>,
     cities: Box<[u32]>,
     postal_towns: Box<[u64]>,
@@ -923,7 +925,12 @@ impl Street {
         }
         union(&mut self.cities, other.cities);
         union(&mut self.postal_towns, other.postal_towns);
-        (self.sx, self.sy, self.n) = (self.sx + other.sx, self.sy + other.sy, self.n + other.n);
+        if self.primary == other.primary {
+            (self.sx, self.sy, self.n) = (self.sx + other.sx, self.sy + other.sy, self.n + other.n);
+        } else if other.primary {
+            (self.sx, self.sy, self.n) = (other.sx, other.sy, other.n);
+        }
+        self.primary |= other.primary;
     }
 }
 
@@ -931,6 +938,7 @@ impl From<AddrAgg> for Street {
     fn from(a: AddrAgg) -> Street {
         Street {
             name: a.name,
+            primary: a.primary,
             pcs: a.pcs.into(),
             cities: a.cities.into(),
             postal_towns: a.postal_towns.into(),
@@ -945,6 +953,7 @@ impl From<Street> for AddrAgg {
     fn from(s: Street) -> AddrAgg {
         AddrAgg {
             name: s.name,
+            primary: s.primary,
             pcs: s.pcs.into(),
             cities: s.cities.into(),
             postal_towns: s.postal_towns.into(),
@@ -1092,9 +1101,9 @@ fn with_cell<'k>(key: &str, x: f64, y: f64, out: &'k mut String) -> &'k str {
     out
 }
 
-/// The source rank of Overture's places. Their houses neither move a street's point nor add to
-/// its weight: a road with one listed business keeps its segments' middle and importance.
-const PLACES_RANK: u8 = 3;
+/// The source rank of Overture's places and Korea's shop register: a business's point gives way
+/// to an address source's copy of the same house.
+const LAST_RANK: u8 = 3;
 
 /// Marks a number derived from a suffixed one ("47" of 47B). It ranks as `BARE_RANK`, after the
 /// source's own house 47, which then keeps its point; Spain reads no OSM addresses, whose rank
@@ -1123,6 +1132,9 @@ struct Sink<'s, 'a> {
     pcn: String,
     /// Which source these rows come from: see `schema::with_rank`.
     rank: u8,
+    /// Whether the houses move their street's point and add to its weight.
+    weighs: bool,
+    supplemental: bool,
     covered: HashMap<[u8; 2], u64>,
 }
 
@@ -1147,6 +1159,8 @@ impl<'s, 'a> Sink<'s, 'a> {
             cell_key: String::new(),
             pcn: String::new(),
             rank: 0,
+            weighs: true,
+            supplemental: false,
             covered: HashMap::new(),
         }
     }
@@ -1246,6 +1260,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             None => {
                 self.aggs.push(AddrAgg {
                     name: st.into(),
+                    primary: !self.supplemental,
                     ..Default::default()
                 });
                 m.insert(celled.into(), self.aggs.len() as u32 - 1);
@@ -1285,7 +1300,7 @@ impl<'s, 'a> Sink<'s, 'a> {
                 }
             }
         }
-        if self.rank != PLACES_RANK {
+        if self.weighs {
             (e.sx, e.sy, e.n) = (e.sx + quantize(x), e.sy + quantize(y), e.n + 1);
         }
         for n in number
@@ -1577,7 +1592,9 @@ fn pass_places(dir: &Path, shared: &Shared, segs: &[Mutex<HashMap<SegKey, SegAgg
     let done =
         progress::Progress::items("overture places".into(), tasks.len() as u64, "row groups");
     tasks.par_iter().for_each(|t| {
-        let mut sink = Sink::new(shared).ranked(PLACES_RANK);
+        // A road with one listed business keeps its segments' middle and importance.
+        let mut sink = Sink::new(shared).ranked(LAST_RANK);
+        sink.weighs = false;
         let (mut key, mut cell_key) = (String::new(), String::new());
         for b in read(t, &["addresses", "geometry"]) {
             let (addresses, geom) = (
@@ -1665,7 +1682,10 @@ fn canonical_streets(shards: Vec<Mutex<AddrShard>>, strings: &Strings) -> Canon 
         .map(|m| {
             let AddrShard { ids, mut streets } = m.into_inner().unwrap();
             let mut keys: Vec<(AddrKey, u32)> = ids.into_iter().collect();
-            keys.sort_unstable();
+            // Appending supplementary-only streets preserves other countries' candidate tie order.
+            keys.sort_unstable_by(|(a, ai), (b, bi)| {
+                (!streets[*ai as usize].primary, a).cmp(&(!streets[*bi as usize].primary, b))
+            });
             let mut renumber = vec![0; keys.len()];
             let mut slots = HashMap::new();
             let sorted = keys
@@ -1930,6 +1950,13 @@ fn build(args: &[String]) {
             shared.rows.swap(0, Relaxed)
         ));
     }
+    for zip in &opt("--korea-shops") {
+        let files = sources::korea_shops(Path::new(zip), &shared);
+        lap(&format!(
+            "korea shops {zip} ({files} files, {} rows)",
+            shared.rows.swap(0, Relaxed)
+        ));
+    }
     if let Some(reading) = landmarks {
         let found = reading.join().unwrap();
         let (counts, placeless) = landmarks::write(Path::new(out), &found, &assigner);
@@ -2155,10 +2182,13 @@ fn build(args: &[String]) {
                         .filter(|a| *a != primary),
                 );
             }
-            let n = st.n + seg.as_ref().map_or(0, |g| u64::from(g.n));
-            // Places contribute no centroid or weight and are admitted only on a known segment.
+            let n = if st.primary || seg.is_none() { st.n } else { 0 }
+                + seg.as_ref().map_or(0, |g| u64::from(g.n));
+            // Supplementary business points must not move a mapped road or change its importance.
             let point = match &seg {
-                Some(g) if st.n == 0 => (mean(g.sx, g.n.into()), mean(g.sy, g.n.into())),
+                Some(g) if st.n == 0 || !st.primary => {
+                    (mean(g.sx, g.n.into()), mean(g.sy, g.n.into()))
+                }
                 _ => (mean(st.sx, st.n), mean(st.sy, st.n)),
             };
             street_doc(
@@ -2373,6 +2403,47 @@ mod tests {
         assert_eq!(p.cached(&mut cache, (3, 4)), 0);
         assert_eq!(p.cached(&mut HashMap::new(), (5, 4)), 1);
         assert_eq!(p.cached(&mut HashMap::new(), (3, 4)), 0);
+    }
+
+    #[test]
+    fn supplementary_streets_keep_primary_centroids_and_ids() {
+        for order in [[false, true], [true, false]] {
+            let mut merged = Street::default();
+            for primary in order {
+                merged.add(AddrAgg {
+                    primary,
+                    sx: if primary { 10 } else { 1000 },
+                    sy: if primary { 20 } else { 2000 },
+                    n: 1,
+                    ..Default::default()
+                });
+            }
+            assert_eq!((merged.sx, merged.sy, merged.n), (10, 20, 1));
+            assert!(merged.primary);
+        }
+        let strings = Interner::new().table();
+        let build = |supplement: bool| {
+            let mut shard = AddrShard::default();
+            for (cc, primary) in [(*b"NG", true), (*b"US", true), (*b"KR", false)] {
+                if !primary && !supplement {
+                    continue;
+                }
+                shard
+                    .ids
+                    .insert((cc, 0, "road".into()), shard.streets.len() as u32);
+                shard.streets.push(Street {
+                    primary,
+                    ..Default::default()
+                });
+            }
+            canonical_streets(vec![Mutex::new(shard)], &strings)
+        };
+        let base = build(false);
+        let head = build(true);
+        for i in 0..base.streets[0].len() {
+            assert_eq!(base.streets[0][i].0, head.streets[0][i].0);
+        }
+        assert_eq!(head.streets[0].last().unwrap().0.0, *b"KR");
     }
 
     #[test]

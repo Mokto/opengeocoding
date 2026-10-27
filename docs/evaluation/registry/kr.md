@@ -76,3 +76,23 @@ ReverseGeocode here checks the country and a house within 250 m of the school po
 The four parse- and fallback-shaped failures that remained were one: the data puts a 리 straight under its 군, outside the 읍 or 면 the address states, so the house was not in that scope. Road names are unique within a 시, 군 or 구, so a house not found under the stated 읍, 면 or 동 is now looked for in the district, for SearchAddress and for a complete road in SuggestAddress. That passes four training and one held-out road query in both RPCs. The full gold comparison on the same index changes no other answer of any RPC. The four labels of now-passing cases are removed, and the other 20 labels now record the failure observed on this index: none is still a country centroid, a far miss or a short-postcode match.
 
 Cases have no `places` for ReverseGeocode to name: deunicode spells Hangul unlike the Revised Romanization of the index's names ("천안시" as "ceonansi", not Cheonan-si), so they could not be compared.
+
+## Shop-address supplement
+
+The optional builder input `--korea-shops` reads the Small Enterprise and Market Service's [상가(상권)정보](https://www.data.go.kr/data/15083033/fileData.do), whose publisher states `이용허락범위 제한 없음` (no restriction on reuse). The June 2026 zip contains 2.77 million businesses in about 1.12 million buildings, with road and land-lot addresses and coordinates. This is not the restricted juso.go.kr entrance register, and it is not complete residential or school coverage. See the [indexing guide](../../guides/indexing.md) for the pinned attachment, source mirror, licence checks and limitations.
+
+The initial comparison against `9bd987a`, before the later house-level reverse-scoring change, used the same local Overture 2026-09-23.1, OpenAddresses, OSM, landmark and GeoNames snapshots. The supplemental index (`4d4e5e84eb711a84`) changed the school checks as follows; these are historical results under that corpus and scoring, not measurements of the chart's newer Overture release:
+
+| School check | Without shops | With shops |
+|---|---:|---:|
+| SearchAddress, road | 59 / 207 | 85 / 207 |
+| SearchAddress, land-lot | 0 / 207 | 33 / 207 |
+| SuggestAddress, complete road query | 59 / 207 | 85 / 207 |
+| SuggestAddress, complete land-lot query | 0 / 207 | 33 / 207 |
+| ReverseGeocode, country at the source point | 414 / 414 | 414 / 414 |
+
+The 39,622-case full comparison gains 61 SearchAddress passes and 59 SuggestAddress passes, all in South Korea, with no newly failing case or worse failure class. Every other country's answers and all reverse/region answers are unchanged. Korean full-suite SearchAddress checks rise from 132/522 to 193/522; suggestions rise from 126/527 to 185/527. These are development-corpus results, not national accuracy estimates. The source is a business register, but its coordinate provenance does not establish independence from the school directory's upstream location data. Existing critical failures still fail the absolute full-suite gate. None of the 20 remaining school labels now passes, so they are unchanged; no expectation, tolerance or hold-out assignment was changed.
+
+The supplement ranks behind OSM and other address sources for duplicate houses. It cannot move an existing street's centroid or importance, and supplementary-only streets are appended after primary streets when assigning IDs: otherwise importing Korean data can reverse a tied candidate choice in another country. Unit checks preserve these invariants. An initial trial violated both and produced two Korean street-fallback regressions and two Nigerian regressions; the final comparison removes all four without a parser or fallback change. Business points still need not identify a particular campus member or an entrance.
+
+`cargo fmt --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked`, and the separate model-backed synthetic test pass locally. The real-index RPC contract test reaches the documented `grpcurl` timeout and fails; the other RPC diagnostics pass. The local full comparison exceeds the timing threshold and is not a speed sign-off; CI's measured gold-speed gate remains required.

@@ -346,6 +346,248 @@ fn oa_postcode(cc: [u8; 2], pc: &str) -> Cow<'_, str> {
     }
 }
 
+/// One entry of a zip file. Stored and deflated entries only, without ZIP64, as GeoNames and
+/// data.go.kr publish them.
+pub struct ZipEntry {
+    pub name: Vec<u8>,
+    method: u16,
+    offset: u64,
+    size: u64,
+}
+
+pub fn zip_entries(zip: &Path) -> std::io::Result<Vec<ZipEntry>> {
+    use std::io::{Error, Read, Seek, SeekFrom};
+    let mut f = File::open(zip)?;
+    let len = f.metadata()?.len();
+    let tail_len = len.min(65_557);
+    f.seek(SeekFrom::End(-(tail_len as i64)))?;
+    let mut tail = vec![0; tail_len as usize];
+    f.read_exact(&mut tail)?;
+    let u16_at = |b: &[u8], i: usize| u16::from_le_bytes([b[i], b[i + 1]]) as u64;
+    let u32_at = |b: &[u8], i: usize| u32::from_le_bytes(b[i..i + 4].try_into().unwrap()) as u64;
+    let end = tail
+        .windows(4)
+        .rposition(|w| w == [0x50, 0x4b, 0x05, 0x06])
+        .ok_or_else(|| Error::other("not a zip file"))?;
+    if end + 22 > tail.len()
+        || end + 22 + u16_at(&tail, end + 20) as usize != tail.len()
+        || u32_at(&tail, end + 4) != 0
+        || u16_at(&tail, end + 8) != u16_at(&tail, end + 10)
+    {
+        return Err(Error::other("invalid or multi-disk zip"));
+    }
+    let (cd_size, cd_offset) = (u32_at(&tail, end + 12), u32_at(&tail, end + 16));
+    if cd_offset + cd_size > len - tail_len + end as u64 || cd_size > 16 << 20 {
+        return Err(Error::other("invalid or oversized zip directory"));
+    }
+    f.seek(SeekFrom::Start(cd_offset))?;
+    let mut cd = vec![0; cd_size as usize];
+    f.read_exact(&mut cd)?;
+    let (mut i, mut entries) = (0, vec![]);
+    while i + 46 <= cd.len() && u32_at(&cd, i) == 0x0201_4b50 {
+        let (nlen, elen, clen) = (
+            u16_at(&cd, i + 28) as usize,
+            u16_at(&cd, i + 30) as usize,
+            u16_at(&cd, i + 32) as usize,
+        );
+        if i + 46 + nlen + elen + clen > cd.len() || u16_at(&cd, i + 8) & 1 != 0 {
+            return Err(Error::other("truncated or encrypted zip entry"));
+        }
+        let e = ZipEntry {
+            name: cd[i + 46..i + 46 + nlen].to_vec(),
+            method: u16_at(&cd, i + 10) as u16,
+            offset: u32_at(&cd, i + 42),
+            size: u32_at(&cd, i + 20),
+        };
+        if e.size == 0xffff_ffff || e.offset == 0xffff_ffff || e.offset + 30 > cd_offset {
+            return Err(Error::other("invalid or ZIP64 entry"));
+        }
+        entries.push(e);
+        i += 46 + nlen + elen + clen;
+    }
+    if i != cd.len() || entries.len() as u64 != u16_at(&tail, end + 10) {
+        return Err(Error::other("invalid zip directory"));
+    }
+    Ok(entries)
+}
+
+impl ZipEntry {
+    pub fn open(&self, zip: &Path) -> std::io::Result<Box<dyn std::io::Read + Send>> {
+        use std::io::{Read, Seek, SeekFrom};
+        let mut f = File::open(zip)?;
+        let mut header = [0; 30];
+        f.seek(SeekFrom::Start(self.offset))?;
+        f.read_exact(&mut header)?;
+        if header[..4] != [0x50, 0x4b, 0x03, 0x04] {
+            return Err(std::io::Error::other("invalid zip entry header"));
+        }
+        let skip = 30
+            + u16::from_le_bytes([header[26], header[27]]) as u64
+            + u16::from_le_bytes([header[28], header[29]]) as u64;
+        if self.offset + skip + self.size > f.metadata()?.len() {
+            return Err(std::io::Error::other("truncated zip entry"));
+        }
+        f.seek(SeekFrom::Start(self.offset + skip))?;
+        let data = f.take(self.size);
+        match self.method {
+            0 => Ok(Box::new(data)),
+            8 => Ok(Box::new(flate2::read::DeflateDecoder::new(data))),
+            m => Err(std::io::Error::other(format!("unsupported zip method {m}"))),
+        }
+    }
+}
+
+// ponytail: these agency CSVs have one record per line. Reject embedded newlines rather than
+// importing partial rows; use a streaming CSV reader if the publisher adds multiline fields.
+fn csv_fields(line: &str) -> std::io::Result<Vec<Cow<'_, str>>> {
+    let (mut out, mut rest) = (vec![], line.trim_end_matches(['\r', '\n']));
+    loop {
+        if let Some(q) = rest.strip_prefix('"') {
+            let (mut field, mut at) = (String::new(), q);
+            loop {
+                let end = at
+                    .find('"')
+                    .ok_or_else(|| std::io::Error::other("unclosed CSV quote"))?;
+                field.push_str(&at[..end]);
+                at = &at[end + 1..];
+                if let Some(more) = at.strip_prefix('"') {
+                    field.push('"');
+                    at = more;
+                } else {
+                    break;
+                }
+            }
+            out.push(Cow::Owned(field));
+            rest = at;
+        } else {
+            let end = rest.find(',').unwrap_or(rest.len());
+            if rest[..end].contains('"') {
+                return Err(std::io::Error::other("quote in an unquoted CSV field"));
+            }
+            out.push(Cow::Borrowed(&rest[..end]));
+            rest = &rest[end..];
+        }
+        match rest.strip_prefix(',') {
+            Some(r) => rest = r,
+            None if rest.is_empty() => return Ok(out),
+            None => return Err(std::io::Error::other("text after CSV quote")),
+        }
+    }
+}
+
+/// Korea's shop register, 소상공인시장진흥공단 상가(상권)정보 (data.go.kr 15083033): the zip of one
+/// CSV per province the agency publishes, every shop with its building's road address
+/// ("왕십리로 114"), land-lot address ("성수동1가 656-297", "태전동 산 9-1") and point. Each
+/// shop is read as a house under both addresses; a building's shops are copies of one house,
+/// which the builder averages. Read at `LAST_RANK`, after every address source. Returns the
+/// number of CSV files read.
+pub fn korea_shops(zip: &Path, shared: &Shared) -> usize {
+    let entries: Vec<ZipEntry> = zip_entries(zip)
+        .unwrap_or_else(|e| panic!("{}: {e}", zip.display()))
+        .into_iter()
+        .filter(|e| e.name.ends_with(b".csv"))
+        .collect();
+    assert!(!entries.is_empty(), "{} holds no shop CSVs", zip.display());
+    let done = Progress::items(
+        format!("korea shops {}", zip.display()),
+        entries.len() as u64,
+        "files",
+    );
+    entries.par_iter().for_each(|entry| {
+        let _counted = Counted(&done, 1);
+        let mut sink = Sink::new(shared).ranked(super::LAST_RANK);
+        sink.supplemental = true;
+        let r = entry
+            .open(zip)
+            .unwrap_or_else(|e| panic!("{}: {e}", zip.display()));
+        let mut lines = BufReader::with_capacity(1 << 20, r).lines();
+        let header: Vec<String> = match lines.next() {
+            Some(Ok(h)) => csv_fields(h.trim_start_matches('\u{feff}'))
+                .unwrap_or_else(|e| panic!("{}: {e}", zip.display()))
+                .into_iter()
+                .map(Cow::into_owned)
+                .collect(),
+            _ => vec![],
+        };
+        let at = |names: &[&str]| -> Option<Vec<usize>> {
+            names
+                .iter()
+                .map(|n| header.iter().position(|h| h == n))
+                .collect()
+        };
+        let (Some(at), Some(house_at)) = (
+            at(&["경도", "위도", "시군구명", "법정동명", "신우편번호"]),
+            at(&SHOP_COLUMNS),
+        ) else {
+            panic!(
+                "{}: {} lacks the shop register's columns",
+                zip.display(),
+                String::from_utf8_lossy(&entry.name)
+            );
+        };
+        for line in lines {
+            let line = line.unwrap_or_else(|e| panic!("{}: {e}", zip.display()));
+            let f = csv_fields(&line).unwrap_or_else(|e| panic!("{}: {e}", zip.display()));
+            assert_eq!(
+                f.len(),
+                header.len(),
+                "{}: inconsistent CSV row",
+                zip.display()
+            );
+            let get = |i: usize| f.get(i).map_or("", |v| v.trim());
+            let (Ok(x), Ok(y)) = (get(at[0]).parse::<f64>(), get(at[1]).parse::<f64>()) else {
+                continue;
+            };
+            let city = match get(at[2]) {
+                "" => (get(at[3]).rsplit(' ').next().unwrap_or(""), "district"),
+                c => (c, "city"),
+            };
+            let postcode = Some(get(at[4])).filter(|p| !p.is_empty());
+            let fields: [&str; 7] = std::array::from_fn(|i| get(house_at[i]));
+            for (street, number) in shop_houses(fields) {
+                let numbers = Some(number.as_str());
+                sink.add(Some(*b"KR"), x, y, Some(street), numbers, postcode, &[city]);
+            }
+        }
+    });
+    entries.len()
+}
+
+/// The shop register's columns `shop_houses` takes, in its order.
+const SHOP_COLUMNS: [&str; 7] = [
+    "도로명",
+    "건물본번지",
+    "건물부번지",
+    "지번주소",
+    "대지구분명",
+    "지번본번지",
+    "지번부번지",
+];
+
+/// A shop's houses as (street, number): its road address ("서울특별시 성동구 왕십리로", 114) and
+/// its land lot, whose 리 or 동 is the word before the number in the lot address ("태전동 산
+/// 9-1", "태전동 산9-1").
+fn shop_houses(f: [&str; 7]) -> impl Iterator<Item = (&str, String)> {
+    let [road, main, sub, lot_address, land, lot_main, lot_sub] = f;
+    let numbered = |main: &str, sub: &str| match sub {
+        "" | "0" => main.to_string(),
+        sub => format!("{main}-{sub}"),
+    };
+    let street = road.rsplit(' ').next().filter(|s| !s.is_empty());
+    let road = street
+        .filter(|_| !main.is_empty())
+        .map(|s| (s, numbered(main, sub)));
+    let lot_place = lot_address.split(' ').rev().find(|w| {
+        let digits = w.strip_prefix('산').unwrap_or(w);
+        !digits.is_empty() && !digits.starts_with(|c: char| c.is_ascii_digit())
+    });
+    let mountain = if land == "산" { "산" } else { "" };
+    let lot = lot_place
+        .filter(|_| !lot_main.is_empty())
+        .map(|p| (p, format!("{mountain}{}", numbered(lot_main, lot_sub))));
+    road.into_iter().chain(lot)
+}
+
 /// Adds a file's size to the progress when its pass ends, however it ends.
 pub(super) struct Counted<'a>(pub(super) &'a Progress, pub(super) u64);
 
@@ -1297,6 +1539,59 @@ mod tests {
             Some("113;1/113")
         );
         assert_eq!(f.geometry.unwrap().coordinates[1].as_f64(), Some(24.11));
+    }
+
+    #[test]
+    fn korean_shop_rows() {
+        let line = "\"MA01\",\"Cafe \"\"A\"\", B\",,656,\"서울특별시 성동구 왕십리로\"\r";
+        assert_eq!(
+            csv_fields(line).unwrap(),
+            [
+                "MA01",
+                "Cafe \"A\", B",
+                "",
+                "656",
+                "서울특별시 성동구 왕십리로"
+            ]
+        );
+        for malformed in ["\"unterminated", "\"quoted\"garbage", "bare\"quote"] {
+            assert!(csv_fields(malformed).is_err(), "{malformed}");
+        }
+        let houses = |f| shop_houses(f).collect::<Vec<_>>();
+        assert_eq!(
+            houses([
+                "서울특별시 성동구 왕십리로",
+                "114",
+                "",
+                "서울특별시 성동구 성수동1가 656-297",
+                "대지",
+                "656",
+                "297"
+            ]),
+            [
+                ("왕십리로", "114".to_string()),
+                ("성수동1가", "656-297".to_string())
+            ]
+        );
+        let mountain = [("태전동", "산9-1".to_string())];
+        for lot in [
+            "대구광역시 북구 태전동 산 9-1",
+            "대구광역시 북구 태전동 산9-1",
+        ] {
+            assert_eq!(houses(["", "", "", lot, "산", "9", "1"]), mountain);
+        }
+        assert_eq!(
+            houses([
+                "전남광주통합특별시 화순군 화순읍 중앙로",
+                "82",
+                "0",
+                "전남광주통합특별시 화순군 화순읍 만연리 209",
+                "대지",
+                "209",
+                "0"
+            ]),
+            [("중앙로", "82".to_string()), ("만연리", "209".to_string())]
+        );
     }
 
     #[test]
