@@ -26,7 +26,7 @@ The canonical RPC path is `/opengeocoding.OpenGeocoding/*`. The Go package is `g
 - A Colombian plate (`Calle 43 S # 86B-18`: house 18 m along from the crossing road 86B) is also looked up as Bogotá's register keys it (`86B 18`), and `Avenida Calle`/`Avenida Carrera` also as the register's `AC`/`AK`. When the stated town's road lacks the house, a same-named road elsewhere in the Colombian municipality (Bogotá's San Cristóbal beside its Kennedy) can answer with it.
 - Postcodes are returned as the country writes them (`1012 LG`, `H9R 5Z5`, `HA5 5NE`, `140 00`) where the shape is known, and a territory of the US, France, Norway, the Netherlands or China answers under its sovereign's country code, as the Nominatim deployment did (Greenland, the Faroes and the British territories keep their own).
 
-The service and index remain experimental; this is not a production accuracy or throughput guarantee. libpostal remains a native C parser, not a pure-Rust replacement. Calls are serialized off the async executor pending native concurrency validation.
+This is not a production accuracy or throughput guarantee. libpostal remains a native C parser, not a pure-Rust replacement. Calls are serialized off the async executor pending native concurrency validation.
 
 ## Address suggestions
 
