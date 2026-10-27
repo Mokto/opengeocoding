@@ -1,23 +1,86 @@
 use rstar::{RTree, primitives::GeomWithData, primitives::Rectangle};
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+    path::PathBuf,
+    sync::Mutex,
+};
+use tantivy::directory::{Directory, MmapDirectory, OwnedBytes};
 
-/// Polygon (all rings of all parts, even-odd rule) with edges bucketed into horizontal slabs,
-/// so a containment test only looks at the few edges crossing the point's slab.
 /// Vertices are stored as 1e-7 degree integers (about 1 cm), half the size of f64 pairs.
 const FIXED: f64 = 1e7;
 
+/// The polygons' vertices and slab edges, written to a scratch file as they are read, then
+/// memory-mapped. They are about 5 GB for the world: as file pages, the OS can drop them under
+/// memory pressure and read them back, where in the heap they added to what the build needs.
+pub struct PolyFile {
+    path: PathBuf,
+    /// The file and the words written to it.
+    w: Mutex<(BufWriter<File>, u64)>,
+}
+
+impl PolyFile {
+    pub fn new(path: PathBuf) -> PolyFile {
+        let f = File::create(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        PolyFile {
+            path,
+            w: Mutex::new((BufWriter::with_capacity(1 << 20, f), 0)),
+        }
+    }
+
+    /// Appends `words`; returns the position of the first.
+    fn put(&self, words: &[u32]) -> u64 {
+        let bytes: Vec<u8> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        let mut g = self.w.lock().unwrap();
+        g.0.write_all(&bytes).unwrap();
+        g.1 += words.len() as u64;
+        g.1 - words.len() as u64
+    }
+
+    /// The words written, mapped; the file is removed, and lives on until they are dropped.
+    fn map(self) -> OwnedBytes {
+        let (w, _) = self.w.into_inner().unwrap();
+        w.into_inner().unwrap();
+        let path = self.path.display();
+        let dir = MmapDirectory::open(self.path.parent().unwrap())
+            .unwrap_or_else(|e| panic!("{path}: {e}"));
+        let file = dir
+            .open_read(self.path.file_name().unwrap().as_ref())
+            .unwrap_or_else(|e| panic!("{path}: {e}"));
+        let bytes = file.read_bytes().unwrap_or_else(|e| panic!("{path}: {e}"));
+        std::fs::remove_file(&self.path).unwrap();
+        bytes
+    }
+}
+
+fn word(data: &[u8], i: u64) -> u32 {
+    let at = i as usize * 4;
+    u32::from_le_bytes(data[at..at + 4].try_into().unwrap())
+}
+
+/// Polygon (all rings of all parts, even-odd rule) with edges bucketed into horizontal slabs,
+/// so a containment test only looks at the few edges crossing the point's slab. Its arrays are
+/// in the `PolyFile` from word `at`: the vertices as x, y pairs, the `slabs + 1` offsets of each
+/// slab's edges, then the edges, by their first vertex.
 pub struct Poly {
     place: u32,
     kind: u8,
-    xy: Vec<[i32; 2]>,
+    vertices: u32,
+    slabs: u32,
+    at: u64,
     ymin: f64,
     inv_h: f64,
-    offsets: Vec<u32>,
-    edges: Vec<u32>,
     bbox: [f64; 4],
 }
 
 impl Poly {
-    pub fn new(place: u32, kind: u8, xy: Vec<[f64; 2]>, rings: &[(u32, u32)]) -> Option<Poly> {
+    pub fn new(
+        place: u32,
+        kind: u8,
+        xy: Vec<[f64; 2]>,
+        rings: &[(u32, u32)],
+        file: &PolyFile,
+    ) -> Option<Poly> {
         let (mut x0, mut y0, mut x1, mut y1) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
         for p in &xy {
             x0 = x0.min(p[0]);
@@ -55,29 +118,37 @@ impl Poly {
                 fill[s] += 1;
             }
         }
-        let xy = xy
+        let mut words: Vec<u32> = xy
             .iter()
-            .map(|p| [(p[0] * FIXED).round() as i32, (p[1] * FIXED).round() as i32])
+            .flat_map(|p| p.map(|v| (v * FIXED).round() as i32 as u32))
             .collect();
+        words.extend(offsets);
+        words.extend(edges);
         Some(Poly {
             place,
             kind,
-            xy,
+            vertices: xy.len() as u32,
+            slabs: k as u32,
+            at: file.put(&words),
             ymin: y0,
             inv_h,
-            offsets,
-            edges,
             bbox: [x0, y0, x1, y1],
         })
     }
 
-    pub fn contains(&self, x: f64, y: f64) -> bool {
-        let k = self.offsets.len() - 1;
-        let s = (((y - self.ymin) * self.inv_h).max(0.0) as usize).min(k - 1);
+    pub fn contains(&self, data: &[u8], x: f64, y: f64) -> bool {
+        let k = self.slabs as usize;
+        let s = (((y - self.ymin) * self.inv_h).max(0.0) as usize).min(k - 1) as u64;
+        let offsets = self.at + 2 * u64::from(self.vertices);
+        let edges = offsets + k as u64 + 1;
+        let vertex = |v: u64| {
+            let at = self.at + 2 * v;
+            [at, at + 1].map(|i| word(data, i) as i32 as f64 / FIXED)
+        };
         let mut inside = false;
-        for &e in &self.edges[self.offsets[s] as usize..self.offsets[s + 1] as usize] {
-            let [xa, ya] = self.xy[e as usize].map(|v| v as f64 / FIXED);
-            let [xb, yb] = self.xy[e as usize + 1].map(|v| v as f64 / FIXED);
+        for j in word(data, offsets + s)..word(data, offsets + s + 1) {
+            let e = u64::from(word(data, edges + u64::from(j)));
+            let ([xa, ya], [xb, yb]) = (vertex(e), vertex(e + 1));
             if (ya > y) != (yb > y) && x < xa + (y - ya) * (xb - xa) / (yb - ya) {
                 inside = !inside;
             }
@@ -90,7 +161,7 @@ impl Poly {
     }
 
     pub fn vertices(&self) -> usize {
-        self.xy.len()
+        self.vertices as usize
     }
 }
 
@@ -198,6 +269,7 @@ const NEAR_LOCALITY_M: f32 = 5000.0;
 
 pub struct Assigner {
     polys: Vec<Poly>,
+    data: OwnedBytes,
     tree: RTree<GeomWithData<Rectangle<[f64; 2]>, u32>>,
     towns: RTree<GeomWithData<[f64; 2], u32>>,
     countries: Vec<[u8; 2]>,
@@ -209,6 +281,7 @@ pub struct Assigner {
 impl Assigner {
     pub fn new(
         polys: Vec<Poly>,
+        file: PolyFile,
         towns: Vec<([f64; 2], u32)>,
         countries: Vec<([u8; 2], [u8; 2])>,
     ) -> Assigner {
@@ -236,6 +309,7 @@ impl Assigner {
             .unzip();
         Assigner {
             polys,
+            data: file.map(),
             tree,
             towns,
             countries,
@@ -258,7 +332,7 @@ impl Assigner {
             let p = &self.polys[c.data as usize];
             (p.kind == 3
                 && self.countries[p.place as usize] == canonical_country(cc)
-                && p.contains(x, y))
+                && p.contains(&self.data, x, y))
             .then_some(p.place)
         });
         let first = regions.next()?;
@@ -274,7 +348,7 @@ impl Assigner {
             self.tree
                 .locate_all_at_point([x, y])
                 .map(|c| &self.polys[c.data as usize])
-                .filter(|p| p.contains(x, y))
+                .filter(|p| p.contains(&self.data, x, y))
         };
         let cc = cc.map(canonical_country).or_else(|| {
             containing()
@@ -341,6 +415,11 @@ mod tests {
         b
     }
 
+    fn file(name: &str) -> PolyFile {
+        let name = format!("polys-{}-{name}", std::process::id());
+        PolyFile::new(std::env::temp_dir().join(name))
+    }
+
     fn square(x: f64, y: f64, s: f64) -> Vec<[f64; 2]> {
         vec![[x, y], [x + s, y], [x + s, y + s], [x, y + s], [x, y]]
     }
@@ -354,20 +433,27 @@ mod tests {
         multi.extend(wkb_polygon(&[&outer, &hole]));
         multi.extend(wkb_polygon(&[&square(20.0, 20.0, 1.0)]));
         let (xy, rings) = wkb_polygons(&multi).unwrap();
-        let p = Poly::new(0, 0, xy, &rings).unwrap();
-        assert!(p.contains(1.0, 1.0));
-        assert!(p.contains(9.9, 9.9));
-        assert!(!p.contains(5.0, 5.0), "inside the hole");
-        assert!(p.contains(20.5, 20.5), "second part");
-        assert!(!p.contains(15.0, 15.0), "between parts");
-        assert!(!p.contains(-1.0, 5.0));
+        let f = file("hole");
+        let skipped = Poly::new(0, 0, square(0.0, 0.0, 0.0), &[(0, 5)], &f);
+        assert!(skipped.is_none(), "no area");
+        let p = Poly::new(0, 0, xy, &rings, &f).unwrap();
+        let data = f.map();
+        let contains = |x, y| p.contains(&data, x, y);
+        assert!(contains(1.0, 1.0));
+        assert!(contains(9.9, 9.9));
+        assert!(!contains(5.0, 5.0), "inside the hole");
+        assert!(contains(20.5, 20.5), "second part");
+        assert!(!contains(15.0, 15.0), "between parts");
+        assert!(!contains(-1.0, 5.0));
     }
 
     #[test]
     fn countries_constrain_polygons_and_point_fallbacks_without_splitting_sovereigns() {
         let s = square(0.0, 0.0, 1.0);
+        let f = file("countries");
         let a = Assigner::new(
-            vec![Poly::new(0, 2, s.clone(), &[(0, s.len() as u32)]).unwrap()],
+            vec![Poly::new(0, 2, s.clone(), &[(0, s.len() as u32)], &f).unwrap()],
+            f,
             vec![([0.501, 0.5], 1), ([0.53, 0.5], 2)],
             vec![(*b"AT", *b"AT"), (*b"LI", *b"LI"), (*b"AT", *b"AT")],
         );
@@ -381,15 +467,21 @@ mod tests {
         assert_ne!(canonical_country(*b"VG"), canonical_country(*b"GB"));
         assert_eq!(canonical_country(*b"XW"), canonical_country(*b"PS"));
         assert_eq!(canonical_country(*b"XG"), canonical_country(*b"PS"));
-        let territory = Assigner::new(vec![], vec![([0.0, 0.0], 0)], vec![(*b"AX", *b"FI")]);
+        let territory = Assigner::new(
+            vec![],
+            file("territory"),
+            vec![([0.0, 0.0], 0)],
+            vec![(*b"AX", *b"FI")],
+        );
         assert_eq!(territory.place_in(0.0, 0.0, Some(*b"FI")), Some(0));
         assert_eq!(territory.countries[0], *b"AX");
     }
 
     #[test]
     fn smallest_locality_then_nearby_town_then_admin() {
+        let f = file("nested");
         let poly = |place, kind, s: Vec<[f64; 2]>| {
-            Poly::new(place, kind, s.clone(), &[(0, s.len() as u32)]).unwrap()
+            Poly::new(place, kind, s.clone(), &[(0, s.len() as u32)], &f).unwrap()
         };
         let a = Assigner::new(
             vec![
@@ -397,6 +489,7 @@ mod tests {
                 poly(2, 0, square(0.0, 0.0, 0.1)),
                 poly(3, 2, square(-5.0, -5.0, 20.0)),
             ],
+            f,
             vec![([3.0, 3.0], 4)],
             vec![(*b"AT", *b"AT"); 5],
         );

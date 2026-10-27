@@ -185,7 +185,6 @@ pub fn add_places(
         )
         .unwrap();
         places.push(Place {
-            id: Str::default(),
             // ranked as "other" below every Overture locality (importance is population plus the
             // subtype's weight), so a gap filler never outranks the place Overture has
             subtype: "other",
@@ -194,10 +193,7 @@ pub fn add_places(
             names: r.names.join(&NAME_SEP.to_string()).into(),
             population: r.population.min(9_000),
             xy: Some((r.x, r.y)),
-            parents: vec![],
             anc,
-            parent: None,
-            row: Str::default(),
         });
     }
     tsv.flush().unwrap();
@@ -257,7 +253,8 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         let cities = root.join("cities.txt");
         std::fs::write(&cities, line("PPL", "Oldname,Untrusted Alias")).unwrap();
-        let assigner = Assigner::new(vec![], vec![], vec![]);
+        let polys = crate::geo::PolyFile::new(root.join("polys"));
+        let assigner = Assigner::new(vec![], polys, vec![], vec![]);
         for (cc, subtype, positions, enriched) in [
             (*b"IN", "locality", vec![(74.9, 18.1)], true),
             (*b"IN", "locality", vec![(74.9, 18.1), (80., 18.1)], true),
@@ -268,17 +265,13 @@ mod tests {
             let mut places: Vec<Place> = positions
                 .iter()
                 .map(|&xy| Place {
-                    id: Str::default(),
                     subtype,
                     country: cc,
                     region: "IN-16".into(),
                     names: "Oldname".into(),
                     population: 4100,
                     xy: Some(xy),
-                    parents: vec![],
                     anc: Box::default(),
-                    parent: None,
-                    row: Str::default(),
                 })
                 .collect();
             let original = "locality\tvillage\tIN\tIN-16\t0\t4100\t74.9\t18.1\tNaN\tNaN\tNaN\tNaN\t\tOldname\t\tQ1\n";

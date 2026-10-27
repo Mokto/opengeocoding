@@ -264,8 +264,9 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
             return;
         }
         // One thread decompresses into blocks of whole lines; workers parse blocks in parallel,
-        // so one large file doesn't leave the other cores idle.
-        let (tx, rx) = std::sync::mpsc::sync_channel::<String>(32);
+        // so one large file doesn't leave the other cores idle. Parsing is the slower side, so
+        // a deeper queue only holds more blocks: 32 per file were gigabytes over all files.
+        let (tx, rx) = std::sync::mpsc::sync_channel::<String>(4);
         std::thread::scope(|scope| {
             scope.spawn(|| {
                 let file = File::open(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
@@ -592,6 +593,15 @@ fn shop_houses(f: [&str; 7]) -> impl Iterator<Item = (&str, String, bool)> {
         )
     });
     road.into_iter().chain(lot)
+}
+
+/// Runs its closure when dropped, so a panicking file still releases what it held.
+struct Done<F: FnMut()>(F);
+
+impl<F: FnMut()> Drop for Done<F> {
+    fn drop(&mut self) {
+        (self.0)();
+    }
 }
 
 /// Adds a file's size to the progress when its pass ends, however it ends.
@@ -998,6 +1008,8 @@ fn address_point(mut points: impl Iterator<Item = Option<(f64, f64)>>) -> Option
 /// only when all vertices fit the approximate 300 m house-copy merge scale; broader street
 /// and postcode metadata survives. The country is the containing place's. Returns files read.
 const OSM_FILES_AT_ONCE: usize = 4;
+/// Extract bytes read at once, unless one extract is larger.
+const OSM_BYTES_AT_ONCE: u64 = 5 << 30;
 
 pub fn osm(dir: &Path, shared: &Shared) -> usize {
     let files = files(dir, ".osm.pbf");
@@ -1243,15 +1255,39 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
         );
     };
     // Each extract holds the ids and coordinates of the nodes its addresses use until it is done:
-    // reading every extract at once added gigabytes to the build's peak. A few at a time, largest
-    // first, each decoded on the whole pool, keep most of the speed.
-    let mut order: Vec<&PathBuf> = files.iter().collect();
-    order.sort_by_key(|p| std::cmp::Reverse(size(p)));
-    let next = std::sync::atomic::AtomicUsize::new(0);
+    // reading every extract at once added gigabytes to the build's peak, and so did the four
+    // largest together. A few at a time, largest first while they fit in `OSM_BYTES_AT_ONCE`,
+    // each decoded on the whole pool, keep most of the speed.
+    let mut order: Vec<(u64, &PathBuf)> = files.iter().map(|p| (size(p), p)).collect();
+    order.sort_by_key(|&(bytes, _)| std::cmp::Reverse(bytes));
+    let queue = Mutex::new((order, 0u64));
+    let finished = std::sync::Condvar::new();
     std::thread::scope(|s| {
         for _ in 0..OSM_FILES_AT_ONCE {
             s.spawn(|| {
-                while let Some(path) = order.get(next.fetch_add(1, Relaxed)) {
+                loop {
+                    let mut q = queue.lock().unwrap();
+                    let (bytes, path) = loop {
+                        let (left, reading) = &mut *q;
+                        if left.is_empty() {
+                            return;
+                        }
+                        let fits = |&(bytes, _): &(u64, _)| {
+                            *reading == 0 || *reading + bytes <= OSM_BYTES_AT_ONCE
+                        };
+                        match left.iter().position(fits) {
+                            Some(i) => {
+                                *reading += left[i].0;
+                                break left.remove(i);
+                            }
+                            None => q = finished.wait(q).unwrap(),
+                        }
+                    };
+                    drop(q);
+                    let _done = Done(|| {
+                        queue.lock().unwrap_or_else(|e| e.into_inner()).1 -= bytes;
+                        finished.notify_all();
+                    });
                     per_file(path);
                 }
             });

@@ -2454,6 +2454,7 @@ dependencies = [
  "connectrpc-reflection",
  "deunicode",
  "flate2",
+ "hashbrown 0.17.1",
  "indexmap",
  "k8s-openapi",
  "kube",
