@@ -1316,6 +1316,21 @@ impl Core {
                 return Ok(retried);
             }
         }
+        // A postcode the data lacks garbles the parse of its town; one it holds is never dropped,
+        // so a town it contradicts stays ruled out. Without the postcode, only a place in a town
+        // whose own postcode doesn't contradict it answers, and never confidently.
+        let country = expected_country(&parsed_country(query.rsplit(',').next().unwrap_or("")));
+        if let Some((postcode, retry)) = self
+            .index
+            .unknown_postcode(query, Some(country.as_str()).filter(|c| !c.is_empty()))
+        {
+            let mut retried = self.resolve_once(&retry)?;
+            let details = retried.address_details.as_option();
+            if locality(details) && postcode_matches(&postcode, details) {
+                retried.good_match = false;
+                return Ok(retried);
+            }
+        }
         Ok(found)
     }
 

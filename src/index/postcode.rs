@@ -61,6 +61,44 @@ impl Index {
         self.any_of(Kind::Postcode, cc, cl)
     }
 
+    /// A postcode the data doesn't hold (in country `cc`, if given) written with a town in one
+    /// comma-separated part after the first, which libpostal misreads with the town ("Limerick
+    /// V94 N12Y" as a road), and `q` without it. One word of four to ten characters with a digit,
+    /// or two of at most four (each with a digit or of at most three letters), so a town ("Oslo
+    /// 0150") stays.
+    pub fn unknown_postcode(&self, q: &str, cc: Option<&str>) -> Option<(String, String)> {
+        let parts: Vec<&str> = q.split(',').map(str::trim).collect();
+        let digit = |w: &str| w.chars().any(|c| c.is_ascii_digit());
+        for len in [2, 1] {
+            for (pi, part) in parts.iter().enumerate().skip(1) {
+                let words: Vec<&str> = part.split_whitespace().collect();
+                for start in 0..(words.len() + 1).saturating_sub(len) {
+                    let run = &words[start..start + len];
+                    let cand = run.join(" ");
+                    let norm = pc_norm(&cand);
+                    let shaped = digit(&norm)
+                        && cand
+                            .chars()
+                            .all(|c| c.is_ascii_alphanumeric() || " -".contains(c))
+                        && match len {
+                            1 => (4..=10).contains(&norm.len()),
+                            _ => run
+                                .iter()
+                                .all(|w| w.len() <= 4 && (digit(w) || w.len() <= 3)),
+                        };
+                    let town = [&words[..start], &words[start + len..]].concat();
+                    if !shaped || town.iter().all(|w| digit(w)) || self.postcode_exists(&cand, cc) {
+                        continue;
+                    }
+                    let mut rest: Vec<String> = parts.iter().map(|p| p.to_string()).collect();
+                    rest[pi] = town.join(" ");
+                    return Some((cand, rest.join(", ")));
+                }
+            }
+        }
+        None
+    }
+
     /// A one- or two-word postcode within a comma-separated part of `q`, and `q` without it.
     /// Without a known country a single word must mix letters and digits or have five or more
     /// characters, so house numbers aren't read as some country's postcode.
