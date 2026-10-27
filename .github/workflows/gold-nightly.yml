@@ -99,7 +99,7 @@ jobs:
             [ "$now" = "$last" ] || { echo "$(date -u +%H:%M:%S) $now"; last=$now; }
             case "$(jq -r .status run.json)" in
               succeeded) break ;;
-              failed) echo "::error::The run failed in step $(jq -r .phase run.json) (run $RUN_ID)"; exit 1 ;;
+              failed) echo "::error::The run failed in step $(jq -r .phase run.json) (run $RUN_ID)$(jq -r '.reason // empty | ": " + .' run.json | tr -cd "[:alnum:] .,:/()'-")"; exit 1 ;;
             esac
           done
           jq -r .report run.json | sed -e '/^<!-- speed: /,/^<!-- speed end -->/d' \

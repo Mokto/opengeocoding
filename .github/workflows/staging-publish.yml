@@ -351,12 +351,14 @@ jobs:
           done
           phase_end
           if [ "$status" != succeeded ]; then
-            setenv FAILED_STEP "$phase"
+            # the gateway's own words, when it knows why; it goes into a public comment: plain words only
+            reason=$({ jq -r '.reason // empty' run.json 2> /dev/null || true; } | tr -cd "[:alnum:] .,:/()'-" | cut -c1-400)
+            setenv FAILED_STEP "$phase${reason:+: $reason}"
             took=$(dur $(($(date +%s) - began)))
-            note="The run failed in step \`$phase\` after $took. This is a failure of the run, not a verdict on the change: nothing here says the commit regresses. The step's own log stays in the cluster; give a maintainer the run id."
+            note="The run failed in step \`$phase\` after $took.${reason:+ $reason} This is a failure of the run, not a verdict on the change: nothing here says the commit regresses. The step's own log stays in the cluster for 30 minutes after the run ends; give a maintainer the run id."
             progress "run failed in $phase" "$note"
-            { echo "## Gold run failed in step \`$phase\`"; echo; timings; } >> "$GITHUB_STEP_SUMMARY"
-            echo "::error title=Gold run failed::Step $phase failed after $took (run $RUN_ID); no verdict for this commit"
+            { echo "## Gold run failed in step \`$phase\`"; echo; [ -z "$reason" ] || { echo "$reason"; echo; }; timings; } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=Gold run failed::Step $phase failed after $took (run $RUN_ID)${reason:+: $reason}; no verdict for this commit"
             exit 1
           fi
           log "Done: $(timing_line)"
@@ -401,7 +403,7 @@ jobs:
         if: always()
         run: |
           mkdir -p gold-run
-          [ ! -s run.json ] || jq '{id, status, phase, exit}' run.json > gold-run/run.json
+          [ ! -s run.json ] || jq '{id, status, phase, exit, reason}' run.json > gold-run/run.json
           for f in report.md gold.md speed.md; do [ ! -s "$f" ] || cp "$f" "gold-run/$f"; done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
