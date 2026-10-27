@@ -73907,7 +73907,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ========================================================================
 
-zstd 0.14.2
+zstd 0.14.3
 License: BSD-3-Clause
 Repository: https://github.com/gyscos/zstd-rs
 BSD 3-Clause License
@@ -73977,7 +73977,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================
 
-zstd-safe 8.1.0
+zstd-safe 8.2.0
 License: BSD-3-Clause
 Repository: https://github.com/gyscos/zstd-rs
 BSD 3-Clause License
@@ -74012,7 +74012,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ========================================================================
 
-zstd-sys 2.1.1+zstd.1.5.7
+zstd-sys 2.1.2+zstd.1.5.7
 License: BSD-3-Clause
 Repository: https://github.com/gyscos/zstd-rs
 BSD 3-Clause License
