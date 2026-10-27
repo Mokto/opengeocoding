@@ -2,6 +2,15 @@
 all-features = true
 
 [advisories]
+# zstd 0.13 / zstd-safe 7 come only from connectrpc 0.9 (its default `zstd` feature, which
+# connectrpc-reflection enables), and no patched 0.13 exists. connectrpc decompresses requests with
+# `zstd::Decoder` (stream::read) and compresses with `bulk::Compressor::new`, never the affected
+# APIs. Drop these once connectrpc moves to zstd >= 0.14.3; parquet already uses the patched one.
+ignore = [
+    { id = "RUSTSEC-2026-0391", reason = "affects stream::raw with_context only; connectrpc uses Decoder::new and bulk::Compressor::new" },
+    { id = "RUSTSEC-2026-0398", reason = "affects Seekable::decompress; the seekable feature is not enabled" },
+    { id = "RUSTSEC-2026-0403", reason = "affects stream::write::Decoder; connectrpc uses stream::read::Decoder, which the advisory lists as unaffected" },
+]
 
 [licenses]
 allow = [
