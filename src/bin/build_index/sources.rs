@@ -749,6 +749,8 @@ fn address_point(mut points: impl Iterator<Item = Option<(f64, f64)>>) -> Option
 /// Addressed nodes, buildings and compact sites. Untyped ways/relations keep a house number
 /// only when all vertices fit the approximate 300 m house-copy merge scale; broader street
 /// and postcode metadata survives. The country is the containing place's. Returns files read.
+const OSM_FILES_AT_ONCE: usize = 4;
+
 pub fn osm(dir: &Path, shared: &Shared) -> usize {
     let files = files(dir, ".osm.pbf");
     let size = |p: &Path| std::fs::metadata(p).map_or(0, |m| m.len());
@@ -757,7 +759,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
         files.iter().map(|f| size(f)).sum(),
     );
     let skipped = AtomicU64::new(0);
-    files.par_iter().for_each(|path| {
+    let per_file = |path: &PathBuf| {
         let _counted = Counted(&done, size(path));
         let (offsets, first_way, first_relation) = layout(path);
         let (nodes, ways, relations) = (
@@ -991,6 +993,21 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                 );
             },
         );
+    };
+    // Each extract holds the ids and coordinates of the nodes its addresses use until it is done:
+    // reading every extract at once added gigabytes to the build's peak. A few at a time, largest
+    // first, each decoded on the whole pool, keep most of the speed.
+    let mut order: Vec<&PathBuf> = files.iter().collect();
+    order.sort_by_key(|p| std::cmp::Reverse(size(p)));
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    std::thread::scope(|s| {
+        for _ in 0..OSM_FILES_AT_ONCE {
+            s.spawn(|| {
+                while let Some(path) = order.get(next.fetch_add(1, Relaxed)) {
+                    per_file(path);
+                }
+            });
+        }
     });
     eprintln!(
         "OSM: omitted house numbers on {} untyped ways/relations with incomplete footprints or vertices over 300 m from their address point",
