@@ -621,14 +621,32 @@ async fn geofabrik(
                 missing.retain(|n| !held.contains(n));
             }
         }
+        // A mirrored extract whose blobs do not read (a CI volume once held three overwritten
+        // with garbage of the same size, which the size check passes) is taken on its own, as
+        // one the mirrors lack; the mirror itself stays sealed.
+        let held: Vec<String> = wanted.difference(&missing).cloned().collect();
+        for f in held {
+            if !readable_pbf(&dir.join(&f)).await {
+                eprintln!(
+                    "warning: {}/{f}: unreadable extract, fetching it again",
+                    rel(name)
+                );
+                std::fs::remove_file(dir.join(&f))?;
+                missing.insert(f);
+            }
+        }
         let mut upstream = Vec::new();
         for f in missing {
             let added = format!("sources/{}/geofabrik/{f}", src.snapshot);
             if store.exists(&format!("{added}/_COMPLETE")).await? {
                 println!("{added}: from the store");
                 store
-                    .fetch_files(&added, &dir, Some(&BTreeSet::from([f])))
+                    .fetch_files(&added, &dir, Some(&BTreeSet::from([f.clone()])))
                     .await?;
+                ensure!(
+                    readable_pbf(&dir.join(&f)).await,
+                    "{added}: unreadable extract; delete it from the store to fetch it again"
+                );
             } else {
                 upstream.push((f, added));
             }
@@ -641,6 +659,10 @@ async fn geofabrik(
                     .get(id)
                     .with_context(|| format!("no Geofabrik extract {id}"))?;
                 add_extract(store, client, url, &added, &dir, &f).await?;
+                ensure!(
+                    readable_pbf(&dir.join(&f)).await,
+                    "{url}: unreadable extract"
+                );
             }
         }
         prune(&dir, &wanted)?;
@@ -674,6 +696,27 @@ async fn geofabrik(
     )
     .await?;
     Ok(Some(dir))
+}
+
+/// Whether each blob header of the PBF at `path` reads. Seeks past the blobs, so it costs a
+/// small read per blob, as the build's own first pass over the file does.
+async fn readable_pbf(path: &Path) -> bool {
+    let path = path.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let Ok(mut r) = osmpbf::BlobReader::seekable_from_path(&path) else {
+            return false;
+        };
+        let mut blobs = 0;
+        while let Some(h) = r.next_header_skip_blob() {
+            if h.is_err() {
+                return false;
+            }
+            blobs += 1;
+        }
+        blobs > 0
+    })
+    .await
+    .unwrap_or(false)
 }
 
 /// Geofabrik's extract ids and their `.osm.pbf` URLs.
@@ -1207,6 +1250,17 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// A PBF of one blob holding `body`: its headers read, its data is never decoded.
+    fn pbf(body: &str) -> Vec<u8> {
+        let mut header = vec![0x0a, 9];
+        header.extend(b"OSMHeader");
+        header.extend([0x18, body.len() as u8]);
+        let mut out = (header.len() as u32).to_be_bytes().to_vec();
+        out.extend(header);
+        out.extend(body.as_bytes());
+        out
+    }
+
     #[tokio::test]
     async fn korean_shops_are_optional_and_a_sealed_mirror_needs_no_upstream() {
         let base = std::env::temp_dir().join(format!("shops-test-{}", std::process::id()));
@@ -1262,7 +1316,13 @@ mod tests {
             let dir = base.join("seed").join(list);
             std::fs::create_dir_all(&dir).unwrap();
             for f in files {
-                std::fs::write(dir.join(format!("{f}.osm.pbf")), f).unwrap();
+                // france's mirrored copy is garbage
+                let bytes = if f == "france" {
+                    vec![0xff; 64]
+                } else {
+                    pbf(f)
+                };
+                std::fs::write(dir.join(format!("{f}.osm.pbf")), bytes).unwrap();
             }
             store
                 .publish(&dir, &format!("sources/2026-10/{list}"))
@@ -1275,7 +1335,7 @@ mod tests {
         let (client, scratch) = (reqwest::Client::new(), base.join("scratch"));
         std::fs::create_dir_all(scratch.join("osm")).unwrap();
         // left over from a build when peru was still on the list
-        std::fs::write(scratch.join("osm/peru.osm.pbf"), "peru").unwrap();
+        std::fs::write(scratch.join("osm/peru.osm.pbf"), pbf("peru")).unwrap();
         let ids = |l: &[&str]| l.iter().map(|s| s.to_string()).collect::<Vec<_>>();
         let dir = geofabrik(
             &store,
@@ -1295,8 +1355,8 @@ mod tests {
         got.sort();
         assert_eq!(got, ["chile.osm.pbf", "japan.osm.pbf"]);
         assert_eq!(
-            std::fs::read_to_string(dir.join("japan.osm.pbf")).unwrap(),
-            "japan"
+            std::fs::read(dir.join("japan.osm.pbf")).unwrap(),
+            pbf("japan")
         );
         // an extract neither list holds is fetched alone, sealed, and reused by the next build
         let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -1305,10 +1365,12 @@ mod tests {
             use std::io::{Read, Write};
             let (mut conn, _) = server.accept().unwrap();
             let _ = conn.read(&mut [0; 4096]).unwrap();
-            conn.write_all(
-                b"HTTP/1.1 200 OK\r\nContent-Length: 6\r\nConnection: close\r\n\r\nmexico",
-            )
-            .unwrap();
+            let body = pbf("mexico");
+            let head = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            conn.write_all(&[head.as_bytes(), &body].concat()).unwrap();
         });
         let added = "sources/2026-10/geofabrik/mexico.osm.pbf";
         add_extract(
@@ -1337,8 +1399,31 @@ mod tests {
             ["chile.osm.pbf", "mexico.osm.pbf"]
         );
         assert_eq!(
-            std::fs::read_to_string(dir.join("mexico.osm.pbf")).unwrap(),
-            "mexico"
+            std::fs::read(dir.join("mexico.osm.pbf")).unwrap(),
+            pbf("mexico")
+        );
+        // an unreadable mirrored extract is taken on its own instead
+        let other = base.join("seed/france");
+        std::fs::create_dir_all(&other).unwrap();
+        std::fs::write(other.join("france.osm.pbf"), pbf("france")).unwrap();
+        store
+            .publish(&other, "sources/2026-10/geofabrik/france.osm.pbf")
+            .await
+            .unwrap();
+        let dir = geofabrik(
+            &store,
+            &client,
+            &src,
+            "osm",
+            &ids(&["chile", "france"]),
+            &scratch,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            std::fs::read(dir.join("france.osm.pbf")).unwrap(),
+            pbf("france")
         );
         std::fs::remove_dir_all(&base).unwrap();
     }
