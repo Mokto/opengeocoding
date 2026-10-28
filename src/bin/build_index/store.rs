@@ -35,6 +35,7 @@ pub struct Store {
     root: String,
     permits: Arc<Semaphore>,
     local: Option<Arc<LocalFileSystem>>,
+    mirror: Option<Arc<Store>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -95,7 +96,30 @@ impl Store {
             root,
             permits,
             local: None,
+            mirror: None,
         }
+    }
+
+    /// Reads a sealed `sources/` directory this store lacks from `mirror`, which is never
+    /// written: anything else, unsealed source directories included, stays in this store.
+    pub fn with_mirror(self, mirror: Store) -> Self {
+        Self {
+            mirror: Some(Arc::new(mirror)),
+            ..self
+        }
+    }
+
+    /// The store that reads of the directory `rel` go to.
+    async fn reader(&self, rel: &str) -> Result<&Store> {
+        let sealed = format!("{}/_COMPLETE", rel.trim_end_matches('/'));
+        if let Some(m) = &self.mirror
+            && rel.starts_with("sources/")
+            && !self.has(&sealed).await?
+            && m.has(&sealed).await?
+        {
+            return Ok(m);
+        }
+        Ok(self)
     }
 
     /// The file holding `rel`, when the store is a local directory.
@@ -112,7 +136,21 @@ impl Store {
         })
     }
 
+    /// Whether `rel` is in this store, or is the `_COMPLETE` of a source directory its mirror
+    /// holds sealed.
     pub async fn exists(&self, rel: &str) -> Result<bool> {
+        if self.has(rel).await? {
+            return Ok(true);
+        }
+        match &self.mirror {
+            Some(m) if rel.starts_with("sources/") && rel.ends_with("/_COMPLETE") => {
+                m.has(rel).await
+            }
+            _ => Ok(false),
+        }
+    }
+
+    async fn has(&self, rel: &str) -> Result<bool> {
         match self.inner.head(&self.key(rel)).await {
             Ok(_) => Ok(true),
             Err(object_store::Error::NotFound { .. }) => Ok(false),
@@ -122,8 +160,9 @@ impl Store {
 
     /// Objects directly under `rel`, by file name, with their sizes.
     pub async fn list(&self, rel: &str) -> Result<Vec<(String, u64)>> {
-        let prefix = self.key(rel);
-        let listed = self.inner.list_with_delimiter(Some(&prefix)).await?;
+        let from = self.reader(rel).await?;
+        let prefix = from.key(rel);
+        let listed = from.inner.list_with_delimiter(Some(&prefix)).await?;
         Ok(listed
             .objects
             .into_iter()
@@ -323,11 +362,12 @@ impl Store {
         dir: &Path,
         only: Option<&std::collections::BTreeSet<String>>,
     ) -> Result<()> {
+        let from = self.reader(rel).await?;
         ensure!(
-            self.exists(&format!("{rel}/_COMPLETE")).await?,
+            from.has(&format!("{rel}/_COMPLETE")).await?,
             "{rel} is not complete"
         );
-        let raw = self.get(&format!("{rel}/MANIFEST")).await?;
+        let raw = from.get(&format!("{rel}/MANIFEST")).await?;
         let digest = hex(ring::digest::digest(&ring::digest::SHA256, &raw));
         // the marker vouches for the whole directory, which a partial fetch does not check
         let marker = marker(dir).filter(|_| only.is_none());
@@ -347,7 +387,7 @@ impl Store {
         );
         let mut tasks = JoinSet::new();
         for e in manifest.files {
-            let (store, rel, progress) = (self.clone(), rel.to_string(), progress.clone());
+            let (store, rel, progress) = (from.clone(), rel.to_string(), progress.clone());
             let local = dir.join(&e.path);
             tasks.spawn(async move {
                 let key = format!("{rel}/{}", e.path);

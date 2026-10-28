@@ -1554,4 +1554,76 @@ mod tests {
         assert_eq!(listed(&dir), ["part-new.parquet"]);
         std::fs::remove_dir_all(&base).unwrap();
     }
+
+    #[tokio::test]
+    async fn a_sources_mirror_is_read_when_sealed_and_never_written() {
+        let base = std::env::temp_dir().join(format!("sources-mirror-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let open =
+            |name: &str| Store::open(&format!("file://{}", base.join(name).display())).unwrap();
+        let shared = open("shared");
+        let fill = |store: Store, rel: &'static str, dir: PathBuf, body: &'static str| async move {
+            mirror(
+                &store,
+                rel,
+                &dir,
+                1,
+                || async { Ok(vec![("a.pbf".to_string(), ())]) },
+                move |(), path: PathBuf| {
+                    Box::pin(async move {
+                        std::fs::write(path, body)?;
+                        Ok(true)
+                    })
+                },
+            )
+            .await
+        };
+        fill(
+            shared.clone(),
+            "sources/s/osm",
+            base.join("seed/osm"),
+            "shared",
+        )
+        .await
+        .unwrap();
+        // unsealed in the mirror: an interrupted fetch
+        shared
+            .put("sources/s/geonames/a.pbf", b"partial".to_vec())
+            .await
+            .unwrap();
+        shared
+            .publish(&base.join("seed/osm"), "indexes/x")
+            .await
+            .unwrap();
+        let before = store::walk(&base.join("shared")).unwrap();
+
+        let local = open("local").with_mirror(open("shared"));
+        let scratch = base.join("scratch");
+        fill(
+            local.clone(),
+            "sources/s/osm",
+            scratch.join("osm"),
+            "upstream",
+        )
+        .await
+        .unwrap();
+        assert_eq!(std::fs::read(scratch.join("osm/a.pbf")).unwrap(), b"shared");
+        fill(
+            local.clone(),
+            "sources/s/geonames",
+            scratch.join("geonames"),
+            "upstream",
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            std::fs::read(scratch.join("geonames/a.pbf")).unwrap(),
+            b"upstream"
+        );
+        assert!(local.exists("sources/s/geonames/_COMPLETE").await.unwrap());
+        assert!(!local.exists("indexes/x/_COMPLETE").await.unwrap());
+        assert_eq!(store::walk(&base.join("shared")).unwrap(), before);
+        assert!(!base.join("local/sources/s/osm").exists());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
 }

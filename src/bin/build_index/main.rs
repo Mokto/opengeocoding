@@ -51,7 +51,8 @@ use tantivy::doc;
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
-       build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1]
+       build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1] [--sources-mirror URL]
+       build_index fetch --store URL --sources FILE --scratch DIR [--sources-mirror URL]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
        build_index digest DIR [--dump FILE]
        build_index hash";
@@ -2054,6 +2055,7 @@ fn main() {
             return;
         }
         Some("job") => job::job(args),
+        Some("fetch") => job::fetch(args),
         Some("pull") => job::pull(args),
         Some("digest") => digest::digest(&args),
         _ => {
