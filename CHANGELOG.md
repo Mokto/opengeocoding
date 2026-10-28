@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.0.0](https://github.com/Mokto/opengeocoding/compare/v0.20.3...v1.0.0) (2026-10-28)
+
+
+### Features
+
+* read Korean shop-building addresses from the Small Enterprise and Market Service register ([#350](https://github.com/Mokto/opengeocoding/issues/350)) ([476a4f3](https://github.com/Mokto/opengeocoding/commit/476a4f3786dd8728ff6915a8b739a336eb915daf))
+
+
+### Bug Fixes
+
+* answer people-profile place strings in the country they state ([#369](https://github.com/Mokto/opengeocoding/issues/369)) ([2d6c288](https://github.com/Mokto/opengeocoding/commit/2d6c2880a12c500e401d2bd707801415d99b3aef))
+* **deps:** update parquet's zstd for RUSTSEC-2026-0391 and document the unreachable connectrpc path ([#362](https://github.com/Mokto/opengeocoding/issues/362)) ([4d0febf](https://github.com/Mokto/opengeocoding/commit/4d0febfa443089e8705c90bcc78495feed13d8fc))
+* find Estonian houses on streets written with tn, mnt or pst ([#366](https://github.com/Mokto/opengeocoding/issues/366)) ([29a42b1](https://github.com/Mokto/opengeocoding/commit/29a42b18fe3bad0b45a54b627d114dde5e1307ac)), closes [#354](https://github.com/Mokto/opengeocoding/issues/354)
+* keep Korean land-lot aliases out of reverse lookups ([#370](https://github.com/Mokto/opengeocoding/issues/370)) ([925ce27](https://github.com/Mokto/opengeocoding/commit/925ce2796bb7ffd3cbaeb24f3cb357b9eda16be0))
+* mirror an OpenAddresses layer the catalogue lists twice only once ([#367](https://github.com/Mokto/opengeocoding/issues/367)) ([2e04c82](https://github.com/Mokto/opengeocoding/commit/2e04c82287fa4548c50841499114ec3329176472))
+* stop sealing corrupt OSM extracts from resumed downloads ([#373](https://github.com/Mokto/opengeocoding/issues/373)) ([33dd67c](https://github.com/Mokto/opengeocoding/commit/33dd67cace70b77330def775987dcf91b90a03c0))
+
+
+### Performance Improvements
+
+* halve the index builder's peak memory ([#371](https://github.com/Mokto/opengeocoding/issues/371)) ([6053415](https://github.com/Mokto/opengeocoding/commit/6053415134734fea615efd6533dfeefa87e5b258))
+* lower the index builder's peak memory ([#368](https://github.com/Mokto/opengeocoding/issues/368)) ([958a928](https://github.com/Mokto/opengeocoding/commit/958a928aba85290527329da4936c4780fbe8b598))
+
+
+### Documentation
+
+* drop the experimental label for 1.0.0 and state what semver covers ([#352](https://github.com/Mokto/opengeocoding/issues/352)) ([e9e8ed6](https://github.com/Mokto/opengeocoding/commit/e9e8ed6dc73dd096bc28f801152c580c19f300ce))
+
 ## [0.20.3](https://github.com/Mokto/opengeocoding/compare/v0.20.2...v0.20.3) (2026-10-25)
 
 
