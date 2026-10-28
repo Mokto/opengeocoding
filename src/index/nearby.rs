@@ -32,8 +32,8 @@ impl Index {
         let cos = lat.to_radians().cos().max(0.01);
         let cell_m = reverse::CELL_LAT_M.min(reverse::CELL_LON_M * cos);
         let meters = |x: f64, y: f64| ((x - lon) * cos).hypot(y - lat) * 111_195.0;
-        // (distance, street document, number, x, y, postcode slot)
-        let mut found: Vec<(f64, DocAddress, String, f64, f64, u8)> = vec![];
+        // (distance, street id, street document, number, x, y, postcode slot)
+        let mut found: Vec<(f64, u32, DocAddress, String, f64, f64, u8)> = vec![];
         let (mut seen, mut docs) = (std::collections::HashSet::new(), vec![]);
         for r in 0..=(radius_m / cell_m).ceil() as i64 {
             docs.clear();
@@ -44,18 +44,19 @@ impl Index {
                 }
                 let (segment, doc) = reverse::unpack_doc(packed);
                 let a = DocAddress::new(segment, doc);
-                self.each_house(self.fast(a, "id") as u32, |number, x, y, own| {
+                let sid = self.fast(a, "id") as u32;
+                self.each_house(sid, |number, x, y, own| {
                     let m = meters(x, y);
                     if m <= radius_m {
                         let number = String::from_utf8_lossy(number).into_owned();
-                        found.push((m, a, number, x, y, own));
+                        found.push((m, sid, a, number, x, y, own));
                     }
                 });
             }
+            // Ties go by street id, not document address, which differs between two builds.
             found.sort_by(|p, q| {
-                p.0.total_cmp(&q.0).then_with(|| {
-                    (p.1.segment_ord, p.1.doc_id, &p.2).cmp(&(q.1.segment_ord, q.1.doc_id, &q.2))
-                })
+                p.0.total_cmp(&q.0)
+                    .then_with(|| (p.1, &p.3).cmp(&(q.1, &q.3)))
             });
             found.truncate(size);
             // everything within `r` cells' width of the point has been read
@@ -65,7 +66,7 @@ impl Index {
         }
         found
             .into_iter()
-            .filter_map(|(m, a, number, x, y, own)| {
+            .filter_map(|(m, _, a, number, x, y, own)| {
                 Some((self.render(&self.house_hit(a, number, x, y, own)?, true), m))
             })
             .collect()
