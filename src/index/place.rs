@@ -663,7 +663,7 @@ impl Index {
     /// The ISO 3166-2 code of the one top-level region of `cc` that `text` names
     /// ("coahuila de zaragoza" is MX-COA); see [`Self::region_spelt`].
     pub fn region_named(&self, text: &str, cc: &str) -> Option<Box<str>> {
-        let key = (cc.to_lowercase(), text.to_string());
+        let key = format!("{}\0{text}", cc.to_lowercase());
         if let Some(code) = self.region_named.lock().unwrap().get(&key) {
             return code.clone();
         }
