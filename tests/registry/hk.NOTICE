@@ -1,0 +1,13 @@
+The registry-first sample tests/registry/hk.jsonl contains building numbers, street and village
+names, location names, districts, regions and coordinates from the Address Lookup Service (ALS)
+of the Digital Policy Office of the Government of the Hong Kong Special Administrative Region,
+downloaded from DATA.GOV.HK (https://data.gov.hk/en-data/dataset/hk-dpo-als_01-als) as
+"Addresses from Address Lookup Service" (https://www.als.gov.hk/data/ALS-GeoJSON.zip).
+Source: Digital Policy Office, the Government of the Hong Kong Special Administrative Region, and
+DATA.GOV.HK. The Government and the Relevant Organisations own the intellectual property rights in
+the Data. Used under the DATA.GOV.HK Terms and Conditions of Use, version 1.2
+(https://data.gov.hk/en/terms-and-conditions).
+Queries were constructed from each record's own fields (English: number, street or village,
+location, district, region; Chinese: region, district, location, street or village, number and
+號); coordinates are the published WGS84 points, unchanged. The release, its SHA-256 and the
+retrieval date are recorded in each case and in docs/evaluation/registry/hk.md.
