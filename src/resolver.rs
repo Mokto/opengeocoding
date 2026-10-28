@@ -362,7 +362,16 @@ impl Core {
                     let administrative_twin =
                         self.index.house_admin_locality_named(&hits[index], city)
                             && (postcode.is_empty() || postcode_agrees(postcode, details));
+                    // the county's seat, unless the house's postal town is another
+                    let seat = candidate["address"]["postal_town"]
+                        .as_str()
+                        .is_none_or(|town| names_agree(city, town))
+                        && self
+                            .index
+                            .house_seat_named(&hits[index], city, part(address, "state"))
+                        && (postcode.is_empty() || postcode_agrees(postcode, details));
                     if self.index.house_locality_named(&hits[index], city)
+                        || seat
                         || ((postal_town || administrative_twin)
                             && state_consistent(address, details)
                             && !state_code_conflict(address, details))

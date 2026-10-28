@@ -787,6 +787,46 @@ impl Index {
         })
     }
 
+    /// A county above the house is named `name`, and so is a town inside that county, its seat:
+    /// Libreville's department holds the houses outside the town's own area, the City of
+    /// Belgrade those of its municipalities. A `state`, if stated, names a region above them.
+    pub(crate) fn house_seat_named(&self, hit: &Hit, name: &str, state: &str) -> bool {
+        let Hit::Street {
+            place,
+            number: Some(_),
+            ..
+        } = hit
+        else {
+            return false;
+        };
+        if *place == NONE || name.chars().count() <= 2 {
+            return false;
+        }
+        let key = name_key(name);
+        let chain = self.chain(*place);
+        let subtype = |id: u32| self.places[id as usize].subtype.as_ref();
+        let Some(&county) = chain
+            .iter()
+            .find(|&&id| subtype(id) == "county" && self.places[id as usize].named(key))
+        else {
+            return false;
+        };
+        if !state.is_empty()
+            && !chain.iter().any(|&id| {
+                matches!(subtype(id), "region" | "macroregion")
+                    && self.places[id as usize].named(name_key(state))
+            })
+        {
+            return false;
+        }
+        let cc = &self.places[county as usize].cc;
+        self.places(name, Some(cc), None, &|p| {
+            p.subtype.as_ref() == "locality" && p.named(key)
+        })
+        .iter()
+        .any(|h| matches!(h, Hit::Place(id) if self.chain(*id).contains(&county)))
+    }
+
     pub(crate) fn isolated_house_without_postcode(
         &self,
         hit: &Hit,

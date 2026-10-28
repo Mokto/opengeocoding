@@ -76,6 +76,7 @@ mod ee;
 mod eg;
 mod es;
 mod fr;
+mod ga;
 mod gb;
 mod ge;
 mod ie;
@@ -117,6 +118,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         eg::PLACES,
         es::PLACES,
         fr::PLACES,
+        ga::PLACES,
         gb::PLACES,
         ge::PLACES,
         ie::PLACES,
@@ -169,6 +171,7 @@ const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
     ("at-e", "region", true, true, 80.5, 0.0, 0.5),
     ("co-bogota-dc", "county", true, true, -60.0, 30.3, 0.6),
     ("wf-reefward", "region", true, true, -150.0, -20.0, 0.4),
+    ("ga-1-libreville-dept", "county", true, true, 9.65, 0.4, 0.4),
     (
         "eg-ast-manfalut-markaz",
         "county",
@@ -238,6 +241,7 @@ pub fn cases() -> Vec<crate::Case> {
         ee::cases(),
         es::cases(),
         fr::cases(),
+        ga::cases(),
         gb::cases(),
         ie::cases(),
         r#in::cases(),
@@ -273,6 +277,7 @@ pub static STREETS: LazyLock<Vec<Street>> = LazyLock::new(|| {
         eg::STREETS,
         es::STREETS,
         fr::STREETS,
+        ga::STREETS,
         gb::STREETS,
         ie::STREETS,
         r#in::STREETS,
