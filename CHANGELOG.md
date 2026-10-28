@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.1.0](https://github.com/Mokto/opengeocoding/compare/v1.0.1...v1.1.0) (2026-10-28)
+
+
+### Features
+
+* share fetched sources across stores with a read-only sources mirror ([#386](https://github.com/Mokto/opengeocoding/issues/386)) ([c83cade](https://github.com/Mokto/opengeocoding/commit/c83cade9dafcbb6f21f49533e05e1d6a701705b6))
+* stop answering in a different country or territory than the query states ([#382](https://github.com/Mokto/opengeocoding/issues/382)) ([7f02d3f](https://github.com/Mokto/opengeocoding/commit/7f02d3f92c53df996fc33d6c5c713f9cfed59cd5))
+
+
+### Bug Fixes
+
+* answer houses filed under a county named for the stated town's seat ([#358](https://github.com/Mokto/opengeocoding/issues/358)) ([#388](https://github.com/Mokto/opengeocoding/issues/388)) ([3ebf5b3](https://github.com/Mokto/opengeocoding/commit/3ebf5b3bd4f908c2d87c2cca596e2e0111b631cc))
+* answer UK postcodes written with their local authority ([#359](https://github.com/Mokto/opengeocoding/issues/359)) ([#380](https://github.com/Mokto/opengeocoding/issues/380)) ([1f61af0](https://github.com/Mokto/opengeocoding/commit/1f61af0e7a45e838b9ad859f87c5f003b75fc3df))
+* find houses behind two-script names, Palestinian Territory, spaced Eircodes and other misparses ([#358](https://github.com/Mokto/opengeocoding/issues/358)) ([#390](https://github.com/Mokto/opengeocoding/issues/390)) ([6c98eb3](https://github.com/Mokto/opengeocoding/commit/6c98eb37f6c1cf1e4d719f071c39524de9f1c997))
+* find the house a town or empty answer misses with the completion lookup ([#358](https://github.com/Mokto/opengeocoding/issues/358)) ([#385](https://github.com/Mokto/opengeocoding/issues/385)) ([6b838bf](https://github.com/Mokto/opengeocoding/commit/6b838bf1224a83741b4a87fee60415c16b28c391))
+* keep a complete source download from an earlier build while upstream has nothing newer ([#387](https://github.com/Mokto/opengeocoding/issues/387)) ([446c94d](https://github.com/Mokto/opengeocoding/commit/446c94da5b05a1bbb660aaf6ab7d692d2a342e52))
+* suggest houses whose number carries a label (Plot, Lot, PT, Km) ([#378](https://github.com/Mokto/opengeocoding/issues/378)) ([bb7fcba](https://github.com/Mokto/opengeocoding/commit/bb7fcbaef438890688f2ec8e907e9e0ef8b89849))
+
+
+### Performance Improvements
+
+* build the world index about 40% faster ([#375](https://github.com/Mokto/opengeocoding/issues/375)) ([bcf1bcf](https://github.com/Mokto/opengeocoding/commit/bcf1bcfad20ab1e4c0b292fd1d8412f257c2443a))
+* look up the places after the road once per suggestion, not once per number try ([#381](https://github.com/Mokto/opengeocoding/issues/381)) ([1c5bffb](https://github.com/Mokto/opengeocoding/commit/1c5bffbcb16f6b9c86d53063226ed383ee0a4691))
+
 ## [1.0.1](https://github.com/Mokto/opengeocoding/compare/v1.0.0...v1.0.1) (2026-10-28)
 
 
