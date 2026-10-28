@@ -92,6 +92,7 @@ mod jp;
 mod kr;
 mod li;
 mod mk;
+mod mx;
 mod my;
 mod nl;
 mod no;
@@ -138,6 +139,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         kr::PLACES,
         li::PLACES,
         mk::PLACES,
+        mx::PLACES,
         my::PLACES,
         nl::PLACES,
         no::PLACES,
@@ -265,6 +267,7 @@ pub fn cases() -> Vec<crate::Case> {
         r#in::cases(),
         it::cases(),
         mk::cases(),
+        mx::cases(),
         nl::cases(),
         no::cases(),
         pl::cases(),
@@ -307,6 +310,7 @@ pub static STREETS: LazyLock<Vec<Street>> = LazyLock::new(|| {
         jp::STREETS,
         kr::STREETS,
         mk::STREETS,
+        mx::STREETS,
         my::STREETS,
         nl::STREETS,
         no::STREETS,

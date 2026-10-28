@@ -533,6 +533,24 @@ impl Core {
             a.shift_remove("state_district");
             a
         };
+        let other_region = |details: Option<&AddressDetails>| {
+            let stated = part(address, "state");
+            !stated.is_empty()
+                && details.is_some_and(|d| {
+                    let Some(code) = self.index.region_named(stated, &d.country_code) else {
+                        return false;
+                    };
+                    let country = code.split('-').next().unwrap_or("");
+                    let own: Vec<_> = d
+                        .region_codes
+                        .iter()
+                        .filter(|c| c.code.split('-').next() == Some(country))
+                        .collect();
+                    !own.is_empty()
+                        && !own.iter().any(|c| c.code.eq_ignore_ascii_case(code))
+                        && !region_agrees(address, Some(d))
+                })
+        };
         let mut viable: Vec<_> = judged
             .iter()
             .enumerate()
@@ -549,6 +567,10 @@ impl Core {
                                 (d.road.is_empty() || roads_agree(part(address, "road"), &d.road))
                                     && (d.house_number.is_empty() || road_agrees(address, details))
                             })))
+                    // "El Oasis, Coahuila de Zaragoza" is not the El Oasis in Chihuahua
+                    && (!other_region(details)
+                        || house_road_city(address, details)
+                        || postcode_agrees(postcode, details))
                     // a road alone doesn't outweigh the state: "10 Elm Street, MA" is not Newark's
                     && (!state_code_conflict(address, details)
                         || (road_agrees(address, details) && city_agrees(address, details))

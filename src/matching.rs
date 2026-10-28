@@ -1,4 +1,4 @@
-use crate::index::country::{co, ee, eh, pt};
+use crate::index::country::{co, ee, eh, mx, pt};
 use crate::{
     index::{
         canon::{canon, is_canonical},
@@ -709,6 +709,9 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
     }
     if cc.eq_ignore_ascii_case("co") {
         return co::bogota_road(road).into_iter().collect();
+    }
+    if cc.eq_ignore_ascii_case("mx") {
+        return mx::bare_road(road).into_iter().collect();
     }
     if cc.eq_ignore_ascii_case("es") {
         // Spain's address registry leaves most articles and prepositions out of a road's name:
