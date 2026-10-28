@@ -244,6 +244,8 @@ impl Index {
         let mut out = vec![];
         let mut streets = vec![];
         let last = tries.len() - 1;
+        let scoped = std::cell::OnceCell::new();
+        let municipal = std::cell::OnceCell::new();
         for (i, (number, at_end, road)) in tries.into_iter().enumerate() {
             if plated && !streets.is_empty() && i < last {
                 continue;
@@ -320,17 +322,20 @@ impl Index {
                 ));
                 found
             } else {
-                let mut ids = self.scope(&parts, typed.open, place_cc, focus, true);
-                if ids.is_empty() && country.is_some() {
-                    ids = self.scope(&parts[..parts.len() - 1], false, place_cc, focus, true);
-                }
+                let ids = scoped.get_or_init(|| {
+                    let ids = self.scope(&parts, typed.open, place_cc, focus, true);
+                    if ids.is_empty() && country.is_some() {
+                        return self.scope(&parts[..parts.len() - 1], false, place_cc, focus, true);
+                    }
+                    ids
+                });
                 let mut found = if ids.is_empty() {
                     vec![]
                 } else {
                     self.streets_typed(
                         &road_words,
                         false,
-                        Some(&ids),
+                        Some(ids),
                         number_word,
                         false,
                         cc,
@@ -477,24 +482,27 @@ impl Index {
                     && !has_digit(&parts[0])
                     && !dk::danish_floor(&parts[0])
                 {
-                    let rest = &parts[1..];
-                    let mut ids = self.scope(rest, typed.open, place_cc, focus, true);
-                    if ids.is_empty() && country.is_some() {
-                        ids = self.scope(&rest[..rest.len() - 1], false, place_cc, focus, true);
-                    }
-                    let towns: Vec<&Place> = ids
-                        .iter()
-                        .map(|&id| &self.places[id as usize])
-                        .filter(|p| matches!(p.subtype.as_ref(), "locality" | "localadmin"))
-                        .collect();
-                    let named: Vec<&Place> = self
-                        .places(&parts[0], place_cc, None, &|_| true)
-                        .into_iter()
-                        .filter_map(|h| match h {
-                            Hit::Place(id) => Some(&self.places[id as usize]),
-                            _ => None,
-                        })
-                        .collect();
+                    let (ids, towns, named) = municipal.get_or_init(|| {
+                        let rest = &parts[1..];
+                        let mut ids = self.scope(rest, typed.open, place_cc, focus, true);
+                        if ids.is_empty() && country.is_some() {
+                            ids = self.scope(&rest[..rest.len() - 1], false, place_cc, focus, true);
+                        }
+                        let towns: Vec<&Place> = ids
+                            .iter()
+                            .map(|&id| &self.places[id as usize])
+                            .filter(|p| matches!(p.subtype.as_ref(), "locality" | "localadmin"))
+                            .collect();
+                        let named: Vec<&Place> = self
+                            .places(&parts[0], place_cc, None, &|_| true)
+                            .into_iter()
+                            .filter_map(|h| match h {
+                                Hit::Place(id) => Some(&self.places[id as usize]),
+                                _ => None,
+                            })
+                            .collect();
+                        (ids, towns, named)
+                    });
                     let km = |p: &Place, x: f64, y: f64| {
                         ((p.x as f64 - x) * y.to_radians().cos()).hypot(p.y as f64 - y) * 111.0
                     };
@@ -506,7 +514,7 @@ impl Index {
                         let mut by_municipality = self.streets_typed(
                             &road_words,
                             false,
-                            Some(&ids),
+                            Some(ids),
                             number_word,
                             false,
                             cc,
