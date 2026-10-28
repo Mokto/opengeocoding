@@ -8,6 +8,13 @@ const FAR_REGION_M: f64 = 150_000.0;
 
 pub(super) const NEAR_LOCALITY_M: f64 = 50_000.0;
 
+/// The index has only a point for most settlements, and a town spreads further around its point
+/// than a village: at a town's centre a hamlet's point can be nearer than the town's own.
+// ponytail: one factor for every town and city, whatever its size; 2 fixed more town points of
+// the gold suite but named a town at more villages' own. Locality polygons, where the data has
+// them, would answer by containment instead.
+const TOWN_REACH: f64 = 1.5;
+
 /// Calls `cell` with the offsets of the cells `r` cells from the centre, around a square ring.
 pub(super) fn ring(r: i64, mut cell: impl FnMut(i64, i64)) {
     for dy in -r..=r {
@@ -231,7 +238,8 @@ impl Index {
         vec![("locality", place, m)]
     }
 
-    /// Nearest locality point within about 50 km. One in the region whose polygon holds the point
+    /// Nearest locality point within about 50 km, a town's or city's distance divided by
+    /// `TOWN_REACH`. One in the region whose polygon holds the point
     /// (or, with none, in the country whose polygon does) comes first, so a nearer town across a
     /// border does not name the point; with no such town in range, the nearest of any.
     pub fn reverse(&self, lat: f64, lon: f64) -> Value {
@@ -243,10 +251,10 @@ impl Index {
                 && region.is_none_or(|r| code(p).is_none_or(|c| c == r))
         };
         match self
-            .nearest_locality_within(lat, lon, NEAR_LOCALITY_M, same)
-            .or_else(|| self.nearest_locality_within(lat, lon, NEAR_LOCALITY_M, |_| true))
+            .nearest_settlement(lat, lon, same)
+            .or_else(|| self.nearest_settlement(lat, lon, |_| true))
         {
-            Some((p, _)) => self.render(&Hit::Place(p), true),
+            Some(p) => self.render(&Hit::Place(p), true),
             None => json!({"error": "Unable to geocode"}),
         }
     }
@@ -341,6 +349,21 @@ impl Index {
             Some(p) => self.render(&Hit::Place(p), true),
             None => json!({"error": "Unable to geocode"}),
         }
+    }
+
+    fn nearest_settlement(&self, lat: f64, lon: f64, accept: impl Fn(u32) -> bool) -> Option<u32> {
+        let place = |p: u32| {
+            let pl = &self.places[p as usize];
+            let reach = match pl.key() {
+                "city" | "town" => TOWN_REACH,
+                _ => 1.0,
+            };
+            ((pl.x as f64, pl.y as f64), reach)
+        };
+        let found =
+            self.localities
+                .nearest_by_reach(lat, lon, NEAR_LOCALITY_M, TOWN_REACH, place, accept);
+        found.map(|(p, _)| p)
     }
 
     fn nearest_locality_within(

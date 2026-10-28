@@ -44,6 +44,20 @@ impl Localities {
         position: impl Fn(u32) -> (f64, f64),
         accept: impl Fn(u32) -> bool,
     ) -> Option<(u32, f64)> {
+        self.nearest_by_reach(lat, lon, max_m, 1.0, |id| (position(id), 1.0), accept)
+    }
+
+    /// As `nearest`, but by distance divided by each place's reach (1 to `max_reach`), which
+    /// `place` gives with its (lon, lat): a place twice another's reach wins at twice its distance.
+    pub fn nearest_by_reach(
+        &self,
+        lat: f64,
+        lon: f64,
+        max_m: f64,
+        max_reach: f64,
+        place: impl Fn(u32) -> ((f64, f64), f64),
+        accept: impl Fn(u32) -> bool,
+    ) -> Option<(u32, f64)> {
         let (column, row) = cell(lon, lat);
         let cos = lat.to_radians().cos().max(0.01);
         let metres = |x: f64, y: f64| ((x - lon) * cos).hypot(y - lat) * METERS_PER_DEGREE;
@@ -57,7 +71,8 @@ impl Localities {
                 column.saturating_sub(columns),
                 (column + columns).min(COLUMNS - 1),
             );
-            let mut best: Option<(f64, u32)> = None;
+            // (distance / reach, distance, place)
+            let mut best: Option<(f64, f64, u32)> = None;
             for r in row.saturating_sub(rows)..=row + rows {
                 let (from, to) = (r * COLUMNS + first, r * COLUMNS + last);
                 let start = self.cells.partition_point(|&(c, _)| c < from);
@@ -65,20 +80,22 @@ impl Localities {
                     if c > to {
                         break;
                     }
-                    let (x, y) = position(id);
+                    let ((x, y), reach) = place(id);
                     let m = metres(x, y);
-                    if best.is_none_or(|(b, _)| m < b) && accept(id) {
-                        best = Some((m, id));
+                    let score = m / reach;
+                    if m <= max_m && best.is_none_or(|(b, ..)| score < b) && accept(id) {
+                        best = Some((score, m, id));
                     }
                 }
             }
-            if let Some((m, id)) = best
-                && m <= half
+            // every place outside the circle is more than `half` away: it scores above half / max_reach
+            if let Some((score, m, id)) = best
+                && (score * max_reach <= half || half >= max_m)
             {
                 return Some((id, m));
             }
             if half >= max_m {
-                return best.filter(|b| b.0 <= max_m).map(|b| (b.1, b.0));
+                return None;
             }
             reach *= 2.0;
         }
@@ -114,5 +131,28 @@ mod tests {
             .unwrap();
         assert_eq!(skipped, 1);
         assert!((m - 0.019 * 0.6428 * 111_195.0).abs() < 50.0, "{m}");
+    }
+
+    #[test]
+    fn a_place_of_more_reach_wins_further_away() {
+        // (village, town of reach 2, a point the village names, one the town names)
+        for (village, town, at, nearer) in [
+            ((10.0, 50.0), (10.03, 50.0), (50.0, 10.008), (50.0, 10.012)),
+            // at 49.97 the village, 7.8 km away, is read before the town, 15 km
+            ((10.0, 50.04), (10.0, 49.835), (49.99, 10.0), (49.97, 10.0)),
+        ] {
+            let points = [(0u32, village.0, village.1), (1, town.0, town.1)];
+            let found = Localities::new(points.iter().copied());
+            let reach = |id: u32| {
+                let p = points[id as usize];
+                ((p.1, p.2), if id == 0 { 1.0 } else { 2.0 })
+            };
+            let id = |(lat, lon)| found.nearest_by_reach(lat, lon, 50_000.0, 2.0, reach, |_| true);
+            assert_eq!(id(at).map(|f| f.0), Some(0), "{at:?}");
+            let (place, m) = id(nearer).unwrap();
+            assert_eq!(place, 1, "{nearer:?}");
+            let (x, y) = (town.0 - nearer.1, town.1 - nearer.0);
+            assert!((m - (x * 0.6428).hypot(y) * 111_195.0).abs() < 50.0, "{m}");
+        }
     }
 }
