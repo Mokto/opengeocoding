@@ -1,0 +1,10 @@
+The registry-first sample tests/registry/sk.jsonl contains addresses and coordinates from the
+Register adries (address register) of the Ministry of Interior of the Slovak Republic
+(Ministerstvo vnútra Slovenskej republiky), dataset "Adresy podľa krajov (csv)", distribution
+"Adresy podľa krajov (všetky kraje)", file "Adresy pod_a krajov UTF8_04_2026.csv", downloaded on
+2026-10-28. The national open-data catalogue publishes it under CC0 1.0 Universal
+(https://creativecommons.org/publicdomain/zero/1.0/); no attribution is required.
+Source: https://data.slovensko.sk/datasety/b27f57f1-7e76-45e0-8968-631f9176b2e9
+(https://data.slovensko.sk/download?id=d22c42f3-82b5-450d-b8fb-4245d50a31ec).
+Queries were constructed from registry fields. Per-case file checksums and retrieval dates are
+recorded in the corpus; docs/evaluation/registry/sk.md records the upstream checksum.
