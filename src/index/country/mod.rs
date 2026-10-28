@@ -10,6 +10,7 @@ pub mod dk;
 pub mod ee;
 pub mod eg;
 pub mod es;
+pub mod gb;
 pub mod hk_mo;
 pub mod ie;
 pub mod it;

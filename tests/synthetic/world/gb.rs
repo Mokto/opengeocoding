@@ -236,3 +236,24 @@ fn a_whole_postcode_is_suggested_with_a_district_it_is_not_filed_under() {
             .all(|s| s.kind != "postcode")
     );
 }
+
+/// A postcode and a local authority the data has only as a point near it, not in its chain.
+#[test]
+fn a_postcode_is_answered_with_an_area_near_it() {
+    let index = index();
+    let found = |q: &str| {
+        index
+            .gb_postcode_in_area(q)
+            .map(|(hit, exact)| (index.render(&hit, true)["display_name"].clone(), exact))
+    };
+    let (name, exact) = found("AA1 1AA, Quayside, United Kingdom").unwrap();
+    assert!(name.as_str().unwrap().starts_with("AA1 1AA, "), "{name}");
+    assert!(exact);
+    // Posthaven is a town 300 km away
+    assert_eq!(found("AA1 1AA, Posthaven"), None);
+    // a code the data lacks, at its sector ZZ1 1, is no match
+    let (name, exact) = found("ZZ1 1ZZ, Oakmere").unwrap();
+    assert!(name.as_str().unwrap().starts_with("ZZ1 1ZZ, "), "{name}");
+    assert!(!exact);
+    assert_eq!(found("ZZ1 2ZZ, Oakmere"), None);
+}

@@ -1369,6 +1369,16 @@ impl Core {
                 return Ok(FullAddress::default());
             }
         }
+        if let Some((hit, exact)) = self.index.gb_postcode_in_area(query) {
+            let found = format_response(&self.index.render(&hit, true))?;
+            return Ok(accept(
+                found,
+                &ParsedAddress::new(),
+                "",
+                "gb_postcode",
+                exact,
+            ));
+        }
         let turned = self.parser.reordered(query)?;
         let query = turned.as_deref().unwrap_or(query);
         let Some(mut address) = self.parse(query)? else {
