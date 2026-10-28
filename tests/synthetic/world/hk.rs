@@ -193,3 +193,46 @@ pub fn cases() -> Vec<Case> {
         ),
     ]
 }
+
+#[test]
+fn hong_kong_suggestions_read_whole_addresses_and_chinese_numbers() {
+    for (query, lon) in [
+        ("27 KO FONG STREET, HONG KONG", 175.005),
+        (
+            "27 Ko Fong Street, Kwai Chung, Kwai Tsing District, New Territories, Hong Kong",
+            175.005,
+        ),
+        ("Flat A, 5/F, 27 Ko Fong Street, Kwai Chung, N.T.", 175.005),
+        (
+            "28 TIN SAM STREET, TAI WAI, SHA TIN DISTRICT, NEW TERRITORIES, HONG KONG",
+            175.12,
+        ),
+        (
+            "185 NGAU LIU, SAI KUNG, SAI KUNG DISTRICT, NEW TERRITORIES, HONG KONG",
+            175.305,
+        ),
+        ("香港新界葵青區葵涌高芳街27號", 175.005),
+        ("高芳街27號", 175.005),
+        ("香港新界葵青區高芳街2", 175.005),
+    ] {
+        let found = index().suggest(query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert!(
+            metres((found[0].x, found[0].y), (lon, 15.)) < 200.,
+            "{query}"
+        );
+    }
+    // Tai Wai is 11 km from Ko Fong Street
+    let found = index().suggest(
+        "27 KO FONG STREET, TAI WAI, HONG KONG",
+        5,
+        None,
+        None,
+        false,
+    );
+    assert!(
+        found.iter().all(|s| s.kind != "address"),
+        "{:?}",
+        found.first().map(|s| &s.display_name)
+    );
+}

@@ -51,13 +51,56 @@ pub fn area_near(index: &Index, area: &str, cc: &str, lat: f64, lon: f64) -> boo
 /// house or a town when the name has no street type.
 pub(crate) fn numbered(head: &str) -> Option<Vec<(String, String)>> {
     static NUMBERED: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^([1-9][0-9]{0,3}[A-Za-z]?)\s+([A-Za-z][A-Za-z .'-]+)$").unwrap()
+        Regex::new(r"^([1-9][0-9]{0,3}[A-Za-z]?)\s+([0-9]*[A-Za-z][A-Za-z0-9 .'-]*)$").unwrap()
     });
     let c = NUMBERED.captures(head.trim())?;
     Some(vec![
         ("house_number".into(), c[1].to_lowercase()),
         ("road".into(), c[2].trim().to_lowercase()),
     ])
+}
+
+/// "14 北潭凹 Pak Tam Au" or "北潭凹 Pak Tam Au 14": a number and a road named in both scripts,
+/// as OpenStreetMap names Hong Kong's.
+fn bilingual(head: &str) -> Option<Vec<(String, String)>> {
+    static FIRST: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^([1-9][0-9]{0,3}[A-Za-z]?)\s+(\S*\p{Han}\S*\s+[A-Za-z].*)$").unwrap()
+    });
+    static LAST: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(\S*\p{Han}\S*\s+[A-Za-z].*?)\s+([1-9][0-9]{0,3}[A-Za-z]?)$").unwrap()
+    });
+    let head = head.trim();
+    let (number, road) = match FIRST.captures(head) {
+        Some(c) => (c[1].to_string(), c[2].to_string()),
+        None => {
+            let c = LAST.captures(head)?;
+            (c[2].to_string(), c[1].to_string())
+        }
+    };
+    Some(vec![
+        ("house_number".into(), number.to_lowercase()),
+        ("road".into(), road.to_lowercase()),
+    ])
+}
+
+/// Whether a lower-cased part names the territory or one of its regions, which no place of the
+/// data is named for. OpenStreetMap writes both scripts: "新界 new territories".
+fn region(part: &str) -> bool {
+    let latin = part.trim_start_matches(|c: char| !c.is_ascii()).trim();
+    [part, latin].iter().any(|p| {
+        matches!(
+            *p,
+            "kowloon"
+                | "new territories"
+                | "hong kong"
+                | "hong kong island"
+                | "n.t."
+                | "nt"
+                | "九龍"
+                | "新界"
+                | "香港"
+        )
+    })
 }
 
 /// "27 Ko Fong Street, Kwai Chung, Kwai Tsing District, New Territories, Hong Kong" read with
@@ -69,23 +112,7 @@ pub(crate) fn aligned(head: &[(String, String)], places: &[&str]) -> Vec<(String
     let mut town = None;
     for place in places {
         let place = place.trim().to_lowercase().replace(" & ", " and ");
-        // OpenStreetMap writes both scripts: "新界 New Territories"
-        let latin = place.trim_start_matches(|c: char| !c.is_ascii()).trim();
-        let region = |p: &str| {
-            matches!(
-                p,
-                "kowloon"
-                    | "new territories"
-                    | "hong kong"
-                    | "hong kong island"
-                    | "n.t."
-                    | "nt"
-                    | "九龍"
-                    | "新界"
-                    | "香港"
-            )
-        };
-        if place.is_empty() || region(&place) || region(latin) {
+        if place.is_empty() || region(&place) {
             continue;
         }
         if place.ends_with(" district") {
@@ -98,41 +125,70 @@ pub(crate) fn aligned(head: &[(String, String)], places: &[&str]) -> Vec<(String
     aligned
 }
 
-/// (district, road, number) of a Hong Kong address in Chinese that starts with the territory
-/// or one of its regions: "香港新界葵青區葵涌高芳街27號" -> (葵青區, 葵涌高芳街, 27). The road
-/// may still start with a place (葵涌, Kwai Chung) that nothing ends.
-pub(crate) fn chinese(q: &str) -> Option<(Option<&'static str>, String, String)> {
-    const DISTRICTS: [&str; 18] = [
-        "中西區",
-        "灣仔區",
-        "東區",
-        "南區",
-        "油尖旺區",
-        "深水埗區",
-        "九龍城區",
-        "黃大仙區",
-        "觀塘區",
-        "葵青區",
-        "荃灣區",
-        "屯門區",
-        "元朗區",
-        "北區",
-        "大埔區",
-        "沙田區",
-        "西貢區",
-        "離島區",
-    ];
-    static NUMBERED: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^(.+?)([1-9][0-9]{0,3}[A-Z]?)號$").unwrap());
-    let part = q.split([',', '，']).find(|p| p.contains('號'))?;
-    let text: String = part
-        .chars()
+const DISTRICTS: [&str; 18] = [
+    "中西區",
+    "灣仔區",
+    "東區",
+    "南區",
+    "油尖旺區",
+    "深水埗區",
+    "九龍城區",
+    "黃大仙區",
+    "觀塘區",
+    "葵青區",
+    "荃灣區",
+    "屯門區",
+    "元朗區",
+    "北區",
+    "大埔區",
+    "沙田區",
+    "西貢區",
+    "離島區",
+];
+
+/// Chinese text without its spaces, in ASCII digits and capitals.
+fn compact(text: &str) -> String {
+    text.chars()
         .filter(|c| !c.is_whitespace())
         .map(|c| match c {
             '０'..='９' | 'Ａ'..='Ｚ' => char::from_u32(c as u32 - 0xFEE0).unwrap(),
             c => c.to_ascii_uppercase(),
         })
-        .collect();
+        .collect()
+}
+
+/// A Hong Kong road being typed in Chinese as the suggestions can read it: without the
+/// territory, region and district before it, and with a space before its number, which the
+/// term dictionary otherwise holds as one word with the road ("香港中西區伊利近街2" is "伊利近街
+/// 2", "高芳街27號" is "高芳街 27"). None for a road alone, which needs nothing.
+pub(crate) fn typed_chinese(text: &str) -> Option<String> {
+    static TYPED: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(\p{Han}+?)([1-9][0-9]{0,3}[A-Z]?)?號?$").unwrap());
+    let text = compact(text);
+    let rest = without_territory(&text);
+    let stated = rest.len() < text.len();
+    let rest = match DISTRICTS
+        .into_iter()
+        .find(|d| stated && rest.starts_with(d))
+    {
+        Some(d) => &rest[d.len()..],
+        None => rest,
+    };
+    let c = TYPED.captures(rest)?;
+    match c.get(2) {
+        Some(number) => Some(format!("{} {}", &c[1], number.as_str())),
+        None => stated.then(|| c[1].to_string()),
+    }
+}
+
+/// (district, road, number) of a Hong Kong address in Chinese that starts with the territory
+/// or one of its regions: "香港新界葵青區葵涌高芳街27號" -> (葵青區, 葵涌高芳街, 27). The road
+/// may still start with a place (葵涌, Kwai Chung) that nothing ends.
+pub(crate) fn chinese(q: &str) -> Option<(Option<&'static str>, String, String)> {
+    static NUMBERED: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(.+?)([1-9][0-9]{0,3}[A-Z]?)號$").unwrap());
+    let part = q.split([',', '，']).find(|p| p.contains('號'))?;
+    let text = compact(part);
     let rest = without_territory(&text);
     if rest.len() == text.len() {
         return None;
@@ -235,6 +291,99 @@ impl Index {
         }
     }
 
+    /// The houses a whole Hong Kong address names, read as SearchAddress reads it but without
+    /// libpostal: "香港新界葵青區葵涌高芳街27號", or "27 KO FONG STREET, KWAI CHUNG, KWAI TSING
+    /// DISTRICT, NEW TERRITORIES, HONG KONG". Those in or near the area written, or in the
+    /// district; else one only when no namesake far off has its number
+    /// ([`Index::hk_house_alone`]).
+    pub(crate) fn hk_typed_houses(&self, text: &str, cc: Option<&str>) -> Vec<Hit> {
+        if let Some(hit) = self.hk_chinese(text) {
+            return vec![hit];
+        }
+        let parts: Vec<&str> = text.split(',').map(str::trim).collect();
+        // the flat, floor and building come first: "Flat A, 5/F, 29 Elgin Street, Central"
+        let Some((at, head)) = parts
+            .iter()
+            .enumerate()
+            .find_map(|(i, p)| Some((i, numbered(p).or_else(|| bilingual(p))?)))
+        else {
+            return vec![];
+        };
+        // "西貢 Sai Kung": the place by its English name
+        let places: Vec<&str> = parts[at + 1..]
+            .iter()
+            .map(|p| match p.find(|c: char| c.is_ascii_alphabetic()) {
+                Some(at) if !p.is_ascii() => &p[at..],
+                _ => p,
+            })
+            .collect();
+        let Some(last) = places.last() else {
+            return vec![];
+        };
+        let local = |p: &Place| !matches!(&*p.subtype, "country" | "dependency");
+        let territory = cc.is_some_and(|c| c.eq_ignore_ascii_case("hk"))
+            || region(&last.to_lowercase())
+            || self.country(last).is_some_and(|c| territory_as_town(&c))
+            || {
+                let named = self.places(last, None, None, &local);
+                !named.is_empty()
+                    && named.iter().all(|h| {
+                        matches!(h, Hit::Place(p) if territory_as_town(&self.places[*p as usize].cc))
+                    })
+            };
+        if !territory {
+            return vec![];
+        }
+        let aligned = aligned(&head, &places);
+        let get = |k: &str| {
+            aligned
+                .iter()
+                .find(|(key, _)| key == k)
+                .map(|(_, v)| v.as_str())
+        };
+        let (Some(road), Some(number)) = (get("road"), get("house_number")) else {
+            return vec![];
+        };
+        let (city, district) = (get("city"), get("state_district"));
+        let mut hits = self.streets_in(road, Some(number), city, None, None, Some("hk"), false);
+        if let Some(found) =
+            self.hk_house_anywhere(&hits, road, Some(number), city, None, Some("hk"), false)
+        {
+            hits = found;
+        }
+        hits.retain(|h| {
+            matches!(
+                h,
+                Hit::Street {
+                    number: Some(_),
+                    ..
+                }
+            )
+        });
+        let stated = |h: &Hit| match (h, city, district) {
+            (Hit::Street { x, y, .. }, Some(city), _) => {
+                self.house_locality_named(h, city)
+                    || self.house_town_named(h, city)
+                    || area_near(self, city, "hk", *y, *x)
+            }
+            (Hit::Street { place, .. }, None, Some(district)) => self
+                .chain(*place)
+                .iter()
+                .any(|&p| self.places[p as usize].named(name_key(district))),
+            _ => false,
+        };
+        let (named, other): (Vec<Hit>, Vec<Hit>) = hits.into_iter().partition(stated);
+        if !named.is_empty() {
+            return named;
+        }
+        other
+            .into_iter()
+            .next()
+            .filter(|h| self.hk_house_alone(h))
+            .into_iter()
+            .collect()
+    }
+
     /// The house a Hong Kong address in Chinese names ("香港新界葵青區葵涌高芳街27號"): libpostal
     /// splits the territory, region and district into a country, a state and a postcode. A place
     /// may stand before the road with nothing to end it (葵涌, Kwai Chung): the road is then the
@@ -252,10 +401,11 @@ impl Index {
         // Kwun Tong): without the district, a road and number found in one spot only.
         for scoped in [true, false] {
             let town = district.filter(|_| scoped);
-            let shortest = if scoped { 2 } else { 3 };
             for (at, _) in road.char_indices() {
                 let rest = &road[at..];
-                if rest.chars().count() < shortest {
+                // a two-character ending ("曲街") of a longer road is too common a name to
+                // stand without the district
+                if rest.chars().count() < if scoped || at == 0 { 2 } else { 3 } {
                     break;
                 }
                 let housed: Vec<Hit> = self
@@ -309,6 +459,24 @@ mod tests {
     }
 
     #[test]
+    fn spaces_the_number_of_a_road_typed_in_chinese() {
+        for (typed, expected) in [
+            ("香港中西區伊利近街2", Some("伊利近街 2")),
+            ("香港中西區伊利近街", Some("伊利近街")),
+            ("九龍彌敦道132號", Some("彌敦道 132")),
+            ("高芳街２７號", Some("高芳街 27")),
+            ("高芳街 27", Some("高芳街 27")),
+            // a road alone needs nothing; 東區 starts a road unless the territory comes first
+            ("伊利近街", None),
+            ("東區走廊1", Some("東區走廊 1")),
+            ("27 Ko Fong Street", None),
+            ("芝公園4-2-8", None),
+        ] {
+            assert_eq!(typed_chinese(typed).as_deref(), expected, "{typed}");
+        }
+    }
+
+    #[test]
     fn aligns_english_addresses_on_their_commas() {
         let head = numbered("185 NGAU LIU").unwrap();
         assert_eq!(
@@ -319,6 +487,16 @@ mod tests {
             ]
         );
         assert_eq!(numbered("Flat A, 5/F"), None);
+        for head in ["14 北潭凹 Pak Tam Au", "北潭凹 Pak Tam Au 14"] {
+            assert_eq!(
+                bilingual(head).unwrap(),
+                [
+                    ("house_number".to_string(), "14".to_string()),
+                    ("road".to_string(), "北潭凹 pak tam au".to_string())
+                ]
+            );
+        }
+        assert_eq!(bilingual("14 Pak Tam Au"), None);
         assert_eq!(numbered("12 高芳街"), None);
         let aligned = aligned(
             &head,
