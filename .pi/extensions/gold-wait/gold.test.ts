@@ -13,7 +13,7 @@ function harness() {
 	let head = "a".repeat(40);
 	let state = "open";
 	let report =
-		"Quality table\n<!-- speed: pass -->\n## Speed: no slowdown over 10%\n<!-- speed end -->\n";
+		"Quality table\n<!-- speed: pass -->\n## Speed: no slowdown over 15%\n<!-- speed end -->\n";
 	const statuses = ["gold-full", "gold-speed"].map((context, id) => ({
 		context,
 		id,

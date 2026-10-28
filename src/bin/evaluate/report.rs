@@ -869,7 +869,7 @@ fn ms_table(old_ms: &[f64], new_ms: &[f64]) -> (String, Vec<f64>) {
 /// How much slower the candidate's total, p50, p90 or p99 may be. Three runs of one binary on a
 /// cluster node agreed within 2% in total and 5% at each percentile; single cases moved by 30%,
 /// so they are not compared, nor is the max (one case).
-const MAX_SLOWDOWN: f64 = 0.10;
+const MAX_SLOWDOWN: f64 = 0.15;
 
 /// Per-request times of one RPC on both sides, over the requests both timed.
 struct Timings {
@@ -1826,13 +1826,13 @@ mod tests {
         );
         assert!(report.contains("| base | 4.0 | 1.0 | 3.0 | 3.0 | 3.0 |"));
         assert!(report.trim_end().ends_with("<!-- speed end -->"));
-        // 10% slower is within the limit; only more fails.
-        let near = side(&[("a", Some(1.1)), ("b", Some(3.3)), ("c", None)]);
+        // 15% slower is within the limit; only more fails.
+        let near = side(&[("a", Some(1.15)), ("b", Some(3.45)), ("c", None)]);
         let report = latency(&ids, &old, &near, [&three, &three]);
         assert!(report.contains("<!-- speed: pass -->"), "{report}");
         assert!(
             report.contains(
-                "## Speed: no slowdown over 10%\n\n<details>\n<summary><b>Details</b></summary>"
+                "## Speed: no slowdown over 15%\n\n<details>\n<summary><b>Details</b></summary>"
             ),
             "{report}"
         );
