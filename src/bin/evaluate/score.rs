@@ -357,14 +357,20 @@ pub fn reverse_class(
 
 /// An answer's place name is the wanted one, compared transliterated and folded without spaces
 /// ("풍계리" is "Punggye-ri"), or one of the languages of a name joined with " - " or "/"
-/// ("Ixelles - Elsene").
+/// ("Ixelles - Elsene"), or the Latin words of a name written in two scripts ("Balho بالهو"), or
+/// the name without a qualifier in brackets ("Sola (Sol)").
 fn names_place(answer: &str, wanted: &str) -> bool {
     let key = |name: &str| {
         opengeocoding::index::schema::fold(&deunicode::deunicode(name)).replace(' ', "")
     };
+    let latin =
+        |c: char| !c.is_alphabetic() || c < '\u{250}' || ('\u{1e00}'..'\u{1f00}').contains(&c);
+    let latin_words: Vec<&str> = answer.split(' ').filter(|w| w.chars().all(latin)).collect();
     let wanted = key(wanted);
     !wanted.is_empty()
-        && std::iter::once(answer)
+        && [answer, &latin_words.join(" ")]
+            .into_iter()
+            .chain(answer.split(" (").next())
             .chain(answer.split(" - "))
             .chain(answer.split('/'))
             .any(|name| key(name) == wanted)
@@ -1326,6 +1332,10 @@ mod tests {
         assert!(names_place("M'Tsangamboua", "Mtsangamboua"));
         assert!(names_place("Ixelles - Elsene", "Elsene"));
         assert!(names_place("Campezo / Kanpezu", "Kanpezu"));
+        assert!(names_place("Balho بالهو", "Balho"));
+        assert!(names_place("سيما Sima", "Sima"));
+        assert!(names_place("Sola (Sol)", "Sola"));
+        assert!(!names_place("Quartier Hadad حارة حداد", "Salal"));
         assert!(!names_place("Gangseo-gu", "서구"));
         assert!(!names_place("Saint-Paul", "Le Port"));
         let right = answer("7bis", "01290", 48.8501, "Pont-de-Veyle");
