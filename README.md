@@ -35,11 +35,11 @@ Autocomplete can also include selected landmark categories: airports, stations, 
 
 ## Performance and resources
 
-**A world index built in under 20 minutes from already-downloaded sources; deployed forward search measured 1,774–2,675 queries/s per pod with 16 concurrent connections.** The build figure is historical; search was measured on release 0.14.0 on 2026-10-19:
+**A world index built in about 5 minutes from already-downloaded sources; deployed forward search measured 1,774–2,675 queries/s per pod with 16 concurrent connections.** The build was measured on 2026-10-28, search on release 0.14.0 on 2026-10-19:
 
 | Workload | Observed result |
 | --- | --- |
-| World index build, including landmarks | **Under 20 min, excluding downloads**, **12.1 GB peak memory** with its adaptive phases held to 12 GB, plus 5 GB of memory-mapped polygons, on an 18-core Apple M5 Max with 64 GB RAM |
+| World index build, including landmarks | **289 s, excluding downloads**, against 474 s for the previous builder on the same sources and machine; **12.1 GB peak memory** with its adaptive phases held to 12 GB, plus 5 GB of memory-mapped polygons, on an 18-core Apple M5 Max with 64 GB RAM |
 | Built world index | About **16 GB on disk**, excluding libpostal models and build scratch |
 | Forward search, 16 connections to one pod | **1,774–2,675 queries/s per pod**, **18.4–29.9 ms p95**, across three 20,000-request runs |
 | Serving process in the search benchmark | About **6.3 GiB process RSS** |

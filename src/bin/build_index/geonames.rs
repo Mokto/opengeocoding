@@ -60,6 +60,14 @@ fn parse(line: &str) -> Option<Row> {
     })
 }
 
+/// What a row finds: a place outside the box, places it names (the one it can add its names to,
+/// with the indices and folded forms of those the place lacks), or none, and its parent.
+enum Seen {
+    Outside,
+    Known(Option<(u32, Vec<(usize, String)>)>),
+    New(Option<u32>),
+}
+
 fn km(a: (f64, f64), b: (f64, f64)) -> f64 {
     ((a.0 - b.0) * a.1.to_radians().cos()).hypot(a.1 - b.1) * 111.195
 }
@@ -74,7 +82,7 @@ pub fn add_places(
     out: &Path,
 ) -> usize {
     let text = std::fs::read_to_string(cities).expect("read GeoNames cities file");
-    let rows: Vec<Row> = text.lines().filter_map(parse).collect();
+    let rows: Vec<Row> = text.par_lines().filter_map(parse).collect();
     let admin1: HashMap<String, String> = admin1
         .map(|p| std::fs::read_to_string(p).expect("read GeoNames admin1 file"))
         .unwrap_or_default()
@@ -88,8 +96,8 @@ pub fn add_places(
     type Key = ([u8; 2], String);
     type Located = (u32, (f64, f64));
     let wanted: HashSet<Key> = rows
-        .iter()
-        .flat_map(|r| r.names.iter().chain(&r.others).map(|n| (r.cc, fold(n))))
+        .par_iter()
+        .flat_map_iter(|r| r.names.iter().chain(&r.others).map(|n| (r.cc, fold(n))))
         .collect();
     let named: Vec<(Key, Located)> = places
         .par_iter()
@@ -127,38 +135,65 @@ pub fn add_places(
     );
     let before = places.len();
     let mut aliases: HashMap<u32, Vec<String>> = HashMap::new();
-    for r in rows {
-        if !assigner.within(r.x, r.y) {
-            continue;
-        }
-        let mut known: Vec<u32> = r
-            .names
-            .iter()
-            .chain(&r.others)
-            .filter_map(|n| near.get(&(r.cc, fold(n))))
-            .flatten()
-            .filter(|(_, xy)| km(*xy, (r.x, r.y)) < NEAR_KM)
-            .map(|(id, _)| *id)
-            .collect();
-        known.sort_unstable();
-        known.dedup();
-        if !known.is_empty() {
+    // What each row finds is worked out in parallel; the names added to a place, which a later
+    // row's names are checked against, are kept in order below.
+    let seen: Vec<Seen> = rows
+        .par_iter()
+        .map(|r| {
+            if !assigner.within(r.x, r.y) {
+                return Seen::Outside;
+            }
+            let mut known: Vec<u32> = r
+                .names
+                .iter()
+                .chain(&r.others)
+                .filter_map(|n| near.get(&(r.cc, fold(n))))
+                .flatten()
+                .filter(|(_, xy)| km(*xy, (r.x, r.y)) < NEAR_KM)
+                .map(|(id, _)| *id)
+                .collect();
+            known.sort_unstable();
+            known.dedup();
+            if known.is_empty() {
+                let parent = assigner.place_in(r.x, r.y, Some(r.cc)).or_else(|| {
+                    let name = admin1.get(&r.admin1)?;
+                    regions.get(&(r.cc, fold(name))).copied()
+                });
+                return Seen::New(parent);
+            }
             known.retain(|&id| places[id as usize].subtype == r.subtype);
-            if let [id] = known.as_slice() {
-                let p = &mut places[*id as usize];
-                for name in &r.names {
-                    if !p.names.split(NAME_SEP).any(|n| fold(n) == fold(name)) {
+            let [id] = known[..] else {
+                return Seen::Known(None);
+            };
+            let has: HashSet<String> = places[id as usize]
+                .names
+                .split(NAME_SEP)
+                .map(fold)
+                .collect();
+            let missing = (r.names.iter().enumerate())
+                .map(|(i, n)| (i, fold(n)))
+                .filter(|(_, f)| !has.contains(f))
+                .collect();
+            Seen::Known(Some((id, missing)))
+        })
+        .collect();
+    let mut added: HashMap<u32, HashSet<String>> = HashMap::new();
+    for (r, seen) in rows.into_iter().zip(seen) {
+        let parent = match seen {
+            Seen::Outside | Seen::Known(None) => continue,
+            Seen::Known(Some((id, missing))) => {
+                let (p, added) = (&mut places[id as usize], added.entry(id).or_default());
+                for (i, folded) in missing {
+                    if added.insert(folded) {
+                        let name = &r.names[i];
                         p.names = format!("{}{NAME_SEP}{name}", p.names).into();
-                        aliases.entry(*id).or_default().push(name.clone());
+                        aliases.entry(id).or_default().push(name.clone());
                     }
                 }
+                continue;
             }
-            continue;
-        }
-        let parent = assigner.place_in(r.x, r.y, Some(r.cc)).or_else(|| {
-            let name = admin1.get(&r.admin1)?;
-            regions.get(&(r.cc, fold(name))).copied()
-        });
+            Seen::New(parent) => parent,
+        };
         let (region, anc) = parent.map_or((Str::default(), Box::default()), |p| {
             let mut anc: Vec<u32> = places[p as usize].anc.to_vec();
             anc.push(p);

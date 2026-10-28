@@ -2123,15 +2123,16 @@ fn build(args: &[String]) {
     // in countries whose addresses come from Overture. On a network volume the passes wait on the
     // disk with cores idle, so the extracts are read beside them until `write` needs them, in a
     // pool of their own: in the shared one, each extract holds a worker for its whole file and
-    // the passes starve. Where the passes keep every core busy, the two pools share them.
-    let landmark_dirs: Vec<PathBuf> = osm_dirs
-        .iter()
-        .chain(&opt("--osm-landmarks"))
-        .map(PathBuf::from)
-        .collect();
-    let landmarks = (!landmark_dirs.is_empty()).then(|| {
+    // the passes starve. Where the passes keep every core busy, the two pools share them. The
+    // `--osm` extracts' landmarks are read in their address passes.
+    let landmark_dirs: Vec<PathBuf> = opt("--osm-landmarks").iter().map(PathBuf::from).collect();
+    let osm_files: usize = (osm_dirs.iter())
+        .map(|d| sources::files(Path::new(d), ".osm.pbf").len())
+        .sum();
+    let landmarks = (!landmark_dirs.is_empty() || !osm_dirs.is_empty()).then(|| {
         let pool = rayon::ThreadPoolBuilder::new().build().unwrap();
-        std::thread::spawn(move || pool.install(|| landmarks::read(&landmark_dirs)))
+        let first = osm_files as u32;
+        std::thread::spawn(move || pool.install(|| landmarks::read(&landmark_dirs, first)))
     });
 
     progress::phase("Parse places and boundaries");
@@ -2217,8 +2218,11 @@ fn build(args: &[String]) {
             shared.rows.swap(0, Relaxed)
         ));
     }
+    let (mut osm_landmarks, mut first) = (vec![], 0);
     for d in &osm_dirs {
-        let files = sources::osm(Path::new(d), &shared);
+        let (files, found) = sources::osm(Path::new(d), &shared, first);
+        first += files as u32;
+        osm_landmarks.extend(found);
         lap(&format!(
             "osm {d} ({files} files, {} rows)",
             shared.rows.swap(0, Relaxed)
@@ -2232,7 +2236,9 @@ fn build(args: &[String]) {
         ));
     }
     if let Some(reading) = landmarks {
-        let found = reading.join().unwrap();
+        let mut found = reading.join().unwrap();
+        found.append(&mut osm_landmarks);
+        let found = landmarks::best(found);
         let (counts, placeless) = landmarks::write(Path::new(out), &found, &assigner);
         opengeocoding::index::landmark::build(Path::new(out), places.len()).unwrap();
         let counts: Vec<String> = landmarks::CATEGORIES

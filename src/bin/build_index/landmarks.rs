@@ -6,9 +6,9 @@ use super::{
     NAME_SEP, cell,
     geo::Assigner,
     progress::Progress,
-    sources::{Collect, Counted, files, for_blobs, layout, pack, unpack},
+    sources::{Counted, files, for_blobs, layout, pack, unpack},
 };
-use osmpbf::RelMemberType;
+use osmpbf::{PrimitiveBlock, RelMemberType};
 use rayon::prelude::*;
 use std::{
     collections::HashMap,
@@ -115,10 +115,10 @@ const WANTED: u8 = 2;
 
 /// Which of a block's string-table entries are keys a landmark is read from, found on first use,
 /// so the many other tags are never decoded (as `sources::Kinds` does for addresses).
-struct Keys(Vec<u8>);
+pub(super) struct Keys(Vec<u8>);
 
 impl Keys {
-    fn new(table: &[Vec<u8>]) -> Self {
+    pub(super) fn new(table: &[Vec<u8>]) -> Self {
         Keys(vec![UNSEEN; table.len()])
     }
 
@@ -178,6 +178,9 @@ pub struct Landmark {
     y: f64,
     /// Node 0, way 1, relation 2, and its id: the tie-break between copies of one item.
     element: (u8, i64),
+    /// Its extract's place in the reading order (`--osm` extracts, then `--osm-landmarks`): the
+    /// last tie-break, between identical copies in overlapping extracts.
+    file: u32,
 }
 
 // ponytail: planar centroids of closed outer rings, vertex mean for open ways or fragmented
@@ -232,94 +235,171 @@ struct Rel {
     nodes: Vec<i64>,
 }
 
-/// One extract's landmarks, in three passes like `sources::osm`: relations name their member ways,
-/// ways their nodes, and nodes give the points.
-fn read_file(path: &Path) -> Vec<Landmark> {
+/// One extract's landmarks as three passes over its blocks find them, in `sources::osm`'s passes
+/// or in `read_file`'s: relations name their member ways, ways their nodes, and nodes give the
+/// points. Landmarks are rare, so each is pushed under the lock.
+#[derive(Default)]
+pub(super) struct Scan {
+    rels: Mutex<Vec<Rel>>,
+    member_ways: Vec<i64>,
+    ways: Mutex<Vec<(Feature, i64, Vec<i64>)>>,
+    members: Mutex<Vec<(i64, Vec<i64>)>>,
+    nodes: Mutex<Vec<(Feature, i64, f64, f64)>>,
+}
+
+impl Scan {
+    pub(super) fn relations(&self, block: &PrimitiveBlock) {
+        let table = block.raw_stringtable();
+        let mut keys = Keys::new(table);
+        for r in block.groups().flat_map(|g| g.relations()) {
+            let Some(feature) = keys.feature(table, || r.raw_tags()) else {
+                continue;
+            };
+            let members = |t: RelMemberType| {
+                r.members()
+                    .filter(move |m| m.member_type == t)
+                    .map(|m| (m.member_id, m.role().unwrap_or("")))
+            };
+            let outer: Vec<i64> = members(RelMemberType::Way)
+                .filter(|m| m.1 == "outer")
+                .map(|m| m.0)
+                .collect();
+            let ways = if outer.is_empty() {
+                members(RelMemberType::Way).map(|m| m.0).collect()
+            } else {
+                outer
+            };
+            let nodes = members(RelMemberType::Node).map(|m| m.0).collect();
+            self.rels.lock().unwrap().push(Rel {
+                feature,
+                id: r.id(),
+                ways,
+                nodes,
+            });
+        }
+    }
+
+    /// Once every relation is read.
+    pub(super) fn relations_read(&mut self) {
+        let rels = self.rels.get_mut().unwrap();
+        let mut member_ways: Vec<i64> = rels.iter().flat_map(|r| r.ways.iter().copied()).collect();
+        member_ways.sort_unstable();
+        member_ways.dedup();
+        self.member_ways = member_ways;
+    }
+
+    pub(super) fn ways(&self, block: &PrimitiveBlock) {
+        let table = block.raw_stringtable();
+        let mut keys = Keys::new(table);
+        for w in block.groups().flat_map(|g| g.ways()) {
+            if self.member_ways.binary_search(&w.id()).is_ok() {
+                let refs = w.refs().collect();
+                self.members.lock().unwrap().push((w.id(), refs));
+            }
+            if let Some(feature) = keys.feature(table, || w.raw_tags()) {
+                let refs = w.refs().collect();
+                self.ways.lock().unwrap().push((feature, w.id(), refs));
+            }
+        }
+    }
+
+    /// Once every way is read: the nodes whose points the landmarks need, sorted.
+    pub(super) fn ways_read(&mut self) -> Vec<i64> {
+        let members = self.members.get_mut().unwrap();
+        members.sort_unstable_by_key(|m| m.0);
+        let ways = self.ways.get_mut().unwrap();
+        let rels = self.rels.get_mut().unwrap();
+        let mut needed: Vec<i64> = ways
+            .iter()
+            .flat_map(|w| w.2.iter().copied())
+            .chain(members.iter().flat_map(|m| m.1.iter().copied()))
+            .chain(rels.iter().flat_map(|r| r.nodes.iter().copied()))
+            .collect();
+        needed.sort_unstable();
+        needed.dedup();
+        needed
+    }
+
+    /// A node, with its block's string table and `Keys`.
+    pub(super) fn node<K: Into<i64>, I: Iterator<Item = (K, K)>>(
+        &self,
+        keys: &mut Keys,
+        table: &[Vec<u8>],
+        (id, x, y): (i64, f64, f64),
+        raw: impl Fn() -> I,
+    ) {
+        if let Some(feature) = keys.feature(table, raw) {
+            self.nodes.lock().unwrap().push((feature, id, x, y));
+        }
+    }
+
+    /// The landmarks, with the point of each node `ways_read` named.
+    /// `file` is the extract's place in the reading order (see `Landmark::file`).
+    pub(super) fn finish(self, at: impl Fn(i64) -> Option<(f64, f64)>, file: u32) -> Vec<Landmark> {
+        let members = self.members.into_inner().unwrap();
+        let landmark = |feature: Feature, element, (x, y)| Landmark {
+            category: feature.category,
+            qid: feature.qid,
+            primary: feature.primary,
+            names: feature.names,
+            x,
+            y,
+            element,
+            file,
+        };
+        let mut out: Vec<Landmark> = self
+            .nodes
+            .into_inner()
+            .unwrap()
+            .into_iter()
+            .map(|(f, id, x, y)| landmark(f, (0, id), (x, y)))
+            .collect();
+        for (f, id, refs) in self.ways.into_inner().unwrap() {
+            if let Some(xy) = centroid(std::iter::once(refs.as_slice()), &at) {
+                out.push(landmark(f, (1, id), xy));
+            }
+        }
+        for r in self.rels.into_inner().unwrap() {
+            let refs = |w: &i64| {
+                let k = members.binary_search_by_key(w, |m| m.0).ok()?;
+                Some(members[k].1.as_slice())
+            };
+            let xy = if r.ways.is_empty() {
+                centroid(r.nodes.iter().map(std::slice::from_ref), &at)
+            } else {
+                r.ways
+                    .iter()
+                    .map(refs)
+                    .collect::<Option<Vec<_>>>()
+                    .and_then(|rings| centroid(rings.into_iter(), &at))
+            };
+            if let Some(xy) = xy {
+                out.push(landmark(r.feature, (2, r.id), xy));
+            }
+        }
+        out
+    }
+}
+
+/// The landmarks of an extract read for them alone (`--osm-landmarks`).
+fn read_file(path: &Path, file: u32) -> Vec<Landmark> {
     let (offsets, first_way, first_relation) = layout(path);
-    let rels = Mutex::new(vec![]);
-    for_blobs(
-        path,
-        &offsets,
-        first_relation..offsets.len(),
-        || Collect(vec![], &rels),
-        |mine, block| {
-            let table = block.raw_stringtable();
-            let mut keys = Keys::new(table);
-            for r in block.groups().flat_map(|g| g.relations()) {
-                let Some(feature) = keys.feature(table, || r.raw_tags()) else {
-                    continue;
-                };
-                let members = |t: RelMemberType| {
-                    r.members()
-                        .filter(move |m| m.member_type == t)
-                        .map(|m| (m.member_id, m.role().unwrap_or("")))
-                };
-                let outer: Vec<i64> = members(RelMemberType::Way)
-                    .filter(|m| m.1 == "outer")
-                    .map(|m| m.0)
-                    .collect();
-                let ways = if outer.is_empty() {
-                    members(RelMemberType::Way).map(|m| m.0).collect()
-                } else {
-                    outer
-                };
-                let nodes = members(RelMemberType::Node).map(|m| m.0).collect();
-                mine.0.push(Rel {
-                    feature,
-                    id: r.id(),
-                    ways,
-                    nodes,
-                });
-            }
-        },
-    );
-    let rels = rels.into_inner().unwrap();
-    let mut member_ways: Vec<i64> = rels.iter().flat_map(|r| r.ways.iter().copied()).collect();
-    member_ways.par_sort_unstable();
-    member_ways.dedup();
-
-    let (ways, members) = (Mutex::new(vec![]), Mutex::new(vec![]));
-    for_blobs(
-        path,
-        &offsets,
-        first_way..first_relation,
-        || (Collect(vec![], &ways), Collect(vec![], &members)),
-        |(ways, members), block| {
-            let table = block.raw_stringtable();
-            let mut keys = Keys::new(table);
-            for w in block.groups().flat_map(|g| g.ways()) {
-                if member_ways.binary_search(&w.id()).is_ok() {
-                    members.0.push((w.id(), w.refs().collect::<Vec<i64>>()));
-                }
-                if let Some(feature) = keys.feature(table, || w.raw_tags()) {
-                    ways.0
-                        .push((feature, w.id(), w.refs().collect::<Vec<i64>>()));
-                }
-            }
-        },
-    );
-    let ways = ways.into_inner().unwrap();
-    let mut members = members.into_inner().unwrap();
-    members.par_sort_unstable_by_key(|m| m.0);
-    let mut needed: Vec<i64> = ways
-        .iter()
-        .flat_map(|w| w.2.iter().copied())
-        .chain(members.iter().flat_map(|m| m.1.iter().copied()))
-        .chain(rels.iter().flat_map(|r| r.nodes.iter().copied()))
-        .collect();
-    needed.par_sort_unstable();
-    needed.dedup();
-
+    let mut scan = Scan::default();
+    let all = first_relation..offsets.len();
+    for_blobs(path, &offsets, all, || (), |_, b| scan.relations(&b));
+    scan.relations_read();
+    let ways = first_way..first_relation;
+    for_blobs(path, &offsets, ways, || (), |_, b| scan.ways(&b));
+    let needed = scan.ways_read();
     let coords: Vec<AtomicU64> = (0..needed.len())
         .map(|_| AtomicU64::new(u64::MAX))
         .collect();
-    let nodes = Mutex::new(vec![]);
     for_blobs(
         path,
         &offsets,
         1..first_way,
-        || Collect(vec![], &nodes),
-        |mine, block| {
+        || (),
+        |_, block| {
             let table = block.raw_stringtable();
             let mut keys = Keys::new(table);
             for g in block.groups() {
@@ -337,83 +417,44 @@ fn read_file(path: &Path) -> Vec<Landmark> {
                     if needed.get(p) == Some(&id) {
                         coords[p].store(pack(n.lon(), n.lat()), Relaxed);
                     }
-                    if let Some(feature) = keys.feature(table, || n.raw_tags()) {
-                        mine.0.push((feature, n.id(), n.lon(), n.lat()));
-                    }
+                    scan.node(&mut keys, table, (id, n.lon(), n.lat()), || n.raw_tags());
                 }
                 for n in g.nodes() {
                     if let Ok(k) = needed.binary_search(&n.id()) {
                         coords[k].store(pack(n.lon(), n.lat()), Relaxed);
                     }
-                    if let Some(feature) = keys.feature(table, || n.raw_tags()) {
-                        mine.0.push((feature, n.id(), n.lon(), n.lat()));
-                    }
+                    let at = (n.id(), n.lon(), n.lat());
+                    scan.node(&mut keys, table, at, || n.raw_tags());
                 }
             }
         },
     );
-    let at = |node: i64| {
+    let at = |node| {
         let v = coords[needed.binary_search(&node).ok()?].load(Relaxed);
         (v != u64::MAX).then(|| unpack(v))
     };
-    let landmark = |feature: Feature, element, (x, y)| Landmark {
-        category: feature.category,
-        qid: feature.qid,
-        primary: feature.primary,
-        names: feature.names,
-        x,
-        y,
-        element,
-    };
-    let mut out: Vec<Landmark> = nodes
-        .into_inner()
-        .unwrap()
-        .into_iter()
-        .map(|(f, id, x, y)| landmark(f, (0, id), (x, y)))
-        .collect();
-    for (f, id, refs) in ways {
-        if let Some(xy) = centroid(std::iter::once(refs.as_slice()), at) {
-            out.push(landmark(f, (1, id), xy));
-        }
-    }
-    for r in rels {
-        let refs = |w: &i64| {
-            let k = members.binary_search_by_key(w, |m| m.0).ok()?;
-            Some(members[k].1.as_slice())
-        };
-        let xy = if r.ways.is_empty() {
-            centroid(r.nodes.iter().map(std::slice::from_ref), at)
-        } else {
-            r.ways
-                .iter()
-                .map(refs)
-                .collect::<Option<Vec<_>>>()
-                .and_then(|rings| centroid(rings.into_iter(), at))
-        };
-        if let Some(xy) = xy {
-            out.push(landmark(r.feature, (2, r.id), xy));
-        }
-    }
-    out
+    scan.finish(at, file)
 }
 
-/// The landmarks of every extract in `dirs`, one per Wikidata item: the copy with the most names,
-/// then a node before a way before a relation, then the lowest id, so overlapping extracts and
-/// thread order don't change the answer.
-// ponytail: decoding blobs is nine tenths of this pass, and it reads and decodes the `--osm`
-// extracts a second time, beside the address passes. Reading landmarks in `sources::osm`'s passes
-// is the upgrade.
-pub fn read(dirs: &[PathBuf]) -> Vec<Landmark> {
+/// The landmarks of every extract in `dirs`, the first `first` in the reading order.
+pub fn read(dirs: &[PathBuf], first: u32) -> Vec<Landmark> {
     let files: Vec<PathBuf> = dirs.iter().flat_map(|d| files(d, ".osm.pbf")).collect();
     let size = |p: &Path| std::fs::metadata(p).map_or(0, |m| m.len());
     let done = Progress::new("landmarks".into(), files.iter().map(|f| size(f)).sum());
-    let all: Vec<Landmark> = files
+    files
         .par_iter()
-        .flat_map_iter(|path| {
+        .enumerate()
+        .flat_map_iter(|(i, path)| {
             let _counted = Counted(&done, size(path));
-            read_file(path)
+            read_file(path, first + i as u32)
         })
-        .collect();
+        .collect()
+}
+
+/// One landmark per Wikidata item: the copy with the most names, then a node before a way before
+/// a relation, then the lowest id, then the first extract read, so overlapping extracts and
+/// thread order don't change the answer.
+pub fn best(all: Vec<Landmark>) -> Vec<Landmark> {
     let mut best: HashMap<u64, Landmark> = HashMap::new();
     for l in all {
         let key = |l: &Landmark| {
@@ -422,6 +463,7 @@ pub fn read(dirs: &[PathBuf]) -> Vec<Landmark> {
                 l.element,
                 l.x.to_bits(),
                 l.y.to_bits(),
+                l.file,
             )
         };
         match best.get(&l.qid) {

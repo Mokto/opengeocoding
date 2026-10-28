@@ -1,4 +1,4 @@
-use rstar::{RTree, primitives::GeomWithData, primitives::Rectangle};
+use rstar::{RTree, primitives::GeomWithData};
 use std::{
     fs::File,
     io::{BufWriter, Write},
@@ -61,7 +61,9 @@ fn word(data: &[u8], i: u64) -> u32 {
 /// Polygon (all rings of all parts, even-odd rule) with edges bucketed into horizontal slabs,
 /// so a containment test only looks at the few edges crossing the point's slab. Its arrays are
 /// in the `PolyFile` from word `at`: the vertices as x, y pairs, the `slabs + 1` offsets of each
-/// slab's edges, then the edges, by their first vertex.
+/// slab's edges, then the edges, by their first vertex. From word `grid`, a `gx` by `gy` grid
+/// over its bounding box holds each cell's side (`OUTSIDE`, `INSIDE` or `EDGE`), 16 to a word,
+/// so most points are answered without reading an edge.
 pub struct Poly {
     place: u32,
     kind: u8,
@@ -71,7 +73,19 @@ pub struct Poly {
     ymin: f64,
     inv_h: f64,
     bbox: [f64; 4],
+    gx: u32,
+    gy: u32,
+    inv_cw: f64,
+    inv_ch: f64,
+    grid: u64,
 }
+
+/// A grid cell no edge comes within `MARGIN` of lies wholly on one side, by more than rounding
+/// can move a point, so it answers for every point in it.
+const OUTSIDE: u32 = 0;
+const INSIDE: u32 = 1;
+const EDGE: u32 = 2;
+const MARGIN: f64 = 1e-9;
 
 impl Poly {
     pub fn new(
@@ -95,13 +109,25 @@ impl Poly {
         if n_edges < 3 || y1 <= y0 {
             return None;
         }
+        // The vertices as `contains` reads them, which file the edges in their slabs: by the
+        // unrounded ones, a point level with a vertex could miss an edge crossing its line.
+        let mut words: Vec<u32> = xy
+            .iter()
+            .flat_map(|p| p.map(|v| (v * FIXED).round() as i32 as u32))
+            .collect();
+        let fixed: Vec<[f64; 2]> = words
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|p| p.map(|v| v as i32 as f64 / FIXED))
+            .collect();
         let k = (n_edges / 4).clamp(1, 1 << 16);
         let inv_h = k as f64 / (y1 - y0);
-        let slab = |y: f64| (((y - y0) * inv_h) as usize).min(k - 1);
+        let slab = |y: f64| (((y - y0) * inv_h).max(0.0) as usize).min(k - 1);
         let edge_ids = || rings.iter().flat_map(|&(s, e)| s..e.saturating_sub(1));
         let mut offsets = vec![0u32; k + 1];
         for i in edge_ids() {
-            let (a, b) = (xy[i as usize][1], xy[i as usize + 1][1]);
+            let (a, b) = (fixed[i as usize][1], fixed[i as usize + 1][1]);
             for s in slab(a.min(b))..=slab(a.max(b)) {
                 offsets[s + 1] += 1;
             }
@@ -112,31 +138,130 @@ impl Poly {
         let mut fill = offsets.clone();
         let mut edges = vec![0u32; offsets[k] as usize];
         for i in edge_ids() {
-            let (a, b) = (xy[i as usize][1], xy[i as usize + 1][1]);
+            let (a, b) = (fixed[i as usize][1], fixed[i as usize + 1][1]);
             for s in slab(a.min(b))..=slab(a.max(b)) {
                 edges[fill[s] as usize] = i;
                 fill[s] += 1;
             }
         }
-        let mut words: Vec<u32> = xy
-            .iter()
-            .flat_map(|p| p.map(|v| (v * FIXED).round() as i32 as u32))
-            .collect();
         words.extend(offsets);
         words.extend(edges);
-        Some(Poly {
+        let mut poly = Poly {
             place,
             kind,
             vertices: xy.len() as u32,
             slabs: k as u32,
-            at: file.put(&words),
+            at: 0,
             ymin: y0,
             inv_h,
             bbox: [x0, y0, x1, y1],
-        })
+            gx: 0,
+            gy: 0,
+            inv_cw: 0.0,
+            inv_ch: 0.0,
+            grid: 0,
+        };
+        let cells = poly.cells(&fixed, rings, n_edges);
+        let grid = words.len() as u64;
+        words.extend(cells);
+        poly.at = file.put(&words);
+        poly.grid = poly.at + grid;
+        Some(poly)
+    }
+
+    fn cell(&self, x: f64, y: f64) -> usize {
+        let c = (((x - self.bbox[0]) * self.inv_cw).max(0.0) as usize).min(self.gx as usize - 1);
+        let r = (((y - self.bbox[1]) * self.inv_ch).max(0.0) as usize).min(self.gy as usize - 1);
+        r * self.gx as usize + c
+    }
+
+    /// Sets the grid's size and returns its cells, packed: about as many as the polygon has
+    /// edges. A cell near an edge is `EDGE`; any other takes its centre's side.
+    fn cells(&mut self, xy: &[[f64; 2]], rings: &[(u32, u32)], n_edges: usize) -> Vec<u32> {
+        let [x0, y0, x1, y1] = self.bbox;
+        let (w, h) = (x1 - x0, y1 - y0);
+        if w <= 0.0 || !w.is_finite() || !h.is_finite() {
+            return vec![];
+        }
+        let target = n_edges.clamp(16, 1 << 22) as f64;
+        let gy = (target * h / w).sqrt().round().clamp(1.0, 4096.0) as usize;
+        let gx = (target / gy as f64).round().clamp(1.0, 4096.0) as usize;
+        (self.gx, self.gy) = (gx as u32, gy as u32);
+        (self.inv_cw, self.inv_ch) = (gx as f64 / w, gy as f64 / h);
+        let (cw, ch) = (w / gx as f64, h / gy as f64);
+        let col = |x: f64| (((x - x0) * self.inv_cw).max(0.0) as usize).min(gx - 1);
+        let row = |y: f64| (((y - y0) * self.inv_ch).max(0.0) as usize).min(gy - 1);
+        let mut state = vec![OUTSIDE as u8; gx * gy];
+        let mut mark = |c0: usize, c1: usize, r0: usize, r1: usize| {
+            for r in r0..=r1 {
+                state[r * gx + c0..=r * gx + c1].fill(EDGE as u8);
+            }
+        };
+        let edge_ids = || rings.iter().flat_map(|&(s, e)| s..e.saturating_sub(1));
+        // Rows whose centre line an edge may cross, for the sides below.
+        let mut by_row: Vec<Vec<u32>> = vec![vec![]; gy];
+        for i in edge_ids() {
+            let ([xa, ya], [xb, yb]) = (xy[i as usize], xy[i as usize + 1]);
+            let (c0, c1) = (col(xa.min(xb) - MARGIN), col(xa.max(xb) + MARGIN));
+            let (r0, r1) = (row(ya.min(yb) - MARGIN), row(ya.max(yb) + MARGIN));
+            if (c1 - c0 + 1) * (r1 - r0 + 1) <= 64 {
+                mark(c0, c1, r0, r1);
+            } else {
+                // A long slanted edge: the cells around points half a cell apart along it.
+                let steps = ((xb - xa).abs() / cw).max((yb - ya).abs() / ch).ceil() as usize * 2;
+                for t in 0..=steps {
+                    let f = t as f64 / steps as f64;
+                    let (c, r) = (col(xa + (xb - xa) * f), row(ya + (yb - ya) * f));
+                    mark(
+                        c.saturating_sub(1),
+                        (c + 1).min(gx - 1),
+                        r.saturating_sub(1),
+                        (r + 1).min(gy - 1),
+                    );
+                }
+            }
+            for list in &mut by_row[r0..=r1] {
+                list.push(i);
+            }
+        }
+        let mut xs = vec![];
+        for (r, list) in by_row.iter().enumerate() {
+            let y = y0 + (r as f64 + 0.5) * ch;
+            xs.clear();
+            for &i in list {
+                let ([xa, ya], [xb, yb]) = (xy[i as usize], xy[i as usize + 1]);
+                if (ya > y) != (yb > y) {
+                    xs.push(xa + (y - ya) * (xb - xa) / (yb - ya));
+                }
+            }
+            xs.sort_unstable_by(f64::total_cmp);
+            for (c, cell) in state[r * gx..(r + 1) * gx].iter_mut().enumerate() {
+                if *cell != EDGE as u8 {
+                    let x = x0 + (c as f64 + 0.5) * cw;
+                    let right = xs.len() - xs.partition_point(|&v| v <= x);
+                    *cell = (right % 2) as u8;
+                }
+            }
+        }
+        state
+            .chunks(16)
+            .map(|c| c.iter().rev().fold(0, |w, &s| w << 2 | u32::from(s)))
+            .collect()
     }
 
     pub fn contains(&self, data: &[u8], x: f64, y: f64) -> bool {
+        if self.gx > 0 {
+            let i = self.cell(x, y);
+            match word(data, self.grid + i as u64 / 16) >> (2 * (i % 16)) & 3 {
+                OUTSIDE => return false,
+                INSIDE => return true,
+                _ => {}
+            }
+        }
+        self.edges_contain(data, x, y)
+    }
+
+    fn edges_contain(&self, data: &[u8], x: f64, y: f64) -> bool {
         let k = self.slabs as usize;
         let s = (((y - self.ymin) * self.inv_h).max(0.0) as usize).min(k - 1) as u64;
         let offsets = self.at + 2 * u64::from(self.vertices);
@@ -267,10 +392,123 @@ fn canonical_country(cc: [u8; 2]) -> [u8; 2] {
 }
 const NEAR_LOCALITY_M: f32 = 5000.0;
 
+/// Polygons by grid cell, each in the finest of `LEVELS` grids whose cells are at least as large
+/// as its bounding box, so a point's candidates are its cell's at each level: a few lookups where
+/// an R-tree of overlapping boxes walked many nodes.
+struct Levels(Vec<Level>);
+
+struct Level {
+    size: f64,
+    cols: usize,
+    rows: usize,
+    /// Each cell's polygons are `ids[offsets[cell]..offsets[cell + 1]]`.
+    offsets: Vec<u32>,
+    ids: Vec<u32>,
+}
+
+/// The finest level's cell, in degrees; each next level's is `LEVEL_STEP` times larger, and the
+/// last holds the world in one cell.
+const BASE_CELL: f64 = 0.2;
+const LEVEL_STEP: f64 = 4.0;
+const LEVELS: usize = 6;
+
+impl Level {
+    fn new(size: f64) -> Level {
+        let (cols, rows) = (
+            (360.0 / size).ceil() as usize,
+            (180.0 / size).ceil() as usize,
+        );
+        Level {
+            size,
+            cols,
+            rows,
+            offsets: vec![],
+            ids: vec![],
+        }
+    }
+
+    fn col(&self, x: f64) -> usize {
+        (((x + 180.0) / self.size).floor().max(0.0) as usize).min(self.cols - 1)
+    }
+
+    fn row(&self, y: f64) -> usize {
+        (((y + 90.0) / self.size).floor().max(0.0) as usize).min(self.rows - 1)
+    }
+
+    fn at(&self, x: f64, y: f64) -> &[u32] {
+        let cell = self.row(y) * self.cols + self.col(x);
+        &self.ids[self.offsets[cell] as usize..self.offsets[cell + 1] as usize]
+    }
+}
+
+impl Levels {
+    fn new(polys: &[Poly]) -> Levels {
+        let mut levels: Vec<Level> = (0..LEVELS)
+            .map(|l| Level::new(BASE_CELL * LEVEL_STEP.powi(l as i32)))
+            .collect();
+        levels.push(Level::new(360.0));
+        // Each polygon's level and the cells its box spans there.
+        let spans: Vec<(usize, Vec<usize>)> = polys
+            .iter()
+            .map(|p| {
+                let [x0, y0, x1, y1] = p.bbox;
+                let side = (x1 - x0).max(y1 - y0);
+                let k = levels.iter().position(|l| l.size >= side).unwrap_or(LEVELS);
+                let l = &levels[k];
+                let cells = (l.row(y0)..=l.row(y1))
+                    .flat_map(|r| (l.col(x0)..=l.col(x1)).map(move |c| r * l.cols + c))
+                    .collect();
+                (k, cells)
+            })
+            .collect();
+        let mut offsets: Vec<Vec<u32>> = levels
+            .iter()
+            .map(|l| vec![0; l.cols * l.rows + 1])
+            .collect();
+        for (k, cells) in &spans {
+            for &cell in cells {
+                offsets[*k][cell + 1] += 1;
+            }
+        }
+        for o in &mut offsets {
+            for i in 1..o.len() {
+                o[i] += o[i - 1];
+            }
+        }
+        let mut ids: Vec<Vec<u32>> = offsets
+            .iter()
+            .map(|o| vec![0; *o.last().unwrap() as usize])
+            .collect();
+        let mut fill = offsets.clone();
+        for (i, (k, cells)) in spans.iter().enumerate() {
+            for &cell in cells {
+                ids[*k][fill[*k][cell] as usize] = i as u32;
+                fill[*k][cell] += 1;
+            }
+        }
+        for ((l, o), ids) in levels.iter_mut().zip(offsets).zip(ids) {
+            (l.offsets, l.ids) = (o, ids);
+        }
+        Levels(levels)
+    }
+
+    /// The polygons whose bounding boxes hold the point (edges included).
+    fn at<'p>(&'p self, polys: &'p [Poly], x: f64, y: f64) -> impl Iterator<Item = &'p Poly> {
+        self.0
+            .iter()
+            .flat_map(move |l| l.at(x, y))
+            .map(|&i| &polys[i as usize])
+            .filter(move |p| {
+                let [x0, y0, x1, y1] = p.bbox;
+                x0 <= x && x <= x1 && y0 <= y && y <= y1
+            })
+    }
+}
+
 pub struct Assigner {
     polys: Vec<Poly>,
     data: OwnedBytes,
-    tree: RTree<GeomWithData<Rectangle<[f64; 2]>, u32>>,
+    levels: Levels,
     towns: RTree<GeomWithData<[f64; 2], u32>>,
     countries: Vec<[u8; 2]>,
     sovereigns: Vec<[u8; 2]>,
@@ -285,18 +523,7 @@ impl Assigner {
         towns: Vec<([f64; 2], u32)>,
         countries: Vec<([u8; 2], [u8; 2])>,
     ) -> Assigner {
-        let tree = RTree::bulk_load(
-            polys
-                .iter()
-                .enumerate()
-                .map(|(i, p)| {
-                    GeomWithData::new(
-                        Rectangle::from_corners([p.bbox[0], p.bbox[1]], [p.bbox[2], p.bbox[3]]),
-                        i as u32,
-                    )
-                })
-                .collect(),
-        );
+        let levels = Levels::new(&polys);
         let towns = RTree::bulk_load(
             towns
                 .into_iter()
@@ -310,7 +537,7 @@ impl Assigner {
         Assigner {
             polys,
             data: file.map(),
-            tree,
+            levels,
             towns,
             countries,
             sovereigns,
@@ -328,8 +555,7 @@ impl Assigner {
     }
 
     pub fn region(&self, x: f64, y: f64, cc: [u8; 2]) -> Option<u32> {
-        let mut regions = self.tree.locate_all_at_point([x, y]).filter_map(|c| {
-            let p = &self.polys[c.data as usize];
+        let mut regions = self.levels.at(&self.polys, x, y).filter_map(|p| {
             (p.kind == 3
                 && self.countries[p.place as usize] == canonical_country(cc)
                 && p.contains(&self.data, x, y))
@@ -345,9 +571,8 @@ impl Assigner {
             return None;
         }
         let containing = || {
-            self.tree
-                .locate_all_at_point([x, y])
-                .map(|c| &self.polys[c.data as usize])
+            self.levels
+                .at(&self.polys, x, y)
                 .filter(|p| p.contains(&self.data, x, y))
         };
         let cc = cc.map(canonical_country).or_else(|| {
@@ -445,6 +670,90 @@ mod tests {
         assert!(contains(20.5, 20.5), "second part");
         assert!(!contains(15.0, 15.0), "between parts");
         assert!(!contains(-1.0, 5.0));
+    }
+
+    #[test]
+    fn grid_cells_answer_as_the_edges_do() {
+        // xorshift, so the shapes and points are the same each run
+        let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+        let mut rand = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            (seed >> 11) as f64 / (1u64 << 53) as f64
+        };
+        let f = file("grid");
+        let mut polys = vec![];
+        for n in 0..40 {
+            // a jagged ring around a centre, a hole in it, and a far part joined by long edges
+            let (cx, cy, r) = (
+                rand() * 40.0 - 20.0,
+                rand() * 40.0 - 20.0,
+                0.5 + rand() * 5.0,
+            );
+            let k = 8 + (rand() * 400.0) as usize;
+            let ring = |r: f64, rand: &mut dyn FnMut() -> f64| -> Vec<[f64; 2]> {
+                let mut v: Vec<[f64; 2]> = (0..k)
+                    .map(|i| {
+                        let a = i as f64 / k as f64 * std::f64::consts::TAU;
+                        let d = r * (0.3 + 0.7 * rand());
+                        [cx + d * a.cos(), cy + d * a.sin()]
+                    })
+                    .collect();
+                v.push(v[0]);
+                v
+            };
+            let mut xy = ring(r, &mut rand);
+            let mut rings = vec![(0, xy.len() as u32)];
+            let hole = ring(r * 0.1, &mut rand);
+            rings.push((xy.len() as u32, (xy.len() + hole.len()) as u32));
+            xy.extend(hole);
+            if n % 3 == 0 {
+                let s = xy.len() as u32;
+                let (fx, fy) = (cx + 30.0, cy - 25.0);
+                xy.extend([
+                    [fx, fy],
+                    [fx + 1.0, fy + 0.3],
+                    [cx + 1.0, cy + 2.0],
+                    [fx, fy],
+                ]);
+                rings.push((s, xy.len() as u32));
+            }
+            polys.extend(Poly::new(n, 0, xy, &rings, &f));
+        }
+        let data = f.map();
+        let (mut inside, mut by_cell) = (0, 0);
+        for p in &polys {
+            let [x0, y0, x1, y1] = p.bbox;
+            for i in 0..20_000 {
+                let (mut x, mut y) = (x0 + rand() * (x1 - x0), y0 + rand() * (y1 - y0));
+                if i % 4 == 0 {
+                    // on a cell's edge or corner
+                    x = x0 + (((x - x0) * p.inv_cw).floor()) / p.inv_cw;
+                    y = y0 + (((y - y0) * p.inv_ch).round()) / p.inv_ch;
+                }
+                let want = p.edges_contain(&data, x, y);
+                assert_eq!(p.contains(&data, x, y), want, "{x} {y}");
+                inside += usize::from(want);
+                let i = p.cell(x, y);
+                by_cell +=
+                    usize::from(word(&data, p.grid + i as u64 / 16) >> (2 * (i % 16)) & 3 != EDGE);
+            }
+        }
+        assert!(inside > 100_000 && by_cell > 200_000, "{inside} {by_cell}");
+        let levels = Levels::new(&polys);
+        for _ in 0..100_000 {
+            let (x, y) = (rand() * 120.0 - 60.0, rand() * 120.0 - 60.0);
+            let mut got: Vec<u32> = levels.at(&polys, x, y).map(|p| p.place).collect();
+            let mut want: Vec<u32> = polys
+                .iter()
+                .filter(|p| p.bbox[0] <= x && x <= p.bbox[2] && p.bbox[1] <= y && y <= p.bbox[3])
+                .map(|p| p.place)
+                .collect();
+            got.sort_unstable();
+            want.sort_unstable();
+            assert_eq!(got, want);
+        }
     }
 
     #[test]

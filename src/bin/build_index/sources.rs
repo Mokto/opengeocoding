@@ -2,7 +2,9 @@
 //! extracts. Both feed the same `Sink` as Overture rows, so a house number that several sources
 //! hold on the same street collapses to one FST key.
 use super::{
-    Shared, Sink, country, numbers_with_unit,
+    Shared, Sink, country,
+    landmarks::{self, Landmark},
+    numbers_with_unit,
     progress::{self, Progress},
 };
 use osmpbf::{BlobDecode, BlobReader, ByteOffset, PrimitiveBlock, RelMemberType};
@@ -1011,7 +1013,9 @@ const OSM_FILES_AT_ONCE: usize = 4;
 /// Extract bytes read at once, unless one extract is larger.
 const OSM_BYTES_AT_ONCE: u64 = 5 << 30;
 
-pub fn osm(dir: &Path, shared: &Shared) -> usize {
+/// Returns the files read and their landmarks (see `landmarks::Scan`), the first file `first` in
+/// the reading order.
+pub fn osm(dir: &Path, shared: &Shared, first: u32) -> (usize, Vec<Landmark>) {
     let files = files(dir, ".osm.pbf");
     let size = |p: &Path| std::fs::metadata(p).map_or(0, |m| m.len());
     let done = Progress::new(
@@ -1019,6 +1023,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
         files.iter().map(|f| size(f)).sum(),
     );
     let skipped = AtomicU64::new(0);
+    let found_landmarks = Mutex::new(vec![]);
     let per_file = |path: &PathBuf| {
         let _counted = Counted(&done, size(path));
         let (offsets, first_way, first_relation) = layout(path);
@@ -1028,6 +1033,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             first_relation..offsets.len(),
         );
 
+        let mut scan = landmarks::Scan::default();
         // All outer ways are needed to detect a widely spread multipolygon.
         let found = Mutex::new(vec![]);
         for_blobs(
@@ -1036,6 +1042,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             relations,
             || Collect(vec![], &found),
             |mine, block| {
+                scan.relations(&block);
                 let table = block.raw_stringtable();
                 let mut kinds = Kinds::new(table);
                 for r in block.groups().flat_map(|g| g.relations()) {
@@ -1056,6 +1063,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                 }
             },
         );
+        scan.relations_read();
         let relations = found.into_inner().unwrap();
         let mut member_ways: Vec<i64> = relations
             .iter()
@@ -1083,6 +1091,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                 )
             },
             |(mine, first, interp, addrs), block| {
+                scan.ways(&block);
                 let table = block.raw_stringtable();
                 let mut kinds = Kinds::new(table);
                 for w in block.groups().flat_map(|g| g.ways()) {
@@ -1115,6 +1124,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
         let mut firsts = firsts.into_inner().unwrap();
         firsts.par_sort_unstable();
         let mut needed = refs.into_inner().unwrap();
+        needed.extend(scan.ways_read());
         needed.par_sort_unstable();
         needed.dedup();
         let interps = interps.into_inner().unwrap();
@@ -1138,6 +1148,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
             |(sink, end), block| {
                 let table = block.raw_stringtable();
                 let mut kinds = Kinds::new(table);
+                let mut keys = landmarks::Keys::new(table);
                 for g in block.groups() {
                     // Ids ascend (checked in `layout`), so `needed` is walked once per group.
                     let mut p = usize::MAX;
@@ -1152,6 +1163,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                         if needed.get(p) == Some(&id) {
                             coords[p].store(pack(n.lon(), n.lat()), Relaxed);
                         }
+                        scan.node(&mut keys, table, (id, n.lon(), n.lat()), || n.raw_tags());
                         if let Some(a) = Addr::from(kinds.tags(table, n.raw_tags())) {
                             if ends.binary_search(&n.id()).is_ok() {
                                 end.0.push((n.id(), a.owned()));
@@ -1163,6 +1175,8 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                         if let Ok(k) = needed.binary_search(&n.id()) {
                             coords[k].store(pack(n.lon(), n.lat()), Relaxed);
                         }
+                        let at = (n.id(), n.lon(), n.lat());
+                        scan.node(&mut keys, table, at, || n.raw_tags());
                         if let Some(a) = Addr::from(kinds.tags(table, n.raw_tags())) {
                             if ends.binary_search(&n.id()).is_ok() {
                                 end.0.push((n.id(), a.owned()));
@@ -1253,6 +1267,11 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
                 );
             },
         );
+        let file = first + files.iter().position(|f| f == path).unwrap() as u32;
+        found_landmarks
+            .lock()
+            .unwrap()
+            .extend(scan.finish(coord, file));
     };
     // Each extract holds the ids and coordinates of the nodes its addresses use until it is done:
     // reading every extract at once added gigabytes to the build's peak, and so did the four
@@ -1297,7 +1316,7 @@ pub fn osm(dir: &Path, shared: &Shared) -> usize {
         "OSM: omitted house numbers on {} untyped ways/relations with incomplete footprints or vertices over 300 m from their address point",
         skipped.load(Relaxed)
     );
-    files.len()
+    (files.len(), found_landmarks.into_inner().unwrap())
 }
 
 #[cfg(test)]
