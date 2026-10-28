@@ -533,24 +533,23 @@ impl Core {
             a.shift_remove("state_district");
             a
         };
+        let stated_region = Some(part(address, "state"))
+            .filter(|s| !s.is_empty() && !country.is_empty())
+            .and_then(|s| self.index.region_named(s, country));
         let other_region = |details: Option<&AddressDetails>| {
-            let stated = part(address, "state");
-            !stated.is_empty()
-                && details.is_some_and(|d| {
-                    let Some(code) = self.index.region_named(stated, &d.country_code) else {
-                        return false;
-                    };
-                    let code = &*code;
-                    let country = code.split('-').next().unwrap_or("");
+            stated_region.as_deref().is_some_and(|code| {
+                details.is_some_and(|d| {
+                    let cc = code.split('-').next().unwrap_or("");
                     let own: Vec<_> = d
                         .region_codes
                         .iter()
-                        .filter(|c| c.code.split('-').next() == Some(country))
+                        .filter(|c| c.code.split('-').next() == Some(cc))
                         .collect();
                     !own.is_empty()
                         && !own.iter().any(|c| c.code.eq_ignore_ascii_case(code))
                         && !region_agrees(address, Some(d))
                 })
+            })
         };
         let mut viable: Vec<_> = judged
             .iter()
