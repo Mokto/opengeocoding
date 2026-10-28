@@ -120,12 +120,16 @@ const CJK_SUFFIXES: &[char] = &['市', '府', '県', '县', '縣', '省', '郡',
 fn place_keys(value: &str) -> (String, String) {
     let trimmed = value.trim_end_matches(CJK_SUFFIXES);
     // Transliteration conflates distinct Han characters (大阪 Osaka and 大坂 both become "Da Ban").
-    if value
-        .chars()
-        .any(|ch| matches!(ch, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{9fff}'))
-    {
-        let key: String = trimmed.chars().filter(|ch| !whitespace(*ch)).collect();
-        return (key.clone(), key);
+    let cjk = |ch: char| matches!(ch, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{9fff}');
+    if value.chars().any(cjk) {
+        let key: String = trimmed
+            .chars()
+            .filter(|ch| !whitespace(*ch))
+            .flat_map(char::to_lowercase)
+            .collect();
+        // a name written in two scripts ("屯門 Tuen Mun") is its Han name
+        let core = key.chars().filter(|&ch| cjk(ch)).collect();
+        return (key, core);
     }
     let normalized = normalize_place(if trimmed.is_empty() { value } else { trimmed });
     let words: Vec<_> = normalized.split(' ').collect();
@@ -1251,14 +1255,16 @@ pub fn cut_short(written: &str, name: &str) -> bool {
 /// plus ("+993, Turkmenistan"), which no postcode is: mappers put it where the postcode goes, and
 /// as a postcode it matches nothing or a place elsewhere. With that code's digits; None when no
 /// part is.
-// ponytail: bare codes for African countries only, where the panel shows them; other countries
-// need their codes added, checked against postcodes of the same shape.
+// ponytail: bare codes only for the countries the panel shows them in (Africa, and Asian and
+// American ones whose postcodes have another number of digits or don't exist); others need
+// their codes added, checked against postcodes of the same shape.
 pub fn without_calling_code(query: &str) -> Option<(String, String)> {
     const CODES: &[(&str, &str)] = &[
         ("ao", "244"),
         ("bf", "226"),
         ("bi", "257"),
         ("bj", "229"),
+        ("bt", "975"),
         ("bw", "267"),
         ("cd", "243"),
         ("cf", "236"),
@@ -1268,17 +1274,22 @@ pub fn without_calling_code(query: &str) -> Option<(String, String)> {
         ("cv", "238"),
         ("dj", "253"),
         ("dz", "213"),
+        ("ec", "593"),
         ("eg", "20"),
         ("eh", "212"),
         ("er", "291"),
         ("et", "251"),
+        ("fj", "679"),
         ("ga", "241"),
         ("gh", "233"),
         ("gm", "220"),
         ("gn", "224"),
         ("gq", "240"),
         ("gw", "245"),
+        ("ht", "509"),
+        ("iq", "964"),
         ("ke", "254"),
+        ("kh", "855"),
         ("km", "269"),
         ("lr", "231"),
         ("ls", "266"),
@@ -1286,6 +1297,7 @@ pub fn without_calling_code(query: &str) -> Option<(String, String)> {
         ("ma", "212"),
         ("mg", "261"),
         ("ml", "223"),
+        ("mm", "959"),
         ("mr", "222"),
         ("mu", "230"),
         ("mw", "265"),
@@ -1293,6 +1305,8 @@ pub fn without_calling_code(query: &str) -> Option<(String, String)> {
         ("na", "264"),
         ("ne", "227"),
         ("ng", "234"),
+        ("np", "977"),
+        ("qa", "974"),
         ("re", "262"),
         ("rw", "250"),
         ("sc", "248"),
@@ -1303,12 +1317,15 @@ pub fn without_calling_code(query: &str) -> Option<(String, String)> {
         ("so", "252"),
         ("ss", "211"),
         ("st", "239"),
+        ("sy", "963"),
         ("sz", "268"),
         ("td", "235"),
         ("tg", "228"),
+        ("tm", "993"),
         ("tn", "216"),
         ("tz", "255"),
         ("ug", "256"),
+        ("ye", "967"),
         ("yt", "262"),
         ("za", "27"),
         ("zm", "260"),

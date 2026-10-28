@@ -250,6 +250,7 @@ pub fn cases() -> Vec<crate::Case> {
         nl::cases(),
         no::cases(),
         pl::cases(),
+        ps::cases(),
         pt::cases(),
         rs::cases(),
         us::cases(),

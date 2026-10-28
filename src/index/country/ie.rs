@@ -104,3 +104,28 @@ pub fn eircode(query: &str) -> String {
         .map(|hit| hit.as_str().to_owned())
         .unwrap_or_default()
 }
+
+/// `query` with an Eircode written as a part of its own ("…, Killarney, V93 RX97, Ireland")
+/// without its space: libpostal splits the spaced one, its routing key running into the road.
+pub fn compact_eircode(query: &str) -> Option<String> {
+    let parts: Vec<&str> = query.split(',').collect();
+    let (last, middle) = parts.split_last()?;
+    if crate::matching::country_named(last) != "ie" {
+        return None;
+    }
+    let mut changed = false;
+    let parts: Vec<String> = parts
+        .iter()
+        .enumerate()
+        .map(|(i, part)| {
+            let code = part.trim();
+            if i > 0 && i < middle.len() && code.contains(' ') && eircode(code) == code {
+                changed = true;
+                format!(" {}", code.replace(' ', ""))
+            } else {
+                part.to_string()
+            }
+        })
+        .collect();
+    changed.then(|| parts.join(","))
+}

@@ -17,3 +17,14 @@ pub(crate) fn country_place(cc: &str) -> &str {
         cc
     }
 }
+
+/// `query` with Palestine written as libpostal knows it: "Palestinian Territory", GeoNames' name,
+/// runs the town into a house name ("10 شارع القدس, دورا, Palestinian Territory").
+pub fn as_palestine(query: &str) -> Option<String> {
+    let (head, last) = query.rsplit_once(',')?;
+    matches!(
+        last.trim().to_lowercase().as_str(),
+        "palestinian territory" | "palestinian territories" | "occupied palestinian territory"
+    )
+    .then(|| format!("{head}, Palestine"))
+}

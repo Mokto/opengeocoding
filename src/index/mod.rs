@@ -754,6 +754,9 @@ impl Index {
         n: usize,
         any: bool,
     ) -> Vec<DocAddress> {
+        // ponytail: Palestine is searched in the West Bank (xw) only, not in Gaza (xg); both
+        // would need a set of countries here.
+        let cc = cc.map(country::ps::country_place);
         let country = match cc.map(|cc| self.country_codes.get(&cc.to_uppercase())) {
             Some(None) => return vec![],
             found => found.flatten().copied(),
