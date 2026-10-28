@@ -45,6 +45,8 @@ index:
     # Labels one fetch of the sources that only publish "latest" (OSM, OpenAddresses, GeoNames).
     # A new label fetches them again. An extract can move between `osm` and `osmLandmarks` under
     # one label, and one neither list had is fetched on its own, without a new label.
+    # osmLandmarksSnapshot, when set, labels the `osmLandmarks` fetch instead: source-refresh.yml
+    # keeps it through snapshot refreshes until it is 90 days old.
     snapshot: "2026-10-22"
     # [min lon, min lat, max lon, max lat] to build a regional index; empty for the world.
     # Overture is then read only where its row groups meet the box.

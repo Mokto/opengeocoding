@@ -23,6 +23,10 @@ pub struct Sources {
     /// Labels one fetch of the sources that only publish "latest" (OSM, OpenAddresses,
     /// GeoNames); a new label fetches them again.
     pub snapshot: String,
+    /// The label of the landmark extracts' fetch (`osmLandmarks`), when it is not `snapshot`:
+    /// landmarks change slowly, so a snapshot refresh need not download them again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub osm_landmarks_snapshot: Option<String>,
     /// `[min lon, min lat, max lon, max lat]`; empty for the world.
     #[serde(default)]
     pub bbox: Vec<f64>,
@@ -86,6 +90,9 @@ impl Sources {
     pub fn validate(&self) -> Result<()> {
         safe("overtureRelease", &self.overture_release, "")?;
         safe("snapshot", &self.snapshot, "")?;
+        if let Some(label) = &self.osm_landmarks_snapshot {
+            safe("osmLandmarksSnapshot", label, "")?;
+        }
         if let Some(shops) = &self.korea_shops {
             ensure!(
                 shops
@@ -125,6 +132,14 @@ impl Sources {
             );
         }
         Ok(())
+    }
+
+    /// The label the Geofabrik list `list` (`osm` or `osm-landmarks`) is fetched under.
+    fn label(&self, list: &str) -> &str {
+        match &self.osm_landmarks_snapshot {
+            Some(label) if list == "osm-landmarks" => label,
+            _ => &self.snapshot,
+        }
     }
 
     pub fn bbox(&self) -> Option<[f64; 4]> {
@@ -617,7 +632,7 @@ async fn korea_shops(store: &Store, src: &Sources, dir: &Path) -> Result<Option<
     Ok(Some(dir.to_path_buf()))
 }
 
-/// Mirrors the Geofabrik extracts `ids` into `scratch/<name>`, through `sources/<snapshot>/<name>`.
+/// Mirrors the Geofabrik extracts `ids` into `scratch/<name>`, through `sources/<label>/<name>`.
 async fn geofabrik(
     store: &Store,
     client: &reqwest::Client,
@@ -633,9 +648,10 @@ async fn geofabrik(
     let file = |id: &String| format!("{}.osm.pbf", id.replace('/', "_"));
     // Once a snapshot's mirror is sealed it is never refilled, but an extract can move between
     // the address and landmark lists: it is then taken from the other list's mirror of the
-    // same fetch. One neither holds is fetched on its own into `geofabrik/<file>`, so adding an
-    // extract costs that extract, not a new label that fetches every source again.
-    let rel = |list: &str| format!("sources/{}/{list}", src.snapshot);
+    // same fetch, or the other list's own label. One neither holds is fetched on its own into
+    // `geofabrik/<file>`, so adding an extract costs that extract, not a new label that fetches
+    // every source again.
+    let rel = |list: &str| format!("sources/{}/{list}", src.label(list));
     if store.exists(&format!("{}/_COMPLETE", rel(name))).await? {
         std::fs::create_dir_all(&dir)?;
         let mut missing: BTreeSet<String> = ids.iter().map(file).collect();
@@ -681,7 +697,7 @@ async fn geofabrik(
         }
         let mut upstream = Vec::new();
         for f in missing {
-            let added = format!("sources/{}/geofabrik/{f}", src.snapshot);
+            let added = format!("sources/{}/geofabrik/{f}", src.label(name));
             if store.exists(&format!("{added}/_COMPLETE")).await? {
                 println!("{added}: from the store");
                 store
@@ -715,7 +731,7 @@ async fn geofabrik(
     let (c, client) = (client.clone(), client.clone());
     mirror(
         store,
-        &format!("sources/{}/{name}", src.snapshot),
+        &format!("sources/{}/{name}", src.label(name)),
         &dir,
         2,
         || async move {
@@ -1664,6 +1680,79 @@ mod tests {
         assert!(!local.exists("indexes/x/_COMPLETE").await.unwrap());
         assert_eq!(store::walk(&base.join("shared")).unwrap(), before);
         assert!(!base.join("local/sources/s/osm").exists());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn landmarks_keep_their_own_label_through_a_snapshot_refresh() {
+        let base = std::env::temp_dir().join(format!("landmark-label-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let store = Store::open(&format!("file://{}", base.join("bucket").display())).unwrap();
+        for (rel, f) in [
+            ("sources/2026-11/osm", "chile"),
+            ("sources/2026-08/osm-landmarks", "japan"),
+        ] {
+            let dir = base.join("seed").join(f);
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join(format!("{f}.osm.pbf")), pbf(f)).unwrap();
+            store.publish(&dir, rel).await.unwrap();
+        }
+        let src: Sources = serde_json::from_str(
+            r#"{"overtureRelease": "r", "snapshot": "2026-11", "osmLandmarksSnapshot": "2026-08"}"#,
+        )
+        .unwrap();
+        src.validate().unwrap();
+        let (client, scratch) = (reqwest::Client::new(), base.join("scratch"));
+        let ids = |l: &[&str]| l.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        // no upstream is reachable: both come from the older landmark mirror
+        let landmarks = geofabrik(
+            &store,
+            &client,
+            &src,
+            "osm-landmarks",
+            &ids(&["japan"]),
+            &scratch,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            std::fs::read(landmarks.join("japan.osm.pbf")).unwrap(),
+            pbf("japan")
+        );
+        let osm = geofabrik(
+            &store,
+            &client,
+            &src,
+            "osm",
+            &ids(&["chile", "japan"]),
+            &scratch,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            std::fs::read(osm.join("japan.osm.pbf")).unwrap(),
+            pbf("japan")
+        );
+        assert_eq!(
+            std::fs::read(osm.join("chile.osm.pbf")).unwrap(),
+            pbf("chile")
+        );
+        // without the field, nothing about the sources changes, the index id included
+        let plain: Sources =
+            serde_json::from_str(r#"{"overtureRelease": "r", "snapshot": "2026-11"}"#).unwrap();
+        assert_eq!(plain.label("osm-landmarks"), "2026-11");
+        assert!(
+            !serde_json::to_string(&plain)
+                .unwrap()
+                .contains("osmLandmarksSnapshot")
+        );
+        let bad: Sources = serde_json::from_str(
+            r#"{"overtureRelease": "r", "snapshot": "s", "osmLandmarksSnapshot": "../x"}"#,
+        )
+        .unwrap();
+        assert!(bad.validate().is_err());
         std::fs::remove_dir_all(&base).unwrap();
     }
 }

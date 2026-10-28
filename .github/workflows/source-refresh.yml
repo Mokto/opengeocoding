@@ -4,7 +4,9 @@ name: Source refresh
 # so OSM, OpenAddresses and GeoNames are fetched again too. Without a new Overture release, it
 # opens one for a new snapshot label alone once the current one is 30 days old and one of those
 # sources changed since. Closing the pull request declines it: an Overture release is not
-# proposed again, a snapshot refresh not for another 30 days.
+# proposed again, a snapshot refresh not for another 30 days. The landmark extracts keep their own
+# label (osmLandmarksSnapshot) until it is 90 days old. A snapshot refresh merges itself once gold
+# finds no regressions (staging-publish.yml); an Overture release always waits for a person.
 on:
   schedule:
     - cron: "17 5 * * *"
@@ -30,11 +32,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           MAX_AGE_DAYS: 30
+          LANDMARKS_MAX_AGE_DAYS: 90
         run: |
           set -euo pipefail
           shopt -s inherit_errexit
           values=manifests/values.yaml
           field() { sed -n "s/^    $1: \"\(.*\)\"\$/\1/p" "$values"; }
+          days_since() {
+            local d=$1
+            [[ $d =~ ^[0-9]{4}-[0-9]{2}$ ]] && d+=-01
+            echo $(( ($(date -u +%s) - $(date -u -d "$d" +%s)) / 86400 ))
+          }
           modified() {
             local lm
             lm=$(curl -fsSIL --retry 3 "$1" | sed -n 's/^last-modified: //Ip' | tail -1 | tr -d '\r')
@@ -59,7 +67,7 @@ jobs:
           else
             since=$snapshot
             [[ $since =~ ^[0-9]{4}-[0-9]{2}$ ]] && since+=-01
-            age=$(( ($(date -u +%s) - $(date -u -d "$since" +%s)) / 86400 ))
+            age=$(days_since "$snapshot")
             if (( age < MAX_AGE_DAYS )); then
               echo "Overture $current is the latest; snapshot $snapshot is $age days old"
               exit 0
@@ -93,9 +101,30 @@ jobs:
             title="fix: refresh index sources (snapshot $today)"
           fi
 
+          # The landmark extracts (about 42 GB from Geofabrik) change slowly: they keep the label they
+          # were fetched under until it is LANDMARKS_MAX_AGE_DAYS old.
+          landmarks=$(field osmLandmarksSnapshot)
+          landmarks=${landmarks:-$snapshot}
+          if (( $(days_since "$landmarks") >= LANDMARKS_MAX_AGE_DAYS )); then
+            changes+="- OSM landmarks: fetched again, \`$landmarks\` is over $LANDMARKS_MAX_AGE_DAYS days old"$'\n'
+            landmarks=$today
+          else
+            changes+="- OSM landmarks: kept from \`$landmarks\`"$'\n'
+          fi
+
           sed -i -e "s/^    overtureRelease: \".*\"$/    overtureRelease: \"$latest\"/" \
             -e "s/^    snapshot: \".*\"$/    snapshot: \"$today\"/" "$values"
-          [[ $(field overtureRelease) == "$latest" && $(field snapshot) == "$today" ]]
+          if [[ -n $(field osmLandmarksSnapshot) ]]; then
+            sed -i "s/^    osmLandmarksSnapshot: \".*\"$/    osmLandmarksSnapshot: \"$landmarks\"/" "$values"
+          else
+            sed -i "/^    snapshot: \".*\"$/a\\    osmLandmarksSnapshot: \"$landmarks\"" "$values"
+          fi
+          [[ $(field overtureRelease) == "$latest" && $(field snapshot) == "$today" && $(field osmLandmarksSnapshot) == "$landmarks" ]]
+          if [[ $branch == source-refresh/snapshot-* ]]; then
+            merge="This pull request merges itself once the gold check finds no regressions and no slowdown against the latest \`main\`; with any, it stays open: read the gold quality and speed comments, then merge or close it. The release that deploys it still waits for a person."
+          else
+            merge="Read the gold quality and speed comments before merging, and close this pull request to decline it."
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
@@ -104,4 +133,4 @@ jobs:
           gh pr create --head "$branch" --base main --title "$title" --body "Sets \`index.sources.snapshot\` from \`$snapshot\` to \`$today\`, so OSM, OpenAddresses and GeoNames are fetched again, and \`index.sources.overtureRelease\` to \`$latest\`.
 
           $changes
-          This names a new index; once released, the leader builds it while the current pods keep serving the old one. New source data can change answers like a code change can: read the gold quality and speed comments before merging, and close this pull request to decline it."
+          This names a new index; once released, the leader builds it while the current pods keep serving the old one. New source data can change answers like a code change can. $merge"

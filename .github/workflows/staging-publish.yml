@@ -444,3 +444,61 @@ jobs:
         run: |
           echo "::error title=Speed regression::$SPEED_HEADLINE"
           exit 1
+
+  # A snapshot refresh from source-refresh.yml merges itself once gold finds no regressions and no
+  # slowdown, tested against the latest main: a branch behind main is rebased instead, and the new
+  # head goes through CI and gold again. Anything else stops here: a regression leaves it open for
+  # a person, as does a commit not from the workflow. An Overture release always waits for a person,
+  # and so does the release that deploys a merged refresh.
+  merge-refresh:
+    needs: [prepare, gold]
+    if: always() && needs.prepare.outputs.skip == 'false' && needs.prepare.outputs.pr != '' && needs.gold.result != 'cancelled'
+    runs-on: ubuntu-26.04
+    permissions:
+      pull-requests: write
+    env:
+      PR: ${{ needs.prepare.outputs.pr }}
+      HEAD_SHA: ${{ needs.prepare.outputs.head }}
+      BASE_SHA: ${{ needs.prepare.outputs.base }}
+      BOT: 41898299+github-actions[bot]@users.noreply.github.com
+      # GITHUB_TOKEN's pushes and merges start no workflows: CI, gold and release-please need the PAT.
+      PAT: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Merge a clean snapshot refresh
+        run: |
+          set -euo pipefail
+          pr=$(gh api "repos/$REPO/pulls/$PR")
+          [[ $(jq -r .head.ref <<< "$pr") == source-refresh/snapshot-* ]] || exit 0
+          if [[ $(jq -r '"\(.state) \(.head.sha)"' <<< "$pr") != "open $HEAD_SHA" ]]; then
+            echo "::notice::#$PR is closed or has moved past ${HEAD_SHA:0:7}"; exit 0
+          fi
+          authors=$(gh api "repos/$REPO/pulls/$PR/commits" --paginate -q '.[].commit.author.email' | sort -u)
+          if [[ $authors != "$BOT" ]]; then
+            echo "::notice::#$PR has commits not from source-refresh.yml: a person merges it"; exit 0
+          fi
+          # newest first, so unique_by keeps each context's latest state
+          gold=$(gh api "repos/$REPO/commits/$HEAD_SHA/statuses?per_page=100" \
+            -q '[.[] | select(.context == "gold-full" or .context == "gold-speed")] | unique_by(.context) | map(.state) | sort | unique | join(" ")')
+          case "$gold" in
+            success) ;;
+            *failure*)
+              gh pr comment "$PR" --body "The gold check found regressions or a slowdown, so this refresh does not merge itself. Read the gold-full and gold-speed comments, then merge or close it." > /dev/null
+              exit 0 ;;
+            *) echo "::notice::#$PR has no gold verdict ($gold): nothing to merge"; exit 0 ;;
+          esac
+          main=$(gh api "repos/$REPO/commits/main" -q .sha)
+          if [[ $main != "$BASE_SHA" ]]; then
+            echo "main moved to ${main:0:7} since ${BASE_SHA:0:7}: rebasing, CI and gold run again"
+            GH_TOKEN=$PAT gh pr update-branch "$PR" --rebase
+            exit 0
+          fi
+          # CI finished long before gold; wait in case a check is still running, then require every
+          # check to pass or be skipped.
+          timeout 30m gh pr checks "$PR" --watch --interval 60 > /dev/null || true
+          failing=$(gh pr checks "$PR" --json name,bucket -q '[.[] | select(.bucket != "pass" and .bucket != "skipping") | .name] | join(", ")')
+          if [[ -n $failing ]]; then
+            echo "::notice::#$PR is not merged: $failing did not pass"; exit 0
+          fi
+          GH_TOKEN=$PAT gh pr merge "$PR" --squash --match-head-commit "$HEAD_SHA"
