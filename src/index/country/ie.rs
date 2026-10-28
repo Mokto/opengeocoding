@@ -81,6 +81,7 @@ pub(in crate::index) fn irish_provinces(
                     names,
                     keys: keys.into(),
                     city_like: false,
+                    agglomeration: false,
                     settlement_twin: false,
                 },
             ))

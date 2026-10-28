@@ -46,6 +46,7 @@ fn a_place_added_from_geonames_weighs_a_localitys_unknown_size() {
         en: Place::english(""),
         keys: Box::default(),
         city_like: false,
+        agglomeration: false,
         settlement_twin: false,
     };
     assert_eq!(weight(&place("geonames", 90_000)), 100);

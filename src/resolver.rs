@@ -33,6 +33,10 @@ thread_local! {
     static PARSED_NUMBER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+/// How near a stated region must come to a town in another region for a place list to answer
+/// with the town: the region it was in before a split (Arica, Tarapacá).
+const NEIGHBOUR_KM: f64 = 75.0;
+
 pub struct Resolver(Arc<Core>);
 
 /// An accepted candidate with what it can be told apart by: every name it is known by (English
@@ -194,6 +198,7 @@ impl Resolver {
                     found = format_response(&core.index.render(&hit, true))?;
                     METRICS.tiers.with_label_values(&["korean_locality"]).inc();
                 }
+                own_regions(&mut found);
                 Ok(found)
             })
         })
@@ -247,6 +252,7 @@ impl Resolver {
                 .map(|(layer, value, meters)| {
                     let mut address = format_response(&value)?;
                     address.good_match = true;
+                    own_regions(&mut address);
                     Ok(ReverseResult {
                         address: address.into(),
                         distance_m: meters as f32,
@@ -681,12 +687,64 @@ impl Core {
         if (found.display_name.is_empty() || ignored)
             && let Some(degraded) = self.degraded(query)?
         {
-            return Ok(degraded);
+            return self.named_settlement(query, degraded);
         }
         if ignored {
             return Ok(FullAddress::default());
         }
-        Ok(found)
+        self.named_settlement(query, found)
+    }
+
+    /// An area answer whose region holds a city, town or village named as the query's first
+    /// part is that settlement: "Drammen, Viken, Norway" is the town, not its municipality, and
+    /// "Bogotá, Bogota, Colombia" the city, not its district.
+    fn named_settlement(&self, query: &str, found: FullAddress) -> Result<FullAddress> {
+        let Some(d) = found.address_details.as_option() else {
+            return Ok(found);
+        };
+        let area = [
+            &d.road,
+            &d.house_number,
+            &d.city,
+            &d.town,
+            &d.village,
+            &d.suburb,
+            &d.city_district,
+            &d.neighbourhood,
+            &d.hamlet,
+            &d.quarter,
+        ]
+        .iter()
+        .all(|s| s.is_empty());
+        let parts: Vec<&str> = query
+            .split(',')
+            .map(|p| p.trim_matches(whitespace))
+            .filter(|p| !p.is_empty())
+            .collect();
+        let Some((&first, mut rest)) = parts.split_first() else {
+            return Ok(found);
+        };
+        if let Some((&last, before)) = rest.split_last()
+            && !named_country(last).is_empty()
+        {
+            rest = before;
+        }
+        let Some(code) = d.region_codes.iter().find(|r| r.admin_level == 4) else {
+            return Ok(found);
+        };
+        // "Banten, Indonesia" is the province, and "Niulakita, Tuvalu" may be the island's
+        // council: only a place list with a region after the town ("Bogotá, Bogota, Colombia")
+        // names the town.
+        if !area || rest.is_empty() || !named_country(first).is_empty() {
+            return Ok(found);
+        }
+        let Some(hit) = self.index.settlement_in(first, &code.code) else {
+            return Ok(found);
+        };
+        let mut settled = format_response(&self.index.render(&hit, true))?;
+        settled.good_match = found.good_match;
+        METRICS.tiers.with_label_values(&["named_settlement"]).inc();
+        Ok(settled)
     }
 
     /// A place-only query ("Srinagar, Jammu and Kashmir, Pakistan") answered outside the country
@@ -722,17 +780,15 @@ impl Core {
     }
 
     /// For a query no lookup answers, or answers outside the country it ends with: what its
-    /// parts still name in that country, never as a good match. The town with the country,
-    /// unless it lies in another region than the one stated; else the stated region, matched
+    /// parts still name in that country, never as a good match. A district of the first part's
+    /// name in the stated region ("North 24 Parganas, West Bengal, India"); the town with the
+    /// country, unless it lies in another region than the one stated, farther than
+    /// `NEIGHBOUR_KM` from it; else the stated region, matched
     /// by its loose spelling too ("Al Iskandariyah", "North Jutland", "Mun. Chişinău"); else a
     /// town one edit off or the first of a hyphenated name ("Fes-Ville-Nouvelle"); else the
     /// country. A lone name with no country loses its last word or what follows a hyphen
     /// ("San Francisco Bay", "Dallas-Fort Worth Metroplex") and answers only as a settlement.
     fn degraded(&self, query: &str) -> Result<Option<FullAddress>> {
-        // an address with a number has a street, a house or a postcode to place it by
-        if query.chars().any(char::is_numeric) {
-            return Ok(None);
-        }
         let parts: Vec<&str> = query
             .split(',')
             .map(|p| p.trim_matches(whitespace))
@@ -747,6 +803,13 @@ impl Core {
             Some(found)
         };
         let cc = named_country(last);
+        // an address with a number has a street, a house or a postcode to place it by, unless the
+        // number is in a place's name ("North 24 Parganas")
+        if parts.iter().any(|p| {
+            p.chars().any(char::is_numeric) && (cc.is_empty() || !self.index.place_named(p, &cc))
+        }) {
+            return Ok(None);
+        }
         // Réunion's places answer as France's, and a shortened name there finds another hamlet
         // ("Jabrun-du-Sud" is not Jabrun)
         if crate::index::part_of_sovereign(&cc) {
@@ -829,7 +892,17 @@ impl Core {
         } else {
             None
         });
+        let stated = region
+            .as_ref()
+            .filter(|(_, area)| *area)
+            .and_then(|(found, _)| level4(found));
         if let Some(town) = town {
+            if let Some(code) = &stated
+                && let Some(hit) = self.index.district_in(town, code)
+            {
+                let district = format_response(&self.index.render(&hit, true))?;
+                return Ok(weak(district, "degraded_district"));
+            }
             let mut tries = vec![];
             if rest.len() > 1 {
                 tries.push(town.to_owned());
@@ -848,15 +921,17 @@ impl Core {
                         && head.chars().filter(|c| c.is_alphabetic()).count() >= 3
                 });
             tries.extend(head.map(str::to_owned));
-            let stated = region
-                .as_ref()
-                .filter(|(_, area)| *area)
-                .and_then(|(found, _)| level4(found));
             for tried in tries {
                 let found = self.resolve_written(&format!("{tried}, {last}"))?;
-                let elsewhere = stated
-                    .as_ref()
-                    .is_some_and(|stated| level4(&found).is_some_and(|code| code != *stated));
+                let near = |code: &str| {
+                    found.geo_coordinates.as_option().is_some_and(|g| {
+                        self.index
+                            .near_region(g.lat as f64, g.lon as f64, code, NEIGHBOUR_KM)
+                    })
+                };
+                let elsewhere = stated.as_ref().is_some_and(|stated| {
+                    level4(&found).is_some_and(|code| code != *stated) && !near(stated)
+                });
                 if below_country(&found)
                     && locality(found.address_details.as_option())
                     && !elsewhere
@@ -2431,6 +2506,19 @@ fn without_postcode(found: &mut FullAddress) {
             .filter(|p| *p != postcode)
             .collect::<Vec<_>>()
             .join(", ");
+    }
+}
+
+/// Only the answer's own country's ISO 3166-2 codes: a territory answered with its ISO 3166-1
+/// code (Puerto Rico `pr`, Guam `gu`, Hong Kong `hk`) is not also its sovereign's region (US-PR).
+/// The overseas departments answer as France, so FR-974 stays.
+fn own_regions(found: &mut FullAddress) {
+    if let Some(d) = found.address_details.as_option_mut()
+        && !d.country_code.is_empty()
+    {
+        let prefix = format!("{}-", d.country_code.to_uppercase());
+        d.region_codes
+            .retain(|r| r.code.to_uppercase().starts_with(&prefix));
     }
 }
 

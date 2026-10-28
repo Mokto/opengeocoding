@@ -21,6 +21,11 @@ pub(super) struct Place {
     /// A county that is a city in all but name: Overture has Birmingham only as a county with
     /// a same-named neighbourhood inside, and no locality.
     pub(super) city_like: bool,
+    /// A locality of no settlement class holding cities or towns: a metropolitan area, a comarca
+    /// or a municipal community (Chennai Metropolitan Area, Barcelonès). Above a settlement it is
+    /// not that settlement's town; on its own it may stand for one the data lacks (Tarragonès is
+    /// Tarragona in English, Plano Piloto Brasília).
+    pub(super) agglomeration: bool,
     pub(super) settlement_twin: bool,
 }
 
@@ -161,6 +166,7 @@ pub(super) fn load_places(
                 en: Place::english(f(14)),
                 keys: Box::default(),
                 city_like: false,
+                agglomeration: false,
                 settlement_twin: matches!(f(0), "county" | "region" | "macroregion")
                     && settlements.contains(&(f(2), f(3), f(15))),
             };
@@ -518,6 +524,72 @@ impl Index {
         self.country_places
             .get(country::ps::country_place(cc))
             .map(|&p| Hit::Place(p))
+    }
+
+    /// The most important city, town or village whose own or English name is `name`, in the
+    /// region with ISO 3166-2 code `code`.
+    pub fn settlement_in(&self, name: &str, code: &str) -> Option<Hit> {
+        self.named_in(name, code, &|p| {
+            p.subtype.as_ref() == "locality"
+                && !p.agglomeration
+                && matches!(p.key(), "city" | "town" | "village")
+        })
+    }
+
+    /// The county or district (North 24 Parganas) whose own or English name is `name`, in the
+    /// region with ISO 3166-2 code `code`.
+    pub fn district_in(&self, name: &str, code: &str) -> Option<Hit> {
+        self.named_in(name, code, &|p| p.subtype.as_ref() == "county")
+    }
+
+    fn named_in(&self, name: &str, code: &str, ok: &dyn Fn(&Place) -> bool) -> Option<Hit> {
+        let code = code.to_uppercase();
+        let region = self.regions.get(&code)?;
+        let cc = &*self.places[*region as usize].cc;
+        let key = name_key(name);
+        let named = |p: &Place| {
+            ok(p)
+                && [&*p.primary, p.name(true)]
+                    .iter()
+                    .any(|n| name_key(n) == key)
+        };
+        let (found, _) = self.places_named(name, Some(cc), None, &named, false);
+        found.into_iter().find(|hit| {
+            matches!(hit, Hit::Place(p) if self
+                .region_code(&self.chain(*p))
+                .is_some_and(|c| c.eq_ignore_ascii_case(&code)))
+        })
+    }
+
+    /// Whether a place of country `cc` is named `text` exactly.
+    pub fn place_named(&self, text: &str, cc: &str) -> bool {
+        let key = name_key(text);
+        !self
+            .places_named(text, Some(cc), None, &|p| p.named(key), false)
+            .0
+            .is_empty()
+    }
+
+    /// Whether the region with ISO 3166-2 code `code` comes within `km` of a point: a region
+    /// written with a town of the region next to it, which the town was once in (Arica in
+    /// Tarapacá, before Arica y Parinacota was split from it).
+    pub fn near_region(&self, lat: f64, lon: f64, code: &str, km: f64) -> bool {
+        let coded = |lat: f64, lon: f64| {
+            self.area_at(lat, lon).0.is_some_and(|p| {
+                self.region_code(&self.chain(p))
+                    .is_some_and(|c| c.eq_ignore_ascii_case(code))
+            })
+        };
+        // ponytail: 16 bearings on 4 rings, so a region reaching in narrower than about a
+        // sixteenth of the circle is missed; a distance to the polygon would not miss it.
+        (1..=4).any(|ring| {
+            let r = km * ring as f64 / 4.0 / 111.2;
+            (0..16).any(|i| {
+                let a = i as f64 * std::f64::consts::TAU / 16.0;
+                let dlon = r * a.cos() / lat.to_radians().cos().max(0.01);
+                coded(lat + r * a.sin(), lon + dlon)
+            })
+        })
     }
 
     /// The English name of a country's place.

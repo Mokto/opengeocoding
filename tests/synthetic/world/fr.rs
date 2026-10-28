@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Case, Want, at_house, case, street, town};
+use crate::{Case, Want, at_house, case, named, street, town};
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -88,6 +88,44 @@ pub const PLACES: &[Place] = &[
         "Colmar",
         &[("en", "Colmar")],
     ),
+    // Martinique answers as France, with its ISO 3166-2 code FR-972; its arrondissement is a
+    // region of the data without a code.
+    place!(
+        "fr-mq",
+        "dependency",
+        "",
+        "MQ",
+        "",
+        360_000,
+        (-61.0, 14.65),
+        "",
+        "Martinique",
+        &[("en", "Martinique")],
+    ),
+    place!(
+        "fr-mq-fort-de-france-arrondissement",
+        "region",
+        "",
+        "MQ",
+        "",
+        160_000,
+        (-61.05, 14.62),
+        "fr-mq",
+        "Fort-de-France",
+        &[("en", "Fort-de-France")],
+    ),
+    place!(
+        "fr-mq-fort-de-france",
+        "locality",
+        "city",
+        "MQ",
+        "",
+        76_000,
+        (-61.07, 14.61),
+        "fr-mq-fort-de-france-arrondissement",
+        "Fort-de-France",
+        &[("en", "Fort-de-France")],
+    ),
 ];
 
 pub const STREETS: &[Street] = &[
@@ -118,6 +156,13 @@ pub const STREETS: &[Street] = &[
 
 pub fn cases() -> Vec<Case> {
     vec![
+        named(
+            "Fort-de-France, Martinique, France",
+            "fr",
+            "Fort-de-France",
+            &["FR-972"],
+            false,
+        ),
         case("Paris, France", town("fr-paris", true)),
         case("Missing Road, Paris, France", town("fr-paris", false)),
         case("Île-de-France, Haut-Rhin", town("fr-haut-rhin", true)),

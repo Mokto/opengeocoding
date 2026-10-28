@@ -237,7 +237,16 @@ fn a_typed_place_name_lists_every_place_by_size_and_a_country_narrows_it() {
             .map(|s| (s.country_code.clone(), s.kind))
             .collect::<Vec<_>>()
     };
-    assert_eq!(paris(None), [("fr".into(), "city"), ("us".into(), "city")]);
+    assert_eq!(
+        paris(None),
+        [
+            ("fr".into(), "city"),
+            ("us".into(), "city"),
+            // later words: Arica y Parinacota, North 24 Parganas
+            ("cl".into(), "region"),
+            ("in".into(), "county")
+        ]
+    );
     assert_eq!(paris(Some("US")), [("us".into(), "city")]);
     assert!(paris(Some("DE")).is_empty());
 }
@@ -1053,7 +1062,7 @@ fn a_county_with_an_iso_code_adds_it_below_its_region_and_is_listed() {
         .filter(|code| code.starts_with("FR-"))
         .collect();
     listed.sort();
-    assert_eq!(listed, ["FR-68", "FR-IDF", "FR-WF"]);
+    assert_eq!(listed, ["FR-68", "FR-972", "FR-IDF", "FR-WF"]);
 }
 
 #[test]
@@ -1076,6 +1085,9 @@ enum Want {
     Abstain,
     /// A point, within some metres, and whether the match is a good one.
     At((f64, f64), f64, bool),
+    /// What a people filter reads: the country, the city (its city, town or village, "" for
+    /// none), the ISO 3166-2 codes and whether the match is a good one.
+    Named(&'static str, &'static str, &'static [&'static str], bool),
 }
 
 struct Case {
@@ -1100,6 +1112,16 @@ fn case(query: &'static str, want: Want) -> Case {
         want,
         known_failure: "",
     }
+}
+
+fn named(
+    query: &'static str,
+    cc: &'static str,
+    city: &'static str,
+    codes: &'static [&'static str],
+    good: bool,
+) -> Case {
+    case(query, Want::Named(cc, city, codes, good))
 }
 
 /// Search cases of no one country; each country's are in its `world` file.
@@ -1871,6 +1893,19 @@ async fn resolve_follows_the_authored_facts() {
             );
         }
     }
+    // a district the parse can't place is still the district, in its state
+    let district = resolver
+        .resolve("North 24 Parganas, West Bengal, India")
+        .await
+        .unwrap();
+    assert_eq!(
+        district
+            .address_details
+            .as_option()
+            .map(|d| d.county.as_str()),
+        Some("North 24 Parganas"),
+        "{district:?}"
+    );
     let mut wrong = vec![];
     for case in cases() {
         let got = resolver.resolve(case.query).await.unwrap();
@@ -1878,15 +1913,31 @@ async fn resolve_follows_the_authored_facts() {
             .geo_coordinates
             .as_option()
             .map(|g| (g.lon as f64, g.lat as f64));
+        let details = got.address_details.as_option();
+        let named = details.map(|d| {
+            let city = [&d.city, &d.town, &d.village]
+                .into_iter()
+                .find(|c| !c.is_empty())
+                .map_or("", |c| c.as_str());
+            let codes: Vec<String> = d
+                .region_codes
+                .iter()
+                .map(|c| c.code.to_uppercase())
+                .collect();
+            (d.country_code.as_str(), city, codes)
+        });
         let right = match (&case.want, point) {
             (Want::Abstain, p) => p.is_none() && !got.good_match,
             (Want::At(want, within, good), Some(p)) => {
                 metres(p, *want) <= *within && got.good_match == *good
             }
             (Want::At(..), None) => false,
+            (Want::Named(cc, city, codes, good), _) => named.as_ref().is_some_and(|(c, t, r)| {
+                c == cc && t == city && r == codes && got.good_match == *good
+            }),
         };
         let line = format!(
-            "{:?}: {:?}, good_match {}, at {point:?}",
+            "{:?}: {:?}, good_match {}, at {point:?}, named {named:?}",
             case.query, got.display_name, got.good_match
         );
         match (right, case.known_failure.is_empty()) {

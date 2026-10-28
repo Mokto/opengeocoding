@@ -87,6 +87,9 @@ pub struct Index {
     countries: HashMap<String, String>,
     /// Lowercase country code -> its country place.
     country_places: HashMap<String, u32>,
+    /// Each code's dependency place (Guernsey, Greenland, Puerto Rico): what a query of only its
+    /// name answers, not the country an address there falls back to.
+    dependencies: HashMap<String, u32>,
     /// ISO 3166-2 code -> its region place.
     regions: HashMap<String, u32>,
     /// Places that stand for an ISO 3166-2 subdivision Overture has no region for -> its code.
@@ -601,6 +604,21 @@ impl Index {
                 places[*c as usize].city_like = true;
             }
         }
+        // One city or town inside is often a slip of the data (Sharjah holds a town).
+        let mut held: HashMap<u32, u32> = HashMap::new();
+        for p in &places {
+            if p.subtype.as_ref() == "locality"
+                && matches!(&*p.class, "megacity" | "city" | "town")
+                && p.parent != NONE
+                && places[p.parent as usize].subtype.as_ref() == "locality"
+                && places[p.parent as usize].class.is_empty()
+            {
+                *held.entry(p.parent).or_default() += 1;
+            }
+        }
+        for (p, _) in held.into_iter().filter(|&(_, n)| n >= 2) {
+            places[p as usize].agglomeration = true;
+        }
         let localities = locality::Localities::new(
             places
                 .iter()
@@ -617,6 +635,12 @@ impl Index {
             }
             if p.subtype.as_ref() == "region" && !p.region.is_empty() {
                 regions.entry(p.region.to_string()).or_insert(i as u32);
+            }
+        }
+        let mut dependencies: HashMap<String, u32> = HashMap::new();
+        for (i, p) in places.iter().enumerate() {
+            if p.subtype.as_ref() == "dependency" && !p.cc.is_empty() {
+                dependencies.entry(p.cc.to_string()).or_insert(i as u32);
             }
         }
         countries.extend(country_names(
@@ -650,7 +674,11 @@ impl Index {
                     .or_insert_with(|| cc.to_lowercase());
             }
         }
-        countries.entry("uae".into()).or_insert_with(|| "ae".into());
+        for (name, cc) in crate::matching::COUNTRY_ALIASES {
+            countries
+                .entry(name.to_string())
+                .or_insert_with(|| cc.to_string());
+        }
         let place_names = suggest::place_names(&places)?;
         let landmarks = landmark::Landmarks::open(dir, places.len())?;
         let mut provinces = HashMap::new();
@@ -686,6 +714,7 @@ impl Index {
             localities,
             countries,
             country_places,
+            dependencies,
             regions,
             own_codes,
             subdivisions,

@@ -1,4 +1,5 @@
 use super::*;
+use crate::{Case, named};
 
 pub const PLACES: &[Place] = &[
     // A territory with an ISO 3166-2 code of its own (it borrows FR-WF's item) above a region
@@ -40,3 +41,8 @@ pub const PLACES: &[Place] = &[
         &[("en", "Lagoonport")],
     ),
 ];
+
+pub fn cases() -> Vec<Case> {
+    // its own name beats a town's in Wyoming, and its sovereign's code FR-WF is not its region
+    vec![named("Coral Isles", "wf", "", &[], true)]
+}
