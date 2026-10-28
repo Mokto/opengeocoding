@@ -1,0 +1,11 @@
+The registry-first sample tests/registry/mx.jsonl contains addresses and coordinates from
+Fuente: INEGI, Directorio Estadístico Nacional de Unidades Económicas (DENUE) 05_2026
+(modified 2026-05-20; Sinaloa 2026-07-01), the 33 state CSV files downloaded on 2026-10-28 from
+https://www.inegi.org.mx/contenidos/masiva/denue/ (https://www.inegi.org.mx/app/descarga/?ti=6).
+Used under INEGI's Términos de Libre Uso de la Información del INEGI
+(https://www.inegi.org.mx/inegi/terminos.html).
+Transformation: only address fields were kept (tests/registry/denue-csv.sql), establishments
+were sampled by src/bin/evaluate/registry/denue.rs, and the queries were constructed from those
+fields. This selection and these queries are not
+INEGI's and are not endorsed by INEGI. Per-case file checksums and retrieval dates are recorded in
+the corpus; docs/evaluation/registry/mx.md records the upstream checksums.
