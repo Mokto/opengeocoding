@@ -9286,28 +9286,28 @@ DEALINGS IN THE SOFTWARE.
 
 ========================================================================
 
-codspeed 5.0.2
+codspeed 5.0.3
 License: MIT OR Apache-2.0
 Repository: https://github.com/CodSpeedHQ/codspeed-rust
 
 
 ========================================================================
 
-codspeed-divan-compat 5.0.2
+codspeed-divan-compat 5.0.3
 License: MIT OR Apache-2.0
 Repository: https://github.com/CodSpeedHQ/codspeed-rust
 
 
 ========================================================================
 
-codspeed-divan-compat-macros 5.0.2
+codspeed-divan-compat-macros 5.0.3
 License: MIT OR Apache-2.0
 Repository: https://github.com/CodSpeedHQ/codspeed-rust
 
 
 ========================================================================
 
-codspeed-divan-compat-walltime 5.0.2
+codspeed-divan-compat-walltime 5.0.3
 License: MIT OR Apache-2.0
 Repository: https://github.com/CodSpeedHQ/codspeed-rust
 
@@ -53592,7 +53592,7 @@ DEALINGS IN THE SOFTWARE.
 
 ========================================================================
 
-serde_json 1.0.153
+serde_json 1.0.154
 License: MIT OR Apache-2.0
 Repository: https://github.com/serde-rs/json
                               Apache License
