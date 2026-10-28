@@ -21,6 +21,7 @@ mod prg;
 mod ra;
 mod rgz;
 mod ruian;
+mod ryhti;
 mod swisstopo;
 mod taipei;
 
@@ -57,6 +58,7 @@ pub const ALL: &[Registry] = &[
     rgz::REGISTRY,
     als::REGISTRY,
     ra::REGISTRY,
+    ryhti::REGISTRY,
     denue::REGISTRY,
 ];
 

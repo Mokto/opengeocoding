@@ -992,24 +992,20 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                                 found.point,
                                 json!(found.components),
                                 found.radius_floor_km,
-                                // overseas departments answer with their own ISO code too
+                                // overseas departments and Åland (postcodes 22xxx) answer
+                                // with their own ISO code too
                                 std::iter::once(country)
-                                    .chain(
-                                        found
-                                            .components
-                                            .get("postcode")
-                                            .filter(|_| matches!(name, "ban" | "ban-csv"))
-                                            .and_then(|pc| {
-                                                Some(match pc.get(..3)? {
-                                                    "971" => "gp",
-                                                    "972" => "mq",
-                                                    "973" => "gf",
-                                                    "974" => "re",
-                                                    "976" => "yt",
-                                                    _ => return None,
-                                                })
-                                            }),
-                                    )
+                                    .chain(found.components.get("postcode").and_then(|pc| {
+                                        Some(match (name, pc.get(..3)?) {
+                                            ("ban" | "ban-csv", "971") => "gp",
+                                            ("ban" | "ban-csv", "972") => "mq",
+                                            ("ban" | "ban-csv", "973") => "gf",
+                                            ("ban" | "ban-csv", "974") => "re",
+                                            ("ban" | "ban-csv", "976") => "yt",
+                                            ("ryhti", p) if p.starts_with("22") => "ax",
+                                            _ => return None,
+                                        })
+                                    }))
                                     .map(String::from)
                                     .collect(),
                                 region(seed.city.as_deref(), &seed.extra_regions),
