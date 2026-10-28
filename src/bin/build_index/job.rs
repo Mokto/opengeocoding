@@ -38,6 +38,24 @@ fn index_id(id: &str) -> Result<&str> {
     Ok(id)
 }
 
+/// `--store`, reading sealed sources it lacks from `--sources-mirror` when given.
+fn store(args: &Args) -> Result<Store> {
+    let store = Store::open(args.required("--store")?)?;
+    Ok(match args.get("--sources-mirror") {
+        Some(url) => store.with_mirror(Store::open(url)?),
+        None => store,
+    })
+}
+
+fn sources(args: &Args) -> Result<Sources> {
+    let sources: Sources = serde_json::from_slice(
+        &std::fs::read(args.required("--sources")?).context("read --sources")?,
+    )
+    .context("parse --sources")?;
+    sources.validate()?;
+    Ok(sources)
+}
+
 fn runtime() -> Result<tokio::runtime::Runtime> {
     Ok(tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -45,8 +63,8 @@ fn runtime() -> Result<tokio::runtime::Runtime> {
 }
 
 /// `build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR
-/// --models DIR [--models-version v1]`: does nothing if the store holds index `ID`; otherwise
-/// fetches the sources and models, builds, checks and publishes it.
+/// --models DIR [--models-version v1] [--sources-mirror URL]`: does nothing if the store holds
+/// index `ID`; otherwise fetches the sources and models, builds, checks and publishes it.
 pub fn job(args: Vec<String>) -> Result<()> {
     let args = Args(args);
     let expected = args.required("--builder-hash")?;
@@ -56,15 +74,11 @@ pub fn job(args: Vec<String>) -> Result<()> {
          built from the chart's commit"
     );
     let id = index_id(args.required("--index")?)?;
-    let sources: Sources = serde_json::from_slice(
-        &std::fs::read(args.required("--sources")?).context("read --sources")?,
-    )
-    .context("parse --sources")?;
-    sources.validate()?;
+    let sources = sources(&args)?;
     let scratch = PathBuf::from(args.required("--scratch")?);
     let models = PathBuf::from(args.required("--models")?);
     let version = args.get("--models-version").unwrap_or("v1");
-    let store = Store::open(args.required("--store")?)?;
+    let store = store(&args)?;
     let rt = runtime()?;
     let rel = format!("indexes/{id}");
     if rt.block_on(store.exists(&format!("{rel}/_COMPLETE")))? {
@@ -138,6 +152,18 @@ pub fn job(args: Vec<String>) -> Result<()> {
     rt.block_on(store.publish(&out, &rel))?;
     println!("published {rel}");
     progress::summary();
+    Ok(())
+}
+
+/// `build_index fetch --store URL --sources FILE --scratch DIR [--sources-mirror URL]`: what
+/// `job` does before building, so the store holds the sources, sealed, and scratch a copy.
+pub fn fetch(args: Vec<String>) -> Result<()> {
+    let args = Args(args);
+    let sources = sources(&args)?;
+    let scratch = PathBuf::from(args.required("--scratch")?);
+    let store = store(&args)?;
+    runtime()?.block_on(fetch::fetch(&store, &sources, &scratch))?;
+    println!("fetched the sources");
     Ok(())
 }
 

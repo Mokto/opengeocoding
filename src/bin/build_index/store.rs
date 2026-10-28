@@ -35,6 +35,7 @@ pub struct Store {
     root: String,
     permits: Arc<Semaphore>,
     local: Option<Arc<LocalFileSystem>>,
+    mirror: Option<Arc<Store>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -95,7 +96,39 @@ impl Store {
             root,
             permits,
             local: None,
+            mirror: None,
         }
+    }
+
+    /// Reads a sealed `sources/` directory this store lacks from `mirror`, which is never
+    /// written: anything else, unsealed source directories included, stays in this store.
+    pub fn with_mirror(self, mirror: Store) -> Self {
+        Self {
+            mirror: Some(Arc::new(mirror)),
+            ..self
+        }
+    }
+
+    /// The store that reads of the directory `rel` go to.
+    async fn reader(&self, rel: &str) -> Result<&Store> {
+        let sealed = format!("{}/_COMPLETE", rel.trim_end_matches('/'));
+        if let Some(m) = &self.mirror
+            && rel.starts_with("sources/")
+            && !self.has(&sealed).await?
+            && m.mirrors(&sealed).await
+        {
+            return Ok(m);
+        }
+        Ok(self)
+    }
+
+    /// Whether this store, as a mirror, holds `rel`. An unreachable or refusing mirror holds
+    /// nothing: the sources then come from upstream, as without one.
+    async fn mirrors(&self, rel: &str) -> bool {
+        self.has(rel).await.unwrap_or_else(|e| {
+            eprintln!("warning: sources mirror: {e:#}");
+            false
+        })
     }
 
     /// The file holding `rel`, when the store is a local directory.
@@ -112,7 +145,21 @@ impl Store {
         })
     }
 
+    /// Whether `rel` is in this store, or is the `_COMPLETE` of a source directory its mirror
+    /// holds sealed.
     pub async fn exists(&self, rel: &str) -> Result<bool> {
+        if self.has(rel).await? {
+            return Ok(true);
+        }
+        match &self.mirror {
+            Some(m) if rel.starts_with("sources/") && rel.ends_with("/_COMPLETE") => {
+                Ok(m.mirrors(rel).await)
+            }
+            _ => Ok(false),
+        }
+    }
+
+    async fn has(&self, rel: &str) -> Result<bool> {
         match self.inner.head(&self.key(rel)).await {
             Ok(_) => Ok(true),
             Err(object_store::Error::NotFound { .. }) => Ok(false),
@@ -122,8 +169,9 @@ impl Store {
 
     /// Objects directly under `rel`, by file name, with their sizes.
     pub async fn list(&self, rel: &str) -> Result<Vec<(String, u64)>> {
-        let prefix = self.key(rel);
-        let listed = self.inner.list_with_delimiter(Some(&prefix)).await?;
+        let from = self.reader(rel).await?;
+        let prefix = from.key(rel);
+        let listed = from.inner.list_with_delimiter(Some(&prefix)).await?;
         Ok(listed
             .objects
             .into_iter()
@@ -323,11 +371,12 @@ impl Store {
         dir: &Path,
         only: Option<&std::collections::BTreeSet<String>>,
     ) -> Result<()> {
+        let from = self.reader(rel).await?;
         ensure!(
-            self.exists(&format!("{rel}/_COMPLETE")).await?,
+            from.has(&format!("{rel}/_COMPLETE")).await?,
             "{rel} is not complete"
         );
-        let raw = self.get(&format!("{rel}/MANIFEST")).await?;
+        let raw = from.get(&format!("{rel}/MANIFEST")).await?;
         let digest = hex(ring::digest::digest(&ring::digest::SHA256, &raw));
         // the marker vouches for the whole directory, which a partial fetch does not check
         let marker = marker(dir).filter(|_| only.is_none());
@@ -347,7 +396,7 @@ impl Store {
         );
         let mut tasks = JoinSet::new();
         for e in manifest.files {
-            let (store, rel, progress) = (self.clone(), rel.to_string(), progress.clone());
+            let (store, rel, progress) = (from.clone(), rel.to_string(), progress.clone());
             let local = dir.join(&e.path);
             tasks.spawn(async move {
                 let key = format!("{rel}/{}", e.path);
@@ -559,8 +608,13 @@ mod tests {
         std::thread::spawn(move || {
             use std::io::{Read, Write};
             for mut conn in listener.incoming().flatten() {
-                let _ = conn.read(&mut [0; 4096]);
-                let _ = conn.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n");
+                let mut request = [0; 4096];
+                let n = conn.read(&mut request).unwrap_or(0);
+                let _ = conn.write_all(if request[..n].windows(6).any(|w| w == b"denied") {
+                    b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n"
+                } else {
+                    b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
+                });
             }
         });
         // SAFETY: no other test in this binary reads or writes the environment.
@@ -573,5 +627,14 @@ mod tests {
         }
         let store = Store::open("s3://bucket").unwrap();
         assert!(!store.exists("indexes/x/_COMPLETE").await.unwrap());
+        // a mirror that refuses is one that holds nothing
+        assert!(store.exists("sources/denied/_COMPLETE").await.is_err());
+        let dir = std::env::temp_dir().join(format!("refusing-mirror-{}", std::process::id()));
+        let local = Store::open(&format!("file://{}", dir.display()))
+            .unwrap()
+            .with_mirror(store);
+        assert!(!local.exists("sources/denied/_COMPLETE").await.unwrap());
+        assert!(local.list("sources/denied").await.unwrap().is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }
