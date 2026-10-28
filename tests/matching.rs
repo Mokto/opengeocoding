@@ -1839,6 +1839,10 @@ fn a_calling_code_in_the_postcode_place_is_dropped() {
             "1 Main Road, +27, South Africa",
             "1 Main Road, South Africa",
         ),
+        (
+            "26 Hajy Ashyr ogly street, +993, Turkmenistan",
+            "26 Hajy Ashyr ogly street, Turkmenistan",
+        ),
     ] {
         assert_eq!(
             without_calling_code(query).map(|(q, _)| q).as_deref(),
@@ -1853,6 +1857,8 @@ fn a_calling_code_in_the_postcode_place_is_dropped() {
         "Main Road, 27, South Africa",
         "Rue 5, Conakry, 224, Guinea",
         "10 Downing Street, London, 44, United Kingdom",
+        "26 Hajy Ashyr ogly street, 993, Turkmenistan",
+        "Main Street, +44123, United Kingdom",
     ] {
         assert_eq!(without_calling_code(query), None, "{query}");
     }

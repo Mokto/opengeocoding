@@ -922,7 +922,15 @@ impl Core {
                 return Ok(alt);
             }
         }
-        if let Some(house) = self.suggested_house(query, &found)? {
+        if let Some(mut house) = self.suggested_house(query, &found)? {
+            if let Some((_, code)) = without_calling_code(query)
+                && house
+                    .address_details
+                    .as_option()
+                    .is_some_and(|d| crate::index::schema::pc_norm(&d.postcode) == code)
+            {
+                without_postcode(&mut house);
+            }
             return Ok(house);
         }
         Ok(found)
@@ -934,16 +942,13 @@ impl Core {
     /// near the answer by a number of several words; one such house or none.
     fn suggested_house(&self, query: &str, found: &FullAddress) -> Result<Option<FullAddress>> {
         use crate::index::schema::{fold, number_key, pc_norm};
-        // A town or nothing: the street is rarely the index's, unless the parse lost the number
-        // ("L5-B6 Lake Nauhan Street, Cavinti").
+        // A street or postcode answer, or any when the parse lost the number ("L5-B6 Lake
+        // Nauhan Street, Cavinti"), states what the house is checked against; a town or nothing
+        // with a parsed number does not.
         let parsed_number = PARSED_NUMBER.get();
-        let stated = found
-            .address_details
-            .as_option()
-            .filter(|d| !d.road.is_empty() || !d.postcode.is_empty() || !parsed_number);
-        if stated.is_none() {
-            return Ok(None);
-        }
+        let answered = found.address_details.as_option();
+        let stated =
+            answered.filter(|d| !d.road.is_empty() || !d.postcode.is_empty() || !parsed_number);
         let stated_postcode = stated.map_or(String::new(), |d| pc_norm(&d.postcode));
         let tokens: Vec<&str> = query
             .split(|c: char| c == ',' || whitespace(c))
@@ -984,7 +989,7 @@ impl Core {
             let name = fold(name);
             !name.is_empty() && name.split(' ').all(|w| words.contains(w))
         };
-        let cc = stated
+        let cc = answered
             .map(|d| filed_country(&d.country_code))
             .filter(|c| !c.is_empty());
         let mut houses = vec![];
@@ -1025,7 +1030,7 @@ impl Core {
             ),
             // The postcode or town without the street: the completion lookup, which reads no
             // parse.
-            Some(_) if !around => self
+            _ if !around => self
                 .index
                 .suggest_houses(query, cc, 5)
                 .iter()
@@ -1095,6 +1100,18 @@ impl Core {
                         || pc_norm(&w) == postcode
                         || fold(&w).split(' ').all(|f| known.contains(f))
                 };
+                // Without a street or postcode in the answer, the parse found nothing to check
+                // the house by: a part it doesn't explain has to name a place ("Missing Bay"
+                // may be another address's suburb).
+                let parts_named = || {
+                    query.split(',').all(|part| {
+                        fold(part)
+                            .split(' ')
+                            .all(|w| w.is_empty() || known.contains(w) || numbered(w))
+                            || !named_country(part).is_empty()
+                            || self.index.names_place(part.trim(), cc)
+                    })
+                };
                 let verified = numbers.contains(&number)
                     && beside
                     && tokens.iter().all(explained)
@@ -1124,7 +1141,8 @@ impl Core {
                                 matches!(word.to_lowercase().as_str(), "division" | "district")
                                     && named(name)
                             })
-                        }));
+                        }))
+                    && (stated.is_some() || parts_named());
                 if verified {
                     houses.push(house);
                 }
@@ -1274,16 +1292,8 @@ impl Core {
                     }
                 }
             }
-            if coded(&found)
-                && let Some(d) = found.address_details.as_option_mut()
-            {
-                let postcode = std::mem::take(&mut d.postcode);
-                found.display_name = found
-                    .display_name
-                    .split(", ")
-                    .filter(|p| *p != postcode)
-                    .collect::<Vec<_>>()
-                    .join(", ");
+            if coded(&found) {
+                without_postcode(&mut found);
             }
         }
         if !found.display_name.is_empty() {
@@ -2373,6 +2383,19 @@ fn named_country(part: &str) -> String {
         return String::new();
     }
     country_named(part)
+}
+
+/// `found` without its postcode, which the data gave it from a calling code.
+fn without_postcode(found: &mut FullAddress) {
+    if let Some(d) = found.address_details.as_option_mut() {
+        let postcode = std::mem::take(&mut d.postcode);
+        found.display_name = found
+            .display_name
+            .split(", ")
+            .filter(|p| *p != postcode)
+            .collect::<Vec<_>>()
+            .join(", ");
+    }
 }
 
 fn same_house_number(found: &FullAddress, number: &str) -> bool {
