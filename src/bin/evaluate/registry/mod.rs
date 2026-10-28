@@ -1,4 +1,5 @@
 mod act;
+mod als;
 mod anncsu;
 mod bag;
 mod ban;
@@ -52,6 +53,7 @@ pub const ALL: &[Registry] = &[
     cnefe::REGISTRY,
     onemap::REGISTRY,
     rgz::REGISTRY,
+    als::REGISTRY,
 ];
 
 type Prepare = fn(&Path, &BTreeSet<String>) -> Result<BTreeMap<String, Entry>>;
