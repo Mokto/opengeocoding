@@ -41,6 +41,14 @@ pub const STREETS: &[Street] = &[Street {
     numbers: &["4"],
 }];
 
+/// GeoNames' name, which libpostal doesn't know as a country.
+pub fn cases() -> Vec<Case> {
+    vec![case(
+        "4 Bayader Street, Ein Zahra, Palestinian Territory",
+        at_house("Bayader Street", "4"),
+    )]
+}
+
 #[test]
 fn palestinian_houses_are_suggested_under_palestine() {
     for typed in [

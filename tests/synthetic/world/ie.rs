@@ -116,6 +116,11 @@ pub fn cases() -> Vec<Case> {
             "18 Mallow Street, Swords D02 X285, Ireland",
             Want::At(dublin, 25.0, false),
         ),
+        // an Eircode of its own part, whose routing key libpostal runs into the road
+        case(
+            "18 Mallow Street, Swords, K67 Y2E3, Ireland",
+            Want::At(house(&STREETS[1], "18"), 25.0, true),
+        ),
         Case {
             query: "18 Mallow Street, Swords K67 Y2E3, Ireland",
             want: Want::At(house(&STREETS[1], "18"), 25.0, true),

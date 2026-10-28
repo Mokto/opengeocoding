@@ -1,4 +1,4 @@
-use crate::index::country::{au, ca, dk, hk_mo, ie, pt, tw};
+use crate::index::country::{au, ca, dk, hk_mo, ie, ps, pt, tw};
 use crate::{
     index::{Index, Parser, canon::canon},
     matching::*,
@@ -642,6 +642,10 @@ impl Core {
     fn resolve(&self, query: &str) -> Result<FullAddress> {
         let sar = hk_mo::without_sar(query);
         let query = sar.as_deref().unwrap_or(query);
+        let palestine = ps::as_palestine(query);
+        let query = palestine.as_deref().unwrap_or(query);
+        let eircode = ie::compact_eircode(query);
+        let query = eircode.as_deref().unwrap_or(query);
         // "Palestine" is the country, not Palestine, Texas
         let cc = country_named(query);
         if !cc.is_empty()
@@ -936,7 +940,7 @@ impl Core {
                 && house
                     .address_details
                     .as_option()
-                    .is_some_and(|d| crate::index::schema::pc_norm(&d.postcode) == code)
+                    .is_some_and(|d| calling_code(&d.postcode, &code))
             {
                 without_postcode(&mut house);
             }
@@ -1150,7 +1154,10 @@ impl Core {
                                 matches!(word.to_lowercase().as_str(), "division" | "district")
                                     && named(name)
                             })
-                        }))
+                        })
+                        // or the seat's own name, for a house of no town (Libreville's
+                        // department)
+                        || (!locality(Some(d)) && d.hamlet.is_empty() && named(&d.county)))
                     && (stated.is_some() || parts_named());
                 if verified {
                     houses.push(house);
@@ -1265,14 +1272,9 @@ impl Core {
         // which some of the data's houses carry as their postcode too ("+237"). It is no postcode.
         if let Some((uncoded, code)) = without_calling_code(query) {
             let coded = |f: &FullAddress| {
-                f.address_details.as_option().is_some_and(|d| {
-                    !d.house_number.is_empty()
-                        && d.postcode
-                            .chars()
-                            .filter(char::is_ascii_digit)
-                            .collect::<String>()
-                            == code
-                })
+                f.address_details
+                    .as_option()
+                    .is_some_and(|d| !d.house_number.is_empty() && calling_code(&d.postcode, &code))
             };
             if !found.good_match {
                 // the house the data gives that code ("+233") before a namesake elsewhere
@@ -2392,6 +2394,13 @@ fn named_country(part: &str) -> String {
         return String::new();
     }
     country_named(part)
+}
+
+/// A postcode that is the calling code `code` ("+233", "00977").
+fn calling_code(postcode: &str, code: &str) -> bool {
+    let digits: String = postcode.chars().filter(char::is_ascii_digit).collect();
+    !postcode.chars().any(char::is_alphabetic)
+        && digits.strip_prefix("00").unwrap_or(&digits) == code
 }
 
 /// `found` without its postcode, which the data gave it from a calling code.

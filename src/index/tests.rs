@@ -1148,3 +1148,55 @@ fn a_country_name_is_the_country_most_of_its_languages_give_it() {
     assert_eq!(names["toga"], "to");
     assert_eq!(names["ai"], "ai");
 }
+
+#[test]
+fn a_number_or_a_town_and_country_read_as_a_house_name_are_relabelled() {
+    let owned = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    };
+    let mut parsed = owned(&[("house", "13"), ("road", "кӯчаи каримов"), ("city", "вахш")]);
+    number_from_house("13 Кӯчаи Каримов, Вахш, Tajikistan", &mut parsed);
+    assert_eq!(parsed[0].0, "house_number");
+    // the road cut short, or run on across a comma
+    for (q, road) in [
+        ("2 Strada Ion Druță, Rădoaia, Moldova", "strada ion"),
+        ("2 Strada Ion, Druță, Moldova", "strada ion druță"),
+    ] {
+        let mut parsed = owned(&[("house", "2"), ("road", road)]);
+        number_from_house(q, &mut parsed);
+        assert_eq!(parsed[0].0, "house", "{q}");
+    }
+
+    let q = "57 شارع دار المريسة, عين المريسة, Lebanon";
+    let mut parsed = owned(&[
+        ("house_number", "57"),
+        ("road", "شارع دار المريسة"),
+        ("house", "عين المريسة lebanon"),
+    ]);
+    town_country_from_house(q, &mut parsed);
+    assert_eq!(
+        parsed,
+        owned(&[
+            ("house_number", "57"),
+            ("road", "شارع دار المريسة"),
+            ("city", "عين المريسة"),
+            ("country", "lebanon"),
+        ])
+    );
+    // no road, or a last part that is no country
+    for (q, house) in [
+        ("Jiffet, Gambia", "jiffet gambia"),
+        ("5 Main Road, Springfield, Illinois", "springfield illinois"),
+    ] {
+        let mut parsed = owned(&[("house", house)]);
+        if q.contains("Main") {
+            parsed.push(("road".into(), "main road".into()));
+        }
+        let before = parsed.clone();
+        town_country_from_house(q, &mut parsed);
+        assert_eq!(parsed, before, "{q}");
+    }
+}

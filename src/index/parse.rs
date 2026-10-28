@@ -293,6 +293,74 @@ pub(super) fn unit_from_road(parsed: &mut Vec<(String, String)>) {
     }
 }
 
+/// "13 Кӯчаи Каримов, Вахш": libpostal labels a bare number before the road a house name. With
+/// no house number, and a part of `q` that is that number and the whole road, it is the house
+/// number: a road cut short ("strada ion" of "2 Strada Ion Druță") or run on across commas is
+/// not the number's.
+pub(super) fn number_from_house(q: &str, parsed: &mut [(String, String)]) {
+    if parsed.iter().any(|(k, _)| k == "house_number") {
+        return;
+    }
+    let Some(road) = parsed
+        .iter()
+        .find(|(k, _)| k == "road")
+        .map(|(_, v)| v.clone())
+    else {
+        return;
+    };
+    let mut houses = parsed.iter_mut().filter(|(k, _)| k == "house");
+    if let (Some((k, v)), None) = (houses.next(), houses.next()) {
+        let digits = v.trim_end_matches(char::is_alphabetic);
+        let beside = q.split(',').any(|part| {
+            let words: Vec<String> = part.split_whitespace().map(str::to_lowercase).collect();
+            let rest: Vec<&str> = words
+                .iter()
+                .map(String::as_str)
+                .filter(|w| w != v)
+                .collect();
+            rest.len() + 1 == words.len() && rest.join(" ") == road
+        });
+        if !digits.is_empty()
+            && digits.bytes().all(|b| b.is_ascii_digit())
+            && v.chars().count() - digits.len() <= 1
+            && beside
+        {
+            *k = "house_number".into();
+        }
+    }
+}
+
+/// "57 شارع دار المريسة, عين المريسة, Lebanon": libpostal reads the last two parts, a town and the
+/// country, as its one house name. With a road and without a town or country of their own,
+/// they are those.
+pub(super) fn town_country_from_house(q: &str, parsed: &mut Vec<(String, String)>) {
+    if !parsed.iter().any(|(k, _)| k == "road")
+        || parsed.iter().filter(|(k, _)| k == "house").count() != 1
+        || parsed
+            .iter()
+            .any(|(k, _)| matches!(k.as_str(), "city" | "country"))
+    {
+        return;
+    }
+    let parts: Vec<String> = q.split(',').map(|p| p.trim().to_lowercase()).collect();
+    let [.., town, country] = parts.as_slice() else {
+        return;
+    };
+    if town.is_empty() || crate::matching::country_named(country).is_empty() {
+        return;
+    }
+    let both = format!("{town} {country}");
+    if let Some(at) = parsed.iter().position(|(k, v)| k == "house" && *v == both) {
+        parsed.splice(
+            at..=at,
+            [
+                ("city".to_string(), town.clone()),
+                ("country".to_string(), country.clone()),
+            ],
+        );
+    }
+}
+
 /// "5 شارع الكنيسه, مركز منفلوط, …": libpostal reads a number written before an Arabic street
 /// as part of the road (or of a house name) and lets the road run on past the comma, but parses
 /// the same address with the number after the street. That order, and the number, when the
@@ -547,6 +615,8 @@ impl Parser {
                 None => whole,
             };
             unit_from_road(&mut parsed);
+            number_from_house(q, &mut parsed);
+            town_country_from_house(q, &mut parsed);
             if estonian {
                 ee::typed_road(&mut parsed, typed);
             }

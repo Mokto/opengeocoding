@@ -1,5 +1,5 @@
 use opengeocoding::{
-    index::country::{au, ca, dk, ie, tw},
+    index::country::{au, ca, dk, ie, ps, tw},
     matching::*,
     proto::opengeocoding::*,
     regions::Regions,
@@ -603,6 +603,9 @@ fn place_names_agree_across_qualifiers_spelling_and_script() {
         ("京都", "京都府", true),
         ("上海", "上海市", true),
         ("大阪", "大坂", false),
+        ("屯門 tuen mun", "屯門 Tuen Mun", true),
+        ("屯門", "屯門 Tuen Mun", true),
+        ("屯門", "元朗 Yuen Long", false),
         ("上海", "Shanghai", false),
         ("Capital Region", "Region", false),
         ("Paris", "Parish", false),
@@ -1843,6 +1846,11 @@ fn a_calling_code_in_the_postcode_place_is_dropped() {
             "26 Hajy Ashyr ogly street, +993, Turkmenistan",
             "26 Hajy Ashyr ogly street, Turkmenistan",
         ),
+        (
+            "115 Steung Thmei, 855, Cambodia",
+            "115 Steung Thmei, Cambodia",
+        ),
+        ("180 banganga, 00977, Nepal", "180 banganga, Nepal"),
     ] {
         assert_eq!(
             without_calling_code(query).map(|(q, _)| q).as_deref(),
@@ -1857,7 +1865,7 @@ fn a_calling_code_in_the_postcode_place_is_dropped() {
         "Main Road, 27, South Africa",
         "Rue 5, Conakry, 224, Guinea",
         "10 Downing Street, London, 44, United Kingdom",
-        "26 Hajy Ashyr ogly street, 993, Turkmenistan",
+        "26 Hajy Ashyr ogly street, 993, Uzbekistan",
         "Main Street, +44123, United Kingdom",
     ] {
         assert_eq!(without_calling_code(query), None, "{query}");
@@ -1872,4 +1880,24 @@ fn a_place_name_may_be_written_with_word_ends_cut_short() {
     assert!(!cut_short("Petit Soufrière", "Soufriere"));
     assert!(!cut_short("Pe Soufrière", "Petite Soufriere"));
     assert!(!cut_short("Port Louis", "Porto Louisiana"));
+}
+
+#[test]
+fn a_spaced_eircode_part_is_written_compact_and_palestine_by_its_short_name() {
+    assert_eq!(
+        ie::compact_eircode("65 High Street, Killarney, V93 RX97, Ireland").as_deref(),
+        Some("65 High Street, Killarney, V93RX97, Ireland")
+    );
+    for query in [
+        "65 High Street, Killarney V93 RX97, Ireland",
+        "65 High Street, Killarney, V93RX97, Ireland",
+        "65 High Street, Killarney, V93 RX97, United Kingdom",
+    ] {
+        assert_eq!(ie::compact_eircode(query), None, "{query}");
+    }
+    assert_eq!(
+        ps::as_palestine("10 شارع القدس, دورا, Palestinian Territory").as_deref(),
+        Some("10 شارع القدس, دورا, Palestine")
+    );
+    assert_eq!(ps::as_palestine("Palestinian Territory"), None);
 }
