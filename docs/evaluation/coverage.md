@@ -10,6 +10,8 @@ The largest gaps in one world build (Overture 2026-09-23.1 with the OSM, OpenAdd
 
 The same measurement on an index from the 0.18.0 builder (`e8c4a1473b15ae4a`, Overture 2026-09-23.1 with the chart's OSM extracts, 21 October 2026) is in [house-number-coverage-0.18.0.tsv](house-number-coverage-0.18.0.tsv). Taiwan rose from 4.3 to 5.5 million houses; the largest gaps did not close: India has 85,265 houses, China 44,624, Indonesia 68,083, Pakistan 96,338, Nigeria 7,248 and Ethiopia 423.
 
+The 1.0.1 builder's index (`e745019960b65d36`, Overture 2026-10-21.0 with the chart's OSM extracts and Korea's commercial-building addresses, 28 October 2026) is in [house-number-coverage-1.0.1.tsv](house-number-coverage-1.0.1.tsv). South Korea rose from 0.63 to 2.7 million houses and Serbia from 2.7 to 5.1 million; Bermuda, the Falklands, Guernsey, Jersey and the Isle of Man have houses for the first time. The largest gaps are unchanged.
+
 | Country | Population | Houses | Per 1,000 people | Streets with a number | Estimated gap |
 |---|---:|---:|---:|---:|---:|
 | India | 1,464 M | 85,596 | 0 | 13% | 439.1 M |

@@ -2,57 +2,52 @@
 
 **Diagnostic measurements, not an unbiased production-accuracy estimate.** This is a vendor-run evaluation on this repository's gold corpus. Cases overlap the local index's source data; variants of one location are not independent samples. Do not read these tables as a general accuracy ranking.
 
-The newest measurement is the OpenGeocoding 0.18.0 comparison below. The 4,183-query tables after it are an earlier, separate measurement; do not compare percentages across tables.
+The newest measurement is the OpenGeocoding 1.0.1 comparison below. The 4,183-query tables after it are an earlier, separate measurement; do not compare percentages across tables. The previous comparison, of OpenGeocoding 0.18.0 on 11,671 matched queries, is in [this file's history](https://github.com/Mokto/opengeocoding/blob/290f5226acb14a990d1094771c504399b530f8e9/SCORECARD.md).
 
-## OpenGeocoding 0.18.0 against cached provider responses (21 October 2026)
+## OpenGeocoding 1.0.1 against cached provider responses (28 October 2026)
 
-Google was not measured in this round. Provider responses were collected 17–21 October 2026 and re-scored offline; OpenGeocoding 0.18.0, the release deployed on 21 October 2026, ran locally the same day. Rates use all selected cases, including known failures, abstentions, API rejections and normalization failures. Mapbox, LocationIQ and TomTom collections are incomplete or under terms review and are not published.
+Google was not measured in this round. Provider responses were collected 17–27 October 2026 and re-scored offline; OpenGeocoding 1.0.1, the release deployed on 28 October 2026, ran locally the same day. Every provider listed answered every case. Rates use all selected cases, including known failures, abstentions, API rejections and normalization failures. Mapbox, LocationIQ and TomTom collections are not published; see [Providers not measured](#providers-not-measured).
 
-### Matched subset: identical 11,671 queries
+### Full forward selection: identical 18,129 queries
 
-| Service | Passed / 11,671 | Pass rate | Held-out pass rate (2,331) | Only OpenGeocoding 0.18.0 passed | Only this provider passed |
+| Service | Passed / 18,129 | Pass rate | Held-out pass rate (3,639) | Only OpenGeocoding 1.0.1 passed | Only this provider passed |
 |---|---:|---:|---:|---:|---:|
-| **OpenGeocoding 0.18.0** | 10,574 | 90.6% | 89.6% | — | — |
-| Geoapify | 9,744 | 83.5% | 81.9% | 1,286 | 456 |
-| OpenCage | 7,520 | 64.4% | 63.9% | 3,288 | 234 |
-| geocode.maps.co | 6,305 | 54.0% | 52.7% | 4,475 | 206 |
-| OpenGeocoding, earlier build `dfeca77` | 9,564 | 81.9% | 81.4% | — | — |
+| **OpenGeocoding 1.0.1** | 17,310 | 95.5% | 95.6% | — | — |
+| Geoapify | 14,887 | 82.1% | 81.8% | 2,688 | 265 |
+| OpenCage | 10,726 | 59.2% | 59.9% | 6,721 | 137 |
+| geocode.maps.co | 9,055 | 49.9% | 50.0% | 8,370 | 115 |
+| OpenGeocoding 0.20.1 | 17,136 | 94.5% | 94.6% | — | — |
 
 ### US/Canada: identical 1,945 queries
 
-| Service | Passed / 1,945 | Pass rate | Held-out pass rate (414) | Only OpenGeocoding 0.18.0 passed | Only this provider passed |
+| Service | Passed / 1,945 | Pass rate | Held-out pass rate (414) | Only OpenGeocoding 1.0.1 passed | Only this provider passed |
 |---|---:|---:|---:|---:|---:|
-| **OpenGeocoding 0.18.0** | 1,887 | 97.0% | 97.3% | — | — |
-| Geocodio | 1,738 | 89.4% | 87.2% | 187 | 38 |
-| Geoapify | 1,577 | 81.1% | 78.7% | 340 | 30 |
-| OpenCage | 988 | 50.8% | 51.4% | 916 | 17 |
-| geocode.maps.co | 753 | 38.7% | 34.5% | 1,144 | 10 |
-| OpenGeocoding, earlier build `dfeca77` | 1,713 | 88.1% | 88.9% | — | — |
-
-### Full forward selection: 16,399 queries
-
-Only geocode.maps.co has answered every case so far: it passed 8,306 (50.6%), against 14,803 (90.3%) for OpenGeocoding 0.18.0 and 12,630 (77.0%) for the earlier build. On the 3,286 held-out cases: 50.5%, 89.4% and 77.2%.
+| **OpenGeocoding 1.0.1** | 1,894 | 97.4% | 97.6% | — | — |
+| Geocodio | 1,738 | 89.4% | 87.2% | 189 | 33 |
+| Geoapify | 1,577 | 81.1% | 78.7% | 344 | 27 |
+| OpenCage | 988 | 50.8% | 51.4% | 919 | 13 |
+| geocode.maps.co | 753 | 38.7% | 34.5% | 1,150 | 9 |
+| OpenGeocoding 0.20.1 | 1,887 | 97.0% | 97.3% | — | — |
 
 ### Read with these limits
 
-- **The matched subset is not a random sample.** It is the cases with responses from Geoapify, OpenCage and geocode.maps.co on 21 October 2026, as daily free allowances permit: the 8,850 forward cases of the corpus at `dfeca77`, plus Denmark 793, Colombia 567, Canada 550, Australia 522, Belgium 384 and 5 curated cases. The Spanish, Polish, Taiwanese and New Zealand registry cases and the rest of Denmark are not yet included.
-- **Most of these cases were available during development.** Releases after `dfeca77` include fixes aimed at the newly added registries, which explains much of the gain over the earlier build. The held-out column scores the fifth of locations kept out of tuning by a stable hash; it is closer to, but not, an independent sample, since the registries are also index inputs.
-- **The local index is close to production, not identical.** It was built with the 0.18.0 builder (`e8c4a1473b15ae4a`) from Overture 2026-09-23.1 and the OSM extracts the chart lists, but without GeoNames' all-country postcodes and from local source snapshots. Two complete runs returned identical responses for all 16,399 cases.
-- **Weak areas remain.** Of 416 Korean registry addresses, OpenGeocoding 0.18.0 passed 54 and Geoapify 111. Of 136 street and house cases in other Asian countries (Malaysia, the Philippines, India, Vietnam, Thailand and others), it passed 29, against 52 for Geoapify. House-number coverage in most of Asia and Africa is still thin; see the [0.18.0 coverage table](docs/evaluation/house-number-coverage-0.18.0.tsv). Taiwanese registry addresses passed 618 of 622.
+- **The selection is frozen at corpus revision `855d212`,** the cases providers were asked. It holds every forward case of that revision: the curated gold cases plus samples of national address registries. Cases added since (39,666 cases at 1.0.1) are not in it.
+- **Most of these cases were available during development.** Releases include fixes aimed at these registries. The held-out column scores the fifth of locations kept out of tuning by a stable hash; it is closer to, but not, an independent sample, since the registries are also index inputs.
+- **The local index is close to production, not identical.** It was built with the 1.0.1 builder (`e745019960b65d36`) from Overture 2026-10-21.0, the OSM extracts the chart lists, OpenAddresses, Korea's commercial-building addresses and GeoNames, from local snapshots of the sources that publish only "latest". Two complete runs returned identical responses for all 18,129 cases. The 0.20.1 rows ran the same way on a 0.20.1-builder index (`17bc2fab0087eddb`) from Overture 2026-09-23.1, without GeoNames' all-country postcodes, so they compare releases and source snapshots together.
+- **Weak areas remain.** Of 151 street and house cases in Asian countries without a registry sample (Malaysia, the Philippines, India, Vietnam, Thailand and others), OpenGeocoding 1.0.1 passed 40, against 61 for Geoapify. Of 414 Korean registry addresses it passed 118 (Geoapify 110), up from 54 in 0.20.1 after Korea's commercial-building addresses were added. House-number coverage in most of Asia and Africa is still thin; see the [1.0.1 coverage table](docs/evaluation/house-number-coverage-1.0.1.tsv).
+- **Per registry,** OpenGeocoding 1.0.1 passed Serbia 279 of 296 (Geoapify 247, OpenCage 273, geocode.maps.co 269; 0.20.1 passed 219), Taiwan 618 of 622, Singapore 358 of 362, Italy 311 of 320, Brazil 309 of 316 and Luxembourg 239 of 240. Against 0.20.1, 177 cases newly passed and 3 newly failed.
 
 | Artifact | Value |
 |---|---|
-| Corpus revision | `58fb25ffc8f20d0ff797642c986bfdf41f7b55e8` |
-| Full 16,399-case forward selection, JSONL SHA-256 | `5cfb112fc5a414351193abaed1c36c7813696e9f70423ed56dc197e7550b0394` |
-| Matched subset / held-out, JSONL SHA-256 | `488e0751e0f3278c61123d7f64732f054fe1bd2b8768fab5079167f6c419ae56` / `363f34c6d89a5ddecaf9881f7e89ad8ccf3cc0c2ae886c69be7ed19025ac95e9` |
+| Corpus revision | `855d212371a7dab8b7014f833964538754050341` |
+| Full 18,129-case forward selection / held-out, JSONL SHA-256 | `dd4f31f6245810ead861d3fa1b5b9dbcfa8940c27b3191753c12c5c40e84da80` / `6415cd21943ca08a8a1086b7e0ffed7f98d47147f414f684bf95f21dc1dc2bc4` |
 | US/Canada subset / held-out, JSONL SHA-256 | `e460e1c52f8b0604d07c6e1a2c4e0b487d821858811e1c81c015ef8d6d07d179` / `3d6cf1a7131811a41a05abf7f52c3eaf48ac7c83f7963532c3296c10da05603f` |
-| Evaluator and provider adapters | revision `dfeca77bddcdd11b6f378741061f0984918e46dd`, binary SHA-256 `1884e64a779bbd9f8f09342155ea00b875dc62577143b33bc646cf0fd428ba45` |
-| OpenGeocoding 0.18.0 service binary | release commit `c937366`, SHA-256 `e740dd685c06839909314eb5c1a8807c5ba92f4e502b7d3aaadb0e0ebe36112e` |
-| 0.18.0 index | builder `e8c4a1473b15ae4a`, `meta.json` SHA-256 `f862083a049f274035696abd786ab16896d3cea5f5c96c78fb8a1411b37e4a6e` |
-| Earlier build | revision `dfeca77`, service SHA-256 `937f76624d9bb47539a95544ca8d4f1acdc9fe3823f591048feca19ef491789f`, index `meta.json` SHA-256 `e6df26bed27b66adbf167649379a0f7277cfe2a1769719c4e50e9e73ce1675ff` |
+| Evaluator and provider adapters | release 1.0.1, binary SHA-256 `cf69c635eed97da6ec5d5f4060c082cce43ac5d21e4c42a4864680af9be72fcb` |
+| OpenGeocoding 1.0.1 service binary | release commit `79a3487`, SHA-256 `cac659c69dfe7950fd976f63fb9eabe2aa61af31fdab4c9c11d15f701b9c2ba3` |
+| 1.0.1 index | builder `e745019960b65d36`, `meta.json` SHA-256 `cd3dcca7892e82c5219bf8317d91d1e1af6afb32f7d069fbde30b567203a68c7` |
 | libpostal models | `65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7` |
 
-The forward selection keeps cases with a forward expectation. It excludes RPC error contracts, landmark-level cases and suggestion-only cases. Request settings are those listed under Corpus and reproducibility; scoring uses the evaluator at `dfeca77`.
+The forward selection keeps cases with a forward expectation. It excludes RPC error contracts, landmark-level cases and suggestion-only cases. Request settings are those listed under Corpus and reproducibility; scoring uses the 1.0.1 evaluator, whose pass decisions on these responses match the 0.20.1 evaluator's.
 
 **Google (earlier measurement only) remains provisional.** The corrected-adapter pass is complete: normalization failures fell from 54 to 36 worldwide, with none in the US/Canada subset. Remaining failures include insufficient metadata and unsupported native types; they are not proof of incorrect Google locations. No Google response data remains for retrospective inspection. The tables show the completed rerun, not guessed corrections to the initial measurement.
 
@@ -91,11 +86,11 @@ A missing result is not a failed geographic test and receives no score.
 
 | Service | Status |
 |---|---|
-| Mapbox | Permanent-geocoding access returned HTTP 403 before any results were collected |
+| Mapbox | Permanent-geocoding access returned HTTP 403; responses collected with temporary geocoding are not published |
 | HERE | No collection; applicable evaluation and retention rights need review |
-| TomTom | No collection; applicable evaluation and retention rights need review |
+| TomTom | Collected; not published while evaluation and publication rights are reviewed |
 | Esri ArcGIS | No collection; the Location Platform agreement requires prior written permission for benchmarking and publication |
-| LocationIQ | No collection; retention depends on the applicable plan and terms |
+| LocationIQ | Collected; not published while retention and publication terms are reviewed |
 
 ## What a pass means
 
