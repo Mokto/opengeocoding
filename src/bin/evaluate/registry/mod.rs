@@ -9,6 +9,7 @@ mod bogota;
 mod cartociudad;
 mod cnefe;
 mod dar;
+mod denue;
 mod gnaf;
 mod kartverket;
 mod korea;
@@ -56,6 +57,7 @@ pub const ALL: &[Registry] = &[
     rgz::REGISTRY,
     als::REGISTRY,
     ra::REGISTRY,
+    denue::REGISTRY,
 ];
 
 type Prepare = fn(&Path, &BTreeSet<String>) -> Result<BTreeMap<String, Entry>>;
