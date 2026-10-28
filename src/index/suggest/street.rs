@@ -215,6 +215,24 @@ impl Index {
                 }
             }
         }
+        // "Plot 5574 Magoye Road", "VLTA Block 3 Lot 21": a number OpenStreetMap keys with its
+        // label ("Plot", "Lot", "PT", "No", "Km"). Only the house of that whole key counts, so
+        // a road named with a label and a number ("Lot 5 Road") never loses it to a street.
+        let labelled = tries.len()..{
+            let n = raw.len();
+            for len in 2..=4.min(n.saturating_sub(1)) {
+                for start in [0, n - len] {
+                    let run = &raw[start..start + len];
+                    let number = run.join(" ");
+                    if !has_digit(run[0]) && has_digit(run[len - 1]) && number.len() <= 20 {
+                        let mut road = raw.clone();
+                        road.drain(start..start + len);
+                        tries.push((Some(number), start > 0, road));
+                    }
+                }
+            }
+            tries.len()
+        };
         // "AC 43 S # 86B-18": Bogotá's register keys the plate "86B 18". OpenStreetMap keys many
         // as written ("11-23"), so the plate comes last, after every try failed to find a house.
         let plate = cc
@@ -509,6 +527,9 @@ impl Index {
                 }
                 found
             };
+            if labelled.contains(&i) && !found.iter().any(|s| s.kind == "address") {
+                continue;
+            }
             if plated && !found.iter().any(|s| s.kind == "address") {
                 if streets.is_empty() {
                     streets = found;
