@@ -17,10 +17,8 @@
 {"kind": "place", "cohort": "town", "qid": "Q11802979", "queries": ["Paradise View, Antigua & Barbuda"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q7084854", "queries": ["Old Road, Antigua & Barbuda"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q1942963", "queries": ["Freetown, Antigua & Barbuda"], "radius_km": 5, "tags": ["wikidata-towns"]}
-{"kind": "place", "cohort": "town", "qid": "Q135913292", "queries": ["Colgate, Antigua & Barbuda"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q109673412", "queries": ["Golden Grove, Antigua & Barbuda"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q5792179", "queries": ["Crosbies, Antigua & Barbuda"], "radius_km": 5, "tags": ["wikidata-towns"]}
-{"kind": "place", "cohort": "town", "qid": "Q135913318", "queries": ["Halifax, Antigua & Barbuda"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q16218775", "queries": ["Half Moon Bay, Antigua & Barbuda"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q6270089", "queries": ["Jolly Harbour, Antigua & Barbuda"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q6122776", "queries": ["Seatons, Antigua & Barbuda"], "radius_km": 5, "tags": ["wikidata-towns"]}
@@ -1749,7 +1747,6 @@
 {"kind": "place", "cohort": "town", "qid": "Q1778187", "queries": ["Bellefontaine, Martinique"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q1928060", "queries": ["Fonds-Saint-Denis, Martinique"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q33472186", "queries": ["Petite Rivière Salée, Martinique"], "radius_km": 5, "tags": ["wikidata-towns"]}
-{"kind": "place", "cohort": "town", "qid": "Q35709734", "queries": ["La Trinité-de-Thouberville, Martinique"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q33478436", "queries": ["Saint-Pierre, Martinique"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q5464953", "queries": ["Fond-Zombi, Martinique"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q27729601", "queries": ["Ducos, Martinique"], "radius_km": 5, "tags": ["wikidata-towns"]}
@@ -2124,14 +2121,11 @@
 {"kind": "place", "cohort": "town", "qid": "Q1476342", "queries": ["Hell-Bourg, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q3034790", "queries": ["Domenjod, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q3413055", "queries": ["Quartier-Français, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
-{"kind": "place", "cohort": "town", "qid": "Q34791557", "queries": ["Champdeniers-Saint-Denis, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q3437514", "queries": ["Roche Plate, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q2370425", "queries": ["le Palmiste Rouge, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q932132", "queries": ["Bourg-Murat, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q3113575", "queries": ["Grand Coude, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q2378425", "queries": ["Îlet à Cordes, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
-{"kind": "place", "cohort": "town", "qid": "Q49346822", "queries": ["Bouillé-Saint-Paul, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
-{"kind": "place", "cohort": "town", "qid": "Q49365386", "queries": ["Saint-Denis-d'Oléron, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q3377353", "queries": ["Petite France, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q369230", "queries": ["La Grande Chaloupe, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q3462334", "queries": ["Saint-Gilles, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
@@ -2145,7 +2139,6 @@
 {"kind": "place", "cohort": "town", "qid": "Q3290369", "queries": ["Mare à Vieille Place, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q64153700", "queries": ["La Saline, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q3037302", "queries": ["Dos d'Âne, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
-{"kind": "place", "cohort": "town", "qid": "Q34789432", "queries": ["Camiac-et-Saint-Denis, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q3113516", "queries": ["Grand Bassin, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q3593585", "queries": ["Îlet des Salazes, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}
 {"kind": "place", "cohort": "town", "qid": "Q130018825", "queries": ["Category:Mare Longue, Réunion"], "radius_km": 5, "tags": ["wikidata-towns"]}

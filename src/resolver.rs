@@ -646,17 +646,23 @@ impl Core {
             return Ok(found);
         }
         let found = self.resolve_address(query)?;
-        if (found.display_name.is_empty() || self.stated_country_ignored(query, &found))
+        let ignored = self.stated_country_ignored(query, &found);
+        if (found.display_name.is_empty() || ignored)
             && let Some(degraded) = self.degraded(query)?
         {
             return Ok(degraded);
+        }
+        if ignored {
+            return Ok(FullAddress::default());
         }
         Ok(found)
     }
 
     /// A place-only query ("Srinagar, Jammu and Kashmir, Pakistan") answered outside the country
     /// it ends with. A street or postcode may place an address abroad; a list of place names
-    /// may not. The country's name as the answer's region ("Atlanta, Georgia") is not a country.
+    /// may not, nor may the country read as a town ("Rue 2 1846, الفيدار, Lebanon" is not
+    /// Lebanon, Tennessee). The country's name as the answer's region ("Atlanta, Georgia") is
+    /// not a country.
     fn stated_country_ignored(&self, query: &str, found: &FullAddress) -> bool {
         let Some(details) = found.address_details.as_option() else {
             return false;
@@ -665,9 +671,12 @@ impl Core {
             return false;
         };
         let stated = named_country(last);
+        let town_named_last = [&details.city, &details.town, &details.village]
+            .iter()
+            .any(|name| names_agree(last, name));
         !stated.is_empty()
             && !rest.trim_matches(whitespace).is_empty()
-            && !query.chars().any(char::is_numeric)
+            && (!query.chars().any(char::is_numeric) || town_named_last)
             && details.road.is_empty()
             && details.house_number.is_empty()
             && !country_matches(&stated, Some(details))
@@ -707,7 +716,8 @@ impl Core {
             Some(found)
         };
         let cc = named_country(last);
-        // Réunion's places answer as France's: nothing tells one in Réunion from one in France
+        // Réunion's places answer as France's, and a shortened name there finds another hamlet
+        // ("Jabrun-du-Sud" is not Jabrun)
         if crate::index::part_of_sovereign(&cc) {
             return Ok(None);
         }
@@ -1386,6 +1396,8 @@ impl Core {
             METRICS.tiers.with_label_values(&["unresolved"]).inc();
             return Ok(FullAddress::default());
         };
+        let mended = self.mend_split_country(query, &mut address)?;
+        let query = mended.as_deref().unwrap_or(query);
         // A complete address with a town that is also a country ("Cuba, NY 14727") would
         // otherwise be rotated into one whose country is that town.
         let complete = ["house_number", "road", "postcode"]
@@ -1664,6 +1676,64 @@ impl Core {
                 )));
             }
         }
+        Ok(None)
+    }
+
+    /// "Cabo Verde" after a street parses as a town "cabo" in a country "verde". The country's
+    /// English name ("Cape Verde") may parse whole, and is then the query; else the last part is
+    /// the country, and the other fields lose the words of its name.
+    fn mend_split_country(
+        &self,
+        query: &str,
+        address: &mut ParsedAddress,
+    ) -> Result<Option<String>> {
+        let Some((head, last)) = query.rsplit_once(',') else {
+            return Ok(None);
+        };
+        let cc = named_country(last);
+        if cc.is_empty()
+            || part(address, "country").is_empty()
+            || !expected_country(address).is_empty()
+        {
+            return Ok(None);
+        }
+        if let Some(name) =
+            country_name(&cc).filter(|name| normalize_place(name) != normalize_place(last))
+        {
+            let english = format!("{head}, {name}");
+            if let Some(parsed) = self.parse(&english)?
+                && expected_country(&parsed) == cc
+            {
+                *address = parsed;
+                return Ok(Some(english));
+            }
+        }
+        let words = |text: &str| -> Vec<String> {
+            text.split(whitespace)
+                .filter(|w| !w.is_empty())
+                .map(normalize_place)
+                .collect()
+        };
+        let (country, words) = (words(part(address, "country")), words(last));
+        // a field that ends in the name's first words ("cabo", "skopje north") loses them
+        if country.len() >= words.len() || !words.ends_with(&country) {
+            return Ok(None);
+        }
+        for value in address.values_mut() {
+            let own: Vec<&str> = value.split(whitespace).filter(|w| !w.is_empty()).collect();
+            let shared = (1..=own.len().min(words.len()))
+                .rev()
+                .find(|&k| {
+                    own[own.len() - k..]
+                        .iter()
+                        .map(|w| normalize_place(w))
+                        .eq(words[..k].iter().cloned())
+                })
+                .unwrap_or(0);
+            *value = own[..own.len() - shared].join(" ");
+        }
+        address.retain(|_, value| !value.is_empty());
+        address.insert("country".into(), last.trim_matches(whitespace).into());
         Ok(None)
     }
 
@@ -2091,8 +2161,11 @@ impl Core {
                     // query has to place it elsewhere.
                     let details = chosen.found.address_details.as_option();
                     let stated = normalize_place(part(address, "country"));
+                    // A road of a common name ("شارع 43", Street 43) is in many countries: a
+                    // suburb stated has to be the answer's too.
                     let corroborated = country.is_empty()
-                        || road_agrees(address, details)
+                        || (road_agrees(address, details)
+                            && suburb_agrees(address, details))
                         || postcode_agrees(postcode, details)
                         // a postcode in the shape of the found country's and not of the stated
                         // one's ("5757 BD" is Dutch, not Belgian)

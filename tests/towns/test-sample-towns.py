@@ -40,6 +40,24 @@ class Towns(unittest.TestCase):
         self.assertEqual(seeds[0]["country"], ["nl", "sx"])
         self.assertNotIn("country", towns.select({"Q1": ("Bujumbura", 1)}, set(), set(), "Burundi", 5, "s", (), "bi")[1][0])
 
+    def test_a_town_filed_under_a_unit_abroad_or_another_country_strays(self):
+        def stray(item, point, parent, unit=None, country="Q142"):
+            r = {"area": {"value": "Q17070"}, "item": {"value": item}, "point": {"value": point},
+                 "parent": {"value": parent}, "country": {"value": country}}
+            if unit:
+                r["unit"] = {"value": unit}
+            return r
+        own = {"area": {"value": "Q17070"}, "own": {"value": "Q142"}}
+        rows = [own,
+                # in France, under Réunion's arrondissement of Saint-Denis
+                stray("Q34791557", "Point(-0.4 46.48)", "Q653514", "Point(55.45 -20.88)"),
+                stray("Q1", "Point(55.5 -21.0)", "Q653514", "Point(55.45 -20.88)"),
+                # the area's own point says nothing of where its towns are
+                stray("Q2", "Point(-0.4 46.48)", "Q17070", "Point(55.45 -20.88)"),
+                stray("Q3", "Point(55.5 -21.0)", "Q653514", country="Q766")]
+        self.assertEqual(towns.strays(rows), {"Q34791557", "Q3"})
+        self.assertEqual(towns.strays(rows, "aq"), {"Q34791557"})
+
 
 if __name__ == "__main__":
     unittest.main()

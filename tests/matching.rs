@@ -714,6 +714,37 @@ fn place_names_agree_across_abbreviations() {
 }
 
 #[test]
+fn a_house_abroad_needs_more_than_its_road_and_town() {
+    // the stated postcode is no typo of a namesake street's in another country
+    let bermuda = parsed(&[
+        ("house_number", "41"),
+        ("road", "cedar avenue"),
+        ("city", "hamilton"),
+        ("postcode", "hm 12"),
+        ("country", "bermuda"),
+    ]);
+    let ontario = [at("ca", "Cedar Avenue", "41", "Hamilton", "L8M 3A6")];
+    assert_eq!(choose_candidate(&bermuda, "bm", "hm 12", &ontario), None);
+    let mut unstated = bermuda.clone();
+    unstated.shift_remove("country");
+    assert!(choose_candidate(&unstated, "", "hm 12", &ontario).is_some());
+    // a road of a common name is in many countries: the suburb stated has to be there too
+    let khartoum = parsed(&[
+        ("house_number", "70"),
+        ("road", "street 43"),
+        ("suburb", "khartoum 2"),
+    ]);
+    let in_suburb = |suburb: &str| AddressDetails {
+        suburb: suburb.into(),
+        city: "Alexandria".into(),
+        ..Default::default()
+    };
+    assert!(!suburb_agrees(&khartoum, Some(&in_suburb("Al Hanuvil"))));
+    assert!(suburb_agrees(&khartoum, Some(&in_suburb("Khartoum 2"))));
+    assert!(suburb_agrees(&parsed(&[("road", "street 43")]), None));
+}
+
+#[test]
 fn a_junk_or_merged_town_does_not_outweigh_house_road_and_postcode() {
     let street = at("us", "South 5th Street", "567", "West Dundee", "60118");
     let stated = |city: &str| {
@@ -936,14 +967,37 @@ fn postcodes_are_written_as_the_country_writes_them() {
 }
 
 #[test]
-fn a_territory_and_its_sovereign_are_one_country_to_the_lookups() {
-    let us = at("us", "", "", "San Juan", "");
+fn a_sovereign_holds_its_territories_and_a_territory_only_itself() {
+    let coded = |cc: &str, code: &str| AddressDetails {
+        country_code: cc.into(),
+        region_codes: vec![ISO3166_2 {
+            admin_level: 4,
+            code: code.into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
     let pr = at("pr", "", "", "San Juan", "");
-    let fr = at("fr", "", "", "Saint-Denis", "");
     assert!(country_matches("pr", pr.address_details.as_option()));
     assert!(country_matches("us", pr.address_details.as_option()));
-    assert!(country_matches("pr", us.address_details.as_option()));
-    assert!(country_matches("re", fr.address_details.as_option()));
+    assert!(country_matches("pr", Some(&coded("us", "US-PR"))));
+    assert!(!country_matches("pr", Some(&coded("us", "US-FL"))));
+    // Réunion's places answer as France's
+    assert!(country_matches("re", Some(&coded("fr", "FR-974"))));
+    assert!(country_matches("fr", Some(&coded("fr", "FR-974"))));
+    assert!(!country_matches("re", Some(&coded("fr", "FR-30"))));
+    assert!(!country_matches("gf", Some(&coded("fr", "FR-974"))));
+    assert!(country_matches("fr", Some(&coded("bl", "FR-BL"))));
+    assert!(!country_matches("bl", Some(&coded("fr", "FR-76"))));
+    let bonaire = AddressDetails {
+        country_code: "nl".into(),
+        state: "Bonaire".into(),
+        ..Default::default()
+    };
+    assert!(country_matches("bq", Some(&bonaire)));
+    assert!(!country_matches("bq", Some(&coded("nl", "NL-NH"))));
+    assert!(country_matches("eh", Some(&coded("ma", "MA-AOU"))));
+    assert!(!country_matches("eh", Some(&coded("ma", "MA-06"))));
     assert!(!country_matches(
         "gl",
         at("dk", "", "", "", "").address_details.as_option()

@@ -2,474 +2,632 @@
   "count": 100,
   "coverage": {
     "ag": {
-      "eligible": 53,
+      "eligible": 51,
       "response_sha256": "abc13cddef2c79afe88f02a74c3d9c7d640cc2d9fb807facdde6c20207fa49dc",
-      "selected": 53,
-      "settlements": 58
+      "selected": 51,
+      "settlements": 56,
+      "strays": 2,
+      "strays_sha256": "9a82b3de543ac6f8659bd9bf8dec5ba81f8c6b40b0c6452b457cd915c21ff176"
     },
     "ai": {
       "eligible": 4,
       "response_sha256": "c75073b2e3c89911ea6b07d392542641b7c504755c7b50c7731bccd28b62519c",
       "selected": 4,
-      "settlements": 5
+      "settlements": 5,
+      "strays": 0,
+      "strays_sha256": "eddc287e491b1291cf25d0cf74974080abddd00c383859e51ea45fcc76a56d69"
     },
     "aq": {
       "eligible": 3,
       "response_sha256": "4fd5e6cae6fa9acfb236b0ef2585074169cbae972660aa1523482ed247f4f5d0",
       "selected": 3,
-      "settlements": 3
+      "settlements": 3,
+      "strays": 0,
+      "strays_sha256": "1dc6ad3f13f63949d6c84aa3b6dad2d4d4f41c72bd878c040659162870b96cde"
     },
     "as": {
       "eligible": 50,
       "response_sha256": "742f9f9669c293d291bd2407496be6eb0f66ce00fd37e632892b5f40825399c7",
       "selected": 50,
-      "settlements": 63
+      "settlements": 63,
+      "strays": 0,
+      "strays_sha256": "d7f95d16466ba67cfd7e6eddc945088c85da9da115aa59964330128d960043c8"
     },
     "bi": {
       "eligible": 443,
       "response_sha256": "fb118cacfb2a4caf7697e958b7f71601d5e2dc6a24400a742070f22e0197c44b",
       "selected": 100,
-      "settlements": 533
+      "settlements": 533,
+      "strays": 0,
+      "strays_sha256": "8f54df8a1888ceb2685463d32b260387c765ac521cc9fec22e1591952f8b6923"
     },
     "bl": {
       "eligible": 37,
       "response_sha256": "7547a013b5850b30cf104e3fa4bf63a1bd899f748bbf6d3187127b10de10401c",
       "selected": 37,
-      "settlements": 37
+      "settlements": 37,
+      "strays": 0,
+      "strays_sha256": "c03dcfa783b9eec96d0ea1528eda4b526a4b342610ed94a5b0e82c535f49532e"
     },
     "bq": {
       "eligible": 0,
       "response_sha256": "97cc0a762602de8f51fa35170a3a5246a81887ab538b5adff21788aaf382e59c",
       "selected": 0,
-      "settlements": 0
+      "settlements": 0,
+      "strays": 0,
+      "strays_sha256": "68ea9045b63fc6933a38d61b0438d62f7dc3232f3ac99f5e1e0bc8666af9e05c"
     },
     "bs": {
       "eligible": 60,
       "response_sha256": "824f84fd99f8f6beab6f91dcd28c1d702655144651eaf07084773f017ee00698",
       "selected": 60,
-      "settlements": 68
+      "settlements": 68,
+      "strays": 0,
+      "strays_sha256": "a573393085612189e781f46608924c9a97c7a83751adac06aba19968de8d68e1"
     },
     "bv": {
       "eligible": 0,
       "response_sha256": "97cc0a762602de8f51fa35170a3a5246a81887ab538b5adff21788aaf382e59c",
       "selected": 0,
-      "settlements": 0
+      "settlements": 0,
+      "strays": 0,
+      "strays_sha256": "60b6d805d95e2b761acdc29a4064d684fb41adc649e2a481ff1f82252b88b20a"
     },
     "cc": {
       "eligible": 2,
       "response_sha256": "266a586ca67dbba768a9a7060d497ee6a600530cfd79ddd08774bfc90ecb5943",
       "selected": 2,
-      "settlements": 2
+      "settlements": 2,
+      "strays": 0,
+      "strays_sha256": "8e0f7ee75c76c414b4256f33f545e99ce675ac3327b90fd9953d6d8c0dc47c45"
     },
     "cf": {
       "eligible": 244,
       "response_sha256": "28c1b35f66ea305c05c0dbea21076c430aebf570a879de8dba6bafb147b60b2f",
       "selected": 100,
-      "settlements": 256
+      "settlements": 256,
+      "strays": 0,
+      "strays_sha256": "09d6b1926fd51c085cd4fa5741a34034830d4e2f2ab2d6bf40b9f1ce6a77c86f"
     },
     "ck": {
       "eligible": 18,
       "response_sha256": "33868d30bcde527891da7be128c21cc8f04e3460b41ef322c3f64a377122d339",
       "selected": 18,
-      "settlements": 20
+      "settlements": 20,
+      "strays": 0,
+      "strays_sha256": "4803958f09038a35944de41c5c355b7eb0ecf01334f46722f75cb7310980ec65"
     },
     "cx": {
       "eligible": 2,
       "response_sha256": "3c6b6392ed0b376f96328eddaabd7d709cfafc5144b49a750e12dd3f2bdacb9d",
       "selected": 2,
-      "settlements": 3
+      "settlements": 3,
+      "strays": 0,
+      "strays_sha256": "2956370632c60541b084da2648facdebca0bce9de2a6e8d80ccde23c2fb66eb9"
     },
     "dj": {
       "eligible": 67,
       "response_sha256": "72f7684856bdfb8102dc5e1920164fbf26f0933bd86b3bee2293562224154c8d",
       "selected": 67,
-      "settlements": 72
+      "settlements": 72,
+      "strays": 0,
+      "strays_sha256": "885fd3b46846b96a79c444ef6a8a513c72f5a4e82dc059da8adc1abc31d687d2"
     },
     "dm": {
       "eligible": 67,
       "response_sha256": "5e49500db4e5ff4ebbc59ee43c7e74d6be6e78cfb717d09afdd8357704d4b07b",
       "selected": 67,
-      "settlements": 70
+      "settlements": 70,
+      "strays": 0,
+      "strays_sha256": "bf53ab53fb300098c0147f82851ee164e9a5bea65cde55b04858e2cc70f72e89"
     },
     "eh": {
       "eligible": 25,
       "response_sha256": "ec2d7a9f72990ac1de885fe99a59a463c47600768bc380a719d4f146f4cc361d",
       "selected": 25,
-      "settlements": 27
+      "settlements": 27,
+      "strays": 0,
+      "strays_sha256": "39e14da3e5d6f1281aa0cccb5895daa63969f12a75282d7906c1082cd09f4287"
     },
     "er": {
       "eligible": 104,
       "response_sha256": "d31206578aa022ce0a660d8323deb891047ff24acb253e1ae056eac964ed81a9",
       "selected": 100,
-      "settlements": 107
+      "settlements": 107,
+      "strays": 0,
+      "strays_sha256": "40c1cd8a5dc7255737b719a1825407eeb49da8f8452289d7dcf31d69fcde5b93"
     },
     "fm": {
       "eligible": 45,
       "response_sha256": "a2738c789bd0fbc4fe2dd9f8497e7e251e5bd60e2bc9957519f65d9339f6ac07",
       "selected": 45,
-      "settlements": 47
+      "settlements": 47,
+      "strays": 0,
+      "strays_sha256": "d5a4ca05f0346ad55c579abd01f254c5fbffa85203fad3ec9960e2022cb348ce"
     },
     "gd": {
       "eligible": 103,
       "response_sha256": "f12b85f0e34fc737e7448fe3441f962c0082db8cb7b7ca26e490c8f8c326f965",
       "selected": 100,
-      "settlements": 111
+      "settlements": 111,
+      "strays": 0,
+      "strays_sha256": "2c59e7a5c67da819bee5806d62d0980e4da1493b59f174d9fad96f2672fef93b"
     },
     "gf": {
       "eligible": 43,
       "response_sha256": "334c93dbc2230a3d4b08ed3521cd92706b2f27c973a4048f665b78b4b5dd600c",
       "selected": 43,
-      "settlements": 50
+      "settlements": 50,
+      "strays": 0,
+      "strays_sha256": "d263abb507014a43c36175fcad52dab996eb6014fd677b6f21026b5b3a8e7f35"
     },
     "gg": {
       "eligible": 4,
       "response_sha256": "0358d7669033bba9a41cec998d2bd2cee4d1172b17d94d259273e33e3b92a543",
       "selected": 4,
-      "settlements": 5
+      "settlements": 5,
+      "strays": 0,
+      "strays_sha256": "239b4913559e82545ec144513d402331aa14a07baa5ccc33362913e69ca9da11"
     },
     "gi": {
       "eligible": 1,
       "response_sha256": "68d8af9a7b30c1df54a3c155ac3d931e51b865dda8f484d1ace31716bac13170",
       "selected": 1,
-      "settlements": 1
+      "settlements": 1,
+      "strays": 0,
+      "strays_sha256": "aa4f8df9fb4b3ebd57bc1721d65531a57478c50aadf91d4080147933e0e0e3ad"
     },
     "gm": {
       "eligible": 308,
       "response_sha256": "528d4c7fdcbca5e166c7773c98c38f510525656398487f21b423f8b922ff90d6",
       "selected": 100,
-      "settlements": 315
+      "settlements": 315,
+      "strays": 0,
+      "strays_sha256": "b95ba68cdce84728e2875addce445e34aecf224da4c0a3cb0223bb582e27f41a"
     },
     "gp": {
       "eligible": 35,
       "response_sha256": "1a71216ab6965cb87d7b2481951006cf17a6d47c03c8dd8757f9a80d0a5a765f",
       "selected": 35,
-      "settlements": 57
+      "settlements": 57,
+      "strays": 0,
+      "strays_sha256": "4484ed82de04b8b516778ff304bf59f29f5791ee75337f1fcb60bd1b0f355092"
     },
     "gq": {
       "eligible": 103,
       "response_sha256": "ac9cf00ee9e2c0d7e149f40dae40826f5a1f5a4091aab8030a044dae0e829984",
       "selected": 100,
-      "settlements": 117
+      "settlements": 117,
+      "strays": 0,
+      "strays_sha256": "0ee64f7ef9b28740a0c108f42da9c67998794b84dcb8bf0b4b31c034503fd3b0"
     },
     "gs": {
       "eligible": 1,
       "response_sha256": "9a01485a9ffe89ae5ac3d0793138af00816a351dc6519c941f53d82667778a46",
       "selected": 1,
-      "settlements": 2
+      "settlements": 2,
+      "strays": 0,
+      "strays_sha256": "122b6cf65383c11ad9d6b5bb91e783bd985d7fefd22da4a1d1956ca23bce8e8d"
     },
     "gw": {
       "eligible": 57,
       "response_sha256": "7b769ae6f49ebc64f71d02c11eb986f39339c6c9ec211c6d9af18d5c1eac57ab",
       "selected": 57,
-      "settlements": 59
+      "settlements": 59,
+      "strays": 0,
+      "strays_sha256": "ddd80db2e5d2a3735472886b37dbbf0f3f17f13677d18d39efbc31d2c8bd430b"
     },
     "hm": {
       "eligible": 0,
       "response_sha256": "97cc0a762602de8f51fa35170a3a5246a81887ab538b5adff21788aaf382e59c",
       "selected": 0,
-      "settlements": 0
+      "settlements": 0,
+      "strays": 0,
+      "strays_sha256": "74d635c4be8c7e79a48b9f57047060f6f3a65a6bd39e6d82c923bd12b7c09494"
     },
     "io": {
       "eligible": 1,
       "response_sha256": "be4969da223c6f0d39d0e0bae5d46b51e2a87747200b464deaffaabccd824a80",
       "selected": 1,
-      "settlements": 1
+      "settlements": 1,
+      "strays": 0,
+      "strays_sha256": "65f29a844da23702b53afdae92ebf58fc96d9472f5436e33fcc632b8bd77ad21"
     },
     "ki": {
       "eligible": 173,
       "response_sha256": "ebb7f2c67fa31a23e03c2b4f048859a0eb55467adfc6dd00b5dd7ff7b02be1c5",
       "selected": 100,
-      "settlements": 201
+      "settlements": 201,
+      "strays": 0,
+      "strays_sha256": "52e4d062fc844165fe10624f81dfc2d8cf9f0d7dbeedb2735438844b38e6597b"
     },
     "km": {
       "eligible": 207,
       "response_sha256": "d0a54999faab3aaf2aeba30d12d74c0114036f4f65a3cac2b3342efd867ababd",
       "selected": 100,
-      "settlements": 225
+      "settlements": 225,
+      "strays": 0,
+      "strays_sha256": "d254a8e76673355834dc592ec928bef34348fbeae8f3df626d443885823943ee"
     },
     "kn": {
       "eligible": 32,
       "response_sha256": "0ac4916ff8fa585f727f3c75ac9bf6b50987de6cd5129be16937788b19885eb0",
       "selected": 32,
-      "settlements": 35
+      "settlements": 35,
+      "strays": 0,
+      "strays_sha256": "d7265c8944a16f667266e04cec78fea301f2eb3971d60bd792cbbc807d9014e5"
     },
     "kp": {
       "eligible": 60,
       "response_sha256": "76eb60d3b34939c9194b1fd58e23037f6d57e3501f78faded025452ffd2426a1",
       "selected": 60,
-      "settlements": 61
+      "settlements": 61,
+      "strays": 0,
+      "strays_sha256": "a7f22e5c1cec91c26f3eb258a61fc13ac8f19986b1235f108b56b593da45c6d2"
     },
     "lc": {
       "eligible": 107,
       "response_sha256": "125dd2afc802a7e170e34c4cb5eb2f154e81fe5b10ab59cc566a1080930990b6",
       "selected": 100,
-      "settlements": 117
+      "settlements": 117,
+      "strays": 0,
+      "strays_sha256": "6920c421e9782e7ad1c27698a83cc37ed42a16daef3e923df2845485b10082c8"
     },
     "li": {
       "eligible": 21,
       "response_sha256": "7c2ecd1edc26bc565d532dd58c5c781b237e673d8093678a23eb9b8ba6e829b9",
       "selected": 21,
-      "settlements": 23
+      "settlements": 23,
+      "strays": 0,
+      "strays_sha256": "dfce0c306d9c8c5997d5e0028b8c44035245eae64f9b875f3e7f84b4a382d170"
     },
     "lr": {
       "eligible": 69,
       "response_sha256": "a0d63c8c6a7809e637431250a29edbb9d8b4b3dc1d4f2ebf8f95b06b878bdd90",
       "selected": 69,
-      "settlements": 73
+      "settlements": 73,
+      "strays": 0,
+      "strays_sha256": "7c2026797bf7705d1657d476a31da89509e24eeb3cd18987a9851033ec0e3336"
     },
     "ls": {
       "eligible": 53,
       "response_sha256": "30b9b570da2437498c4ade38c0b7250546fd8f2986299cd82be4a478fef7fdeb",
       "selected": 53,
-      "settlements": 56
+      "settlements": 56,
+      "strays": 0,
+      "strays_sha256": "7aff43f7cca7836edca465ab7c8eb4a3c2693edd08c638fc0bfabccc29ae872d"
     },
     "mc": {
       "eligible": 6,
       "response_sha256": "40fae436feb66162eeef739d9d4b463a25b4b74e9240b4481a1391a5aeef8582",
       "selected": 6,
-      "settlements": 7
+      "settlements": 7,
+      "strays": 0,
+      "strays_sha256": "816106ca5e18493eaf597cea4c627c1207649f51bd0d10cde5181ae33b40bc4b"
     },
     "mf": {
       "eligible": 7,
       "response_sha256": "51259160c5ffc2509eece2458dd97b669f0d59e155784262003edf7f9be6856e",
       "selected": 7,
-      "settlements": 8
+      "settlements": 8,
+      "strays": 0,
+      "strays_sha256": "c89e5025ae94943de0c886382e6a307ebd714d0b9f55296eeb0405b46ddb251f"
     },
     "mo": {
       "eligible": 4,
       "response_sha256": "b56a26af466d0c1c1456af2ad5854bd3c02c051e551a2aa53adc9ce33945f607",
       "selected": 4,
-      "settlements": 4
+      "settlements": 4,
+      "strays": 0,
+      "strays_sha256": "1cb52b27875ef5b31ad655e36ca348d23344806e25b3be51a27b25906eac199c"
     },
     "mp": {
       "eligible": 16,
       "response_sha256": "f11bae8e1185947c88fd896082b55d4b1e0d34fad9bc77a986a42b7900548885",
       "selected": 16,
-      "settlements": 19
+      "settlements": 19,
+      "strays": 0,
+      "strays_sha256": "7bef88f2bae2ffffb71fdb98954340dc37d323513325b0b595f5c6d1149a0b9b"
     },
     "mq": {
-      "eligible": 14,
+      "eligible": 13,
       "response_sha256": "c655eb8e37cf0c456da083db11c7cc66e6280b3b5ee57b2f0e30f7089f0577bb",
-      "selected": 14,
-      "settlements": 17
+      "selected": 13,
+      "settlements": 15,
+      "strays": 2,
+      "strays_sha256": "174427766f5ff5b9e0f3c743e329440140dce54322c23c225962f4de8c8a97af"
     },
     "mr": {
       "eligible": 57,
       "response_sha256": "35dd78cddafc9c6512344afccab0252f934e2b4de4ba8929256eca05b3e1304f",
       "selected": 57,
-      "settlements": 61
+      "settlements": 61,
+      "strays": 0,
+      "strays_sha256": "f966cdc355a56efdb2e3e10d8dbff09071d203da269e6fc48ce9361358f72826"
     },
     "ms": {
       "eligible": 3,
       "response_sha256": "f0ea0d7a3737f291d010ba0f7e277508c978b56f525bbc155e7e74991949ef7b",
       "selected": 3,
-      "settlements": 6
+      "settlements": 6,
+      "strays": 0,
+      "strays_sha256": "62ad9282d808863dcc468a8721904f5008a79068218c7e8163599ce21bdccad4"
     },
     "mv": {
       "eligible": 21,
       "response_sha256": "b8a8eb34e24eada47caa85f4588cd0c1b1a058daf6539ddc68101530f0d6ef8f",
       "selected": 21,
-      "settlements": 32
+      "settlements": 32,
+      "strays": 0,
+      "strays_sha256": "dc48c7190618822c93d9371de5e180ba5c3f06a7df59fc0883de1ef38e643998"
     },
     "ne": {
-      "eligible": 2573,
+      "eligible": 2572,
       "response_sha256": "3659ee3715b46bd1df945ff126ba8d2fbfb15b977a9c382b420d5af5fad0772b",
       "selected": 100,
-      "settlements": 2708
+      "settlements": 2707,
+      "strays": 1,
+      "strays_sha256": "db8803fd25c822b42d0f4df76aeb41a88cedaff14ab171b0fc1ee47acad01d1d"
     },
     "nf": {
       "eligible": 4,
       "response_sha256": "6be35f7256318a84fe77f50f814dc8381d997613af7d85bd83a1fa3c0d827f15",
       "selected": 4,
-      "settlements": 5
+      "settlements": 5,
+      "strays": 0,
+      "strays_sha256": "48c9904ac0d4697eb0bb324bab406ee51923529fb28f6f5147736730da5b2336"
     },
     "nr": {
       "eligible": 8,
       "response_sha256": "9dc0a13bb16f786e1915e02cee290493cb267ea76305f8ad16bab173362f6811",
       "selected": 8,
-      "settlements": 9
+      "settlements": 9,
+      "strays": 0,
+      "strays_sha256": "1a610d229b2487e4fd2391a6361172d99513da9cb17ec7e7bc777fd76a970a9d"
     },
     "nu": {
       "eligible": 12,
       "response_sha256": "87aeca243bfea61b8b14de0484ee053704fc6f886a2c8df6ebcc4dda5d7a7ca4",
       "selected": 12,
-      "settlements": 13
+      "settlements": 13,
+      "strays": 0,
+      "strays_sha256": "c56833f281a31ca55feab9fcf83e84cc08aa72011e5d3c7ecd9dc14a3ad0c180"
     },
     "pg": {
       "eligible": 165,
       "response_sha256": "8ff26b3c74370ca39f5a50b1935241e789c616940b01799a77e240d8fc4b5ac6",
       "selected": 100,
-      "settlements": 183
+      "settlements": 183,
+      "strays": 0,
+      "strays_sha256": "76704fbdfbdf4c92a03ce8a1b925ce90868b22294316097056bbbcbef6593b5e"
     },
     "pm": {
       "eligible": 1,
       "response_sha256": "b1fda376286b8a75865dcc017fa66fc4750e9362466421212d146aa7d6d20b78",
       "selected": 1,
-      "settlements": 3
+      "settlements": 3,
+      "strays": 0,
+      "strays_sha256": "d2139879a4febcaf664a20594aa30db4a33ec42561cb69af6ea7b1869cef2d5b"
     },
     "pn": {
       "eligible": 0,
       "response_sha256": "4bdbbda45c787d0ca3645c569a8dc6a28b9a3889786dd8577a954af1283ec40d",
       "selected": 0,
-      "settlements": 1
+      "settlements": 1,
+      "strays": 0,
+      "strays_sha256": "4587e7ee173112212655359b8f180063c4ec4c1a5bc42493443564fc48d7ada6"
     },
     "pw": {
       "eligible": 40,
       "response_sha256": "7b922ffa152b3ee63ebe13dca76ec8f4128380663fc20272ec7232c3a66b2798",
       "selected": 40,
-      "settlements": 42
+      "settlements": 42,
+      "strays": 0,
+      "strays_sha256": "246be80a4f1c0e2620f8b98930536645c6c6edb7f29f03527a2485afd4d6d103"
     },
     "re": {
-      "eligible": 48,
+      "eligible": 44,
       "response_sha256": "3a4c14d19d594155d7ff3daf0ed385a827d5a8ac8025fbc92e0b3c93e8c97d69",
-      "selected": 48,
-      "settlements": 49
+      "selected": 44,
+      "settlements": 45,
+      "strays": 4,
+      "strays_sha256": "efe38a484460f99ba69c2e286bcb7df9893658efbaf1a166d68e977aa62201a7"
     },
     "sb": {
       "eligible": 86,
       "response_sha256": "336a52fabb414c9d97b056783e2317f5ed0edded81b0f9899fd3e5eb5da6054d",
       "selected": 86,
-      "settlements": 97
+      "settlements": 97,
+      "strays": 0,
+      "strays_sha256": "7d4bd5787ced1cca64a88b4bec9c7df2aa6a6dc1489912c8534ed164404fe97e"
     },
     "sc": {
       "eligible": 15,
       "response_sha256": "6d3a4001f1e00f7657f65393a3e207a1bb97b209cc72f1516e989e10b48ef1b4",
       "selected": 15,
-      "settlements": 16
+      "settlements": 16,
+      "strays": 0,
+      "strays_sha256": "9a6b48f010ae94ba7bb1428c7d239a0c1f1bb607e94e1214dfc137830b597897"
     },
     "sh": {
       "eligible": 7,
       "response_sha256": "4a945bb164b3c3d91eeb5a20ca4c0b9322df574091d6dc55cdeab93d354e54a8",
       "selected": 7,
-      "settlements": 10
+      "settlements": 10,
+      "strays": 0,
+      "strays_sha256": "a2ab87dad0b66e329bbf93ed1ed2109f5eb4ca90fec45ca54b15645f2852b794"
     },
     "sj": {
       "eligible": 0,
       "response_sha256": "97cc0a762602de8f51fa35170a3a5246a81887ab538b5adff21788aaf382e59c",
       "selected": 0,
-      "settlements": 0
+      "settlements": 0,
+      "strays": 0,
+      "strays_sha256": "ed53cb23a13e271ce3ee4b30ed40edc2b86a591e17c4b4e91ec245634d68e983"
     },
     "sm": {
       "eligible": 10,
       "response_sha256": "4e66ad62811b55ac9867eae9e550c4fbbc48f0df41079d49c7eb35800295bd17",
       "selected": 10,
-      "settlements": 11
+      "settlements": 11,
+      "strays": 0,
+      "strays_sha256": "21efa1949519a1a8e83ec0e21bc8fb2859e5bb8a8c7397f6a7c51c3f3b3e5d44"
     },
     "so": {
       "eligible": 415,
       "response_sha256": "1a9229ff01d519a1c83f186b897ab6d3734f95694e3a752e141859c8767d2ee4",
       "selected": 100,
-      "settlements": 424
+      "settlements": 424,
+      "strays": 0,
+      "strays_sha256": "7b9590d2250b52eb7c9dc888b31123b1ed5b75d5194b70cd288b17a9dd17bbac"
     },
     "ss": {
       "eligible": 117,
       "response_sha256": "0f4b965823489579747137b3e94e935f6c5890627cda1769dfcc73869f354f89",
       "selected": 100,
-      "settlements": 121
+      "settlements": 121,
+      "strays": 0,
+      "strays_sha256": "94e41b0a1e89eda2167234a8f7e31590980a324d90a7aa7f57b935d238b740cc"
     },
     "st": {
       "eligible": 114,
       "response_sha256": "1f36c51f0ea7a804e918787199a9265cbc1bae2c8d71b43ad45c091057bca8ea",
       "selected": 100,
-      "settlements": 131
+      "settlements": 131,
+      "strays": 0,
+      "strays_sha256": "9c74940df5d1bf86cff8b74063513d2b51d134f75c516ef1fda469694260b3df"
     },
     "sx": {
       "eligible": 10,
       "response_sha256": "d45e8f1027958a75f5bccf2c5731712ad4ae2feaf30e94492314c55c3ed51f24",
       "selected": 10,
-      "settlements": 15
+      "settlements": 15,
+      "strays": 0,
+      "strays_sha256": "84e53b44516b573eca70723201f64e4cfd842667ef9569db1a4e092ecff72de2"
     },
     "td": {
       "eligible": 180,
       "response_sha256": "15d34148c1786022fc557fd4751442a8a118bbfc163c7de1eb28949830c18ddf",
       "selected": 100,
-      "settlements": 182
+      "settlements": 182,
+      "strays": 0,
+      "strays_sha256": "34e92c02e7b65fecd6105e12469de04fc4f5996239f9a9f42b3060aaf9b83842"
     },
     "tf": {
       "eligible": 1,
       "response_sha256": "fd9b0885557c91ac53b97311094360d3978af697ef0ed11fc9749392fd03d3cf",
       "selected": 1,
-      "settlements": 2
+      "settlements": 2,
+      "strays": 0,
+      "strays_sha256": "0c888780110661d87efc571c268ae5995bfa9f3929a948e457abd24720bb31cb"
     },
     "tg": {
       "eligible": 1737,
       "response_sha256": "5733dd1ad55ae4922c9c0e9b37a3dcf4b84470e02c20e6b0355535636c710097",
       "selected": 100,
-      "settlements": 1765
+      "settlements": 1763,
+      "strays": 2,
+      "strays_sha256": "b40d713bb5b71efd9ca366cfb028cc9e86cc57765e6d8dbd8e9ec940207a265c"
     },
     "tk": {
       "eligible": 4,
       "response_sha256": "6bc9f0186c18c6ecf764434e594b0621b0f4ddab79c0b42ab48407df716a768e",
       "selected": 4,
-      "settlements": 4
+      "settlements": 4,
+      "strays": 0,
+      "strays_sha256": "466a67144f3d523c6f696c89bbc896ab21347668247eb183d04e647533e2e5ec"
     },
     "tl": {
       "eligible": 81,
       "response_sha256": "46736bbb9066f3226681de22cde7bf5b7aec9d0963e8b62c10db0ade2b0c10b9",
       "selected": 81,
-      "settlements": 86
+      "settlements": 86,
+      "strays": 0,
+      "strays_sha256": "03558650b4e3e2604d90dbd4952ce6ca203dc522c975a478c6e0bacb587645ef"
     },
     "to": {
       "eligible": 70,
       "response_sha256": "54feef4f044d382d0ddd87c5418a4b9a6621b28a84a6e151e1e982dcdd0c2968",
       "selected": 70,
-      "settlements": 78
+      "settlements": 78,
+      "strays": 0,
+      "strays_sha256": "8cdc8b1910835d9cd2d795d20560c6a1d3a14128385902e2a64d93a7fce23feb"
     },
     "tv": {
       "eligible": 27,
       "response_sha256": "c05e144bc0ba71217a82eb8a844a0a0e17c375f06a9c317307f3e8dc103534e2",
       "selected": 27,
-      "settlements": 31
+      "settlements": 31,
+      "strays": 0,
+      "strays_sha256": "c3fe774a77455a1daf1db3d921459e7a20584315356089c2d9bf3cfa34f8f3ec"
     },
     "um": {
       "eligible": 4,
       "response_sha256": "61fc125cd76704bd4f0c290dbe9d16b9f7c2c2897491655b5c683fd0cb11ed4f",
       "selected": 4,
-      "settlements": 4
+      "settlements": 4,
+      "strays": 0,
+      "strays_sha256": "d77cd7bbce378b7c34972cb89e73606b407680448282eb762a228bc177ba123c"
     },
     "va": {
       "eligible": 1,
       "response_sha256": "bfbb587c9c2382d027877f729383392f1d0af280458a94e57c6da9d49a6e74e9",
       "selected": 1,
-      "settlements": 2
+      "settlements": 2,
+      "strays": 0,
+      "strays_sha256": "953062bc965f8f5d391f941303351fb23479cdc860e7d51889a78a563e3ab063"
     },
     "vc": {
       "eligible": 60,
       "response_sha256": "7feafc4da733214ba5122db5bc5edd566d76b66553fdf06a2d64f07ba4cf86c3",
       "selected": 60,
-      "settlements": 64
+      "settlements": 64,
+      "strays": 0,
+      "strays_sha256": "0c72d62206c361e18dd766b054dd1a4568146d44450da48dad8e24cbde627625"
     },
     "vg": {
       "eligible": 6,
       "response_sha256": "ebd590850ed98eebe42f69e77f4a7bab8b88968d26f7443c612195259540cbfb",
       "selected": 6,
-      "settlements": 9
+      "settlements": 9,
+      "strays": 0,
+      "strays_sha256": "f7435138cef3cce93e1969f5892a9536ea7cc47857c7d72fa6758490b49f35c1"
     },
     "vu": {
       "eligible": 36,
       "response_sha256": "45166cff1bfc99ed8e454c60fb1667b99d96661cc9ad0dc6c0e81d5f21fd5231",
       "selected": 36,
-      "settlements": 39
+      "settlements": 39,
+      "strays": 0,
+      "strays_sha256": "aa07fe2e1d8c630b67f320459f9cf5c9dd651cf9df2107b0cf3cb122162e8698"
     },
     "wf": {
       "eligible": 35,
       "response_sha256": "cbb360c1479d2b8e52785390d579dda2c51bcb656b87c3398afb4ba5c83cb6e2",
       "selected": 35,
-      "settlements": 38
+      "settlements": 38,
+      "strays": 0,
+      "strays_sha256": "888bba8a36e2f7d8da89f154f20e16b03ab900bc7830a5df6716bfe399c7b7eb"
     },
     "ws": {
       "eligible": 230,
       "response_sha256": "48ec2f1ab885cedaf34998a4325cd2aef91171d7dab09f590af678873e5d6ad5",
       "selected": 100,
-      "settlements": 259
+      "settlements": 259,
+      "strays": 0,
+      "strays_sha256": "749b42c644575a83ac74fce9ac5999015b8f53ebc36bdb6e68a8706c6b6cabaa"
     },
     "yt": {
       "eligible": 43,
       "response_sha256": "6e5bad0cf19c7d17714ab8e2f0a9e620719fc6aa49e36a6517a17c847173ffb4",
       "selected": 43,
-      "settlements": 44
+      "settlements": 44,
+      "strays": 0,
+      "strays_sha256": "f222af70e93dc3ccaab38e5257285a821b7ce30804ebdf321b7fbce9a932e74c"
     }
   },
   "query": "SELECT ?item ?label ?pop WHERE {\n  ?area wdt:P297 \"%s\" .\n  { ?item wdt:P17 ?area } UNION { ?item wdt:P131+ ?area }\n  { VALUES ?type { wd:Q515 wd:Q3957 wd:Q532 wd:Q5084 } ?item wdt:P31/wdt:P279* ?type } UNION { ?item wdt:P31 wd:Q486972 }\n  ?item wdt:P625 ?point ; rdfs:label ?label ; wdt:P17/wdt:P297 [] .\n  FILTER(isLiteral(?point))\n  FILTER(LANG(?label) = \"en\")\n  FILTER NOT EXISTS { ?item wdt:P576 [] }\n  OPTIONAL { ?item wdt:P1082 ?pop }\n}",
-  "seed": "wikidata-towns-2026-10"
+  "seed": "wikidata-towns-2026-10",
+  "stray_km": 5000,
+  "strays_query": "SELECT ?area ?item ?point ?parent ?unit ?country ?own WHERE {\n  ?area wdt:P297 \"%s\" .\n  { ?item wdt:P131 ?parent . ?parent wdt:P131* ?area .\n    FILTER NOT EXISTS { ?item wdt:P17 ?area }\n    OPTIONAL { ?item wdt:P625 ?point }\n    OPTIONAL { ?parent wdt:P625 ?unit }\n    OPTIONAL { ?item wdt:P17 ?country } }\n  UNION { ?area wdt:P17 ?own }\n}"
 }
