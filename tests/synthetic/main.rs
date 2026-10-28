@@ -265,6 +265,44 @@ fn a_full_address_with_a_place_its_house_is_not_in_is_suggested() {
 }
 
 #[test]
+fn a_house_number_keyed_with_its_label_is_suggested_before_or_after_the_road() {
+    let at = |text: &str| index().suggest(text, 5, None, None, false);
+    for (typed, road, number) in [
+        (
+            "PT 421 Jalan Sultan Ibrahim, Kota Bharu, 15100, Malaysia",
+            "Jalan Sultan Ibrahim",
+            "PT 421",
+        ),
+        (
+            "Jalan Sultan Ibrahim PT 421, Kota Bharu, 15100, Malaysia",
+            "Jalan Sultan Ibrahim",
+            "PT 421",
+        ),
+        (
+            "Block 3 Lot 21 Jalan Hamzah, Kota Bharu, Malaysia",
+            "Jalan Hamzah",
+            "Block 3 Lot 21",
+        ),
+        (
+            "Jalan Hamzah Block 3 Lot 21, Kota Bharu",
+            "Jalan Hamzah",
+            "Block 3 Lot 21",
+        ),
+        ("plot 5574 jalan hamzah", "Jalan Hamzah", "Plot 5574"),
+    ] {
+        let found = at(typed);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{typed}");
+        assert!(
+            metres((found[0].x, found[0].y), house(street(road), number)) < 5.0,
+            "{typed}"
+        );
+    }
+    // a label the street has no house of is not dropped to find another house
+    let found = at("Lot 21 Jalan Sultan Ibrahim, Kota Bharu, Malaysia");
+    assert!(found.iter().all(|s| s.kind != "address"));
+}
+
+#[test]
 fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
     let at = |text: &str, cc| index().suggest(text, 5, cc, None, false);
     let rivoli = at("Rue de Rivoli 2", None);
