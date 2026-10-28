@@ -1,0 +1,1066 @@
+id	country	step	detail	class_base	class_after
+global-osm-ad-11351118169-1	ad	place corroboration	house found by the index search, rejected in tier default	abstain	pass
+global-osm-ad-4984739351-1	ad	place corroboration	house found by the index search, rejected in tier default	abstain	pass
+global-osm-ad-7738205585-0	ad	place corroboration	country not parsed	abstain	pass
+global-osm-ae-10654160454-0	ae	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-ae-10654160454-1	ae	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-ae-11041804814-0	ae	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ae-11041804814-1	ae	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ae-3464889154-1	ae	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-af-13229757793-0	af	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-af-13229757793-1	af	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-af-13597390826-0	af	parse	number not parsed as the house number	abstain	pass
+global-osm-af-13597410972-0	af	parse	number not parsed as the house number	abstain	pass
+global-osm-af-w1343549491-0	af	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-al-10222460205-0	al	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-al-11978043618-1	al	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-al-13395033837-0	al	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-al-4438287290-0	al	parse	postcode before the country read as a house number, the country as a road	abstain	abstain
+global-osm-al-4637263093-0	al	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-al-5683031065-0	al	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-al-5956783285-0	al	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-al-5956783285-1	al	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-al-7921018985-0	al	place corroboration	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-al-8853924020-0	al	parse	postcode before the country read as a house number, the country as a road	near_miss	pass
+global-osm-al-8853924020-1	al	parse	postcode before the country read as a house number, the country as a road	near_miss	pass
+global-osm-am-14246546777-1	am	place corroboration	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-am-5461743054-0	am	parse	no road parsed	too_coarse	too_coarse
+global-osm-am-7354017738-1	am	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-am-9986859154-0	am	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-ao-10269673478-0	ao	place corroboration	postcode before the country read as a house number, the country as a road	abstain	abstain
+global-osm-ao-13956489901-0	ao	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-ao-13956489901-1	ao	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-ao-7725591582-1	ao	place corroboration	house filed under a county named like the stated town	confidence_mismatch	confidence_mismatch
+global-osm-ao-8434732406-0	ao	place corroboration	house filed under a county named like the stated town	too_coarse	pass
+global-osm-ao-8434732406-1	ao	place corroboration	house filed under a county named like the stated town	too_coarse	pass
+global-osm-ao-8434732408-0	ao	place corroboration	house filed under a county named like the stated town	too_coarse	pass
+global-osm-ao-8434732412-0	ao	place corroboration	house filed under a county named like the stated town	too_coarse	pass
+global-osm-ao-8434732414-0	ao	place corroboration	house filed under a county named like the stated town	too_coarse	pass
+global-osm-ao-8434738222-0	ao	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ao-8434738222-1	ao	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ao-8434738224-0	ao	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ao-8434738224-1	ao	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ao-8434738225-0	ao	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ao-8434738225-1	ao	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ao-8434738226-0	ao	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ao-8434738226-1	ao	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ao-9950300527-0	ao	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ar-10735527006-0	ar	place corroboration	house found by the index search, rejected in tier raw	far_miss	far_miss
+global-osm-ar-10760419236-0	ar	place corroboration	house found by the index search, rejected in tier default_without_stated_country	abstain	pass
+global-osm-ar-3068428356-0	ar	parse	no road parsed	too_coarse	pass
+global-osm-at-4526384688-0	at	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	pass
+global-osm-at-4526384688-1	at	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	pass
+global-osm-az-12738538286-0	az	place corroboration	house found by the index search, rejected in tier raw	far_miss	pass
+global-osm-az-12738738228-0	az	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-az-12739980062-0	az	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-az-12739980062-1	az	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	pass
+global-osm-az-4539260699-0	az	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-az-4539260699-1	az	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-az-4548041327-0	az	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	pass
+global-osm-az-4548041327-1	az	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	pass
+global-osm-az-8919826819-1	az	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ba-11381118970-0	ba	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-ba-13138448524-0	ba	parse	no road parsed	too_coarse	too_coarse
+global-osm-ba-4463793090-0	ba	parse	number not parsed as the house number	abstain	abstain
+global-osm-bd-12208946355-0	bd	house lookup	street found without the house	near_miss	near_miss
+global-osm-bd-13296845803-0	bd	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bd-13296845803-1	bd	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bd-13850276201-0	bd	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-bd-13850276201-1	bd	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-bd-5175638821-0	bd	parse	number not parsed as the house number	abstain	pass
+global-osm-bd-6583264270-1	bd	place corroboration	house found by the index search, rejected in tier raw	too_coarse	pass
+global-osm-bd-9364010036-1	bd	parse	number not parsed as the house number	abstain	abstain
+global-osm-bf-2897409446-1	bf	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bg-2471517243-0	bg	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bg-2471517243-1	bg	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bh-10636694802-0	bh	street lookup	no street candidate	too_coarse	pass
+global-osm-bh-10636694802-1	bh	street lookup	no street candidate	too_coarse	pass
+global-osm-bh-12563588664-1	bh	parse	postcode before the country read as a house number, the country as a road	too_coarse	too_coarse
+global-osm-bh-13399436159-1	bh	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bh-13681714001-0	bh	parse	number not parsed as the house number	abstain	pass
+global-osm-bh-13681714001-1	bh	parse	number not parsed as the house number	abstain	pass
+global-osm-bh-4382893092-0	bh	parse	number not parsed as the house number	abstain	pass
+global-osm-bh-4382893092-1	bh	parse	number not parsed as the house number	abstain	pass
+global-osm-bh-4404133190-0	bh	place corroboration	country not parsed	abstain	pass
+global-osm-bh-4748874656-0	bh	place corroboration	country not parsed	abstain	pass
+global-osm-bh-4748874656-1	bh	place corroboration	country not parsed	abstain	pass
+global-osm-bh-5253839497-0	bh	place corroboration	country not parsed	abstain	pass
+global-osm-bh-5253839497-1	bh	place corroboration	country not parsed	abstain	pass
+global-osm-bh-5338879027-0	bh	place corroboration	calling code written as the postcode	abstain	abstain
+global-osm-bh-5338879027-1	bh	place corroboration	calling code written as the postcode	abstain	abstain
+global-osm-bh-7984120187-0	bh	parse	number not parsed as the house number	abstain	pass
+global-osm-bh-7984120187-1	bh	parse	number not parsed as the house number	abstain	pass
+global-osm-bh-w1533263213-0	bh	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-bh-w1533263213-1	bh	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-bh-w341669309-0	bh	parse	number not parsed as the house number	abstain	abstain
+global-osm-bh-w341669309-1	bh	parse	number not parsed as the house number	abstain	abstain
+global-osm-bh-w488030351-0	bh	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-bh-w488030351-1	bh	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-bh-w715443752-0	bh	place corroboration	country not parsed	abstain	pass
+global-osm-bj-2619439027-1	bj	parse	number not parsed as the house number	too_coarse	pass
+global-osm-bj-4780849137-0	bj	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-bj-4780849137-1	bj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bj-4873083134-1	bj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bj-5240704604-0	bj	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-bj-5240704604-1	bj	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-bj-5998723346-0	bj	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-bj-5998723346-1	bj	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-bj-8977162817-1	bj	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-bn-11168815608-1	bn	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-bn-5061958016-0	bn	place corroboration	house found by the index search, rejected in tier part	abstain	pass
+global-osm-bn-5117923535-1	bn	place corroboration	country not parsed	confidence_mismatch	confidence_mismatch
+global-osm-bn-w526252287-0	bn	place corroboration	country not parsed	too_coarse	too_coarse
+global-osm-bn-w526252287-1	bn	house lookup	street found without the house	near_miss	near_miss
+global-osm-bn-w587695848-1	bn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bn-w877749989-0	bn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bn-w877749989-1	bn	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-bo-10293109705-0	bo	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bo-10750067902-0	bo	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-bo-10750067902-1	bo	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-bo-11074179691-0	bo	street lookup	no street candidate	abstain	pass
+global-osm-bo-5599632954-0	bo	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-bo-5599632954-1	bo	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-bo-7233701385-0	bo	parse	number not parsed as the house number	abstain	abstain
+global-osm-bo-7233701385-1	bo	parse	number not parsed as the house number	abstain	abstain
+global-osm-bo-8051816745-0	bo	street lookup	no street candidate	far_miss	far_miss
+global-osm-bo-8051816745-1	bo	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-br-10906059805-1	br	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-br-8491178319-0	br	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-bt-4394408492-0	bt	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-bt-4394408492-1	bt	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-bt-7679801018-0	bt	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bt-7679801018-1	bt	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bt-7735578452-1	bt	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-bt-7735580306-1	bt	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-bt-7735747128-1	bt	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-bt-7735747142-0	bt	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-bt-7735756747-1	bt	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-bt-7735756758-1	bt	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-bw-11134126719-0	bw	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-bw-11134126719-1	bw	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-bw-3741061068-1	bw	parse	number not parsed as the house number	abstain	pass
+global-osm-bw-4515452589-1	bw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bw-4561311759-0	bw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bw-7992869086-0	bw	parse	number not parsed as the house number	abstain	pass
+global-osm-bw-7992869086-1	bw	parse	number not parsed as the house number	abstain	abstain
+global-osm-bw-w238882512-0	bw	parse	no road parsed	far_miss	far_miss
+global-osm-bw-w238882512-1	bw	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-bw-w336821236-0	bw	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-bw-w336821236-1	bw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bw-w801384544-1	bw	house lookup	street found without the house	near_miss	near_miss
+global-osm-bw-w801384547-1	bw	house lookup	street found without the house	near_miss	near_miss
+global-osm-bw-w92330826-1	bw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-by-6004746373-0	by	street lookup	no street candidate	far_miss	pass
+global-osm-by-9754657312-0	by	place corroboration	house found by the index search, rejected in tier part	too_coarse	too_coarse
+global-osm-bz-13238269643-1	bz	parse	number not parsed as the house number	too_coarse	pass
+global-osm-bz-13238269695-1	bz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-bz-13238270190-0	bz	parse	number not parsed as the house number	too_coarse	pass
+global-osm-bz-13238270190-1	bz	parse	no road parsed	too_coarse	pass
+global-osm-bz-4749934941-1	bz	parse	number not parsed as the house number	abstain	pass
+global-osm-ca-3619436172-0	ca	place corroboration	house found by the index search, rejected in tier raw	wrong_component	wrong_component
+global-osm-ca-3619436172-1	ca	place corroboration	house found by the index search, rejected in tier raw	wrong_component	wrong_component
+global-osm-cd-10228732423-0	cd	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-cd-10228732423-1	cd	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-cd-12055591930-0	cd	place corroboration	house found by the index search, rejected in tier default	too_coarse	too_coarse
+global-osm-cd-12514329069-0	cd	street lookup	no street candidate	far_miss	far_miss
+global-osm-cd-2563910429-0	cd	place corroboration	house filed under a county named like the stated town	near_miss	near_miss
+global-osm-cd-2563910429-1	cd	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-cd-3409699920-0	cd	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-cd-3409699920-1	cd	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-cd-6584446565-0	cd	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-cd-6584448849-0	cd	parse	no road parsed	too_coarse	too_coarse
+global-osm-cd-7681825978-0	cd	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-cd-7681825978-1	cd	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-cd-8477470698-0	cd	street lookup	no street candidate	too_coarse	pass
+global-osm-cd-8477470703-0	cd	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-cd-8477470703-1	cd	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-cd-8477470704-0	cd	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-cd-8477470704-1	cd	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-cg-w1188544879-0	cg	street lookup	no street candidate	abstain	abstain
+global-osm-ch-12415844414-0	ch	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-ci-11019989605-0	ci	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	pass
+global-osm-ci-11384641709-0	ci	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-ci-11384641730-0	ci	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-ci-4546708093-0	ci	parse	number not parsed as the house number	abstain	pass
+global-osm-cl-3393301364-0	cl	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-cl-3393301364-1	cl	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-cm-4604829972-0	cm	parse	calling code written as the postcode	wrong_component	pass
+global-osm-cm-4604829972-1	cm	parse	calling code written as the postcode	wrong_component	pass
+global-osm-cm-6650381169-0	cm	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-cm-6650381169-1	cm	place corroboration	house found by the index search, rejected in tier default	too_coarse	too_coarse
+global-osm-cn-11483008728-0	cn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-cn-11483008728-1	cn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-cn-12503983564-0	cn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-cn-12503983564-1	cn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-cn-12659554625-0	cn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-cn-12659554625-1	cn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-cn-13029847170-0	cn	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-cn-13029847170-1	cn	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-cn-13202606739-0	cn	street lookup	no street candidate	near_miss	near_miss
+global-osm-cn-13202606739-1	cn	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-cn-14075223287-0	cn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-cn-14075223287-1	cn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-cn-4443450563-0	cn	street lookup	no street candidate	abstain	abstain
+global-osm-cn-4712528446-0	cn	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-cn-4712528446-1	cn	street lookup	no street candidate	abstain	abstain
+global-osm-cr-4680910489-1	cr	parse	number not parsed as the house number	too_coarse	pass
+global-osm-cr-6023277430-0	cr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-cr-6023277430-1	cr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-cr-832255135-0	cr	parse	number not parsed as the house number	too_coarse	pass
+global-osm-cu-12887425986-1	cu	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-cu-13165688535-0	cu	parse	no road parsed	too_coarse	too_coarse
+global-osm-cu-13165688535-1	cu	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-cu-9738655817-0	cu	parse	number not parsed as the house number	abstain	pass
+global-osm-cv-4706580755-0	cv	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-cv-5036800378-1	cv	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-cv-5284499214-0	cv	place corroboration	house found by the index search, rejected in tier part	too_coarse	too_coarse
+global-osm-cv-w1497802542-0	cv	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-cv-w416147685-0	cv	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-cv-w416148105-0	cv	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-cv-w416148115-0	cv	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-cv-w416148116-0	cv	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-cy-13749565946-0	cy	parse	no road parsed	abstain	abstain
+global-osm-cy-7093222485-0	cy	parse	no road parsed	abstain	pass
+global-osm-cz-473452494-0	cz	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-cz-473452494-1	cz	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-do-11810547859-0	do	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-do-11810547859-1	do	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-do-4816975865-0	do	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-do-9910695418-0	do	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-dz-4561908590-0	dz	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-dz-4561908590-1	dz	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-dz-4735317024-1	dz	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-ec-5172190322-0	ec	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-ec-5172190322-1	ec	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-ec-6173762586-0	ec	place corroboration	house found by the index search, rejected in tier raw	far_miss	pass
+global-osm-ec-6498711285-0	ec	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-ec-9416956689-0	ec	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	pass
+global-osm-ec-9884207874-0	ec	parse	number not parsed as the house number	abstain	pass
+global-osm-ec-9997905883-0	ec	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-eg-6950598308-1	eg	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-eg-7545143835-0	eg	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-eg-7545143835-1	eg	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-eg-7589701127-0	eg	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-eg-7589701127-1	eg	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-eg-7711411914-0	eg	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-eg-7711411914-1	eg	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-et-5992574986-0	et	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-et-5992574986-1	et	parse	number not parsed as the house number	abstain	abstain
+global-osm-et-659036947-0	et	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-et-7545846585-0	et	parse	number not parsed as the house number	abstain	abstain
+global-osm-et-8302268017-0	et	parse	number not parsed as the house number	abstain	pass
+global-osm-fj-w1185408186-0	fj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-fj-w1232031617-0	fj	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-fj-w1232031617-1	fj	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-fj-w1262502015-0	fj	place corroboration	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-fj-w403051442-0	fj	place corroboration	calling code written as the postcode	wrong_component	wrong_component
+global-osm-fj-w437526272-0	fj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-fj-w437526272-1	fj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-fj-w442137563-1	fj	parse	number not parsed as the house number	abstain	pass
+global-osm-fj-w638741244-0	fj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-fj-w638741244-1	fj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-fj-w781983107-0	fj	place corroboration	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-fj-w781983107-1	fj	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-ga-11121256406-0	ga	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ga-11121256406-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-11126889014-0	ga	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ga-11126889014-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-11134525418-0	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-11134525418-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-11134797813-0	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-11134797813-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-11137848847-0	ga	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ga-11137848847-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-11164851373-0	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-11164851373-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-11215551455-0	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-11215551455-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13167627390-0	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13167627390-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13167627393-0	ga	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ga-13167627393-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13174996273-0	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13174996273-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13176180478-0	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13176180478-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13176204140-0	ga	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ga-13176204140-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13176204143-0	ga	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ga-13176204143-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13176204163-0	ga	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ga-13176204163-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13176204187-0	ga	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ga-13176204187-1	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13176365905-0	ga	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ga-13176365905-1	ga	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-gb-10864633341-0	gb	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-gb-10864633341-1	gb	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-gb-10889173805-1	gb	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-gb-11049035805-0	gb	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gb-11049035805-1	gb	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gb-13405293772-0	gb	parse	no road parsed	too_coarse	too_coarse
+global-osm-gb-13976812401-0	gb	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gb-13976812401-1	gb	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gb-8494437523-1	gb	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-gb-9248563263-0	gb	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gb-9248563263-1	gb	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ge-13980167867-1	ge	parse	postcode before the country read as a house number, the country as a road	near_miss	pass
+global-osm-ge-14227966257-0	ge	parse	no road parsed	too_coarse	too_coarse
+global-osm-gh-4293143490-1	gh	parse	number not parsed as the house number	abstain	pass
+global-osm-gh-4504608190-1	gh	parse	number not parsed as the house number	abstain	abstain
+global-osm-gh-8281501955-0	gh	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-gh-8281501955-1	gh	place corroboration	house found by the index search, rejected in tier raw	too_coarse	pass
+global-osm-gh-8281501957-0	gh	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-gh-8281501957-1	gh	place corroboration	house found by the index search, rejected in tier raw	too_coarse	pass
+global-osm-gh-8380392976-0	gh	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-gh-8380392976-1	gh	place corroboration	house found by the index search, rejected in tier raw	too_coarse	pass
+global-osm-gl-w511520000-0	gl	parse	no road parsed	too_coarse	pass
+global-osm-gn-12112205101-0	gn	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-gn-12112205101-1	gn	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-gn-2949618619-0	gn	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-gn-2949618619-1	gn	place corroboration	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-gn-5921619038-0	gn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gn-5921619038-1	gn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gn-w1450665205-1	gn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gn-w1494196131-1	gn	parse	postcode before the country read as a house number, the country as a road	too_coarse	too_coarse
+global-osm-gn-w445339060-0	gn	parse	no road parsed	too_coarse	too_coarse
+global-osm-gt-11844777292-0	gt	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-gt-11844777292-1	gt	parse	postcode before the country read as a house number, the country as a road	abstain	abstain
+global-osm-gt-12073699013-0	gt	parse	no road parsed	abstain	abstain
+global-osm-gt-3816447385-0	gt	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gt-3816447385-1	gt	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gt-4041020192-1	gt	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gt-4297140690-0	gt	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gt-4297140690-1	gt	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gt-5520342327-0	gt	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-gt-5520342327-1	gt	house lookup	street found without the house	near_miss	near_miss
+global-osm-gt-6421682100-0	gt	parse	postcode before the country read as a house number, the country as a road	too_coarse	pass
+global-osm-gt-6421682100-1	gt	parse	postcode before the country read as a house number, the country as a road	too_coarse	pass
+global-osm-gt-6421720165-0	gt	parse	number not parsed as the house number	too_coarse	pass
+global-osm-gt-6421720165-1	gt	parse	number not parsed as the house number	too_coarse	pass
+global-osm-gt-8382562371-1	gt	parse	postcode before the country read as a house number, the country as a road	too_coarse	too_coarse
+global-osm-gt-8449140015-0	gt	street lookup	no street candidate	abstain	abstain
+global-osm-gt-8449140015-1	gt	parse	number not parsed as the house number	abstain	abstain
+global-osm-gu-4549349720-0	gu	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gu-4549349720-1	gu	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-gu-w45784454-0	gu	house lookup	street found without the house	near_miss	near_miss
+global-osm-gy-5231096140-0	gy	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-gy-5231096140-1	gy	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-gy-w591286956-0	gy	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-gy-w591286956-1	gy	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-gy-w624215077-0	gy	parse	number not parsed as the house number	abstain	pass
+global-osm-gy-w951841618-0	gy	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-gy-w951841618-1	gy	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-hk-12009831715-0	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-12009831715-1	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w1291689277-0	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w1291689277-1	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w1292154038-0	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w1292154038-1	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w133634931-0	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w133634931-1	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w1472167848-0	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w1472167848-1	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w363138909-0	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w363138909-1	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w592111073-0	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w592111073-1	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hk-w976647425-0	hk	place corroboration	house found by the index search, rejected in tier default	abstain	abstain
+global-osm-hk-w976647425-1	hk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hn-7499436507-1	hn	parse	number not parsed as the house number	too_coarse	pass
+global-osm-hn-w1086494954-0	hn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-hn-w1086494954-1	hn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-hn-w1199234566-0	hn	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-hn-w1199234566-1	hn	parse	number not parsed as the house number	abstain	abstain
+global-osm-hn-w1274186647-0	hn	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-hn-w1274186960-0	hn	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-hn-w1274187511-0	hn	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-hn-w1368024688-0	hn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-hn-w1368024688-1	hn	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-hn-w496534737-1	hn	parse	number not parsed as the house number	abstain	pass
+global-osm-ht-12170168036-1	ht	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ht-2554957047-1	ht	place corroboration	country not parsed	too_coarse	too_coarse
+global-osm-ht-5423265221-0	ht	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-ht-5423265221-1	ht	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-ht-5700298414-0	ht	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-ht-5700298414-1	ht	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-ht-6003900585-0	ht	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-ht-6003900585-1	ht	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-ht-6773566587-0	ht	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-ht-6773566587-1	ht	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-ht-7925792285-0	ht	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-ht-7925792285-1	ht	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-id-10748449964-0	id	place corroboration	house found by the index search, rejected in tier part	abstain	pass
+global-osm-id-11442922677-1	id	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-id-5747040019-0	id	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-id-5747040019-1	id	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-id-6759003762-1	id	parse	number not parsed as the house number	abstain	pass
+global-osm-id-9451967359-0	id	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ie-11152806508-0	ie	street lookup	no street candidate	abstain	abstain
+global-osm-ie-11152806508-1	ie	street lookup	no street candidate	abstain	abstain
+global-osm-ie-12968287170-0	ie	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ie-12968287170-1	ie	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ie-13991197179-1	ie	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-ie-14081163889-0	ie	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ie-14081163889-1	ie	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ie-3222627105-0	ie	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ie-3222627105-1	ie	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-ie-5357275191-1	ie	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ie-6539387009-0	ie	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ie-6539387009-1	ie	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ie-670649312-1	ie	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-ie-9062164732-0	ie	place corroboration	house found by the index search, rejected in tier default_without_stated_country	abstain	pass
+global-osm-il-12387901706-1	il	place corroboration	postcode before the country read as a house number, the country as a road	abstain	abstain
+global-osm-in-10277923273-0	in	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-in-11258993012-0	in	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-in-4246453623-0	in	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-in-4246453623-1	in	street lookup	no street candidate	abstain	abstain
+global-osm-in-5928911781-0	in	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-in-5928911781-1	in	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-in-7100010316-0	in	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-in-9006891159-0	in	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-in-9006891159-1	in	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-in-9014403380-0	in	parse	number not parsed as the house number	abstain	pass
+global-osm-iq-5173454757-0	iq	place corroboration	postcode before the country read as a house number, the country as a road	wrong_component	wrong_component
+global-osm-iq-5173454757-1	iq	place corroboration	postcode before the country read as a house number, the country as a road	wrong_component	wrong_component
+global-osm-iq-5826924085-0	iq	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-iq-5826924085-1	iq	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-iq-9310319901-0	iq	parse	number not parsed as the house number	abstain	abstain
+global-osm-iq-9310319901-1	iq	parse	number not parsed as the house number	abstain	abstain
+global-osm-ir-10548568269-0	ir	street lookup	no street candidate	far_miss	far_miss
+global-osm-ir-10548568269-1	ir	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-ir-10720125692-0	ir	house lookup	postcode before the country read as a house number, the country as a road	too_coarse	too_coarse
+global-osm-ir-10720125692-1	ir	house lookup	postcode before the country read as a house number, the country as a road	too_coarse	too_coarse
+global-osm-ir-11001016205-0	ir	parse	number not parsed as the house number	abstain	abstain
+global-osm-ir-11001016205-1	ir	parse	number not parsed as the house number	abstain	abstain
+global-osm-ir-11572344576-0	ir	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ir-11572344576-1	ir	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-ir-11725095841-1	ir	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ir-12264444070-0	ir	place corroboration	country not parsed	far_miss	far_miss
+global-osm-ir-12264444070-1	ir	place corroboration	country not parsed	far_miss	far_miss
+global-osm-ir-12378523949-1	ir	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ir-12631126570-0	ir	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-ir-12631126570-1	ir	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-ir-12701570657-1	ir	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-ir-13094465062-0	ir	house lookup	street found without the house	far_miss	far_miss
+global-osm-ir-13984497561-0	ir	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ir-6466145445-0	ir	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ir-6466145445-1	ir	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ir-6702684825-0	ir	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ir-6702684825-1	ir	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ir-7641077185-0	ir	parse	calling code written as the postcode	abstain	pass
+global-osm-ir-7641077185-1	ir	parse	calling code written as the postcode	wrong_component	pass
+global-osm-ir-9001733394-1	ir	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ir-9849499930-0	ir	street lookup	no street candidate	abstain	abstain
+global-osm-ir-9849499930-1	ir	parse	number not parsed as the house number	abstain	abstain
+global-osm-is-6331500602-0	is	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-jm-3326424672-0	jm	place corroboration	house found by the index search, rejected in tier raw	confidence_mismatch	confidence_mismatch
+global-osm-jm-3326424672-1	jm	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-jm-3750527703-0	jm	place corroboration	house found by the index search, rejected in tier raw	confidence_mismatch	confidence_mismatch
+global-osm-jm-3750527703-1	jm	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-jm-3750527705-0	jm	place corroboration	house found by the index search, rejected in tier raw	confidence_mismatch	confidence_mismatch
+global-osm-jm-3750527705-1	jm	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-jm-3777357283-0	jm	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-jm-3777357283-1	jm	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-jm-3815193323-1	jm	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-jm-4393550443-0	jm	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-jm-4393550443-1	jm	place corroboration	house found by the index search, rejected in tier default	abstain	abstain
+global-osm-jm-4777306628-0	jm	street lookup	no street candidate	abstain	abstain
+global-osm-jo-11544718204-0	jo	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-jo-11544718204-1	jo	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-jo-5219367296-0	jo	street lookup	no street candidate	abstain	abstain
+global-osm-jo-5219367296-1	jo	parse	number not parsed as the house number	abstain	abstain
+global-osm-jo-9914276347-0	jo	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-jo-9914276347-1	jo	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ke-12255879527-0	ke	place corroboration	house found by the index search, rejected in tier raw	confidence_mismatch	confidence_mismatch
+global-osm-ke-12255879527-1	ke	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ke-13986178449-0	ke	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ke-13986178449-1	ke	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ke-6102845247-0	ke	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ke-6507765888-0	ke	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ke-6507765888-1	ke	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ke-8606178142-1	ke	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ke-8925989674-0	ke	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	abstain
+global-osm-ke-9047655363-0	ke	place corroboration	house found by the index search, rejected in tier raw	confidence_mismatch	confidence_mismatch
+global-osm-kg-13604999384-0	kg	parse	no road parsed	too_coarse	too_coarse
+global-osm-kg-4731635334-0	kg	parse	no road parsed	too_coarse	too_coarse
+global-osm-kh-13077651081-1	kh	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kh-2699220377-0	kh	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-kh-2760289855-0	kh	parse	number not parsed as the house number	too_coarse	pass
+global-osm-kh-2760289855-1	kh	parse	number not parsed as the house number	too_coarse	pass
+global-osm-kh-3725544525-0	kh	parse	number not parsed as the house number	abstain	pass
+global-osm-kh-3725544525-1	kh	parse	number not parsed as the house number	abstain	pass
+global-osm-kh-3797593535-0	kh	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kh-4316479693-0	kh	place corroboration	calling code written as the postcode	wrong_component	wrong_component
+global-osm-kh-4316479693-1	kh	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-kh-4343899060-0	kh	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kh-4555431991-0	kh	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-kh-4555431991-1	kh	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-kh-4564094002-0	kh	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kh-4564094002-1	kh	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-kh-4742727201-0	kh	house lookup	street found without the house	wrong_component	wrong_component
+global-osm-kh-4742727201-1	kh	house lookup	street found without the house	wrong_component	wrong_component
+global-osm-kh-5258268502-0	kh	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-kh-5434598986-0	kh	parse	no road parsed	too_coarse	too_coarse
+global-osm-kh-5434598986-1	kh	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kh-6924815696-0	kh	place corroboration	country not parsed	confidence_mismatch	confidence_mismatch
+global-osm-kh-6924815696-1	kh	place corroboration	country not parsed	confidence_mismatch	confidence_mismatch
+global-osm-kh-7237854685-1	kh	parse	number not parsed as the house number	wrong_component	wrong_component
+global-osm-kh-8015532085-0	kh	place corroboration	calling code written as the postcode	wrong_component	wrong_component
+global-osm-kh-8015532085-1	kh	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-kh-8532831818-0	kh	street lookup	no street candidate	abstain	abstain
+global-osm-kh-8532831818-1	kh	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-kr-11020053634-1	kr	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	abstain
+global-osm-kr-368611077-0	kr	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-kr-368611077-1	kr	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-kr-4662558912-0	kr	street lookup	no street candidate	abstain	abstain
+global-osm-kr-4662558912-1	kr	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	abstain
+global-osm-kr-8440437971-0	kr	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-kr-8440437971-1	kr	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-kr-8448995124-0	kr	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-kr-8448995124-1	kr	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-kr-9295709319-0	kr	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-kr-9295709319-1	kr	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-kw-w463323429-0	kw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kw-w463323429-1	kw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kw-w463982960-0	kw	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-kw-w463982960-1	kw	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-kw-w465044655-0	kw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kw-w465044655-1	kw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kw-w465665452-0	kw	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-kw-w465665452-1	kw	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-kz-10091884789-0	kz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kz-11572492746-0	kz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kz-11572492746-1	kz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kz-11747003715-0	kz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kz-11747003715-1	kz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-kz-5235187996-0	kz	parse	no road parsed	abstain	abstain
+global-osm-kz-5821881953-0	kz	parse	no road parsed	too_coarse	pass
+global-osm-kz-5928996926-0	kz	house lookup	street found without the house	abstain	abstain
+global-osm-la-11133254705-0	la	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-la-4586990393-0	la	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-la-4681602794-0	la	parse	number not parsed as the house number	abstain	pass
+global-osm-la-4684712989-0	la	parse	number not parsed as the house number	abstain	pass
+global-osm-la-4702440281-1	la	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-la-5131914144-1	la	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-la-5227658322-0	la	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-lb-6968701782-0	lb	place corroboration	country not parsed	confidence_mismatch	confidence_mismatch
+global-osm-lb-6968701782-1	lb	place corroboration	country not parsed	confidence_mismatch	confidence_mismatch
+global-osm-lb-9927382454-0	lb	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-lb-9927382454-1	lb	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-lb-9927484101-0	lb	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-lb-9927484101-1	lb	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-lb-w1005003277-0	lb	street lookup	no street candidate	abstain	abstain
+global-osm-lb-w1005003277-1	lb	street lookup	no street candidate	abstain	abstain
+global-osm-lb-w1387203868-0	lb	place corroboration	house found by the index search, rejected in tier part	too_coarse	pass
+global-osm-lb-w653702162-0	lb	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-lb-w990484214-1	lb	parse	postcode before the country read as a house number, the country as a road	too_coarse	too_coarse
+global-osm-lk-4753627907-0	lk	parse	no road parsed	far_miss	far_miss
+global-osm-ly-13307936934-0	ly	parse	no road parsed	too_coarse	too_coarse
+global-osm-ly-13307936934-1	ly	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ly-5512531021-0	ly	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-ly-7118270185-0	ly	parse	number not parsed as the house number	abstain	pass
+global-osm-ly-7118270185-1	ly	parse	number not parsed as the house number	abstain	pass
+global-osm-ly-8220730102-0	ly	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ly-8220730102-1	ly	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ly-w1056985177-0	ly	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-ly-w1056985177-1	ly	parse	number not parsed as the house number	abstain	abstain
+global-osm-ly-w977852926-0	ly	parse	no road parsed	too_coarse	too_coarse
+global-osm-ma-12595004091-0	ma	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-md-13002236460-0	md	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-md-13005376744-1	md	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-md-13009905366-1	md	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-mg-1097254031-1	mg	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mg-11010358152-0	mg	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-mg-11067453055-0	mg	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-mg-11067453055-1	mg	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-mg-11944359264-0	mg	parse	no road parsed	too_coarse	pass
+global-osm-mg-11944359264-1	mg	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-mg-14146054601-0	mg	parse	number not parsed as the house number	abstain	pass
+global-osm-mg-5637604587-0	mg	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-mg-5637604587-1	mg	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-mh-w562350431-1	mh	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mh-w562350433-1	mh	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mk-10951466151-0	mk	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-mk-12750055210-1	mk	place corroboration	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-mk-12836669002-0	mk	place corroboration	country not parsed	abstain	pass
+global-osm-mk-12836669002-1	mk	place corroboration	country not parsed	abstain	pass
+global-osm-mk-13354194525-0	mk	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-mk-4426923095-0	mk	parse	number not parsed as the house number	abstain	pass
+global-osm-mk-4426923095-1	mk	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-mk-4716305790-1	mk	place corroboration	country not parsed	abstain	pass
+global-osm-mk-4886522821-1	mk	place corroboration	country not parsed	abstain	pass
+global-osm-mk-4923513121-0	mk	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-mk-4923513121-1	mk	place corroboration	country not parsed	abstain	pass
+global-osm-mk-497549494-0	mk	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-mk-497549494-1	mk	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-mk-5317354222-1	mk	place corroboration	country not parsed	abstain	pass
+global-osm-mk-5841251786-0	mk	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-mk-8450156419-0	mk	parse	postcode before the country read as a house number, the country as a road	too_coarse	pass
+global-osm-ml-11961769869-0	ml	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-ml-1877584482-1	ml	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ml-3576914214-1	ml	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-ml-4476874494-0	ml	parse	number not parsed as the house number	abstain	pass
+global-osm-ml-4891601632-1	ml	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ml-5397065724-1	ml	parse	number not parsed as the house number	abstain	pass
+global-osm-ml-5548347219-1	ml	parse	number not parsed as the house number	abstain	pass
+global-osm-ml-5559400598-1	ml	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ml-w378308835-0	ml	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ml-w382927119-0	ml	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ml-w382927119-1	ml	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ml-w511165553-0	ml	place corroboration	house found by the index search, rejected in tier raw	confidence_mismatch	confidence_mismatch
+global-osm-ml-w511165567-0	ml	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ml-w511165567-1	ml	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mm-4385983389-0	mm	house lookup	street found without the house	far_miss	far_miss
+global-osm-mm-4385983389-1	mm	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-mm-5136661112-0	mm	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-mm-5136661112-1	mm	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mm-5195461521-0	mm	parse	number not parsed as the house number	abstain	pass
+global-osm-mm-5195461521-1	mm	parse	number not parsed as the house number	abstain	abstain
+global-osm-mm-5296743667-0	mm	parse	number not parsed as the house number	abstain	abstain
+global-osm-mm-5296743667-1	mm	parse	number not parsed as the house number	abstain	abstain
+global-osm-mm-5680857721-1	mm	parse	number not parsed as the house number	abstain	pass
+global-osm-mm-5785959090-0	mm	parse	number not parsed as the house number	abstain	abstain
+global-osm-mm-7441883585-0	mm	place corroboration	calling code written as the postcode	wrong_component	pass
+global-osm-mm-7441883585-1	mm	place corroboration	calling code written as the postcode	wrong_component	pass
+global-osm-mn-10182525156-0	mn	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-mn-10185583634-0	mn	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-mn-10185583634-1	mn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-mn-2010678638-0	mn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mn-2010678638-1	mn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mn-2010678641-0	mn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mn-2010678641-1	mn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mn-4106969826-0	mn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mn-4106969826-1	mn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mn-5614557519-0	mn	parse	no road parsed	too_coarse	too_coarse
+global-osm-mn-5614557519-1	mn	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-mn-5798897037-1	mn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mn-6660509959-0	mn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mn-7095077516-0	mn	place corroboration	house found by the index search, rejected in tier part	abstain	pass
+global-osm-mn-8917097817-0	mn	parse	number not parsed as the house number	abstain	pass
+global-osm-mt-13112016618-0	mt	parse	postcode before the country read as a house number, the country as a road	too_coarse	too_coarse
+global-osm-mt-13167029135-0	mt	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-mt-13190556530-0	mt	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-mt-13190556535-0	mt	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-mt-621352804-1	mt	place corroboration	country not parsed	confidence_mismatch	confidence_mismatch
+global-osm-mu-7432332168-0	mu	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-mu-7432332169-0	mu	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-mu-7433320072-0	mu	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-mu-w1005547977-1	mu	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-10804551148-0	mw	parse	number not parsed as the house number	abstain	pass
+global-osm-mw-7094734998-0	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-7094734998-1	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-7501717385-0	mw	parse	number not parsed as the house number	abstain	pass
+global-osm-mw-w1050956875-0	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-w1050956875-1	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-w1125635775-0	mw	parse	number not parsed as the house number	abstain	abstain
+global-osm-mw-w1317078342-1	mw	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-mw-w301516538-0	mw	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-mw-w301516538-1	mw	parse	no road parsed	abstain	abstain
+global-osm-mw-w458550017-0	mw	place corroboration	house filed under a county named like the stated town	near_miss	near_miss
+global-osm-mw-w458550017-1	mw	place corroboration	house filed under a county named like the stated town	near_miss	near_miss
+global-osm-mw-w478245158-0	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-w478245158-1	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-w478250156-0	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-w478250156-1	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-w479574281-0	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-w479574281-1	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-w641400518-0	mw	parse	no road parsed	abstain	pass
+global-osm-mw-w893058998-0	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-mw-w893058998-1	mw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-my-12014847122-1	my	house lookup	street found without the house	near_miss	near_miss
+global-osm-my-13765559712-1	my	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-my-4781382721-0	my	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-my-6902093952-0	my	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-my-6902093952-1	my	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-my-7054366072-0	my	parse	number not parsed as the house number	wrong_component	wrong_component
+global-osm-my-7054366072-1	my	parse	number not parsed as the house number	wrong_component	wrong_component
+global-osm-mz-14091128996-1	mz	parse	postcode before the country read as a house number, the country as a road	too_coarse	too_coarse
+global-osm-mz-5448446738-0	mz	parse	number not parsed as the house number	abstain	pass
+global-osm-mz-5592979855-0	mz	parse	no road parsed	too_coarse	pass
+global-osm-mz-9952405104-0	mz	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-mz-w1098813708-0	mz	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-mz-w1099215740-0	mz	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-mz-w1099336057-0	mz	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-mz-w1104669743-0	mz	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-mz-w556862345-0	mz	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-mz-w556862346-0	mz	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-na-4214146093-0	na	parse	no road parsed	near_miss	near_miss
+global-osm-na-4214146093-1	na	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-ng-4866368120-1	ng	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ng-4995053530-0	ng	house lookup	street found without the house	abstain	abstain
+global-osm-ng-4995053530-1	ng	house lookup	street found without the house	abstain	pass
+global-osm-ng-8603412992-0	ng	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ng-8603412992-1	ng	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ni-11333156445-1	ni	house lookup	street found without the house	near_miss	near_miss
+global-osm-ni-2433018494-0	ni	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ni-2433018494-1	ni	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ni-3931668003-0	ni	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-ni-3931668003-1	ni	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ni-4491335895-1	ni	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ni-5494537150-1	ni	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-no-3125674434-0	no	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-np-12517742391-0	np	parse	no road parsed	abstain	abstain
+global-osm-np-13318735800-0	np	place corroboration	house found by the index search, rejected in tier raw	too_coarse	pass
+global-osm-np-4866155223-0	np	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-np-4866155223-1	np	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-np-4989863423-0	np	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-np-4989863423-1	np	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-np-5009181482-0	np	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-np-5009181482-1	np	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-np-5201925519-0	np	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	abstain
+global-osm-np-5201925519-1	np	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-np-5330416623-0	np	parse	no road parsed	abstain	abstain
+global-osm-np-5568700521-0	np	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-np-5568700521-1	np	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-np-5699878824-0	np	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-np-5699878824-1	np	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-np-5705024321-0	np	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-np-5705024321-1	np	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-np-5778982383-0	np	parse	postcode before the country read as a house number, the country as a road	abstain	abstain
+global-osm-np-5778982383-1	np	parse	postcode before the country read as a house number, the country as a road	abstain	abstain
+global-osm-np-5895820972-0	np	parse	number not parsed as the house number	abstain	abstain
+global-osm-np-5895820972-1	np	parse	number not parsed as the house number	abstain	abstain
+global-osm-np-6148867185-0	np	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-np-6248821286-0	np	place corroboration	calling code written as the postcode	abstain	abstain
+global-osm-np-6248821286-1	np	place corroboration	calling code written as the postcode	abstain	abstain
+global-osm-np-6515239750-0	np	parse	no road parsed	far_miss	far_miss
+global-osm-np-6875109585-1	np	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-np-7682310686-1	np	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-np-8075494044-1	np	parse	number not parsed as the house number	abstain	pass
+global-osm-np-9447041644-0	np	parse	no road parsed	abstain	abstain
+global-osm-np-9447041644-1	np	street lookup	no street candidate	abstain	abstain
+global-osm-np-9598909256-0	np	place corroboration	calling code written as the postcode	wrong_component	wrong_component
+global-osm-np-9598909256-1	np	place corroboration	calling code written as the postcode	wrong_component	wrong_component
+global-osm-om-11502800216-0	om	place corroboration	house found by the index search, rejected in tier raw	too_coarse	pass
+global-osm-om-11502800216-1	om	place corroboration	house found by the index search, rejected in tier raw	too_coarse	pass
+global-osm-om-13063172502-1	om	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-om-13306435802-0	om	street lookup	no street candidate	near_miss	near_miss
+global-osm-om-13306435802-1	om	street lookup	no street candidate	near_miss	near_miss
+global-osm-om-4600015193-0	om	street lookup	calling code written as the postcode	abstain	pass
+global-osm-om-4600015193-1	om	place corroboration	calling code written as the postcode	wrong_component	pass
+global-osm-om-5365879323-0	om	parse	postcode before the country read as a house number, the country as a road	near_miss	near_miss
+global-osm-om-5365879323-1	om	parse	postcode before the country read as a house number, the country as a road	wrong_component	wrong_component
+global-osm-om-5644335421-0	om	parse	number not parsed as the house number	abstain	abstain
+global-osm-om-5853367085-0	om	place corroboration	house found by the index search, rejected in tier without_stated_country	near_miss	near_miss
+global-osm-om-5853367085-1	om	parse	postcode before the country read as a house number, the country as a road	near_miss	near_miss
+global-osm-om-6282329687-0	om	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-om-7476722415-0	om	parse	number not parsed as the house number	abstain	abstain
+global-osm-om-7476722415-1	om	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-om-w1359031573-0	om	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-om-w1359031573-1	om	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-om-w191859938-0	om	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	abstain
+global-osm-om-w260260705-1	om	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-om-w260260712-1	om	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-om-w260261071-1	om	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-om-w377639549-1	om	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-om-w377851534-1	om	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-om-w474965828-1	om	parse	number not parsed as the house number	too_coarse	pass
+global-osm-om-w555950667-1	om	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-pa-14214626342-0	pa	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-pa-w1286098716-0	pa	parse	number not parsed as the house number	abstain	pass
+global-osm-pa-w560559005-0	pa	place corroboration	house found by the index search, rejected in tier part	too_coarse	pass
+global-osm-pa-w609814622-0	pa	place corroboration	house found by the index search, rejected in tier part	too_coarse	pass
+global-osm-pe-4457317205-0	pe	place corroboration	calling code written as the postcode	wrong_component	wrong_component
+global-osm-pe-4457317205-1	pe	place corroboration	calling code written as the postcode	wrong_component	wrong_component
+global-osm-pe-5043273226-0	pe	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-pe-5941614885-0	pe	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-pe-5941614885-1	pe	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-pe-6286458628-0	pe	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pe-6286458628-1	pe	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-pe-8313601360-0	pe	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-pe-8558640432-0	pe	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-pe-8558640432-1	pe	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pf-12956577801-0	pf	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pf-7630692168-1	pf	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pf-7630692534-1	pf	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pf-7630692839-1	pf	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pf-7630695072-1	pf	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pf-7630695402-1	pf	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pf-w883023927-0	pf	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pf-w883023927-1	pf	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ph-4278516313-0	ph	parse	number not parsed as the house number	wrong_component	wrong_component
+global-osm-pk-13861053116-0	pk	place corroboration	house found by the index search, rejected in tier raw	confidence_mismatch	confidence_mismatch
+global-osm-pk-13861053116-1	pk	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-pk-4542988168-0	pk	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-pk-4542988168-1	pk	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-pk-5327061673-0	pk	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pk-5327061673-1	pk	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pk-8750595061-1	pk	parse	number not parsed as the house number	abstain	pass
+global-osm-pk-9024888899-1	pk	house lookup	street found without the house	near_miss	near_miss
+global-osm-pk-9948940017-0	pk	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pk-9948940017-1	pk	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pr-10271540561-1	pr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pr-10271540563-1	pr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pr-12783966547-0	pr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pr-3004756959-0	pr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pr-3004839433-0	pr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pr-3004839433-1	pr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-pr-5147622775-0	pr	place corroboration	house found by the index search, rejected in tier without_stated_country	abstain	pass
+global-osm-pr-5229469163-0	pr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ps-12771938130-0	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-13184643655-0	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-13184670740-0	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-13456076871-0	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	abstain	abstain
+global-osm-ps-13456076871-1	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	confidence_mismatch	confidence_mismatch
+global-osm-ps-13534063747-0	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	abstain	abstain
+global-osm-ps-13534063747-1	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	confidence_mismatch	confidence_mismatch
+global-osm-ps-13793564749-0	ps	parse	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-13798504561-0	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-13904654358-0	ps	parse	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-13904654358-1	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-13947578245-0	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-4181876091-0	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-4181876091-1	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-5219366728-0	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	abstain	abstain
+global-osm-ps-5590676124-0	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-5590676124-1	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-6875519688-0	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-6875519688-1	ps	place corroboration	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-7937812085-0	ps	place corroboration	postcode before the country read as a house number, the country as a road	abstain	abstain
+global-osm-ps-8232254302-0	ps	parse	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-ps-8232254302-1	ps	parse	country name the parser does not know ("Palestinian Territory")	too_coarse	too_coarse
+global-osm-py-5502188380-1	py	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-qa-10166542617-1	qa	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-qa-11288276977-0	qa	parse	number not parsed as the house number	too_coarse	pass
+global-osm-qa-11288276977-1	qa	parse	number not parsed as the house number	too_coarse	pass
+global-osm-qa-11652765672-0	qa	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-qa-13945487350-0	qa	parse	no road parsed	too_coarse	too_coarse
+global-osm-qa-4330619391-0	qa	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-qa-5552367189-0	qa	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-qa-9681314364-0	qa	parse	number not parsed as the house number	abstain	pass
+global-osm-ro-11303167141-0	ro	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ro-12138635510-0	ro	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ro-13036786573-0	ro	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ro-9974303698-0	ro	place corroboration	house found by the index search, rejected in tier default	abstain	pass
+global-osm-ru-5452814745-0	ru	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-rw-w1136812296-0	rw	place corroboration	house found by the index search, rejected in tier raw	too_coarse	pass
+global-osm-rw-w1153185979-0	rw	place corroboration	house found by the index search, rejected in tier without_stated_country	near_miss	near_miss
+global-osm-rw-w1153185979-1	rw	place corroboration	house found by the index search, rejected in tier without_stated_country	near_miss	near_miss
+global-osm-rw-w1153189490-0	rw	place corroboration	house found by the index search, rejected in tier raw	too_coarse	pass
+global-osm-rw-w1153206181-0	rw	place corroboration	house found by the index search, rejected in tier default_without_stated_country	abstain	pass
+global-osm-rw-w1153206183-0	rw	parse	number not parsed as the house number	abstain	abstain
+global-osm-rw-w1153206183-1	rw	parse	number not parsed as the house number	abstain	abstain
+global-osm-rw-w1153206188-0	rw	parse	number not parsed as the house number	abstain	abstain
+global-osm-rw-w1153206188-1	rw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sa-12798084942-0	sa	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-sa-12798098422-1	sa	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sa-4641517763-0	sa	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sa-4641517763-1	sa	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sa-4641550425-0	sa	place corroboration	house found by the index search, rejected in tier raw	confidence_mismatch	confidence_mismatch
+global-osm-sa-4641550425-1	sa	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-sa-6789487378-1	sa	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sa-8692267651-1	sa	parse	number not parsed as the house number	abstain	abstain
+global-osm-sd-11056429436-0	sd	parse	no road parsed	too_coarse	too_coarse
+global-osm-sd-2488135126-1	sd	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-sd-4937240928-0	sd	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sd-4937240928-1	sd	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-sd-7041249014-0	sd	parse	no road parsed	too_coarse	too_coarse
+global-osm-sd-7041249014-1	sd	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sd-w1026229725-0	sd	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-sd-w473338331-0	sd	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-se-11102212589-0	se	parse	no road parsed	too_coarse	too_coarse
+global-osm-se-13119187345-0	se	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-sg-4679562389-1	sg	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-si-12730439611-0	si	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-si-5053542245-0	si	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-si-5600712666-0	si	place corroboration	house found by the index search, rejected in tier default	confidence_mismatch	confidence_mismatch
+global-osm-sl-4539892923-0	sl	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-sl-4539892923-1	sl	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-sl-4539892925-0	sl	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-sl-4539892925-1	sl	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-sl-4539892933-0	sl	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-sl-4539892933-1	sl	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-sn-10614381608-0	sn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sn-10614381608-1	sn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sn-12610774599-1	sn	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-sn-12921694047-0	sn	place corroboration	house found by the index search, rejected in tier raw	confidence_mismatch	confidence_mismatch
+global-osm-sn-12921694047-1	sn	place corroboration	house found by the index search, rejected in tier raw	confidence_mismatch	confidence_mismatch
+global-osm-sn-13457639704-1	sn	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-sn-3217271658-0	sn	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-sn-3217271658-1	sn	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-sn-3228053911-0	sn	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-sn-3228053911-1	sn	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-sn-6844645415-1	sn	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-sn-8655738117-0	sn	street lookup	no street candidate	abstain	pass
+global-osm-sn-w1500617145-0	sn	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-sn-w1500617145-1	sn	parse	no road parsed	near_miss	near_miss
+global-osm-sr-4568742455-0	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-4568742455-1	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-5357823540-0	sr	place corroboration	house found by the index search, rejected in tier part	abstain	pass
+global-osm-sr-5582273340-0	sr	place corroboration	house found by the index search, rejected in tier part	abstain	pass
+global-osm-sr-5582273341-0	sr	place corroboration	house found by the index search, rejected in tier part	abstain	pass
+global-osm-sr-5653547499-0	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-5653547499-1	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-5653547504-0	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-5653547504-1	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-5896174423-0	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-5896174423-1	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-6323407525-0	sr	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-sr-6323407525-1	sr	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-sr-7022482291-0	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-7022482291-1	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-7029963975-1	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-7029963978-1	sr	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-sr-7029963979-0	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-7029963979-1	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-7029963984-0	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sr-7029963984-1	sr	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sv-10985707425-0	sv	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sv-10985707425-1	sv	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sv-11304652843-1	sv	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sy-11016814605-1	sy	parse	number not parsed as the house number	abstain	pass
+global-osm-sy-11066690137-0	sy	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sy-11066690137-1	sy	parse	number not parsed as the house number	wrong_component	wrong_component
+global-osm-sy-12855195601-0	sy	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-sy-12855195601-1	sy	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-sy-13328866007-0	sy	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sy-13328866007-1	sy	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sy-9312540262-0	sy	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sy-9312540262-1	sy	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sy-9321105633-1	sy	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sy-9650961318-0	sy	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sy-9892939120-0	sy	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sy-9892939120-1	sy	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sy-9901421423-0	sy	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-sy-9901421423-1	sy	parse	number not parsed as the house number	wrong_component	wrong_component
+global-osm-th-13247823763-0	th	house lookup	street found without the house	confidence_mismatch	confidence_mismatch
+global-osm-th-5348561421-0	th	street lookup	no street candidate	abstain	pass
+global-osm-tj-10300765361-0	tj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tj-4741252965-0	tj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tj-6715006832-0	tj	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-tj-6722968827-0	tj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tj-7012401014-0	tj	street lookup	no street candidate	abstain	abstain
+global-osm-tj-7012401014-1	tj	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-tj-7023808678-0	tj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tj-7023926797-0	tj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tj-7026017765-0	tj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tj-7417124853-0	tj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tj-9501424795-0	tj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tj-9501424795-1	tj	place corroboration	house found by the index search, rejected in tier default_without_stated_country	too_coarse	too_coarse
+global-osm-tj-9702845748-0	tj	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-tj-9704507679-0	tj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tj-976891443-0	tj	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tm-10734159405-1	tm	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-tm-12707755101-1	tm	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-tm-5403746240-0	tm	place corroboration	house found by the index search, rejected in tier part	abstain	pass
+global-osm-tm-6023403238-1	tm	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-tm-6501475285-0	tm	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-tm-6501475285-1	tm	place corroboration	calling code written as the postcode	too_coarse	pass
+global-osm-tm-7243107385-1	tm	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tn-10788253078-1	tn	place corroboration	house found by the index search, rejected in tier without_stated_country	too_coarse	too_coarse
+global-osm-tn-5954404861-1	tn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tr-10274185052-0	tr	house lookup	street found without the house	far_miss	pass
+global-osm-tr-10274185052-1	tr	street lookup	no street candidate	far_miss	pass
+global-osm-tr-12679722929-0	tr	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-tr-12679722929-1	tr	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-tr-5753899075-0	tr	house lookup	street found without the house	confidence_mismatch	confidence_mismatch
+global-osm-tr-5753899075-1	tr	house lookup	street found without the house	confidence_mismatch	confidence_mismatch
+global-osm-tr-6902701247-1	tr	house lookup	street found without the house	too_coarse	too_coarse
+global-osm-tw-11079787869-0	tw	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-tw-11079787869-1	tw	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-tw-11192047440-0	tw	place corroboration	house found by the index search, rejected in tier default	too_coarse	too_coarse
+global-osm-tw-11192047440-1	tw	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-tz-11209895594-1	tz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tz-12007698727-0	tz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tz-12007698727-1	tz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tz-4337249776-0	tz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tz-4337249776-1	tz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-tz-4557264183-1	tz	parse	number not parsed as the house number	abstain	pass
+global-osm-tz-4557313975-1	tz	parse	number not parsed as the house number	abstain	pass
+global-osm-tz-5142618962-0	tz	parse	no road parsed	too_coarse	too_coarse
+global-osm-tz-5202702821-0	tz	parse	number not parsed as the house number	abstain	pass
+global-osm-tz-5516624946-0	tz	parse	no road parsed	wrong_country	wrong_country
+global-osm-tz-5516624946-1	tz	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-tz-6481697777-0	tz	parse	no road parsed	too_coarse	too_coarse
+global-osm-tz-7033237683-0	tz	parse	no road parsed	too_coarse	pass
+global-osm-tz-7033237683-1	tz	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-tz-7233602705-0	tz	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-tz-7233602705-1	tz	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-tz-8169694125-0	tz	parse	no road parsed	too_coarse	too_coarse
+global-osm-tz-8520620056-0	tz	parse	no road parsed	too_coarse	pass
+global-osm-ua-6169307602-0	ua	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ua-6802834675-0	ua	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ua-9847397605-0	ua	parse	number not parsed as the house number	abstain	pass
+global-osm-ug-13208388649-0	ug	street lookup	no street candidate	near_miss	near_miss
+global-osm-ug-3782244073-1	ug	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ug-3946019557-1	ug	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ug-3946191137-1	ug	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ug-4040029232-1	ug	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-ug-4157605901-1	ug	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ug-5002793123-1	ug	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ug-5445338006-0	ug	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-ug-5445338006-1	ug	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-ug-5554117225-0	ug	parse	number not parsed as the house number	abstain	pass
+global-osm-ug-5943931877-1	ug	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-us-13608380631-0	us	place corroboration	house found by the index search, rejected in tier raw	wrong_component	wrong_component
+global-osm-us-13608380631-1	us	place corroboration	house found by the index search, rejected in tier raw	wrong_component	wrong_component
+global-osm-us-13947807566-0	us	place corroboration	house found by the index search, rejected in tier raw	wrong_component	wrong_component
+global-osm-us-13947807566-1	us	place corroboration	house found by the index search, rejected in tier raw	wrong_component	wrong_component
+global-osm-uy-6874493272-0	uy	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-uy-6874493272-1	uy	place corroboration	house found by the index search, rejected in tier raw	near_miss	near_miss
+global-osm-uz-11665486085-0	uz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-uz-11665486085-1	uz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-uz-11842421508-0	uz	parse	number not parsed as the house number	too_coarse	pass
+global-osm-uz-4963219221-0	uz	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-uz-7702119685-1	uz	house lookup	street found without the house	wrong_component	wrong_component
+global-osm-ve-5506214497-0	ve	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ve-5506214497-1	ve	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-vi-12175402161-1	vi	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vi-4084471700-0	vi	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vi-4084471700-1	vi	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vi-4925282921-0	vi	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-vi-4925282921-1	vi	place corroboration	house found by the index search, rejected in tier part	too_coarse	too_coarse
+global-osm-vi-5347227946-1	vi	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-vi-8633595080-1	vi	house lookup	street found without the house	near_miss	near_miss
+global-osm-vi-w1319827232-1	vi	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vi-w257189135-1	vi	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vi-w28297848-0	vi	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-vi-w522505932-0	vi	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vi-w522505932-1	vi	house lookup	street found without the house	near_miss	near_miss
+global-osm-vi-w526020114-0	vi	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-vi-w526020114-1	vi	parse	number not parsed as the house number	near_miss	near_miss
+global-osm-vi-w526180366-0	vi	parse	no road parsed	too_coarse	too_coarse
+global-osm-vi-w526233268-1	vi	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vi-w526239419-0	vi	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vi-w526239419-1	vi	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vi-w526321897-0	vi	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vi-w526321897-1	vi	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vn-10831348406-0	vn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vn-10831348406-1	vn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vn-11395688196-0	vn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-vn-11395688196-1	vn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-vn-11836974299-0	vn	parse	number not parsed as the house number	far_miss	far_miss
+global-osm-vn-12119821053-0	vn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-vn-12119821053-1	vn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-vn-13707150741-0	vn	place corroboration	house found by the index search, rejected in tier part	abstain	abstain
+global-osm-vn-13707150741-1	vn	place corroboration	house found by the index search, rejected in tier raw	abstain	abstain
+global-osm-vn-13789933381-0	vn	street lookup	no street candidate	far_miss	pass
+global-osm-vn-14098561841-0	vn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-vn-14098561841-1	vn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-vn-14158715774-1	vn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-vn-5253649813-0	vn	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-vn-6484025665-0	vn	street lookup	no street candidate	too_coarse	too_coarse
+global-osm-vn-7169718664-1	vn	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ye-13050621717-0	ye	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ye-13050621717-1	ye	place corroboration	house found by the index search, rejected in tier raw	too_coarse	too_coarse
+global-osm-ye-4840185924-0	ye	place corroboration	calling code written as the postcode	abstain	pass
+global-osm-ye-4840185924-1	ye	parse	number not parsed as the house number	abstain	pass
+global-osm-ye-5134131921-0	ye	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-ye-5134131921-1	ye	street lookup	no street candidate	abstain	pass
+global-osm-ye-6920741841-0	ye	parse	no road parsed	abstain	abstain
+global-osm-ye-8868892017-0	ye	place corroboration	country not parsed	abstain	pass
+global-osm-ye-8868892017-1	ye	place corroboration	country not parsed	abstain	pass
+global-osm-ye-9942513303-0	ye	parse	number not parsed as the house number	abstain	abstain
+global-osm-ye-9942513303-1	ye	parse	number not parsed as the house number	abstain	abstain
+global-osm-zm-6150129685-0	zm	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-zm-8889891724-0	zm	parse	number not parsed as the house number	abstain	pass
+global-osm-zm-8889891724-1	zm	parse	number not parsed as the house number	abstain	abstain
+global-osm-zw-10091753778-1	zw	parse	postcode before the country read as a house number, the country as a road	abstain	pass
+global-osm-zw-10091781247-1	zw	parse	number not parsed as the house number	abstain	pass
+global-osm-zw-11671966946-1	zw	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-zw-12419949094-1	zw	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-zw-12625465510-0	zw	place corroboration	house found by the index search, rejected in tier raw	abstain	pass
+global-osm-zw-14211788426-0	zw	place corroboration	house filed under a county named like the stated town	too_coarse	too_coarse
+global-osm-zw-14211788426-1	zw	parse	number not parsed as the house number	too_coarse	too_coarse
+global-osm-zw-6370192285-0	zw	parse	calling code written as the postcode	wrong_component	pass

@@ -18,7 +18,7 @@ When the answer has no house, SearchAddress looks for the house the query names:
 
 - **Answer is a postcode:** the completion lookup, which reads no parse. If that finds nothing, the postcode's streets are searched for a number of several words written in the query.
 - **Answer is a street:** the same-named streets that hold the postcode. When the parse read no house number, same-named streets within 5 km are searched too.
-- **Answer is a town, or there is no answer:** the completion lookup, but only when the parse read no house number.
+- **Answer is a town, or there is no answer:** the completion lookup, but only when the parse read no house number. [#358](358.md) later dropped that condition.
 
 Town answers whose parse found a number get no lookup. They are the most frequent answers without a house and the least often recovered, so leaving them out keeps the cost low.
 
