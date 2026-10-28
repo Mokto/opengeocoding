@@ -16,6 +16,7 @@ buffa = "0.9"
 connectrpc = { version = "0.9", features = ["axum"] }
 deunicode = "1.6"
 connectrpc-reflection = { version = "0.9", default-features = false }
+httpdate = "1"
 indexmap = { version = "2", features = ["serde"] }
 prometheus = "0.14"
 regex = "1"

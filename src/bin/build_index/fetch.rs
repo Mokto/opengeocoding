@@ -156,9 +156,12 @@ pub fn client() -> Result<reqwest::Client> {
         .build()?)
 }
 
-/// Downloads `url` to `dest`, resuming a `.part` file after a dropped connection. `Ok(false)` if
+/// Downloads `url` to `dest`, resuming a `.part` file after a dropped connection, and keeping a
+/// `dest` an earlier, killed build completed while the server's file is no newer. `Ok(false)` if
 /// the server has no such file.
 pub async fn http_get(client: &reqwest::Client, url: &str, dest: &Path) -> Result<bool> {
+    // `dest` only ever appears whole (renamed from `.part`), so its time is when it was complete.
+    let kept = std::fs::metadata(dest).and_then(|m| m.modified()).ok();
     let part = store::part(dest);
     // The ETag (or date) of the response the `.part` began with. A `.part` an earlier, killed
     // build left behind is resumed only while the file is unchanged: Geofabrik replaces its
@@ -182,6 +185,11 @@ pub async fn http_get(client: &reqwest::Client, url: &str, dest: &Path) -> Resul
             request = request
                 .header(reqwest::header::RANGE, format!("bytes={have}-"))
                 .header(reqwest::header::IF_RANGE, &since);
+        } else if let Some(t) = kept {
+            request = request.header(
+                reqwest::header::IF_MODIFIED_SINCE,
+                httpdate::fmt_http_date(t),
+            );
         }
         let mut response = match request.send().await {
             Ok(r) => r,
@@ -193,6 +201,10 @@ pub async fn http_get(client: &reqwest::Client, url: &str, dest: &Path) -> Resul
         let status = response.status();
         if status == reqwest::StatusCode::NOT_FOUND {
             return Ok(false);
+        }
+        if status == reqwest::StatusCode::NOT_MODIFIED && kept.is_some() {
+            println!("{url}: unchanged, keeping {}", dest.display());
+            return Ok(true);
         }
         if status == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
             std::fs::remove_file(&part)?;
@@ -720,7 +732,11 @@ async fn geofabrik(
         move |url: String, path: PathBuf| {
             let c = client.clone();
             Box::pin(async move {
+                if path.exists() && !readable_pbf(&path).await {
+                    std::fs::remove_file(&path)?;
+                }
                 ensure!(http_get(&c, &url, &path).await?, "{url} not found");
+                ensure!(readable_pbf(&path).await, "{url}: unreadable extract");
                 Ok(true)
             })
         },
@@ -1283,6 +1299,13 @@ mod tests {
 
     /// Serves `body` once, with ETag "new", and returns the request it got.
     fn serve_once(body: &'static [u8]) -> (String, std::thread::JoinHandle<String>) {
+        serve_once_as("200 OK", body)
+    }
+
+    fn serve_once_as(
+        status: &'static str,
+        body: &'static [u8],
+    ) -> (String, std::thread::JoinHandle<String>) {
         use std::io::{Read, Write};
         let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}/x.osm.pbf", server.local_addr().unwrap());
@@ -1291,7 +1314,7 @@ mod tests {
             let mut req = [0; 4096];
             let n = conn.read(&mut req).unwrap();
             let head = format!(
-                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nETag: \"new\"\r\nConnection: close\r\n\r\n",
+                "HTTP/1.1 {status}\r\nContent-Length: {}\r\nETag: \"new\"\r\nConnection: close\r\n\r\n",
                 body.len()
             );
             conn.write_all(&[head.as_bytes(), body].concat()).unwrap();
@@ -1322,6 +1345,23 @@ mod tests {
         let got = got.join().unwrap();
         assert!(got.contains("range: bytes=8-") && got.contains("if-range: \"old\""));
         assert_eq!(std::fs::read(&dest).unwrap(), b"newer file");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_complete_download_is_kept_while_the_server_has_nothing_newer() {
+        let dir = std::env::temp_dir().join(format!("http-keep-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let (dest, client) = (dir.join("x.osm.pbf"), reqwest::Client::new());
+        std::fs::write(&dest, "kept").unwrap();
+        let (url, got) = serve_once_as("304 Not Modified", b"");
+        assert!(http_get(&client, &url, &dest).await.unwrap());
+        assert!(got.join().unwrap().contains("if-modified-since: "));
+        assert_eq!(std::fs::read(&dest).unwrap(), b"kept");
+        let (url, _) = serve_once(b"newer");
+        assert!(http_get(&client, &url, &dest).await.unwrap());
+        assert_eq!(std::fs::read(&dest).unwrap(), b"newer");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
