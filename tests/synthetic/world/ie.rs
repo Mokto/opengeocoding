@@ -39,6 +39,43 @@ pub const PLACES: &[Place] = &[
         "Dublin",
         &[("en", "Dublin"), ("ga", "Baile Átha Cliath")],
     ),
+    place!(
+        "ie-swords",
+        "locality",
+        "town",
+        "IE",
+        "IE-D",
+        40_000,
+        (-8.62, 52.66),
+        "ie-d",
+        "Swords",
+        &[("en", "Swords")],
+    ),
+];
+
+pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Mallow Street",
+        postcode: "D02 X285",
+        city: "Dublin",
+        cc: "IE",
+        lon: -6.259,
+        lat: 53.3498,
+        numbers: &["18"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Mallow Street",
+        postcode: "K67 Y2E3",
+        city: "Swords",
+        cc: "IE",
+        lon: -8.619,
+        lat: 52.66,
+        numbers: &["18"],
+    },
 ];
 
 #[test]
@@ -62,4 +99,27 @@ fn an_irish_county_names_its_province_which_is_listed_and_found_by_its_code() {
     assert!(province.get("ISO3166-2-lvl4").is_none());
     let (_, place) = index().region_places().find(|(c, _)| *c == "IE-L").unwrap();
     assert_eq!(index().details(place.into())["admin_level"], 5);
+}
+
+/// Eircodes fused with their town ("Dublin D02 Y123") garble libpostal's parse. One the data lacks
+/// is dropped unless the house's own contradicts its routing key; one the data holds stays.
+pub fn cases() -> Vec<Case> {
+    let dublin = house(&STREETS[0], "18");
+    vec![
+        case(
+            "18 Mallow Street, Dublin D02 Y123, Ireland",
+            Want::At(dublin, 25.0, false),
+        ),
+        case("18 Mallow Street, Dublin D04 Y123, Ireland", Want::Abstain),
+        // Dublin's Eircode, not the Mallow Street of Swords
+        case(
+            "18 Mallow Street, Swords D02 X285, Ireland",
+            Want::At(dublin, 25.0, false),
+        ),
+        Case {
+            query: "18 Mallow Street, Swords K67 Y2E3, Ireland",
+            want: Want::At(house(&STREETS[1], "18"), 25.0, true),
+            known_failure: "parser: a known Eircode fused with its town garbles the parse, and only an unknown one is dropped",
+        },
+    ]
 }
