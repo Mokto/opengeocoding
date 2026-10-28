@@ -1,4 +1,4 @@
-use crate::index::country::{co, ee, pt};
+use crate::index::country::{co, ee, eh, pt};
 use crate::{
     index::{
         canon::{canon, is_canonical},
@@ -386,9 +386,38 @@ pub fn country_matches(expected: &str, details: Option<&AddressDetails>) -> bool
     expected.is_empty()
         || details.is_some_and(|d| {
             let actual = d.country_code.to_lowercase();
-            // a territory and its sovereign are one country to the lookups
-            actual == expected || filed_country(expected) == filed_country(&actual)
+            // A sovereign holds its territories, but a stated territory holds only its own
+            // places: "Chazeau, Guadeloupe" is not the Chazeau in the Loire.
+            actual == expected
+                || (filed_country(expected) == filed_country(&actual)
+                    && (filed_country(expected) == expected || in_territory(expected, d)))
+                || (expected == "eh" && eh::moroccan(d))
         })
+}
+
+/// Whether an answer filed under a territory's sovereign ("fr" for Réunion's places) lies in
+/// that territory: by its ISO 3166-2 code, or for the Caribbean Netherlands, whose places carry
+/// none, by its island.
+fn in_territory(territory: &str, d: &AddressDetails) -> bool {
+    let numbered: &[&str] = match territory {
+        "re" => &["FR-974"],
+        "gp" => &["FR-971"],
+        "mq" => &["FR-972"],
+        "gf" => &["FR-973"],
+        "yt" => &["FR-976"],
+        "sj" => &["NO-21", "NO-22"],
+        "bq" => &["NL-BQ1", "NL-BQ2", "NL-BQ3"],
+        _ => &[],
+    };
+    let own = format!("{}-{territory}", filed_country(territory));
+    d.region_codes.iter().any(|r| {
+        r.code.eq_ignore_ascii_case(&own) || numbered.iter().any(|c| r.code.eq_ignore_ascii_case(c))
+    }) || (territory == "bq"
+        && [&d.state, &d.region, &d.county].iter().any(|name| {
+            ["Bonaire", "Sint Eustatius", "Saba"]
+                .iter()
+                .any(|island| names_agree(island, name))
+        }))
 }
 
 /// The code a lookup or check knows an answer's country by: a territory's sovereign's ("us" for
@@ -561,6 +590,33 @@ pub fn postcode_place_agrees(
     .iter()
     .filter(|s| !s.is_empty())
     .any(|s| names_agree(expected, s) || names_agree(&undistricted, s))
+}
+
+/// Every suburb or district the query states is one of the candidate's places.
+pub fn suburb_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
+    ["suburb", "city_district"]
+        .iter()
+        .map(|key| part(address, key))
+        .filter(|stated| !stated.is_empty())
+        .all(|stated| {
+            let agrees = agrees_with(stated);
+            details.is_some_and(|d| {
+                [
+                    &d.city,
+                    &d.town,
+                    &d.village,
+                    &d.municipality,
+                    &d.suburb,
+                    &d.city_district,
+                    &d.neighbourhood,
+                    &d.borough,
+                    &d.district,
+                    &d.quarter,
+                ]
+                .iter()
+                .any(|name| !name.is_empty() && agrees(name))
+            })
+        })
 }
 
 pub fn region_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) -> bool {
@@ -964,12 +1020,17 @@ pub fn choose_candidate(
         return Some((i, "city_region"));
     }
     // A mistyped postcode ("312 Lowell Street, Lexington, MA 02423" for 02421): the house, road
-    // and town still agree. Only after every candidate holding the postcode has been refused.
+    // and town still agree. Only after every candidate holding the postcode has been refused,
+    // and only in the stated country or the stated region's: elsewhere, it is a namesake
+    // street's ("41 Cedar Avenue, Hamilton HM 12, Bermuda" is not the one in Ontario).
     if !postcode.is_empty() {
         let road_city = candidates
             .iter()
             .enumerate()
-            .filter(|(_, item)| house_road_city(address, item.address_details.as_option()))
+            .filter(|(_, item)| {
+                (contradicts || country_ok(item))
+                    && house_road_city(address, item.address_details.as_option())
+            })
             .map(|(i, _)| i)
             .collect();
         return prefer(road_city, "road_city");

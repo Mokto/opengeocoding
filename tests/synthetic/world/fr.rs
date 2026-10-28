@@ -157,6 +157,9 @@ pub fn cases() -> Vec<Case> {
         ),
         case("Ulstrasse 99, 50667 Nordville", town("fr-nordville", false)),
         case("Atlantis, France", town("fr", false)),
+        // a stated territory holds only its own places, and a stated country no other's
+        case("Colmar, Guadeloupe", Want::Abstain),
+        case("Colmar, Western Sahara", Want::Abstain),
     ]
 }
 
