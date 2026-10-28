@@ -3,7 +3,8 @@ use super::*;
 /// A number with a letter addition is keyed as its source writes it: glued ("11d"), spaced as OSM
 /// stores one letter ("11 d"), or after a slash as Italian registers write it ("11/a", "9/bis").
 /// [`schema::number_key`] keeps those separators, so the other two spellings are further keys for
-/// the same house, the spaced one first.
+/// the same house, the spaced one first. A Cyrillic letter is then tried in its Latin form, as
+/// Serbia's sources key the register's "10А" ("10a", "93v" for "93В").
 pub(super) fn letter_forms(number: &str) -> Vec<String> {
     let digits = number.bytes().take_while(u8::is_ascii_digit).count();
     let (base, rest) = number.split_at(digits);
@@ -11,19 +12,45 @@ pub(super) fn letter_forms(number: &str) -> Vec<String> {
         Some(b' ' | b'/') => rest.split_at(1),
         _ => ("", rest),
     };
-    if digits == 0 || letters.is_empty() || !letters.bytes().all(|b| b.is_ascii_lowercase()) {
+    let latin = cyrillic_letter(letters);
+    if digits == 0
+        || letters.is_empty()
+        || !letters.bytes().all(|b| b.is_ascii_lowercase()) && latin.is_none()
+    {
         return vec![];
     }
     // ponytail: only one letter is tried spaced, as OSM writes it; a stored "12 bis" is missed.
     let mut seps = vec![""];
-    if letters.len() == 1 {
+    if letters.chars().count() == 1 {
         seps.insert(0, " ");
     }
     seps.push("/");
-    seps.into_iter()
-        .filter(|s| *s != sep)
+    let mut forms: Vec<String> = (seps.iter().filter(|s| **s != sep))
         .map(|s| format!("{base}{s}{letters}"))
-        .collect()
+        .collect();
+    if let Some(l) = latin {
+        forms.extend(seps.iter().map(|s| format!("{base}{s}{l}")));
+    }
+    forms
+}
+
+/// Whether written number key `n` names stored key `stored`: equal, or with its Cyrillic letter
+/// in Latin, the form [`letter_forms`] finds it under ("10a" for a written "10а").
+pub fn same_number(n: &str, stored: &str) -> bool {
+    n == stored
+        || n.starts_with(|c: char| c.is_ascii_digit())
+            && n.char_indices().last().is_some_and(|(i, _)| {
+                cyrillic_letter(&n[i..]).is_some_and(|l| stored.strip_suffix(l) == Some(&n[..i]))
+            })
+}
+
+/// The Latin letter of one lowercase Cyrillic house letter, in Serbian romanization; letters
+/// romanized with a diacritic or two letters (ж, ћ, љ) have none, as `letter_forms` keys only a-z.
+fn cyrillic_letter(letters: &str) -> Option<char> {
+    let mut chars = letters.chars();
+    let c = chars.next().filter(|_| chars.next().is_none())?;
+    let i = "абвгдезијклмнопрстуфхц".chars().position(|k| k == c)?;
+    "abvgdezijklmnoprstufhc".chars().nth(i)
 }
 
 impl Index {
@@ -190,8 +217,14 @@ mod tests {
         assert_eq!(letter_forms("35/a"), ["35 a", "35a"]);
         assert_eq!(letter_forms("9/bis"), ["9bis"]);
         assert_eq!(letter_forms("12bis"), ["12/bis"]);
-        for n in ["7", "1/19", "285/1", "a1", "12 b1", "12/"] {
+        assert_eq!(letter_forms("10а"), ["10 а", "10/а", "10 a", "10a", "10/a"]);
+        assert_eq!(letter_forms("93 в"), ["93в", "93/в", "93 v", "93v", "93/v"]);
+        for n in ["7", "1/19", "285/1", "a1", "12 b1", "12/", "5ж", "5аб"] {
             assert!(letter_forms(n).is_empty(), "{n}");
+        }
+        assert!(same_number("13в", "13v") && same_number("13 в", "13 v") && same_number("7", "7"));
+        for (n, stored) in [("13в", "13b"), ("13v", "13в"), ("13ж", "13z"), ("в", "v")] {
+            assert!(!same_number(n, stored), "{n} {stored}");
         }
     }
 }

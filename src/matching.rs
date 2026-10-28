@@ -612,7 +612,7 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
                 };
                 crate::index::schema::number_key(&n.split(whitespace).collect::<String>())
             };
-            key(house) == key(&d.house_number)
+            crate::index::same_number(&key(house), &key(&d.house_number))
         }
 }
 

@@ -2279,8 +2279,8 @@ fn named_country(part: &str) -> String {
 
 fn same_house_number(found: &FullAddress, number: &str) -> bool {
     found.address_details.as_option().is_some_and(|d| {
-        crate::index::schema::number_key(&d.house_number)
-            == crate::index::schema::number_key(number)
+        use crate::index::schema::number_key;
+        crate::index::same_number(&number_key(number), &number_key(&d.house_number))
     })
 }
 
