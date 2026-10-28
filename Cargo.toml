@@ -33,6 +33,7 @@ tantivy-fst = "0.5"
 levenshtein_automata = "0.2"
 rstar = "0.13"
 rayon = "1"
+hashbrown = { version = "0.17", default-features = false }
 arrow-array = "60"
 parquet = { version = "60", default-features = false, features = ["arrow", "zstd", "snap"] }
 mimalloc = { version = "0.1", default-features = false }
