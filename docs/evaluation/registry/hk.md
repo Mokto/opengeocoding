@@ -55,3 +55,22 @@ The index holds most of these houses: at 150 of the 186 failing queries' points 
 - **Not resolved by the controls (23 en, 40 zh):** 50 of these have the house at the register point in the index, so the failure is in the query path, not the data; the rest were not inspected.
 
 No failure is labelled `known_failure`: none is critical. The controls touched held-out cases only to attribute them; nothing was tuned. These are diagnostic results on a local index, not a CI gold run. The documented fresh-service grpcurl SearchAddress hang reproduced as a known failure. Human review of the source points is pending.
+
+## Runtime follow-up: Hong Kong query forms
+
+A query-time change addresses the three causes above, with rules in `src/index/country/hk_mo.rs`:
+
+- **Chinese:** an address that starts with 香港 (or 新界, 九龍) is read without libpostal: the territory and region are dropped, a district of the 18 is the place it must lie in, and the road is the longest ending of the rest that names a street with that house (`葵涌高芳街` is 高芳街 in 葵涌). Numbers may end in a letter (`101A號`). If the data files the house under another district (Java Road under Kwun Tong), the road and number found anywhere in the territory answer when no house of that number lies more than 150 m away on a street of the same name.
+- **English:** an address ending in `Hong Kong` is read on its commas: the first part is the number and the street or village (`185 NGAU LIU`, which libpostal reads as a house), the last place after it the area (`Tuen Mun` in `Tuen Mun South, Tuen Mun`), a `… District` part its district (`&` read as `and`); `Kowloon`, `New Territories` and `Hong Kong` before the country, in either script, name no place of the data and are dropped.
+- **The territory or an area as the town:** a house whose locality is not the town written is accepted when the town is the territory itself (`27 KO FONG STREET, HONG KONG`) or a place within 3 km of the house (Tai Wai for a house the data files under Sha Tin), and only when no house of that number lies more than 150 m away on a street sharing one of its names. OpenStreetMap houses two 8 Yat Tung Streets 280 m apart on one estate; that address abstains, as before.
+
+On the same local index and evaluator, SearchAddress passes 233/240 (54 before), held-out 50/52 (11 before):
+
+| Kind | Form | Queries | Before | After |
+|---|---|---:|---:|---:|
+| Street | en | 72 | 41 | 70 |
+| Street | zh | 72 | 6 | 72 |
+| Village | en | 48 | 6 | 44 |
+| Village | zh | 48 | 1 | 47 |
+
+There is no critical result. Six English queries and one Chinese query still fail: Headland Drive and Kat O Main Street abstain, and 70A Pak Mong, 88B Wang Tong (`MUI WO, LANTAU ISLAND`, whose last place is no place of the data), 83 Pak Shek Terrace and 113 Sai Keng answer their area (`too_coarse`); the Chinese form of 126 San Tsuen abstains. ReverseGeocode and SuggestAddress are unchanged. On the full local gold suite (39,899 cases), rebased on the two-script name repair (#390), only Hong Kong answers change: 179 more SearchAddress passes (174 in this corpus, 5 in the OpenStreetMap Hong Kong cohort), with no newly failing case. Its one worse case, `280 湖翠路 Wu Chui Road, 屯門南 Tuen Mun South, 屯門 Tuen Mun`, came from taking the first place as the town; with the last place it passes, and a rerun of every Hong Kong case has 183 more passes and no worse case.

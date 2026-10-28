@@ -604,6 +604,21 @@ impl Parser {
             {
                 aligned = es::area_aligned(&libpostal(head.trim())?, area, town, province, &inner);
             }
+            if aligned.is_none()
+                && country
+                    .as_ref()
+                    .is_some_and(|(_, c)| matches!(c.as_str(), "hong kong" | "hongkong"))
+                && let [head, ref places @ ..] = parts[..]
+                && !places.is_empty()
+            {
+                let head = match hk_mo::numbered(head) {
+                    Some(numbered) => numbered,
+                    None => libpostal(head.trim())?,
+                };
+                if head_aligns(&head) && one_house(&head) {
+                    aligned = Some(hk_mo::aligned(&head, places));
+                }
+            }
             if aligned.is_none() && parts.len() == 1 {
                 aligned = postal_without_commas(q, &whole, libpostal)?;
             }
@@ -776,6 +791,26 @@ impl Index {
                 ]);
                 parsed = repaired.into();
             }
+        }
+        if let Some(Hit::Street {
+            name,
+            number: Some(number),
+            ..
+        }) = self.hk_chinese(q)
+        {
+            let mut repaired: Vec<(String, String)> = parsed
+                .iter()
+                .filter(|(key, _)| {
+                    matches!(key.as_str(), "unit" | "level" | "entrance" | "staircase")
+                })
+                .cloned()
+                .collect();
+            repaired.extend([
+                ("road".into(), name),
+                ("house_number".into(), number),
+                ("country".into(), "香港".into()),
+            ]);
+            parsed = repaired.into();
         }
         // Repairing the parse also changes structured fallbacks; require a corroborated house first.
         if let Some((aligned, _)) = self.nz_comma_house(q, &parsed)? {

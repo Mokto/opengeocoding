@@ -86,6 +86,9 @@ impl Index {
             }
             return vec![Hit::Place(p)];
         }
+        if let Some(hit) = self.hk_chinese(q) {
+            return vec![hit];
+        }
         // Chinese road addresses ("上海市虹口区中山北一路295号"): libpostal splits the road
         // from its number; read them here, scoped by the written district or city.
         if let Some((units, road, number)) = cn_tw::chinese(q) {
@@ -151,6 +154,17 @@ impl Index {
                 cc,
                 exact,
             );
+            if let Some(found) = self.hk_house_anywhere(
+                &hits,
+                road,
+                get("house_number").map(house_number),
+                city,
+                get("postcode"),
+                cc,
+                exact,
+            ) {
+                hits = found;
+            }
             // "70 N Professor St, Oberlin 44074" parses one road "n professor st oberlin": with
             // no town labelled, the road's last words may be it.
             if hits.is_empty() && city.is_none() && (cc.is_some() || get("postcode").is_some()) {

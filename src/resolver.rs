@@ -370,8 +370,26 @@ impl Core {
                             .index
                             .house_seat_named(&hits[index], city, part(address, "state"))
                         && (postcode.is_empty() || postcode_agrees(postcode, details));
+                    let territory = details.is_some_and(|d| {
+                        hk_mo::territory_as_town(&d.country_code)
+                            && self.index.hk_house_alone(&hits[index])
+                            && (country_named(city) == d.country_code
+                                || (!d.house_number.is_empty()
+                                    && judged[index].geo_coordinates.as_option().is_some_and(
+                                        |g| {
+                                            hk_mo::area_near(
+                                                &self.index,
+                                                city,
+                                                &d.country_code,
+                                                g.lat.into(),
+                                                g.lon.into(),
+                                            )
+                                        },
+                                    )))
+                    });
                     if self.index.house_locality_named(&hits[index], city)
                         || seat
+                        || territory
                         || ((postal_town || administrative_twin)
                             && state_consistent(address, details)
                             && !state_code_conflict(address, details))
