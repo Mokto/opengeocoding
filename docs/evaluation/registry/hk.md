@@ -73,4 +73,18 @@ On the same local index and evaluator, SearchAddress passes 233/240 (54 before),
 | Village | en | 48 | 6 | 44 |
 | Village | zh | 48 | 1 | 47 |
 
-There is no critical result. Six English queries and one Chinese query still fail: Headland Drive and Kat O Main Street abstain, and 70A Pak Mong, 88B Wang Tong (`MUI WO, LANTAU ISLAND`, whose last place is no place of the data), 83 Pak Shek Terrace and 113 Sai Keng answer their area (`too_coarse`); the Chinese form of 126 San Tsuen abstains. ReverseGeocode and SuggestAddress are unchanged. On the full local gold suite (39,899 cases), rebased on the two-script name repair (#390), only Hong Kong answers change: 179 more SearchAddress passes (174 in this corpus, 5 in the OpenStreetMap Hong Kong cohort), with no newly failing case. Its one worse case, `280 湖翠路 Wu Chui Road, 屯門南 Tuen Mun South, 屯門 Tuen Mun`, came from taking the first place as the town; with the last place it passes, and a rerun of every Hong Kong case has 183 more passes and no worse case.
+There is no critical result. Six English queries and one Chinese query still fail: Headland Drive and Kat O Main Street abstain, and 70A Pak Mong, 88B Wang Tong (`MUI WO, LANTAU ISLAND`, whose last place is no place of the data), 83 Pak Shek Terrace and 113 Sai Keng answer their area (`too_coarse`); the Chinese form of 126 San Tsuen abstains. ReverseGeocode and SuggestAddress are unchanged by that change. On the full local gold suite (39,899 cases), rebased on the two-script name repair (#390), only Hong Kong answers change: 179 more SearchAddress passes (174 in this corpus, 5 in the OpenStreetMap Hong Kong cohort), with no newly failing case. Its one worse case, `280 湖翠路 Wu Chui Road, 屯門南 Tuen Mun South, 屯門 Tuen Mun`, came from taking the first place as the town; with the last place it passes, and a rerun of every Hong Kong case has 183 more passes and no worse case.
+
+## Runtime follow-up: SearchAddress's reading in SuggestAddress
+
+SuggestAddress never calls libpostal, so the reading above did not reach it. It now reads whole Hong Kong addresses with the same rules, in `hk_mo::hk_typed_houses`:
+
+- The Chinese form, as SearchAddress reads it.
+- An English or two-script form (`14 北潭凹 Pak Tam Au, 西貢 Sai Kung, Hong Kong`) whose last part is the territory, one of its regions, or a place only Hong Kong has. Flat, floor and building parts before the number are skipped (`Flat A, 5/F, 29 Elgin Street, Central, Hong Kong`).
+- It suggests the houses in or within 3 km of the area written, or in the district written. Otherwise it suggests one house, and only when no house far off has that number on a street of the same name.
+
+A road typed in Chinese is completed without its territory, region and district, and with a space before its number (`香港中西區伊利近街2` reads as `伊利近街 2`): the term dictionary holds `伊利近街2` as a single word.
+
+On the same local index, SuggestAddress finds an acceptable full-string result for 233/240 queries (52 before). The seven that still fail are the queries SearchAddress also fails. On the full local gold suite, only Hong Kong suggestions change: 241 more passes (181 in this corpus, 60 in the OpenStreetMap Hong Kong cohort), with no newly failing case. One SearchAddress answer changes: `香港九龍九龍城區曲街19號` passes as before, but with a different town component. Its two-character road is now looked for outside the district written when it is the whole road.
+
+Display names still show the data's locality and district, which are often wrong in Hong Kong. For example, 132 Nathan Road in Tsim Sha Tsui shows as `Hong Kong, Central and Western District`, and ResolveRegion returns no district there. The fix belongs in the index builder.

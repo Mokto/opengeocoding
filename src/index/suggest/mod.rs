@@ -6,7 +6,7 @@ mod place;
 mod postcode;
 mod street;
 
-use super::country::{ca, cz_sk, dk, ee, eg, it, pl, ps, pt};
+use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, it, pl, ps, pt};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 pub(super) use place::place_names;
@@ -335,6 +335,40 @@ impl Index {
         }
         if let Some(found) = self.chinese_suggest(text, cc) {
             return found;
+        }
+        if cc.is_none_or(|c| c.eq_ignore_ascii_case("hk")) {
+            let found: Vec<Suggestion> = self
+                .hk_typed_houses(text, cc)
+                .iter()
+                .filter_map(|hit| match hit {
+                    Hit::Street {
+                        doc,
+                        sid,
+                        place,
+                        name,
+                        number,
+                        x,
+                        y,
+                        ..
+                    } => Some(self.street_suggestion(
+                        *doc,
+                        *sid,
+                        *place,
+                        name,
+                        number.as_deref(),
+                        (*x, *y),
+                    )),
+                    _ => None,
+                })
+                .collect();
+            if !found.is_empty() {
+                return kept(found, cc, limit);
+            }
+            if let Some(spaced) = hk_mo::typed_chinese(text)
+                && spaced != text
+            {
+                return self.suggest(&spaced, limit, cc, focus, landmarks);
+            }
         }
         if let Some(hits) = self.korean_search(text)
             && !hits.is_empty()
