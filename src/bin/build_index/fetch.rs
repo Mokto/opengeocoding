@@ -262,12 +262,13 @@ where
     std::fs::create_dir_all(dir)?;
     if store.exists(&format!("{rel}/_COMPLETE")).await? {
         println!("{rel}: from the store");
-        store.fetch(rel, dir).await?;
         let keep = store.list(rel).await?.into_iter().map(|(n, _)| n).collect();
-        return prune(dir, &keep);
+        prune(dir, &keep)?;
+        return store.fetch(rel, dir).await;
     }
     let stored: BTreeMap<String, u64> = store.list(rel).await?.into_iter().collect();
     let items = items().await?;
+    prune(dir, &items.iter().map(|(n, _)| n.clone()).collect())?;
     println!(
         "{rel}: {} items, {} already stored",
         items.len(),
@@ -316,6 +317,7 @@ where
 /// Deletes the files in `dir` that `keep` does not name. A kept scratch volume still holds an
 /// earlier build's sources (another Overture release, a dropped extract or layer); left there,
 /// the builder would read them and a new mirror's MANIFEST would name files never uploaded.
+/// Called before downloading too, since the volume only holds one build's sources.
 fn prune(dir: &Path, keep: &BTreeSet<String>) -> Result<()> {
     for f in store::walk(dir)? {
         if !keep.contains(&f) {
@@ -334,6 +336,14 @@ const OVERTURE_TYPES: [(&str, &str); 5] = [
 ];
 
 pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetched> {
+    // `job` builds into scratch/index; a kept volume still holds the last build's output,
+    // which the builder would only replace after these sources have no room left.
+    match std::fs::remove_dir_all(scratch.join("index")) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+            return Err(e).context("remove the previous build's output");
+        }
+        _ => {}
+    }
     let client = client()?;
     let overture = Store::overture()?;
     let local = scratch.join("overture");
@@ -618,6 +628,7 @@ async fn geofabrik(
         std::fs::create_dir_all(&dir)?;
         let mut missing: BTreeSet<String> = ids.iter().map(file).collect();
         let wanted = missing.clone();
+        prune(&dir, &wanted)?;
         for list in [
             name,
             if name == "osm" {
@@ -686,7 +697,6 @@ async fn geofabrik(
                 );
             }
         }
-        prune(&dir, &wanted)?;
         return Ok(Some(dir));
     }
     let ids = ids.to_vec();
@@ -1516,6 +1526,10 @@ mod tests {
                 },
                 |write: bool, path: PathBuf| {
                     Box::pin(async move {
+                        ensure!(
+                            !path.with_file_name("part-old.parquet").exists(),
+                            "an earlier build's file is still there while downloading"
+                        );
                         if write {
                             std::fs::write(path, "new")?;
                         }
