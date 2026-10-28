@@ -115,11 +115,20 @@ impl Store {
         if let Some(m) = &self.mirror
             && rel.starts_with("sources/")
             && !self.has(&sealed).await?
-            && m.has(&sealed).await?
+            && m.mirrors(&sealed).await
         {
             return Ok(m);
         }
         Ok(self)
+    }
+
+    /// Whether this store, as a mirror, holds `rel`. An unreachable or refusing mirror holds
+    /// nothing: the sources then come from upstream, as without one.
+    async fn mirrors(&self, rel: &str) -> bool {
+        self.has(rel).await.unwrap_or_else(|e| {
+            eprintln!("warning: sources mirror: {e:#}");
+            false
+        })
     }
 
     /// The file holding `rel`, when the store is a local directory.
@@ -144,7 +153,7 @@ impl Store {
         }
         match &self.mirror {
             Some(m) if rel.starts_with("sources/") && rel.ends_with("/_COMPLETE") => {
-                m.has(rel).await
+                Ok(m.mirrors(rel).await)
             }
             _ => Ok(false),
         }
@@ -599,8 +608,13 @@ mod tests {
         std::thread::spawn(move || {
             use std::io::{Read, Write};
             for mut conn in listener.incoming().flatten() {
-                let _ = conn.read(&mut [0; 4096]);
-                let _ = conn.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n");
+                let mut request = [0; 4096];
+                let n = conn.read(&mut request).unwrap_or(0);
+                let _ = conn.write_all(if request[..n].windows(6).any(|w| w == b"denied") {
+                    b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n"
+                } else {
+                    b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n"
+                });
             }
         });
         // SAFETY: no other test in this binary reads or writes the environment.
@@ -613,5 +627,14 @@ mod tests {
         }
         let store = Store::open("s3://bucket").unwrap();
         assert!(!store.exists("indexes/x/_COMPLETE").await.unwrap());
+        // a mirror that refuses is one that holds nothing
+        assert!(store.exists("sources/denied/_COMPLETE").await.is_err());
+        let dir = std::env::temp_dir().join(format!("refusing-mirror-{}", std::process::id()));
+        let local = Store::open(&format!("file://{}", dir.display()))
+            .unwrap()
+            .with_mirror(store);
+        assert!(!local.exists("sources/denied/_COMPLETE").await.unwrap());
+        assert!(local.list("sources/denied").await.unwrap().is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }
