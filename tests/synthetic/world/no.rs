@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Case, at_house, case, index, metres, street};
+use crate::{Case, at_house, case, index, metres, named, street};
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -49,6 +49,43 @@ pub const PLACES: &[Place] = &[
         "no-postalvik",
         "Birchlet",
         &[("en", "Birchlet")]
+    ),
+    // The town of Drammen inside its municipality, which Overture files as a county.
+    place!(
+        "no-buskerud",
+        "region",
+        "",
+        "NO",
+        "NO-33",
+        260_000,
+        (9.5, 60.3),
+        "no",
+        "Buskerud",
+        &[("en", "Buskerud")],
+    ),
+    place!(
+        "no-drammen-municipality",
+        "county",
+        "",
+        "NO",
+        "NO-33",
+        105_000,
+        (10.2, 59.75),
+        "no-buskerud",
+        "Drammen",
+        &[("en", "Drammen")],
+    ),
+    place!(
+        "no-drammen",
+        "locality",
+        "city",
+        "NO",
+        "NO-33",
+        125_000,
+        (10.21, 59.74),
+        "no-drammen-municipality",
+        "Drammen",
+        &[("en", "Drammen")],
     ),
 ];
 
@@ -201,6 +238,8 @@ pub const STREETS: &[Street] = &[
 
 pub fn cases() -> Vec<Case> {
     vec![
+        // Viken, the county it was in from 2020 to 2023, names no region of today
+        named("Drammen, Viken, Norway", "no", "Drammen", &["NO-33"], false),
         case(
             "Granveien 5B, 1234 Fjordvik, Norway",
             at_house("Granveien", "5b"),

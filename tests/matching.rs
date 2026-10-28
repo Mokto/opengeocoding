@@ -1018,6 +1018,12 @@ fn a_country_is_named_with_or_without_its_form_of_state() {
         ("Democratic Republic of Congo", "cd"),
         ("  pakistan", "pk"),
         ("Hong Kong", "hk"),
+        // common names neither GeoNames nor CLDR list
+        ("Holland", "nl"),
+        ("Great Britain", "gb"),
+        ("Burma", "mm"),
+        ("Korea", "kr"),
+        ("Guernsey", "gg"),
         ("Lagos", ""),
         ("Atlanta, Georgia", ""),
     ] {

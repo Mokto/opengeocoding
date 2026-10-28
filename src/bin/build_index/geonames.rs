@@ -25,8 +25,17 @@ struct Row {
     admin1: String,
     population: u64,
     subtype: &'static str,
+    /// The seat of a second-order division (`PPLA2`): a district's or county's town.
+    district_seat: bool,
     x: f64,
     y: f64,
+}
+
+fn area(p: &Place) -> bool {
+    matches!(
+        p.subtype,
+        "country" | "dependency" | "macroregion" | "region" | "macrocounty" | "county"
+    )
 }
 
 fn parse(line: &str) -> Option<Row> {
@@ -50,6 +59,7 @@ fn parse(line: &str) -> Option<Row> {
         cc: country(Some(f[8])),
         admin1: format!("{}.{}", f[8], f[10]),
         population: f[14].parse().unwrap_or(0),
+        district_seat: f[7] == "PPLA2",
         subtype: if f[7] == "PPLX" {
             "neighborhood"
         } else {
@@ -150,6 +160,9 @@ pub fn add_places(
                 .filter_map(|n| near.get(&(r.cc, fold(n))))
                 .flatten()
                 .filter(|(_, xy)| km(*xy, (r.x, r.y)) < NEAR_KM)
+                // A district named for its seat is not the seat: Overture has Thrissur only as
+                // a county.
+                .filter(|(id, _)| !(r.district_seat && area(&places[*id as usize])))
                 .map(|(id, _)| *id)
                 .collect();
             known.sort_unstable();
@@ -318,6 +331,45 @@ mod tests {
             let first: Vec<_> = tsv.lines().next().unwrap().split('\t').collect();
             assert_eq!(first[14].contains("alt_name=Kalas"), enriched);
             assert_eq!((first[12], first[13], first[15]), ("", "Oldname", "Q1"));
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_district_seat_beside_only_its_namesake_district_is_added() {
+        let root = std::env::temp_dir().join(format!("geonames-district-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let cities = root.join("cities.txt");
+        let polys = crate::geo::PolyFile::new(root.join("polys"));
+        let assigner = Assigner::new(vec![], polys, vec![], vec![]);
+        for (code, subtype, added) in [
+            ("PPLA2", "county", 1),
+            ("PPLA2", "locality", 0),
+            ("PPLA2", "neighborhood", 0),
+            ("PPL", "county", 0),
+        ] {
+            std::fs::write(&cities, line(code, "")).unwrap();
+            let mut places = vec![Place {
+                subtype,
+                country: *b"IN",
+                region: "IN-16".into(),
+                names: "Kalas".into(),
+                population: 0,
+                xy: Some((74.9, 18.1)),
+                anc: Box::default(),
+            }];
+            std::fs::write(
+                root.join("places.tsv"),
+                format!(
+                    "{subtype}\t\tIN\tIN-16\t0\t0\t74.9\t18.1\tNaN\tNaN\tNaN\tNaN\t\tKalas\t\t\n"
+                ),
+            )
+            .unwrap();
+            assert_eq!(
+                add_places(&mut places, &assigner, &cities, None, &root),
+                added,
+                "{code} {subtype}"
+            );
         }
         std::fs::remove_dir_all(root).unwrap();
     }

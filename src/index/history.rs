@@ -473,6 +473,7 @@ mod tests {
                     en: NONE,
                     keys: Box::default(),
                     city_like: false,
+                    agglomeration: false,
                     settlement_twin: false,
                 };
                 let mut keys: Vec<_> = p.all_names().map(name_key).collect();

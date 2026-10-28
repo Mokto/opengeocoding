@@ -26,6 +26,43 @@ pub const PLACES: &[Place] = &[
         "Třešť",
         &[("cs", "Třešť")]
     ),
+    // Brno is a municipality (a local administration) holding the city of its name.
+    place!(
+        "cz-64",
+        "region",
+        "",
+        "CZ",
+        "CZ-64",
+        1_190_000,
+        (16.6, 49.0),
+        "cz",
+        "Jihomoravský kraj",
+        &[("en", "South Moravian Region")],
+    ),
+    place!(
+        "cz-64-brno-municipality",
+        "localadmin",
+        "",
+        "CZ",
+        "CZ-64",
+        380_000,
+        (16.61, 49.2),
+        "cz-64",
+        "Brno",
+        &[("en", "Brno")],
+    ),
+    place!(
+        "cz-64-brno",
+        "locality",
+        "city",
+        "CZ",
+        "CZ-64",
+        380_000,
+        (16.6, 49.19),
+        "cz-64-brno-municipality",
+        "Brno",
+        &[("en", "Brno")],
+    ),
 ];
 
 pub const STREETS: &[Street] = &[
@@ -46,6 +83,13 @@ pub const STREETS: &[Street] = &[
 
 pub fn cases() -> Vec<Case> {
     vec![
+        named(
+            "Brno, Jihomoravský, Czech Republic",
+            "cz",
+            "Brno",
+            &["CZ-64"],
+            true,
+        ),
         case(
             "Roštýnská 5, 58901 Třešť, Czechia",
             at_house("Roštýnská", "1213/5"),

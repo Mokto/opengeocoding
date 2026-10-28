@@ -173,7 +173,20 @@ pub fn expected_country(address: &ParsedAddress) -> String {
     country_named(part(address, "country"))
 }
 
-/// The country the reference data (GeoNames, CLDR) gives `text` as a name, or "".
+/// Common English names of countries that neither GeoNames nor CLDR list.
+pub const COUNTRY_ALIASES: &[(&str, &str)] = &[
+    ("britain", "gb"),
+    ("burma", "mm"),
+    ("great britain", "gb"),
+    ("holland", "nl"),
+    ("holy see", "va"),
+    ("korea", "kr"),
+    ("mainland china", "cn"),
+    ("uae", "ae"),
+];
+
+/// The country the reference data (GeoNames, CLDR) or [`COUNTRY_ALIASES`] give `text` as a
+/// name, or "".
 pub fn country_named(text: &str) -> String {
     let stated = clean(text, false);
     // "Kingdom of Bahrain", "Republic of Korea": the form of state is not the name
@@ -191,8 +204,19 @@ pub fn country_named(text: &str) -> String {
     std::iter::once(stated.as_str())
         .chain(FORMS.iter().filter_map(|f| stated.strip_prefix(f)))
         .chain(std::iter::once(with_article.as_str()))
-        .find_map(|name| REFERENCE.countries.get(name))
-        .cloned()
+        .find_map(|name| {
+            REFERENCE
+                .countries
+                .get(name)
+                .map(String::as_str)
+                .or_else(|| {
+                    COUNTRY_ALIASES
+                        .iter()
+                        .find(|(alias, _)| *alias == name)
+                        .map(|(_, cc)| *cc)
+                })
+        })
+        .map(str::to_owned)
         .unwrap_or_default()
 }
 

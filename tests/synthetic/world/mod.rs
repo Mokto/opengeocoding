@@ -59,6 +59,8 @@ pub const WIKIDATA: &[(&str, &str)] = &[
     ("co-dc", "Q999900002"),
     ("co-bogota", "Q999900002"),
     ("wf", "Q35555"),
+    ("fr-mq", "Q17054"),
+    ("pr", "Q1183"),
     ("it-milano", "Q18288155"),
 ];
 
@@ -68,6 +70,7 @@ mod au;
 mod be;
 mod br;
 mod ca;
+mod cl;
 mod co;
 mod cz;
 mod de;
@@ -79,6 +82,7 @@ mod fr;
 mod ga;
 mod gb;
 mod ge;
+mod gg;
 mod hk;
 mod ie;
 mod il;
@@ -94,6 +98,7 @@ mod no;
 mod nz;
 mod pk;
 mod pl;
+mod pr;
 mod ps;
 mod pt;
 mod rs;
@@ -111,6 +116,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         be::PLACES,
         br::PLACES,
         ca::PLACES,
+        cl::PLACES,
         co::PLACES,
         cz::PLACES,
         de::PLACES,
@@ -123,6 +129,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         gb::PLACES,
         hk::PLACES,
         ge::PLACES,
+        gg::PLACES,
         ie::PLACES,
         il::PLACES,
         it::PLACES,
@@ -137,6 +144,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         nz::PLACES,
         pk::PLACES,
         pl::PLACES,
+        pr::PLACES,
         ps::PLACES,
         pt::PLACES,
         rs::PLACES,
@@ -172,6 +180,10 @@ const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
     ("li", "country", true, true, 79.5, 0.0, 0.5),
     ("at-e", "region", true, true, 80.5, 0.0, 0.5),
     ("co-bogota-dc", "county", true, true, -60.0, 30.3, 0.6),
+    ("in-kl-thrissur", "county", true, true, 76.21, 10.52, 0.3),
+    ("cl-ap", "region", true, true, -69.7, -18.5, 0.5),
+    ("cl-ta", "region", true, true, -69.7, -19.8, 0.5),
+    ("cl-ma", "region", true, true, -71.0, -53.0, 0.5),
     ("wf-reefward", "region", true, true, -150.0, -20.0, 0.4),
     ("ga-1-libreville-dept", "county", true, true, 9.65, 0.4, 0.4),
     (
@@ -237,6 +249,8 @@ pub fn cases() -> Vec<crate::Case> {
         at::cases(),
         au::cases(),
         ca::cases(),
+        cl::cases(),
+        co::cases(),
         cz::cases(),
         de::cases(),
         dk::cases(),
@@ -245,6 +259,7 @@ pub fn cases() -> Vec<crate::Case> {
         fr::cases(),
         ga::cases(),
         gb::cases(),
+        gg::cases(),
         hk::cases(),
         ie::cases(),
         r#in::cases(),
@@ -253,10 +268,12 @@ pub fn cases() -> Vec<crate::Case> {
         nl::cases(),
         no::cases(),
         pl::cases(),
+        pr::cases(),
         ps::cases(),
         pt::cases(),
         rs::cases(),
         us::cases(),
+        wf::cases(),
         xk::cases(),
         za::cases(),
     ]
@@ -453,7 +470,7 @@ fn chain(p: &Place) -> Vec<&'static str> {
 }
 
 /// Localities without a polygon of their own.
-const POINT_ONLY: [&str; 7] = [
+const POINT_ONLY: [&str; 10] = [
     "gb-harbor-city",
     "de-koeln-feldheim",
     "es-villaseca-pinedo",
@@ -461,6 +478,9 @@ const POINT_ONLY: [&str; 7] = [
     "us-tx-reno",
     "at-eastufer",
     "li-westufer",
+    "in-tn-chennai",
+    "in-tn-chengalpattu",
+    "in-tn-tiruvallur",
 ];
 
 pub fn cover_address_countries(dir: &Path) {
@@ -952,7 +972,8 @@ fn blob(out: &mut Vec<u8>, kind: &str, data: &[u8]) {
 pub fn write_geonames(path: &Path) {
     std::fs::write(
         path,
-        "1\tСеверная Роща\tSevernaya Roshcha\tNordhain,Untrusted Alias\t0.21\t30.0\tP\tPPL\tAT\t\t01\t\t\t\t1000\n",
+        "1\tСеверная Роща\tSevernaya Roshcha\tNordhain,Untrusted Alias\t0.21\t30.0\tP\tPPL\tAT\t\t01\t\t\t\t1000\n\
+         2\tThrissur\tThrissur\tTrichur\t10.527\t76.214\tP\tPPLA2\tIN\t\t13\t\t\t\t315957\n",
     )
     .unwrap();
 }

@@ -106,6 +106,17 @@ pub const STREETS: &[Street] = &[
     },
 ];
 
+pub fn cases() -> Vec<Case> {
+    // the city, which the district stated after it holds
+    vec![named(
+        "Bogotá, Bogota, Colombia",
+        "co",
+        "Bogotá",
+        &["CO-DC"],
+        true,
+    )]
+}
+
 #[test]
 fn bogota_plates_are_suggested_as_the_registers_houses() {
     let ac = street("AC 43 S");

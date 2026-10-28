@@ -4,6 +4,13 @@ impl Index {
     /// Candidates for a free-text query, best first; at most ten. Blocks: call it off the
     /// async executor.
     pub fn search(&self, q: &str) -> Vec<Hit> {
+        self.search_with(q, true)
+    }
+
+    /// `search`, and with `territories` a query of only a dependency's name (Guernsey) is in the
+    /// dependency: the place of its name there the search finds first (Gibraltar's town, Saint
+    /// Helena's island), else the dependency.
+    fn search_with(&self, q: &str, territories: bool) -> Vec<Hit> {
         let q = q.trim();
         if q.is_empty() {
             return vec![];
@@ -74,15 +81,33 @@ impl Index {
         // Luxembourg", "Djibouti, Djibouti").
         let town = |p: &Place| matches!(&*p.subtype, "locality" | "localadmin");
         if let Some(c) = self.country(q)
-            && let Some(&p) = self.country_places.get(&c)
+            && let Some(&p) = (self.country_places.get(&c))
+                .or_else(|| territories.then(|| self.dependencies.get(&c)).flatten())
             // "Lagos" is Laos in some language the data names it in, and a city to everyone: a
             // name the reference data doesn't give the country yields to a town of that name.
+            // Its own or English name (Bonaire, Svalbard) is not such a name.
             && (q.contains(',')
                 || !crate::matching::country_named(q).is_empty()
+                || [&*self.places[p as usize].primary, self.places[p as usize].name(true)]
+                    .iter()
+                    .any(|name| name_key(name) == name_key(q))
                 || self.places_exact(q, None, None, &town).0.is_empty())
         {
             if repeated && let (places, true) = self.places_exact(q, Some(&c), None, &town) {
                 return places.into_iter().take(1).collect();
+            }
+            let territory = &self.places[p as usize];
+            if territory.subtype.as_ref() == "dependency" {
+                let found = self.search_with(q, false);
+                if found
+                    .first()
+                    .is_some_and(|hit| self.hit_country(hit) == &*territory.cc)
+                {
+                    return found
+                        .into_iter()
+                        .filter(|hit| self.hit_country(hit) == &*territory.cc)
+                        .collect();
+                }
             }
             return vec![Hit::Place(p)];
         }
@@ -510,9 +535,15 @@ impl Index {
         a: &mut Map<String, Value>,
         display: &mut Vec<String>,
     ) {
+        let mut settled = false;
         for &p in chain {
             let pl = &self.places[p as usize];
-            let key = pl.key();
+            let key = if pl.agglomeration && settled {
+                "municipality"
+            } else {
+                pl.key()
+            };
+            settled |= pl.subtype.as_ref() == "locality";
             if !a.contains_key(key) {
                 a.insert(key.into(), pl.name(en).into());
                 display.push(pl.name(en).into());
@@ -569,6 +600,19 @@ impl Index {
             .find(|(_, p)| chain.first() == Some(*p))
         {
             a.insert("ISO3166-2-lvl5".into(), code.clone().into());
+        }
+    }
+
+    /// The country code of a hit's place, as the data files it (re for Réunion).
+    fn hit_country<'a>(&'a self, hit: &'a Hit) -> &'a str {
+        match hit {
+            Hit::Place(p) => &self.places[*p as usize].cc,
+            Hit::Street { place, cc, .. } | Hit::Postcode { place, cc, .. } => {
+                match self.places.get(*place as usize) {
+                    Some(pl) if *place != NONE => &pl.cc,
+                    _ => cc,
+                }
+            }
         }
     }
 
@@ -930,7 +974,8 @@ impl Index {
 /// The territories an answer files under their sovereign's country: France's overseas
 /// departments, Svalbard and the Caribbean Netherlands are parts of that country. The others
 /// with an ISO 3166-1 code of their own (Puerto Rico, Hong Kong, Curaçao, ...) answer with it,
-/// and keep their sovereign's ISO 3166-2 code (US-PR) as their region.
+/// and, in the index, their sovereign's ISO 3166-2 code (US-PR) as their region, which
+/// SearchAddress leaves out.
 pub fn part_of_sovereign(territory: &str) -> bool {
     matches!(territory, "re" | "gp" | "mq" | "gf" | "yt" | "sj" | "bq")
 }
