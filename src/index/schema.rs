@@ -186,12 +186,17 @@ pub struct Num {
     pub y: u32,
 }
 
+/// A house number longer than `INLINE`, or a house whose postcode has no slot on its street
+/// (`pc`, an interned id; `NO_PC` otherwise).
 pub struct LongNum {
     pub sid: u32,
     pub num: String,
     pub x: u32,
     pub y: u32,
+    pub pc: u32,
 }
+
+pub const NO_PC: u32 = u32::MAX;
 
 /// Where a house came from, in the two top bits of its packed longitude while the builder holds
 /// it (a postcode slot stays under 64): 0 Overture addresses, 1 OpenAddresses, 2 OSM, 3 Overture
@@ -203,9 +208,10 @@ pub fn with_rank(x: u32, rank: u8) -> u32 {
     x | (rank as u32) << RANK_SHIFT
 }
 
-/// Maps a house's street id and postcode slot, as the builder first numbered them, to the
-/// street's final id (which must keep the id's remainder modulo the shard count) and slot.
-pub type Resolve<'a> = &'a (dyn Fn(u32, u8) -> (u32, u8) + Sync);
+/// Maps a house's street id and postcode, as the builder first numbered them (a slot, or with
+/// none an interned id other than `NO_PC`), to the street's final id (which must keep the id's
+/// remainder modulo the shard count) and slot.
+pub type Resolve<'a> = &'a (dyn Fn(u32, u8, u32) -> (u32, u8) + Sync);
 
 /// A postcode slot while the builder holds it: 6 bits of the packed longitude's top byte, under
 /// the source rank.
@@ -263,6 +269,7 @@ impl Num {
                 num: num.to_string(),
                 x,
                 y,
+                pc: NO_PC,
             });
         }
         let mut b = [0u8; INLINE];
@@ -271,6 +278,17 @@ impl Num {
     }
     fn bytes(&self) -> &[u8] {
         &self.num[..self.num.iter().position(|&c| c == 0).unwrap_or(INLINE)]
+    }
+
+    /// This house in the long list, carrying its postcode `pc`.
+    pub fn into_long(self, pc: u32) -> LongNum {
+        LongNum {
+            sid: self.sid,
+            num: String::from_utf8(self.bytes().to_vec()).unwrap(),
+            x: self.x,
+            y: self.y,
+            pc,
+        }
     }
 }
 
@@ -313,7 +331,7 @@ pub struct NumberSpill {
 
 impl LongNum {
     fn encode(&self, out: &mut Vec<u8>) {
-        for v in [self.sid, self.x, self.y, self.num.len() as u32] {
+        for v in [self.sid, self.x, self.y, self.pc, self.num.len() as u32] {
             out.extend_from_slice(&v.to_le_bytes());
         }
         out.extend_from_slice(self.num.as_bytes());
@@ -324,14 +342,15 @@ impl LongNum {
         let (mut out, mut rest) = (vec![], &bytes[..]);
         let word = |b: &[u8]| u32::from_le_bytes(b.try_into().unwrap());
         while !rest.is_empty() {
-            let len = word(&rest[12..16]) as usize;
+            let len = word(&rest[16..20]) as usize;
             out.push(LongNum {
                 sid: word(&rest[0..4]),
                 x: word(&rest[4..8]),
                 y: word(&rest[8..12]),
-                num: String::from_utf8(rest[16..16 + len].to_vec()).unwrap(),
+                pc: word(&rest[12..16]),
+                num: String::from_utf8(rest[20..20 + len].to_vec()).unwrap(),
             });
-            rest = &rest[16 + len..];
+            rest = &rest[20 + len..];
         }
         out
     }
@@ -445,7 +464,7 @@ fn shard(
     for _ in 0..len / RECORD {
         r.read_exact(&mut rec).unwrap();
         let mut n = Num::decode(&rec);
-        let (sid, slot) = resolve(n.sid, held_slot(n.x));
+        let (sid, slot) = resolve(n.sid, held_slot(n.x), NO_PC);
         debug_assert_eq!(sid as usize % n_shards, s);
         debug_assert!(slot < 64);
         (n.sid, n.x) = (sid, with_held_slot(n.x, slot));
@@ -454,7 +473,7 @@ fn shard(
     drop(r);
     fs::remove_file(&path).unwrap();
     for n in &mut long {
-        let (sid, slot) = resolve(n.sid, held_slot(n.x));
+        let (sid, slot) = resolve(n.sid, held_slot(n.x), n.pc);
         debug_assert!(slot < 64);
         (n.sid, n.x) = (sid, with_held_slot(n.x, slot));
     }
@@ -502,8 +521,12 @@ fn shard(
         run.push(super::reverse::key(x, y));
     };
     while i < a.len() || j < b.len() {
+        // A house goes to the long list when its postcode had no slot, which depends on arrival
+        // order, so the two lists merge on all they hold.
         let take_a = j == b.len()
-            || (i < a.len() && (a[i].sid, a[i].bytes()) <= (b[j].sid, b[j].num.as_bytes()));
+            || (i < a.len()
+                && (a[i].sid, a[i].bytes(), order(a[i].x, a[i].y))
+                    <= (b[j].sid, b[j].num.as_bytes(), order(b[j].x, b[j].y)));
         let (sid, num, x, y) = if take_a {
             i += 1;
             (a[i - 1].sid, a[i - 1].bytes(), a[i - 1].x, a[i - 1].y)
@@ -626,7 +649,7 @@ mod tests {
     }
 
     /// A street keeps its id and its slots.
-    fn same(sid: u32, slot: u8) -> (u32, u8) {
+    fn same(sid: u32, slot: u8, _: u32) -> (u32, u8) {
         (sid, slot)
     }
 

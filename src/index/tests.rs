@@ -266,7 +266,7 @@ fn native_roads_are_filtered_before_the_ranked_children_hide_a_house() {
         short: vec![schema::Num::new(31, "237", x, y).ok().unwrap()],
         long: vec![],
     }]);
-    spill.write_fsts(dir.to_str().unwrap(), 1, &|sid, slot| (sid, slot));
+    spill.write_fsts(dir.to_str().unwrap(), 1, &|sid, slot, _| (sid, slot));
     std::fs::write(
         dir.join("places.tsv"),
         "country\t\tTW\t\t\t0\t123\t25\t123\t25\t123\t25\t\t臺灣\ten=Taiwan\n",
@@ -336,15 +336,16 @@ fn reverse_finds_the_nearest_houses() {
             at(1001, "9", 10.05, 50.0, 0),
             at(1002, "1", 11.0, 50.0, 1),
             at(1003, "1", 12.0, 50.0, 1),
+            at(1003, "3", 11.0, 50.0, 0),
             at(1004, "8", 10.00005, 50.0, 0),
         ],
         long: vec![],
     }]);
-    spill.write_fsts(dir.to_str().unwrap(), 1, &|sid, slot| (sid, slot));
+    spill.write_fsts(dir.to_str().unwrap(), 1, &|sid, slot, _| (sid, slot));
     assert_eq!(
         // a street without houses for reverse lookups (Korean land-lot addresses) is skipped
         reverse::build(&dir, &tantivy_index, f.kind, |_| None, |sid| sid != 1004).unwrap(),
-        (5, 0)
+        (6, 0)
     );
     std::fs::write(
         dir.join("places.tsv"),
@@ -403,6 +404,12 @@ fn reverse_finds_the_nearest_houses() {
     // beyond a ring of cells the nearest house is still found, from another street
     let far = find(50.0, 10.05, 500.0, 1);
     assert_eq!((far[0].1.as_str(), far[0].2.as_str()), ("Elm Street", "9"));
+    // houses at one point come in street id order, though street 1003's document is first
+    let tied: Vec<_> = find(50.0, 11.0, 100.0, 2)
+        .into_iter()
+        .map(|h| h.2)
+        .collect();
+    assert_eq!(tied, ["1", "3"]);
     // no house and no locality in range
     assert!(find(51.0, 11.0, 500.0, 1).is_empty());
     std::fs::remove_dir_all(&dir).unwrap();
