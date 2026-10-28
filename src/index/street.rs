@@ -113,11 +113,8 @@ impl Index {
                         .streets_by(&name, number, city, &named, postcode, cc, false, true, near)
                         .into_iter()
                         .filter(|h| {
-                            matches!(h, Hit::Street { number: Some(_), postcode: own, name: found, .. }
-                            if postcode_not_contradicted(own.as_deref(), postcode)
-                                // "tabasco" is not "Privada Tabasco"
-                                && (!cc.is_some_and(|c| c.eq_ignore_ascii_case("mx"))
-                                    || fold(found) == fold(&name)))
+                            matches!(h, Hit::Street { number: Some(_), postcode: own, .. }
+                            if postcode_not_contradicted(own.as_deref(), postcode))
                         })
                         .collect();
                     if next.is_empty() {

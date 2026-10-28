@@ -540,6 +540,7 @@ impl Core {
                     let Some(code) = self.index.region_named(stated, &d.country_code) else {
                         return false;
                     };
+                    let code = &*code;
                     let country = code.split('-').next().unwrap_or("");
                     let own: Vec<_> = d
                         .region_codes

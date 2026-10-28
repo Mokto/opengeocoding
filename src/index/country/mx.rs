@@ -61,39 +61,6 @@ fn postcode_town(part: &str) -> Option<(String, String)> {
     .then(|| (postcode.into(), town))
 }
 
-/// A Mexican road without its type, as INEGI's establishment directory (DENUE) names it in
-/// OpenAddresses: "calle misión de santo domingo" is its "MISIÓN DE SANTO DOMINGO".
-pub(crate) fn bare_road(road: &str) -> Option<String> {
-    const TYPES: &[&str] = &[
-        "calle",
-        "avenida",
-        "av",
-        "av.",
-        "boulevard",
-        "bulevar",
-        "blvd",
-        "blvd.",
-        "calzada",
-        "privada",
-        "prolongación",
-        "prolongacion",
-        "circuito",
-        "periférico",
-        "periferico",
-        "cerrada",
-        "andador",
-        "callejón",
-        "callejon",
-        "retorno",
-        "circunvalación",
-        "circunvalacion",
-    ];
-    let (kind, name) = road.trim().split_once(' ')?;
-    let name = name.trim();
-    (TYPES.contains(&kind.to_lowercase().as_str()) && name.chars().any(char::is_alphanumeric))
-        .then(|| name.to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,18 +128,5 @@ mod tests {
             ("city", "x"),
         ]);
         assert_eq!(standard_aligned(&colonia, &[" 23400 X", " Y"]), None);
-    }
-
-    #[test]
-    fn a_road_loses_its_type() {
-        assert_eq!(
-            bare_road("calle misión de santo domingo").as_deref(),
-            Some("misión de santo domingo")
-        );
-        assert_eq!(bare_road("Av. Juárez").as_deref(), Some("Juárez"));
-        assert_eq!(bare_road("calle 13").as_deref(), Some("13"));
-        assert_eq!(bare_road("calle"), None);
-        assert_eq!(bare_road("paseo de la reforma"), None);
-        assert_eq!(bare_road("misión de santo domingo"), None);
     }
 }

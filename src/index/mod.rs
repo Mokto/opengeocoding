@@ -114,6 +114,7 @@ pub struct Index {
     landmarks: landmark::Landmarks,
     /// `region_spelt`'s region names of a country as words, made when first asked for.
     region_words: Mutex<HashMap<String, RegionWords>>,
+    region_named: Mutex<HashMap<(String, String), Option<Box<str>>>>,
 }
 
 #[derive(Clone)]
@@ -738,6 +739,7 @@ impl Index {
             suggest: Default::default(),
             landmarks,
             region_words: Mutex::default(),
+            region_named: Mutex::default(),
         })
     }
 
