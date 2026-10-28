@@ -205,9 +205,10 @@ impl Index {
         *to.last_mut()? += 1;
         let mut best: Option<(u64, u32)> = None;
         let mut tied = false;
+        let dfa = ONE_EDIT.build_dfa(&key);
         let mut range = self
             .place_names
-            .range()
+            .search(NameWithin(&dfa))
             .ge(head.as_bytes())
             .lt(&to)
             .into_stream();

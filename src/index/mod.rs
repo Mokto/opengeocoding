@@ -57,6 +57,7 @@ thread_local! {
 }
 
 pub use schema::sovereign;
+pub use search::part_of_sovereign;
 
 pub struct Index {
     searcher: Searcher,
@@ -107,6 +108,8 @@ pub struct Index {
     suggest: suggest::Caches,
     /// Read only by a suggestion that asks for landmarks.
     landmarks: landmark::Landmarks,
+    /// `region_spelt`'s region names of a country as words, made when first asked for.
+    region_words: Mutex<HashMap<String, RegionWords>>,
 }
 
 #[derive(Clone)]
@@ -192,6 +195,9 @@ fn cjk_stem(name: &str) -> Option<&str> {
             .filter(|stem| !stem.is_empty() && !stem.is_ascii())
     })
 }
+
+/// A country's regions' names as words: (region place, words of one name).
+type RegionWords = std::sync::Arc<[(u32, Vec<String>)]>;
 
 /// "Vas County" -> "Vas", "Departamento de Santa Cruz" -> "Santa Cruz": words that classify a
 /// region rather than name it, which the data's names mostly leave out.
@@ -691,6 +697,7 @@ impl Index {
             place_prefixes: Mutex::default(),
             suggest: Default::default(),
             landmarks,
+            region_words: Mutex::default(),
         })
     }
 

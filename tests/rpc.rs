@@ -351,9 +351,15 @@ async fn checks(env: &mut Env) -> Result<()> {
             "us",
             true,
         ),
-        // a territory answers under its sovereign, as the services this replaced did
-        ("San Juan, Puerto Rico", "us", true),
+        // a territory with its own ISO 3166-1 code answers with it; an overseas department of
+        // France is France
+        ("San Juan, Puerto Rico", "pr", true),
         ("Saint-Denis, Réunion", "fr", true),
+        ("Kowloon, Hong Kong S.A.R.", "hk", true),
+        ("Palestine", "ps", true),
+        // a list of places ending in a country stays in it, as a fallback
+        ("Srinagar, Jammu and Kashmir, Pakistan", "pk", false),
+        ("Al Iskandariyah, Egypt", "eg", false),
     ] {
         let found = env.search(query).await?;
         let details = &found["addressDetails"];

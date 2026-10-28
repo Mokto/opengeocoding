@@ -166,7 +166,12 @@ pub fn agrees_with(expected: &str) -> impl Fn(&str) -> bool {
 }
 
 pub fn expected_country(address: &ParsedAddress) -> String {
-    let stated = clean(part(address, "country"), false);
+    country_named(part(address, "country"))
+}
+
+/// The country the reference data (GeoNames, CLDR) gives `text` as a name, or "".
+pub fn country_named(text: &str) -> String {
+    let stated = clean(text, false);
     // "Kingdom of Bahrain", "Republic of Korea": the form of state is not the name
     const FORMS: &[&str] = &[
         "kingdom of ",
@@ -177,8 +182,11 @@ pub fn expected_country(address: &ParsedAddress) -> String {
         "commonwealth of ",
         "the ",
     ];
+    // "Democratic Republic of Congo": the names have the article
+    let with_article = stated.replacen(" of ", " of the ", 1);
     std::iter::once(stated.as_str())
         .chain(FORMS.iter().filter_map(|f| stated.strip_prefix(f)))
+        .chain(std::iter::once(with_article.as_str()))
         .find_map(|name| REFERENCE.countries.get(name))
         .cloned()
         .unwrap_or_default()
@@ -378,9 +386,17 @@ pub fn country_matches(expected: &str, details: Option<&AddressDetails>) -> bool
     expected.is_empty()
         || details.is_some_and(|d| {
             let actual = d.country_code.to_lowercase();
-            // a territory named as the country is answered under its sovereign
-            actual == expected || crate::index::sovereign(expected) == Some(actual.as_str())
+            // a territory and its sovereign are one country to the lookups
+            actual == expected || filed_country(expected) == filed_country(&actual)
         })
+}
+
+/// The code a lookup or check knows an answer's country by: a territory's sovereign's ("us" for
+/// Puerto Rico). Answers name Puerto Rico "pr", but the data files many of its streets, houses
+/// and postcodes under the United States, as every answer did before, and postcode shapes and
+/// street words are the sovereign's.
+pub fn filed_country(cc: &str) -> &str {
+    crate::index::sovereign(&cc.to_lowercase()).unwrap_or(cc)
 }
 
 pub fn postcode_agrees(expected: &str, details: Option<&AddressDetails>) -> bool {
@@ -417,10 +433,13 @@ pub fn named_in_region(query: &str, details: Option<&AddressDetails>) -> bool {
         .any(|n| !n.is_empty() && agrees(n));
     // With a region stated, only the place in that region is named; with a lone country
     // ("Skopje, North Macedonia") the country is the evidence.
+    // a territory's answer names it as its country, but only its sovereign's code counts
     let in_country = |part: &str| {
-        names_agree(part, &d.country)
+        (filed_country(&d.country_code).eq_ignore_ascii_case(&d.country_code)
+            && names_agree(part, &d.country))
             || (!d.country_code.is_empty()
-                && expected_country(&parsed_country(part)) == d.country_code.to_lowercase())
+                && expected_country(&parsed_country(part))
+                    == filed_country(&d.country_code).to_lowercase())
     };
     let in_region = |part: &str| {
         [
@@ -577,7 +596,7 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
         && !d.road.is_empty()
         && !d.house_number.is_empty()
         && (roads_agree(road, &d.road)
-            || road_expansions(road, &d.country_code)
+            || road_expansions(road, filed_country(&d.country_code))
                 .iter()
                 .any(|expanded| {
                     road_key(expanded) == road_key(&d.road)
@@ -823,7 +842,7 @@ pub fn choose_candidate(
                         .copied()
                         .find(|&i| {
                             candidates[i].address_details.as_option().is_some_and(|d| {
-                                d.country_code.to_lowercase() == implied
+                                filed_country(&d.country_code).to_lowercase() == implied
                                     && region_agrees(address, Some(d))
                             })
                         })
@@ -889,7 +908,7 @@ pub fn choose_candidate(
         if contradicts
             && let Some((i, _)) = candidates.iter().enumerate().find(|(_, item)| {
                 item.address_details.as_option().is_some_and(|d| {
-                    d.country_code.to_lowercase() == implied
+                    filed_country(&d.country_code).to_lowercase() == implied
                         && region_agrees(address, Some(d))
                         && (part(address, "city").is_empty() || city_agrees(address, Some(d)))
                 })
@@ -1601,10 +1620,11 @@ pub fn unpostcoded_candidate(
     candidates.iter().position(|item| {
         let details = item.address_details.as_option();
         !postcode.is_empty()
-            && !details.is_some_and(|d| holds_postcode(&d.country_code))
+            && !details.is_some_and(|d| holds_postcode(filed_country(&d.country_code)))
             && country_matches(country, details)
             && details.is_some_and(|d| {
-                d.postcode.is_empty() && postcode_shape(&d.country_code, postcode) == Some(true)
+                d.postcode.is_empty()
+                    && postcode_shape(filed_country(&d.country_code), postcode) == Some(true)
             })
             && city_agrees(address, details)
             && state_consistent(address, details)
@@ -1634,4 +1654,176 @@ pub fn is_po_box(text: &str) -> bool {
     text.to_lowercase()
         .split(|c: char| !c.is_alphanumeric())
         .any(|w| MARKERS.contains(&w))
+}
+
+/// The words of a region's name that a transliteration or translation keeps, for telling which
+/// region an unmatched name means: folded, without the words that classify a region ("Kanton",
+/// "Governorate", "Mun.") and the Arabic article ("Al Iskandariyah", "ash-Sharqiyah"), with
+/// compass words in English ("Jutland du Nord" is North Jutland) and the Arabic "-iyah" ending
+/// as most spellings end it ("Sharqiyah", "Gharbiyya", "Sharqia"). Sorted, so word order does
+/// not matter.
+pub fn region_words(name: &str) -> Vec<String> {
+    const CLASSIFIERS: &[&str] = &[
+        "city",
+        "region",
+        "regiao",
+        "regione",
+        "regio",
+        "regija",
+        "regiunea",
+        "regiuun",
+        "regionen",
+        "province",
+        "provincia",
+        "provincie",
+        "provinsi",
+        "provinz",
+        "governorate",
+        "gouvernorat",
+        "gouvernement",
+        "governatorato",
+        "gobernacion",
+        "kegubernuran",
+        "muhafazat",
+        "muhafazah",
+        "muhafaza",
+        "mudiriyat",
+        "baladiyat",
+        "wilayah",
+        "wilayat",
+        "vilayeti",
+        "state",
+        "estado",
+        "county",
+        "district",
+        "distrito",
+        "distretto",
+        "districtul",
+        "department",
+        "departement",
+        "departamento",
+        "canton",
+        "kanton",
+        "oblast",
+        "prefecture",
+        "municipality",
+        "municipio",
+        "municipiul",
+        "mun",
+        "autonomous",
+        "autonome",
+        "republic",
+        "autonoma",
+        "territory",
+        "of",
+        "the",
+        "de",
+        "del",
+        "della",
+        "di",
+        "do",
+        "da",
+        "du",
+        "des",
+        "la",
+        "le",
+        "and",
+        "y",
+        "et",
+        "und",
+        "wa",
+    ];
+    const ARTICLES: &[&str] = &[
+        "al", "el", "ad", "ash", "as", "at", "ar", "an", "az", "adh", "ath", "ach", "asch", "ech",
+        "ed", "es", "en", "ez",
+    ];
+    const COMPASS: &[(&str, &[&str])] = &[
+        (
+            "north",
+            &[
+                "nord",
+                "noord",
+                "norte",
+                "nordre",
+                "norra",
+                "northern",
+                "septentrional",
+                "septentrionale",
+                "settentrionale",
+            ],
+        ),
+        (
+            "south",
+            &[
+                "sud",
+                "syd",
+                "zuid",
+                "sur",
+                "sul",
+                "southern",
+                "meridional",
+                "meridionale",
+            ],
+        ),
+        (
+            "east",
+            &[
+                "est",
+                "ost",
+                "oost",
+                "este",
+                "eastern",
+                "oriental",
+                "orientale",
+            ],
+        ),
+        (
+            "west",
+            &[
+                "ouest",
+                "oeste",
+                "vest",
+                "western",
+                "occidental",
+                "occidentale",
+            ],
+        ),
+        (
+            "central",
+            &[
+                "centre", "center", "centro", "centrale", "centrala", "centraal", "middle", "midt",
+                "mittel", "media", "midden",
+            ],
+        ),
+    ];
+    let normalized = normalize_place(&name.replace(['.', '\'', '’', '‘', '`'], " "));
+    let words: Vec<&str> = normalized
+        .split(' ')
+        .filter(|w| !w.is_empty() && !CLASSIFIERS.contains(w))
+        .collect();
+    let named: Vec<&str> = words
+        .iter()
+        .copied()
+        .filter(|w| !ARTICLES.contains(w))
+        .collect();
+    let mut out: Vec<String> = if named.is_empty() { words } else { named }
+        .into_iter()
+        .map(|w| {
+            let w = COMPASS
+                .iter()
+                .find(|(_, other)| other.contains(&w))
+                .map_or(w, |(english, _)| english);
+            let w = ["iyyah", "iyah", "iyya", "iya"]
+                .iter()
+                .find_map(|end| w.strip_suffix(end).filter(|stem| stem.len() >= 3))
+                .map_or_else(|| w.to_owned(), |stem| format!("{stem}ia"));
+            match w.strip_suffix("ah") {
+                Some(stem) if stem.len() >= 3 => format!("{stem}a"),
+                _ => w,
+            }
+        })
+        .collect();
+    out.sort();
+    out.dedup();
+    out
 }

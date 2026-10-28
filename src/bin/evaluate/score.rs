@@ -530,7 +530,11 @@ pub fn level_of(response: &Value) -> &'static str {
     if LOCALITY_KEYS.iter().any(|key| !text(d, key).is_empty()) {
         return "locality";
     }
-    if REGION_KEYS.iter().any(|key| !text(d, key).is_empty()) {
+    // a territory answered as its own country is also listed as its region ("Puerto Rico")
+    if REGION_KEYS
+        .iter()
+        .any(|key| !text(d, key).is_empty() && text(d, key) != text(d, "country"))
+    {
         return "region";
     }
     "country"
@@ -608,6 +612,16 @@ fn score_one(expect: &Expect, response: &Value, confidence: bool) -> Score {
     }
     let codes = region_codes(response);
     let expected: BTreeSet<_> = expect.region.iter().cloned().collect();
+    // The country, or a region the place is in, holds the place: a coarse answer, not a miss
+    // ("Hambok, Eritrea" answered with Eritrea, which the data has and the town not).
+    let holds = match level {
+        "country" => true,
+        "region" => !codes.is_disjoint(&expected),
+        _ => false,
+    };
+    if holds && rank(level) < rank(&expect.level) {
+        return done(result, "too_coarse");
+    }
     if expect.area.as_deref() == Some("region") && !codes.is_empty() && !expected.is_empty() {
         if codes.is_disjoint(&expected) {
             return done(result, "wrong_region");
@@ -940,6 +954,31 @@ mod tests {
             "near_miss"
         );
         assert_eq!(class(&kyoto, &json!({})), "abstain");
+        let territory = json!({"country": "Guam", "state": "Guam"});
+        assert_eq!(
+            level_of(&full("gu", 13.4, 144.8, false, territory)),
+            "country"
+        );
+        // the country, or the prefecture the city is in, holds it; another prefecture doesn't
+        assert_eq!(
+            class(&kyoto, &full("jp", 36.2, 138.25, false, json!({}))),
+            "too_coarse"
+        );
+        let prefecture = |code: &str| json!({"state": "Kyoto", "regionCodes": [{"code": code}]});
+        assert_eq!(
+            class(
+                &kyoto,
+                &full("jp", 35.25, 135.44, false, prefecture("JP-26"))
+            ),
+            "too_coarse"
+        );
+        assert_eq!(
+            class(
+                &kyoto,
+                &full("jp", 34.69, 135.5, false, prefecture("JP-27"))
+            ),
+            "near_miss"
+        );
         let mut brussels = kyoto.clone();
         brussels.country = vec!["be".into()];
         assert_eq!(

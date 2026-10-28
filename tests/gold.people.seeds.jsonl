@@ -1,0 +1,41 @@
+{"kind": "place", "cohort": "people", "qid": "Q87", "queries": ["alexandria, al iskandariyah, egypt"], "radius_km": 20, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q3861", "queries": ["doha, ad dawhah, qatar"], "radius_km": 15, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q25410", "queries": ["aalborg, north jutland, denmark"], "radius_km": 10, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q128147", "queries": ["kingston upon hull, east riding of yorkshire, united kingdom"], "radius_km": 10, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q21197", "queries": ["chisinau, mun.chişinău, moldova"], "radius_km": 15, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q17151", "queries": ["θεσσαλονικη, central macedonia, greece"], "radius_km": 15, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q334197", "queries": ["vilha velha, espirito santo, brazil"], "radius_km": 10, "good_match": false, "tags": ["people", "typo"]}
+{"kind": "place", "cohort": "people", "qid": "Q55741", "queries": ["angeles city, angeles, philippines"], "radius_km": 10, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q3733", "queries": ["conakry, dubréka, guinea"], "radius_km": 20, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q80985", "queries": ["fes-ville-nouvelle, morocco"], "radius_km": 15, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q3579", "queries": ["tripoli, tajura' wa an nawahi al arba, libya"], "radius_km": 20, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q271771", "queries": ["tanta, al gharbiyah, egypt"], "radius_km": 10, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q223587", "queries": ["al manşūrah, ad daqahliyah, egypt"], "radius_km": 10, "good_match": false, "tags": ["people"]}
+{"kind": "place", "cohort": "people", "qid": "Q41211", "queries": ["san juan, puerto rico"], "radius_km": 15, "good_match": true, "tags": ["people", "territory"], "country": ["pr"]}
+{"kind": "place", "cohort": "people", "qid": "Q62", "queries": [" san francisco bay "], "radius_km": 15, "good_match": false, "tags": ["people", "job_posting"]}
+{"kind": "place", "cohort": "people", "qid": "Q1748", "queries": ["copenhagen  "], "radius_km": 10, "good_match": true, "tags": ["people", "job_posting"]}
+{"kind": "place", "cohort": "people", "qid": "Q239143", "queries": ["kowloon, hong kong s.a.r."], "radius_km": 10, "good_match": true, "tags": ["people", "territory"], "level": "region", "country": ["hk"]}
+{"kind": "place", "cohort": "people", "qid": "Q8646", "queries": ["hong kong, central and western, hong kong s.a.r.", "central and western, hong kong s.a.r."], "radius_km": 30, "good_match": true, "tags": ["people", "territory"], "level": "region", "country": ["hk"]}
+{"kind": "place", "cohort": "people", "qid": "Q14773", "queries": ["macau s.a.r."], "radius_km": 15, "good_match": true, "tags": ["people", "territory"], "level": "region", "country": ["mo"]}
+{"kind": "place", "cohort": "people", "qid": "Q29943", "queries": ["al iskandariyah, egypt"], "radius_km": 300, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q3861", "queries": ["ad dawhah, qatar"], "radius_km": 50, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q31074", "queries": ["ash sharqiyah, egypt"], "radius_km": 300, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q26067", "queries": ["north jutland, denmark"], "radius_km": 300, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q26586", "queries": ["central jutland, denmark"], "radius_km": 300, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q2131", "queries": ["metropolitana, chile"], "radius_km": 300, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q34800", "queries": ["xinjiang uyghur, china"], "radius_km": 1000, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q17070", "queries": ["reunion, france"], "radius_km": 100, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region", "country": ["fr"]}
+{"kind": "place", "cohort": "people", "qid": "Q18262", "queries": ["central bosnia, bosnia and herzegovina"], "radius_km": 300, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q677037", "queries": ["telengana, telangana, india"], "radius_km": 400, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q1159", "queries": ["y.s.r., andhra pradesh, india"], "radius_km": 400, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q189710", "queries": ["puchong batu dua belas, selangor, malaysia"], "radius_km": 300, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q34110", "queries": ["san jose costa rica, oaxaca, mexico"], "radius_km": 300, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q1428", "queries": ["athens-clarke county, georgia, united states"], "radius_km": 300, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q200130", "queries": ["jammu and kashmir, pakistan", "srinagar, jammu and kashmir, pakistan", "jammu, jammu and kashmir, pakistan"], "radius_km": 300, "good_match": false, "tags": ["people", "policy_stated_country"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q22048", "queries": ["balianta, odisha, india"], "radius_km": 400, "good_match": false, "tags": ["people"], "level": "region", "max_level": "region"}
+{"kind": "place", "cohort": "people", "qid": "Q1867", "queries": ["taipei city, taiwan"], "radius_km": 15, "good_match": false, "tags": ["people"]}
+{"kind": "country", "cohort": "people", "qid": "Q8646", "queries": ["hong kong s.a.r."], "country": ["hk"], "tags": ["people", "territory"], "max_level": "region"}
+{"kind": "country", "cohort": "people", "qid": "Q219060", "queries": ["palestine"], "country": ["ps"], "tags": ["people", "country_name"], "max_level": "region"}
+{"kind": "country", "cohort": "people", "qid": "Q1183", "queries": ["puerto rico"], "country": ["pr"], "tags": ["people", "territory"], "max_level": "region"}
+{"kind": "country", "cohort": "people", "qid": "Q971", "queries": ["republic of congo"], "country": ["cg"], "tags": ["people", "country_name"]}
+{"kind": "any_of", "cohort": "people", "queries": ["a, chile"], "location": "people:a-chile", "label": "\"Metropolitana, Chile\" after the caller drops \"metropolitan\": only the country is left", "source": "constructed", "any_of": [{"country": ["cl"], "level": "country", "max_level": "country", "good_match": false}], "tags": ["people"]}

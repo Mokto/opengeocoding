@@ -198,6 +198,7 @@ pub fn cases() -> Vec<Case> {
             "Rue Haute 9, 50667 Feldheim",
             Want::At(house(street("Ulstrasse"), "25"), 1000.0, false),
         ),
-        case("Paris, Germany", Want::Abstain),
+        // no Paris in Germany: the stated country, as a fallback
+        case("Paris, Germany", town("de", false)),
     ]
 }

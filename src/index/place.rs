@@ -513,6 +513,13 @@ impl Index {
             })
     }
 
+    /// The place of country `cc` (for Palestine, the West Bank's).
+    pub fn country_place(&self, cc: &str) -> Option<Hit> {
+        self.country_places
+            .get(country::ps::country_place(cc))
+            .map(|&p| Hit::Place(p))
+    }
+
     /// The English name of a country's place.
     pub fn country_name(&self, cc: &str) -> Option<&str> {
         let place = self.country_places.get(cc)?;
@@ -527,6 +534,58 @@ impl Index {
             .chain(&self.subdivisions)
             .chain(&self.provinces)
             .map(|(code, &place)| (code.as_str(), place))
+    }
+
+    /// The one region of `cc` (with an ISO 3166-2 code) whose name `text` spells loosely; see
+    /// [`crate::matching::region_words`]. Its words as one of the region's names, else all
+    /// in one of its names ("Jammu and Kashmir" in Azad Jammu and Kashmir). None when no region
+    /// or several regions fit ("Taipei" is also New Taipei's old name).
+    pub fn region_spelt(&self, text: &str, cc: &str) -> Option<u32> {
+        use crate::matching::region_words;
+        let wanted = region_words(text);
+        if wanted.is_empty() || wanted.concat().chars().count() < 3 {
+            return None;
+        }
+        let cc = cc.to_lowercase();
+        let cached = self.region_words.lock().unwrap().get(&cc).cloned();
+        let names = match cached {
+            Some(names) => names,
+            None => {
+                let mut names = vec![];
+                for (code, place) in self.regions.iter().chain(&self.subdivisions) {
+                    let pl = &self.places[*place as usize];
+                    let in_country = code
+                        .split('-')
+                        .next()
+                        .is_some_and(|c| c.eq_ignore_ascii_case(&cc))
+                        || pl.cc.eq_ignore_ascii_case(&cc);
+                    if in_country {
+                        names.extend(pl.all_names().map(|n| (*place, region_words(n))));
+                    }
+                }
+                let names: RegionWords = names.into();
+                self.region_words.lock().unwrap().insert(cc, names.clone());
+                names
+            }
+        };
+        let one = |fits: &[u32]| {
+            let first = *fits.first()?;
+            fits.iter().all(|&p| p == first).then_some(first)
+        };
+        let exact: Vec<u32> = names
+            .iter()
+            .filter(|(_, words)| *words == wanted)
+            .map(|(p, _)| *p)
+            .collect();
+        if !exact.is_empty() {
+            return one(&exact);
+        }
+        let within: Vec<u32> = names
+            .iter()
+            .filter(|(_, words)| wanted.iter().all(|w| words.contains(w)))
+            .map(|(p, _)| *p)
+            .collect();
+        one(&within)
     }
 
     /// The code of the region a subdivision's place lies in.
