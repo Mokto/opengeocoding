@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.1](https://github.com/Mokto/opengeocoding/compare/v1.0.0...v1.0.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* find Serbian houses written with a Cyrillic letter ([#356](https://github.com/Mokto/opengeocoding/issues/356)) ([#364](https://github.com/Mokto/opengeocoding/issues/364)) ([4ecf774](https://github.com/Mokto/opengeocoding/commit/4ecf774392f4c9109ba1a831a887a784893ea37d))
+* free the build volume before downloading a new build's sources ([#376](https://github.com/Mokto/opengeocoding/issues/376)) ([fe9711a](https://github.com/Mokto/opengeocoding/commit/fe9711a58173053075e6fc0ba132f074b9016ec3))
+* make index builds and reverse-lookup ties independent of arrival and segment order ([#372](https://github.com/Mokto/opengeocoding/issues/372)) ([f7d4a50](https://github.com/Mokto/opengeocoding/commit/f7d4a50725b281afbd97194396fb5ed1fc55e22a))
+* retry a search without a postcode the index does not hold ([#365](https://github.com/Mokto/opengeocoding/issues/365)) ([9de8f4a](https://github.com/Mokto/opengeocoding/commit/9de8f4a9e8064cc050eff30b61671ffa27e129ea))
+
 ## [1.0.0](https://github.com/Mokto/opengeocoding/compare/v0.20.3...v1.0.0) (2026-10-28)
 
 
