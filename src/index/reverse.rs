@@ -1,6 +1,6 @@
 //! Streets by place, so a coordinate finds the houses near it. `reverse.bin` is a sorted file of
-//! 10-byte records: the 48-bit Morton code of a house's position (24 bits of longitude and of
-//! latitude, as `schema::pack` stores them) and the packed address of its street's document. A
+//! 10-byte records: the 48-bit Morton code of a house's position (the top 24 bits of the longitude
+//! and latitude `schema::pack` stores) and the packed address of its street's document. A
 //! street has one record per grid cell that holds a house of it, ordered by cell, so a lookup is a
 //! binary search for the cell. The houses stay in the number FSTs, which a street's id prefixes.
 //!

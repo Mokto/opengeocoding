@@ -237,12 +237,26 @@ pub fn far_file(s: usize) -> String {
     format!("numbers-far-{s:02}.fst")
 }
 
-/// An FST value: longitude in 24 bits (about 2 m), the house's postcode as a 1-based index into
-/// its street's stored `pcode` list (0 = none) in 8 bits, then latitude in 32 bits.
+/// An FST value: the top 24 of the longitude's 28 bits, the house's postcode as a 1-based index
+/// into its street's stored `pcode` list (0 = none) in 8 bits, then the latitude's 28 bits and
+/// the longitude's last 4. 24 bits alone are 2 m of longitude, which is the gap between two doors
+/// and made ReverseGeocode answer a neighbour; 28 are 15 cm, and latitude keeps 7.5 cm.
 pub fn pack(lon: f64, lat: f64, postcode: u8) -> (u32, u32) {
-    let x = ((lon + 180.0) / 360.0 * (1u64 << 24) as f64).clamp(0.0, ((1 << 24) - 1) as f64) as u32;
-    let y = ((lat + 90.0) / 180.0 * (1u64 << 32) as f64).clamp(0.0, u32::MAX as f64) as u32;
-    (x | (postcode as u32) << 24, y)
+    let steps = |v: f64| (v * STEPS).clamp(0.0, STEPS - 1.0) as u32;
+    let (lon, lat) = (steps((lon + 180.0) / 360.0), steps((lat + 90.0) / 180.0));
+    ((lon >> 4) | (postcode as u32) << 24, lat << 4 | lon & 0xf)
+}
+
+const STEPS: f64 = (1u64 << 28) as f64;
+
+/// The longitude and latitude of `pack`ed halves, in steps of 2^-28 of their ranges.
+fn steps(x: u32, y: u32) -> (u32, u32) {
+    ((x & 0xff_ffff) << 4 | y & 0xf, y >> 4)
+}
+
+/// Halves for `steps`, keeping the postcode slot and rank bits of `x`.
+fn from_steps(x: u32, (lon, lat): (u32, u32)) -> (u32, u32) {
+    ((x & !0xff_ffff) | lon >> 4, lat << 4 | lon & 0xf)
 }
 
 pub fn with_postcode(x: u32, postcode: u8) -> u32 {
@@ -255,10 +269,13 @@ pub fn postcode_slot(x: u32) -> u8 {
 
 /// (longitude, latitude, postcode slot) of an FST value.
 pub fn unpack(v: u64) -> (f64, f64, u8) {
-    let (x, y) = ((v >> 32) as u32, v as u32);
-    let lon = (x & 0xff_ffff) as f64 / (1u64 << 24) as f64 * 360.0 - 180.0;
-    let lat = y as f64 / (1u64 << 32) as f64 * 180.0 - 90.0;
-    (lon, lat, postcode_slot(x))
+    let x = (v >> 32) as u32;
+    let (lon, lat) = steps(x, v as u32);
+    (
+        lon as f64 / STEPS * 360.0 - 180.0,
+        lat as f64 / STEPS * 180.0 - 90.0,
+        postcode_slot(x),
+    )
 }
 
 impl Num {
@@ -502,8 +519,7 @@ fn shard(
     let mut pending: Option<Kept> = None;
     let mut emit = |(sid, key, mut x, mut y, (copies, sx, sy), far): Kept| {
         if copies > 1 {
-            x = (x & !0xff_ffff) | (sx / copies) as u32;
-            y = (sy / copies) as u32;
+            (x, y) = from_steps(x, ((sx / copies) as u32, (sy / copies) as u32));
         }
         let x = x & ((1 << RANK_SHIFT) - 1);
         fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
@@ -555,11 +571,13 @@ fn shard(
                     *px |= slot(x) << 24;
                 }
                 if near {
-                    (*n, *sx, *sy) = (*n + 1, *sx + (x & 0xff_ffff) as u64, *sy + y as u64);
+                    let (lon, lat) = steps(x, y);
+                    (*n, *sx, *sy) = (*n + 1, *sx + lon as u64, *sy + lat as u64);
                 }
             }
             _ => {
-                let first = ((x & 0xff_ffff) as u64, y as u64);
+                let first = steps(x, y);
+                let first = (first.0 as u64, first.1 as u64);
                 if let Some(done) =
                     pending.replace((sid, key.clone(), x, y, (1, first.0, first.1), None))
                 {
@@ -717,7 +735,18 @@ mod tests {
         }
         let (x, y) = pack(-179.99999, 89.99999, 255);
         let (lon, lat, slot) = unpack((x as u64) << 32 | y as u64);
-        assert!((lon + 179.99999).abs() < 3e-5 && (lat - 89.99999).abs() < 1e-6 && slot == 255);
+        assert!((lon + 179.99999).abs() < 2e-6 && (lat - 89.99999).abs() < 1e-6 && slot == 255);
+        // two doors 1 m apart on one parallel stay 1 m apart
+        let at = |lon: f64| {
+            let (x, y) = pack(lon, 25.0, 0);
+            unpack((x as u64) << 32 | y as u64)
+        };
+        let (west, east) = (at(121.554471), at(121.554471 + 1.0 / 100_900.0));
+        assert!(
+            ((east.0 - west.0) * 100_900.0 - 1.0).abs() < 0.2,
+            "{west:?} {east:?}"
+        );
+        assert!((west.1 - 25.0).abs() < 1e-6);
         fs::remove_dir_all(&dir).unwrap();
     }
 

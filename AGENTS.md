@@ -112,6 +112,7 @@ A world index built by this repository's builder is kept in `~/opengeocoding-ind
 ## Git and publishing
 
 - Use feature branches and pull requests; never push directly to `main` or continue a branch whose PR has merged.
+- Do not build stacked pull requests here, even where the shared instructions would propose a stack: put changes that depend on each other in one pull request, and split only changes that can each merge on their own off `main`. Every pull request's gold gate builds a full index for its builder hash and compares against `main`, queued for the cluster's two slots, so a stack waits hours per layer and its upper layers measure the lower ones again.
 - Open pull requests as ready for review by default. Create a draft only when the user explicitly asks for one; pending CI or validation is not a reason to make a PR a draft. Report outstanding checks in the PR description instead.
 - Keep public PR descriptions accurate after every push and free of internal references.
 - Pin GitHub Actions and reusable workflows by commit SHA. Keep publishing credentials out of pull-request jobs.

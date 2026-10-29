@@ -1698,6 +1698,21 @@ fn numbers_with_unit<'a>(
     {
         return Some(Cow::Owned(format!("{0}{ext};{0}{BARE}", number.trim())));
     }
+    // Taiwan's register puts the sub-number in the unit: "10" with "之26號三樓", or "10號" with
+    // "之26", is house 10之26, another door than 10 (the floor after it stays with the house).
+    // No bare 10 is kept: ReverseGeocode would answer it at 10之26's point.
+    let digit = |c: char| c.is_ascii_digit() || ('０'..='９').contains(&c);
+    if cc == *b"TW"
+        && let Some(rest) = unit.and_then(|u| u.trim().strip_prefix('之'))
+        && let base = number.trim().trim_end_matches(['號', '号'])
+        && !base.is_empty()
+        && base.chars().all(digit)
+    {
+        let sub: String = rest.chars().take_while(|&c| digit(c)).collect();
+        if !sub.is_empty() {
+            return Some(Cow::Owned(format!("{base}之{sub}")));
+        }
+    }
     let unit = unit.map(str::trim).filter(|unit| {
         cc == *b"NZ"
             && !unit.is_empty()
@@ -2623,6 +2638,27 @@ mod tests {
             (*b"ES", Some("12"), Some("2"), Some("12")),
             (*b"ES", Some("12-14"), Some("A"), Some("12-14")),
             (*b"ES", Some("12"), None, Some("12")),
+            (*b"TW", Some("１０"), Some("之２６號"), Some("１０之２６")),
+            (*b"TW", Some("261號"), Some(" 之2 "), Some("261之2")),
+            (
+                *b"TW",
+                Some("１３４"),
+                Some("之２號三樓"),
+                Some("１３４之２"),
+            ),
+            (
+                *b"TW",
+                Some("９６"),
+                Some("之６２號五樓之２"),
+                Some("９６之６２"),
+            ),
+            (*b"TW", Some("３９"), Some("之１I-"), Some("３９之１")),
+            (*b"TW", Some("５０號"), Some("四樓之２"), Some("５０號")),
+            (*b"TW", Some("９號"), Some("三樓"), Some("９號")),
+            (*b"TW", Some("建51"), Some("之21號"), Some("建51")),
+            (*b"TW", Some("12"), Some("之"), Some("12")),
+            (*b"TW", Some(""), Some("之1號"), Some("")),
+            (*b"JP", Some("10"), Some("之26號"), Some("10")),
         ] {
             assert_eq!(numbers_with_unit(cc, number, unit).as_deref(), expected);
         }
