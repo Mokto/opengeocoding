@@ -111,10 +111,6 @@ pub(crate) fn aligned(
     whole: &[(String, String)],
     libpostal: impl Fn(&str) -> anyhow::Result<Vec<(String, String)>>,
 ) -> anyhow::Result<Option<Vec<(String, String)>>> {
-    let stated = crate::matching::expected_country(&whole.iter().cloned().collect());
-    if !matches!(stated.as_str(), "ee" | "") {
-        return Ok(None);
-    }
     let mut parts: Vec<&str> = q.split(',').map(str::trim).collect();
     let country = parts
         .last()
@@ -144,6 +140,10 @@ pub(crate) fn aligned(
     // "Karjamaa tn 1a, 80020 Pärnu, Estonia", which libpostal reads as house "1a 80020"
     let postal_town = country.is_some() && places.len() == 1 && coded(places[0]);
     if !postal_town && !places.iter().any(|p| typed(p) && !p.ends_with(" maakond")) {
+        return Ok(None);
+    }
+    let stated = crate::matching::expected_country(&whole.iter().cloned().collect());
+    if !matches!(stated.as_str(), "ee" | "") {
         return Ok(None);
     }
     let mut parsed = match named_house(q) {
