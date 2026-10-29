@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.2.0](https://github.com/Mokto/opengeocoding/compare/v1.1.0...v1.2.0) (2026-10-29)
+
+
+### Features
+
+* keep the landmark extracts' fetch through snapshot refreshes, and merge a clean snapshot refresh itself ([#392](https://github.com/Mokto/opengeocoding/issues/392)) ([ccb24f4](https://github.com/Mokto/opengeocoding/commit/ccb24f4aad82e66947230f6e45ac6a08bedb00db))
+
+
+### Bug Fixes
+
+* answer people place strings with the territory, town and district they name ([#395](https://github.com/Mokto/opengeocoding/issues/395)) ([00acdfc](https://github.com/Mokto/opengeocoding/commit/00acdfce49070fdd01085408dd9837d8544fe70d))
+* let a town outreach a nearer hamlet in ReverseGeocode's locality answer ([#400](https://github.com/Mokto/opengeocoding/issues/400)) ([7fc562c](https://github.com/Mokto/opengeocoding/commit/7fc562c60260c0fe8755ec4188f8ec9a24f08f4b))
+* mexican addresses in INEGI's standard order and in the stated state ([#399](https://github.com/Mokto/opengeocoding/issues/399)) ([183d257](https://github.com/Mokto/opengeocoding/commit/183d257ce464da9dcf14caa822c468a9f51fe4df))
+* name the 2015 DENUE edition in its credit line ([#415](https://github.com/Mokto/opengeocoding/issues/415)) ([650d022](https://github.com/Mokto/opengeocoding/commit/650d022dbfd026a94e3dc0314b94df54edb9b199))
+* read the Finnish addresses Ryhti names only in Swedish, which OpenAddresses publishes without a number ([#408](https://github.com/Mokto/opengeocoding/issues/408)) ([8b359fc](https://github.com/Mokto/opengeocoding/commit/8b359fc331b4af4143b57f5a8452135e08126b35))
+* resolve Hong Kong addresses written with their territory, region, district and area ([#389](https://github.com/Mokto/opengeocoding/issues/389)) ([cd20a43](https://github.com/Mokto/opengeocoding/commit/cd20a43501c53c1945ff57b23a56b10750039075))
+* suggest Hong Kong houses from whole addresses and Chinese roads typed with their number ([#396](https://github.com/Mokto/opengeocoding/issues/396)) ([a3fbcdd](https://github.com/Mokto/opengeocoding/commit/a3fbcdd134ad80129a832c1364d48c68bfcb6467))
+* suggest Taiwan addresses that name Taiwan Province (台灣省) ([#407](https://github.com/Mokto/opengeocoding/issues/407)) ([edcfea4](https://github.com/Mokto/opengeocoding/commit/edcfea430508ec595bba052d6d0ac7c2a3947df7))
+
 ## [1.1.0](https://github.com/Mokto/opengeocoding/compare/v1.0.1...v1.1.0) (2026-10-28)
 
 
