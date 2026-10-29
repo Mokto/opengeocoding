@@ -1,0 +1,13 @@
+The registry-first sample tests/registry/lt.jsonl contains addresses, postcodes and coordinates
+from the Address Register of the Republic of Lithuania (Adresų registras), kept by the State
+Enterprise Centre of Registers (VĮ Registrų centras), as published in its raw data ("Adresų
+registro pirminiai duomenys"): addresses of land plots and buildings (adr_stat_lr.csv), address
+points (adr_gra_adresai_LT.zip, data formed on 2026-10-01), streets, settlements, municipalities
+and counties, downloaded on 2026-10-29. Source: VĮ Registrų centras, Adresų registras, 2026-10-01
+(https://www.registrucentras.lt/atviri-duomenys-ir-statistika/adresu-registro-pirminiai-duomenys-raw-data).
+Used under the Creative Commons Attribution 4.0 International licence
+(https://creativecommons.org/licenses/by/4.0/).
+Changes: the files were joined by their codes (tests/registry/adr-csv.sql) and a sample drawn;
+queries were constructed from the register's fields, not by Registrų centras. Per-case file
+checksums and retrieval dates are recorded in the corpus; docs/evaluation/registry/lt.md records
+the upstream checksums.
