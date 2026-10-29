@@ -1,0 +1,13 @@
+The registry-first sample tests/registry/at.jsonl contains addresses, postcodes and coordinates
+from the Austrian address register (Österreichisches Adressregister) published by the Federal
+Office of Metrology and Surveying (Bundesamt für Eich- und Vermessungswesen, BEV) as "Adresse
+Relationale Tabellen - Stichtagsdaten" (reference date 01.10.2026), downloaded from
+https://data.bev.gv.at/download/Adressregister/Adresse_Relationale_Tabellen_Stichtagsdaten.zip
+on 2026-10-29. © Österreichisches Adressregister, Stichtagsdaten vom 01.10.2026
+(https://www.bev.gv.at/Services/Downloads/Produktbezogene-Downloads/Unentgeltliche-Produkte/Adressregister.html).
+Used under the Creative Commons Attribution 4.0 International licence
+(https://creativecommons.org/licenses/by/4.0/), as BEV states for this product.
+Changes: coordinates converted from MGI / Austria GK (EPSG:31254, 31255, 31256) to WGS84 with
+the EPSG:1618 transformation; queries were constructed from the register's fields, not by BEV.
+Per-case file checksums and retrieval dates are recorded in the corpus;
+docs/evaluation/registry/at.md records the upstream checksums.

@@ -79,13 +79,23 @@ const TAKE: [(&str, usize); 3] = [("street", 3), ("letter", 2), ("settlement", 3
 /// (Snyder's inverse series, millimetres within Slovenia). D96 (ETRS89) and WGS84 are treated as
 /// the same.
 pub fn d96tm([easting, northing]: [f64; 2]) -> [f64; 2] {
-    let (a, f, k0) = (6_378_137f64, 1. / 298.257_222_101f64, 0.9999f64);
+    let [lat, lon] = inverse_tm(
+        6_378_137.,
+        1. / 298.257_222_101,
+        0.9999,
+        [easting - 500_000., northing + 5_000_000.],
+    );
+    [lat, 15. + lon]
+}
+
+/// Inverse transverse Mercator (Snyder's series) on the ellipsoid of semi-major axis `a` and
+/// flattening `f`: easting from the central meridian and northing from the equator, in metres, to
+/// latitude and longitude from the central meridian, in degrees.
+pub fn inverse_tm(a: f64, f: f64, k0: f64, [easting, northing]: [f64; 2]) -> [f64; 2] {
     let e2 = f * (2. - f);
     let ep2 = e2 / (1. - e2);
     let e1 = (1. - (1. - e2).sqrt()) / (1. + (1. - e2).sqrt());
-    let mu = (northing + 5_000_000.)
-        / k0
-        / (a * (1. - e2 / 4. - 3. * e2 * e2 / 64. - 5. * e2.powi(3) / 256.));
+    let mu = northing / k0 / (a * (1. - e2 / 4. - 3. * e2 * e2 / 64. - 5. * e2.powi(3) / 256.));
     let p = mu
         + (1.5 * e1 - 27. / 32. * e1.powi(3)) * (2. * mu).sin()
         + (21. / 16. * e1 * e1 - 55. / 32. * e1.powi(4)) * (4. * mu).sin()
@@ -94,7 +104,7 @@ pub fn d96tm([easting, northing]: [f64; 2]) -> [f64; 2] {
     let (c, t) = (ep2 * p.cos().powi(2), p.tan().powi(2));
     let w = 1. - e2 * p.sin().powi(2);
     let (n, r) = (a / w.sqrt(), a * (1. - e2) / w.powf(1.5));
-    let d = (easting - 500_000.) / (n * k0);
+    let d = easting / (n * k0);
     let lat = p - n * p.tan() / r
         * (d * d / 2. - (5. + 3. * t + 10. * c - 4. * c * c - 9. * ep2) * d.powi(4) / 24.
             + (61. + 90. * t + 298. * c + 45. * t * t - 252. * ep2 - 3. * c * c) * d.powi(6)
@@ -102,7 +112,7 @@ pub fn d96tm([easting, northing]: [f64; 2]) -> [f64; 2] {
     let lon = (d - (1. + 2. * t + c) * d.powi(3) / 6.
         + (5. - 2. * c + 28. * t - 3. * c * c + 8. * ep2 + 24. * t * t) * d.powi(5) / 120.)
         / p.cos();
-    [lat.to_degrees(), 15. + lon.to_degrees()]
+    [lat.to_degrees(), lon.to_degrees()]
 }
 
 #[derive(Clone, Debug)]
