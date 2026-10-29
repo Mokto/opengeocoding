@@ -42,6 +42,8 @@ pub struct Sources {
     /// Read the addresses Syke's Ryhti register names only in Swedish (see `ryhti`).
     #[serde(default, skip_serializing_if = "is_false")]
     pub ryhti: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub denue: Option<Denue>,
     /// Retired switches (`openaddresses.enabled` and `anyLicence`, `geonamesPlaces`): every source
     /// is always read, and OpenAddresses layers always pass the licence check. Accepted and
     /// ignored so a source list that still has them parses.
@@ -63,6 +65,15 @@ pub struct KoreaShops {
     pub sha256: String,
 }
 
+/// INEGI's establishment directory (see `denue`), its latest edition fetched under `snapshot`.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Denue {
+    /// Only establishments that entered DENUE before this "YYYY" or "YYYY-MM" are read: the Mexico
+    /// corpus samples later ones (`opengeocoding::eval::DENUE_SAMPLED_FROM`).
+    pub before: String,
+}
+
 /// Local paths of the fetched sources, for `build_index`.
 pub struct Fetched {
     pub overture: PathBuf,
@@ -76,6 +87,8 @@ pub struct Fetched {
     pub korea_shops: Option<PathBuf>,
     /// An OpenAddresses-style directory of Ryhti's Swedish-only addresses (see `ryhti`).
     pub ryhti: Option<PathBuf>,
+    /// An OpenAddresses-style directory of DENUE's establishments (see `denue`).
+    pub denue: Option<PathBuf>,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -114,6 +127,19 @@ impl Sources {
                         .bytes()
                         .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()),
                 "koreaShops needs a FILE_ attachment id and a lowercase SHA-256"
+            );
+        }
+        if let Some(d) = &self.denue {
+            let b = d.before.as_bytes();
+            ensure!(
+                matches!(b.len(), 4 | 7)
+                    && b.iter().enumerate().all(|(i, c)| if i == 4 {
+                        *c == b'-'
+                    } else {
+                        c.is_ascii_digit()
+                    }),
+                "denue.before must be YYYY or YYYY-MM, got {:?}",
+                d.before
             );
         }
         for id in self.osm.iter().chain(&self.osm_landmarks) {
@@ -545,14 +571,17 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
     };
     let korea_dir = scratch.join("korea-shops");
     let ryhti_dir = scratch.join("ryhti");
-    let (openaddresses, (osm, osm_landmarks), geonames, geonames_places, korea_shops, ryhti) = tokio::try_join!(
-        overture_then_openaddresses,
-        osm_files,
-        geonames_files,
-        geonames_places,
-        korea_shops(store, src, &korea_dir),
-        ryhti(store, src, &ryhti_dir),
-    )?;
+    let denue_dir = scratch.join("denue");
+    let (openaddresses, (osm, osm_landmarks), geonames, geonames_places, korea_shops, ryhti, denue) =
+        tokio::try_join!(
+            overture_then_openaddresses,
+            osm_files,
+            geonames_files,
+            geonames_places,
+            korea_shops(store, src, &korea_dir),
+            ryhti(store, src, &ryhti_dir),
+            denue(store, src, &denue_dir),
+        )?;
 
     Ok(Fetched {
         overture: local,
@@ -563,7 +592,280 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         geonames_places,
         korea_shops,
         ryhti,
+        denue,
     })
+}
+
+const DENUE: &str = "https://www.inegi.org.mx/contenidos/masiva/denue";
+const DENUE_PAGE: &str = "https://www.inegi.org.mx/app/descarga/?ti=6";
+/// One zip per state, the State of Mexico in two parts.
+const DENUE_STATES: [&str; 33] = [
+    "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15_1",
+    "15_2", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
+    "30", "31", "32",
+];
+
+/// INEGI's establishment directory (DENUE, `docs/evaluation/registry/mx.md`), written as an
+/// OpenAddresses layer for `--openaddresses`: a point per fixed establishment with a street and
+/// exterior number, from those that entered the directory before `denue.before`. INEGI serves
+/// only its latest edition, so it is fetched under `snapshot`; the edition is read from the
+/// zips' metadata and named in the layer's credit.
+async fn denue(store: &Store, src: &Sources, dir: &Path) -> Result<Option<PathBuf>> {
+    let Some(denue) = &src.denue else {
+        return Ok(None);
+    };
+    let bbox = src.bbox();
+    if bbox.is_some_and(|b| !intersects(b, -118.5, 14.3, -86.6, 32.8)) {
+        return Ok(None);
+    }
+    let (c, before) = (client()?, denue.before.clone());
+    mirror(
+        store,
+        &format!(
+            "sources/{}/denue-{}/{}",
+            src.snapshot,
+            denue.before,
+            src.scope()
+        ),
+        dir,
+        1,
+        || async {
+            Ok(vec![
+                ("mx_denue-establishments.source.json".to_string(), false),
+                ("mx_denue-establishments.geojson.gz".to_string(), true),
+            ])
+        },
+        move |data: bool, path: PathBuf| {
+            let (c, before) = (c.clone(), before.clone());
+            Box::pin(async move {
+                let zip = |s: &str| path.with_file_name(format!("denue_{s}_csv.zip"));
+                let get = |s: &'static str| {
+                    let (c, zip) = (c.clone(), zip(s));
+                    async move {
+                        let url = format!("{DENUE}/denue_{s}_csv.zip");
+                        ensure!(http_get(&c, &url, &zip).await?, "{url} not found");
+                        anyhow::Ok(zip)
+                    }
+                };
+                if !data {
+                    let first = get(DENUE_STATES[0]).await?;
+                    let edition = denue_edition(&first)?;
+                    let source = serde_json::json!({"edition": edition, "layers": {"addresses": [{
+                        "name": "establishments",
+                        "data": DENUE,
+                        "website": DENUE_PAGE,
+                        "license": {
+                            "url": "https://www.inegi.org.mx/inegi/terminos.html",
+                            "text": "Términos de Libre Uso de la Información del INEGI",
+                            "attribution": true,
+                            "attribution name": format!("Fuente: INEGI, {edition}"),
+                        },
+                    }]}});
+                    tokio::fs::write(&path, source.to_string()).await?;
+                    return Ok(true);
+                }
+                let mut zips = vec![];
+                for s in DENUE_STATES {
+                    zips.push(get(s).await?);
+                }
+                let definition = path.with_file_name("mx_denue-establishments.source.json");
+                tokio::task::spawn_blocking(move || {
+                    let file = std::io::BufWriter::new(std::fs::File::create(&path)?);
+                    let mut gz =
+                        flate2::write::GzEncoder::new(file, flate2::Compression::default());
+                    let mut edition = None;
+                    for zip in &zips {
+                        let this = denue_edition(zip)?;
+                        ensure!(
+                            *edition.get_or_insert_with(|| this.clone()) == this,
+                            "{} is {this}, another DENUE edition",
+                            zip.display()
+                        );
+                        denue_features(zip, &before, bbox, &mut gz)?;
+                        std::fs::remove_file(zip)?;
+                    }
+                    gz.finish()?.flush()?;
+                    // the definition credits the edition state 01 had when it was written
+                    if let Ok(text) = std::fs::read_to_string(&definition) {
+                        let stated: serde_json::Value = serde_json::from_str(&text)?;
+                        ensure!(
+                            stated["edition"].as_str() == edition.as_deref(),
+                            "DENUE changed edition during the fetch; fetch it again"
+                        );
+                    }
+                    anyhow::Ok(())
+                })
+                .await??;
+                Ok(true)
+            })
+        },
+    )
+    .await?;
+    Ok(Some(dir.to_path_buf()))
+}
+
+/// The edition a DENUE zip's metadata names: "Directorio Estadístico Nacional de Unidades
+/// Económicas (DENUE) 05_2026".
+fn denue_edition(zip: &Path) -> Result<String> {
+    let entry = crate::sources::zip_entries(zip)?
+        .into_iter()
+        .find(|e| e.name.ends_with(b"metadatos_denue.txt"))
+        .with_context(|| format!("{} holds no DENUE metadata", zip.display()))?;
+    let mut text = String::new();
+    std::io::Read::read_to_string(&mut entry.open(zip)?, &mut text)?;
+    text.lines()
+        .find_map(|l| l.trim_start_matches('\u{feff}').strip_prefix("Title:"))
+        .map(|t| t.trim().to_string())
+        .filter(|t| t.contains("(DENUE)"))
+        .with_context(|| format!("{} names no DENUE edition", zip.display()))
+}
+
+/// Writes a DENUE zip's establishments as OpenAddresses GeoJSON lines: those fixed in place, that
+/// entered the directory before `before`, with a named street that is not a highway (whose
+/// numbers are kilometre posts) and an exterior number of one to five digits, plus a letter if it
+/// has one. The CSV is ISO-8859-1 with a few UTF-8 sequences; rows they garble are left out.
+/// Establishments at one address and point are written once. Returns the rows read and written.
+fn denue_features(
+    zip: &Path,
+    before: &str,
+    bbox: Option<[f64; 4]>,
+    out: &mut impl Write,
+) -> Result<(usize, usize)> {
+    let entries = crate::sources::zip_entries(zip)?;
+    let entry = entries
+        .iter()
+        .find(|e| e.name.starts_with(b"conjunto_de_datos/") && e.name.ends_with(b".csv"))
+        .with_context(|| format!("{} holds no DENUE CSV", zip.display()))?;
+    let mut lines = std::io::BufReader::with_capacity(1 << 20, entry.open(zip)?).split(b'\n');
+    let latin1 = |b: Vec<u8>| -> String { b.into_iter().map(char::from).collect() };
+    let header = latin1(lines.next().transpose()?.unwrap_or_default());
+    let header = crate::sources::csv_fields(header.trim_start_matches("\u{ef}\u{bb}\u{bf}"))?;
+    let col = |name: &str| {
+        header
+            .iter()
+            .position(|h| h == name)
+            .with_context(|| format!("{}: no column {name}", zip.display()))
+    };
+    let [
+        kind,
+        street,
+        number,
+        letter,
+        postcode,
+        locality,
+        lat,
+        lon,
+        date,
+        fixed,
+    ] = [
+        "tipo_vial",
+        "nom_vial",
+        "numero_ext",
+        "letra_ext",
+        "cod_postal",
+        "localidad",
+        "latitud",
+        "longitud",
+        "fecha_alta",
+        "tipoUniEco",
+    ]
+    .map(col);
+    let [
+        kind,
+        street,
+        number,
+        letter,
+        postcode,
+        locality,
+        lat,
+        lon,
+        date,
+        fixed,
+    ] = [
+        kind?, street?, number?, letter?, postcode?, locality?, lat?, lon?, date?, fixed?,
+    ];
+    let garbled =
+        |s: &str| s.contains(['Ã', 'Â']) || s.chars().any(|c| ('\u{80}'..='\u{9f}').contains(&c));
+    let (mut rows, mut bad, mut seen) = (0, 0, HashSet::new());
+    for line in lines {
+        let line = latin1(line?);
+        if line.trim().is_empty() {
+            continue;
+        }
+        rows += 1;
+        let f = crate::sources::csv_fields(&line)?;
+        if f.len() != header.len() {
+            bad += 1;
+            continue;
+        }
+        let get = |i: usize| f[i].trim();
+        let (n, name, kind) = (get(number), get(street), get(kind));
+        let digits = (1..=5).contains(&n.len())
+            && !n.starts_with('0')
+            && n.bytes().all(|b| b.is_ascii_digit());
+        let (Ok(y), Ok(x)) = (get(lat).parse::<f64>(), get(lon).parse::<f64>()) else {
+            continue;
+        };
+        if get(date).is_empty()
+            || get(date) >= before
+            || get(fixed) != "Fijo"
+            || !digits
+            || name.is_empty()
+            || name == "NINGUNO"
+            || ["CARRETERA", "AUTOPISTA"].contains(&kind)
+            || garbled(name)
+            || !(14.3..=32.8).contains(&y)
+            || !(-118.5..=-86.6).contains(&x)
+            || bbox.is_some_and(|b| !intersects(b, x, y, x, y))
+        {
+            continue;
+        }
+        let street = if kind.is_empty()
+            || kind.starts_with("OTRO")
+            || kind == "NINGUNO"
+            || name.starts_with(&format!("{kind} "))
+        {
+            name.to_string()
+        } else {
+            format!("{kind} {name}")
+        };
+        let l = get(letter);
+        let number = if l.len() == 1 && l.bytes().all(|b| b.is_ascii_uppercase()) {
+            format!("{n}{l}")
+        } else {
+            n.to_string()
+        };
+        let pc = get(postcode);
+        let pc = (pc.len() == 5 && !pc.starts_with("00") && pc.bytes().all(|b| b.is_ascii_digit()))
+            .then_some(pc);
+        let city = get(locality);
+        let city = city[..[" (", " ["]
+            .iter()
+            .filter_map(|p| city.find(p))
+            .min()
+            .unwrap_or(city.len())]
+            .trim();
+        let city = (!garbled(city)).then_some(city);
+        if !seen.insert(format!(
+            "{street}\0{number}\0{pc:?}\0{city:?}\0{x:.5}\0{y:.5}"
+        )) {
+            continue;
+        }
+        let feature = serde_json::json!({
+            "type": "Feature",
+            "properties": {"number": number, "street": street, "postcode": pc, "city": city},
+            "geometry": {"type": "Point", "coordinates": [x, y]},
+        });
+        writeln!(out, "{feature}")?;
+    }
+    // ponytail: a row with a raw newline in a quoted field is miscounted, not repaired; INEGI's
+    // 05_2026 CSVs have none.
+    ensure!(
+        rows > 0 && bad * 1000 <= rows,
+        "{}: {bad} of {rows} rows have the wrong column count",
+        zip.display()
+    );
+    Ok((rows, seen.len()))
 }
 
 /// Syke's Ryhti building addresses (CC BY 4.0, `docs/evaluation/registry/fi.md`), as served by
@@ -1344,6 +1646,17 @@ mod tests {
         assert!(!json.contains("geonamesPlaces") && !json.contains("openaddresses"));
         assert!(!json.contains("koreaShops") && !json.contains("ryhti"));
         assert!(src(r#"{"overtureRelease":"r","snapshot":"a","ryhti":true}"#).ryhti);
+        let denue = |before: &str| {
+            src(&format!(
+                r#"{{"overtureRelease":"r","snapshot":"a","denue":{{"before":"{before}"}}}}"#
+            ))
+            .validate()
+        };
+        denue("2025").unwrap();
+        denue("2025-04").unwrap();
+        for bad in ["25", "2025-4", "2025/04", "../x"] {
+            assert!(denue(bad).is_err(), "{bad}");
+        }
         let pinned = format!(
             r#"{{"overtureRelease":"r","snapshot":"a","koreaShops":{{"attachment":"FILE_123","sha256":"{}"}}}}"#,
             "a".repeat(64)
@@ -1403,12 +1716,29 @@ mod tests {
             e.write_all(b"keep 1\ndrop 2\nkeep 3\n").unwrap();
             e.finish().unwrap()
         };
-        let entries: [(&str, u16, Vec<u8>); 2] = [
-            ("readme.txt", 0, b"hello\n".to_vec()),
-            ("data.txt", 8, deflated),
-        ];
+        write_zip(
+            &zip,
+            &[
+                ("readme.txt", 0, b"hello\n".to_vec()),
+                ("data.txt", 8, deflated),
+            ],
+        );
+        let out = dir.join("data.txt");
+        unzip_lines(&zip, "data.txt", &out, |l| l.starts_with("keep")).unwrap();
+        assert_eq!(std::fs::read_to_string(&out).unwrap(), "keep 1\nkeep 3\n");
+        unzip_lines(&zip, "readme.txt", &out, |_| true).unwrap();
+        assert_eq!(std::fs::read_to_string(&out).unwrap(), "hello\n");
+        assert!(unzip_lines(&zip, "missing.txt", &out, |_| true).is_err());
+        std::fs::write(&zip, b"PK\x05\x06").unwrap();
+        assert!(crate::sources::zip_entries(&zip).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A zip of `entries` (name, method: 0 stored or 8 deflated, data), written by hand: local
+    /// headers, central directory, end record.
+    fn write_zip(zip: &Path, entries: &[(&str, u16, Vec<u8>)]) {
         let (mut body, mut cd) = (Vec::new(), Vec::new());
-        for (name, method, data) in &entries {
+        for (name, method, data) in entries {
             let offset = body.len() as u32;
             body.extend(0x0403_4b50u32.to_le_bytes());
             body.extend([20, 0, 0, 0]);
@@ -1434,19 +1764,90 @@ mod tests {
         let cd_offset = body.len() as u32;
         body.extend(&cd);
         body.extend(0x0605_4b50u32.to_le_bytes());
-        body.extend([0, 0, 0, 0, 2, 0, 2, 0]);
+        body.extend([0, 0, 0, 0]);
+        body.extend((entries.len() as u16).to_le_bytes());
+        body.extend((entries.len() as u16).to_le_bytes());
         body.extend((cd.len() as u32).to_le_bytes());
         body.extend(cd_offset.to_le_bytes());
         body.extend([0, 0]);
-        std::fs::write(&zip, body).unwrap();
-        let out = dir.join("data.txt");
-        unzip_lines(&zip, "data.txt", &out, |l| l.starts_with("keep")).unwrap();
-        assert_eq!(std::fs::read_to_string(&out).unwrap(), "keep 1\nkeep 3\n");
-        unzip_lines(&zip, "readme.txt", &out, |_| true).unwrap();
-        assert_eq!(std::fs::read_to_string(&out).unwrap(), "hello\n");
-        assert!(unzip_lines(&zip, "missing.txt", &out, |_| true).is_err());
-        std::fs::write(&zip, b"PK\x05\x06").unwrap();
-        assert!(crate::sources::zip_entries(&zip).is_err());
+        std::fs::write(zip, body).unwrap();
+    }
+
+    #[test]
+    fn denue_establishments_become_openaddresses_lines() {
+        let dir = std::env::temp_dir().join(format!("denue-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let zip = dir.join("denue_01_csv.zip");
+        let row = |kind: &str, street: &str, n: &str, letter: &str, date: &str, fixed: &str| {
+            format!(
+                "\"{kind}\",\"{street}\",\"{n}\",\"{letter}\",\"20000\",\"Aguascalientes (Centro)\",\"21.88\",\"-102.29\",\"{date}\",\"{fixed}\"\r\n"
+            )
+        };
+        let mut csv = "\"tipo_vial\",\"nom_vial\",\"numero_ext\",\"letra_ext\",\"cod_postal\",\"localidad\",\"latitud\",\"longitud\",\"fecha_alta\",\"tipoUniEco\"\r\n".to_string();
+        for r in [
+            row("CALLE", "UNIÓN", "127", "", "2024-11", "Fijo"),
+            row("CALLE", "UNIÓN", "127", "", "2019-11", "Fijo"),
+            row(
+                "AVENIDA",
+                "AVENIDA LÓPEZ MATEOS",
+                "5",
+                "B",
+                "2010-07",
+                "Fijo",
+            ),
+            row("OTRO(ESPECIFIQUE)", "GODARD", "173", "", "2014-12", "Fijo"),
+            row("CALLE", "UNIÓN", "128", "", "2025-04", "Fijo"),
+            row("CALLE", "UNIÓN", "129", "", "2024-11", "Semifijo"),
+            row("CALLE", "UNIÓN", "0", "", "2024-11", "Fijo"),
+            row("CALLE", "UNIÓN", "SN", "", "2024-11", "Fijo"),
+            row("CARRETERA", "FEDERAL 45", "12", "", "2024-11", "Fijo"),
+            row("CALLE", "NINGUNO", "12", "", "2024-11", "Fijo"),
+            row("CALLE", "MÃ\u{81}RQUEZ", "12", "", "2024-11", "Fijo"),
+        ] {
+            csv += &r;
+        }
+        let latin1: Vec<u8> = csv.chars().map(|c| c as u32 as u8).collect();
+        let meta = "Identifier: MEX-INEGI.EEC2.05-DENUE-2026\n\nTitle: Directorio Estadístico Nacional de Unidades Económicas (DENUE) 05_2026\n";
+        write_zip(
+            &zip,
+            &[
+                ("conjunto_de_datos/denue_inegi_01_.csv", 0, latin1),
+                ("metadatos/metadatos_denue.txt", 0, meta.as_bytes().to_vec()),
+            ],
+        );
+        assert_eq!(
+            denue_edition(&zip).unwrap(),
+            "Directorio Estadístico Nacional de Unidades Económicas (DENUE) 05_2026"
+        );
+        let mut out = vec![];
+        assert_eq!(
+            denue_features(&zip, "2025", None, &mut out).unwrap(),
+            (11, 3)
+        );
+        let features: Vec<serde_json::Value> = String::from_utf8(out)
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert_eq!(
+            features[0]["properties"],
+            serde_json::json!({"number": "127", "street": "CALLE UNIÓN", "postcode": "20000", "city": "Aguascalientes"})
+        );
+        assert_eq!(
+            features[0]["geometry"]["coordinates"],
+            serde_json::json!([-102.29, 21.88])
+        );
+        assert_eq!(features[1]["properties"]["street"], "AVENIDA LÓPEZ MATEOS");
+        assert_eq!(features[1]["properties"]["number"], "5B");
+        assert_eq!(features[2]["properties"]["street"], "GODARD");
+        let mut none = vec![];
+        assert_eq!(
+            denue_features(&zip, "2010", None, &mut none).unwrap(),
+            (11, 0)
+        );
+        let mut outside = vec![];
+        denue_features(&zip, "2025", Some([0.0, 0.0, 1.0, 1.0]), &mut outside).unwrap();
+        assert!(outside.is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

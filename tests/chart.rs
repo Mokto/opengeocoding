@@ -21,6 +21,22 @@ fn chart_pins_this_builder() {
     );
 }
 
+/// The index reads DENUE's establishments up to the month the Mexico corpus starts sampling them.
+#[test]
+fn chart_reads_denue_only_before_the_corpus_sample() {
+    let values = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/manifests/values.yaml"
+    ))
+    .unwrap();
+    let before = values
+        .split_once("    denue:\n")
+        .and_then(|(_, rest)| rest.lines().next()?.trim().strip_prefix("before: "))
+        .expect("index.sources.denue.before in manifests/values.yaml")
+        .trim_matches('"');
+    assert_eq!(before, opengeocoding::eval::DENUE_SAMPLED_FROM);
+}
+
 /// libpostal has no runtime data-dir setting (`rustpostal` calls plain `libpostal_setup`), so
 /// every `--models` the chart passes must be the `--datadir` the Dockerfile compiles in, plus
 /// `/libpostal`; the build Job's Verify step loads the models from there.
