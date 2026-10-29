@@ -1,0 +1,14 @@
+The registry-first sample tests/registry/si.jsonl contains addresses, postcodes and coordinates
+from the Register of Addresses (Register naslovov) of the Surveying and Mapping Authority of the
+Republic of Slovenia (Geodetska uprava Republike Slovenije, GURS), export "Register naslovov za
+območje Slovenije" (file RN_SLO_NASLOVI_20261025.zip, database state of 2026-10-25), downloaded
+from the Javni geodetski podatki application on 2026-10-29. Source: Geodetska uprava Republike
+Slovenije, Register naslovov, 25. 10. 2026 (https://podatki.gov.si/dataset/register-naslovov,
+https://ipi.eprostor.gov.si/jgp/data). Used under the Creative Commons Attribution 4.0
+International licence (https://creativecommons.org/licenses/by/4.0/), per GURS's general terms
+for the use of geodetic data (https://www.e-prostor.gov.si/fileadmin/struktura/General_terms.docx).
+Statistical region names are from GURS's Register of Spatial Units (Register prostorskih enot),
+same date and licence.
+Changes: coordinates converted from D96/TM (EPSG:3794) to WGS84; queries were constructed from the
+register's fields, not by GURS. Per-case file checksums and retrieval dates are recorded in the
+corpus; docs/evaluation/registry/si.md records the upstream checksums.
