@@ -1,7 +1,7 @@
 use super::{Entry, Point, Registry};
 use anyhow::{Context, Result, ensure};
 use flate2::read::MultiGzDecoder;
-use opengeocoding::eval::sha256_hex;
+use opengeocoding::eval::{DENUE_SAMPLED_FROM, sha256_hex};
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -195,14 +195,14 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
         );
         let (number, letter, postcode) = (field(11), field(12), field(13));
         let (street_type, street) = (field(9), field(10));
-        // A small business is often its owner's home, and an older establishment is in the
-        // 2015 DENUE copies OpenAddresses publishes; a number on a highway is a kilometre post;
+        // A small business is often its owner's home, and an older establishment may be in the
+        // index; a number on a highway is a kilometre post;
         // an address several establishments share with different postcodes or points far
         // apart is not one place.
         if field(15) != "Fijo"
             || field(14).is_empty()
             || field(14) == "0 a 5 personas"
-            || field(17) < "2016"
+            || field(17) < DENUE_SAMPLED_FROM
             || field(16) != "false"
             || !((1..=5).contains(&number.len())
                 && !number.starts_with('0')
@@ -377,7 +377,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("denue-test-{}.csv.gz", std::process::id()));
         let header = format!("{}\n", COLUMNS.join(","));
         let row = |id: &str, edit: &dyn Fn(&mut Vec<String>)| {
-            let mut f: Vec<String> = "01,Aguascalientes,001,Aguascalientes,0001,Aguascalientes,COLONIA,ZONA CENTRO,CALLE,UNION,127,\"\",20000,31 a 50 personas,Fijo,false,2019-11,1,1,0.0,21.88427837,-102.2969435"
+            let mut f: Vec<String> = "01,Aguascalientes,001,Aguascalientes,0001,Aguascalientes,COLONIA,ZONA CENTRO,CALLE,UNION,127,\"\",20000,31 a 50 personas,Fijo,false,2025-04,1,1,0.0,21.88427837,-102.2969435"
                 .split(',')
                 .map(String::from)
                 .collect();
@@ -397,7 +397,7 @@ mod tests {
                 [f[10], f[11]] = ["45".into(), "B".into()];
             }),
             row("3", &|f| f[13] = "0 a 5 personas".into()),
-            row("4", &|f| f[16] = "2014-12".into()),
+            row("4", &|f| f[16] = "2024-11".into()),
             row("5", &|f| f[8] = "CARRETERA".into()),
             row("6", &|f| f[10] = "SN".into()),
             row("7", &|f| f[12] = "2000".into()),
