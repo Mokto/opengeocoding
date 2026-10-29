@@ -223,29 +223,79 @@ impl Index {
                     hits = found;
                 }
             }
+            // "Vlado Rozmano g." is the index's "V. Rozmano g."
+            if cc == Some("lt")
+                && !hits.iter().any(housed)
+                && let Some(surname) = lt::surname_road(road)
+            {
+                let found: Vec<Hit> = self
+                    .streets_in(
+                        &surname,
+                        get("house_number").map(house_number),
+                        resolved_city.as_deref(),
+                        None,
+                        get("postcode"),
+                        cc,
+                        false,
+                    )
+                    .into_iter()
+                    .filter(|h| {
+                        matches!(h, Hit::Street { number: Some(_), name, .. }
+                            if name.split('\x1f').any(|n| lt::initials_agree(road, n)))
+                    })
+                    .collect();
+                if !found.is_empty() {
+                    hits = found;
+                }
+            }
             // "Laze 39a, Vrtojba, Šempeter-Vrtojba": the index files a Slovenian house under the
             // nearest village it knows, not always the settlement the address names, but always
             // under its municipality; a settlement's name can be another municipality's
             // village's ("Gorenja vas"); and a village can be named like a street type ("Cesta
             // 18, Trebnje" is the village Cesta, not Rimska cesta in Trebnje).
-            if cc == Some("si")
-                && let Some(municipality) = get("state").or(city)
+            // A Lithuanian village's houses are numbered on its own name, which many villages
+            // share: "Pagėgių sav., Užbalių k. 1" is not Užbaliai's house 1 in Prienai District.
+            let municipality = match cc {
+                Some("si") => get("state").or(city),
+                Some("lt") => get("state"),
+                _ => None,
+            };
+            if let Some(code) = cc
+                && let Some(municipality) = municipality
                 && let Some(number) = get("house_number")
             {
                 let want = name_key(municipality);
+                // the places the house is rendered in, which its point picks among the street's
+                let in_municipality = |place: u32, x: f64, y: f64| {
+                    let chain = self.chain(place);
+                    let chain = self.house_chain(&chain, x, y).unwrap_or(chain);
+                    chain.iter().any(|&p| self.places[p as usize].named(want))
+                };
                 // a house found through its postal town ("3000 Celje") is in the town stated
                 let within = |h: &Hit| {
-                    matches!(h, Hit::Street { number: Some(_), place, name, city: postal, .. }
+                    matches!(h, Hit::Street { number: Some(_), place, name, city: postal, x, y, .. }
                         if name.split('\x1f').any(|n| fold(n) == fold(road))
                             && (postal.is_some()
-                                || (*place != NONE
-                                    && self.chain(*place).iter().any(|&p| self.places[p as usize].named(want)))))
+                                || (*place != NONE && in_municipality(*place, *x, *y))))
                 };
-                if !hits.iter().any(within)
-                    && let Some(found) =
-                        self.si_municipal_house(road, house_number(number), municipality)
-                {
-                    hits = vec![found];
+                // a Lithuanian village named with only its municipality, which can have two
+                // villages of the name ("Rietavo sav., Patyrio k. 1")
+                let lone = code == "lt" && city.is_none() && get("postcode").is_none();
+                let found = hits.iter().any(within);
+                if !found || lone {
+                    let houses =
+                        self.municipal_houses(road, house_number(number), municipality, code);
+                    match &houses[..] {
+                        [one] => hits = vec![one.clone()],
+                        // two villages of the municipality hold the house; or none does, and a
+                        // house outside it ("Trakų r. sav., Karališkių k. 6" in Širvintų) is not
+                        // the one meant
+                        _ if code == "lt" && (houses.len() > 1 || !found) => hits.retain(|h| {
+                            !matches!(h, Hit::Street { number: Some(_), place, city: None, x, y, .. }
+                                if houses.len() > 1 || *place == NONE || !in_municipality(*place, *x, *y))
+                        }),
+                        _ => {}
+                    }
                 }
                 // "Glavna ulica 136, Dolga vas, Lendava": a street holding the number twice
                 // (in Lendava and in Dolga vas) answers the copy nearest the settlement stated

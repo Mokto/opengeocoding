@@ -637,7 +637,10 @@ impl Parser {
                 }
                 None => whole,
             };
-            if let Some(read) = estonian_parts.or_else(|| si::aligned(q)) {
+            if let Some(read) = estonian_parts
+                .or_else(|| si::aligned(q))
+                .or_else(|| lt::aligned(q))
+            {
                 parsed = read;
             }
             unit_from_road(&mut parsed);

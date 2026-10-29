@@ -605,7 +605,10 @@ impl Index {
                                         })
                                 }))
                     })
-                    .map(title);
+                    .map(|c| match cc {
+                        Some("lt") => crate::index::country::lt::settlement_title(c),
+                        _ => title(c),
+                    });
                 Hit::Street {
                     doc: a,
                     sid: self.fast(a, "id") as u32,

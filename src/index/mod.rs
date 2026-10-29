@@ -35,7 +35,7 @@ mod postcode;
 mod search;
 mod street;
 use collect::*;
-use country::{cn_tw, co, cz_sk, de, ee, es, hk_mo, ie, it, jp, mx, pl, pt, si, xk};
+use country::{cn_tw, co, cz_sk, de, ee, es, hk_mo, ie, it, jp, lt, mx, pl, pt, si, xk};
 pub use fuzzy::*;
 pub use house::same_number;
 pub use parse::*;

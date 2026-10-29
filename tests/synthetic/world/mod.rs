@@ -91,6 +91,7 @@ mod it;
 mod jp;
 mod kr;
 mod li;
+mod lt;
 mod mk;
 mod mx;
 mod my;
@@ -139,6 +140,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         jp::PLACES,
         kr::PLACES,
         li::PLACES,
+        lt::PLACES,
         mk::PLACES,
         mx::PLACES,
         my::PLACES,
@@ -192,6 +194,9 @@ const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
     ("si-tolmin", "region", true, true, 120.0, -45.0, 0.5),
     ("si-kanal", "region", true, true, 121.5, -45.0, 0.5),
     ("si-koper", "region", true, true, 123.0, -45.0, 0.5),
+    ("lt-ta", "region", true, true, 140.5, -50.0, 1.0),
+    ("lt-pagegiai", "county", true, true, 140.0, -49.8, 0.45),
+    ("lt-jurbarkas", "county", true, true, 141.0, -50.0, 0.45),
     ("ga-1-libreville-dept", "county", true, true, 9.65, 0.4, 0.4),
     (
         "eg-ast-manfalut-markaz",
@@ -271,6 +276,7 @@ pub fn cases() -> Vec<crate::Case> {
         ie::cases(),
         r#in::cases(),
         it::cases(),
+        lt::cases(),
         mk::cases(),
         mx::cases(),
         nl::cases(),
@@ -315,6 +321,7 @@ pub static STREETS: LazyLock<Vec<Street>> = LazyLock::new(|| {
         it::STREETS,
         jp::STREETS,
         kr::STREETS,
+        lt::STREETS,
         mk::STREETS,
         mx::STREETS,
         my::STREETS,

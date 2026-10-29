@@ -825,6 +825,9 @@ pub(crate) fn roads_agree(typed: &str, found: &str) -> bool {
     if ee::initials_agree(typed, found, road_key) {
         return true;
     }
+    if crate::index::country::lt::initials_agree(typed, found) {
+        return true;
+    }
     let (typed, found) = (road_key(typed), road_key(found));
     if typed == found {
         return true;
