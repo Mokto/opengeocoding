@@ -1,4 +1,4 @@
-use crate::index::country::{au, ca, dk, hk_mo, ie, ps, pt, tw};
+use crate::index::country::{au, ca, dk, ee, hk_mo, ie, ps, pt, tw};
 use crate::{
     index::{Index, Parser, canon::canon},
     matching::*,
@@ -554,6 +554,7 @@ impl Core {
                         || (road_agrees(address, details) && city_agrees(address, details))
                         || postcode_agrees(postcode, details))
                     && (postcode_matches(postcode, details) || house_road_city(address, details))
+                    && !ee::municipality_conflict(address, details)
                     && (part(address, "city").is_empty()
                         || city_agrees(address, details)
                         || named_in_region(query, details)
@@ -670,6 +671,8 @@ impl Core {
         let query = palestine.as_deref().unwrap_or(query);
         let eircode = ie::compact_eircode(query);
         let query = eircode.as_deref().unwrap_or(query);
+        let house_first = ee::county_first(query);
+        let query = house_first.as_deref().unwrap_or(query);
         // "Palestine" is the country, not Palestine, Texas
         let cc = country_named(query);
         if !cc.is_empty()

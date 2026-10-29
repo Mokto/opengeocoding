@@ -375,6 +375,14 @@ impl Index {
                 return self.suggest(&spaced, limit, cc, focus, landmarks);
             }
         }
+        if cc.is_none_or(|c| c.eq_ignore_ascii_case("ee")) {
+            if let Some(turned) = ee::county_first(text) {
+                return self.suggest(&turned, limit, cc, focus, landmarks);
+            }
+            if let Some(found) = self.ee_named_house(text) {
+                return kept(vec![found], cc, limit);
+            }
+        }
         if let Some(hits) = self.korean_search(text)
             && !hits.is_empty()
         {
