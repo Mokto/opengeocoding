@@ -100,7 +100,7 @@ On a local Mexico index built with the builder rules of `fab54d7aa31b5572` (Over
 - **wrong_component (17):** the house is found, with another postcode than DENUE's.
 - **abstain (16)** and **far_miss (3)**.
 
-The three critical results are labelled in `mx.labels.jsonl` with their attribution: two short forms name a locality several places in the state share, or one the index lacks (El Ranchito in Peribán, El Salitrillo in Fresnillo), and the locality fallback answers a namesake 167 and 189 km away with goodMatch false; in `CALLE LA BRIDA 240, ... 45675 El Paraíso, Culiacán, Sinaloa`, DENUE gives a Jalisco postcode, whose area the postcode fallback answers 640 km away though the query states Sinaloa.
+The three critical results are labelled in `mx.labels.jsonl` with their attribution: two short forms name a locality several places in the state share, or one the index lacks (El Ranchito in Peribán, El Salitrillo in Fresnillo), and the locality fallback answers a namesake 167 and 189 km away with goodMatch false; `CALLE LA BRIDA 240, ... 45675 El Paraíso, Culiacán, Sinaloa` is a register error: its postcode is Tlajomulco de Zúñiga's, in Jalisco, where DENUE has listed the same street and number since 2010 in a locality also named El Paraíso, but its point and state are in Culiacán, so the postcode fallback answers the Jalisco postcode area 640 km away (both forms are labelled).
 
 ReverseGeocode returns the house at 40 of 320 points and a house within 150 m of a point 25 m away at 200; 82 answers name another place than the register's locality or municipality. These are diagnostic results on a local index, not a CI gold run.
 
