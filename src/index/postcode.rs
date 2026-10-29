@@ -1,5 +1,5 @@
 use super::*;
-use country::br;
+use country::{br, mx};
 
 /// A house's own postcode against the stated one. A street typed wrongly and a postcode the
 /// house contradicts are two doubts at once, so the respelt street answers only without the second.
@@ -113,6 +113,7 @@ impl Index {
                     let digits = norm.chars().any(|c| c.is_ascii_digit());
                     let letters = norm.chars().any(|c| c.is_alphabetic());
                     if !digits
+                        || (len == 2 && mx::whole_postcode(cc))
                         || norm.len() < 3
                         || (len == 1 && cc.is_none() && !letters && norm.len() < 5)
                     {

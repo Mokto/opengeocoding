@@ -164,6 +164,13 @@ pub fn classify(license: Option<&serde_json::Value>) -> Licence {
     Licence::Unknown
 }
 
+/// INEGI's 2015 establishment directory (DENUE), one file per Mexican state: a business's point,
+/// which gives way to an address source's copy of the same house, "0" for no number and street
+/// "NINGUNO" for none.
+fn establishment_directory(file: &str) -> bool {
+    file.starts_with("mx_") && file.ends_with("_statewide-country.geojson.gz")
+}
+
 /// Sources reviewed against their publisher's terms: file stem, terms, who to credit, where read.
 const REVIEWED: &str = include_str!("openaddresses_reviewed.tsv");
 
@@ -265,6 +272,7 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
             progress::warn(format!("skipping {name}: no country prefix"));
             return;
         }
+        let directory = establishment_directory(&name);
         // One thread decompresses into blocks of whole lines; workers parse blocks in parallel,
         // so one large file doesn't leave the other cores idle. Parsing is the slower side, so
         // a deeper queue only holds more blocks: 32 per file were gigabytes over all files.
@@ -294,7 +302,7 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
                 drop(tx);
             });
             rx.into_iter().par_bridge().for_each_init(
-                || Sink::new(shared).ranked(1),
+                || Sink::new(shared).ranked(if directory { super::LAST_RANK } else { 1 }),
                 |sink, block| {
                     for line in block.lines() {
                         let Ok(f) = serde_json::from_str::<Feature>(line) else {
@@ -310,13 +318,24 @@ pub fn openaddresses(dir: &Path, out: &Path, any_licence: bool, shared: &Shared)
                             continue;
                         };
                         let p = &f.properties;
+                        let number = p
+                            .number
+                            .as_deref()
+                            .filter(|n| !directory || n.trim() != "0");
+                        if directory
+                            && p.street
+                                .as_deref()
+                                .is_some_and(|s| s.trim().eq_ignore_ascii_case("ninguno"))
+                        {
+                            continue;
+                        }
                         let city = p
                             .city
                             .as_deref()
                             .filter(|c| !c.trim().is_empty())
                             .map(|name| (name, "city"))
                             .or_else(|| p.district.as_deref().map(|name| (name, "district")));
-                        let numbers = numbers_with_unit(cc, p.number.as_deref(), p.unit.as_deref());
+                        let numbers = numbers_with_unit(cc, number, p.unit.as_deref());
                         let postcode = p.postcode.as_deref().map(|pc| oa_postcode(cc, pc));
                         sink.add(
                             Some(cc),
