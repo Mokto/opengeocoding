@@ -223,6 +223,63 @@ impl Index {
                     hits = found;
                 }
             }
+            // "Laze 39a, Vrtojba, Šempeter-Vrtojba": the index files a Slovenian house under the
+            // nearest village it knows, not always the settlement the address names, but always
+            // under its municipality; a settlement's name can be another municipality's
+            // village's ("Gorenja vas"); and a village can be named like a street type ("Cesta
+            // 18, Trebnje" is the village Cesta, not Rimska cesta in Trebnje).
+            if cc == Some("si")
+                && let Some(municipality) = get("state").or(city)
+                && let Some(number) = get("house_number")
+            {
+                let want = name_key(municipality);
+                // a house found through its postal town ("3000 Celje") is in the town stated
+                let within = |h: &Hit| {
+                    matches!(h, Hit::Street { number: Some(_), place, name, city: postal, .. }
+                        if name.split('\x1f').any(|n| fold(n) == fold(road))
+                            && (postal.is_some()
+                                || (*place != NONE
+                                    && self.chain(*place).iter().any(|&p| self.places[p as usize].named(want)))))
+                };
+                if !hits.iter().any(within)
+                    && let Some(found) =
+                        self.si_municipal_house(road, house_number(number), municipality)
+                {
+                    hits = vec![found];
+                }
+                // "Glavna ulica 136, Dolga vas, Lendava": a street holding the number twice
+                // (in Lendava and in Dolga vas) answers the copy nearest the settlement stated
+                let twice = |h: &Hit| match h {
+                    Hit::Street {
+                        sid,
+                        number: Some(form),
+                        ..
+                    } => {
+                        let mut key = sid.to_be_bytes().to_vec();
+                        key.extend_from_slice(form.as_bytes());
+                        self.far[*sid as usize % self.far.len()]
+                            .as_ref()
+                            .is_some_and(|m| m.get(&key).is_some())
+                    }
+                    _ => false,
+                };
+                if let (Some(settlement), Some(municipality)) = (city, get("state"))
+                    && hits.first().is_some_and(twice)
+                {
+                    let found = self.streets_in(
+                        road,
+                        Some(house_number(number)),
+                        Some(municipality),
+                        Some(settlement),
+                        get("postcode"),
+                        cc,
+                        false,
+                    );
+                    if found.first().is_some_and(within) {
+                        hits = found;
+                    }
+                }
+            }
             // "70 N Professor St, Oberlin 44074" parses one road "n professor st oberlin": with
             // no town labelled, the road's last words may be it.
             if hits.is_empty() && city.is_none() && (cc.is_some() || get("postcode").is_some()) {

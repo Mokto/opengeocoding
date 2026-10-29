@@ -1,4 +1,4 @@
-use crate::index::country::{au, ca, dk, ee, hk_mo, ie, ps, pt, tw};
+use crate::index::country::{au, ca, dk, ee, hk_mo, ie, ps, pt, si, tw};
 use crate::{
     index::{Index, Parser, canon::canon},
     matching::*,
@@ -577,8 +577,12 @@ impl Core {
                         || postcode_agrees(postcode, details))
                     && (postcode_matches(postcode, details) || house_road_city(address, details))
                     && !ee::municipality_conflict(address, details)
+                    && !si::municipality_conflict(address, details)
                     && (part(address, "city").is_empty()
                         || city_agrees(address, details)
+                        || details.is_some_and(|d| {
+                            road_agrees(address, details) && si::municipality_agrees(address, d)
+                        })
                         || named_in_region(query, details)
                         || (same_postcode_country(country, postcode, details)
                             && (locality(details) || *postcode_vouches))
