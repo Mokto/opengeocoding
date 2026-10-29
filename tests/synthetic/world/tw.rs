@@ -242,3 +242,15 @@ fn taiwanese_suggestions_skip_taiwan_province() {
         }
     }
 }
+
+// Overture writes Taiwan's house 11之2 as number 11 with unit 之2號: it is its own house, not 11.
+#[test]
+fn taiwanese_sub_numbers_from_units_stay_their_own_houses() {
+    let road = street("明光路3段389巷6弄");
+    for number in ["11", "11之2"] {
+        let at = house(road, number);
+        let found = index().reverse_search(at.1, at.0, 50.0, 1);
+        assert_eq!(found[0].1["address"]["house_number"], number, "{number}");
+        assert!(found[0].2 < 5.0, "{number}: {}", found[0].2);
+    }
+}

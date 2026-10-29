@@ -1483,12 +1483,13 @@ async fn resolve_follows_the_authored_facts() {
         let found = resolver.resolve(query).await.unwrap();
         assert!(!found.good_match, "{query}: {found:?}");
     }
-    for (road, number, want) in [
-        ("明光路三段389巷6弄", "11", (123.0, 25.0)),
-        ("明光路3段389巷6弄", "11之2", (123.0001, 25.0)),
-        ("市民大道五段", "131", (123.01, 25.0)),
-        ("市民大道五段", "7", (123.0101, 25.0)),
+    for (road, number, stored) in [
+        ("明光路三段389巷6弄", "11", "明光路3段389巷6弄"),
+        ("明光路3段389巷6弄", "11之2", "明光路3段389巷6弄"),
+        ("市民大道五段", "131", "市民大道五段"),
+        ("市民大道五段", "7", "市民大道五段"),
     ] {
+        let want = house(street(stored), number);
         let fullwidth = |text: &str| {
             text.chars()
                 .map(|c| {
