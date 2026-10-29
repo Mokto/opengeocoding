@@ -17,9 +17,9 @@ pub(crate) fn standard_aligned(
     head: &[(String, String)],
     rest: &[&str],
 ) -> Option<Vec<(String, String)>> {
-    let (postcode, town, state) = match rest.iter().position(|p| postcode_town(p).is_some()) {
+    let (postcode, town, state) = match rest.iter().position(|p| code_and_town(p).is_some()) {
         Some(at) => {
-            let (postcode, town) = postcode_town(rest[at])?;
+            let (postcode, town) = code_and_town(rest[at])?;
             let state = match &rest[at + 1..] {
                 [state] | [_, state] => state.trim().to_lowercase(),
                 _ => return None,
@@ -51,7 +51,7 @@ pub(crate) fn standard_aligned(
 }
 
 /// "20000 Aguascalientes": a five-digit postcode and the locality.
-fn postcode_town(part: &str) -> Option<(String, String)> {
+fn code_and_town(part: &str) -> Option<(String, String)> {
     let (postcode, town) = part.trim().split_once(' ')?;
     let town = town.trim().to_lowercase();
     (postcode.len() == 5
