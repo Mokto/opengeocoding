@@ -1,0 +1,12 @@
+The registry-first sample tests/registry/ee.jsonl contains addresses, postcodes and coordinates
+from the Estonian Address Data System (Aadressiandmete süsteem, ADS) of the Estonian Land and
+Spatial Development Board (Maa- ja Ruumiamet), CSV extract of addresses with postcodes
+("Aadressid ja posti sihtnumbrid", file sihtnumbrid.zip), extract of 2026-10-05, downloaded on
+2026-10-29. Source: Maa- ja Ruumiamet, ADS 2026-10-05
+(https://geoportaal.maaruum.ee/est/ruumiandmed/aadressiandmed/aadressid-ja-posti-sihtnumbrid-p582.html).
+Used under the Maa- ja Ruumiamet open data licence of 01.01.2025
+(https://geoportaal.maaruum.ee/opendata-licence, https://geoportaal.maaruum.ee/avaandmete-litsents).
+Postcodes are assigned by Omniva and recorded in ADS.
+Changes: reference points converted from L-EST97 (EPSG:3301) to WGS84; queries were constructed
+from the register's fields, not by Maa- ja Ruumiamet. Per-case file checksums and retrieval dates
+are recorded in the corpus; docs/evaluation/registry/ee.md records the upstream checksums.
