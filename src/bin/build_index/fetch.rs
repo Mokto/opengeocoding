@@ -39,6 +39,9 @@ pub struct Sources {
     pub osm_landmarks: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub korea_shops: Option<KoreaShops>,
+    /// Read the addresses Syke's Ryhti register names only in Swedish (see `ryhti`).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub ryhti: bool,
     /// Retired switches (`openaddresses.enabled` and `anyLicence`, `geonamesPlaces`): every source
     /// is always read, and OpenAddresses layers always pass the licence check. Accepted and
     /// ignored so a source list that still has them parses.
@@ -71,6 +74,12 @@ pub struct Fetched {
     pub geonames_places: Option<PathBuf>,
     /// The directory holding Korea's shop register, `shops.zip`, and its `source.json`.
     pub korea_shops: Option<PathBuf>,
+    /// An OpenAddresses-style directory of Ryhti's Swedish-only addresses (see `ryhti`).
+    pub ryhti: Option<PathBuf>,
+}
+
+fn is_false(b: &bool) -> bool {
+    !b
 }
 
 fn safe(what: &str, value: &str, extra: &str) -> Result<()> {
@@ -535,12 +544,14 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         anyhow::Ok(Some(dir))
     };
     let korea_dir = scratch.join("korea-shops");
-    let (openaddresses, (osm, osm_landmarks), geonames, geonames_places, korea_shops) = tokio::try_join!(
+    let ryhti_dir = scratch.join("ryhti");
+    let (openaddresses, (osm, osm_landmarks), geonames, geonames_places, korea_shops, ryhti) = tokio::try_join!(
         overture_then_openaddresses,
         osm_files,
         geonames_files,
         geonames_places,
         korea_shops(store, src, &korea_dir),
+        ryhti(store, src, &ryhti_dir),
     )?;
 
     Ok(Fetched {
@@ -551,7 +562,132 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         geonames,
         geonames_places,
         korea_shops,
+        ryhti,
     })
+}
+
+/// Syke's Ryhti building addresses (CC BY 4.0, `docs/evaluation/registry/fi.md`), as served by
+/// its WFS: those with no Finnish address text but a Swedish one, under 100,000 (46,015 in
+/// October 2026), so one request holds them all.
+const RYHTI: &str = "https://paikkatiedot.ymparisto.fi/geoserver/ryhti_building/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=ryhti_building:open_address&outputFormat=csv&srsName=CRS:84&count=100000&sortBy=address_key&propertyName=address_key,address_name_swe,address_swe,postal_code,postal_office_swe,location_geometry_data&cql_filter=address_fin%3D%27%27%20AND%20address_swe%3C%3E%27%27";
+const RYHTI_PAGE: &str = "https://avoindata.suomi.fi/data/fi/dataset/rakennetun-ympariston-tietojarjestelman-rakennusten-osoitetiedot";
+
+/// The addresses Ryhti names only in Swedish (most of Åland's, some of Ostrobothnia's), written
+/// as an OpenAddresses layer for `--openaddresses`. OpenAddresses' `fi/countrywide-fi` and
+/// `fi/countrywide-sv` cut the number off `address_fin`, which these lack, so both publish them
+/// without one; drop this source once those conforms read Ryhti's number fields.
+async fn ryhti(store: &Store, src: &Sources, dir: &Path) -> Result<Option<PathBuf>> {
+    let bbox = src.bbox();
+    if !src.ryhti || bbox.is_some_and(|b| !intersects(b, 19.0, 59.5, 31.7, 70.2)) {
+        return Ok(None);
+    }
+    let c = client()?;
+    mirror(
+        store,
+        &format!("sources/{}/ryhti/{}", src.snapshot, src.scope()),
+        dir,
+        1,
+        || async {
+            Ok(vec![
+                ("fi_ryhti-swedish.geojson.gz".to_string(), true),
+                ("fi_ryhti-swedish.source.json".to_string(), false),
+            ])
+        },
+        move |data: bool, path: PathBuf| {
+            let c = c.clone();
+            Box::pin(async move {
+                if !data {
+                    let source = serde_json::json!({"layers": {"addresses": [{
+                        "name": "swedish",
+                        "data": RYHTI,
+                        "website": RYHTI_PAGE,
+                        "license": {
+                            "url": "https://creativecommons.org/licenses/by/4.0/",
+                            "text": "CC BY 4.0",
+                            "attribution": true,
+                            "attribution name": "Syke Ryhti",
+                        },
+                    }]}});
+                    tokio::fs::write(&path, source.to_string()).await?;
+                    return Ok(true);
+                }
+                let csv = path.with_extension("csv");
+                ensure!(http_get(&c, RYHTI, &csv).await?, "{RYHTI} not found");
+                let text = tokio::fs::read_to_string(&csv).await?;
+                let features = ryhti_features(&text, bbox)?;
+                let mut gz =
+                    flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+                gz.write_all(features.as_bytes())?;
+                tokio::fs::write(&path, gz.finish()?).await?;
+                tokio::fs::remove_file(&csv).await?;
+                Ok(true)
+            })
+        },
+    )
+    .await?;
+    Ok(Some(dir.to_path_buf()))
+}
+
+/// Ryhti's WFS CSV as OpenAddresses GeoJSON lines: the number is the Swedish address text after
+/// its street name ("Tärnegränd 5" on Tärnegränd); one without a number is left out.
+fn ryhti_features(csv: &str, bbox: Option<[f64; 4]>) -> Result<String> {
+    let mut lines = csv.lines();
+    let header = crate::sources::csv_fields(lines.next().unwrap_or_default())?;
+    let col = |name: &str| {
+        header
+            .iter()
+            .position(|h| h == name)
+            .with_context(|| format!("Ryhti CSV has no {name}"))
+    };
+    let (street, address, postcode, city, point) = (
+        col("address_name_swe")?,
+        col("address_swe")?,
+        col("postal_code")?,
+        col("postal_office_swe")?,
+        col("location_geometry_data")?,
+    );
+    let (mut out, mut rows) = (String::new(), 0);
+    for line in lines {
+        rows += 1;
+        let f = crate::sources::csv_fields(line)?;
+        ensure!(
+            f.len() == header.len(),
+            "Ryhti CSV row {rows}: column count"
+        );
+        let xy: Vec<f64> = f[point]
+            .strip_prefix("POINT (")
+            .and_then(|p| p.strip_suffix(')'))
+            .map(|p| p.split(' ').filter_map(|v| v.parse().ok()).collect())
+            .unwrap_or_default();
+        ensure!(
+            matches!(xy[..], [x, y] if (19.0..=31.7).contains(&x) && (59.5..=70.2).contains(&y)),
+            "Ryhti CSV row {rows}: needs a Finnish CRS:84 point, got {:?}",
+            f[point]
+        );
+        let number = f[address]
+            .strip_prefix(f[street].as_ref())
+            .map(str::trim)
+            .filter(|n| n.starts_with(|c: char| c.is_ascii_digit()));
+        let (Some(number), false) = (number, f[street].is_empty()) else {
+            continue;
+        };
+        if bbox.is_some_and(|b| !intersects(b, xy[0], xy[1], xy[0], xy[1])) {
+            continue;
+        }
+        out += &serde_json::json!({
+            "type": "Feature",
+            "properties": {"number": number, "street": f[street], "postcode": f[postcode], "city": f[city]},
+            "geometry": {"type": "Point", "coordinates": xy},
+        })
+        .to_string();
+        out.push('\n');
+    }
+    // a full page may have been cut at the request's count
+    ensure!(
+        (1..100_000).contains(&rows),
+        "Ryhti returned {rows} Swedish-only addresses; expected 1 to 99,999"
+    );
+    Ok(out)
 }
 
 /// The data.go.kr page of Korea's shop register (see `sources::korea_shops`).
@@ -1206,7 +1342,8 @@ mod tests {
         );
         let json = serde_json::to_string(&old).unwrap();
         assert!(!json.contains("geonamesPlaces") && !json.contains("openaddresses"));
-        assert!(!json.contains("koreaShops"));
+        assert!(!json.contains("koreaShops") && !json.contains("ryhti"));
+        assert!(src(r#"{"overtureRelease":"r","snapshot":"a","ryhti":true}"#).ryhti);
         let pinned = format!(
             r#"{{"overtureRelease":"r","snapshot":"a","koreaShops":{{"attachment":"FILE_123","sha256":"{}"}}}}"#,
             "a".repeat(64)
@@ -1390,6 +1527,34 @@ mod tests {
         out.extend(header);
         out.extend(body.as_bytes());
         out
+    }
+
+    #[test]
+    fn ryhti_swedish_addresses_become_openaddresses_lines() {
+        let csv = "FID,address_key,address_swe,postal_office_swe,address_name_swe,postal_code,location_geometry_data\r\n\
+            open_address.a,a,Tärnegränd 5,MARIEHAMN,Tärnegränd,22100,POINT (19.94 60.1)\r\n\
+            open_address.b,b,\"Väg, gamla 12b\",KIMO,\"Väg, gamla\",66550,POINT (22.7 63.1)\r\n\
+            open_address.c,c,Vaktanskäret,SÖDERUDDEN,Vaktanskäret,66100,POINT (21.5 63.2)\r\n";
+        let lines = ryhti_features(csv, None).unwrap();
+        let features: Vec<serde_json::Value> = lines
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert_eq!(features.len(), 2);
+        assert_eq!(
+            features[0]["properties"],
+            serde_json::json!({"number": "5", "street": "Tärnegränd", "postcode": "22100", "city": "MARIEHAMN"})
+        );
+        assert_eq!(
+            features[0]["geometry"]["coordinates"],
+            serde_json::json!([19.94, 60.1])
+        );
+        assert_eq!(features[1]["properties"]["number"], "12b");
+        assert_eq!(features[1]["properties"]["street"], "Väg, gamla");
+        let mainland = ryhti_features(csv, Some([21.0, 62.0, 23.0, 64.0])).unwrap();
+        assert_eq!(mainland.lines().count(), 1);
+        assert!(ryhti_features(&csv.replace("19.94 60.1", "60.1 19.94"), None).is_err());
+        assert!(ryhti_features(csv.lines().next().unwrap(), None).is_err());
     }
 
     #[tokio::test]
