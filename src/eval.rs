@@ -18,6 +18,10 @@ pub const ADDRESS_COLUMNS: [&str; 9] = [
     "query",
 ];
 
+/// The Mexico corpus samples DENUE establishments that entered the register in this month or
+/// later (`fecha_alta`, "YYYY-MM"); one the index may read entered it before.
+pub const DENUE_SAMPLED_FROM: &str = "2025";
+
 pub type Row = IndexMap<String, String>;
 
 pub fn sha256_hex(data: &[u8]) -> String {
