@@ -217,3 +217,28 @@ fn taiwanese_suggestions_keep_building_identity_and_unverified_floors() {
     );
     assert!(index().suggest(query, 0, None, None, false).is_empty());
 }
+
+// OSM still files Taiwan's addresses under 台灣省, a province no place of the index is.
+#[test]
+fn taiwanese_suggestions_skip_taiwan_province() {
+    for province in ["台灣省", "臺灣省", "Taiwan Province"] {
+        for text in [
+            format!("511 林森路二段, 虎尾鎮, 雲林縣, {province}, Taiwan"),
+            format!("林森路二段 511, 虎尾鎮, 雲林縣, {province}, Taiwan"),
+        ] {
+            let found = index().suggest(&text, 5, None, None, false);
+            let hit = found.first().unwrap_or_else(|| panic!("{text}"));
+            assert_eq!(hit.kind, "address", "{text}");
+            assert_eq!(hit.country_code, "tw", "{text}");
+            assert!(
+                metres((hit.x, hit.y), house(street("林森路二段"), "511")) < 5.,
+                "{text}"
+            );
+            assert!(
+                index()
+                    .suggest(&text, 5, Some("JP"), None, false)
+                    .is_empty()
+            );
+        }
+    }
+}
