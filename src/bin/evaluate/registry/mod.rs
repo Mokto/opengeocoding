@@ -1,4 +1,5 @@
 mod act;
+mod adr;
 mod ads;
 mod als;
 mod anncsu;
@@ -64,6 +65,7 @@ pub const ALL: &[Registry] = &[
     denue::REGISTRY,
     ads::REGISTRY,
     gurs::REGISTRY,
+    adr::REGISTRY,
 ];
 
 type Prepare = fn(&Path, &BTreeSet<String>) -> Result<BTreeMap<String, Entry>>;
