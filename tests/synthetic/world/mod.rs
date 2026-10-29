@@ -703,8 +703,17 @@ pub fn write_release(dir: &Path) {
         .iter()
         .map(|(s, n)| match s.cc {
             // CartoCiudad's extension: house 12 B is number 12, unit B
-            "ES" => n.split_once(' ').map(|(number, unit)| (unit, number)),
-            _ => n.split_once('/').filter(|_| s.name == SPLIT_UNIT_ROAD),
+            "ES" => n
+                .split_once(' ')
+                .map(|(number, unit)| (unit.to_string(), number)),
+            // Taiwan's register: house 11之2 is number 11, unit 之2號
+            "TW" => n
+                .split_once('之')
+                .map(|(number, sub)| (format!("之{sub}號"), number)),
+            _ => n
+                .split_once('/')
+                .filter(|_| s.name == SPLIT_UNIT_ROAD)
+                .map(|(unit, number)| (unit.to_string(), number)),
         })
         .collect();
     let levels = {
@@ -736,12 +745,16 @@ pub fn write_release(dir: &Path) {
                 strings(
                     rows.iter()
                         .zip(&units)
-                        .map(|((_, n), unit)| unit.map_or(*n, |(_, number)| number)),
+                        .map(|((_, n), unit)| unit.as_ref().map_or(*n, |(_, number)| number)),
                 ),
             ),
             (
                 "unit",
-                optional(units.iter().map(|unit| unit.map_or("", |(u, _)| u))),
+                optional(
+                    units
+                        .iter()
+                        .map(|unit| unit.as_ref().map_or("", |(u, _)| u.as_str())),
+                ),
             ),
             ("postcode", strings(rows.iter().map(|(s, _)| s.postcode))),
             ("postal_city", strings(rows.iter().map(|(s, _)| s.city))),
