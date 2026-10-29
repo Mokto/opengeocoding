@@ -114,6 +114,10 @@ const QUALIFIERS: &[&str] = &[
     "township",
     "village",
 ];
+/// Estonian town and municipality types, which follow the name and which the index keeps on some
+/// names only ("Kärdla linn" beside "Kuressaare"): "Sillamäe" is "Sillamäe linn". Not "küla",
+/// which ends other languages' names too (Serbian "Crvena Kula").
+const TYPE_SUFFIXES: &[&str] = &["alev", "alevik", "linn", "linnaosa", "vald"];
 /// CJK administrative suffixes: 大阪市 is Osaka, 京都府 is Kyoto Prefecture.
 const CJK_SUFFIXES: &[char] = &['市', '府', '県', '县', '縣', '省', '郡', '町', '村'];
 
@@ -139,7 +143,7 @@ fn place_keys(value: &str) -> (String, String) {
         .unwrap_or(words.len());
     let end = words
         .iter()
-        .rposition(|w| !QUALIFIERS.contains(w))
+        .rposition(|w| !QUALIFIERS.contains(w) && !TYPE_SUFFIXES.contains(w))
         .map_or(start, |i| i + 1);
     // Spacing differs between transliterations (Hà Nội/Hanoi, 上海/Shanghai); Danish and Norwegian
     // "aa" is the older spelling of "å" (Aarhus/Århus).
@@ -817,6 +821,9 @@ pub(crate) fn roads_agree(typed: &str, found: &str) -> bool {
     {
         let typed = fold(typed);
         return !typed.is_empty() && typed == fold(found);
+    }
+    if ee::initials_agree(typed, found, road_key) {
+        return true;
     }
     let (typed, found) = (road_key(typed), road_key(found));
     if typed == found {

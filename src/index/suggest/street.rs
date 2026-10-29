@@ -160,6 +160,9 @@ impl Index {
             .unwrap_or_else(|| typed.parts[1..].to_vec());
         let parts = match postcode.filter(|pc| br::cep(pc)) {
             Some(_) => parts.into_iter().map(br::municipality).collect(),
+            None if postcode.is_none() && cc == Some("ee") => {
+                parts.into_iter().map(ee::without_postcode).collect()
+            }
             None => parts,
         };
         // "Rua José Relvas nº 13": the mark says only that a number follows, as "č.p." does for a
@@ -1282,6 +1285,29 @@ impl Index {
         }
         out.truncate(want);
         out
+    }
+
+    /// [`ee::named_house`]'s farm, typed with its village: the house the data numbers with the
+    /// name on a street named as the village.
+    pub(super) fn ee_named_house(&self, text: &str) -> Option<Suggestion> {
+        let (name, village) = ee::named_house(text)?;
+        self.streets(village, Some(name), Some(village), None, Some("ee"), false)
+            .into_iter()
+            .find_map(|hit| match hit {
+                Hit::Street {
+                    doc,
+                    sid,
+                    place,
+                    name: street,
+                    number: Some(number),
+                    x,
+                    y,
+                    ..
+                } if fold(&street) == fold(village) => {
+                    Some(self.street_suggestion(doc, sid, place, &street, Some(&number), (x, y)))
+                }
+                _ => None,
+            })
     }
 
     pub(in crate::index) fn street_suggestion(

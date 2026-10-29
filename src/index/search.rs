@@ -190,6 +190,39 @@ impl Index {
             ) {
                 hits = found;
             }
+            let housed = |h: &Hit| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        ..
+                    }
+                )
+            };
+            if cc == Some("ee")
+                && !hits.iter().any(housed)
+                && let Some(bare) = ee::without_initials(road)
+            {
+                let found: Vec<Hit> = self
+                    .streets_in(
+                        &bare,
+                        get("house_number").map(house_number),
+                        resolved_city.as_deref(),
+                        None,
+                        get("postcode"),
+                        cc,
+                        false,
+                    )
+                    .into_iter()
+                    .filter(|h| {
+                        matches!(h, Hit::Street { number: Some(_), name, .. }
+                            if crate::matching::roads_agree(road, name))
+                    })
+                    .collect();
+                if !found.is_empty() {
+                    hits = found;
+                }
+            }
             // "70 N Professor St, Oberlin 44074" parses one road "n professor st oberlin": with
             // no town labelled, the road's last words may be it.
             if hits.is_empty() && city.is_none() && (cc.is_some() || get("postcode").is_some()) {

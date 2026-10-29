@@ -83,8 +83,9 @@ fn bare(name: &str) -> &str {
     .unwrap_or(name)
 }
 
+/// A street, not one in an address area ("Aseri AÜ, Roosi tn"), which the sample leaves out.
 fn is_street(name: &str) -> bool {
-    !name.bytes().any(|b| b.is_ascii_digit())
+    !name.bytes().any(|b| b.is_ascii_digit() || b == b',')
         && match name.rsplit_once(' ') {
             Some((_, last)) => STREET_TYPES.contains(&last),
             None => name.ends_with("tee"),
@@ -386,6 +387,7 @@ mod tests {
             "7;10621;Sillutise tn 3/1;Harju maakond, Tallinn, Kristiine linnaosa, Sillutise tn 3/1;539625.35;6587225.42\r\n",
             "8;10621;Kopli;Harju maakond, Tallinn, Põhja-Tallinna linnaosa, Kopli;539625.35;6587225.42\r\n",
             "9;10621;Turu tn 6AB;Harju maakond, Tallinn, Kesklinna linnaosa, Turu tn 6AB;539625.35;6587225.42\r\n",
+            "10;43401;Aseri AÜ, Roosi tn 31;Lääne-Viru maakond, Viru-Nigula vald, Aseri alevik, Aseri AÜ, Roosi tn 31;650000;6590000\r\n",
         ];
         let write = |rows: &[&str]| {
             std::fs::write(&path, format!("\u{feff}{header}{}", rows.concat())).unwrap()
@@ -424,7 +426,7 @@ mod tests {
             found["2105921"].places(),
             ["Kristiine linnaosa", "Kristiine", "Tallinn"]
         );
-        for id in ["3", "4", "5", "6", "7", "8", "9"] {
+        for id in ["3", "4", "5", "6", "7", "8", "9", "10"] {
             assert!(lookup(&path, &BTreeSet::from([id.into()])).is_err(), "{id}");
         }
         write(&[&rows[0].replace("523306.03;6574787.37", "6574787.37;523306.03")]);

@@ -629,6 +629,7 @@ impl Parser {
             if aligned.is_none() && parts.len() == 1 {
                 aligned = postal_without_commas(q, &whole, libpostal)?;
             }
+            let estonian_parts = ee::aligned(q, &whole, libpostal)?;
             let mut parsed = match aligned {
                 Some(mut a) => {
                     a.extend(country);
@@ -636,6 +637,9 @@ impl Parser {
                 }
                 None => whole,
             };
+            if let Some(read) = estonian_parts {
+                parsed = read;
+            }
             unit_from_road(&mut parsed);
             number_from_house(q, &mut parsed);
             town_country_from_house(q, &mut parsed);
