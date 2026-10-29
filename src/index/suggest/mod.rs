@@ -6,7 +6,7 @@ mod place;
 mod postcode;
 mod street;
 
-use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, it, pl, ps, pt};
+use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, it, pl, ps, pt, tw};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 pub(super) use place::place_names;
@@ -332,6 +332,11 @@ impl Index {
         let text = text.trim_start();
         if text.chars().count() > MAX_TEXT || text.trim().is_empty() || limit == 0 {
             return vec![];
+        }
+        if cc.is_none_or(|c| c.eq_ignore_ascii_case("tw"))
+            && let Some(without) = tw::without_taiwan_province(text)
+        {
+            return self.suggest(&without, limit, cc, focus, landmarks);
         }
         if let Some(found) = self.chinese_suggest(text, cc) {
             return found;
