@@ -100,6 +100,9 @@ pub fn job(args: Vec<String>) -> Result<()> {
     if let Some(d) = &got.openaddresses {
         build.extend(["--openaddresses".into(), d.to_string_lossy().into_owned()]);
     }
+    if let Some(d) = &got.ryhti {
+        build.extend(["--openaddresses".into(), d.to_string_lossy().into_owned()]);
+    }
     if let Some(d) = &got.osm {
         build.extend(["--osm".into(), d.to_string_lossy().into_owned()]);
     }
@@ -256,11 +259,19 @@ fn attribution(sources: &Sources, out: &Path, korea_shops: Option<&Path>) -> Res
     }
     if let Ok(read) = std::fs::read_to_string(out.join("openaddresses.tsv")) {
         text += "OpenAddresses (https://openaddresses.io), sources read and their licences:\n";
+        let mut ryhti = false;
         for line in read.lines().skip(1) {
             let f: Vec<&str> = line.split('\t').collect();
             if f.get(2) == Some(&"true") {
+                if f[0].starts_with("fi_ryhti-") {
+                    ryhti = true;
+                    continue;
+                }
                 text += &format!("  {}: {}\n", f[0], f.get(4).unwrap_or(&""));
             }
+        }
+        if ryhti {
+            text += "Finnish Environment Institute (Syke), Ryhti building addresses (Lähde: Syke Ryhti), CC BY 4.0, https://creativecommons.org/licenses/by/4.0/: the Finnish addresses it names only in Swedish\n";
         }
     }
     Ok(text)
@@ -293,6 +304,26 @@ pub fn pull(args: Vec<String>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ryhti_is_credited_to_syke_not_openaddresses() {
+        let out = std::env::temp_dir().join(format!("attribution-test-{}", std::process::id()));
+        std::fs::create_dir_all(&out).unwrap();
+        std::fs::write(
+            out.join("openaddresses.tsv"),
+            "file\tlicence\tread\tbytes\tlicense\n\
+             fi_countrywide-sv-country.geojson.gz\tOpen\ttrue\t1\tCC BY 4.0 | Syke\n\
+             fi_ryhti-swedish.geojson.gz\tOpen\ttrue\t1\tCC BY 4.0 | Syke Ryhti\n",
+        )
+        .unwrap();
+        let sources: Sources =
+            serde_json::from_str(r#"{"overtureRelease":"r","snapshot":"s","ryhti":true}"#).unwrap();
+        let text = attribution(&sources, &out, None).unwrap();
+        assert!(text.contains("  fi_countrywide-sv-country.geojson.gz: CC BY 4.0 | Syke\n"));
+        assert!(!text.contains("fi_ryhti-"));
+        assert!(text.contains("Lähde: Syke Ryhti"));
+        std::fs::remove_dir_all(out).unwrap();
+    }
 
     #[test]
     fn sample_is_spread_capped_and_skips_short_names() {

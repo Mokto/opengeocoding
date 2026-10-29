@@ -38,7 +38,7 @@ index:
   # test` fails when the code and this disagree. Changing it, or anything under sources or
   # modelsVersion, names a new index: the leader builds it while the running pods keep
   # serving the old one.
-  builderHash: "7e8df68716d10def"
+  builderHash: "b9c5cbbdb521f068"
   modelsVersion: v1
   sources:
     overtureRelease: "2026-10-21.0"
@@ -55,6 +55,9 @@ index:
     koreaShops:
       attachment: FILE_000000003695831
       sha256: 57aa361544108ff4fc73334f87d2ced61e41fe8638dd70bcd842930f865d2386
+    # The addresses Syke's Ryhti register names only in Swedish (most of Åland's), which
+    # OpenAddresses' Finnish layers publish without a number; fetched under `snapshot`.
+    ryhti: true
     # GeoNames postal-code exports; earlier entries win for a postcode several define.
     geonamesPostal:
       - GB_full.csv

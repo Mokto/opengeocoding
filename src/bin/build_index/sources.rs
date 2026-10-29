@@ -442,7 +442,7 @@ impl ZipEntry {
 
 // ponytail: these agency CSVs have one record per line. Reject embedded newlines rather than
 // importing partial rows; use a streaming CSV reader if the publisher adds multiline fields.
-fn csv_fields(line: &str) -> std::io::Result<Vec<Cow<'_, str>>> {
+pub(crate) fn csv_fields(line: &str) -> std::io::Result<Vec<Cow<'_, str>>> {
     let (mut out, mut rest) = (vec![], line.trim_end_matches(['\r', '\n']));
     loop {
         if let Some(q) = rest.strip_prefix('"') {
