@@ -149,6 +149,7 @@ pub fn classify(license: Option<&serde_json::Value>) -> Licence {
         "dati.gov.it/iodl/2.0",
         "iodl 2.0",
         "datos.gob.mx/libreusomx",
+        "inegi.org.mx/inegi/terminos",
         "licencia de datos abiertos",
         "dl-de/by",
         "dl-de-by",
@@ -164,11 +165,12 @@ pub fn classify(license: Option<&serde_json::Value>) -> Licence {
     Licence::Unknown
 }
 
-/// INEGI's 2015 establishment directory (DENUE), one file per Mexican state: a business's point,
-/// which gives way to an address source's copy of the same house, "0" for no number and street
-/// "NINGUNO" for none.
+/// INEGI's establishment directory (DENUE): OpenAddresses' 2015 files, one per Mexican state,
+/// with "0" for no number and street "NINGUNO" for none, and the later edition `fetch::denue`
+/// writes. A business's point gives way to an address source's copy of the same house.
 fn establishment_directory(file: &str) -> bool {
-    file.starts_with("mx_") && file.ends_with("_statewide-country.geojson.gz")
+    file.starts_with("mx_denue-")
+        || file.starts_with("mx_") && file.ends_with("_statewide-country.geojson.gz")
 }
 
 /// Sources reviewed against their publisher's terms: file stem, terms, who to credit, where read.
@@ -1386,6 +1388,21 @@ mod tests {
             c(serde_json::json!({"url": "", "text": ""})),
             Licence::Unknown
         );
+        assert_eq!(
+            c(
+                serde_json::json!({"url": "https://www.inegi.org.mx/inegi/terminos.html", "text": "Términos de Libre Uso de la Información del INEGI"})
+            ),
+            Licence::Open
+        );
+        assert!(establishment_directory(
+            "mx_denue-establishments.geojson.gz"
+        ));
+        assert!(establishment_directory(
+            "mx_agu_statewide-country.geojson.gz"
+        ));
+        assert!(!establishment_directory(
+            "mx_countrywide-addresses-country.geojson.gz"
+        ));
         for usable in [Licence::Open, Licence::Odbl] {
             assert!(usable.usable());
         }

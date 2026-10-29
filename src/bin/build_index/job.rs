@@ -100,7 +100,7 @@ pub fn job(args: Vec<String>) -> Result<()> {
     if let Some(d) = &got.openaddresses {
         build.extend(["--openaddresses".into(), d.to_string_lossy().into_owned()]);
     }
-    if let Some(d) = &got.ryhti {
+    for d in got.ryhti.iter().chain(&got.denue) {
         build.extend(["--openaddresses".into(), d.to_string_lossy().into_owned()]);
     }
     if let Some(d) = &got.osm {
@@ -259,7 +259,7 @@ fn attribution(sources: &Sources, out: &Path, korea_shops: Option<&Path>) -> Res
     }
     if let Ok(read) = std::fs::read_to_string(out.join("openaddresses.tsv")) {
         text += "OpenAddresses (https://openaddresses.io), sources read and their licences:\n";
-        let mut ryhti = false;
+        let (mut ryhti, mut denue) = (false, None);
         for line in read.lines().skip(1) {
             let f: Vec<&str> = line.split('\t').collect();
             if f.get(2) == Some(&"true") {
@@ -267,11 +267,21 @@ fn attribution(sources: &Sources, out: &Path, korea_shops: Option<&Path>) -> Res
                     ryhti = true;
                     continue;
                 }
+                if f[0].starts_with("mx_denue-") {
+                    denue = f.get(4).copied();
+                    continue;
+                }
                 text += &format!("  {}: {}\n", f[0], f.get(4).unwrap_or(&""));
             }
         }
         if ryhti {
             text += "Finnish Environment Institute (Syke), Ryhti building addresses (Lähde: Syke Ryhti), CC BY 4.0, https://creativecommons.org/licenses/by/4.0/: the Finnish addresses it names only in Swedish\n";
+        }
+        if let (Some(shown), Some(d)) = (denue, &sources.denue) {
+            text += &format!(
+                "INEGI, Directorio Estadístico Nacional de Unidades Económicas (DENUE), establishments that entered it before {}: {shown}: Mexican street addresses and points of its establishments\n",
+                d.before
+            );
         }
     }
     Ok(text)
@@ -322,6 +332,28 @@ mod tests {
         assert!(text.contains("  fi_countrywide-sv-country.geojson.gz: CC BY 4.0 | Syke\n"));
         assert!(!text.contains("fi_ryhti-"));
         assert!(text.contains("Lähde: Syke Ryhti"));
+        std::fs::remove_dir_all(out).unwrap();
+    }
+
+    #[test]
+    fn denue_is_credited_to_inegi_with_its_edition() {
+        let out = std::env::temp_dir().join(format!("attribution-denue-{}", std::process::id()));
+        std::fs::create_dir_all(&out).unwrap();
+        std::fs::write(
+            out.join("openaddresses.tsv"),
+            "file\tlicence\tread\tbytes\tlicense\n\
+             mx_agu_statewide-country.geojson.gz\tOpen\ttrue\t1\treviewed: Libre Uso MX\n\
+             mx_denue-establishments.geojson.gz\tOpen\ttrue\t1\thttps://www.inegi.org.mx/inegi/terminos.html | Términos | Fuente: INEGI, DENUE 05_2026\n",
+        )
+        .unwrap();
+        let sources: Sources = serde_json::from_str(
+            r#"{"overtureRelease":"r","snapshot":"s","denue":{"before":"2025"}}"#,
+        )
+        .unwrap();
+        let text = attribution(&sources, &out, None).unwrap();
+        assert!(text.contains("  mx_agu_statewide-country.geojson.gz: reviewed: Libre Uso MX\n"));
+        assert!(!text.contains("mx_denue-"));
+        assert!(text.contains("before 2025: https://www.inegi.org.mx/inegi/terminos.html | Términos | Fuente: INEGI, DENUE 05_2026: Mexican"));
         std::fs::remove_dir_all(out).unwrap();
     }
 
