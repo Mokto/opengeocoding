@@ -515,6 +515,13 @@ impl Parser {
                 );
                 aligned = Some(a);
             }
+            if aligned.is_none()
+                && country.as_ref().is_some_and(|(_, c)| mx::mexico(c))
+                && let [head, ref rest @ ..] = parts[..]
+                && rest.len() >= 2
+            {
+                aligned = mx::standard_aligned(&libpostal(head.trim())?, rest);
+            }
             match parts[..] {
                 _ if aligned.is_some() => {}
                 [head, tail] if state_part(tail) => {

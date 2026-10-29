@@ -75,7 +75,10 @@ impl Index {
                 }
             )
         });
-        if !housed && let Some(compact) = number.and_then(compact_house_suffix) {
+        if !housed
+            && let Some(compact) =
+                number.and_then(|n| compact_house_suffix(n).or_else(|| hyphened_house_suffix(n)))
+        {
             let found = self.streets_in(road, Some(&compact), city, suburb, postcode, cc, exact);
             if found.iter().any(|h| {
                 matches!(
@@ -110,8 +113,11 @@ impl Index {
                         .streets_by(&name, number, city, &named, postcode, cc, false, true, near)
                         .into_iter()
                         .filter(|h| {
-                            matches!(h, Hit::Street { number: Some(_), postcode: own, .. }
-                            if postcode_not_contradicted(own.as_deref(), postcode))
+                            matches!(h, Hit::Street { number: Some(_), postcode: own, name: found, .. }
+                            if postcode_not_contradicted(own.as_deref(), postcode)
+                                // "tabasco" is not "Privada Tabasco"
+                                && (!cc.is_some_and(|c| c.eq_ignore_ascii_case("mx"))
+                                    || fold(found) == fold(&name)))
                         })
                         .collect();
                     if next.is_empty() {

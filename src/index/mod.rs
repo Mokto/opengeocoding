@@ -35,7 +35,7 @@ mod postcode;
 mod search;
 mod street;
 use collect::*;
-use country::{cn_tw, co, cz_sk, de, ee, es, hk_mo, ie, it, jp, pl, pt, xk};
+use country::{cn_tw, co, cz_sk, de, ee, es, hk_mo, ie, it, jp, mx, pl, pt, xk};
 pub use fuzzy::*;
 pub use house::same_number;
 pub use parse::*;
@@ -114,6 +114,7 @@ pub struct Index {
     landmarks: landmark::Landmarks,
     /// `region_spelt`'s region names of a country as words, made when first asked for.
     region_words: Mutex<HashMap<String, RegionWords>>,
+    region_named: Mutex<HashMap<String, Option<Box<str>>>>,
 }
 
 #[derive(Clone)]
@@ -316,6 +317,16 @@ fn house_number(n: &str) -> &str {
         }
     }
     t
+}
+
+/// "11-A" and "#108-D", Mexico's way of writing a lettered number, as the index keys it.
+fn hyphened_house_suffix(n: &str) -> Option<String> {
+    let (number, letter) = n.trim().trim_start_matches('#').split_once('-')?;
+    (!number.is_empty()
+        && number.bytes().all(|c| c.is_ascii_digit())
+        && letter.len() == 1
+        && letter.bytes().all(|c| c.is_ascii_alphabetic()))
+    .then(|| format!("{number}{letter}"))
 }
 
 fn compact_house_suffix(n: &str) -> Option<String> {
@@ -728,6 +739,7 @@ impl Index {
             suggest: Default::default(),
             landmarks,
             region_words: Mutex::default(),
+            region_named: Mutex::default(),
         })
     }
 

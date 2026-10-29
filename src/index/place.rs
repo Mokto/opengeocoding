@@ -660,6 +660,28 @@ impl Index {
         one(&within)
     }
 
+    /// The ISO 3166-2 code of the one top-level region of `cc` that `text` names
+    /// ("coahuila de zaragoza" is MX-COA); see [`Self::region_spelt`].
+    pub fn region_named(&self, text: &str, cc: &str) -> Option<Box<str>> {
+        let key = format!("{}\0{text}", cc.to_lowercase());
+        if let Some(code) = self.region_named.lock().unwrap().get(&key) {
+            return code.clone();
+        }
+        let code: Option<Box<str>> = self.region_spelt(text, cc).and_then(|place| {
+            self.regions
+                .iter()
+                .find(|(_, p)| **p == place)
+                .map(|(code, _)| code.as_str().into())
+        });
+        let mut cache = self.region_named.lock().unwrap();
+        // ponytail: emptied when full, not an LRU; stated states are a small vocabulary
+        if cache.len() >= 100_000 {
+            cache.clear();
+        }
+        cache.insert(key, code.clone());
+        code
+    }
+
     /// The code of the region a subdivision's place lies in.
     pub fn parent_region_code(&self, place: u32) -> Option<&str> {
         self.region_code(self.chain(place).get(1..)?)

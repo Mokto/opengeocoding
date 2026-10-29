@@ -906,6 +906,11 @@ fn spaced_house_suffixes_and_postcode_city_parts() {
     assert_eq!(compact_house_suffix("7 bis").as_deref(), Some("7bis"));
     assert_eq!(compact_house_suffix("40 C").as_deref(), Some("40C"));
     assert_eq!(compact_house_suffix("63 P2").as_deref(), Some("63P2"));
+    assert_eq!(hyphened_house_suffix("11-a").as_deref(), Some("11a"));
+    assert_eq!(hyphened_house_suffix("#108-d").as_deref(), Some("108d"));
+    for n in ["12-3", "12-ab", "a-1", "-a", "12"] {
+        assert!(hyphened_house_suffix(n).is_none(), "{n}");
+    }
     for n in [
         "7bis",
         "12 34",
