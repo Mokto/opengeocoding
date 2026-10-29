@@ -96,6 +96,40 @@ pub(crate) fn bare_road(road: &str) -> Option<String> {
 
 /// A Mexican postcode is five digits written together: "Calle 25 901" is house 901 on Calle 25,
 /// not postcode 25901.
+/// The types one Mexican street goes by in different sources: the map's "Avenida Corregidora" is
+/// the establishment directory's "CALLE CORREGIDORA". A privada, cerrada or andador named after a
+/// street is another street.
+const MAIN_TYPES: &[&str] = &[
+    "calle",
+    "avenida",
+    "av",
+    "av.",
+    "boulevard",
+    "bulevar",
+    "blvd",
+    "blvd.",
+    "calzada",
+];
+
+/// The stated road and a found one are one street under another main type, or the found one has
+/// none ("CORREGIDORA").
+pub(crate) fn same_street(stated: &str, found: &str) -> bool {
+    use crate::index::schema::fold;
+    let main = |road: &str| {
+        let (kind, name) = road.trim().split_once(' ')?;
+        MAIN_TYPES
+            .contains(&deunicode::deunicode(kind).to_lowercase().as_str())
+            .then(|| fold(name))
+    };
+    let Some(name) = main(stated) else {
+        return false;
+    };
+    match main(found) {
+        Some(other) => other == name,
+        None => bare_road(found).is_none() && fold(found) == name,
+    }
+}
+
 pub(crate) fn whole_postcode(cc: Option<&str>) -> bool {
     cc.is_some_and(|c| c.eq_ignore_ascii_case("mx"))
 }
@@ -167,6 +201,27 @@ mod tests {
             ("city", "x"),
         ]);
         assert_eq!(standard_aligned(&colonia, &[" 23400 X", " Y"]), None);
+    }
+
+    #[test]
+    fn a_main_street_type_stands_for_another() {
+        assert!(same_street("calle corregidora", "AVENIDA CORREGIDORA"));
+        assert!(same_street(
+            "AVENIDA MÁRTIRES DE CANANEA",
+            "Calle Mártires de Cananea"
+        ));
+        assert!(same_street(
+            "calle misión de santo domingo",
+            "MISIÓN DE SANTO DOMINGO"
+        ));
+        assert!(!same_street("calle tabasco", "Privada Tabasco"));
+        assert!(!same_street("calle hidalgo", "Avenida Miguel Hidalgo"));
+        assert!(!same_street("privada tabasco", "Calle Tabasco"));
+        assert!(!same_street("hidalgo", "Calle Hidalgo"));
+        assert!(same_street(
+            "calle francisco medina cedillo libertad",
+            "FRANCISCO MEDINA CEDILLO (LIBERTAD)"
+        ));
     }
 
     #[test]
