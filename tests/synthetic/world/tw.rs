@@ -62,7 +62,179 @@ pub const PLACES: &[Place] = &[
         "虎尾鎮",
         &[("en", "Huwei")]
     ),
+    place!(
+        "tw-shuilin",
+        "locality",
+        "town",
+        "TW",
+        "TW-YUN",
+        25_000,
+        (123.5, 24.0),
+        "tw-yunlin",
+        "水林鄉",
+        &[("en", "Shuilin")]
+    ),
+    place!(
+        "tw-taoyuan",
+        "region",
+        "",
+        "TW",
+        "TW-TAO",
+        2_000_000,
+        (124.0, 23.0),
+        "tw",
+        "桃園市",
+        &[("en", "Taoyuan City")]
+    ),
+    place!(
+        "tw-dayuan",
+        "locality",
+        "town",
+        "TW",
+        "TW-TAO",
+        90_000,
+        (124.0, 23.0),
+        "tw-taoyuan",
+        "大園區",
+        &[("en", "Dayuan District")]
+    ),
+    place!(
+        "tw-pingtung",
+        "region",
+        "",
+        "TW",
+        "TW-PIF",
+        800_000,
+        (124.5, 23.0),
+        "tw",
+        "屏東縣",
+        &[("en", "Pingtung County")]
+    ),
+    place!(
+        "tw-wutai",
+        "locality",
+        "village",
+        "TW",
+        "TW-PIF",
+        3_000,
+        (124.5, 23.0),
+        "tw-pingtung",
+        "霧臺鄉",
+        &[("en", "Wutai")]
+    ),
+    place!(
+        "tw-changhua",
+        "region",
+        "",
+        "TW",
+        "TW-CHA",
+        1_200_000,
+        (125.0, 23.0),
+        "tw",
+        "彰化縣",
+        &[("en", "Changhua County")]
+    ),
+    place!(
+        "tw-fuxing",
+        "locality",
+        "town",
+        "TW",
+        "TW-CHA",
+        45_000,
+        (125.0, 23.0),
+        "tw-changhua",
+        "福興鄉",
+        &[("en", "Fuxing")]
+    ),
+    place!(
+        "tw-hualien",
+        "region",
+        "",
+        "TW",
+        "TW-HUA",
+        300_000,
+        (125.5, 23.0),
+        "tw",
+        "花蓮縣",
+        &[("en", "Hualien County")]
+    ),
+    place!(
+        "tw-ruisui",
+        "locality",
+        "town",
+        "TW",
+        "TW-HUA",
+        11_000,
+        (125.5, 23.0),
+        "tw-hualien",
+        "瑞穗鄉",
+        &[("en", "Ruisui")]
+    ),
+    place!(
+        "tw-taitung",
+        "region",
+        "",
+        "TW",
+        "TW-TTT",
+        200_000,
+        (126.2, 23.0),
+        "tw",
+        "台東縣",
+        &[("en", "Taitung County")]
+    ),
+    place!(
+        "tw-taimali",
+        "locality",
+        "town",
+        "TW",
+        "TW-TTT",
+        10_000,
+        (126.0, 23.0),
+        "tw-taitung",
+        "太麻里鄉",
+        &[("en", "Taimali")]
+    ),
+    place!(
+        "tw-jinfeng",
+        "locality",
+        "village",
+        "TW",
+        "TW-TTT",
+        3_500,
+        (126.4, 23.0),
+        "tw-taitung",
+        "金峰鄉",
+        &[("en", "Jinfeng")]
+    ),
 ];
+
+const fn osm_street(
+    name: &'static str,
+    city: &'static str,
+    lon: f64,
+    lat: f64,
+    numbers: &'static [&'static str],
+) -> Street {
+    Street {
+        class: "residential",
+        length: 0.0,
+        name,
+        postcode: "",
+        city,
+        cc: "TW",
+        lon,
+        lat,
+        numbers,
+    }
+}
+
+/// 番婆街 建51之21, an OpenStreetMap address node: the register's rows (`STREETS`) give a
+/// number's 之 part as its unit, which the builder keeps off a number with a prefix.
+pub const PREFIXED_HOUSE: (f64, f64) = (125.0003, 23.0);
+
+// A village name OpenStreetMap numbers houses on, on both sides of a township line 2 km apart.
+const TAIMALI_JIALUN: Street = osm_street("佳崙", "太麻里鄉", 126.19, 23.0, &["12"]);
+const JINFENG_JIALUN: Street = osm_street("佳崙", "金峰鄉", 126.21, 23.0, &["386"]);
 
 pub const STREETS: &[Street] = &[
     Street {
@@ -121,7 +293,44 @@ pub const STREETS: &[Street] = &[
         lat: 25.0,
         numbers: &["131", "999"],
     },
+    osm_street("溪海路153巷", "大園區", 124.0, 23.0, &["33", "35"]),
+    osm_street("東川巷", "霧臺鄉", 124.5, 23.0, &["49", "49之1"]),
+    osm_street("番婆街", "福興鄉", 125.0, 23.0, &["51"]),
+    osm_street("萬興", "水林鄉", 123.5, 24.0, &["48之17"]),
+    osm_street("瑞北", "瑞穗鄉", 125.5, 23.0, &["156"]),
+    TAIMALI_JIALUN,
+    JINFENG_JIALUN,
 ];
+
+/// OpenStreetMap's Taiwanese addresses, each part apart: libpostal folds the road into a house,
+/// cuts 霧臺鄉 to 霧, reads 大園區 as a floor and 台灣省 as the town, and splits 建 off a number.
+pub fn cases() -> Vec<Case> {
+    let mut cases = vec![];
+    for (road, number, places) in [
+        ("溪海路153巷", "35號", "大園區, 桃園市"),
+        ("東川巷", "49之1號", "霧臺鄉, 屏東縣, 台灣省"),
+        ("萬興", "48之17", "水林鄉, 雲林縣, 台灣省"),
+        ("瑞北", "156號", "瑞穗鄉, 花蓮縣, 台灣省"),
+    ] {
+        let stored = number.trim_end_matches('號');
+        for query in [
+            format!("{number} {road}, {places}, Taiwan"),
+            format!("{road} {number}, {places}, Taiwan"),
+        ] {
+            cases.push(case(query.leak(), at_house(road, stored)));
+        }
+    }
+    for query in [
+        "建51之21號 番婆街, 福興鄉, 彰化縣, 台灣省, Taiwan",
+        "番婆街 建51之21號, 福興鄉, 彰化縣, 台灣省, Taiwan",
+    ] {
+        cases.push(case(query, Want::At(PREFIXED_HOUSE, 25.0, true)));
+    }
+    // the township the query names holds the street but not the house, which the next one does
+    let across = Want::At(house(&JINFENG_JIALUN, "386"), 25.0, false);
+    cases.push(case("386號 佳崙, 太麻里鄉, 台東縣, 台灣省, Taiwan", across));
+    cases
+}
 
 #[test]
 fn taiwanese_suggestions_keep_building_identity_and_unverified_floors() {
@@ -252,5 +461,19 @@ fn taiwanese_sub_numbers_from_units_stay_their_own_houses() {
         let found = index().reverse_search(at.1, at.0, 50.0, 1);
         assert_eq!(found[0].1["address"]["house_number"], number, "{number}");
         assert!(found[0].2 < 5.0, "{number}: {}", found[0].2);
+    }
+}
+
+#[test]
+fn taiwanese_suggestions_keep_a_numbers_prefix() {
+    for text in [
+        "建51之21號 番婆街, 福興鄉, 彰化縣, 台灣省, Taiwan",
+        "番婆街 建51之21號, 福興鄉, 彰化縣, 台灣省, Taiwan",
+    ] {
+        let found = index().suggest(text, 5, None, None, false);
+        let hit = found.first().unwrap_or_else(|| panic!("{text}"));
+        assert_eq!(hit.kind, "address", "{text}");
+        assert!(hit.display_name.starts_with("建51之21, "), "{text}");
+        assert!(metres((hit.x, hit.y), PREFIXED_HOUSE) < 5.);
     }
 }

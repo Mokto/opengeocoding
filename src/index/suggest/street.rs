@@ -187,9 +187,10 @@ impl Index {
         // ("11 Listopada 26" is house 26 on a road named for a date)
         let number_at = (raw.len() > 1)
             .then(|| {
-                [0, raw.len() - 1]
-                    .into_iter()
-                    .filter(|&i| has_digit(raw[i]) && cz_sk::number_len(raw[i]) <= MAX_NUMBER)
+                [0, raw.len() - 1].into_iter().filter(|&i| {
+                    has_digit(raw[i])
+                        && cz_sk::number_len(&schema::number_key(raw[i])) <= MAX_NUMBER
+                })
             })
             .into_iter()
             .flatten();
