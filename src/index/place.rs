@@ -342,7 +342,7 @@ impl Index {
             .flat_map(|w| std::iter::once(w.to_string()).chain(without_admin_word(w)))
             .map(|w| name_key(&w))
             .collect();
-        let mut ranked = self.top_of(Kind::Place, cc, cl, 100);
+        let mut ranked = self.top_of(Kind::Searched, cc, cl, 100);
         // The stated region places a small town among many of its name ("Temple, PA"): when
         // none of the top 100 is inside it, look in the countries that have such a region too.
         let is_inside = |a: &DocAddress| {
@@ -363,7 +363,7 @@ impl Index {
         {
             for country in self.region_countries(region) {
                 for a in self.top_of(
-                    Kind::Place,
+                    Kind::Searched,
                     Some(&country),
                     self.musts(self.f.names, text),
                     100,
@@ -457,6 +457,22 @@ impl Index {
                 .collect(),
             exact,
         )
+    }
+
+    /// The place the builder added from GeoNames below `cities500`'s bar named `name` in
+    /// country `cc`, which other lookups never find. The builder adds one only where nothing
+    /// else of the country has the name.
+    pub fn small_place_named(&self, name: &str, cc: &str) -> Option<Hit> {
+        let want = name_key(name);
+        let cl = self.musts(self.f.names, name);
+        if cl.is_empty() {
+            return None;
+        }
+        self.top_of(Kind::Small, Some(cc), cl, 10)
+            .into_iter()
+            .map(|a| self.fast(a, "id") as u32)
+            .find(|&id| self.places[id as usize].named(want))
+            .map(Hit::Place)
     }
 
     /// `text`, or its most specific part, if it names a place: words dropped from the front

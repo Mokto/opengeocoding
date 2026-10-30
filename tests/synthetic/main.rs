@@ -167,6 +167,27 @@ fn geonames_primary_names_survive_deduplication_without_exporting_other_labels()
 }
 
 #[test]
+fn a_small_geonames_place_fills_only_a_gap_no_namesake_shares_and_names_no_point() {
+    let found = |text: &str| index().suggest(text, 5, Some("AT"), None, false);
+    let hamlet = found("Kleinweiler");
+    assert_eq!(hamlet.len(), 1);
+    assert!(metres((hamlet[0].x, hamlet[0].y), (40.0, 0.03)) < 5.);
+    // reverse lookups name Overture's localities, not the hamlet on the point
+    assert_eq!(
+        index().reverse(0.03, 40.0)["address"]["village"],
+        "Ohnecode"
+    );
+    // two of a name 111 km apart, or a name Overture's Mitcode has: neither is added
+    assert!(found("Zwilling").is_empty());
+    let mitcode = found("Mitcode");
+    assert_eq!(mitcode.len(), 1);
+    assert!(metres((mitcode[0].x, mitcode[0].y), (40.05, 0.0)) < 5.);
+    // two rows of a name 2 km apart are one place; a small section (PPLX) is none
+    assert_eq!(found("Doppelhof").len(), 1);
+    assert!(found("Weilerteil").is_empty());
+}
+
+#[test]
 fn place_slugs_require_a_known_subdivision_and_an_exact_settlement_name() {
     for (query, id) in [
         ("us-tx-paris", "us-tx-paris"),

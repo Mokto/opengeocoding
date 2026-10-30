@@ -127,7 +127,7 @@ pub fn job(args: Vec<String>) -> Result<()> {
     if let Some(d) = &got.geonames_places {
         build.extend([
             "--geonames-places".into(),
-            d.join("cities500.txt").to_string_lossy().into_owned(),
+            d.join("populated.txt").to_string_lossy().into_owned(),
             "--geonames-admin1".into(),
             d.join("admin1CodesASCII.txt")
                 .to_string_lossy()

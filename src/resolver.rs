@@ -724,6 +724,48 @@ impl Core {
     }
 
     fn resolve(&self, query: &str) -> Result<FullAddress> {
+        let found = self.resolve_any(query)?;
+        self.small_place(query, found)
+    }
+
+    /// "Pensaka, Togo" answered with no more than the country, or not at all: the place of that
+    /// name in that country the builder added from GeoNames below `cities500`'s bar, if any.
+    /// Such a place answers nothing else: often no one is recorded living there and only
+    /// GeoNames has it, the weakest evidence the index holds.
+    fn small_place(&self, query: &str, found: FullAddress) -> Result<FullAddress> {
+        // A territory filed under its sovereign is the answer's state ("American Samoa"), with
+        // only the sovereign's code for it (US-AS), which the response drops (`own_regions`).
+        let coarse = found.address_details.as_option().is_none_or(|d| {
+            let own = format!("{}-", d.country_code.to_uppercase());
+            !d.region_codes
+                .iter()
+                .any(|r| r.code.to_uppercase().starts_with(&own))
+                && [
+                    &d.county, &d.city, &d.town, &d.village, &d.suburb, &d.hamlet, &d.road,
+                ]
+                .iter()
+                .all(|s| s.is_empty())
+        });
+        let Some((name, country)) = query.split_once(',') else {
+            return Ok(found);
+        };
+        let cc = named_country(country);
+        if !coarse || country.contains(',') || cc.is_empty() {
+            return Ok(found);
+        }
+        let Some(hit) = self
+            .index
+            .small_place_named(name.trim_matches(whitespace), &cc)
+        else {
+            return Ok(found);
+        };
+        let mut place = format_response(&self.index.render(&hit, true))?;
+        place.good_match = true;
+        METRICS.tiers.with_label_values(&["small_place"]).inc();
+        Ok(place)
+    }
+
+    fn resolve_any(&self, query: &str) -> Result<FullAddress> {
         let sar = hk_mo::without_sar(query);
         let query = sar.as_deref().unwrap_or(query);
         let palestine = ps::as_palestine(query);

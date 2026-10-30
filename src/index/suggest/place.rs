@@ -29,6 +29,8 @@ pub(in crate::index) fn weight(p: &Place) -> u64 {
         // a place the builder added from GeoNames weighs like a locality Overture gives no size,
         // however populous: it fills a gap and must not crowd out Overture's places
         "locality" if &*p.class == "geonames" => 100,
+        // and one below cities500's bar after every other locality of its name
+        "locality" if &*p.class == schema::SMALL_GEONAMES => 50,
         "locality" => pop.max(match &*p.class {
             "megacity" => 10_000_000,
             "city" => 50_000,
