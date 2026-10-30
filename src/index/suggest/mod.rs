@@ -897,7 +897,7 @@ impl Index {
                 }
                 let sid = self.fast(a, "id") as u32;
                 let xy = if let Some(number) = number {
-                    if number.is_empty() || cz_sk::number_len(number) > MAX_NUMBER {
+                    if number.is_empty() || number.chars().count() > MAX_TEXT {
                         return None;
                     }
                     let mut key = sid.to_be_bytes().to_vec();
