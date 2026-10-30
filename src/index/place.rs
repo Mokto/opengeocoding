@@ -459,20 +459,64 @@ impl Index {
         )
     }
 
-    /// The place the builder added from GeoNames below `cities500`'s bar named `name` in
-    /// country `cc`, which other lookups never find. The builder adds one only where nothing
-    /// else of the country has the name.
-    pub fn small_place_named(&self, name: &str, cc: &str) -> Option<Hit> {
-        let want = name_key(name);
-        let cl = self.musts(self.f.names, name);
-        if cl.is_empty() {
+    /// The locality of country `cc` named `name`, or named so with or without a word that only
+    /// says what it is ("Taboiaki" is "Taboiaki Village", "Village of Maia" is "Maia"): the
+    /// most important of the places searches find, else one the builder added from GeoNames
+    /// below `cities500`'s bar, which only this finds. The builder adds one of those only where
+    /// nothing else of the country has the name.
+    pub fn locality_named(&self, name: &str, cc: &str) -> Option<Hit> {
+        const SUFFIXES: [&str; 2] = [" village", " hamlet"];
+        const PREFIXES: [&str; 1] = ["village of "];
+        let folded = fold(name);
+        let bare = SUFFIXES
+            .iter()
+            .find_map(|s| folded.strip_suffix(s))
+            .or_else(|| PREFIXES.iter().find_map(|p| folded.strip_prefix(p)))
+            .filter(|b| !b.is_empty());
+        let mut forms = vec![folded.clone()];
+        forms.extend(bare.map(str::to_owned));
+        if bare.is_none() {
+            forms.extend(SUFFIXES.iter().map(|s| format!("{folded}{s}")));
+        }
+        let text = bare.unwrap_or(&folded);
+        let cl = || self.musts(self.f.names, text);
+        if cl().is_empty() {
             return None;
         }
-        self.top_of(Kind::Small, Some(cc), cl, 10)
+        let ids: Vec<Vec<u32>> = [Kind::Searched, Kind::Small]
             .into_iter()
-            .map(|a| self.fast(a, "id") as u32)
-            .find(|&id| self.places[id as usize].named(want))
-            .map(Hit::Place)
+            .map(|kind| {
+                self.top_of(kind, Some(cc), cl(), 20)
+                    .into_iter()
+                    .map(|a| self.fast(a, "id") as u32)
+                    .filter(|&id| self.places[id as usize].subtype.as_ref() == "locality")
+                    .collect()
+            })
+            .collect();
+        let km = |a: &Place, b: &Place| {
+            let dx = (a.x - b.x) * a.y.to_radians().cos();
+            dx.hypot(a.y - b.y) * 111.2
+        };
+        let form = forms.iter().map(|f| name_key(f)).find_map(|key| {
+            let named: Vec<&Place> = ids
+                .iter()
+                .flatten()
+                .map(|&id| &self.places[id as usize])
+                .filter(|p| p.named(key))
+                .collect();
+            Some((
+                ids.iter()
+                    .flatten()
+                    .find(|&&id| self.places[id as usize].named(key))?,
+                named,
+            ))
+        });
+        let (&id, named) = form?;
+        // namesakes apart: which one the query means is a guess
+        if named.iter().any(|p| km(p, named[0]) >= 10.0) {
+            return None;
+        }
+        Some(Hit::Place(id))
     }
 
     /// `text`, or its most specific part, if it names a place: words dropped from the front
