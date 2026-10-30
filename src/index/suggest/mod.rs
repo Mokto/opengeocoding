@@ -124,6 +124,8 @@ pub(super) struct Caches {
     /// Every folded country name and its code, sorted.
     country_names: std::sync::OnceLock<Vec<(String, String)>>,
     egyptian_counties: std::sync::OnceLock<Vec<u32>>,
+    /// By country code, the settlement a small country's addresses name for all of it.
+    island_wide: std::sync::OnceLock<HashMap<Box<str>, u32>>,
 }
 
 fn remember<V: Clone>(cache: &Mutex<HashMap<u32, V>>, id: u32, make: impl FnOnce() -> V) -> V {
@@ -625,16 +627,22 @@ impl Index {
                 })
                 .collect();
             // the place left out still has to agree: the house's own address names it, or a
-            // place of that name is near (a district or quarter the data files the house outside
-            // of); a village more than 5 km off has houses of its own, and so has any place when
-            // it is the only one typed
+            // place of that name in the house's country (Aruba's Santa Cruz has bigger namesakes
+            // abroad) is near (a district or quarter the data files the house outside of); a
+            // village more than 5 km off has houses of its own, and so has any place when it is
+            // the only one typed, unless its country names all of itself after it
             let left_out = &parts[skip];
             let only = parts.len() == 3;
-            if !found.is_empty() {
-                let places = self.scope(std::slice::from_ref(left_out), false, cc, None, false);
-                found.retain(|s| {
-                    fold(&s.display_name).contains(&fold(left_out))
-                        || places.iter().any(|&id| {
+            let mut scoped: HashMap<String, Vec<u32>> = HashMap::new();
+            found.retain(|s| {
+                let places = scoped.entry(s.country_code.clone()).or_insert_with(|| {
+                    let within = cc.or((!s.country_code.is_empty()).then_some(&*s.country_code));
+                    self.scope(std::slice::from_ref(left_out), false, within, None, false)
+                });
+                let island = self.island_wide(&s.country_code);
+                fold(&s.display_name).contains(&fold(left_out))
+                    || places.iter().any(|&id| {
+                        island == Some(id) || {
                             let pl = &self.places[id as usize];
                             let village = &*pl.subtype == "locality"
                                 && matches!(&*pl.class, "village" | "hamlet");
@@ -642,11 +650,50 @@ impl Index {
                                 .hypot(pl.y as f64 - s.y)
                                 * 111.195;
                             km < if village || only { 5.0 } else { 15.0 }
-                        })
-                });
-            }
+                        }
+                    })
+            });
             (!found.is_empty()).then_some(found)
         })
+    }
+
+    /// The settlement a small country's addresses may name wherever on it they are: Willemstad
+    /// for Curaçao, Singapore. A locality ten times the weight of any other in a country whose
+    /// localities all lie within 100 km; Aruba's and Malta's towns are too even for one.
+    fn island_wide(&self, cc: &str) -> Option<u32> {
+        let all = self.suggest.island_wide.get_or_init(|| {
+            // per country: extent, and the heaviest two localities as (weight, place)
+            type Seen = ([f32; 4], (u64, u32), u64);
+            let mut seen: HashMap<&str, Seen> = HashMap::new();
+            for (id, p) in self.places.iter().enumerate() {
+                if &*p.subtype != "locality" || p.cc.is_empty() {
+                    continue;
+                }
+                let (b, top, second) = seen.entry(&p.cc).or_insert((
+                    [f32::MAX, f32::MAX, f32::MIN, f32::MIN],
+                    (0, 0),
+                    0,
+                ));
+                *b = [b[0].min(p.x), b[1].min(p.y), b[2].max(p.x), b[3].max(p.y)];
+                let w = weight(p);
+                if w > top.0 {
+                    *second = top.0;
+                    *top = (w, id as u32);
+                } else {
+                    *second = (*second).max(w);
+                }
+            }
+            seen.into_iter()
+                .filter(|(_, ([x0, y0, x1, y1], (top, _), second))| {
+                    let km_x =
+                        (x1 - x0) as f64 * 111.195 * ((y0 + y1) as f64 / 2.0).to_radians().cos();
+                    let km_y = (y1 - y0) as f64 * 111.195;
+                    km_x.max(km_y) < 100.0 && *top >= 10 * second
+                })
+                .map(|(c, (_, (_, id), _))| (c.to_ascii_lowercase().into(), id))
+                .collect()
+        });
+        all.get(cc.to_ascii_lowercase().as_str()).copied()
     }
 
     /// The most common terms of `field` starting with `prefix`, summed over segments, with the

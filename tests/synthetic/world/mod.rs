@@ -67,6 +67,7 @@ pub const WIKIDATA: &[(&str, &str)] = &[
 mod al;
 mod at;
 mod au;
+mod aw;
 mod be;
 mod br;
 mod ca;
@@ -130,6 +131,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         es::PLACES,
         fr::PLACES,
         cw::PLACES,
+        aw::PLACES,
         ga::PLACES,
         gb::PLACES,
         hk::PLACES,
@@ -317,6 +319,7 @@ pub static STREETS: LazyLock<Vec<Street>> = LazyLock::new(|| {
         es::STREETS,
         fr::STREETS,
         cw::STREETS,
+        aw::STREETS,
         ga::STREETS,
         gb::STREETS,
         hk::STREETS,
