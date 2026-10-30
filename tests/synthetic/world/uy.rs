@@ -53,5 +53,27 @@ pub fn cases() -> Vec<Case> {
         // the street named as written, though the dedicated name holds the number nearer the
         // postcode's centre
         case("Ruta 31 13, 50000, Uruguay", at_house("Ruta 31", "13")),
+        // libpostal reads the road's number as a second house number
+        case("13 Ruta 31, 50000, Uruguay", at_house("Ruta 31", "13")),
     ]
+}
+
+/// The road is in no town: its houses are still in Uruguay, and each cell's house 13 is another
+/// house, though all read alike.
+#[test]
+fn every_copy_of_a_rural_house_is_suggested_in_its_country() {
+    let found = crate::index().suggest(
+        "Ruta 31 - Coronel Gorgonio Aguiar 13, 50000, Uruguay",
+        5,
+        None,
+        None,
+        false,
+    );
+    let houses: Vec<_> = found.iter().filter(|s| s.kind == "address").collect();
+    let names: Vec<_> = found
+        .iter()
+        .map(|s| (&s.display_name, &s.country_code))
+        .collect();
+    assert!(houses.len() > 1, "{names:?}");
+    assert!(houses.iter().all(|s| s.country_code == "uy"), "{names:?}");
 }

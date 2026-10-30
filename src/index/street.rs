@@ -691,7 +691,10 @@ impl Index {
                 // The street named as written can fall past the cut when a longer name with its
                 // words fills every cell of the road ("Ruta 31" behind "RUTA 31 - CORONEL
                 // GORGONIO AGUIAR"): the postcode's streets holding the house are looked at too.
-                if i == town_scopes && !by_name.iter().any(as_written) {
+                if i == town_scopes
+                    && with_postcode.len() > top.len()
+                    && !by_name.iter().any(as_written)
+                {
                     let mut more: Vec<DocAddress> = with_postcode
                         .iter()
                         .copied()
