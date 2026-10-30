@@ -257,7 +257,7 @@ impl Index {
             // share: "Pagėgių sav., Užbalių k. 1" is not Užbaliai's house 1 in Prienai District.
             let municipality = match cc {
                 Some("si") => get("state").or(city),
-                Some("lt") => get("state"),
+                Some("lt" | "lv") => get("state"),
                 _ => None,
             };
             if let Some(code) = cc
@@ -271,11 +271,12 @@ impl Index {
                     let chain = self.house_chain(&chain, x, y).unwrap_or(chain);
                     chain.iter().any(|&p| self.places[p as usize].named(want))
                 };
-                // a house found through its postal town ("3000 Celje") is in the town stated
+                // a house found through its postal town ("3000 Celje") is in the town stated; a
+                // Latvian village's name is many villages' ("Sēļi" in Valmieras and Valka)
                 let within = |h: &Hit| {
                     matches!(h, Hit::Street { number: Some(_), place, name, city: postal, x, y, .. }
                         if name.split('\x1f').any(|n| fold(n) == fold(road))
-                            && (postal.is_some()
+                            && ((postal.is_some() && code != "lv")
                                 || (*place != NONE && in_municipality(*place, *x, *y))))
                 };
                 // a Lithuanian village named with only its municipality, which can have two
@@ -290,10 +291,13 @@ impl Index {
                         // two villages of the municipality hold the house; or none does, and a
                         // house outside it ("Trakų r. sav., Karališkių k. 6" in Širvintų) is not
                         // the one meant
-                        _ if code == "lt" && (houses.len() > 1 || !found) => hits.retain(|h| {
-                            !matches!(h, Hit::Street { number: Some(_), place, city: None, x, y, .. }
-                                if houses.len() > 1 || *place == NONE || !in_municipality(*place, *x, *y))
-                        }),
+                        _ if matches!(code, "lt" | "lv") && (houses.len() > 1 || !found) => {
+                            hits.retain(|h| {
+                                !matches!(h, Hit::Street { number: Some(_), place, city, x, y, .. }
+                                    if (city.is_none() || code == "lv")
+                                        && (houses.len() > 1 || *place == NONE || !in_municipality(*place, *x, *y)))
+                            })
+                        }
                         _ => {}
                     }
                 }

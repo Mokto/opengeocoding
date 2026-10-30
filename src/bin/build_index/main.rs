@@ -1803,8 +1803,15 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                     .flatten()
                     .filter(|town| city.is_some_and(|(suburb, _)| fold(suburb) != fold(town)))
                     .map(|name| (name, TOWN_CITY));
-                let cities: Vec<_> = city.into_iter().chain(town).collect();
                 let number = text(&number, i);
+                let latvian = (c == *b"LV")
+                    .then(|| latvian(text(&street, i), number?, level(o[i]), level(o[i + 1] - 1)))
+                    .flatten();
+                let city = match &latvian {
+                    Some((_, place)) => Some((place.as_str(), "postal_city")),
+                    None => city,
+                };
+                let cities: Vec<_> = city.into_iter().chain(town).collect();
                 let civic = number.and_then(float_civic);
                 let numbers = numbers_with_unit(
                     c,
@@ -1815,7 +1822,10 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                     Some(c),
                     x,
                     y,
-                    text(&street, i),
+                    latvian
+                        .as_ref()
+                        .map(|(road, _)| road.as_str())
+                        .or(text(&street, i)),
                     numbers.as_deref(),
                     text(&postcode, i),
                     &cities,
@@ -1824,6 +1834,41 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
         }
         done.add(1);
     });
+}
+
+/// A Latvian address of the State Address Register as OpenAddresses' `lv/countrywide` gives
+/// Overture it, whose street function fails: the street is the whole address ("Saules iela 15,
+/// Liepāja, LV-3401", sometimes with the number's digits cut off the postcode), and a named
+/// house ("Riņņi") has none, only its levels, the address above it with the first comma dropped,
+/// first without and then with the place it is in ("Vecates pag. Valmieras nov., LV-4211",
+/// "Riņņi"'s parish). The street ("Saules iela") and its town, or for a house numbered or named
+/// without a street the village, town or parish (as "Vecates pagasts") as both.
+fn latvian(
+    street: Option<&str>,
+    number: &str,
+    first: Option<&str>,
+    last: Option<&str>,
+) -> Option<(String, String)> {
+    if let Some(street) = street {
+        let mut parts = street.split(", ");
+        let road = parts.next()?.strip_suffix(number)?.strip_suffix(' ')?;
+        let town = parts.next().filter(|t| !t.starts_with("LV-"))?;
+        return Some((road.into(), town.into()));
+    }
+    let (first, last) = (first?, last?);
+    let place = if first == last {
+        let (place, code) = last.rsplit_once(' ')?;
+        code.starts_with("LV-").then_some(place)?
+    } else {
+        last.match_indices(' ').find_map(|(at, _)| {
+            (last[at + 1..].replacen(", ", " ", 1) == first).then(|| &last[..at])
+        })?
+    };
+    let place = match place.strip_suffix(" pag.") {
+        Some(stem) => format!("{stem} pagasts"),
+        None => place.into(),
+    };
+    Some((place.clone(), place))
 }
 
 // ponytail: only the number-first shape; "Jl. Sudirman No. 5" and "Avenida Corrientes 1234" are
@@ -2930,6 +2975,44 @@ mod tests {
         ] {
             assert_eq!(freeform_house(no), None, "{no}");
         }
+    }
+
+    #[test]
+    fn latvian_streets_and_named_houses_from_their_register_address() {
+        let pair = |a: &str, b: &str| Some((a.to_string(), b.to_string()));
+        let street = |s, n| latvian(Some(s), n, None, None);
+        assert_eq!(
+            street("Saules iela 15, Liepāja, LV-3401", "15"),
+            pair("Saules iela", "Liepāja")
+        );
+        assert_eq!(
+            street("Amatas iela 11, Liepāja, LV-34", "11"),
+            pair("Amatas iela", "Liepāja")
+        );
+        assert_eq!(
+            street("Alejas iela 21 k-2, Jūrmala, LV-2012", "21 k-2"),
+            pair("Alejas iela", "Jūrmala")
+        );
+        assert_eq!(street("Saules iela 15", "15"), None);
+        let named = |first, last| latvian(None, "Riņņi", Some(first), Some(last));
+        assert_eq!(
+            named(
+                "Garkalnes pag. Ropažu nov., LV-1024",
+                "Berģi Garkalnes pag., Ropažu nov., LV-1024"
+            ),
+            pair("Berģi", "Berģi")
+        );
+        assert_eq!(
+            named(
+                "Dienvidkurzemes nov. LV-3473",
+                "Nīcas pag. Dienvidkurzemes nov., LV-3473"
+            ),
+            pair("Nīcas pagasts", "Nīcas pagasts")
+        );
+        assert_eq!(
+            named("Liepāja LV-3405", "Liepāja LV-3405"),
+            pair("Liepāja", "Liepāja")
+        );
     }
 
     use super::balanced;
