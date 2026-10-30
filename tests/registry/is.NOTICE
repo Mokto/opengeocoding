@@ -1,0 +1,21 @@
+The registry-first sample tests/registry/is.jsonl contains addresses, postcodes and coordinates
+from Staðfangaskrá, the access address register of Húsnæðis- og mannvirkjastofnun (HMS), read
+from its WFS (public:Stadfangaskra) on 2026-10-30. Byggir á upplýsingum frá HMS
+(https://hms.is/stadfangaskra). Used under the Icelandic guidelines on reuse of public
+information (Leiðbeiningar varðandi endurnot opinberra upplýsinga), as the dataset's metadata
+states.
+
+Its post towns come from Póstnúmeraskrá, the postcode register of Byggðastofnun
+(postnumeraskra_2024.xlsx, https://www.byggdastofnun.is/is/postthjonusta/postnumer). Byggt á
+gögnum frá Byggðastofnun.
+
+Its municipality names come from "IS 50V Mörk sveitarfélaga" (IS_50V:mork_sveitarf_flakar,
+release of 2026-09-24) by Náttúrufræðistofnun, licensed under the Creative Commons Attribution
+4.0 International licence (https://creativecommons.org/licenses/by/4.0/).
+
+Changes: the three files were joined by postcode and municipality number
+(tests/registry/stadfangaskra-csv.sql, which reads IS 50V's municipality number 3506 as the
+register's 3609 for Borgarbyggð) and a sample drawn; the query forms were constructed from the
+fields, not by HMS, Byggðastofnun or Náttúrufræðistofnun, none of which has approved this sample.
+Per-case file checksums and retrieval dates are recorded in the corpus;
+docs/evaluation/registry/is.md records the upstream checksums.
