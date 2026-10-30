@@ -562,11 +562,16 @@ fn shard(
             Some((_, kept, px, py, (n, sx, sy), far)) if *kept == key => {
                 let slot = |x: u32| (x >> 24) & 0x3f;
                 let same_source = x >> RANK_SHIFT == *px >> RANK_SHIFT;
-                let near = same_source
-                    && (x & 0xff_ffff).abs_diff(*px & 0xff_ffff) <= NEAR_X
-                    && y.abs_diff(*py) <= NEAR_Y;
+                let close = |(px, py): (u32, u32)| {
+                    (x & 0xff_ffff).abs_diff(px & 0xff_ffff) <= NEAR_X && y.abs_diff(py) <= NEAR_Y
+                };
+                let near = same_source && close((*px, *py));
                 if same_source && !near {
-                    far.get_or_insert((x, y));
+                    match far {
+                        Some(f) if slot(f.0) == 0 && close(*f) => f.0 |= slot(x) << 24,
+                        Some(_) => {}
+                        None => *far = Some((x, y)),
+                    }
                 } else if slot(*px) == 0 {
                     *px |= slot(x) << 24;
                 }
@@ -754,14 +759,16 @@ mod tests {
     fn near_copies_of_a_house_are_averaged() {
         let dir = std::env::temp_dir().join(format!("numbers-mean-test-{}", std::process::id()));
         // Two unit points of one building (about 100 m apart), a copy of the same number a
-        // degree away, and an OpenAddresses copy next to the first.
+        // degree away and one beside it with a postcode, and an OpenAddresses copy next to the
+        // first.
         let copies = [
             (7, 2.0, 1, 0),
             (7, 2.001, 1, 0),
-            (7, 3.0, 1, 0),
+            (7, 3.0, 0, 0),
             (7, 2.0005, 1, 1),
+            (7, 3.0005, 2, 0),
         ];
-        let rows = |order: [usize; 4]| -> Vec<Vec<Row>> {
+        let rows = |order: [usize; 5]| -> Vec<Vec<Row>> {
             order
                 .iter()
                 .map(|&i| {
@@ -770,16 +777,18 @@ mod tests {
                 })
                 .collect()
         };
-        let (out, one) = write(&dir, "a", rows([0, 1, 2, 3]));
-        let (_, other) = write(&dir, "b", rows([2, 3, 1, 0]));
+        let (out, one) = write(&dir, "a", rows([0, 1, 2, 3, 4]));
+        let (_, other) = write(&dir, "b", rows([4, 2, 3, 1, 0]));
         assert_eq!(one, other);
         let (lon, _, _) = lookup(&out, 1, 7, "9").unwrap();
         assert!((lon - 2.0005).abs() < 3e-5, "{lon}");
-        // the copy a degree away is another house of that number, kept beside it
+        // the copy a degree away is another house of that number, kept beside it with the
+        // postcode of its neighbour
         let far = tantivy_fst::Map::from_bytes(fs::read(format!("{out}/{}", far_file(1))).unwrap())
             .unwrap();
-        let (lon, _, _) = unpack(far.get([&7u32.to_be_bytes()[..], b"9"].concat()).unwrap());
+        let (lon, _, slot) = unpack(far.get([&7u32.to_be_bytes()[..], b"9"].concat()).unwrap());
         assert!((lon - 3.0).abs() < 3e-5, "{lon}");
+        assert!(slot == 2);
         fs::remove_dir_all(&dir).unwrap();
     }
 

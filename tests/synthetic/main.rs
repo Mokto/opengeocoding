@@ -1143,11 +1143,11 @@ fn cases() -> Vec<Case> {
 #[test]
 fn osm_site_boundaries_do_not_become_house_points() {
     for (number, point) in [
-        ("702", (140.0199, 35.0199)),
-        ("703", (140.0299, 35.0199)),
+        ("702", (140.02, 35.02)),
+        ("703", (140.03, 35.02)),
         ("704", (140.04, 35.02)),
-        ("707", (140.06, 35.01)),
-        ("708", (140.07, 35.01)),
+        ("707", (140.07, 35.02)),
+        ("708", (140.08, 35.02)),
     ] {
         let query = format!("가람도 솔빛시 새봄면 배움길 {number}, South Korea");
         let found = index().suggest(&query, 5, None, None, false);
@@ -1166,7 +1166,7 @@ fn osm_site_boundaries_do_not_become_house_points() {
                 postcode["lon"].as_str().unwrap().parse().unwrap(),
                 postcode["lat"].as_str().unwrap().parse().unwrap()
             ),
-            (140.045, 35.01)
+            (140.055, 35.02)
         ) < 5.
     );
     for number in ["705", "706"] {

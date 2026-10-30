@@ -741,12 +741,16 @@ impl Index {
                     by_name.retain(|&a| copies(a).into_iter().any(|h| from_suburb(h) < 150));
                 }
                 if by_name.len() > 1 {
+                    let wanted = postcode.map(pc_norm).filter(|p| !p.is_empty());
                     by_name.sort_by_cached_key(|&a| {
                         (
                             !with_postcode.contains(&a),
                             !in_named(&a),
                             !as_written(&a),
                             near_suburb.and(lookup(a, n)).map_or(0, from_suburb),
+                            wanted.is_none()
+                                || lookup(a, n)
+                                    .is_none_or(|v| own_postcode(a, schema::unpack(v).2) != wanted),
                         )
                     });
                 }

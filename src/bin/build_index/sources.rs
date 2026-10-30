@@ -937,15 +937,17 @@ impl Kinds {
     }
 }
 
-/// Addresses of ways, kept from the first pass: a u32 node count, i64 node refs, then four
-/// fields, each a u16 length (MAX for none) and its bytes.
+/// Addresses of ways, kept from the first pass: a u32 node count (top bit set for a building),
+/// i64 node refs, then four fields, each a u16 length (MAX for none) and its bytes.
 /// Dropping a buffer hands it to the shared list.
 struct Packed<'m>(Vec<u8>, &'m Mutex<Vec<Vec<u8>>>);
 
 impl Packed<'_> {
     fn put(&mut self, refs: &[i64], a: &Addr) {
+        let len = u32::try_from(refs.len()).unwrap();
+        assert!(len < 1 << 31);
         self.0
-            .extend(u32::try_from(refs.len()).unwrap().to_le_bytes());
+            .extend((len | u32::from(a.building) << 31).to_le_bytes());
         for r in refs {
             self.0.extend(r.to_le_bytes());
         }
@@ -973,7 +975,8 @@ impl Drop for Packed<'_> {
 fn unpack_addrs(mut b: &[u8]) -> impl Iterator<Item = (&[u8], Addr<'_>)> {
     std::iter::from_fn(move || {
         let (len, rest) = b.split_first_chunk::<4>()?;
-        let (refs, rest) = rest.split_at(u32::from_le_bytes(*len) as usize * 8);
+        let len = u32::from_le_bytes(*len);
+        let (refs, rest) = rest.split_at((len & !(1 << 31)) as usize * 8);
         b = rest;
         let mut field = || {
             let (len, rest) = b.split_first_chunk::<2>()?;
@@ -992,7 +995,7 @@ fn unpack_addrs(mut b: &[u8]) -> impl Iterator<Item = (&[u8], Addr<'_>)> {
             street,
             postcode,
             city,
-            building: false,
+            building: len >> 31 == 1,
         };
         Some((refs, a))
     })
@@ -1025,6 +1028,61 @@ fn address_point(mut points: impl Iterator<Item = Option<(f64, f64)>>) -> Option
             })
         })
         .then_some(first)
+}
+
+/// The area-weighted centroid of the rings the `ways` form joined end to end, or the mean of
+/// their vertices when they close no ring with an area.
+fn centroid(mut ways: Vec<Vec<(f64, f64)>>) -> Option<(f64, f64)> {
+    let origin = *ways.iter().find_map(|w| w.first())?;
+    // Relative to one vertex: across the antimeridian, and without losing a building's few
+    // metres to cancellation between whole degrees.
+    let local = |(x, y): (f64, f64)| ((x - origin.0 + 180.).rem_euclid(360.) - 180., y - origin.1);
+    let (mut n, mut sum, mut lo, mut hi) =
+        (0., (0., 0.), (f64::MAX, f64::MAX), (f64::MIN, f64::MIN));
+    let (mut area, mut moment) = (0., (0., 0.));
+    while let Some(mut ring) = ways.pop() {
+        while ring.len() > 1 && ring.first() != ring.last() {
+            let end = *ring.last().unwrap();
+            let Some(k) = ways
+                .iter()
+                .position(|w| w.first() == Some(&end) || w.last() == Some(&end))
+            else {
+                break;
+            };
+            let mut next = ways.swap_remove(k);
+            if next.first() != Some(&end) {
+                next.reverse();
+            }
+            ring.extend_from_slice(&next[1..]);
+        }
+        let closed = ring.len() > 3 && ring.first() == ring.last();
+        for &p in &ring[usize::from(closed)..] {
+            let (x, y) = local(p);
+            (n, sum) = (n + 1., (sum.0 + x, sum.1 + y));
+            (lo, hi) = ((lo.0.min(x), lo.1.min(y)), (hi.0.max(x), hi.1.max(y)));
+        }
+        if closed {
+            let (mut a, mut mx, mut my) = (0., 0., 0.);
+            for w in ring.windows(2) {
+                let ((x0, y0), (x1, y1)) = (local(w[0]), local(w[1]));
+                let c = x0 * y1 - x1 * y0;
+                (a, mx, my) = (a + c, mx + (x0 + x1) * c, my + (y0 + y1) * c);
+            }
+            let s = a.signum();
+            (area, moment) = (area + a * s, (moment.0 + mx * s, moment.1 + my * s));
+        }
+    }
+    if n == 0. {
+        return None;
+    }
+    let (cx, cy) = (moment.0 / (3. * area), moment.1 / (3. * area));
+    // A collinear or self-crossing ring has no area to weigh, or one that puts it outside.
+    let (x, y) = if area > 0. && (lo.0..=hi.0).contains(&cx) && (lo.1..=hi.1).contains(&cy) {
+        (cx, cy)
+    } else {
+        (sum.0 / n, sum.1 / n)
+    };
+    Some(((origin.0 + x + 180.).rem_euclid(360.) - 180., origin.1 + y))
 }
 
 /// Addressed nodes, buildings and compact sites. Untyped ways/relations keep a house number
@@ -1125,13 +1183,8 @@ pub fn osm(dir: &Path, shared: &Shared, first: u32) -> (usize, Vec<Landmark>) {
                     if member || addr.is_some() {
                         let refs: Vec<_> = w.refs().collect();
                         if let Some(a) = addr {
-                            let own = if a.building {
-                                &refs[..refs.len().min(1)]
-                            } else {
-                                &refs
-                            };
-                            mine.0.extend(own);
-                            addrs.put(own, &a);
+                            mine.0.extend(&refs);
+                            addrs.put(&refs, &a);
                         }
                         if member {
                             mine.0.extend(&refs);
@@ -1221,11 +1274,11 @@ pub fn osm(dir: &Path, shared: &Shared, first: u32) -> (usize, Vec<Landmark>) {
                         let v = coords[k].load(Relaxed);
                         (v != u64::MAX).then(|| unpack(v))
                     });
-                    let first = points.clone().next().flatten();
-                    if address_point(points).is_none() && a.number.take().is_some() {
+                    let at = centroid(vec![points.clone().flatten().collect()]);
+                    if !a.building && address_point(points).is_none() && a.number.take().is_some() {
                         skipped.fetch_add(1, Relaxed);
                     }
-                    if let Some((x, y)) = first {
+                    if let Some((x, y)) = at {
                         a.add(sink, x, y);
                     }
                 }
@@ -1254,10 +1307,14 @@ pub fn osm(dir: &Path, shared: &Shared, first: u32) -> (usize, Vec<Landmark>) {
         relations.par_iter().for_each_init(
             || Sink::new(shared).ranked(2),
             |sink, (ways, a)| {
-                let Some((x, y)) = ways.first().and_then(|way| {
-                    let k = firsts.binary_search_by_key(way, |(w, _)| *w).ok()?;
-                    coord(*firsts[k].1.first()?)
-                }) else {
+                let lines = ways
+                    .iter()
+                    .filter_map(|way| {
+                        let k = firsts.binary_search_by_key(way, |(w, _)| *w).ok()?;
+                        Some(firsts[k].1.iter().filter_map(|&r| coord(r)).collect())
+                    })
+                    .collect();
+                let Some((x, y)) = centroid(lines) else {
                     skipped.fetch_add(1, Relaxed);
                     return;
                 };
@@ -1583,14 +1640,21 @@ mod tests {
                     .iter()
                     .map(|r| i64::from_le_bytes(*r))
                     .collect();
-                (refs, a.number, a.street, a.postcode, a.city)
+                (refs, a.number, a.street, a.postcode, a.city, a.building)
             })
             .collect();
         assert_eq!(
             got,
             [
-                (vec![7, 8, 9, 7], Some("12"), Some("Main St"), None, None),
-                (vec![-3], Some("12"), Some("Hamlet"), None, None)
+                (
+                    vec![7, 8, 9, 7],
+                    Some("12"),
+                    Some("Main St"),
+                    None,
+                    None,
+                    true
+                ),
+                (vec![-3], Some("12"), Some("Hamlet"), None, None, false)
             ]
         );
     }
@@ -1617,6 +1681,50 @@ mod tests {
         for (a, b) in [((179.9999, 0.), (-179.9999, 0.)), ((0., 85.), (0.01, 85.))] {
             assert_eq!(address_point([Some(a), Some(b)].into_iter()), Some(a));
         }
+    }
+
+    #[test]
+    fn footprints_are_stored_at_their_area_centroid() {
+        let near = |got: Option<(f64, f64)>, (x, y): (f64, f64)| {
+            let (gx, gy) = got.unwrap();
+            assert!((gx - x).abs() < 1e-9 && (gy - y).abs() < 1e-9, "{got:?}");
+        };
+        // An L: three unit squares, its vertex mean (1, 1) off the centroid (5/6, 5/6).
+        let l = [
+            (0., 0.),
+            (2., 0.),
+            (2., 1.),
+            (1., 1.),
+            (1., 2.),
+            (0., 2.),
+            (0., 0.),
+        ]
+        .map(|(x, y)| (140. + x * 1e-4, 35. + y * 1e-4))
+        .to_vec();
+        let at = (140. + 5. / 6. * 1e-4, 35. + 5. / 6. * 1e-4);
+        near(centroid(vec![l.clone()]), at);
+        near(centroid(vec![l.iter().rev().copied().collect()]), at);
+        // A relation's outer ring split into ways, one drawn backwards.
+        let mut tail = l[3..].to_vec();
+        tail.reverse();
+        near(centroid(vec![l[..4].to_vec(), tail]), at);
+        // Open or collinear: the mean of the vertices.
+        near(
+            centroid(vec![l[..3].to_vec()]),
+            (140. + 4. / 3. * 1e-4, 35. + 1. / 3. * 1e-4),
+        );
+        let line = vec![(10., 1.), (10.002, 1.), (10.001, 1.), (10., 1.)];
+        near(centroid(vec![line]), (10.001, 1.));
+        let across = vec![
+            (179.9999, 0.),
+            (-179.9999, 0.),
+            (-179.9999, 0.0002),
+            (179.9999, 0.0002),
+            (179.9999, 0.),
+        ];
+        near(centroid(vec![across]), (-180., 0.0001));
+        assert_eq!(centroid(vec![]), None);
+        assert_eq!(centroid(vec![vec![]]), None);
     }
 
     #[test]
