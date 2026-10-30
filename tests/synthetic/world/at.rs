@@ -196,6 +196,20 @@ pub const PLACES: &[Place] = &[
         "Grenzdorf",
         &[("en", "Grenzdorf")],
     ),
+    // a town with no area of its own on Delta's side of the line, nearest a GeoNames hamlet on
+    // Gamma's (`write_geonames`)
+    place!(
+        "at-randweiler",
+        "locality",
+        "",
+        "AT",
+        "AT-4",
+        1000,
+        (60.51, 0.4),
+        "at-d",
+        "Randweiler",
+        &[("en", "Randweiler")],
+    ),
     place!(
         "at-randdorf",
         "locality",

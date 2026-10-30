@@ -463,9 +463,9 @@ impl Index {
     /// says what it is ("Taboiaki" is "Taboiaki Village", "Village of Maia" is "Maia"): the
     /// most important of the places searches find, else one the builder added from GeoNames
     /// below `cities500`'s bar, which only this finds; else the place a name of GeoNames' that
-    /// nothing else of the country has belongs to (`schema::ALTERNATES`). None when localities
-    /// of the name lie 10 km or more apart.
-    pub fn locality_named(&self, name: &str, cc: &str) -> Option<Hit> {
+    /// nothing else of the country has belongs to (`schema::ALTERNATES`). Without `gap`, only
+    /// the places searches find. None when localities of the name lie 10 km or more apart.
+    pub fn locality_named(&self, name: &str, cc: &str, gap: bool) -> Option<Hit> {
         const SUFFIXES: [&str; 2] = [" village", " hamlet"];
         const PREFIXES: [&str; 1] = ["village of "];
         let folded = fold(name);
@@ -484,8 +484,9 @@ impl Index {
         }
         let text = bare.unwrap_or(&folded);
         let cl = || self.musts(self.f.names, text);
-        let ids: Vec<Vec<u32>> = [Kind::Searched, Kind::Small]
-            .into_iter()
+        let ids: Vec<Vec<u32>> = [Kind::Searched, Kind::Small][..if gap { 2 } else { 1 }]
+            .iter()
+            .copied()
             .map(|kind| {
                 self.top_of(kind, Some(cc), cl(), 20)
                     .into_iter()
@@ -514,7 +515,7 @@ impl Index {
         });
         let Some((&id, named)) = form else {
             // a name only GeoNames gives the place, and only it ("Gahnpa" is Ganta)
-            let alternates = self.alternates.as_ref()?;
+            let alternates = self.alternates.as_ref().filter(|_| gap)?;
             let cc = cc.to_ascii_uppercase();
             return forms.iter().find_map(|f| {
                 let id = alternates.get([cc.as_bytes(), f.as_bytes()].concat())? as u32;
