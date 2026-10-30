@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/Mokto/opengeocoding/compare/v1.4.0...v1.4.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* stop an address whose rewrites lead back to it from recursing until the stack overflows ([#443](https://github.com/Mokto/opengeocoding/issues/443)) ([4bcc69c](https://github.com/Mokto/opengeocoding/commit/4bcc69c590d2640f082a2af0c3ffbbaf7d631a79))
+
 ## [1.4.0](https://github.com/Mokto/opengeocoding/compare/v1.3.0...v1.4.0) (2026-10-30)
 
 
