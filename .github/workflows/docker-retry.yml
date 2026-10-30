@@ -1,0 +1,29 @@
+name: Retry a failed release publish
+
+# GHCR can answer a transient 401 while docker/github-builder signs the attestation manifests
+# (v1.4.1), and a failed tag never pushes its chart or dispatches the deployment. Rerun the failed
+# jobs once; a real failure fails again on the second attempt.
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] runs nothing from the triggering ref
+    workflows: [Publish Docker image]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  rerun:
+    if: >-
+      github.repository == 'Mokto/opengeocoding'
+      && github.event.workflow_run.conclusion == 'failure'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.run_attempt == 1
+      && startsWith(github.event.workflow_run.head_branch, 'v')
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: write
+    steps:
+      - run: gh run rerun "$RUN" --failed --repo "$REPO"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ github.event.workflow_run.id }}
+          REPO: ${{ github.repository }}
