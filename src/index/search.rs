@@ -817,6 +817,9 @@ impl Index {
                 }
                 a.insert("road".into(), name.clone().into());
                 display.push(name.clone());
+                let city = city
+                    .as_ref()
+                    .or(postal_town.as_ref().filter(|_| *place == NONE));
                 let place = match *place {
                     NONE => self.area_place(*x, *y, cc),
                     p => p,

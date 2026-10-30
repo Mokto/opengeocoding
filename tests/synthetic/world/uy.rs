@@ -2,8 +2,8 @@ use super::*;
 use crate::{Case, Want, at_house, case, index, metres, named};
 
 /// Rocha's farms lie far from any settlement: no locality within 5 km, no county. Camino del Indio
-/// 40 is Overture's, which files it under Uruguay; Camino Los Ceibos 17 is OSM's, which names no
-/// country. The region's area is in `AREAS`.
+/// 40 is Overture's, which files it under Uruguay and the postal town La Esmeralda; Camino Los
+/// Ceibos 17 is OSM's, which names no country. The region's area is in `AREAS`.
 pub const PLACES: &[Place] = &[
     place!(
         "uy",
@@ -69,7 +69,7 @@ const INDIO: Street = Street {
     length: 0.0,
     name: "Camino del Indio",
     postcode: "27000",
-    city: "",
+    city: "La Esmeralda",
     cc: "UY",
     lon: -53.85,
     lat: -33.85,
@@ -112,7 +112,7 @@ pub fn cases() -> Vec<Case> {
         named(
             "40 Camino del Indio, 27000, Uruguay",
             "uy",
-            "",
+            "La Esmeralda",
             &["UY-RO"],
             true,
         ),
@@ -142,9 +142,9 @@ fn every_copy_of_a_rural_house_is_suggested_in_its_country() {
 #[test]
 fn a_house_far_from_any_settlement_names_its_region_and_country() {
     let indio = house(&INDIO, "40");
-    for (typed, number, point) in [
-        ("Camino Los Ceibos 17", "17", CEIBOS),
-        ("Camino del Indio 40", "40", indio),
+    for (typed, number, point, town) in [
+        ("Camino Los Ceibos 17", "17", CEIBOS, None),
+        ("Camino del Indio 40", "40", indio, Some("La Esmeralda")),
     ] {
         let found = index().suggest(typed, 5, Some("UY"), None, false);
         assert_eq!(found.first().map(|s| s.kind), Some("address"), "{typed}");
@@ -157,5 +157,6 @@ fn a_house_far_from_any_settlement_names_its_region_and_country() {
         assert_eq!(address["country_code"], "uy", "{typed}");
         assert_eq!(address["state"], "Rocha", "{typed}");
         assert_eq!(address["ISO3166-2-lvl4"], "UY-RO", "{typed}");
+        assert_eq!(address["city"].as_str(), town, "{typed}");
     }
 }
