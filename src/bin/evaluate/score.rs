@@ -286,7 +286,7 @@ pub fn region_applies(expect: &Expect) -> bool {
 fn locate_class(expect: &Expect, check_region: bool, found: &Located) -> &'static str {
     if found.error.is_some() {
         "error"
-    } else if found.country.is_empty() {
+    } else if found.country.is_empty() && found.answer.as_ref().is_none_or(|a| a.layer.is_empty()) {
         "empty"
     } else if !expect.country.contains(&found.country) {
         "wrong_country"
@@ -694,6 +694,16 @@ fn agrees(key: &str, expected: &str, actual: &str) -> bool {
             .find_map(|t| actual.strip_prefix(t))
             .unwrap_or(&actual);
         return compact(untyped) == compact(&key(expected));
+    }
+    // a postcode is its letters and digits, as the index keeps it ("+218" is 218)
+    let alphanumeric = |v: &str| -> String {
+        v.chars()
+            .filter(|c| c.is_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect()
+    };
+    if key == "postcode" && alphanumeric(actual) == alphanumeric(expected) {
+        return true;
     }
     // a ZIP+4 is its ZIP, more precisely
     compact(actual) == compact(expected)
@@ -1220,6 +1230,13 @@ mod tests {
             reverse_class(&abroad, None, &reversed(&json!({})), false),
             "empty"
         );
+        // a house without its country is an answer, not none
+        let countryless = reversed(&json!({ "results": [{ "layer": "address", "address": {
+            "addressDetails": { "road": "Aspernstraße", "houseNumber": "119" } } }] }));
+        assert_eq!(
+            reverse_class(&abroad, None, &countryless, false),
+            "wrong_country"
+        );
         let failed = Located {
             error: Some("timeout".into()),
             ..Default::default()
@@ -1361,6 +1378,10 @@ mod tests {
             class(&answer("7bis", "01300", 48.8501, "Pont-de-Veyle"), false),
             "wrong_postcode"
         );
+        // punctuation a source wrote into the postcode is not part of it
+        let mut plus = house.clone();
+        plus.components.insert("postcode".into(), "+01290".into());
+        assert_eq!(reverse_class(&plus, None, &right, false), "pass");
         // from the offset point any house within the radius will do, but it must be a house
         assert_eq!(
             class(&answer("9", "01300", 48.8501, "Pont-de-Veyle"), true),
