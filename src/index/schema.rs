@@ -787,7 +787,8 @@ mod tests {
         let far = tantivy_fst::Map::from_bytes(fs::read(format!("{out}/{}", far_file(1))).unwrap())
             .unwrap();
         let (lon, _, slot) = unpack(far.get([&7u32.to_be_bytes()[..], b"9"].concat()).unwrap());
-        assert!((lon - 3.0).abs() < 3e-5 && slot == 2, "{lon} {slot}");
+        assert!((lon - 3.0).abs() < 3e-5, "{lon}");
+        assert!(slot == 2);
         fs::remove_dir_all(&dir).unwrap();
     }
 
