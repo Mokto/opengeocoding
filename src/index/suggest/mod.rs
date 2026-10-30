@@ -331,6 +331,42 @@ impl Index {
         focus: Option<&Focus>,
         landmarks: bool,
     ) -> Vec<Suggestion> {
+        let mut chain = vec![(text.trim_start().to_string(), cc.map(str::to_lowercase))];
+        self.suggest_from(text, limit, cc, focus, landmarks, &mut chain)
+    }
+
+    /// `suggest` retried with rewritten text: none once the rewrite gives back a text (and
+    /// country) already tried on the way here, or past `street::MAX_RETRIES` rewrites.
+    #[track_caller]
+    fn retry_suggest(
+        &self,
+        text: &str,
+        limit: usize,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        landmarks: bool,
+        chain: &mut Vec<(String, Option<String>)>,
+    ) -> Vec<Suggestion> {
+        let key = (text.trim_start().to_string(), cc.map(str::to_lowercase));
+        if chain.contains(&key) || chain.len() > street::MAX_RETRIES {
+            street::loop_stopped("suggest", chain.len());
+            return vec![];
+        }
+        chain.push(key);
+        let found = self.suggest_from(text, limit, cc, focus, landmarks, chain);
+        chain.pop();
+        found
+    }
+
+    fn suggest_from(
+        &self,
+        text: &str,
+        limit: usize,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        landmarks: bool,
+        chain: &mut Vec<(String, Option<String>)>,
+    ) -> Vec<Suggestion> {
         let text = text.trim_start();
         if text.chars().count() > MAX_TEXT || text.trim().is_empty() || limit == 0 {
             return vec![];
@@ -338,7 +374,7 @@ impl Index {
         if cc.is_none_or(|c| c.eq_ignore_ascii_case("tw"))
             && let Some(without) = tw::without_taiwan_province(text)
         {
-            return self.suggest(&without, limit, cc, focus, landmarks);
+            return self.retry_suggest(&without, limit, cc, focus, landmarks, chain);
         }
         if let Some(found) = self.chinese_suggest(text, cc) {
             return found;
@@ -374,25 +410,25 @@ impl Index {
             if let Some(spaced) = hk_mo::typed_chinese(text)
                 && spaced != text
             {
-                return self.suggest(&spaced, limit, cc, focus, landmarks);
+                return self.retry_suggest(&spaced, limit, cc, focus, landmarks, chain);
             }
         }
         if cc.is_none_or(|c| c.eq_ignore_ascii_case("lt"))
             && let Some(written) = lt::suggest_text(text)
         {
-            return self.suggest(&written, limit, cc, focus, landmarks);
+            return self.retry_suggest(&written, limit, cc, focus, landmarks, chain);
         }
         if cc.is_none_or(|c| c.eq_ignore_ascii_case("lt"))
             && let Some(short) = lt::initialled(text)
         {
-            let found = self.suggest(&short, limit, cc, focus, landmarks);
+            let found = self.retry_suggest(&short, limit, cc, focus, landmarks, chain);
             if found.iter().any(|s| s.kind == "address") {
                 return found;
             }
         }
         if cc.is_none_or(|c| c.eq_ignore_ascii_case("ee")) {
             if let Some(turned) = ee::county_first(text) {
-                return self.suggest(&turned, limit, cc, focus, landmarks);
+                return self.retry_suggest(&turned, limit, cc, focus, landmarks, chain);
             }
             if let Some(found) = self.ee_named_house(text) {
                 return kept(vec![found], cc, limit);
@@ -509,7 +545,7 @@ impl Index {
         {
             let number = schema::number_key(number);
             let recovered: Vec<_> = self
-                .suggest(building, limit, Some("ca"), focus, landmarks)
+                .retry_suggest(building, limit, Some("ca"), focus, landmarks, chain)
                 .into_iter()
                 .filter(|s| {
                     s.kind == "address"
@@ -528,7 +564,7 @@ impl Index {
             && let Some((trimmed, _, _)) = it::frazione_parts(text)
         {
             let recovered: Vec<_> = self
-                .suggest(&trimmed, limit, cc, focus, landmarks)
+                .retry_suggest(&trimmed, limit, cc, focus, landmarks, chain)
                 .into_iter()
                 .filter(|s| s.kind == "address")
                 .collect();
@@ -542,7 +578,7 @@ impl Index {
             && let Some(trimmed) = th::road_and_postcode(text)
         {
             let recovered: Vec<_> = self
-                .suggest(&trimmed, limit, cc, focus, landmarks)
+                .retry_suggest(&trimmed, limit, cc, focus, landmarks, chain)
                 .into_iter()
                 .filter(|s| s.kind == "address")
                 .collect();

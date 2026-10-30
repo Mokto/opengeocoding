@@ -12,6 +12,26 @@ pub(super) fn comma_number(part: &str) -> Option<&str> {
     .then_some(number)
 }
 
+/// The gold suite's deepest chain of rewrites is 3; one of each of the eight kinds is the most a
+/// chain that never revisits its input should need.
+pub(super) const MAX_RETRIES: usize = 8;
+
+/// A rewrite that led back to its input or past `MAX_RETRIES`: cut, and reported, since without
+/// the cut it recursed until the stack overflowed and took the process down.
+#[track_caller]
+pub(super) fn loop_stopped(retried: &str, depth: usize) {
+    let at = std::panic::Location::caller();
+    tracing::error!(retried, %at, depth, "retry loop stopped");
+    sentry::capture_message(
+        &format!(
+            "{retried} retry loop stopped at {}:{}",
+            at.file(),
+            at.line()
+        ),
+        sentry::Level::Error,
+    );
+}
+
 impl Index {
     pub(super) fn suggest_number_comma(
         &self,
@@ -91,6 +111,40 @@ impl Index {
         cc: Option<&str>,
         focus: Option<&Focus>,
         want: usize,
+    ) -> Vec<Suggestion> {
+        self.streets_from(typed, cc, focus, want, &mut vec![typed.parts.clone()])
+    }
+
+    /// `suggest_streets` retried with rewritten parts: none once the rewrite gives back parts
+    /// already tried on the way here (the same lookups again would loop until the stack
+    /// overflows), or past `MAX_RETRIES` rewrites.
+    #[track_caller]
+    fn retry_streets(
+        &self,
+        parts: Vec<String>,
+        open: bool,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        want: usize,
+        chain: &mut Vec<Vec<String>>,
+    ) -> Vec<Suggestion> {
+        if chain.contains(&parts) || chain.len() > MAX_RETRIES {
+            loop_stopped("suggest_streets", chain.len());
+            return vec![];
+        }
+        chain.push(parts.clone());
+        let found = self.streets_from(&Typed { parts, open }, cc, focus, want, chain);
+        chain.pop();
+        found
+    }
+
+    fn streets_from(
+        &self,
+        typed: &Typed,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        want: usize,
+        chain: &mut Vec<Vec<String>>,
     ) -> Vec<Suggestion> {
         let one_part = typed.parts.len() == 1;
         let country = (!one_part)
@@ -592,15 +646,7 @@ impl Index {
                     .chain(rest)
                     .collect();
                 let found: Vec<_> = self
-                    .suggest_streets(
-                        &Typed {
-                            parts,
-                            open: typed.open,
-                        },
-                        cc,
-                        focus,
-                        want,
-                    )
+                    .retry_streets(parts, typed.open, cc, focus, want, chain)
                     .into_iter()
                     .filter(|s| s.kind == "address" && self.house_accepts_postcode(s, pc))
                     .collect();
@@ -620,15 +666,7 @@ impl Index {
                         .chain(raw[start + 2..].iter().copied())
                         .collect::<Vec<_>>()
                         .join(" ");
-                    let found = self.suggest_streets(
-                        &Typed {
-                            parts,
-                            open: typed.open,
-                        },
-                        cc,
-                        focus,
-                        want,
-                    );
+                    let found = self.retry_streets(parts, typed.open, cc, focus, want, chain);
                     if found.iter().any(|s| s.kind == "address") {
                         return found;
                     }
@@ -648,15 +686,7 @@ impl Index {
         {
             let mut parts = typed.parts.clone();
             parts[0] = bare;
-            let found = self.suggest_streets(
-                &Typed {
-                    parts,
-                    open: typed.open,
-                },
-                cc,
-                focus,
-                want,
-            );
+            let found = self.retry_streets(parts, typed.open, cc, focus, want, chain);
             if out.is_empty() || found.iter().any(|s| s.kind == "address") {
                 return found;
             }
@@ -668,15 +698,7 @@ impl Index {
             && let Some(towns) = self.egyptian_towns(&typed.parts[1..], cc.is_some())
         {
             let parts = typed.parts[..1].iter().cloned().chain(towns).collect();
-            let found = self.suggest_streets(
-                &Typed {
-                    parts,
-                    open: typed.open,
-                },
-                cc,
-                focus,
-                want,
-            );
+            let found = self.retry_streets(parts, typed.open, cc, focus, want, chain);
             if out.is_empty() || found.iter().any(|s| s.kind == "address") {
                 return found;
             }
@@ -694,14 +716,13 @@ impl Index {
                     && self.postcode_exists(words[i], cc)
             });
             if let Some(at) = at {
-                let found = self.suggest_streets(
-                    &Typed {
-                        parts: vec![words[..at].join(" "), words[at..].join(" ")],
-                        open: typed.open,
-                    },
+                let found = self.retry_streets(
+                    vec![words[..at].join(" "), words[at..].join(" ")],
+                    typed.open,
                     cc,
                     focus,
                     want,
+                    chain,
                 );
                 if found.iter().any(|s| s.kind == "address") {
                     return found;
@@ -717,15 +738,7 @@ impl Index {
         {
             let mut parts = vec![format!("{road} {number}")];
             parts.extend_from_slice(rest);
-            let found = self.suggest_streets(
-                &Typed {
-                    parts,
-                    open: typed.open,
-                },
-                cc,
-                focus,
-                want,
-            );
+            let found = self.retry_streets(parts, typed.open, cc, focus, want, chain);
             if found.iter().any(|s| s.kind == "address") {
                 return found;
             }
@@ -739,15 +752,7 @@ impl Index {
         {
             let mut parts = typed.parts.clone();
             parts[0] = road;
-            let found = self.suggest_streets(
-                &Typed {
-                    parts,
-                    open: typed.open,
-                },
-                cc,
-                focus,
-                want,
-            );
+            let found = self.retry_streets(parts, typed.open, cc, focus, want, chain);
             if found.iter().any(|s| s.kind == "address") {
                 return found;
             }
@@ -764,15 +769,7 @@ impl Index {
             for road in crate::matching::road_expansions(&raw.join(" "), "pt") {
                 let mut parts = typed.parts.clone();
                 parts[0] = road;
-                let found = self.suggest_streets(
-                    &Typed {
-                        parts,
-                        open: typed.open,
-                    },
-                    cc,
-                    focus,
-                    want,
-                );
+                let found = self.retry_streets(parts, typed.open, cc, focus, want, chain);
                 if found.iter().any(|s| s.kind == "address") {
                     return found;
                 }
