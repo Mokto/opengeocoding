@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/Mokto/opengeocoding/compare/v1.4.1...v1.5.0) (2026-10-30)
+
+
+### Features
+
+* let the serving HPA take a scaling behavior, so new pods that pull the whole index can be added and removed slowly ([#447](https://github.com/Mokto/opengeocoding/issues/447)) ([3160751](https://github.com/Mokto/opengeocoding/commit/31607511a44f4e91b19913984ea12e486713cfcc))
+
+
+### Bug Fixes
+
+* suggest Thai houses typed with their village number or unit range ([#441](https://github.com/Mokto/opengeocoding/issues/441)) ([0c9d108](https://github.com/Mokto/opengeocoding/commit/0c9d108a630875658728b53adc21a16eabac3cf0))
+
 ## [1.4.1](https://github.com/Mokto/opengeocoding/compare/v1.4.0...v1.4.1) (2026-10-30)
 
 
