@@ -195,6 +195,23 @@ impl Index {
             .into_iter()
             .flatten();
         let mut tries: Vec<(Option<String>, bool, Vec<&str>)> = vec![];
+        // before the number alone: "หมู่ 1" also names streets, which the rest would find
+        let village = 0..{
+            let n = raw.len();
+            if cc.is_none_or(|c| c.eq_ignore_ascii_case("th")) {
+                for len in 1..=4.min(n.saturating_sub(1)) {
+                    for start in [0, n - len] {
+                        let number = raw[start..start + len].join(" ");
+                        if th::house_number(&number) {
+                            let mut road = raw.clone();
+                            road.drain(start..start + len);
+                            tries.push((Some(number), start > 0, road));
+                        }
+                    }
+                }
+            }
+            tries.len()
+        };
         for i in number_at {
             tries.push((
                 Some(raw[i].to_owned()),
@@ -539,7 +556,9 @@ impl Index {
                 }
                 found
             };
-            if labelled.contains(&i) && !found.iter().any(|s| s.kind == "address") {
+            if (village.contains(&i) || labelled.contains(&i))
+                && !found.iter().any(|s| s.kind == "address")
+            {
                 continue;
             }
             if plated && !found.iter().any(|s| s.kind == "address") {
