@@ -3,7 +3,8 @@ use crate::{Case, at_house, case, named};
 
 /// El Oasis only in Chihuahua, and streets of Piedras Negras, in Coahuila: one the map names
 /// "Calle Godard" (without houses) and the 2015 establishment directory "GODARD", a lettered
-/// house, and postcode 25901 beside a house 901 on Calle 25.
+/// house, postcode 25901 beside a house 901 on Calle 25, and an "Avenida Corregidora" another
+/// source calls "Calle Corregidora".
 pub const PLACES: &[Place] = &[
     place!(
         "mx",
@@ -116,6 +117,17 @@ pub const STREETS: &[Street] = &[
     Street {
         class: "residential",
         length: 0.0,
+        name: "Avenida Corregidora",
+        postcode: "26000",
+        city: "Piedras Negras",
+        cc: "MX",
+        lon: -45.004,
+        lat: 45.001,
+        numbers: &["222"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
         name: "Calle Allende",
         postcode: "25901",
         city: "Piedras Negras",
@@ -154,6 +166,11 @@ pub fn cases() -> Vec<Case> {
         case(
             "CALLE MATAMOROS 11-A, Piedras Negras, Coahuila, Mexico",
             at_house("Calle Matamoros", "11A"),
+        ),
+        // one street under another main type
+        case(
+            "CALLE CORREGIDORA 222, Piedras Negras, Coahuila, Mexico",
+            at_house("Avenida Corregidora", "222"),
         ),
     ]
 }

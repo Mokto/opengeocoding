@@ -684,12 +684,12 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
         && !d.road.is_empty()
         && !d.house_number.is_empty()
         && (roads_agree(road, &d.road)
-            || road_expansions(road, filed_country(&d.country_code))
+            || ((road_expansions(road, filed_country(&d.country_code))
                 .iter()
-                .any(|expanded| {
-                    road_key(expanded) == road_key(&d.road)
-                        && country_matches(&expected_country(address), Some(d))
-                }))
+                .any(|expanded| road_key(expanded) == road_key(&d.road))
+                || (filed_country(&d.country_code).eq_ignore_ascii_case("mx")
+                    && mx::same_street(road, &d.road)))
+                && country_matches(&expected_country(address), Some(d))))
         && {
             let key = |n: &str| {
                 let n = if d.country_code.eq_ignore_ascii_case("co") {

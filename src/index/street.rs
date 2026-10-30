@@ -117,7 +117,7 @@ impl Index {
                             if postcode_not_contradicted(own.as_deref(), postcode)
                                 // "tabasco" is not "Privada Tabasco"
                                 && (!cc.is_some_and(|c| c.eq_ignore_ascii_case("mx"))
-                                    || fold(found) == fold(&name)))
+                                    || mx::same_street(road, found)))
                         })
                         .collect();
                     if next.is_empty() {
