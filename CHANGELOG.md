@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.3.0](https://github.com/Mokto/opengeocoding/compare/v1.2.0...v1.3.0) (2026-10-30)
+
+
+### Features
+
+* read INEGI's DENUE establishments from before 2025 as Mexican houses ([#421](https://github.com/Mokto/opengeocoding/issues/421)) ([b9d3ee4](https://github.com/Mokto/opengeocoding/commit/b9d3ee45f2033b9e3d4154f3c83ba939148a67d2))
+
+
+### Bug Fixes
+
+* find a Mexican house under another main street type ([#424](https://github.com/Mokto/opengeocoding/issues/424)) ([89afa1a](https://github.com/Mokto/opengeocoding/commit/89afa1adb5848e67902c52a10be4a817ac347d03))
+* read Taiwanese addresses written part by part as their commas say, and keep a 建 number prefix ([#432](https://github.com/Mokto/opengeocoding/issues/432)) ([145800f](https://github.com/Mokto/opengeocoding/commit/145800f181c7147b8f02f7f990e5d93bb46b0195))
+* resolve Estonian addresses written county first, by farm name or with initials ([#414](https://github.com/Mokto/opengeocoding/issues/414)) ([e1757bb](https://github.com/Mokto/opengeocoding/commit/e1757bb6ec0194bcbe943eba845cd7fdb3a0e9e7))
+* resolve Lithuanian addresses written municipality first, by village name or with given names spelt out ([#428](https://github.com/Mokto/opengeocoding/issues/428)) ([70687c4](https://github.com/Mokto/opengeocoding/commit/70687c4d74dc5468a7ee08bbbe71707fbad79ac2))
+* resolve Slovenian addresses written with the municipality instead of a postcode ([#423](https://github.com/Mokto/opengeocoding/issues/423)) ([be83357](https://github.com/Mokto/opengeocoding/commit/be83357d813267625cd5f98a5234e4dc4bec7a17))
+* store house longitudes to 15 cm and index Taiwan's 之 sub-numbers as their own houses ([#420](https://github.com/Mokto/opengeocoding/issues/420)) ([e04840e](https://github.com/Mokto/opengeocoding/commit/e04840e30d4ae40009c71a46d9c973671af8bb80))
+* suggest a house when the text names a village beside its own, or a Thai district and province the index names otherwise ([#426](https://github.com/Mokto/opengeocoding/issues/426)) ([d8c01b1](https://github.com/Mokto/opengeocoding/commit/d8c01b170bd738a17807a10cafc897cf75b0b6f1))
+
 ## [1.2.0](https://github.com/Mokto/opengeocoding/compare/v1.1.0...v1.2.0) (2026-10-29)
 
 
