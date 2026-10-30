@@ -1,7 +1,7 @@
-//! GeoNames populated places (`cities500` and `admin1CodesASCII`) added to the places Overture's
-//! divisions give, only where no place of that name lies within `NEAR_KM`.
+//! GeoNames populated places (the `P` rows of `allCountries`, and `admin1CodesASCII`) added to
+//! the places Overture's divisions give, only where no place of that name lies within `NEAR_KM`.
 use crate::{NAME_SEP, Place, Str, cell, country, geo::Assigner};
-use opengeocoding::index::schema::fold;
+use opengeocoding::index::schema::{SMALL_GEONAMES, fold};
 use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -29,6 +29,9 @@ struct Row {
     district_seat: bool,
     x: f64,
     y: f64,
+    /// Meets the bar of GeoNames' `cities500`: more than 500 people, a capital or the seat of a
+    /// first- to fourth-order division. A smaller place only fills a gap no namesake shares.
+    listed: bool,
 }
 
 fn area(p: &Place) -> bool {
@@ -41,6 +44,12 @@ fn area(p: &Place) -> bool {
 fn parse(line: &str) -> Option<Row> {
     let f: Vec<&str> = line.split('\t').collect();
     if f.len() < 15 || SKIPPED.contains(&f[7]) || f[1].is_empty() {
+        return None;
+    }
+    let population = f[14].parse().unwrap_or(0);
+    let listed = population > 500 || matches!(f[7], "PPLC" | "PPLA" | "PPLA2" | "PPLA3" | "PPLA4");
+    // a smaller section of a populated place
+    if !listed && f[7] == "PPLX" {
         return None;
     }
     let mut names: Vec<String> = vec![f[1].to_string()];
@@ -58,7 +67,8 @@ fn parse(line: &str) -> Option<Row> {
         others,
         cc: country(Some(f[8])),
         admin1: format!("{}.{}", f[8], f[10]),
-        population: f[14].parse().unwrap_or(0),
+        population,
+        listed,
         district_seat: f[7] == "PPLA2",
         subtype: if f[7] == "PPLX" {
             "neighborhood"
@@ -83,14 +93,16 @@ fn km(a: (f64, f64), b: (f64, f64)) -> f64 {
 }
 
 /// Appends the places GeoNames has and `places` lacks, to `places` and to `places.tsv` in `out`.
-/// Returns how many were added.
+/// A place below `cities500`'s bar is added only when nothing else of its country (no place, no
+/// other GeoNames row beyond `NEAR_KM`) has its name, and never names a place `places` has.
+/// Returns how many were added, and how many of those were below the bar.
 pub fn add_places(
     places: &mut Vec<Place>,
     assigner: &Assigner,
     cities: &Path,
     admin1: Option<&Path>,
     out: &Path,
-) -> usize {
+) -> (usize, usize) {
     let text = std::fs::read_to_string(cities).expect("read GeoNames cities file");
     let rows: Vec<Row> = text.par_lines().filter_map(parse).collect();
     let admin1: HashMap<String, String> = admin1
@@ -105,6 +117,7 @@ pub fn add_places(
 
     type Key = ([u8; 2], String);
     type Located = (u32, (f64, f64));
+    type Spot = (usize, (f64, f64));
     let wanted: HashSet<Key> = rows
         .par_iter()
         .flat_map_iter(|r| r.names.iter().chain(&r.others).map(|n| (r.cc, fold(n))))
@@ -124,6 +137,14 @@ pub fn add_places(
     let mut near: HashMap<Key, Vec<Located>> = HashMap::new();
     for (k, place) in named {
         near.entry(k).or_default().push(place);
+    }
+    let mut spots: HashMap<Key, Vec<Spot>> = HashMap::new();
+    for (i, r) in rows.iter().enumerate() {
+        let mut keys: Vec<Key> = r.names.iter().map(|n| (r.cc, fold(n))).collect();
+        keys.dedup();
+        for k in keys {
+            spots.entry(k).or_default().push((i, (r.x, r.y)));
+        }
     }
     // an admin1 name finds its Overture region when no polygon holds the place
     let mut regions: HashMap<Key, u32> = HashMap::new();
@@ -149,7 +170,8 @@ pub fn add_places(
     // row's names are checked against, are kept in order below.
     let seen: Vec<Seen> = rows
         .par_iter()
-        .map(|r| {
+        .enumerate()
+        .map(|(i, r)| {
             if !assigner.within(r.x, r.y) {
                 return Seen::Outside;
             }
@@ -167,6 +189,20 @@ pub fn add_places(
                 .collect();
             known.sort_unstable();
             known.dedup();
+            // A small place of a name its country has elsewhere can't be told from the namesake;
+            // of rows of one name within NEAR_KM, the first stands for the others.
+            let shared = || {
+                r.names.iter().any(|n| {
+                    let k = (r.cc, fold(n));
+                    near.contains_key(&k)
+                        || spots[&k]
+                            .iter()
+                            .any(|&(j, xy)| j < i || (j != i && km(xy, (r.x, r.y)) >= NEAR_KM))
+                })
+            };
+            if !r.listed && (!known.is_empty() || shared()) {
+                return Seen::Known(None);
+            }
             if known.is_empty() {
                 let parent = assigner.place_in(r.x, r.y, Some(r.cc)).or_else(|| {
                     let name = admin1.get(&r.admin1)?;
@@ -191,6 +227,7 @@ pub fn add_places(
         })
         .collect();
     let mut added: HashMap<u32, HashSet<String>> = HashMap::new();
+    let mut small = 0;
     for (r, seen) in rows.into_iter().zip(seen) {
         let parent = match seen {
             Seen::Outside | Seen::Known(None) => continue,
@@ -218,10 +255,12 @@ pub fn add_places(
             .iter()
             .map(|n| format!("alt_name={}", cell(n)))
             .collect();
+        small += usize::from(!r.listed);
         writeln!(
             tsv,
-            "{}\tgeonames\t{}\t{}\t0\t{}\t{}\t{}\tNaN\tNaN\tNaN\tNaN\t{}\t{}\t{}\t",
+            "{}\t{}\t{}\t{}\t0\t{}\t{}\t{}\tNaN\tNaN\tNaN\tNaN\t{}\t{}\t{}\t",
             r.subtype,
+            if r.listed { "geonames" } else { SMALL_GEONAMES },
             crate::country_str(&r.cc),
             region,
             r.population,
@@ -269,7 +308,7 @@ pub fn add_places(
         output.flush().unwrap();
         std::fs::rename(updated, path).unwrap();
     }
-    places.len() - before
+    (places.len() - before, small)
 }
 
 #[cfg(test)]
@@ -291,6 +330,11 @@ mod tests {
         assert_eq!(r.admin1, "IN.16");
         assert_eq!(r.subtype, "locality");
         assert_eq!(parse(&line("PPLX", "")).unwrap().subtype, "neighborhood");
+        assert!(r.listed);
+        let small = |code: &str| parse(&line(code, "").replace("\t4100\t", "\t0\t"));
+        assert!(!small("PPL").unwrap().listed);
+        assert!(small("PPLA3").unwrap().listed);
+        assert!(small("PPLX").is_none());
         assert!(parse(&line("PPLH", "")).is_none());
         assert!(parse("garbage").is_none());
     }
@@ -366,7 +410,7 @@ mod tests {
             )
             .unwrap();
             assert_eq!(
-                add_places(&mut places, &assigner, &cities, None, &root),
+                add_places(&mut places, &assigner, &cities, None, &root).0,
                 added,
                 "{code} {subtype}"
             );

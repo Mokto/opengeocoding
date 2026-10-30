@@ -130,6 +130,11 @@ pub struct Fields {
 /// Zealand's town_city), not the locality itself.
 pub const TOWN_CITY: &str = "town_city";
 
+/// The class of a place the builder added from GeoNames below `cities500`'s bar (more than 500
+/// people, a capital or a division's seat). Suggestions find it; a search only when the query is
+/// its name and country and nothing else answers it; reverse lookups never name it.
+pub const SMALL_GEONAMES: &str = "geonames_small";
+
 pub fn schema() -> (Schema, Fields) {
     let mut b = Schema::builder();
     let folded = || {

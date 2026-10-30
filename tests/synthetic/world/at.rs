@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Case, case, town};
+use crate::{Case, Want, case, town};
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -298,5 +298,7 @@ pub fn cases() -> Vec<Case> {
         case("at-1-severnaya-roshcha", town("at-nordhain", true)),
         case("at-1-северная-роща", town("at-nordhain", true)),
         case("at-2-severnaya-roshcha", town("at-northgrove", true)),
+        // a hamlet only GeoNames has (`write_geonames`)
+        case("Kleinweiler, Austria", Want::At((40.0, 0.03), 1000.0, true)),
     ]
 }

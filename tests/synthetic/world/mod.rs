@@ -1039,7 +1039,14 @@ pub fn write_geonames(path: &Path) {
     std::fs::write(
         path,
         "1\tСеверная Роща\tSevernaya Roshcha\tNordhain,Untrusted Alias\t0.21\t30.0\tP\tPPL\tAT\t\t01\t\t\t\t1000\n\
-         2\tThrissur\tThrissur\tTrichur\t10.527\t76.214\tP\tPPLA2\tIN\t\t13\t\t\t\t315957\n",
+         2\tThrissur\tThrissur\tTrichur\t10.527\t76.214\tP\tPPLA2\tIN\t\t13\t\t\t\t315957\n\
+         3\tKleinweiler\tKleinweiler\t\t0.03\t40.0\tP\tPPL\tAT\t\t01\t\t\t\t0\n\
+         4\tZwilling\tZwilling\t\t0.06\t40.0\tP\tPPL\tAT\t\t01\t\t\t\t0\n\
+         5\tZwilling\tZwilling\t\t0.06\t41.0\tP\tPPL\tAT\t\t01\t\t\t\t0\n\
+         6\tMitcode\tMitcode\t\t0.0\t45.0\tP\tPPL\tAT\t\t01\t\t\t\t0\n\
+         7\tDoppelhof\tDoppelhof\t\t0.09\t40.0\tP\tPPL\tAT\t\t01\t\t\t\t0\n\
+         8\tDoppelhof\tDoppelhof\t\t0.09\t40.02\tP\tPPLL\tAT\t\t01\t\t\t\t0\n\
+         9\tWeilerteil\tWeilerteil\t\t0.12\t40.0\tP\tPPLX\tAT\t\t01\t\t\t\t0\n",
     )
     .unwrap();
 }

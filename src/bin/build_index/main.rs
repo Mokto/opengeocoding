@@ -2248,14 +2248,16 @@ fn build(args: &[String]) {
     ));
     if let Some(cities) = opt("--geonames-places").last() {
         let admin1 = opt("--geonames-admin1");
-        let added = geonames::add_places(
+        let (added, small) = geonames::add_places(
             &mut places,
             &assigner,
             Path::new(cities),
             admin1.last().map(Path::new),
             Path::new(out),
         );
-        lap(&format!("geonames places ({added} added)"));
+        lap(&format!(
+            "geonames places ({added} added, {small} of them below cities500's bar)"
+        ));
     }
     let street_spill = StreetSpill::new(&Path::new(out).join(reverse::STREETS_SPILL));
     let segs = pass_segments(&dir.join("segment"), &assigner, &street_spill);

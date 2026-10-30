@@ -636,7 +636,9 @@ impl Index {
             places
                 .iter()
                 .enumerate()
-                .filter(|(_, p)| p.subtype.as_ref() == "locality")
+                .filter(|(_, p)| {
+                    p.subtype.as_ref() == "locality" && &*p.class != schema::SMALL_GEONAMES
+                })
                 .map(|(i, p)| (i as u32, p.x as f64, p.y as f64)),
         );
         let mut countries = HashMap::new();
@@ -703,7 +705,13 @@ impl Index {
         let columns: Vec<Columns> = searcher
             .segment_readers()
             .iter()
-            .map(|r| Columns::open(r, f.country, &mut country_codes))
+            .map(|r| {
+                Columns::open(r, f.country, &mut country_codes, &|id| {
+                    places
+                        .get(id as usize)
+                        .is_some_and(|p| &*p.class == schema::SMALL_GEONAMES)
+                })
+            })
             .collect::<Result<_>>()?;
         let suggestion_scope =
             ring::digest::digest(&ring::digest::SHA256, &fs::read(dir.join("meta.json"))?)
