@@ -164,6 +164,10 @@ pub const TOWN_CITY: &str = "town_city";
 /// its name and country and nothing else answers it; reverse lookups never name it.
 pub const SMALL_GEONAMES: &str = "geonames_small";
 
+/// GeoNames' other names of places (country code and folded name to place id) that only the
+/// last step of a search for "<town>, <country>" reads.
+pub const ALTERNATES: &str = "alternates.fst";
+
 pub fn schema() -> (Schema, Fields) {
     let mut b = Schema::builder();
     let folded = || {

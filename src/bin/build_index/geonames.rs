@@ -1,7 +1,7 @@
 //! GeoNames populated places (the `P` rows of `allCountries`, and `admin1CodesASCII`) added to
 //! the places Overture's divisions give, only where no place of that name lies within `NEAR_KM`.
 use crate::{NAME_SEP, Place, Str, cell, country, geo::Assigner};
-use opengeocoding::index::schema::{SMALL_GEONAMES, fold};
+use opengeocoding::index::schema::{ALTERNATES, SMALL_GEONAMES, fold};
 use rayon::prelude::*;
 use std::{
     collections::{HashMap, HashSet},
@@ -146,6 +146,17 @@ pub fn add_places(
             spots.entry(k).or_default().push((i, (r.x, r.y)));
         }
     }
+    // Other names a row is known by, in the Latin script, for `alternates`.
+    let mut others: HashMap<Key, Vec<Spot>> = HashMap::new();
+    for (i, r) in rows.iter().enumerate() {
+        let own: Vec<String> = r.names.iter().map(|n| fold(n)).collect();
+        for n in r.others.iter().filter(|n| latin(n)) {
+            let k = (r.cc, fold(n));
+            if !k.1.is_empty() && !own.contains(&k.1) {
+                others.entry(k).or_default().push((i, (r.x, r.y)));
+            }
+        }
+    }
     // an admin1 name finds its Overture region when no polygon holds the place
     let mut regions: HashMap<Key, u32> = HashMap::new();
     for (i, p) in places
@@ -228,10 +239,12 @@ pub fn add_places(
         .collect();
     let mut added: HashMap<u32, HashSet<String>> = HashMap::new();
     let mut small = 0;
-    for (r, seen) in rows.into_iter().zip(seen) {
+    let mut target: Vec<Option<u32>> = vec![None; rows.len()];
+    for (i, (r, seen)) in rows.into_iter().zip(seen).enumerate() {
         let parent = match seen {
             Seen::Outside | Seen::Known(None) => continue,
             Seen::Known(Some((id, missing))) => {
+                target[i] = Some(id);
                 let (p, added) = (&mut places[id as usize], added.entry(id).or_default());
                 for (i, folded) in missing {
                     if added.insert(folded) {
@@ -256,6 +269,7 @@ pub fn add_places(
             .map(|n| format!("alt_name={}", cell(n)))
             .collect();
         small += usize::from(!r.listed);
+        target[i] = Some(places.len() as u32);
         writeln!(
             tsv,
             "{}\t{}\t{}\t{}\t0\t{}\t{}\t{}\tNaN\tNaN\tNaN\tNaN\t{}\t{}\t{}\t",
@@ -308,7 +322,33 @@ pub fn add_places(
         output.flush().unwrap();
         std::fs::rename(updated, path).unwrap();
     }
+    // An other name answers only where nothing else of the country has it: no place, no
+    // GeoNames row as its name, no row beyond NEAR_KM as another name.
+    let mut map = std::collections::BTreeMap::new();
+    for (k, rows) in &others {
+        let (first, xy) = rows[0];
+        let apart = |s: &[Spot]| s.iter().any(|&(_, at)| km(at, xy) >= NEAR_KM);
+        if near.contains_key(k) || apart(rows) || spots.get(k).is_some_and(|s| apart(s)) {
+            continue;
+        }
+        if let Some(id) = target[first] {
+            map.insert([&k.0[..], k.1.as_bytes()].concat(), id as u64);
+        }
+    }
+    let mut fst = tantivy_fst::MapBuilder::memory();
+    fst.extend_iter(map).unwrap();
+    std::fs::write(out.join(ALTERNATES), fst.into_inner().unwrap()).unwrap();
     (places.len() - before, small)
+}
+
+/// A name of letters of the Latin script only, without digits or a parenthesis ("Huy
+/// (Tihange)").
+fn latin(name: &str) -> bool {
+    !name.chars().any(|c| {
+        c.is_numeric()
+            || c == '('
+            || (c.is_alphabetic() && c > '\u{24f}' && !('\u{1e00}'..='\u{1eff}').contains(&c))
+    })
 }
 
 #[cfg(test)]

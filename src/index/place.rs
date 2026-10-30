@@ -462,12 +462,16 @@ impl Index {
     /// The locality of country `cc` named `name`, or named so with or without a word that only
     /// says what it is ("Taboiaki" is "Taboiaki Village", "Village of Maia" is "Maia"): the
     /// most important of the places searches find, else one the builder added from GeoNames
-    /// below `cities500`'s bar, which only this finds. The builder adds one of those only where
-    /// nothing else of the country has the name.
+    /// below `cities500`'s bar, which only this finds; else the place a name of GeoNames' that
+    /// nothing else of the country has belongs to (`schema::ALTERNATES`). None when localities
+    /// of the name lie 10 km or more apart.
     pub fn locality_named(&self, name: &str, cc: &str) -> Option<Hit> {
         const SUFFIXES: [&str; 2] = [" village", " hamlet"];
         const PREFIXES: [&str; 1] = ["village of "];
         let folded = fold(name);
+        if folded.is_empty() {
+            return None;
+        }
         let bare = SUFFIXES
             .iter()
             .find_map(|s| folded.strip_suffix(s))
@@ -480,9 +484,6 @@ impl Index {
         }
         let text = bare.unwrap_or(&folded);
         let cl = || self.musts(self.f.names, text);
-        if cl().is_empty() {
-            return None;
-        }
         let ids: Vec<Vec<u32>> = [Kind::Searched, Kind::Small]
             .into_iter()
             .map(|kind| {
@@ -511,7 +512,16 @@ impl Index {
                 named,
             ))
         });
-        let (&id, named) = form?;
+        let Some((&id, named)) = form else {
+            // a name only GeoNames gives the place, and only it ("Gahnpa" is Ganta)
+            let alternates = self.alternates.as_ref()?;
+            let cc = cc.to_ascii_uppercase();
+            return forms.iter().find_map(|f| {
+                let id = alternates.get([cc.as_bytes(), f.as_bytes()].concat())? as u32;
+                (self.places.get(id as usize)?.subtype.as_ref() == "locality")
+                    .then_some(Hit::Place(id))
+            });
+        };
         // namesakes apart: which one the query means is a guess
         if named.iter().any(|p| km(p, named[0]) >= 10.0) {
             return None;
