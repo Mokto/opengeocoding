@@ -188,6 +188,24 @@ fn a_small_geonames_place_fills_only_a_gap_no_namesake_shares_and_names_no_point
 }
 
 #[test]
+fn a_town_answers_a_generic_word_and_only_geonames_other_names_no_namesake_shares() {
+    let at = |name: &str| {
+        index().locality_named(name, "at").map(|hit| {
+            let r = index().render(&hit, true);
+            let coord = |k: &str| r[k].as_str().unwrap().parse::<f64>().unwrap();
+            (coord("lon"), coord("lat"))
+        })
+    };
+    let near = |got: Option<(f64, f64)>| got.is_some_and(|p| metres(p, (40.0, 0.03)) < 5.);
+    assert!(near(at("Kleinweiler")));
+    assert!(near(at("Kleinweiler Village")));
+    assert!(near(at("Weilerlein")));
+    // another row 1,100 km away has it too; the Cyrillic one is not read
+    assert_eq!(at("Zweinamig"), None);
+    assert_eq!(at("Вейлер"), None);
+}
+
+#[test]
 fn place_slugs_require_a_known_subdivision_and_an_exact_settlement_name() {
     for (query, id) in [
         ("us-tx-paris", "us-tx-paris"),
