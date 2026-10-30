@@ -295,6 +295,16 @@ impl Index {
         (region, country)
     }
 
+    /// The region, else the country, whose polygon holds a street or house the data files under
+    /// no place; `NONE` when there is none or it is not of `cc` (any when empty).
+    pub(super) fn area_place(&self, x: f64, y: f64, cc: &str) -> u32 {
+        let (region, country) = self.area_at(y, x);
+        region
+            .or(country)
+            .filter(|&p| cc.is_empty() || self.places[p as usize].cc.eq_ignore_ascii_case(cc))
+            .unwrap_or(NONE)
+    }
+
     /// The address that names a point's region, for `ResolveRegion`: the most specific county,
     /// region, dependency or country polygon that holds the point and has a region code, with
     /// its subdivision below the region when it is a county that has one.

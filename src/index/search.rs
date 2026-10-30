@@ -817,8 +817,12 @@ impl Index {
                 }
                 a.insert("road".into(), name.clone().into());
                 display.push(name.clone());
-                if *place != NONE {
-                    let chain = self.chain(*place);
+                let place = match *place {
+                    NONE => self.area_place(*x, *y, cc),
+                    p => p,
+                };
+                if place != NONE {
+                    let chain = self.chain(place);
                     let chain = number
                         .as_ref()
                         .and_then(|_| self.house_chain(&chain, *x, *y))

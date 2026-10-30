@@ -1420,6 +1420,10 @@ impl Index {
             _ => place,
         };
         let mut country_code = String::new();
+        let place = match place {
+            NONE => self.area_place(x, y, ""),
+            p => p,
+        };
         if place != NONE {
             if let Some(chain) = number.and_then(|_| self.house_chain(&self.chain(place), x, y)) {
                 self.address(&chain, true, &mut Map::new(), &mut display);
