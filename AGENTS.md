@@ -85,7 +85,8 @@ docker build --target runtime -t opengeocoding .
 
 A world index built by this repository's builder is kept in `~/opengeocoding-index/out`, with `builder.hash.txt` holding the `build_index hash` it was built with and `build.sh` the exact build. Look there before building anything: if `build_index hash` equals `builder.hash.txt`, use `INDEX_DIR=~/opengeocoding-index/out` as it is. Rebuild (`~/opengeocoding-index/build.sh`, about 6 minutes and 20 GB of memory) only when the hash differs, and update `builder.hash.txt`. The service and `tests/suggest.rs` need no libpostal models beyond what the service itself loads.
 
-- When you build another index next to `out` for a comparison, delete it, its `build-*.sh` and its builder binary once the comparison is recorded in the pull request; keep `out` and `out-*-last-known-good`. Each index takes about 16 GB, and leftover ones fill the disk within weeks.
+- When you build another index (next to `out` or in `/tmp`) for a comparison, delete it, its `build-*.sh` and its builder binary once the comparison is recorded in the pull request; keep `out` and `out-*-last-known-good`, and delete only what your own session built. Each index takes about 16 GB, and leftover ones fill the disk within weeks.
+- Before a build, check free space with `df -h ~`: a full disk makes `build_index` panic midway with `PoisonError`.
 - Keep each worktree's own `target/`; do not symlink it to another checkout's. `evaluate` runs the `target/release/opengeocoding` of the checkout it was built from, so a shared `target/` makes it run another branch's binary.
 
 ## Evaluation corpora
