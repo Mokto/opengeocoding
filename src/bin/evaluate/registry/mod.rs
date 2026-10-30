@@ -28,6 +28,7 @@ mod ruian;
 mod ryhti;
 mod swisstopo;
 mod taipei;
+mod varis;
 
 use anyhow::Result;
 use indexmap::IndexMap;
@@ -68,6 +69,7 @@ pub const ALL: &[Registry] = &[
     gurs::REGISTRY,
     adr::REGISTRY,
     bev::REGISTRY,
+    varis::REGISTRY,
 ];
 
 type Prepare = fn(&Path, &BTreeSet<String>) -> Result<BTreeMap<String, Entry>>;

@@ -1,0 +1,13 @@
+The registry-first sample tests/registry/lv.jsonl contains addresses, postcodes and coordinates
+from the State Address Register of the Republic of Latvia (Valsts adrešu reģistrs), kept by the
+State Land Service (Valsts zemes dienests), as published in its open data ("Valsts adrešu
+reģistra atvērtie dati"): addresses of buildings and land units (AW_EKA.CSV), streets, villages,
+parishes, towns and municipalities, data of 2026-10-29, downloaded on 2026-10-30. Izmantoti Valsts
+adrešu reģistra informācijas sistēmas dati. Source: Valsts zemes dienests, Valsts adrešu
+reģistrs, 2026-10-29 (https://data.gov.lv/dati/lv/dataset/varis-atvertie-dati).
+Used under the Creative Commons Attribution 4.0 International licence
+(https://creativecommons.org/licenses/by/4.0/).
+Changes: the files were joined by their codes (tests/registry/varis-csv.sql) and a sample drawn;
+the spelt query forms were constructed from the register's fields, not by Valsts zemes dienests,
+which has not approved this sample. Per-case file checksums and retrieval dates are recorded in
+the corpus; docs/evaluation/registry/lv.md records the upstream checksums.
