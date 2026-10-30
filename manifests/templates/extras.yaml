@@ -47,6 +47,10 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .Values.serving.autoscaling.targetCPUUtilizationPercentage }}
+  {{- with .Values.serving.autoscaling.behavior }}
+  behavior:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 ---
 {{- end }}
 {{- if .Values.serviceMonitor.enabled }}

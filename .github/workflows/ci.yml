@@ -112,5 +112,6 @@ jobs:
           helm template t manifests "$@" > /dev/null
           helm template t manifests "$@" --set serviceAccount.create=true \
             --set serving.autoscaling.enabled=true --set serviceMonitor.enabled=true \
+            --set serving.autoscaling.behavior.scaleDown.stabilizationWindowSeconds=3600 \
             --set build.scratch.emptyDir=true --set 'index.sources.bbox={9.47,47.04,9.64,47.28}' > /dev/null
           ! helm template t manifests > /dev/null 2>&1
