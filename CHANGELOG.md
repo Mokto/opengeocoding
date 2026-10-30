@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.0](https://github.com/Mokto/opengeocoding/compare/v1.3.0...v1.4.0) (2026-10-30)
+
+
+### Features
+
+* let a few OSM-panel losses pass the gold gate when far more locations are won ([#440](https://github.com/Mokto/opengeocoding/issues/440)) ([ed1e033](https://github.com/Mokto/opengeocoding/commit/ed1e033e9163b62a16611bb227da436c5a247a67))
+
+
+### Bug Fixes
+
+* store OSM buildings at their area centroid and prefer the postcode-matching house ([#436](https://github.com/Mokto/opengeocoding/issues/436)) ([345cc36](https://github.com/Mokto/opengeocoding/commit/345cc361e8cb51e903acd8f6e76f90dd68bd8872))
+* suggest a house past a town's bigger namesakes abroad, or under the town a small island names all of itself after ([#438](https://github.com/Mokto/opengeocoding/issues/438)) ([40cc0bd](https://github.com/Mokto/opengeocoding/commit/40cc0bdd39e1b5efef77a3043101172f11bcbce5))
+
 ## [1.3.0](https://github.com/Mokto/opengeocoding/compare/v1.2.0...v1.3.0) (2026-10-30)
 
 
