@@ -194,6 +194,23 @@ impl Store {
         Ok(self.inner.get_range(&self.key(rel), range).await?.to_vec())
     }
 
+    /// Writes `range` of `rel` at the same offset of `file`, and returns its length. The permit
+    /// lasts until the write is done: on a volume slower than the network, ranges already fetched
+    /// would otherwise queue in memory without bound.
+    pub async fn copy_range(
+        &self,
+        rel: &str,
+        range: std::ops::Range<u64>,
+        file: Arc<std::fs::File>,
+    ) -> Result<u64> {
+        let _permit = self.permits.acquire().await?;
+        let start = range.start;
+        let bytes = self.inner.get_range(&self.key(rel), range).await?;
+        let len = bytes.len() as u64;
+        tokio::task::spawn_blocking(move || file.write_all_at(&bytes, start)).await??;
+        Ok(len)
+    }
+
     pub async fn put(&self, rel: &str, data: Vec<u8>) -> Result<()> {
         self.inner
             .put(&self.key(rel), PutPayload::from(data))
@@ -280,11 +297,9 @@ impl Store {
                 (self.clone(), rel.to_string(), file.clone(), done.clone());
             tasks.spawn(async move {
                 let start = i * CHUNK;
-                let bytes = store
-                    .get_range(&rel, start..(start + CHUNK).min(size))
+                let len = store
+                    .copy_range(&rel, start..(start + CHUNK).min(size), file)
                     .await?;
-                let len = bytes.len() as u64;
-                tokio::task::spawn_blocking(move || file.write_all_at(&bytes, start)).await??;
                 let _ = done.send(i);
                 anyhow::Ok(len)
             });
@@ -598,6 +613,24 @@ mod tests {
         damage(&bucket.join("indexes/x/nested/small.txt"), b"HELLO!");
         std::fs::remove_file(dst.join("nested/small.txt")).unwrap();
         assert!(store.fetch("indexes/x", &dst).await.is_err());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn download_writes_every_range_and_returns_its_permits() {
+        let base = std::env::temp_dir().join(format!("store-download-{}", std::process::id()));
+        std::fs::create_dir_all(base.join("bucket")).unwrap();
+        let data: Vec<u8> = (0..(CHUNK * 2 + 5)).map(|i| (i % 251) as u8).collect();
+        std::fs::write(base.join("bucket/big.bin"), &data).unwrap();
+        let store = Store::open(&format!("file://{}", base.join("bucket").display())).unwrap();
+        let local = base.join("out/big.bin");
+        let sha = store
+            .download("big.bin", data.len() as u64, &local, None)
+            .await
+            .unwrap();
+        assert_eq!(std::fs::read(&local).unwrap(), data);
+        assert_eq!(sha, hex(ring::digest::digest(&ring::digest::SHA256, &data)));
+        assert_eq!(store.permits.available_permits(), TRANSFERS);
         std::fs::remove_dir_all(&base).unwrap();
     }
 
