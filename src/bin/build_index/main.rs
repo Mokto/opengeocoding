@@ -50,7 +50,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE]] [--inegi-localities CSV] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1] [--sources-mirror URL]
        build_index fetch --store URL --sources FILE --scratch DIR [--sources-mirror URL]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
@@ -2188,6 +2188,10 @@ fn build(args: &[String]) {
             Path::new(out),
         );
         lap(&format!("geonames places ({added} added)"));
+    }
+    if let Some(csv) = opt("--inegi-localities").last() {
+        let added = geonames::add_inegi(&mut places, &assigner, Path::new(csv), Path::new(out));
+        lap(&format!("inegi localities ({added} added)"));
     }
     let street_spill = StreetSpill::new(&Path::new(out).join(reverse::STREETS_SPILL));
     let segs = pass_segments(&dir.join("segment"), &assigner, &street_spill);

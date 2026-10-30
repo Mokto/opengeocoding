@@ -134,6 +134,12 @@ pub fn job(args: Vec<String>) -> Result<()> {
                 .into_owned(),
         ]);
     }
+    if let Some(d) = &got.inegi_localities {
+        build.extend([
+            "--inegi-localities".into(),
+            d.join("localities.csv").to_string_lossy().into_owned(),
+        ]);
+    }
     crate::build(&build);
 
     std::fs::write(
@@ -147,7 +153,12 @@ pub fn job(args: Vec<String>) -> Result<()> {
     )?;
     std::fs::write(
         out.join("ATTRIBUTION.txt"),
-        attribution(&sources, &out, got.korea_shops.as_deref())?,
+        attribution(
+            &sources,
+            &out,
+            got.korea_shops.as_deref(),
+            got.inegi_localities.as_deref(),
+        )?,
     )?;
     progress::phase("Verify");
     verify(&out)?;
@@ -229,7 +240,12 @@ fn verify(dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn attribution(sources: &Sources, out: &Path, korea_shops: Option<&Path>) -> Result<String> {
+fn attribution(
+    sources: &Sources,
+    out: &Path,
+    korea_shops: Option<&Path>,
+    localities: Option<&Path>,
+) -> Result<String> {
     let mut text = format!(
         "Built from these sources; their licences and attribution requirements apply to the index \
          and to answers derived from it.\n\n\
@@ -247,6 +263,12 @@ fn attribution(sources: &Sources, out: &Path, korea_shops: Option<&Path>) -> Res
         text += "GeoNames postal codes: CC BY 4.0, https://www.geonames.org/\n";
     }
     text += "GeoNames populated places: CC BY 4.0, https://www.geonames.org/\n";
+    if let Some(d) = localities {
+        text += &format!(
+            "Fuente: INEGI, Catálogo Único de Claves de Áreas Geoestadísticas Estatales, Municipales y Localidades, {}: Términos de Libre Uso de la Información del INEGI, https://www.inegi.org.mx/inegi/terminos.html: Mexican localities and their points\n",
+            std::fs::read_to_string(d.join("edition.txt"))?.trim()
+        );
+    }
     if let Some(d) = korea_shops {
         let source: serde_json::Value =
             serde_json::from_slice(&std::fs::read(d.join("source.json"))?)?;
@@ -328,7 +350,7 @@ mod tests {
         .unwrap();
         let sources: Sources =
             serde_json::from_str(r#"{"overtureRelease":"r","snapshot":"s","ryhti":true}"#).unwrap();
-        let text = attribution(&sources, &out, None).unwrap();
+        let text = attribution(&sources, &out, None, None).unwrap();
         assert!(text.contains("  fi_countrywide-sv-country.geojson.gz: CC BY 4.0 | Syke\n"));
         assert!(!text.contains("fi_ryhti-"));
         assert!(text.contains("Lähde: Syke Ryhti"));
@@ -350,7 +372,11 @@ mod tests {
             r#"{"overtureRelease":"r","snapshot":"s","denue":{"before":"2025"}}"#,
         )
         .unwrap();
-        let text = attribution(&sources, &out, None).unwrap();
+        let text = attribution(&sources, &out, None, None).unwrap();
+        assert!(!text.contains("Catálogo Único"));
+        std::fs::write(out.join("edition.txt"), "2026-10").unwrap();
+        let with_localities = attribution(&sources, &out, None, Some(&out)).unwrap();
+        assert!(with_localities.contains("Fuente: INEGI, Catálogo Único de Claves de Áreas Geoestadísticas Estatales, Municipales y Localidades, 2026-10: "));
         assert!(text.contains("  mx_agu_statewide-country.geojson.gz: reviewed: Libre Uso MX\n"));
         assert!(!text.contains("mx_denue-"));
         assert!(text.contains("before 2025: https://www.inegi.org.mx/inegi/terminos.html | Términos | Fuente: INEGI, DENUE 05_2026: Mexican"));

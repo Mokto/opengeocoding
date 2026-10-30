@@ -1,5 +1,6 @@
-//! GeoNames populated places (`cities500` and `admin1CodesASCII`) added to the places Overture's
-//! divisions give, only where no place of that name lies within `NEAR_KM`.
+//! GeoNames populated places (`cities500` and `admin1CodesASCII`), and INEGI's catalogue of
+//! Mexican localities, added to the places Overture's divisions give, only where no place of that
+//! name lies within `NEAR_KM`.
 use crate::{NAME_SEP, Place, Str, cell, country, geo::Assigner};
 use opengeocoding::index::schema::fold;
 use rayon::prelude::*;
@@ -14,7 +15,7 @@ const NEAR_KM: f64 = 10.0;
 /// Feature codes of places that no longer exist, are historical, or are religious sites.
 const SKIPPED: [&str; 5] = ["PPLH", "PPLQ", "PPLW", "PPLCH", "PPLR"];
 
-struct Row {
+pub(crate) struct Row {
     /// The source's primary name and its ASCII form: what the place answers to.
     names: Vec<String>,
     /// Every other name, used only to see whether Overture has the place. GeoNames' alternates
@@ -102,7 +103,92 @@ pub fn add_places(
             Some((f.next()?.to_string(), f.next()?.to_string()))
         })
         .collect();
+    add_rows(places, assigner, rows, &admin1, "geonames", out)
+}
 
+/// Appends the localities of INEGI's catalogue (its UTF-8 CSV) that `places` lacks.
+pub fn add_inegi(places: &mut Vec<Place>, assigner: &Assigner, csv: &Path, out: &Path) -> usize {
+    let text = std::fs::read_to_string(csv).expect("read INEGI locality catalogue");
+    let mut lines = text.lines();
+    let header = crate::sources::csv_fields(
+        lines
+            .next()
+            .unwrap_or_default()
+            .trim_start_matches('\u{feff}'),
+    )
+    .expect("INEGI catalogue header");
+    let col = |name: &str| {
+        header
+            .iter()
+            .position(|h| h == name)
+            .unwrap_or_else(|| panic!("INEGI catalogue lacks {name}"))
+    };
+    let cols = [
+        col("CVE_LOC"),
+        col("NOM_LOC"),
+        col("LAT_DECIMAL"),
+        col("LON_DECIMAL"),
+        col("POB_TOTAL"),
+    ];
+    let rows: Vec<Row> = lines
+        .collect::<Vec<_>>()
+        .par_iter()
+        .filter_map(|l| inegi_row(&crate::sources::csv_fields(l).ok()?, cols))
+        .collect();
+    add_rows(places, assigner, rows, &HashMap::new(), "inegi", out)
+}
+
+/// A locality of the catalogue: inhabited at the last census (its population, or `*` where it is
+/// withheld for privacy) or a municipality's seat (`0001`). Its name without the qualifier in
+/// brackets ("Machain [Materiales]"); a name in parentheses ("El Paraíso (La Islita)") is another
+/// name of the place, which only finds it among Overture's.
+fn inegi_row(
+    f: &[std::borrow::Cow<'_, str>],
+    [loc, name, lat, lon, population]: [usize; 5],
+) -> Option<Row> {
+    let seat = f.get(loc)? == "0001";
+    let people = f.get(population)?;
+    let count: u64 = people.parse().unwrap_or(0);
+    if !(seat || count > 0 || people == "*") {
+        return None;
+    }
+    let full = f.get(name)?.split(" [").next()?.trim();
+    let primary = full.split(" (").next()?.trim();
+    if primary.is_empty() {
+        return None;
+    }
+    let mut others = vec![];
+    if full != primary {
+        others.push(full.to_string());
+        if let Some(inner) = full[primary.len()..]
+            .trim()
+            .strip_prefix('(')
+            .and_then(|r| r.strip_suffix(')'))
+        {
+            others.push(inner.to_string());
+        }
+    }
+    Some(Row {
+        names: vec![primary.to_string()],
+        others,
+        cc: *b"MX",
+        admin1: String::new(),
+        population: count,
+        subtype: "locality",
+        district_seat: seat,
+        x: f.get(lon)?.parse().ok()?,
+        y: f.get(lat)?.parse().ok()?,
+    })
+}
+
+fn add_rows(
+    places: &mut Vec<Place>,
+    assigner: &Assigner,
+    rows: Vec<Row>,
+    admin1: &HashMap<String, String>,
+    source: &str,
+    out: &Path,
+) -> usize {
     type Key = ([u8; 2], String);
     type Located = (u32, (f64, f64));
     let wanted: HashSet<Key> = rows
@@ -220,7 +306,7 @@ pub fn add_places(
             .collect();
         writeln!(
             tsv,
-            "{}\tgeonames\t{}\t{}\t0\t{}\t{}\t{}\tNaN\tNaN\tNaN\tNaN\t{}\t{}\t{}\t",
+            "{}\t{source}\t{}\t{}\t0\t{}\t{}\t{}\tNaN\tNaN\tNaN\tNaN\t{}\t{}\t{}\t",
             r.subtype,
             crate::country_str(&r.cc),
             region,
@@ -372,6 +458,37 @@ mod tests {
             );
         }
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn inegi_localities_are_inhabited_or_seats_named_without_qualifiers() {
+        let cols = [0, 1, 2, 3, 4];
+        let row = |loc: &str, name: &str, people: &str| {
+            let f: Vec<std::borrow::Cow<str>> = [loc, name, "21.5", "-102.3", people]
+                .into_iter()
+                .map(Into::into)
+                .collect();
+            inegi_row(&f, cols)
+        };
+        let r = row("0094", "Machain [Materiales]", "41").unwrap();
+        assert_eq!(
+            (r.names, r.others.len(), r.population),
+            (vec!["Machain".to_string()], 0, 41)
+        );
+        assert_eq!(
+            (r.x, r.y, &r.cc, r.district_seat),
+            (-102.3, 21.5, b"MX", false)
+        );
+        let r = row("0012", "El Paraíso (La Islita)", "*").unwrap();
+        assert_eq!(r.names, ["El Paraíso"]);
+        assert_eq!(r.others, ["El Paraíso (La Islita)", "La Islita"]);
+        assert!(
+            row("0001", "Tultitlán de Mariano Escobedo", "0")
+                .unwrap()
+                .district_seat
+        );
+        assert!(row("0013", "Granja", "0").is_none());
+        assert!(row("0013", "Granja", "-").is_none());
     }
 
     #[test]

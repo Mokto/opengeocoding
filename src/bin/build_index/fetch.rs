@@ -44,6 +44,10 @@ pub struct Sources {
     pub ryhti: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub denue: Option<Denue>,
+    /// Add the localities of INEGI's catalogue that the other sources lack (see
+    /// `inegi_localities`).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub inegi_localities: bool,
     /// Retired switches (`openaddresses.enabled` and `anyLicence`, `geonamesPlaces`): every source
     /// is always read, and OpenAddresses layers always pass the licence check. Accepted and
     /// ignored so a source list that still has them parses.
@@ -89,6 +93,9 @@ pub struct Fetched {
     pub ryhti: Option<PathBuf>,
     /// An OpenAddresses-style directory of DENUE's establishments (see `denue`).
     pub denue: Option<PathBuf>,
+    /// The directory holding INEGI's locality catalogue, `localities.csv`, and its monthly cut,
+    /// `edition.txt` (see `inegi_localities`).
+    pub inegi_localities: Option<PathBuf>,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -572,16 +579,26 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
     let korea_dir = scratch.join("korea-shops");
     let ryhti_dir = scratch.join("ryhti");
     let denue_dir = scratch.join("denue");
-    let (openaddresses, (osm, osm_landmarks), geonames, geonames_places, korea_shops, ryhti, denue) =
-        tokio::try_join!(
-            overture_then_openaddresses,
-            osm_files,
-            geonames_files,
-            geonames_places,
-            korea_shops(store, src, &korea_dir),
-            ryhti(store, src, &ryhti_dir),
-            denue(store, src, &denue_dir),
-        )?;
+    let localities_dir = scratch.join("inegi-localities");
+    let (
+        openaddresses,
+        (osm, osm_landmarks),
+        geonames,
+        geonames_places,
+        korea_shops,
+        ryhti,
+        denue,
+        inegi_localities,
+    ) = tokio::try_join!(
+        overture_then_openaddresses,
+        osm_files,
+        geonames_files,
+        geonames_places,
+        korea_shops(store, src, &korea_dir),
+        ryhti(store, src, &ryhti_dir),
+        denue(store, src, &denue_dir),
+        inegi_localities(store, src, &localities_dir),
+    )?;
 
     Ok(Fetched {
         overture: local,
@@ -593,7 +610,80 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         korea_shops,
         ryhti,
         denue,
+        inegi_localities,
     })
+}
+
+const INEGI_LOCALITIES: &str = "https://www.inegi.org.mx/contenidos/app/ageeml/min_con_acento.zip";
+
+/// INEGI's catalogue of Mexican localities (Catálogo Único de Claves de Áreas Geoestadísticas
+/// Estatales, Municipales y Localidades): the UTF-8 CSV of its current monthly cut, fetched under
+/// `snapshot`, and the cut ("2026-10") its file names.
+async fn inegi_localities(store: &Store, src: &Sources, dir: &Path) -> Result<Option<PathBuf>> {
+    if !src.inegi_localities
+        || src
+            .bbox()
+            .is_some_and(|b| !intersects(b, -118.5, 14.3, -86.6, 32.8))
+    {
+        return Ok(None);
+    }
+    let c = client()?;
+    mirror(
+        store,
+        &format!("sources/{}/inegi-localities/{}", src.snapshot, src.scope()),
+        dir,
+        1,
+        || async {
+            Ok(vec![
+                ("localities.csv".to_string(), true),
+                ("edition.txt".to_string(), false),
+            ])
+        },
+        move |data: bool, path: PathBuf| {
+            let c = c.clone();
+            Box::pin(async move {
+                // both files come from the one zip, kept beside them until both are written
+                let zip = path.with_file_name("catalogue.zip");
+                ensure!(
+                    http_get(&c, INEGI_LOCALITIES, &zip).await?,
+                    "{INEGI_LOCALITIES} not found"
+                );
+                tokio::task::spawn_blocking(move || {
+                    let name = catalogue_csv(&zip)?;
+                    if data {
+                        unzip_lines(&zip, &name, &path, |_| true)
+                    } else {
+                        let cut = catalogue_cut(&name)?;
+                        Ok(std::fs::write(&path, cut)?)
+                    }
+                })
+                .await??;
+                Ok(true)
+            })
+        },
+    )
+    .await?;
+    let _ = std::fs::remove_file(dir.join("catalogue.zip"));
+    Ok(Some(dir.to_path_buf()))
+}
+
+/// The UTF-8 CSV among the catalogue zip's formats: "AGEEML_202610131447506_utf.csv".
+fn catalogue_csv(zip: &Path) -> Result<String> {
+    crate::sources::zip_entries(zip)?
+        .into_iter()
+        .map(|e| String::from_utf8_lossy(&e.name).into_owned())
+        .find(|n| n.starts_with("AGEEML_") && n.ends_with("_utf.csv"))
+        .with_context(|| format!("{} holds no UTF-8 locality catalogue", zip.display()))
+}
+
+/// The month a catalogue file is of: "AGEEML_202610131447506_utf.csv" is "2026-10".
+fn catalogue_cut(name: &str) -> Result<String> {
+    let digits = name.strip_prefix("AGEEML_").unwrap_or_default();
+    ensure!(
+        digits.len() >= 6 && digits[..6].bytes().all(|b| b.is_ascii_digit()),
+        "{name} names no catalogue month"
+    );
+    Ok(format!("{}-{}", &digits[..4], &digits[4..6]))
 }
 
 const DENUE: &str = "https://www.inegi.org.mx/contenidos/masiva/denue";
@@ -1646,6 +1736,15 @@ mod tests {
         assert!(!json.contains("geonamesPlaces") && !json.contains("openaddresses"));
         assert!(!json.contains("koreaShops") && !json.contains("ryhti"));
         assert!(src(r#"{"overtureRelease":"r","snapshot":"a","ryhti":true}"#).ryhti);
+        assert!(
+            src(r#"{"overtureRelease":"r","snapshot":"a","inegiLocalities":true}"#)
+                .inegi_localities
+        );
+        assert_eq!(
+            catalogue_cut("AGEEML_202610131447506_utf.csv").unwrap(),
+            "2026-10"
+        );
+        assert!(catalogue_cut("AGEEML_utf.csv").is_err());
         let denue = |before: &str| {
             src(&format!(
                 r#"{{"overtureRelease":"r","snapshot":"a","denue":{{"before":"{before}"}}}}"#

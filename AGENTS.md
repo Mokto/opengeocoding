@@ -85,6 +85,8 @@ docker build --target runtime -t opengeocoding .
 
 A world index built by this repository's builder is kept in `~/opengeocoding-index/out`, with `builder.hash.txt` holding the `build_index hash` it was built with and `build.sh` the exact build. Look there before building anything: if `build_index hash` equals `builder.hash.txt`, use `INDEX_DIR=~/opengeocoding-index/out` as it is. Rebuild (`~/opengeocoding-index/build.sh`, about 6 minutes and 20 GB of memory) only when the hash differs, and update `builder.hash.txt`. The service and `tests/suggest.rs` need no libpostal models beyond what the service itself loads.
 
+- Before you build an index, check free space with `df -h ~`: each index takes 5 to 20 GB, and a full disk makes `build_index` panic midway (`PoisonError`). When you finish with an index, run directory or binary copy you made (in `/tmp` or `~/opengeocoding-index/out-*`), delete it. Delete only what your own session created: other sessions keep their indexes and runs in the same places.
+
 ## Evaluation corpora
 
 - Expected answers in `tests/gold.jsonl` come only from licensed authoritative sources via `evaluate build-gold`. Curate cases in `tests/gold.seeds.jsonl`, regenerate, and review the corpus diff as a data update. Never derive or regenerate expectations from Nominatim, this service or another geocoder's responses, and never hand-edit `tests/gold.jsonl`.
