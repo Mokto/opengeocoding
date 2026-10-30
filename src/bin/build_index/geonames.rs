@@ -215,7 +215,20 @@ pub fn add_places(
                 return Seen::Known(None);
             }
             if known.is_empty() {
-                let parent = assigner.place_in(r.x, r.y, Some(r.cc)).or_else(|| {
+                let parent = assigner.place_in(r.x, r.y, Some(r.cc));
+                // the nearest town a parent falls back to may lie across a region's line: the
+                // region that holds the place's point rules
+                let region = assigner.region(r.x, r.y, r.cc);
+                let parent = match (parent, region) {
+                    (Some(p), Some(g))
+                        if places[p as usize].region != places[g as usize].region =>
+                    {
+                        Some(g)
+                    }
+                    (None, g) => g,
+                    (p, _) => p,
+                }
+                .or_else(|| {
                     let name = admin1.get(&r.admin1)?;
                     regions.get(&(r.cc, fold(name))).copied()
                 });

@@ -190,7 +190,7 @@ fn a_small_geonames_place_fills_only_a_gap_no_namesake_shares_and_names_no_point
 #[test]
 fn a_town_answers_a_generic_word_and_only_geonames_other_names_no_namesake_shares() {
     let at = |name: &str| {
-        index().locality_named(name, "at").map(|hit| {
+        index().locality_named(name, "at", true).map(|hit| {
             let r = index().render(&hit, true);
             let coord = |k: &str| r[k].as_str().unwrap().parse::<f64>().unwrap();
             (coord("lon"), coord("lat"))
@@ -203,6 +203,16 @@ fn a_town_answers_a_generic_word_and_only_geonames_other_names_no_namesake_share
     // another row 1,100 km away has it too; the Cyrillic one is not read
     assert_eq!(at("Zweinamig"), None);
     assert_eq!(at("Вейлер"), None);
+}
+
+#[test]
+fn a_geonames_place_takes_the_region_that_holds_it_not_the_nearby_towns() {
+    // nearest Randweiler (Delta, AT-4) but west of Delta's line, in Gamma (AT-3)
+    let hit = index().locality_named("Grenzweiler", "at", true).unwrap();
+    assert_eq!(
+        index().render(&hit, true)["address"]["ISO3166-2-lvl4"],
+        "AT-3"
+    );
 }
 
 #[test]
