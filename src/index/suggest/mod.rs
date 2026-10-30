@@ -6,7 +6,7 @@ mod place;
 mod postcode;
 mod street;
 
-use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, it, lt, pl, ps, pt, tw};
+use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, it, lt, pl, ps, pt, th, tw};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 pub(super) use place::place_names;
@@ -534,6 +534,20 @@ impl Index {
                 out = recovered;
             }
         }
+        if !out.iter().any(|s| s.kind == "address")
+            && cc.is_none_or(|c| c.eq_ignore_ascii_case("th"))
+            && typed.parts.last().and_then(|p| self.country(p)).as_deref() == Some("th")
+            && let Some(trimmed) = th::road_and_postcode(text)
+        {
+            let recovered: Vec<_> = self
+                .suggest(&trimmed, limit, cc, focus, landmarks)
+                .into_iter()
+                .filter(|s| s.kind == "address")
+                .collect();
+            if !recovered.is_empty() {
+                out = recovered;
+            }
+        }
         if !out.iter().any(|s| s.kind == "address") {
             let mut found = self.suggest_repaired(&typed, cc, limit);
             found.append(&mut out);
@@ -552,8 +566,9 @@ impl Index {
 
     /// "5A Salena road, Jojoima, Kailahun, Sierra Leone" (a district after the town) and "323
     /// Rue Gabriel Ngoua Obiang, Nzeng Ayong, Libreville, Gabon" (a quarter the houses are not
-    /// filed under): with two or more places between a numbered road and its country, the house
-    /// of that exact number that every place but one names, near the one left out.
+    /// filed under), and "575 Kaya Diabaas, Tera Kora, Curacao" (a neighbourhood next to the
+    /// one the house is filed under): the house of that exact number that every place between a
+    /// numbered road and its country but one names, near the one left out.
     fn suggest_without_place(
         &self,
         typed: &Typed,
@@ -562,7 +577,7 @@ impl Index {
         limit: usize,
     ) -> Option<Vec<Suggestion>> {
         let parts = &typed.parts;
-        if !(4..=5).contains(&parts.len()) || self.country(parts.last()?).is_none() {
+        if !(3..=5).contains(&parts.len()) || self.country(parts.last()?).is_none() {
             return None;
         }
         let words: Vec<&str> = parts[0].split(' ').collect();
@@ -571,20 +586,21 @@ impl Index {
             .filter(|w| words.len() > 1 && has_digit(w))
             .map(|w| schema::number_key(w))
             .collect();
-        // a place has to remain beside the road: a postcode alone does not place the house
+        // with more than one place, one has to remain beside the road: a postcode alone does not
+        // place the house
         let places = parts[1..parts.len() - 1]
             .iter()
             .filter(|p| p.chars().any(char::is_alphabetic))
             .count();
-        if numbers.is_empty() || places < 2 {
+        if numbers.is_empty() || places < 1 || places < 2 && parts.len() > 3 {
             return None;
         }
         // in the order that most often finds the house: of "road, town, district, country" the
         // district, of "road, quarter, town, district, country" the quarter
-        let order: &[usize] = if parts.len() == 4 {
-            &[2, 1]
-        } else {
-            &[1, 3, 2]
+        let order: &[usize] = match parts.len() {
+            3 => &[1],
+            4 => &[2, 1],
+            _ => &[1, 3, 2],
         };
         order.iter().find_map(|&skip| {
             // a postcode the house does not carry contradicts it
@@ -610,8 +626,10 @@ impl Index {
                 .collect();
             // the place left out still has to agree: the house's own address names it, or a
             // place of that name is near (a district or quarter the data files the house outside
-            // of); a village more than 5 km off has houses of its own
+            // of); a village more than 5 km off has houses of its own, and so has any place when
+            // it is the only one typed
             let left_out = &parts[skip];
+            let only = parts.len() == 3;
             if !found.is_empty() {
                 let places = self.scope(std::slice::from_ref(left_out), false, cc, None, false);
                 found.retain(|s| {
@@ -623,7 +641,7 @@ impl Index {
                             let km = ((pl.x as f64 - s.x) * s.y.to_radians().cos())
                                 .hypot(pl.y as f64 - s.y)
                                 * 111.195;
-                            km < if village { 5.0 } else { 15.0 }
+                            km < if village || only { 5.0 } else { 15.0 }
                         })
                 });
             }

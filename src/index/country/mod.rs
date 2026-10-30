@@ -25,6 +25,7 @@ pub mod pl;
 pub mod ps;
 pub mod pt;
 pub mod si;
+pub mod th;
 pub mod tw;
 pub mod us;
 pub mod xk;
