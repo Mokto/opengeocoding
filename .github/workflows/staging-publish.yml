@@ -380,9 +380,12 @@ jobs:
           # The gateway's own "pass base=N head=M" line repeats the summary table; an older evaluator's
           # headline line is dropped too.
           sed -i -e '/^<!-- headline: /d' -e '/^pass base=[0-9]* head=[0-9]* of [0-9]*/d' gold.md
+          # A pass that traded a few newly failing OSM-panel locations for many newly passing ones.
+          traded=$(sed -n 's/^Gate: PASS (\(.*\))\.$/\1/p' gold.md | tr -cd "[:alnum:] .,;:-")
+          setenv TRADED "$traded"
           {
             echo "<!-- gold-full -->"
-            echo "## Gold check, full index: $([ "$EXIT" = 1 ] && echo regressions || echo no regressions)"
+            echo "## Gold check, full index: $([ "$EXIT" = 1 ] && echo regressions || { [ -n "$traded" ] && echo "losses outweighed by gains"; } || echo no regressions)"
             cat gold.md
           } > comment.md
           {
@@ -422,6 +425,7 @@ jobs:
           }
           state=error; description="The run did not finish${FAILED_STEP:+: failed in $FAILED_STEP}"
           if [ "$JOB_STATUS" = cancelled ]; then state=error; description="Cancelled"
+          elif [ "${EXIT:-}" = 0 ] && [ -n "${TRADED:-}" ]; then state=success; description="Losses outweighed by gains: $TRADED"
           elif [ "${EXIT:-}" = 0 ]; then state=success; description="No regressions on the full index"
           elif [ "${EXIT:-}" = 1 ]; then state=failure; description="Regressions on the full index"; fi
           status gold-full "$state" "$description"

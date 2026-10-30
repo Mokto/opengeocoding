@@ -138,6 +138,16 @@ test("quality failure, worse failure class and speed failure are regressions", a
 	}
 });
 
+test("a gate that traded losses passes but asks for each loss to be explained", async () => {
+	const h = harness();
+	h.setReport(
+		"<!-- speed: pass -->\n## Newly failing (2)\nGate: PASS (1 newly failing OpenStreetMap-panel location, outweighed by 9 newly passing; explain each in the pull request).\n",
+	);
+	const result = await waitForGold(url, { run: h.run });
+	assert.equal(result.outcome, "passed");
+	assert.match(result.text, /explain it in the pull request description/);
+});
+
 test("unmeasured speed cannot pass even when GitHub marks it success", async () => {
 	for (const report of [
 		"quality only",

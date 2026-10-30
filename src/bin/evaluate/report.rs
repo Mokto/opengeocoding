@@ -871,6 +871,13 @@ fn ms_table(old_ms: &[f64], new_ms: &[f64]) -> (String, Vec<f64>) {
 /// so they are not compared, nor is the max (one case).
 const MAX_SLOWDOWN: f64 = 0.15;
 
+/// Newly failing OpenStreetMap-panel locations pass the gate when each is outweighed by this
+/// many newly passing ones, and there are at most `MAX_TRADED` of them. Losses anywhere else, a
+/// worse failure class (an abstain turned wrong), a new critical result or a must-pass failure
+/// are never traded.
+const TRADE: usize = 5;
+const MAX_TRADED: usize = 5;
+
 /// Per-request times of one RPC on both sides, over the requests both timed.
 struct Timings {
     rpc: &'static str,
@@ -1274,6 +1281,8 @@ pub fn diff(
     report += &latency(&shared, &old, &new, [&old_manifest, &new_manifest]);
     let (mut newly_failing, mut newly_passing, mut worse, mut better) =
         (vec![], vec![], vec![], vec![]);
+    // Locations with a newly failing or newly passing check, and whether a loss can be traded.
+    let (mut lost, mut won) = (BTreeMap::new(), BTreeSet::new());
     let mut changed: IndexMap<&str, Vec<String>> = IndexMap::new();
     let mut by_cohort: BTreeMap<String, BTreeMap<&str, usize>> = BTreeMap::new();
     let mut search_pass = [0; 2];
@@ -1301,6 +1310,7 @@ pub fn diff(
                 let _ = writeln!(added_failures, "{line}");
                 if check.landmarks_off {
                     newly_failing.push(line);
+                    lost.insert(id.clone(), false);
                 }
             }
         }
@@ -1329,6 +1339,16 @@ pub fn diff(
         let kind = cases
             .get(id.as_str())
             .map_or("constructed", |c| evidence(c));
+        let location = cases
+            .get(id.as_str())
+            .map(|c| &c.location)
+            .filter(|l| !l.is_empty())
+            .unwrap_or(id)
+            .clone();
+        let lose = |lost: &mut BTreeMap<String, bool>| {
+            let tradable = lost.entry(location.clone()).or_insert(true);
+            *tradable &= kind == "osm";
+        };
         let mut tally = |rpc: &'static str, base: bool, head: bool| {
             let add = |c: &mut [usize; 3]| {
                 *c = [c[0] + 1, c[1] + usize::from(base), c[2] + usize::from(head)];
@@ -1396,8 +1416,10 @@ pub fn diff(
             );
             if ca == "pass" && cb != "pass" {
                 newly_failing.push(line);
+                lose(&mut lost);
             } else if ca != "pass" && cb == "pass" {
                 newly_passing.push(line);
+                won.insert(location.clone());
             } else if suggest_severity(cb) > suggest_severity(ca) {
                 worse.push(line);
             } else if suggest_severity(cb) < suggest_severity(ca) {
@@ -1433,8 +1455,10 @@ pub fn diff(
             );
             if ca == "pass" && cb != "pass" {
                 newly_failing.push(line);
+                lose(&mut lost);
             } else if ca != "pass" && cb == "pass" {
                 newly_passing.push(line);
+                won.insert(location.clone());
             } else if locate_severity(cb) > locate_severity(ca) {
                 worse.push(line);
             } else if locate_severity(cb) < locate_severity(ca) {
@@ -1453,8 +1477,10 @@ pub fn diff(
         );
         if a.class == "pass" && b.class != "pass" {
             newly_failing.push(line);
+            lose(&mut lost);
         } else if a.class != "pass" && b.class == "pass" {
             newly_passing.push(line);
+            won.insert(location.clone());
         } else if severity(&b.class) > severity(&a.class) {
             worse.push(line);
         } else if severity(&b.class) < severity(&a.class) {
@@ -1660,9 +1686,21 @@ pub fn diff(
             false,
         );
     }
+    let gained = won.iter().filter(|l| !lost.contains_key(*l)).count();
+    let traded = !lost.is_empty()
+        && lost.len() <= MAX_TRADED
+        && lost.len() * TRADE <= gained
+        && lost.values().all(|&tradable| tradable)
+        && worse.is_empty()
+        && !new_critical
+        && !must
+        && !(fail_on_drift && total > 0);
     let mut reasons = vec![];
     for (n, what) in [
-        (newly_failing.len(), "newly failing"),
+        (
+            if traded { 0 } else { newly_failing.len() },
+            "newly failing",
+        ),
         (worse.len(), "with a worse failure class"),
         (if fail_on_drift { total } else { 0 }, "with snapshot drift"),
     ] {
@@ -1680,6 +1718,13 @@ pub fn diff(
     let failed = !reasons.is_empty();
     if failed {
         let _ = writeln!(report, "\nGate: FAIL ({}).", reasons.join(", "));
+    } else if traded {
+        let _ = writeln!(
+            report,
+            "\nGate: PASS ({} newly failing OpenStreetMap-panel location{}, outweighed by {gained} newly passing; explain each in the pull request).",
+            lost.len(),
+            if lost.len() == 1 { "" } else { "s" }
+        );
     }
     if let Some(out) = out {
         std::fs::write(out, &report)?;
@@ -2149,6 +2194,70 @@ mod tests {
         assert!(diff(&must_pass, &new, &new, None, false, false).unwrap());
         assert!(!diff(&must_pass, &new, &new, None, false, true).unwrap());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_few_osm_losses_pass_when_far_more_locations_are_won() {
+        let dir = std::env::temp_dir().join(format!("eval-trade-{}", std::process::id()));
+        // (lost OSM locations, lost registry locations, won locations, passes)
+        for (lost, registry, won, passes) in [
+            (1, 0, 5, true),
+            (1, 0, 4, false),
+            (0, 1, 10, false),
+            (6, 0, 30, false),
+            (5, 0, 25, true),
+        ] {
+            let (mut cases, mut old, mut new) = (vec![], vec![], vec![]);
+            for (n, (osm, before, after)) in std::iter::repeat_n((true, "pass", "near_miss"), lost)
+                .chain(std::iter::repeat_n((false, "pass", "near_miss"), registry))
+                .chain(std::iter::repeat_n((true, "abstain", "pass"), won))
+                .enumerate()
+            {
+                // two forms of each location
+                for form in 0..2 {
+                    let id = format!("l{n}-{form}");
+                    let source = if osm {
+                        "openstreetmap-address-node"
+                    } else {
+                        "ban"
+                    };
+                    cases.push(Case {
+                        id: id.clone(),
+                        location: format!("l{n}"),
+                        source: Some(json!({"name": source})),
+                        ..Default::default()
+                    });
+                    for (side, class) in [(&mut old, before), (&mut new, after)] {
+                        let record = Record {
+                            id: id.clone(),
+                            class: class.into(),
+                            ..Default::default()
+                        };
+                        side.push(serde_json::to_string(&record).unwrap());
+                    }
+                }
+            }
+            for (side, lines) in [("old", &old), ("new", &new)] {
+                std::fs::create_dir_all(dir.join(side)).unwrap();
+                std::fs::write(dir.join(side).join("manifest.json"), "{}").unwrap();
+                std::fs::write(dir.join(side).join("results.jsonl"), lines.join("\n")).unwrap();
+            }
+            let (a, b, out) = (dir.join("old"), dir.join("new"), dir.join("diff.md"));
+            let failed = diff(&cases, &a, &b, Some(&out), false, true).unwrap();
+            let report = std::fs::read_to_string(&out).unwrap();
+            assert_eq!(failed, !passes, "{lost} {registry} {won}: {report}");
+            let n = lost + registry;
+            let line = if passes {
+                format!(
+                    "Gate: PASS ({n} newly failing OpenStreetMap-panel location{}, outweighed by {won} newly passing",
+                    if n == 1 { "" } else { "s" }
+                )
+            } else {
+                format!("Gate: FAIL ({} newly failing", 2 * n)
+            };
+            assert!(report.contains(&line), "{line}: {report}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
