@@ -148,12 +148,17 @@ impl Address {
         }
     }
 
-    /// Mexico City's boroughs are its municipalities, and the city is its state.
+    /// Mexico City's boroughs are its municipalities, and the city is its state. The English
+    /// names answers carry are added: "Tijuana Municipality", "Mexico City".
     fn places(&self) -> Vec<String> {
+        let city = self.state_code == "09";
+        let municipality = format!("{} Municipality", self.municipality);
         super::places(
             [self.locality_name(), &self.locality, &self.municipality]
                 .into_iter()
-                .chain((self.state_code == "09").then_some(self.state.as_str())),
+                .chain((!city).then_some(municipality.as_str()))
+                .chain(city.then_some(self.state.as_str()))
+                .chain(city.then_some("Mexico City")),
         )
     }
 }
@@ -465,7 +470,12 @@ mod tests {
         assert_eq!(entries["2"].components["postcode"], "20000");
         assert_eq!(
             entries["2"].places,
-            ["Villa Juárez", "Villa Juárez (El Llano)", "Asientos"]
+            [
+                "Villa Juárez",
+                "Villa Juárez (El Llano)",
+                "Asientos",
+                "Asientos Municipality"
+            ]
         );
         let record = &entries["2"].provenance["record"];
         assert_eq!(record.as_object().unwrap().len(), 14);
