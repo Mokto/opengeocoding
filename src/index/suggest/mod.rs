@@ -426,6 +426,11 @@ impl Index {
                 return found;
             }
         }
+        if cc.is_none_or(|c| c.eq_ignore_ascii_case("lv"))
+            && let Some(found) = self.lv_house(text)
+        {
+            return kept(vec![found], cc, limit);
+        }
         if cc.is_none_or(|c| c.eq_ignore_ascii_case("ee")) {
             if let Some(turned) = ee::county_first(text) {
                 return self.retry_suggest(&turned, limit, cc, focus, landmarks, chain);

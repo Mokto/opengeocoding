@@ -646,6 +646,7 @@ impl Parser {
             if let Some(read) = estonian_parts
                 .or_else(|| si::aligned(q))
                 .or_else(|| lt::aligned(q))
+                .or_else(|| lv::aligned(q))
             {
                 parsed = read;
             }

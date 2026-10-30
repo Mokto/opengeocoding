@@ -1327,6 +1327,59 @@ impl Index {
             })
     }
 
+    /// A Latvian address typed out part by part ([`lv::aligned`]), whose parish and spelt or
+    /// abbreviated types the completion does not know: the house of that street, or the named
+    /// house on its village or parish, in the town stated.
+    pub(super) fn lv_house(&self, text: &str) -> Option<Suggestion> {
+        let parsed = lv::aligned(text)?;
+        let get = |key: &str| {
+            parsed
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.as_str())
+        };
+        let (road, number) = (get("road")?, get("house_number")?);
+        // many villages share a name ("Bajāri" in Ropažu and Salaspils novads)
+        let municipality = get("state").map(name_key);
+        let within = |place: u32, x: f64, y: f64| {
+            let chain = self.chain(place);
+            let chain = self.house_chain(&chain, x, y).unwrap_or(chain);
+            municipality.is_none_or(|m| chain.iter().any(|&p| self.places[p as usize].named(m)))
+        };
+        let (city, postcode) = (get("city"), get("postcode"));
+        let lv = Some("lv");
+        let mut hits = self.streets(road, Some(number), city, postcode, lv, false);
+        if let Some(state) = get("state") {
+            hits.extend(self.streets_in(
+                road,
+                Some(number),
+                Some(state),
+                city,
+                postcode,
+                lv,
+                false,
+            ));
+        }
+        hits.into_iter().find_map(|hit| match hit {
+            Hit::Street {
+                doc,
+                sid,
+                place,
+                name,
+                number: Some(number),
+                x,
+                y,
+                ..
+            } if name.split('\x1f').any(|n| fold(n) == fold(road))
+                && place != NONE
+                && within(place, x, y) =>
+            {
+                Some(self.street_suggestion(doc, sid, place, &name, Some(&number), (x, y)))
+            }
+            _ => None,
+        })
+    }
+
     pub(in crate::index) fn street_suggestion(
         &self,
         a: tantivy::DocAddress,
