@@ -289,6 +289,7 @@ pub fn cases() -> Vec<crate::Case> {
         pt::cases(),
         rs::cases(),
         si::cases(),
+        tw::cases(),
         us::cases(),
         wf::cases(),
         xk::cases(),
@@ -893,6 +894,12 @@ pub const FEATURES: &[Feature] = &[
             ("wikidata", "Q900004"),
             ("name", "Paris Bakery"),
         ],
+    },
+    Feature {
+        shape: Shape::Node,
+        lon: tw::PREFIXED_HOUSE.0,
+        lat: tw::PREFIXED_HOUSE.1,
+        tags: &[("addr:street", "番婆街"), ("addr:housenumber", "建51之21")],
     },
     Feature {
         shape: Shape::Node,

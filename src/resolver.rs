@@ -1068,6 +1068,30 @@ impl Core {
             }
             return Ok(house);
         }
+        if let Some(d) = found.address_details.as_option()
+            && d.country_code == "tw"
+            && d.house_number.is_empty()
+            && !d.road.is_empty()
+            && let Some(at) = found.geo_coordinates.as_option()
+            && let Some(region) = d.region_codes.iter().find(|r| r.admin_level == 4)
+            && let Some(address) = self.parse(query)?
+            && !part(&address, "house_number").is_empty()
+            && normalize_place(part(&address, "road")) == normalize_place(&d.road)
+            && let Some(house) = self.index.house_across_township(
+                &d.road,
+                part(&address, "house_number"),
+                (at.lat as f64, at.lon as f64),
+                &region.code,
+            )
+        {
+            return Ok(accept(
+                format_response(&house)?,
+                &ParsedAddress::new(),
+                "",
+                "house_across_township",
+                false,
+            ));
+        }
         Ok(found)
     }
 

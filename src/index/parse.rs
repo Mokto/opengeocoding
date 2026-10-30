@@ -522,6 +522,12 @@ impl Parser {
             {
                 aligned = mx::standard_aligned(&libpostal(head.trim())?, rest);
             }
+            if aligned.is_none()
+                && country.as_ref().is_some_and(|(_, c)| tw::taiwan(c))
+                && let [head, ref places @ ..] = parts[..]
+            {
+                aligned = tw::aligned(head, places);
+            }
             match parts[..] {
                 _ if aligned.is_some() => {}
                 [head, tail] if state_part(tail) => {
