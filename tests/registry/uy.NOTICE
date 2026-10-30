@@ -1,0 +1,14 @@
+The registry-first sample tests/registry/uy.jsonl contains addresses, postcodes and coordinates
+from Direcciones Geográficas del Uruguay, published by the Infraestructura de Datos Espaciales
+(IDE Uruguay) on information of the Correo Uruguayo, on the Catálogo de Datos Abiertos
+(https://catalogodatos.gub.uy/dataset/ide-direcciones-geograficas-del-uruguay): the address
+points of the 19 departments ("Direcciones - ARTIGAS" to "Direcciones - TREINTA Y TRES"), data
+of 2026-10-01, downloaded on 2026-10-30. Provider: Infraestructura de Datos Espaciales (IDE
+Uruguay), Correo Uruguayo and AGESIC.
+Used under the "Licencia de Datos Abiertos – Uruguay", version 0.1
+(https://www.gub.uy/agencia-gobierno-electronico-sociedad-informacion-conocimiento/sites/agencia-gobierno-electronico-sociedad-informacion-conocimiento/files/documentos/publicaciones/licencia_de_datos_abiertos_0.pdf).
+Changes: the department files were converted from Windows-1252 to UTF-8, joined
+(tests/registry/dgu-csv.sql) and a sample drawn; the door number and letter were written
+together and the query forms constructed from the register's fields, not by the IDE or the
+Correo Uruguayo, which have not approved this sample. Per-case file checksums and retrieval
+dates are recorded in the corpus; docs/evaluation/registry/uy.md records the upstream checksums.
