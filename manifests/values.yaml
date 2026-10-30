@@ -349,6 +349,9 @@ serving:
     minReplicas: 2
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
+    # The HPA's scaling behavior (autoscaling/v2). Every new pod pulls the whole index before it
+    # serves, so a slow scale-up and a long scale-down window avoid paying that on a short burst.
+    behavior: {}
   podDisruptionBudget:
     enabled: true
     maxUnavailable: 1
