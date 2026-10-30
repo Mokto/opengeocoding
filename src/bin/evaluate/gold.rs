@@ -1016,7 +1016,7 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                     let house = seed.kind == "address";
                     let expect = json!({
                         "country": country,
-                        "level": if house { "house" } else { "postcode" },
+                        "level": seed.level.as_deref().unwrap_or(if house { "house" } else { "postcode" }),
                         "max_level": if house { "house" } else { "postcode" },
                         "point": point,
                         "radius_km": seed.radius_km.unwrap_or(0.15).max(floor),
