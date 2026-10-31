@@ -411,8 +411,9 @@ pub struct Parser {
 }
 
 impl Parser {
-    /// Parses kept by default: a resolve parses its query twice (resolver, then index) and
-    /// libpostal's single lock is the service's throughput limit.
+    /// Parses kept across requests by default: libpostal's single lock is the service's
+    /// throughput limit, and a repeated query skips it. Within a request, `Index::memoized`
+    /// keeps them anyway.
     pub const DEFAULT_CACHE: usize = 65_536;
 
     /// Loads the models, caching [`Self::DEFAULT_CACHE`] parses.
@@ -450,6 +451,11 @@ impl Parser {
     // ponytail: one lock serializes every libpostal call (the parser keeps one scratch context
     // in native state, so parses cannot overlap). The cache is emptied when full, not an LRU.
     pub fn parse(&self, q: &str) -> Result<Parsed> {
+        if let Some(hit) =
+            MEMO.with_borrow(|memo| memo.as_ref().and_then(|m| m.parses.get(q).cloned()))
+        {
+            return Ok(hit);
+        }
         if self.capacity > 0
             && let Some(hit) = self.cache.lock().unwrap_or_else(|e| e.into_inner()).get(q)
         {
@@ -686,6 +692,10 @@ impl Parser {
             }
             cache.insert(q.into(), parsed.clone());
         }
+        MEMO.with_borrow_mut(|memo| {
+            memo.as_mut()
+                .map(|m| m.parses.insert(q.into(), parsed.clone()))
+        });
         Ok(parsed)
     }
 

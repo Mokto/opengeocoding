@@ -51,10 +51,18 @@ const HOUSE: u64 = 2 << 40;
 const POSTCODE: u64 = 3 << 40;
 const STREET_CANDIDATES: usize = 20;
 
+/// What one request remembers while `Index::memoized` runs on its thread.
+#[derive(Default)]
+struct Memo {
+    /// `Index::matching` results by query.
+    lookups: HashMap<String, Vec<DocAddress>>,
+    /// `Parser::parse` results by text: a resolve parses the same text several times, which the
+    /// shared parse cache absorbs only while it is on.
+    parses: HashMap<Box<str>, Parsed>,
+}
+
 thread_local! {
-    /// `Index::matching` results by query, while `Index::memoized` runs on this thread.
-    static MEMO: std::cell::RefCell<Option<HashMap<String, Vec<DocAddress>>>> =
-        const { std::cell::RefCell::new(None) };
+    static MEMO: std::cell::RefCell<Option<Memo>> = const { std::cell::RefCell::new(None) };
 }
 
 pub use schema::sovereign;
@@ -819,7 +827,7 @@ impl Index {
             .with_borrow(Option::is_some)
             .then(|| format!("{kind:?} {country:?} {n} {any} {cl:?}"));
         if let Some(found) = key.as_ref().and_then(|key| {
-            MEMO.with_borrow(|memo| memo.as_ref().and_then(|m| m.get(key).cloned()))
+            MEMO.with_borrow(|memo| memo.as_ref().and_then(|m| m.lookups.get(key).cloned()))
         }) {
             return found;
         }
@@ -832,7 +840,9 @@ impl Index {
         };
         let found = self.searcher.search(&BooleanQuery::new(cl), &by).unwrap();
         if let Some(key) = key {
-            MEMO.with_borrow_mut(|memo| memo.as_mut().map(|m| m.insert(key, found.clone())));
+            MEMO.with_borrow_mut(|memo| {
+                memo.as_mut().map(|m| m.lookups.insert(key, found.clone()))
+            });
         }
         found
     }
@@ -850,7 +860,7 @@ impl Index {
         if MEMO.with_borrow(Option::is_some) {
             return f();
         }
-        MEMO.set(Some(HashMap::new()));
+        MEMO.set(Some(Memo::default()));
         let _forget = Forget;
         f()
     }
