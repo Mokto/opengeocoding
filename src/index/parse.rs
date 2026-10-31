@@ -810,6 +810,9 @@ impl Index {
 
     pub(crate) fn parse_address(&self, q: &str, corroboration: bool) -> Result<Option<Parsed>> {
         let mut parsed = self.parser.parse(q)?;
+        if let Some(repaired) = country::vn::aligned(self, q, &parsed)? {
+            parsed = repaired;
+        }
         if let Some(repaired) = self.country_as_road(q, &parsed)? {
             parsed = repaired;
         }

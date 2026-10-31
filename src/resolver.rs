@@ -213,6 +213,10 @@ impl Resolver {
                     METRICS.tiers.with_label_values(&["korean_locality"]).inc();
                 }
                 own_regions(&mut found);
+                // Rewrites and direct fallbacks must also respect the original geographic context.
+                if !numeric_place_supported(&query, &found) {
+                    found = FullAddress::default();
+                }
                 Ok(found)
             })
         })
@@ -572,7 +576,10 @@ impl Core {
             .enumerate()
             .filter(|(i, f)| {
                 let details = f.address_details.as_option();
-                !(candidates[*i]["addresstype"] == "country"
+                (query.chars().any(char::is_alphabetic)
+                    || candidates[*i]["addresstype"] == "postcode")
+                    && numeric_place_supported(query, &english[*i])
+                    && !(candidates[*i]["addresstype"] == "country"
                     && !part(address, "road").is_empty()
                     && !part(address, "house_number").is_empty())
                     && (!overriding || state_consistent(&stated_state, details))
@@ -737,6 +744,9 @@ impl Core {
             METRICS.tiers.with_label_values(&["country_name"]).inc();
             return Ok(found);
         }
+        if let Some(found) = self.numbered_place(query)? {
+            return Ok(found);
+        }
         let found = self.resolve_address(query)?;
         let ignored = self.stated_country_ignored(query, &found);
         if (found.display_name.is_empty() || ignored)
@@ -761,6 +771,45 @@ impl Core {
             return Ok(mended);
         }
         self.named_settlement(query, found)
+    }
+
+    fn numbered_place(&self, query: &str) -> Result<Option<FullAddress>> {
+        if query
+            .split(',')
+            .filter(|p| !p.trim().is_empty() && p.trim().chars().all(char::is_numeric))
+            .count()
+            != 1
+        {
+            return Ok(None);
+        }
+        for number in query
+            .split(',')
+            .map(str::trim)
+            .filter(|p| !p.is_empty() && p.chars().all(char::is_numeric))
+        {
+            for value in self.search(number).1 {
+                if value["addresstype"] == "postcode"
+                    || !matches!(value["class"].as_str(), Some("place" | "boundary"))
+                    || !own_name(&value, number).is_some_and(|n| n == number)
+                {
+                    continue;
+                }
+                let found = format_response(&value)?;
+                let mut names = vec![];
+                names_of(&value, &mut names);
+                let (explained, total) = coverage(query, names.iter().map(String::as_str));
+                if explained == total && numeric_place_supported(query, &found) {
+                    return Ok(Some(accept(
+                        found,
+                        &ParsedAddress::new(),
+                        "",
+                        "numbered_place",
+                        true,
+                    )));
+                }
+            }
+        }
+        Ok(None)
     }
 
     /// For a query nothing answers: the street, house or written postcode found once what may
