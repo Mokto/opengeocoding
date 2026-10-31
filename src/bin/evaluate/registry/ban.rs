@@ -323,6 +323,90 @@ pub const REGISTRY: Registry = Registry {
     prepare,
 };
 
+/// BAN's French Polynesia file (`adresses-987.csv.gz`), which the national export leaves out.
+pub const PF_REGISTRY: Registry = Registry {
+    source: "ban-pf",
+    command: "sample-pf",
+    country: "pf",
+    input: "ban-pf",
+    license: "etalab-2.0",
+    location: "ban",
+    url: |id| {
+        format!(
+            "https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-987.csv.gz#{id}"
+        )
+    },
+    sample: sample_pf,
+    prepare,
+};
+
+/// Locations drawn per commune: plain numbers and numbers with a suffix ("12 bis", "903 b").
+const PF_PER_CLASS: [(&str, usize); 2] = [("street", 48), ("suffix", 12)];
+
+fn pf_query(a: &Address) -> String {
+    format!(
+        "{} {}, {} {}, French Polynesia",
+        a.number, a.street, a.postcode, a.city
+    )
+}
+
+pub fn sample_pf(path: &Path, seed: &str) -> Result<Vec<Value>> {
+    let release = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .context("BAN file name")?;
+    let (mut rows, mut per_text) = (vec![], BTreeMap::new());
+    for_each(path, |a| {
+        ensure!(
+            a.commune.starts_with("987"),
+            "{} is not BAN's French Polynesia file",
+            path.display()
+        );
+        *per_text
+            .entry((a.street.clone(), a.number.clone(), a.postcode.clone()))
+            .or_insert(0) += 1;
+        // Papeete's points are all uncertified, so certification is not required here.
+        if ["entrée", "bâtiment", "parcelle"].contains(&a.placement.as_str()) {
+            rows.push(a);
+        }
+        Ok(())
+    })?;
+    let mut pools: BTreeMap<(String, &str), BTreeMap<String, Address>> = BTreeMap::new();
+    for a in rows {
+        if per_text[&(a.street.clone(), a.number.clone(), a.postcode.clone())] > 1 {
+            continue;
+        }
+        let class = if a.number.contains(' ') {
+            "suffix"
+        } else {
+            "street"
+        };
+        pools
+            .entry((a.commune.clone(), class))
+            .or_default()
+            .insert(key(seed, &a.id), a);
+    }
+    let mut lines = vec![];
+    for ((commune, class), pool) in pools {
+        let take = PF_PER_CLASS.iter().find(|(c, _)| *c == class).unwrap().1;
+        let mut streets = BTreeSet::new();
+        for a in pool
+            .values()
+            .filter(|a| streets.insert(a.street.clone()))
+            .take(take)
+        {
+            let query = pf_query(a);
+            lines.push(json!({"kind":"address", "source":"ban-pf", "ref":a.id, "cohort":format!("pf_{class}"), "queries":[query], "label":query, "tags":["registry-sample", "pf", "ban", release, format!("commune:{commune}"), format!("placement:{}", a.placement), class]}));
+        }
+    }
+    eprintln!("BAN French Polynesia: {} locations", lines.len());
+    ensure!(
+        !lines.is_empty(),
+        "no eligible BAN French Polynesia addresses"
+    );
+    Ok(lines)
+}
+
 fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entry>> {
     let metadata = super::provenance(path)?;
     lookup(path, refs)?
@@ -401,6 +485,26 @@ mod tests {
             variants(&found["a"], &found["b"])
                 .iter()
                 .any(|(k, _, g)| *k == "wrong_postcode" && g.is_none())
+        );
+        assert!(sample_pf(&path, "test").is_err());
+        write(&[
+            "p1;3;;Rue du Prince Hinoi;98714;98735;Papeete;-17.5;-149.5;entrée;0\n",
+            "p2;3;bis;Rue Dumont d'Urville;98714;98735;Papeete;-17.5;-149.5;entrée;0\n",
+            "p3;5;;Rue Cook;98714;98735;Papeete;-17.5;-149.5;entrée;0\n",
+            "p4;5;;Rue Cook;98714;98735;Papeete;-17.5;-149.5;entrée;0\n",
+            "p5;7;;Rue Cook;98714;98735;Papeete;-17.5;-149.5;service technique;1\n",
+        ]);
+        let pf: BTreeSet<_> = sample_pf(&path, "test")
+            .unwrap()
+            .iter()
+            .map(|s| s["cohort"].to_string() + " " + s["queries"][0].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            pf,
+            BTreeSet::from([
+                "\"pf_street\" 3 Rue du Prince Hinoi, 98714 Papeete, French Polynesia".to_string(),
+                "\"pf_suffix\" 3 bis Rue Dumont d'Urville, 98714 Papeete, French Polynesia".into(),
+            ])
         );
         std::fs::remove_file(path).unwrap();
     }
