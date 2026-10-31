@@ -520,7 +520,7 @@ pub fn named_in_region(query: &str, details: Option<&AddressDetails>) -> bool {
 }
 
 /// "San Juan" is "San Juan Province": the region's name without its administrative word.
-fn admin_name_agrees(stated: &str, region: &str) -> bool {
+pub fn admin_name_agrees(stated: &str, region: &str) -> bool {
     const WORDS: &[&str] = &[
         "province",
         "department",

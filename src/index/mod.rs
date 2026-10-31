@@ -36,7 +36,7 @@ mod search;
 mod street;
 use collect::*;
 use country::{
-    aw_cw, cn_tw, co, cz_sk, de, ee, es, hk_mo, ie, it, jp, lt, lv, mx, pl, pt, si, tw, xk,
+    aw_cw, cn_tw, co, cz_sk, de, ee, es, hk_mo, ie, it, jp, lt, lv, mx, pl, pt, si, th, tw, xk,
 };
 pub use fuzzy::*;
 pub use house::same_number;

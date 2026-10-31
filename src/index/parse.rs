@@ -544,6 +544,24 @@ impl Parser {
             {
                 aligned = tw::aligned(head, places);
             }
+            if aligned.is_none()
+                && country.as_ref().is_some_and(|(_, c)| th::thailand(c))
+                && !whole.iter().any(|(k, _)| k == "house_number")
+                && let [head, ref rest @ ..] = parts[..]
+                && !rest.is_empty()
+                && let Some((number, road)) = th::village_head(head)
+            {
+                let mut a = vec![
+                    ("house_number".to_string(), number.to_lowercase()),
+                    ("road".to_string(), road.to_lowercase()),
+                ];
+                a.extend(
+                    libpostal(rest.join(",").trim())?
+                        .into_iter()
+                        .filter(|(k, _)| !matches!(k.as_str(), "road" | "house_number" | "house")),
+                );
+                aligned = Some(a);
+            }
             match parts[..] {
                 _ if aligned.is_some() => {}
                 [head, tail] if state_part(tail) => {
@@ -667,6 +685,8 @@ impl Parser {
             {
                 parsed = read;
             }
+            th::rejoin_cut_words(q, &mut parsed);
+            th::lane_as_road(q, &mut parsed);
             unit_from_road(&mut parsed);
             number_from_house(q, &mut parsed);
             numbered_ruta(&mut parsed);

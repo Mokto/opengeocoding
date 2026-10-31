@@ -101,12 +101,18 @@ impl Index {
                 if typed.parts.is_empty() {
                     return vec![];
                 }
-                let found = self.suggest_streets(&typed, cc, None, limit);
-                if found.iter().any(|s| s.kind == "address") {
-                    found
-                } else {
-                    self.suggest_number_comma(&typed, cc, None, limit)
+                let mut found = self.suggest_streets(&typed, cc, None, limit);
+                if !found.iter().any(|s| s.kind == "address") {
+                    found = self.suggest_number_comma(&typed, cc, None, limit);
                 }
+                if !found.iter().any(|s| s.kind == "address")
+                    && cc.is_none_or(|c| c.eq_ignore_ascii_case("th"))
+                    && typed.parts.last().and_then(|p| self.country(p)).as_deref() == Some("th")
+                    && let Some(trimmed) = th::road_and_postcode(text)
+                {
+                    found = self.suggest_houses(&trimmed, cc, limit);
+                }
+                found
             }
         };
         out.retain(|s| {
