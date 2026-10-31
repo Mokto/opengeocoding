@@ -232,8 +232,10 @@ impl Resolver {
         let (text, cc) = (text.to_owned(), country_code.to_owned());
         Ok(tokio::task::spawn_blocking(move || {
             let cc = Some(cc.as_str()).filter(|c| !c.is_empty());
-            core.index
-                .suggest(&text, limit, cc, focus.as_ref(), landmarks)
+            core.index.memoized(|| {
+                core.index
+                    .suggest(&text, limit, cc, focus.as_ref(), landmarks)
+            })
         })
         .await?)
     }

@@ -67,6 +67,7 @@ struct Memo {
     /// `Parser::parse` results by text: a resolve parses the same text several times, which the
     /// shared parse cache absorbs only while it is on.
     parses: HashMap<Box<str>, Parsed>,
+    documents: HashMap<DocAddress, Arc<tantivy::TantivyDocument>>,
 }
 
 thread_local! {
@@ -838,6 +839,17 @@ impl Index {
 
     pub fn places_loaded(&self) -> usize {
         self.places.len()
+    }
+
+    fn document(&self, a: DocAddress) -> tantivy::Result<Arc<tantivy::TantivyDocument>> {
+        if let Some(doc) =
+            MEMO.with_borrow(|memo| memo.as_ref().and_then(|m| m.documents.get(&a).cloned()))
+        {
+            return Ok(doc);
+        }
+        let doc = Arc::new(self.searcher.doc::<tantivy::TantivyDocument>(a)?);
+        MEMO.with_borrow_mut(|memo| memo.as_mut().map(|m| m.documents.insert(a, doc.clone())));
+        Ok(doc)
     }
 
     fn fast(&self, a: DocAddress, field: &str) -> u64 {

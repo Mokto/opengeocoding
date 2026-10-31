@@ -950,7 +950,7 @@ impl Index {
         else {
             return false;
         };
-        let Ok(doc) = self.searcher.doc::<tantivy::TantivyDocument>(*doc) else {
+        let Ok(doc) = self.document(*doc) else {
             return false;
         };
         let number = schema::number_key(number);
@@ -1105,7 +1105,7 @@ impl Index {
         }
         let mut found = false;
         for a in streets {
-            let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
+            let doc = self.document(a).unwrap();
             if doc.get_all(self.f.pcode).any(|value| {
                 value
                     .as_str()
