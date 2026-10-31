@@ -636,6 +636,16 @@ fn separates_kinds_and_countries(words: bool) {
     let twice =
         index.memoized(|| [0, 1].map(|_| ids(index.top_of(Kind::Street, Some("dk"), names(), 10))));
     assert_eq!(twice, [vec![9, 11], vec![9, 11]]);
+    let doc = index.top_of(Kind::Street, None, names(), 1)[0];
+    let first = index.memoized(|| {
+        let first = index.document(doc).unwrap();
+        let second = index.document(doc).unwrap();
+        assert!(Arc::ptr_eq(&first, &second));
+        first
+    });
+    let next = index.memoized(|| index.document(doc).unwrap());
+    assert!(!Arc::ptr_eq(&first, &next));
+    assert!(MEMO.with_borrow(Option::is_none));
     let pcode = || vec![must(term(index.f.pcode, "12345"))];
     let hits = index.top_of(Kind::Postcode, None, pcode(), 10);
     assert_eq!(hits.len(), 1);

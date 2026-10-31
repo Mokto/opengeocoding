@@ -147,7 +147,7 @@ impl Index {
                         own = (d, slot);
                     }
                 });
-                let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
+                let doc = self.document(a).ok()?;
                 let postcode = (own.1 > 0)
                     .then(|| {
                         doc.get_all(self.f.pcode)

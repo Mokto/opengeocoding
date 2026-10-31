@@ -266,7 +266,7 @@ impl Index {
             .top_of(Kind::Street, cc, scoped(cl), 1)
             .into_iter()
             .next()?;
-        let doc: tantivy::TantivyDocument = self.searcher.doc(best).ok()?;
+        let doc = self.document(best).ok()?;
         let mut respelt = words.clone();
         let name = best_name(&doc, self.f.name, road);
         // the street's own spelling of the word, so the exact search finds it
@@ -495,7 +495,7 @@ impl Index {
             if !long.is_empty() || exact.is_some() {
                 top.retain(|&a| {
                     use tantivy::schema::Value as _;
-                    let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
+                    let doc = self.document(a).unwrap();
                     names_hold(doc.get_all(self.f.name).filter_map(|v| v.as_str()), &long)
                         && exact.as_ref().is_none_or(|road| {
                             doc.get_all(self.f.name)
@@ -510,7 +510,7 @@ impl Index {
                     .copied()
                     .filter(|&a| {
                         use tantivy::schema::Value as _;
-                        let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
+                        let doc = self.document(a).unwrap();
                         doc.get_all(self.f.name)
                             .filter_map(|v| v.as_str())
                             .any(|name| fold(name) == exact_road)
@@ -541,7 +541,7 @@ impl Index {
             top.sort_by_cached_key(|a| (!with_postcode.contains(a), !in_named(a), dist(a)));
             // `own`: the house's postcode slot (1-based, into the street's stored list)
             let street = |a: DocAddress, number: Option<String>, (x, y): (f64, f64), own: u8| {
-                let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
+                let doc = self.document(a).unwrap();
                 let name = best_name(&doc, self.f.name, road);
                 let km =
                     |(px, py): (f64, f64)| ((px - x) * py.to_radians().cos()).hypot(py - y) * 111.0;
@@ -625,7 +625,7 @@ impl Index {
             };
             let own_postcode = |a: DocAddress, own: u8| {
                 use tantivy::schema::Value as _;
-                let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
+                let doc = self.document(a).ok()?;
                 (own > 0)
                     .then(|| {
                         doc.get_all(self.f.pcode)
@@ -872,7 +872,7 @@ impl Index {
             let a = top[0];
             let xy = |b: DocAddress| (self.fast_f64(b, "x"), self.fast_f64(b, "y"));
             let name = |b: DocAddress| {
-                let doc: tantivy::TantivyDocument = self.searcher.doc(b).unwrap();
+                let doc = self.document(b).unwrap();
                 stored(&doc, self.f.name)
             };
             let ((ax, ay), place, first) = (xy(a), self.fast(a, "place"), name(a));
