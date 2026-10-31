@@ -51,6 +51,32 @@ pub const PLACES: &[Place] = &[
         "Wattleford",
         &[("en", "Wattleford")]
     ),
+    // a metropolitan locality whose area holds a town 41 km from its centre, as Brisbane's holds
+    // Caboolture
+    place!(
+        "au-ardmore",
+        "locality",
+        "city",
+        "AU",
+        "AU-QLD",
+        2_000_000,
+        (150.0, -22.5),
+        "au-qld",
+        "Ardmore",
+        &[("en", "Ardmore")]
+    ),
+    place!(
+        "au-burrum-flats",
+        "locality",
+        "city",
+        "AU",
+        "AU-QLD",
+        30_000,
+        (150.4, -22.5),
+        "au-ardmore",
+        "Burrum Flats",
+        &[("en", "Burrum Flats")]
+    ),
 ];
 
 pub const STREETS: &[Street] = &[
@@ -112,10 +138,28 @@ pub const STREETS: &[Street] = &[
         lat: -21.2,
         numbers: &["3"],
     },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "King Street",
+        postcode: "4510",
+        city: "Burrum Flats",
+        cc: "AU",
+        lon: 150.4,
+        lat: -22.5,
+        numbers: &["119", "121"],
+    },
 ];
 
 pub fn cases() -> Vec<Case> {
     vec![
+        // a house in a town 41 km from the metropolitan locality stated is no good match there
+        case("121 King Street, Ardmore", town("au-ardmore", false)),
+        // the town written first, which the parse drops, not France's town of the last word
+        case(
+            "Burrum Flats, ul. Środkowa 181 Termy Colmar",
+            town("au-burrum-flats", false),
+        ),
         // an Australian unit written before its building's number still resolves the building
         case(
             "206 Banksia Street, Wattleford QLD 4740, Australia",

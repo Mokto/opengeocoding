@@ -927,6 +927,8 @@ impl Index {
         })
     }
 
+    /// A town or municipality above the house is named so. A town around the house's own whose
+    /// centre is more than 30 km off is a metropolitan area: Brisbane's, around Caboolture.
     pub(crate) fn house_locality_named(&self, hit: &Hit, name: &str) -> bool {
         matches!(
             hit,
@@ -934,7 +936,7 @@ impl Index {
                 number: Some(_),
                 ..
             }
-        ) && self.street_locality_named(hit, name)
+        ) && self.locality_named(hit, name, true)
     }
 
     /// The house's source names its town so (New Zealand's town_city, around its locality).
@@ -966,16 +968,37 @@ impl Index {
 
     /// A town or municipality above the street is named so.
     pub(crate) fn street_locality_named(&self, hit: &Hit, name: &str) -> bool {
-        let Hit::Street { place, .. } = hit else {
+        self.locality_named(hit, name, false)
+    }
+
+    /// A town or municipality above the street is named so; with `own`, a town around the
+    /// street's own only when its centre is within 30 km.
+    fn locality_named(&self, hit: &Hit, name: &str, own: bool) -> bool {
+        let Hit::Street { place, x, y, .. } = hit else {
             return false;
         };
         if *place == NONE || name.chars().count() <= 2 {
             return false;
         }
         let key = name_key(name);
+        let mut towns = 0;
+        // ponytail: a fixed radius; a town polygon's own extent would tell a sprawling city
+        // from a metropolitan area
         self.chain(*place).iter().any(|&id| {
             let place = &self.places[id as usize];
-            matches!(place.subtype.as_ref(), "locality" | "localadmin") && place.named(key)
+            match place.subtype.as_ref() {
+                "locality" => {
+                    towns += 1;
+                    let near = || {
+                        ((place.x as f64 - x) * y.to_radians().cos()).hypot(place.y as f64 - y)
+                            * 111.2
+                            < 30.0
+                    };
+                    place.named(key) && (!own || towns == 1 || near())
+                }
+                "localadmin" => place.named(key),
+                _ => false,
+            }
         })
     }
 

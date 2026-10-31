@@ -1489,21 +1489,19 @@ pub fn postcode_shaped_for(query: &str, stated_cc: &str, found_cc: &str) -> bool
     })
 }
 
-/// The part of a multi-part query that names a country when the parser labelled it something
-/// else ("Manama. P.O. Box 54482, Kingdom of Bahrain" gives house "kingdom of bahrain"). A part
-/// the parser took for a region or town is left alone: "Georgia" after a town is a US state.
-pub fn country_in_tail(query: &str, address: &ParsedAddress) -> Option<String> {
+/// The last or first part of a multi-part query when it names a country that the parser
+/// labelled something else ("Manama. P.O. Box 54482, Kingdom of Bahrain" gives house "kingdom of
+/// bahrain", "India, Viman Nagar, Pune" house "india"). A part the parser took for a region or
+/// town is left alone: "Georgia" after a town is a US state.
+pub fn unlabelled_country(query: &str, address: &ParsedAddress) -> Option<String> {
     let parts: Vec<_> = query
         .split(',')
         .map(|s| s.trim_matches(whitespace))
         .filter(|s| !s.is_empty())
         .collect();
-    // A two-letter part is a state ("VA", "IN", "CA") more often than a country code, and no
-    // country is written with digits.
-    let last = *parts.last().filter(|l| {
-        parts.len() >= 2 && l.chars().count() > 2 && !l.chars().any(|c| c.is_numeric())
-    })?;
-    let labelled = |label: &str| normalize_place(part(address, label)) == normalize_place(last);
+    if parts.len() < 2 {
+        return None;
+    }
     let places = [
         "city",
         "city_district",
@@ -1512,11 +1510,37 @@ pub fn country_in_tail(query: &str, address: &ParsedAddress) -> Option<String> {
         "state_district",
         "country_region",
     ];
-    if places.iter().any(|label| labelled(label)) {
-        return None;
-    }
-    let candidate = parsed_country(last);
-    (!expected_country(&candidate).is_empty()).then(|| last.to_owned())
+    // A two-letter part is a state ("VA", "IN", "CA") more often than a country code, and no
+    // country is written with digits.
+    [parts[parts.len() - 1], parts[0]]
+        .into_iter()
+        .find(|&p| {
+            p.chars().count() > 2
+                && !p.chars().any(|c| c.is_numeric())
+                && !places
+                    .iter()
+                    .any(|label| normalize_place(part(address, label)) == normalize_place(p))
+                && !expected_country(&parsed_country(p)).is_empty()
+        })
+        .map(str::to_owned)
+}
+
+/// A part of two capitals that the parser glued into a house or road ("Buchhaldenstrasse 1, CH,
+/// Frau" gives road "ch frau"): a country's or a region's code, not a word of a name.
+pub fn glued_code(query: &str, address: &ParsedAddress) -> Option<String> {
+    query
+        .split(',')
+        .map(|p| p.trim_matches(whitespace))
+        .find(|p| {
+            p.len() == 2
+                && p.chars().all(|c| c.is_ascii_uppercase())
+                && ["house", "road"].iter().any(|key| {
+                    part(address, key)
+                        .split(whitespace)
+                        .any(|w| w.eq_ignore_ascii_case(p))
+                })
+        })
+        .map(str::to_owned)
 }
 
 pub(crate) fn parsed_country(text: &str) -> ParsedAddress {

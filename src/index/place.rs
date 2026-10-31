@@ -216,7 +216,7 @@ pub(super) fn namedetails(pl: &Place, names: &mut Map<String, Value>) {
 }
 
 impl Index {
-    pub(super) fn country(&self, text: &str) -> Option<String> {
+    pub(crate) fn country(&self, text: &str) -> Option<String> {
         // The analyzer drops tokens of 40+ bytes; losing an address must not leave a bare country.
         if text.len() >= 40
             && text
@@ -242,7 +242,7 @@ impl Index {
 
     /// The countries a stated region may be in: those with an ISO 3166-2 code that ends in a
     /// written code ("PA", "BCS"), or the one whose region has that name.
-    pub(super) fn region_countries(&self, region: &str) -> Vec<String> {
+    pub(crate) fn region_countries(&self, region: &str) -> Vec<String> {
         let code: String = region
             .chars()
             .filter(|c| c.is_ascii_alphabetic())

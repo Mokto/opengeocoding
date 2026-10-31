@@ -743,7 +743,7 @@ impl Index {
     /// street of that name and postcode in the country holds the house. Otherwise the postcode
     /// would scope out the house the unscoped search finds, and a placeholder ("00000") or a
     /// dialling code ("509, Haiti") would answer as a postcode. A country read as a house is
-    /// left to the resolver's `country_in_tail`.
+    /// left to the resolver's `unlabelled_country`.
     fn country_as_road(&self, q: &str, whole: &[(String, String)]) -> Result<Option<Parsed>> {
         let Some((head, last)) = q.rsplit_once(',') else {
             return Ok(None);

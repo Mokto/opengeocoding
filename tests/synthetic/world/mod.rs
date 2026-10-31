@@ -179,6 +179,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
 /// subtype, is_land, is_territorial, lon, lat, half-side). Gamma's land stops 0.1° short of its
 /// territorial sea on the west.
 const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
+    ("au-ardmore", "locality", true, true, 150.0, -22.5, 0.6),
     ("jp-aoba", "region", true, true, 145.0, 40.0, 0.4),
     ("kr-garam", "region", true, true, 140.0, 35.0, 0.4),
     ("kr-narae", "region", true, true, 142.0, 35.0, 0.4),
@@ -516,8 +517,9 @@ fn chain(p: &Place) -> Vec<&'static str> {
     up
 }
 
-/// Localities without a polygon of their own.
-const POINT_ONLY: [&str; 10] = [
+/// Localities without a square of their own: a point only, or the area `AREAS` gives them.
+const POINT_ONLY: [&str; 11] = [
+    "au-ardmore",
     "gb-harbor-city",
     "de-koeln-feldheim",
     "es-villaseca-pinedo",
