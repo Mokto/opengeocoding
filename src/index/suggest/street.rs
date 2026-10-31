@@ -1420,8 +1420,16 @@ impl Index {
             _ => place,
         };
         let mut country_code = String::new();
+        // a place found by the polygon that holds the point is already that polygon's region
+        let (place, spatial) = match place {
+            NONE => (self.area_place(x, y, ""), true),
+            p => (p, false),
+        };
         if place != NONE {
-            if let Some(chain) = number.and_then(|_| self.house_chain(&self.chain(place), x, y)) {
+            if let Some(chain) = number
+                .filter(|_| !spatial)
+                .and_then(|_| self.house_chain(&self.chain(place), x, y))
+            {
                 self.address(&chain, true, &mut Map::new(), &mut display);
             } else {
                 display.push(self.label(place).to_string());

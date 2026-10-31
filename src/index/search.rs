@@ -817,10 +817,19 @@ impl Index {
                 }
                 a.insert("road".into(), name.clone().into());
                 display.push(name.clone());
-                if *place != NONE {
-                    let chain = self.chain(*place);
+                let city = city
+                    .as_ref()
+                    .or(postal_town.as_ref().filter(|_| *place == NONE));
+                // a place found by the polygon that holds the point is already that polygon's region
+                let (place, spatial) = match *place {
+                    NONE => (self.area_place(*x, *y, cc), true),
+                    p => (p, false),
+                };
+                if place != NONE {
+                    let chain = self.chain(place);
                     let chain = number
                         .as_ref()
+                        .filter(|_| !spatial)
                         .and_then(|_| self.house_chain(&chain, *x, *y))
                         .unwrap_or(chain);
                     self.address(&chain, en, &mut a, &mut display);

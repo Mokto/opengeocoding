@@ -1284,6 +1284,8 @@ struct Shared<'a> {
     rows: AtomicU64,
     /// Overture's address rows with a street, per country of the containing place.
     covered: Mutex<HashMap<[u8; 2], u64>>,
+    /// Address rows without a country and with no place, per country of their region.
+    placeless: Mutex<HashMap<[u8; 2], u64>>,
 }
 
 impl<'a> Shared<'a> {
@@ -1304,6 +1306,7 @@ impl<'a> Shared<'a> {
             pairs: Pairs::default(),
             rows: AtomicU64::new(0),
             covered: Mutex::default(),
+            placeless: Mutex::default(),
         }
     }
 }
@@ -1362,6 +1365,7 @@ struct Sink<'s, 'a> {
     /// Whether these rows are land-lot addresses (see `AddrAgg::lot`).
     lot: bool,
     covered: HashMap<[u8; 2], u64>,
+    placeless: HashMap<[u8; 2], u64>,
 }
 
 fn nonempty(s: Option<&str>) -> Option<&str> {
@@ -1390,6 +1394,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             supplemental: false,
             lot: false,
             covered: HashMap::new(),
+            placeless: HashMap::new(),
         }
     }
 
@@ -1398,7 +1403,8 @@ impl<'s, 'a> Sink<'s, 'a> {
         self
     }
 
-    /// One address. Without a country, the containing place's is used. `number` may list
+    /// One address. Without a country, the containing place's is used, else, with no place, the
+    /// containing administration's. `number` may list
     /// several numbers separated by ';', as OSM does.
     #[allow(clippy::too_many_arguments)]
     fn add(
@@ -1434,7 +1440,14 @@ impl<'s, 'a> Sink<'s, 'a> {
             }
             None => match a.place(x, y) {
                 Some(p) => (self.shared.countries[p as usize], Some(p)),
-                None => return,
+                None => match a.admin(x, y) {
+                    Some(p) => {
+                        let c = self.shared.countries[p as usize];
+                        *self.placeless.entry(c).or_default() += 1;
+                        (c, None)
+                    }
+                    None => return,
+                },
             },
         };
         if c == [0; 2] || !x.is_finite() || !y.is_finite() {
@@ -1575,6 +1588,11 @@ impl<'s, 'a> Sink<'s, 'a> {
             *covered.entry(c).or_default() += n;
         }
         drop(covered);
+        let mut placeless = sh.placeless.lock().unwrap();
+        for (c, n) in self.placeless.drain() {
+            *placeless.entry(c).or_default() += n;
+        }
+        drop(placeless);
         let mut remap = vec![0u32; self.aggs.len()];
         // per local street: its local postcode slots -> slots in the merged street's list, and
         // the local list itself for the houses whose postcode has no merged slot
@@ -2292,6 +2310,13 @@ fn build(args: &[String]) {
             shared.rows.swap(0, Relaxed)
         ));
     }
+    let mut placeless: Vec<_> = shared.placeless.lock().unwrap().drain().collect();
+    placeless.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    let placeless: Vec<String> = placeless
+        .iter()
+        .map(|(c, n)| format!("{} {n}", country_str(c)))
+        .collect();
+    println!("  rows in no place, by country: {}", placeless.join(" "));
     for zip in &opt("--korea-shops") {
         let files = sources::korea_shops(Path::new(zip), &shared);
         lap(&format!(

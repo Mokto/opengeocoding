@@ -565,6 +565,20 @@ impl Assigner {
         regions.all(|p| p == first).then_some(first)
     }
 
+    /// The most specific administration above a locality whose polygon holds the point.
+    pub fn admin(&self, x: f64, y: f64) -> Option<u32> {
+        self.levels
+            .at(&self.polys, x, y)
+            .filter(|p| p.kind != 0 && p.contains(&self.data, x, y))
+            .min_by(|a, b| {
+                a.kind
+                    .cmp(&b.kind)
+                    .then(a.area().total_cmp(&b.area()))
+                    .then(a.place.cmp(&b.place))
+            })
+            .map(|p| p.place)
+    }
+
     /// Source country, else the containing administration, constrains every settlement candidate.
     pub fn place_in(&self, x: f64, y: f64, cc: Option<[u8; 2]>) -> Option<u32> {
         if !self.within(x, y) {
@@ -575,17 +589,9 @@ impl Assigner {
                 .at(&self.polys, x, y)
                 .filter(|p| p.contains(&self.data, x, y))
         };
-        let cc = cc.map(canonical_country).or_else(|| {
-            containing()
-                .filter(|p| p.kind != 0)
-                .min_by(|a, b| {
-                    a.kind
-                        .cmp(&b.kind)
-                        .then(a.area().total_cmp(&b.area()))
-                        .then(a.place.cmp(&b.place))
-                })
-                .map(|p| self.countries[p.place as usize])
-        });
+        let cc = cc
+            .map(canonical_country)
+            .or_else(|| self.admin(x, y).map(|p| self.countries[p as usize]));
         let allowed = |p: u32| {
             cc.is_none_or(|c| c == self.countries[p as usize] || c == self.sovereigns[p as usize])
         };

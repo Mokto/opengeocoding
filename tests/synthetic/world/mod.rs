@@ -204,6 +204,7 @@ const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
     ("cl-ma", "region", true, true, -71.0, -53.0, 0.5),
     ("wf-reefward", "region", true, true, -150.0, -20.0, 0.4),
     ("ad-08", "region", true, true, 100.0, 70.0, 0.6),
+    ("uy-ro", "region", true, true, -53.9, -33.9, 0.5),
     ("si-tolmin", "region", true, true, 120.0, -45.0, 0.5),
     ("si-kanal", "region", true, true, 121.5, -45.0, 0.5),
     ("si-koper", "region", true, true, 123.0, -45.0, 0.5),
@@ -1037,7 +1038,8 @@ pub fn write_geonames(path: &Path) {
     .unwrap();
 }
 
-/// `FEATURES` as an OSM PBF file sorted by type then id, one block per type, as Geofabrik's are.
+/// `FEATURES` and Uruguay's as an OSM PBF file sorted by type then id, one block per type, as
+/// Geofabrik's are.
 pub fn write_osm(dir: &Path) {
     let mut table: Vec<&str> = vec!["", "outer"];
     let mut sid = |s: &'static str| match table.iter().position(|t| *t == s) {
@@ -1064,7 +1066,7 @@ pub fn write_osm(dir: &Path) {
         node_messages.push(n);
         id
     };
-    for f in FEATURES {
+    for f in FEATURES.iter().chain(uy::FEATURES) {
         let t = tags(f);
         let r = match f.shape {
             Shape::Node => {
