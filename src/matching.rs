@@ -427,6 +427,64 @@ pub fn country_matches(expected: &str, details: Option<&AddressDetails>) -> bool
         })
 }
 
+pub fn numeric_place_supported(query: &str, found: &FullAddress) -> bool {
+    let name = found.display_name.split(',').next().unwrap_or("").trim();
+    if name.is_empty() || !name.chars().all(char::is_numeric) {
+        return true;
+    }
+    let Some(d) = found.address_details.as_option() else {
+        return false;
+    };
+    let places = [
+        &d.city,
+        &d.town,
+        &d.village,
+        &d.hamlet,
+        &d.municipality,
+        &d.suburb,
+        &d.city_district,
+        &d.neighbourhood,
+        &d.quarter,
+        &d.county,
+        &d.state_district,
+        &d.state,
+        &d.province,
+        &d.region,
+    ];
+    if !d.road.is_empty()
+        || !d.house_number.is_empty()
+        || !places.iter().any(|p| names_agree(name, p))
+    {
+        return true;
+    }
+    let countries: Vec<_> = query
+        .split([',', ';'])
+        .flat_map(|p| {
+            let words: Vec<_> = p.split_whitespace().collect();
+            (0..words.len()).map(move |at| country_named(&words[at..].join(" ")))
+        })
+        .filter(|c| !c.is_empty())
+        .collect();
+    if countries.iter().any(|cc| !country_matches(cc, Some(d))) {
+        return false;
+    }
+    let written = format!(" {} ", normalize_place(query));
+    !countries.is_empty()
+        || places
+            .into_iter()
+            .map(String::as_str)
+            .chain(std::iter::once(d.country.as_str()))
+            .chain(
+                d.regions
+                    .iter()
+                    .flat_map(|r| [r.local_name.as_str(), r.en_name.as_str()]),
+            )
+            .any(|parent| {
+                let parent = normalize_place(parent);
+                parent.chars().any(char::is_alphabetic) && written.contains(&format!(" {parent} "))
+            })
+}
+
 /// Whether an answer filed under a territory's sovereign ("fr" for Réunion's places) lies in
 /// that territory: by its ISO 3166-2 code, or for the Caribbean Netherlands, whose places carry
 /// none, by its island.
