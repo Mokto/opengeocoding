@@ -1,5 +1,5 @@
 use super::*;
-use crate::index::country::{be, br, co, us};
+use crate::index::country::{aw_cw, be, br, co, us};
 
 /// A house number written as a part of its own, "12", "12A" or "nº 12", as the number:
 /// short enough not to be a postcode.
@@ -303,6 +303,11 @@ impl Index {
                     tries.push((Some(number), start > 0, road));
                 }
             }
+        }
+        if let Some(start) = aw_cw::shop_at(&raw) {
+            let mut road = raw.clone();
+            let number = road.drain(start..start + 3).collect::<Vec<_>>().join(" ");
+            tries.push((Some(number), start > 0, road));
         }
         // "Plot 5574 Magoye Road", "VLTA Block 3 Lot 21": a number OpenStreetMap keys with its
         // label ("Plot", "Lot", "PT", "No", "Km"). Only the house of that whole key counts, so

@@ -66,6 +66,18 @@ pub const PLACES: &[Place] = &[
         &[("en", "Willemstad")]
     ),
     place!(
+        "cw-sint-willibrordus",
+        "locality",
+        "village",
+        "CW",
+        "",
+        600,
+        (-69.065, 12.217),
+        "cw",
+        "Sint Willibrordus",
+        &[("en", "Sint Willibrordus")]
+    ),
+    place!(
         "cw-soto",
         "locality",
         "village",
@@ -79,41 +91,71 @@ pub const PLACES: &[Place] = &[
     ),
 ];
 
+const fn curacaoan(
+    name: &'static str,
+    city: &'static str,
+    (lon, lat): (f64, f64),
+    numbers: &'static [&'static str],
+) -> Street {
+    Street {
+        class: "residential",
+        length: 0.0,
+        name,
+        postcode: "",
+        city,
+        cc: "CW",
+        lon,
+        lat,
+        numbers,
+    }
+}
+
+/// Papaya bij Westpunt ("near Westpunt") runs 1.6 km from Weg naar Westpunt, which has a house
+/// 16 too.
 pub const STREETS: &[Street] = &[
-    Street {
-        class: "residential",
-        length: 0.0,
-        name: "Kaya Diabaas",
-        postcode: "",
-        city: "Jan Kok",
-        cc: "CW",
-        lon: -69.095,
-        lat: 12.255,
-        numbers: &["575"],
-    },
-    Street {
-        class: "residential",
-        length: 0.0,
-        name: "Kaya Granit",
-        postcode: "",
-        city: "Tera Kora",
-        cc: "CW",
-        lon: -69.078,
-        lat: 12.261,
-        numbers: &["1"],
-    },
-    Street {
-        class: "residential",
-        length: 0.0,
-        name: "Kaya Irena M. Schoop",
-        postcode: "",
-        city: "Soto",
-        cc: "CW",
-        lon: -69.0743,
-        lat: 12.2876,
-        numbers: &["1"],
-    },
+    curacaoan("Kaya Diabaas", "Jan Kok", (-69.095, 12.255), &["575"]),
+    curacaoan("Kaya Granit", "Tera Kora", (-69.078, 12.261), &["1"]),
+    curacaoan("Kaya Irena M. Schoop", "Soto", (-69.0743, 12.2876), &["1"]),
+    curacaoan(
+        "Papaya bij Westpunt",
+        "Westpunt",
+        (-69.153, 12.364),
+        &["16"],
+    ),
+    curacaoan("Weg naar Westpunt", "Westpunt", (-69.143, 12.374), &["16"]),
+    curacaoan(
+        "Kaminda San Sebastian",
+        "Sint Willibrordus",
+        (-69.061, 12.223),
+        &["A20"],
+    ),
+    curacaoan("Weg naar Santa Cruz", "Soto", (-69.118, 12.283), &["2"]),
+    curacaoan("Hoffi Abou", "Soto", (-69.101, 12.295), &["9"]),
 ];
+
+/// libpostal reads a number before the street as a venue (`house`) with it, a number after it
+/// into the road, "bij" (near) as a `near` field, and a street as a suburb.
+pub fn cases() -> Vec<Case> {
+    vec![
+        case(
+            "16 Papaya bij Westpunt, Westpunt, Curacao",
+            at_house("Papaya bij Westpunt", "16"),
+        ),
+        case(
+            "Papaya bij Westpunt 16, Westpunt, Curacao",
+            at_house("Papaya bij Westpunt", "16"),
+        ),
+        case(
+            "Kaminda San Sebastian A20, Sint Willibrordus, Curacao",
+            at_house("Kaminda San Sebastian", "A20"),
+        ),
+        case(
+            "2 Weg naar Santa Cruz, Soto, Curacao",
+            at_house("Weg naar Santa Cruz", "2"),
+        ),
+        case("9 Hoffi Abou, Soto, Curacao", at_house("Hoffi Abou", "9")),
+    ]
+}
 
 #[test]
 fn a_village_next_to_the_one_a_house_is_filed_under_still_suggests_it() {
