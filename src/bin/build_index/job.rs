@@ -100,7 +100,7 @@ pub fn job(args: Vec<String>) -> Result<()> {
     if let Some(d) = &got.openaddresses {
         build.extend(["--openaddresses".into(), d.to_string_lossy().into_owned()]);
     }
-    for d in got.ryhti.iter().chain(&got.denue) {
+    for d in got.ryhti.iter().chain(&got.denue).chain(&got.dgu) {
         build.extend(["--openaddresses".into(), d.to_string_lossy().into_owned()]);
     }
     if let Some(d) = &got.osm {
@@ -259,12 +259,16 @@ fn attribution(sources: &Sources, out: &Path, korea_shops: Option<&Path>) -> Res
     }
     if let Ok(read) = std::fs::read_to_string(out.join("openaddresses.tsv")) {
         text += "OpenAddresses (https://openaddresses.io), sources read and their licences:\n";
-        let (mut ryhti, mut denue) = (false, None);
+        let (mut ryhti, mut denue, mut dgu) = (false, None, false);
         for line in read.lines().skip(1) {
             let f: Vec<&str> = line.split('\t').collect();
             if f.get(2) == Some(&"true") {
                 if f[0].starts_with("fi_ryhti-") {
                     ryhti = true;
+                    continue;
+                }
+                if f[0].starts_with("uy_dgu-") {
+                    dgu = true;
                     continue;
                 }
                 if f[0].starts_with("mx_denue-") {
@@ -276,6 +280,9 @@ fn attribution(sources: &Sources, out: &Path, korea_shops: Option<&Path>) -> Res
         }
         if ryhti {
             text += "Finnish Environment Institute (Syke), Ryhti building addresses (Lähde: Syke Ryhti), CC BY 4.0, https://creativecommons.org/licenses/by/4.0/: the Finnish addresses it names only in Swedish\n";
+        }
+        if dgu {
+            text += "Infraestructura de Datos Espaciales (IDE Uruguay), on information of the Correo Uruguayo, Direcciones Geográficas del Uruguay (https://catalogodatos.gub.uy/dataset/ide-direcciones-geograficas-del-uruguay), Licencia de Datos Abiertos – Uruguay: the Uruguayan doors with a letter, read from its department files\n";
         }
         if let (Some(shown), Some(d)) = (denue, &sources.denue) {
             text += &format!(
@@ -316,14 +323,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ryhti_is_credited_to_syke_not_openaddresses() {
+    fn ryhti_and_dgu_are_credited_to_their_publishers_not_openaddresses() {
         let out = std::env::temp_dir().join(format!("attribution-test-{}", std::process::id()));
         std::fs::create_dir_all(&out).unwrap();
         std::fs::write(
             out.join("openaddresses.tsv"),
             "file\tlicence\tread\tbytes\tlicense\n\
              fi_countrywide-sv-country.geojson.gz\tOpen\ttrue\t1\tCC BY 4.0 | Syke\n\
-             fi_ryhti-swedish.geojson.gz\tOpen\ttrue\t1\tCC BY 4.0 | Syke Ryhti\n",
+             fi_ryhti-swedish.geojson.gz\tOpen\ttrue\t1\tCC BY 4.0 | Syke Ryhti\n\
+             uy_dgu-letters.geojson.gz\tOpen\ttrue\t1\tLicencia | IDE\n",
         )
         .unwrap();
         let sources: Sources =
@@ -332,6 +340,8 @@ mod tests {
         assert!(text.contains("  fi_countrywide-sv-country.geojson.gz: CC BY 4.0 | Syke\n"));
         assert!(!text.contains("fi_ryhti-"));
         assert!(text.contains("Lähde: Syke Ryhti"));
+        assert!(!text.contains("uy_dgu-"));
+        assert!(text.contains("Direcciones Geográficas del Uruguay"));
         std::fs::remove_dir_all(out).unwrap();
     }
 

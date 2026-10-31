@@ -411,8 +411,9 @@ pub struct Parser {
 }
 
 impl Parser {
-    /// Parses kept by default: a resolve parses its query twice (resolver, then index) and
-    /// libpostal's single lock is the service's throughput limit.
+    /// Parses kept across requests by default: libpostal's single lock is the service's
+    /// throughput limit, and a repeated query skips it. Within a request, `Index::memoized`
+    /// keeps them anyway.
     pub const DEFAULT_CACHE: usize = 65_536;
 
     /// Loads the models, caching [`Self::DEFAULT_CACHE`] parses.
@@ -450,6 +451,11 @@ impl Parser {
     // ponytail: one lock serializes every libpostal call (the parser keeps one scratch context
     // in native state, so parses cannot overlap). The cache is emptied when full, not an LRU.
     pub fn parse(&self, q: &str) -> Result<Parsed> {
+        if let Some(hit) =
+            MEMO.with_borrow(|memo| memo.as_ref().and_then(|m| m.parses.get(q).cloned()))
+        {
+            return Ok(hit);
+        }
         if self.capacity > 0
             && let Some(hit) = self.cache.lock().unwrap_or_else(|e| e.into_inner()).get(q)
         {
@@ -543,6 +549,24 @@ impl Parser {
                 && let [head, ref places @ ..] = parts[..]
             {
                 aligned = tw::aligned(head, places);
+            }
+            if aligned.is_none()
+                && country.as_ref().is_some_and(|(_, c)| th::thailand(c))
+                && !whole.iter().any(|(k, _)| k == "house_number")
+                && let [head, ref rest @ ..] = parts[..]
+                && !rest.is_empty()
+                && let Some((number, road)) = th::village_head(head)
+            {
+                let mut a = vec![
+                    ("house_number".to_string(), number.to_lowercase()),
+                    ("road".to_string(), road.to_lowercase()),
+                ];
+                a.extend(
+                    libpostal(rest.join(",").trim())?
+                        .into_iter()
+                        .filter(|(k, _)| !matches!(k.as_str(), "road" | "house_number" | "house")),
+                );
+                aligned = Some(a);
             }
             match parts[..] {
                 _ if aligned.is_some() => {}
@@ -663,9 +687,12 @@ impl Parser {
                 .or_else(|| si::aligned(q))
                 .or_else(|| lt::aligned(q))
                 .or_else(|| lv::aligned(q))
+                .or_else(|| aw_cw::aligned(q, &parsed))
             {
                 parsed = read;
             }
+            th::rejoin_cut_words(q, &mut parsed);
+            th::lane_as_road(q, &mut parsed);
             unit_from_road(&mut parsed);
             number_from_house(q, &mut parsed);
             numbered_ruta(&mut parsed);
@@ -686,6 +713,10 @@ impl Parser {
             }
             cache.insert(q.into(), parsed.clone());
         }
+        MEMO.with_borrow_mut(|memo| {
+            memo.as_mut()
+                .map(|m| m.parses.insert(q.into(), parsed.clone()))
+        });
         Ok(parsed)
     }
 

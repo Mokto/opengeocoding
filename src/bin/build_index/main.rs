@@ -1262,8 +1262,11 @@ struct PcAgg {
 }
 
 impl PcAgg {
+    /// Shows the smallest form written without a dot, so one mapper's "20.000" does not become
+    /// every Maldonado house's postcode 20000.
     fn add(&mut self, display: &str, x: i64, y: i64, n: u64) {
-        if self.n == 0 || display < &*self.display {
+        let rank = (display.contains('.'), display);
+        if self.n == 0 || rank < (self.display.contains('.'), &*self.display) {
             self.display = display.into();
         }
         (self.sx, self.sy, self.n) = (self.sx + x, self.sy + y, self.n + n);
@@ -2916,6 +2919,22 @@ mod tests {
             assert_eq!(base[0].key(i), head[0].key(i));
         }
         assert_eq!(head[0].key(2).0, *b"KR");
+    }
+
+    #[test]
+    fn a_postcode_shows_a_form_without_dots_whatever_the_order() {
+        for forms in [["20.000", "20000"], ["20000", "20.000"]] {
+            let mut agg = PcAgg::default();
+            for form in forms {
+                agg.add(form, 0, 0, 1);
+            }
+            assert_eq!(&*agg.display, "20000");
+        }
+        let mut agg = PcAgg::default();
+        for form in ["SW1A1AA", "SW1A 1AA"] {
+            agg.add(form, 0, 0, 1);
+        }
+        assert_eq!(&*agg.display, "SW1A 1AA");
     }
 
     #[test]

@@ -38,7 +38,7 @@ index:
   # test` fails when the code and this disagree. Changing it, or anything under sources or
   # modelsVersion, names a new index: the leader builds it while the running pods keep
   # serving the old one.
-  builderHash: "8792d42019a7bbbe"
+  builderHash: "dbec0f0cae254966"
   modelsVersion: v1
   sources:
     overtureRelease: "2026-10-21.0"
@@ -63,6 +63,9 @@ index:
     # moving `before` means sampling that corpus again (docs/evaluation/registry/mx.md).
     denue:
       before: "2025"
+    # The doors with a letter ("109 BIS", "283A") of IDE Uruguay's address base, which
+    # OpenAddresses' Uruguay layers publish without it; fetched under `snapshot`.
+    dgu: true
     # GeoNames postal-code exports; earlier entries win for a postcode several define.
     geonamesPostal:
       - GB_full.csv

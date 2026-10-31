@@ -19,6 +19,7 @@ mod gurs;
 mod kartverket;
 mod korea;
 mod linz;
+mod llv;
 mod nad;
 mod nar;
 mod onemap;
@@ -74,6 +75,7 @@ pub const ALL: &[Registry] = &[
     varis::REGISTRY,
     dgu::REGISTRY,
     stadfangaskra::REGISTRY,
+    llv::REGISTRY,
 ];
 
 type Prepare = fn(&Path, &BTreeSet<String>) -> Result<BTreeMap<String, Entry>>;
