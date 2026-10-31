@@ -698,6 +698,7 @@ pub fn write_release(dir: &Path) {
             (p.id, p.subtype, true, true, p.lon, p.lat, r)
         })
         .chain(AREAS.iter().copied())
+        .chain(au::AREAS.iter().copied())
         .collect();
     write(
         dir,

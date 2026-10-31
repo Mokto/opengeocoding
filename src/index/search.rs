@@ -179,6 +179,20 @@ impl Index {
                 cc,
                 exact,
             );
+            if hits.is_empty()
+                && cc == Some("us")
+                && let Some(expanded) = country::us::full_road(road)
+            {
+                hits = self.streets_in(
+                    &expanded,
+                    get("house_number").map(house_number),
+                    resolved_city.as_deref(),
+                    None,
+                    get("postcode"),
+                    cc,
+                    exact,
+                );
+            }
             if let Some(found) = self.hk_house_anywhere(
                 &hits,
                 road,
@@ -364,6 +378,24 @@ impl Index {
                     }
                 }
             }
+        }
+        if let (Some(hit), Some(city)) = (hits.first(), city)
+            && get("house_number").is_some()
+            && parsed.iter().all(|(key, _)| {
+                matches!(key.as_str(), "house_number" | "road" | "city" | "country")
+            })
+            && !hits.iter().any(|h| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        ..
+                    }
+                )
+            })
+            && let Some(place) = self.street_supported_neighborhood(hit, city, cc)
+        {
+            return vec![place];
         }
         // "1516 Ruth Avenue, OH": a house with only its US state to place it, answered when the
         // state holds that number on one street of that name.

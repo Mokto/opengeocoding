@@ -609,6 +609,7 @@ impl Core {
                                 })))
                         || postcode_agrees(postcode, details))
                     && (postcode_matches(postcode, details) || house_road_city(address, details))
+                    && !au::municipal_conflict(&self.index, &candidates[*i], address, postcode)
                     && !ee::municipality_conflict(address, details)
                     && !si::municipality_conflict(address, details)
                     && (part(address, "city").is_empty()
@@ -1645,7 +1646,17 @@ impl Core {
                         // department)
                         || (!locality(Some(d)) && d.hamlet.is_empty() && named(&d.county)))
                     && (stated.is_some() || parts_named());
-                if verified {
+                if verified
+                    && !(d.country_code == "au"
+                        && self.parse(query)?.is_some_and(|parsed| {
+                            au::municipal_conflict(
+                                &self.index,
+                                &value,
+                                &parsed,
+                                part(&parsed, "postcode"),
+                            )
+                        }))
+                {
                     houses.push(house);
                 }
             }

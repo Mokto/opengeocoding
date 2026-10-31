@@ -4,6 +4,64 @@ use crate::matching::*;
 use regex::Regex;
 use std::sync::LazyLock;
 
+// A city and its metropolitan locality can share a name without sharing a municipal boundary.
+pub(crate) fn municipal_conflict(
+    index: &Index,
+    candidate: &serde_json::Value,
+    parsed: &ParsedAddress,
+    postcode: &str,
+) -> bool {
+    let city = part(parsed, "city");
+    let address = &candidate["address"];
+    if address["country_code"] != "au"
+        || city.is_empty()
+        || address["road"].as_str().is_none_or(str::is_empty)
+        || (!postcode.is_empty()
+            && address["postcode"]
+                .as_str()
+                .is_some_and(|own| pc_norm(own) == pc_norm(postcode)))
+        || address["postal_town"].as_str().is_some_and(|town| {
+            ["city", "suburb", "city_district"].iter().any(|key| {
+                let stated = part(parsed, key);
+                !stated.is_empty() && names_agree(stated, town)
+            })
+        })
+    {
+        return false;
+    }
+    let at = |key: &str| candidate[key].as_str().and_then(|v| v.parse::<f64>().ok());
+    let Some((x, y)) = at("lon").zip(at("lat")) else {
+        return false;
+    };
+    let Some(containing) = index.area_at(y, x).0 else {
+        return false;
+    };
+    let county = &index.places[containing as usize];
+    if county.subtype.as_ref() != "county" {
+        return false;
+    }
+    let city = normalize_place(city);
+    let municipalities = index.places(&city, Some("au"), None, &|p| {
+        p.subtype.as_ref() == "county"
+            && p.region == county.region
+            && p.all_names()
+                .any(|name| normalize_place(name).strip_prefix("city of ") == Some(city.as_str()))
+    });
+    let mut municipalities = municipalities.into_iter().filter_map(|h| match h {
+        Hit::Place(p) => Some(p),
+        _ => None,
+    });
+    let Some(municipality) = municipalities.next() else {
+        return false;
+    };
+    municipalities.next().is_none()
+        && !index
+            .areas
+            .iter()
+            .flat_map(|areas| areas.containing(y, x))
+            .any(|(_, p)| p == municipality)
+}
+
 /// An Australian unit before its building's number: "1/44 Macleay St", "Unit 1 44 Macleay St"
 /// or "Unit 1, 44 Macleay St". The unit as typed, whether a slash joined it to the number, and
 /// the text without it.

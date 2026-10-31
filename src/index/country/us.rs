@@ -20,6 +20,17 @@ pub(in crate::index) fn municipality(town: &str) -> Option<&str> {
         .filter(|n| !n.is_empty())
 }
 
+pub(crate) fn full_road(road: &str) -> Option<String> {
+    let words = fold(road);
+    words.split(' ').any(|word| word == "mtn").then(|| {
+        words
+            .split(' ')
+            .map(|word| if word == "mtn" { "mountain" } else { word })
+            .collect::<Vec<_>>()
+            .join(" ")
+    })
+}
+
 /// Words a trailing secondary unit takes at the end of `words` ("Apt 106", "Ste B", "#5"): 0 when
 /// it has none.
 fn unit_words(words: &[&str]) -> usize {
