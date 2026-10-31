@@ -50,6 +50,9 @@ const STREET: u64 = 1 << 40;
 const HOUSE: u64 = 2 << 40;
 const POSTCODE: u64 = 3 << 40;
 const STREET_CANDIDATES: usize = 20;
+/// Terms a union may have to be an `AnyTerm`, which seeks each: with more, tantivy's union,
+/// which reads them a window at a time, is the cheaper.
+const ANY_TERMS: usize = 16;
 /// Decompressed doc store blocks (16 KB each) a segment keeps: tantivy's default of 100 for each
 /// of the four segments indexes had before they became one.
 const DOC_STORE_BLOCKS: usize = 400;
@@ -441,6 +444,37 @@ fn names_hold<'a>(mut names: impl Iterator<Item = &'a str>, words: &[String]) ->
         let n = n.to_lowercase();
         words.iter().all(|w| n.contains(w.as_str()))
     })
+}
+
+/// `q` with each union of a few terms (at most `ANY_TERMS`) read as an `AnyTerm`.
+fn any_term(q: Box<dyn TQuery>) -> Box<dyn TQuery> {
+    let Some(b) = q.downcast_ref::<BooleanQuery>() else {
+        return q;
+    };
+    let terms: Option<Vec<Term>> = b
+        .clauses()
+        .iter()
+        .map(|(occur, q)| {
+            (*occur == Occur::Should)
+                .then(|| q.downcast_ref::<TermQuery>().map(|t| t.term().clone()))
+                .flatten()
+        })
+        .collect();
+    match terms {
+        Some(terms)
+            if (2..=ANY_TERMS).contains(&terms.len())
+                && b.get_minimum_number_should_match() <= 1 =>
+        {
+            Box::new(AnyTerm(terms))
+        }
+        _ => Box::new(BooleanQuery::with_minimum_required_clauses(
+            b.clauses()
+                .iter()
+                .map(|(occur, q)| (*occur, any_term(q.box_clone())))
+                .collect(),
+            b.get_minimum_number_should_match(),
+        )),
+    }
 }
 
 fn must(q: Box<dyn TQuery>) -> (Occur, Box<dyn TQuery>) {
@@ -851,6 +885,10 @@ impl Index {
                 .map(|(occur, q)| (*occur, self.in_country(q.as_ref(), &cc)))
                 .collect();
         }
+        cl = cl
+            .into_iter()
+            .map(|(occur, q)| (occur, any_term(q)))
+            .collect();
         cl.insert(0, must(Box::new(self.kinds[kind as usize].clone())));
         let by = ByImportance {
             n,

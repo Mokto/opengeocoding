@@ -170,6 +170,113 @@ impl tantivy::query::Scorer for Span {
     }
 }
 
+/// A union of a few terms, as a lookup's scope ("ids:1 OR ids:2") is: tantivy's union fills a
+/// window of 4,096 documents from every term on each seek, which for a large place (a country's
+/// millions of streets) cost more than the rest of the lookup; this seeks each term instead.
+#[derive(Clone, Debug)]
+pub(super) struct AnyTerm(pub(super) Vec<Term>);
+
+impl tantivy::query::Query for AnyTerm {
+    fn weight(
+        &self,
+        _: tantivy::query::EnableScoring<'_>,
+    ) -> tantivy::Result<Box<dyn tantivy::query::Weight>> {
+        Ok(Box::new(self.clone()))
+    }
+}
+
+impl tantivy::query::Weight for AnyTerm {
+    fn scorer(
+        &self,
+        reader: &tantivy::SegmentReader,
+        _: tantivy::Score,
+    ) -> tantivy::Result<Box<dyn tantivy::query::Scorer>> {
+        use tantivy::DocSet;
+        let mut postings = vec![];
+        for t in &self.0 {
+            if let Some(p) = reader
+                .inverted_index(t.field())?
+                .read_postings(t, IndexRecordOption::Basic)?
+                && p.doc() != tantivy::TERMINATED
+            {
+                postings.push(p);
+            }
+        }
+        let doc = postings
+            .iter()
+            .map(|p| p.doc())
+            .min()
+            .unwrap_or(tantivy::TERMINATED);
+        Ok(Box::new(Any { postings, doc }))
+    }
+
+    fn explain(
+        &self,
+        _: &tantivy::SegmentReader,
+        _: tantivy::DocId,
+    ) -> tantivy::Result<tantivy::query::Explanation> {
+        Err(tantivy::TantivyError::InvalidArgument(
+            "AnyTerm does not score".into(),
+        ))
+    }
+}
+
+/// The documents of any of `postings`; `doc` is the least of theirs.
+struct Any {
+    postings: Vec<tantivy::postings::SegmentPostings>,
+    doc: tantivy::DocId,
+}
+
+impl tantivy::DocSet for Any {
+    fn advance(&mut self) -> tantivy::DocId {
+        let at = self.doc;
+        let mut doc = tantivy::TERMINATED;
+        for p in &mut self.postings {
+            let d = if p.doc() == at { p.advance() } else { p.doc() };
+            doc = doc.min(d);
+        }
+        self.doc = doc;
+        doc
+    }
+
+    fn seek(&mut self, target: tantivy::DocId) -> tantivy::DocId {
+        if self.doc >= target {
+            return self.doc;
+        }
+        let mut doc = tantivy::TERMINATED;
+        for p in &mut self.postings {
+            let d = if p.doc() < target {
+                p.seek(target)
+            } else {
+                p.doc()
+            };
+            doc = doc.min(d);
+        }
+        self.doc = doc;
+        doc
+    }
+
+    fn doc(&self) -> tantivy::DocId {
+        self.doc
+    }
+
+    fn size_hint(&self) -> u32 {
+        self.postings
+            .iter()
+            .fold(0u32, |n, p| n.saturating_add(p.size_hint()))
+    }
+
+    fn cost(&self) -> u64 {
+        self.postings.iter().map(|p| p.cost()).sum()
+    }
+}
+
+impl tantivy::query::Scorer for Any {
+    fn score(&mut self) -> tantivy::Score {
+        1.0
+    }
+}
+
 /// The kind of a document: `kind` is a string field whose terms (about 40 million street
 /// documents in a world index) are far longer than any name's, and intersecting with them walks
 /// postings the query needs none of. The fast columns tell the kinds apart as well: places have

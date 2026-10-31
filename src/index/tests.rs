@@ -500,8 +500,8 @@ fn separates_kinds_and_countries(words: bool) {
         .unwrap();
     let docs = [
         tantivy::doc!(f.kind => "p", f.names => "oak", f.country => "US", f.id => 7u64, f.importance => 1u64),
-        tantivy::doc!(f.kind => "s", f.names => "oak", f.city => "Springfield", f.country => "US", f.pcode => "12345", f.id => 8u64, f.place => 7u64, f.importance => 2u64),
-        tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "DK", f.id => 9u64, f.place => 7u64, f.importance => 3u64),
+        tantivy::doc!(f.kind => "s", f.names => "oak", f.city => "Springfield", f.country => "US", f.pcode => "12345", f.ids => "1", f.id => 8u64, f.place => 7u64, f.importance => 2u64),
+        tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "DK", f.ids => "2", f.id => 9u64, f.place => 7u64, f.importance => 3u64),
         tantivy::doc!(f.kind => "z", f.pcode => "12345", f.country => "US", f.place => 7u64, f.importance => 4u64),
         tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "DK", f.id => 11u64, f.place => 7u64, f.importance => 1u64),
         tantivy::doc!(f.kind => "p", f.names => "oak", f.country => "DK", f.id => 10u64, f.importance => 5u64),
@@ -590,6 +590,44 @@ fn separates_kinds_and_countries(words: bool) {
     assert!(
         index
             .top_of(Kind::Street, Some("dk"), in_town(), 10)
+            .is_empty()
+    );
+    let any = |ids: &[&str]| {
+        let terms = ids.iter().map(|id| Term::from_field_text(index.f.ids, id));
+        let query = AnyTerm(terms.collect());
+        index
+            .searcher
+            .search(&query, &tantivy::collector::Count)
+            .unwrap()
+    };
+    assert_eq!(
+        (any(&["2", "1"]), any(&["1", "3"]), any(&["3", "4"])),
+        (2, 1, 0)
+    );
+    let in_places = |ids: &[&str]| {
+        vec![must(Box::new(BooleanQuery::new(
+            ids.iter()
+                .map(|id| (Occur::Should, term(index.f.ids, id)))
+                .collect(),
+        )))]
+    };
+    for scope in [["1", "2", "3"], ["3", "2", "1"]] {
+        assert_eq!(
+            ids(index.top_of(Kind::Street, None, in_places(&scope), 10)),
+            [8, 9]
+        );
+    }
+    assert_eq!(
+        ids(index.top_of(Kind::Street, Some("dk"), in_places(&["1", "2"]), 10)),
+        [9]
+    );
+    assert_eq!(
+        ids(index.top_of(Kind::Street, None, in_places(&["2"]), 10)),
+        [9]
+    );
+    assert!(
+        index
+            .top_of(Kind::Street, None, in_places(&["3", "4"]), 10)
             .is_empty()
     );
     assert!(index.any_of(Kind::Street, Some("dk"), names()));
