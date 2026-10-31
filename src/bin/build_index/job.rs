@@ -176,10 +176,13 @@ pub fn fetch(args: Vec<String>) -> Result<()> {
 const VERIFY_SAMPLE: usize = 200;
 const VERIFY_MIN_PERCENT: usize = 80;
 
-/// Evenly spaced place names from `places.tsv`, skipping names too short to search for.
+/// Evenly spaced place names from `places.tsv`, skipping names too short to search for and the
+/// GeoNames places a search finds only as "<name>, <country>" (`SMALL_GEONAMES`).
 fn sample_names(places: &str) -> Vec<&str> {
+    use opengeocoding::index::schema::SMALL_GEONAMES;
     let names: Vec<&str> = places
         .lines()
+        .filter(|l| l.split('\t').nth(1) != Some(SMALL_GEONAMES))
         .filter_map(|l| l.split('\t').nth(13))
         .filter(|n| n.len() > 3)
         .collect();
@@ -392,5 +395,7 @@ mod tests {
         let small = places[..5].join("\n");
         assert_eq!(sample_names(&small).len(), 4);
         assert!(sample_names("").is_empty());
+        let hamlet = "a\tgeonames_small\tc\td\te\tf\tg\th\ti\tj\tk\tl\tm\tKleinweiler\tx";
+        assert_eq!(sample_names(&format!("{small}\n{hamlet}")).len(), 4);
     }
 }
