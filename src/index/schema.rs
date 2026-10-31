@@ -45,6 +45,30 @@ pub fn fold_into(s: &str, out: &mut String) {
     });
 }
 
+/// A `cnames` or `ccity` term: a folded word of a document of `country` (its `country` term).
+pub fn country_word(country: &str, word: &str) -> String {
+    format!("{country}|{word}")
+}
+
+/// The `cnames` (or `ccity`) terms of a document of `country` whose `names` (or `city`) field
+/// reads `names`: the words the `fold` analyzer indexes for it, each behind the country.
+pub fn country_words(country: &str, names: &str) -> Vec<String> {
+    if country.is_empty() {
+        return vec![];
+    }
+    let mut words = vec![];
+    FOLD.with(|a| {
+        let mut a = a.borrow_mut();
+        let mut ts = a.token_stream(names);
+        while ts.advance() {
+            words.push(country_word(country, &ts.token().text));
+        }
+    });
+    words.sort_unstable();
+    words.dedup();
+    words
+}
+
 pub fn fold(s: &str) -> String {
     let mut out = String::new();
     fold_into(s, &mut out);
@@ -115,7 +139,12 @@ pub struct Fields {
     pub country: Field,
     pub ids: Field,
     pub pcode: Field,
-    pub ctok: Field,
+    /// Each word of `names` behind its document's country (`country_words`): a lookup in one
+    /// country reads that country's postings of a word, not those of every country, whose
+    /// skip lists tantivy walks one block at a time.
+    pub cnames: Field,
+    /// The same for `city`.
+    pub ccity: Field,
     pub name: Field,
     pub id: Field,
     pub importance: Field,
@@ -146,7 +175,8 @@ pub fn schema() -> (Schema, Fields) {
         country: b.add_text_field("country", STRING),
         ids: b.add_text_field("ids", STRING),
         pcode: b.add_text_field("pcode", STRING | STORED),
-        ctok: b.add_text_field("ctok", STRING),
+        cnames: b.add_text_field("cnames", STRING),
+        ccity: b.add_text_field("ccity", STRING),
         name: b.add_text_field("name", STORED),
         id: b.add_u64_field("id", FAST),
         importance: b.add_u64_field("importance", FAST),
@@ -167,7 +197,7 @@ pub fn create(
     let index = Index::create_in_dir(out, schema).unwrap();
     index.tokenizers().register("fold", analyzer());
     let writer = index.writer_with_num_threads(threads, budget).unwrap();
-    // Segments are merged once at the end (build_index's FINAL_SEGMENTS), not while indexing.
+    // Segments are merged once at the end (build_index's STREET_MERGES), not while indexing.
     writer.set_merge_policy(Box::new(tantivy::merge_policy::NoMergePolicy));
     (index, writer, f)
 }

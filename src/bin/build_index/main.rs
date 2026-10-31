@@ -69,11 +69,12 @@ const MAX_ALT_NAMES: usize = 64;
 /// sorts, so more of them fit in memory at once.
 const NUMBER_SHARDS: usize = 64;
 const MAX_WRITER_THREADS: usize = 16;
-/// Segments left after the final merge. The writer leaves one per arena flush (319 for a world
-/// index); each query looks its terms up in every segment, so queries cost about that many
-/// times more. Merging in four parallel groups took 40 s for the world index; one segment took
-/// 140 s and queried no faster.
-const FINAL_SEGMENTS: usize = 4;
+/// Groups the street segments are merged in, in parallel, before everything is merged into one
+/// segment. The writer leaves one segment per arena flush (84 for a world index), and a query
+/// looks its terms up in every segment: four took 40 s to merge and queried 13% slower than one,
+/// which takes about 30 s more. `reverse::pack_doc` fits 2^28 documents in a segment; a world
+/// index has 53 million.
+const STREET_MERGES: usize = 4;
 const NAME_SEP: char = '\u{1f}';
 const GB: f64 = (1u64 << 30) as f64;
 
@@ -2417,27 +2418,48 @@ fn build(args: &[String]) {
         budget as f64 / GB,
         headroom.min(1 << 50) as f64 / GB
     );
-    let (index, writer, f) = schema::create(out, threads, budget);
+    let (index, mut writer, f) = schema::create(out, threads, budget);
+    // The segments each kind's commit adds, by kind: places, streets, postcodes.
+    let mut kinds: Vec<Vec<(u64, tantivy::index::SegmentId)>> = vec![];
+    let mut commit = |writer: &mut tantivy::IndexWriter<_>| {
+        writer.commit().unwrap();
+        let seen: HashSet<_> = kinds.iter().flatten().map(|(_, id)| *id).collect();
+        kinds.push(
+            index
+                .searchable_segment_metas()
+                .unwrap()
+                .iter()
+                .filter(|m| !seen.contains(&m.id()))
+                .map(|m| (m.max_doc() as u64, m.id()))
+                .collect(),
+        );
+    };
     places
         .par_iter()
         .enumerate()
         .filter(|(_, p)| !p.names.is_empty())
         .for_each(|(i, p)| {
+            let names = p.names.replace(NAME_SEP, " ");
+            let cnames = schema::country_words(country_str(&p.country), &names);
             let mut d = doc!(
                 f.kind => "p",
-                f.names => p.names.replace(NAME_SEP, " "),
+                f.names => names,
                 f.country => country_str(&p.country),
                 f.ids => i.to_string(),
                 f.name => p.names.split(NAME_SEP).next().unwrap_or(""),
                 f.id => i as u64,
                 f.importance => p.population + place_weight(p.subtype),
             );
+            for w in cnames {
+                d.add_text(f.cnames, w);
+            }
             if let Some((x, y)) = p.xy {
                 d.add_f64(f.x, x);
                 d.add_f64(f.y, y);
             }
             writer.add_document(d).unwrap();
         });
+    commit(&mut writer);
     lap("place docs");
 
     let street_doc = |sid: u32,
@@ -2450,10 +2472,14 @@ fn build(args: &[String]) {
                       (x, y): (f64, f64),
                       weight: u64| {
         let cities: Vec<&str> = cities.iter().map(|&c| strings.get(c)).collect();
+        let joined = names.join(" ");
+        let cnames = schema::country_words(cc, &joined);
+        let cities = cities.join(" ");
+        let ccity = schema::country_words(cc, &cities);
         let mut d = doc!(
             f.kind => "s",
-            f.names => names.join(" "),
-            f.city => cities.join(" "),
+            f.names => joined,
+            f.city => cities,
             f.country => cc,
             f.id => sid as u64,
             f.place => place as u64,
@@ -2463,6 +2489,12 @@ fn build(args: &[String]) {
         );
         for n in names {
             d.add_text(f.name, n);
+        }
+        for w in cnames {
+            d.add_text(f.cnames, w);
+        }
+        for w in ccity {
+            d.add_text(f.ccity, w);
         }
         for &pc in pcs {
             d.add_text(f.pcode, strings.get(pc));
@@ -2487,15 +2519,6 @@ fn build(args: &[String]) {
             d.add_text(f.ids, place.to_string());
             for a in places[place as usize].anc.iter() {
                 d.add_text(f.ids, a.to_string());
-            }
-            let mut toks: Vec<String> = names
-                .iter()
-                .flat_map(|n| fold(n).split(' ').map(str::to_string).collect::<Vec<_>>())
-                .collect();
-            toks.sort_unstable();
-            toks.dedup();
-            for tok in toks.iter().filter(|t| !t.is_empty()) {
-                d.add_text(f.ctok, format!("{place}|{tok}"));
             }
         }
         writer.add_document(d).unwrap();
@@ -2605,6 +2628,7 @@ fn build(args: &[String]) {
             g.n.into(),
         );
     });
+    commit(&mut writer);
     let seg_only = only.len() as u64;
     drop((only, segs));
     let merged = merged.load(Relaxed);
@@ -2628,33 +2652,39 @@ fn build(args: &[String]) {
             ))
             .unwrap();
     });
+    commit(&mut writer);
     lap(&format!("postcode docs ({})", postcodes.len()));
 
-    let mut writer = writer;
-    writer.commit().unwrap();
-    lap(&format!(
-        "index commit ({} segments)",
-        index.searchable_segment_ids().unwrap().len()
-    ));
-    let mut segments: Vec<_> = index
-        .searchable_segment_metas()
-        .unwrap()
-        .iter()
-        .map(|m| (m.max_doc() as u64, m.id()))
+    // One segment, its documents in kind order (places, postcodes, then streets): a lookup reads
+    // a word's postings up to the end of its kind's documents, and a place's words also name
+    // millions of streets.
+    let [places, mut streets, postcodes]: [Vec<_>; 3] = kinds.try_into().unwrap();
+    streets.sort_by_key(|s| std::cmp::Reverse(s.0));
+    let groups: Vec<Vec<tantivy::index::SegmentId>> = [places, postcodes]
+        .map(|k| k.into_iter().map(|(_, id)| id).collect())
+        .into_iter()
+        .chain(balanced(streets, STREET_MERGES))
+        .filter(|ids: &Vec<_>| !ids.is_empty())
         .collect();
-    segments.sort_by_key(|s| std::cmp::Reverse(s.0));
-    let merges: Vec<_> = balanced(segments, FINAL_SEGMENTS)
+    let merges: Vec<_> = groups
         .iter()
-        .filter(|ids| ids.len() > 1)
-        .map(|ids| writer.merge(ids))
+        .map(|ids| (ids.len() > 1).then(|| writer.merge(ids)))
         .collect();
-    for merge in merges {
-        merge.wait().unwrap();
+    let merged: Vec<tantivy::index::SegmentId> = merges
+        .into_iter()
+        .zip(&groups)
+        .map(|(merge, ids)| match merge {
+            Some(merge) => merge.wait().unwrap().unwrap().id(),
+            None => ids[0],
+        })
+        .collect();
+    if merged.len() > 1 {
+        writer.merge(&merged).wait().unwrap();
     }
     // the merged-away files, or the sealed index would carry both copies
     writer.garbage_collect_files().wait().unwrap();
     lap(&format!(
-        "segment merge ({} segments)",
+        "segment merge ({} segment)",
         index.searchable_segment_ids().unwrap().len()
     ));
     progress::phase("Build reverse lookup");
