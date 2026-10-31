@@ -100,6 +100,17 @@ pub fn without_danish_place(query: &str) -> Option<(String, String)> {
     })
 }
 
+/// "København N", "Aarhus C", "Odense SV": a Danish postal district, the town and a compass
+/// point or the centre. The index holds the town alone.
+pub fn postal_district_town(name: &str) -> Option<&str> {
+    let (town, district) = name.trim().rsplit_once(' ')?;
+    (matches!(
+        district.to_uppercase().as_str(),
+        "C" | "K" | "M" | "N" | "S" | "V" | "Ø" | "NV" | "NØ" | "SV" | "SØ"
+    ) && town.chars().filter(|c| c.is_alphabetic()).count() >= 3)
+        .then_some(town.trim())
+}
+
 impl Index {
     pub(in crate::index) fn suggest_floor(
         &self,
@@ -136,6 +147,19 @@ impl Index {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn postal_districts() {
+        assert_eq!(postal_district_town("København N"), Some("København"));
+        assert_eq!(postal_district_town("Odense SØ"), Some("Odense"));
+        assert_eq!(
+            postal_district_town("Frederiksberg C"),
+            Some("Frederiksberg")
+        );
+        assert_eq!(postal_district_town("København"), None);
+        assert_eq!(postal_district_town("Ry N"), None);
+        assert_eq!(postal_district_town("Sydney NS"), None);
+    }
 
     #[test]
     fn danish_unit_parts_are_floors_doors_and_nothing_else() {

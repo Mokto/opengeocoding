@@ -1907,3 +1907,107 @@ fn a_spaced_eircode_part_is_written_compact_and_palestine_by_its_short_name() {
     );
     assert_eq!(ps::as_palestine("Palestinian Territory"), None);
 }
+
+#[test]
+fn rewrites_of_unanswered_queries() {
+    let none = |_: &str| false;
+    let place = |t: &str| ["Galati", "St.Petersburg", "Fukuoka"].contains(&t);
+    assert_eq!(
+        english_country("6608 Kingspointe Pkwy, Orlando, FL 32819, EE. UU.").as_deref(),
+        Some("6608 Kingspointe Pkwy, Orlando, FL 32819, United States")
+    );
+    assert_eq!(
+        english_country("Boulevard Joseph Tirou 139, 6000 Charleroi, BE"),
+        None
+    );
+    assert_eq!(
+        english_country("1 Main St, Springfield, United States"),
+        None
+    );
+    assert_eq!(
+        slash_as_comma("Rua Claro Gomes, Nº 216, Taubaté/SP").as_deref(),
+        Some("Rua Claro Gomes, Nº 216, Taubaté, SP")
+    );
+    assert_eq!(slash_as_comma("ul. Rubinshteyna 29/28"), None);
+    let district = opengeocoding::index::country::de::town_without_district;
+    assert_eq!(
+        with_towns("Wiesendamm 24, 22303 Hamburg-Barmbek", district).as_deref(),
+        Some("Wiesendamm 24, 22303 Hamburg")
+    );
+    // the street before the town keeps its hyphen
+    assert_eq!(with_towns("Rue Jean-Jaurès 2, Paris", district), None);
+    assert_eq!(
+        with_towns("77694 Kehl am Rhein", dk_or_de).as_deref(),
+        Some("77694 Kehl")
+    );
+    assert_eq!(
+        without_leading_place("Charleroi Boulevard Joseph Tirou 139, 6000 Charleroi, BE")
+            .as_deref(),
+        Some("Boulevard Joseph Tirou 139, 6000 Charleroi, BE")
+    );
+    assert_eq!(without_leading_place("Rue Haute 9, Bruxelles"), None);
+    // a building's name is no repeated place
+    assert_eq!(
+        without_leading_place("Lissarda Business Park, Lissarda, Cork P14 YN56, Ireland"),
+        None
+    );
+    assert_eq!(
+        without_trailing_words("2-4-26 Gamou, Fukuoka, 802-0978 TEL").as_deref(),
+        Some("2-4-26 Gamou, Fukuoka, 802-0978")
+    );
+    assert_eq!(
+        without_trailing_words("1 Main St, Austin, TX 78701 (512").as_deref(),
+        Some("1 Main St, Austin, TX 78701")
+    );
+    assert_eq!(without_trailing_words("Wiesendamm 24, 22303 Hamburg"), None);
+    assert_eq!(
+        without_trailing_words("5 Linden Rise, Westbay, New Zealand"),
+        None
+    );
+    assert_eq!(
+        without_trailing_part("980 David Road, Burlingame, CA 94040, 650", none).as_deref(),
+        Some("980 David Road, Burlingame, CA 94040")
+    );
+    assert_eq!(
+        without_trailing_part("707 Westmount Road, Sydney, NS B1R 1B5, Phone", |_| true).as_deref(),
+        Some("707 Westmount Road, Sydney, NS B1R 1B5")
+    );
+    // a town, a postcode or a country stays
+    assert_eq!(
+        without_trailing_part("1 Rue X, Centre, Galati", place),
+        None
+    );
+    assert_eq!(without_trailing_part("1 Rue X, Centre, 2400", none), None);
+    assert_eq!(
+        without_trailing_part("1 Rue X, Centre, Romania", none),
+        None
+    );
+    assert_eq!(
+        without_number_parts(
+            "150007, Ивановская область, г. Иваново, ул. Сосновая, дом 17",
+            |p| p == "г. Иваново"
+        )
+        .as_deref(),
+        Some("Ивановская область, г. Иваново, ул. Сосновая, дом 17")
+    );
+    // the postcode is all that places the street
+    assert_eq!(
+        without_number_parts("Ismail Qemali 18, 50000, Kosovo", |_| true),
+        None
+    );
+    assert_eq!(
+        town_last("St.Petersburg, ul. Rubinshteyna 29/28", place).as_deref(),
+        Some("ul. Rubinshteyna 29/28, St.Petersburg")
+    );
+    assert_eq!(
+        town_last("Galati, Str. Brailei, Nr. 32, Romania", place).as_deref(),
+        Some("Str. Brailei, Nr. 32, Galati, Romania")
+    );
+    assert_eq!(town_last("Kitakyushu, Fukuoka", |_| true), None);
+}
+
+fn dk_or_de(town: &str) -> Option<String> {
+    dk::postal_district_town(town)
+        .map(str::to_owned)
+        .or_else(|| opengeocoding::index::country::de::town_without_qualifier(town))
+}

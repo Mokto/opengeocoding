@@ -198,6 +198,19 @@ pub fn cases() -> Vec<Case> {
             "Rue Haute 9, 50667 Feldheim",
             Want::At(house(street("Ulstrasse"), "25"), 1000.0, false),
         ),
+        // a town written with its district, a trailing label or a phone fragment
+        case(
+            "Ulstrasse 25, 50667 Köln-Altstadt",
+            at_house("Ulstrasse", "25"),
+        ),
+        case(
+            "25 Ulstr., 50667 Köln, Germany, Phone",
+            at_house("Ulstrasse", "25"),
+        ),
+        case("Ulstrasse 25, 50667 Köln TEL", at_house("Ulstrasse", "25")),
+        // no street of that name: the stated town, not a good match
+        case("Nirgendweg 4, 50667 Köln, Germany", town("de-koeln", false)),
+        case("Lower Molars, Right 23", Want::Abstain),
         // no Paris in Germany: the stated country, as a fallback
         case("Paris, Germany", town("de", false)),
     ]
