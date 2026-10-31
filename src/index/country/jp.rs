@@ -1,4 +1,4 @@
-use crate::index::*;
+use crate::{index::*, proto::opengeocoding::AddressDetails};
 
 /// Reads 一 to 九十九.
 fn kanji_number(t: &str) -> Option<u32> {
@@ -137,8 +137,18 @@ pub(crate) fn town_queries(q: &str) -> (String, Vec<String>) {
     let kanji = |s: &str| !s.is_empty() && s.chars().all(|c| c as u32 >= 0x3040);
     // the first `mark` among the first `within` characters, and what follows it
     let cut = |s: &str, marks: &[char], within: usize| -> Option<(String, String)> {
-        let at = s.chars().take(within).position(|c| marks.contains(&c))?;
-        let head: String = s.chars().take(at + 1).collect();
+        let at = s
+            .chars()
+            .take(within)
+            .enumerate()
+            .find_map(|(i, c)| (i > 0 && marks.contains(&c)).then_some(i))?;
+        let end = at
+            + 1
+            + s.chars()
+                .skip(at + 1)
+                .take_while(|c| marks.contains(c))
+                .count();
+        let head: String = s.chars().take(end).collect();
         Some((head.clone(), s[head.len()..].to_string()))
             .filter(|(h, _)| h.chars().count() >= 2 && kanji(h))
     };
@@ -184,6 +194,69 @@ pub(crate) fn town_queries(q: &str) -> (String, Vec<String>) {
         out.push(format!("{c}, {pref}"));
     }
     (pref, out)
+}
+
+pub(crate) fn conflicting_prefecture(index: &Index, q: &str, address: &AddressDetails) -> bool {
+    if address.country_code != "jp" || address.region_codes.is_empty() {
+        return false;
+    }
+    let (prefecture, _) = town_queries(q);
+    !prefecture.is_empty()
+        && index.region_named(&prefecture, "jp").is_some_and(|code| {
+            address
+                .region_codes
+                .iter()
+                .all(|r| !r.code.eq_ignore_ascii_case(&code))
+        })
+}
+
+pub(crate) fn administrative_aligned(
+    q: &str,
+    whole: &[(String, String)],
+) -> Option<Vec<(String, String)>> {
+    if !q.contains(['都', '道', '府', '県'])
+        || !whole
+            .iter()
+            .any(|(k, v)| k == "house_number" && !v.is_empty())
+        || !whole
+            .iter()
+            .any(|(k, v)| k == "country" && crate::matching::country_named(v) == "jp")
+        || whole
+            .iter()
+            .any(|(k, v)| k == "country" && crate::matching::country_named(v) != "jp")
+    {
+        return None;
+    }
+    let (prefecture, queries) = town_queries(q);
+    let (city, within) = queries.last()?.split_once(", ")?;
+    // ponytail: only full chōme/block/house forms; block-only support needs a block lookup,
+    // not a chōme-block house guess on another chōme.
+    if within != prefecture
+        || !prefecture.ends_with(['都', '道', '府', '県'])
+        || !city.ends_with(['市', '区'])
+        || !japanese(q)
+            .first()
+            .is_some_and(|(_, _, number)| number.contains('-'))
+    {
+        return None;
+    }
+    let ward = queries
+        .iter()
+        .rev()
+        .nth(1)
+        .and_then(|p| p.strip_suffix(&format!(", {city}")))
+        .filter(|p| p.ends_with('区'));
+    // libpostal can split 中津市 into state 大分県中 and city 津市, a different city.
+    let mut aligned: Vec<_> = whole
+        .iter()
+        .filter(|(k, _)| k != "state" && k != "city" && !(k == "city_district" && ward.is_some()))
+        .cloned()
+        .collect();
+    aligned.extend([("state".into(), prefecture), ("city".into(), city.into())]);
+    if let Some(ward) = ward {
+        aligned.push(("city_district".into(), ward.into()));
+    }
+    Some(aligned)
 }
 
 /// "朝日町伊勢宮 472-2", "472-2 朝日町伊勢宮" or "Koyodai 258-2": a Japanese town, district or
@@ -269,6 +342,63 @@ mod tests {
         assert_eq!(kanji_number("二十一"), Some(21));
         assert!(japanese("1600 Pennsylvania Avenue").is_empty());
         assert!(japanese("東京都").is_empty());
+    }
+
+    #[test]
+    fn written_administration_survives_a_split_city() {
+        let whole = [
+            ("country", "日本"),
+            ("state", "大分県中"),
+            ("city", "津市"),
+            ("suburb", "沖代町一丁目"),
+            ("house_number", "5番9号"),
+        ]
+        .map(|(k, v)| (k.to_string(), v.to_string()));
+        for q in [
+            "日本大分県中津市沖代町一丁目5番9号",
+            "大分県中津市沖代町一丁目5番9号, Japan",
+        ] {
+            let read = administrative_aligned(q, &whole).unwrap();
+            let get = |key| read.iter().find(|(k, _)| k == key).unwrap().1.as_str();
+            assert_eq!(get("state"), "大分県");
+            assert_eq!(get("city"), "中津市");
+            assert_eq!(get("suburb"), "沖代町一丁目");
+            assert_eq!(get("house_number"), "5番9号");
+        }
+        let read =
+            administrative_aligned("福岡県福岡市東区箱崎二丁目10番35号, Japan", &whole).unwrap();
+        assert!(read.contains(&("city".into(), "福岡市".into())));
+        assert!(read.contains(&("city_district".into(), "東区".into())));
+        for (prefecture, city) in [
+            ("三重県", "四日市市"),
+            ("千葉県", "市川市"),
+            ("千葉県", "市原市"),
+        ] {
+            let read = administrative_aligned(
+                &format!("{prefecture}{city}風見町一丁目2番3号, Japan"),
+                &whole,
+            )
+            .unwrap();
+            assert!(read.contains(&("city".into(), city.into())));
+        }
+        assert!(administrative_aligned("日本大分県中津市沖代町一丁目5番", &whole).is_none());
+        let without_number = whole
+            .iter()
+            .filter(|(k, _)| k != "house_number")
+            .cloned()
+            .collect::<Vec<_>>();
+        assert!(
+            administrative_aligned("日本大分県中津市沖代町一丁目5番9号", &without_number).is_none()
+        );
+        let foreign = [("country".into(), "China".into())];
+        assert!(administrative_aligned("大分県中津市沖代町一丁目5番, China", &foreign).is_none());
+        let mut conflicting = whole.to_vec();
+        conflicting.push(("country".into(), "China".into()));
+        assert!(
+            administrative_aligned("大分県中津市沖代町一丁目5番9号, China", &conflicting).is_none()
+        );
+        assert!(administrative_aligned("沖代町一丁目5番, Japan", &whole).is_none());
+        assert!(administrative_aligned("Kitakyushu-shi Fukuoka, Japan", &whole).is_none());
     }
 
     #[test]

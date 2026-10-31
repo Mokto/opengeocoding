@@ -473,6 +473,9 @@ impl Parser {
                 Some(read) => read.clone(),
                 None => libpostal(q)?,
             };
+            if let Some(aligned) = jp::administrative_aligned(q, &whole) {
+                whole = aligned;
+            }
             let mut swapped = None;
             if kosovo.is_none()
                 && let Some((turned, number)) = arabic_number_last(q)

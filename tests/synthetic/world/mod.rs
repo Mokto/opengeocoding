@@ -301,6 +301,7 @@ pub fn cases() -> Vec<crate::Case> {
         ie::cases(),
         r#in::cases(),
         it::cases(),
+        jp::cases(),
         lt::cases(),
         mk::cases(),
         mx::cases(),
