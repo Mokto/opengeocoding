@@ -110,7 +110,11 @@ pub fn cases() -> Vec<Case> {
             "18 Mallow Street, Dublin D02 Y123, Ireland",
             Want::At(dublin, 25.0, false),
         ),
-        case("18 Mallow Street, Dublin D04 Y123, Ireland", Want::Abstain),
+        // the house is not taken, the stated town still is
+        case(
+            "18 Mallow Street, Dublin D04 Y123, Ireland",
+            town("ie-dublin", false),
+        ),
         // Dublin's Eircode, not the Mallow Street of Swords
         case(
             "18 Mallow Street, Swords D02 X285, Ireland",

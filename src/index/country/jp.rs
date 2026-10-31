@@ -19,6 +19,23 @@ fn kanji_number(t: &str) -> Option<u32> {
     }
 }
 
+/// Writes 1 to 99 as 一 to 九十九.
+fn kanji_numeral(n: u32) -> Option<String> {
+    let digit = |d: u32| "〇一二三四五六七八九".chars().nth(d as usize);
+    let (tens, units) = (n / 10, n % 10);
+    let mut out = String::new();
+    match tens {
+        0 => {}
+        1 => out.push('十'),
+        2..=9 => out.extend([digit(tens)?, '十']),
+        _ => return None,
+    }
+    if units > 0 {
+        out.push(digit(units)?);
+    }
+    (n > 0).then_some(out)
+}
+
 /// Candidate (municipality, street, number) readings of a Japanese block address, most likely
 /// first: "東京都港区芝公園4-2-8" is chōme 4 of 芝公園 in 港区, block 2, house 8, stored as street
 /// "芝公園四丁目" and number "2-8"; towns without chōme store "block-house" under the town.
@@ -86,6 +103,89 @@ pub(crate) fn japanese(q: &str) -> Vec<(String, String, String)> {
     out
 }
 
+/// "〒812-0053 福岡県福岡市東区箱崎２丁目１０−３５": the ward, city and prefecture written before
+/// the rest, as place lists the index answers ("東区, 福岡市", "福岡市, 福岡県"), most specific
+/// first, when the text starts with the prefecture; or a city written in romaji with its "-shi"
+/// ("Kitakyushu-shi Fukuoka"); and the prefecture as written ("" if not). None for text that
+/// names neither.
+pub(crate) fn town_queries(q: &str) -> (String, Vec<String>) {
+    static ROMAJI: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"(?i)\b([a-z]{3,})-shi\b(?:[\s,]+([a-z]{3,})(?:-ken)?\b)?").unwrap()
+    });
+    if let Some(c) = ROMAJI.captures(q) {
+        let pref = c.get(2).map_or("", |p| p.as_str());
+        let within = if pref.is_empty() {
+            String::new()
+        } else {
+            format!("{pref}, ")
+        };
+        return (pref.into(), vec![format!("{}, {within}Japan", &c[1])]);
+    }
+    static POSTCODE: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"^〒?\s*[0-9０-９]{3}[-－‐−ー]?[0-9０-９]{4}").unwrap()
+    });
+    let q = q.trim_start_matches(['日', '本', '国']);
+    let t: String = q
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .map(|c| match c {
+            '０'..='９' => char::from_u32(c as u32 - '０' as u32 + '0' as u32).unwrap(),
+            _ => c,
+        })
+        .collect();
+    let t = POSTCODE.replace(&t, "");
+    let kanji = |s: &str| !s.is_empty() && s.chars().all(|c| c as u32 >= 0x3040);
+    // the first `mark` among the first `within` characters, and what follows it
+    let cut = |s: &str, marks: &[char], within: usize| -> Option<(String, String)> {
+        let at = s.chars().take(within).position(|c| marks.contains(&c))?;
+        let head: String = s.chars().take(at + 1).collect();
+        Some((head.clone(), s[head.len()..].to_string()))
+            .filter(|(h, _)| h.chars().count() >= 2 && kanji(h))
+    };
+    // "四日市 1465-16, 大分県宇佐市": without the prefecture first, a name ending in 市 is not
+    // always a city
+    let Some((pref, rest)) = ["東京都", "北海道", "京都府", "大阪府"]
+        .iter()
+        .find_map(|p| t.strip_prefix(p).map(|r| (p.to_string(), r.to_string())))
+        .or_else(|| cut(&t, &['県'], 4))
+    else {
+        return (String::new(), vec![]);
+    };
+    let (city, rest) = cut(&rest, &['市'], 6).map_or((None, rest.clone()), |(c, r)| (Some(c), r));
+    let (ward, rest) = cut(&rest, &['区'], 5).map_or((None, rest), |(w, r)| (Some(w), r));
+    let mut out = vec![];
+    let within = [&ward, &city]
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+    let within = if within.is_empty() {
+        pref.clone()
+    } else {
+        within
+    };
+    // "浅草2-3-1": the chōme, 浅草2丁目
+    let at = rest
+        .find(|c: char| c.is_ascii_digit())
+        .unwrap_or(rest.len());
+    let (town, numbers) = rest.split_at(at);
+    let chome: String = numbers.chars().take_while(char::is_ascii_digit).collect();
+    // stored as 浅草二丁目: "2丁目" finds other chōme of a like name
+    if kanji(town)
+        && let Some(n) = chome.parse().ok().and_then(kanji_numeral)
+    {
+        out.push(format!("{town}{n}丁目, {within}"));
+    }
+    if let Some(w) = &ward {
+        out.push(format!("{w}, {}", city.as_ref().unwrap_or(&pref)));
+    }
+    if let Some(c) = &city {
+        out.push(format!("{c}, {pref}"));
+    }
+    (pref, out)
+}
+
 /// "朝日町伊勢宮 472-2", "472-2 朝日町伊勢宮" or "Koyodai 258-2": a Japanese town, district or
 /// road and its number, which libpostal cuts into unrelated fields when the name is unspaced kanji
 /// or romaji.
@@ -111,6 +211,50 @@ pub(crate) fn japanese_head(head: &str) -> Option<Vec<(String, String)>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn kanji_numerals() {
+        for n in 1..100 {
+            assert_eq!(kanji_number(&kanji_numeral(n).unwrap()), Some(n));
+        }
+        assert_eq!(kanji_numeral(0), None);
+        assert_eq!(kanji_numeral(100), None);
+    }
+
+    #[test]
+    fn japanese_towns() {
+        assert_eq!(
+            town_queries("〒812-0053 福岡県福岡市東区箱崎２丁目１０−３５"),
+            (
+                "福岡県".into(),
+                vec![
+                    "箱崎二丁目, 東区, 福岡市".into(),
+                    "東区, 福岡市".into(),
+                    "福岡市, 福岡県".into()
+                ]
+            )
+        );
+        assert_eq!(
+            town_queries("福岡県福岡市東区").1,
+            ["東区, 福岡市", "福岡市, 福岡県"]
+        );
+        assert_eq!(
+            town_queries("東京都台東区浅草2-3-1").1,
+            ["浅草二丁目, 台東区", "台東区, 東京都"]
+        );
+        // "四日市" is a town of 宇佐市, not Yokkaichi
+        assert!(
+            town_queries("四日市 1465-16, 大分県宇佐市, 879-0471, Japan")
+                .1
+                .is_empty()
+        );
+        assert!(town_queries("Kitakyushu, Fukuoka").1.is_empty());
+        assert_eq!(
+            town_queries("2-4-26 Gamou Kokuraminami-ku Kitakyushu-shi Fukuoka, 802-0978"),
+            ("Fukuoka".into(), vec!["Kitakyushu, Fukuoka, Japan".into()])
+        );
+        assert_eq!(town_queries("Sapporo-shi, 060-0001").1, ["Sapporo, Japan"]);
+    }
 
     #[test]
     fn japanese_block_addresses() {
