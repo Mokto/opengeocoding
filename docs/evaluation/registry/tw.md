@@ -1,6 +1,10 @@
-# Taiwan — Taipei City
+# Taiwan — Taipei and Tainan
 
 [Evaluation guide](../README.md) · [Source notice](../../../tests/registry/tw.NOTICE)
+
+Two municipal registers, not a national sample: Taipei (`tw.jsonl`, `sample-tw --taipei`) and [Tainan](#tainan-city) (`tw-tainan.jsonl`, `sample-tainan --tainan`). Both are included automatically in the nightly gold suite. Taipei's existing files and command are unchanged.
+
+## Taipei City
 
 This municipal diagnostic corpus uses Taipei's official address-point CSV, not a national register. The national catalogue explicitly licenses it under Government Data Open Licence v1. The raw capture is monthly data; retain its checksum and the source metadata beside it. It includes house/floor strings but no people or household records.
 
@@ -98,3 +102,79 @@ Remaining failures:
 The local world index in `~/opengeocoding-index` is built from `~/geodata/osm`, which lacks the five extracts #233 moved, so its Taipei suffix results (0/114) understate the chart's index. These numbers measure this municipal sample, not national Taiwan accuracy, floor or apartment coverage.
 
 Cases have no `places` for ReverseGeocode to name: the export gives the district only as a code.
+
+## Tainan City
+
+The Bureau of Civil Affairs of Tainan City Government publishes [臺南市門牌坐標資料-僅供參考](https://data.tainan.gov.tw/DataSet/Detail/3b5a799b-2ba8-4ac2-84ec-336c8e329962), an annual address-point export from the household registration offices. This sample uses the [ROC114 (2025) resource](https://data.tainan.gov.tw/Resource/af44f904-2f4c-49b2-aaf8-1a64dce09bd4), published 2026-01-14 and updated 2026-07-16. It has 847,103 rows across all 37 districts: county and district codes, village, neighbourhood, street/section, locality, lane, alley, number and TWD97 easting/northing. No people or household records are included.
+
+### Licence and other available registers
+
+The resource explicitly names the **Open Government Data License v1** ([text](https://data.gov.tw/license)). It permits worldwide reproduction, distribution, adaptation and sublicensing for any purpose, provided the original agency, year, dataset/version and licence are attributed. `tw.NOTICE` and the corpus's source fields give that attribution. This is a reading of the published licence, not a grant from the agency.
+
+The source check for #281 also found the same licence on these municipal registers, not sampled in this PR:
+
+| Municipality | Official dataset | Format / caveat |
+|---|---|---|
+| Taoyuan | [門牌位置坐標資料](https://opendata.tycg.gov.tw/datalist/ec47dbd5-9ed8-4c8d-8ce1-ccb63b1b72e6) | Monthly CSV with the same components and TWD97 two-degree coordinates; manual point placement, errors acknowledged. |
+| Kaohsiung | [ROC114 門牌坐標資料](https://data.gov.tw/dataset/172400) | CSV, same components and TWD97 coordinates. |
+| New Taipei | [門牌位置資料](https://data.ntpc.gov.tw/datasets/d7b568ab-3819-40c8-a6e7-a6b199443101) | Monthly ZIP/API, `x_3826`/`y_3826`; a full bulk capture remains to be pinned. |
+| Taichung | [門牌坐標資料](https://data.gov.tw/dataset/177460) | TWD97 and longitude/latitude columns; the catalogue points to a separate download listing. |
+
+These are options for later coverage, not a claim that every city/county publishes this schema. The present addition is Tainan alone, chosen before seeing any service answer. It does not establish national recall.
+
+### Capture and coordinate interpretation
+
+```sh
+mkdir -p ../tainan-data
+curl -fL --get 'https://data.tainan.gov.tw/File/DirectDownload/af44f904-2f4c-49b2-aaf8-1a64dce09bd4' \
+  --data-urlencode 'fileName=114年臺南市門牌坐標資料' -o ../tainan-data/tainan-114.csv
+(cd ../tainan-data && duckdb -f REPO/tests/registry/tainan-csv.sql)
+target/release/evaluate sample-tainan --tainan ../tainan-data/tainan-114-4326.csv --seed tw-tainan-2026-10 --out tests/registry/tw-tainan.seeds.jsonl
+target/release/evaluate build-gold --seeds tests/registry/tw-tainan.seeds.jsonl --out tests/registry/tw-tainan.jsonl --tainan ../tainan-data/tainan-114-4326.csv
+target/release/evaluate run --corpus tests/registry/tw-tainan.jsonl --index out --out eval-results/tainan
+```
+
+The capture of 2026-10-31 is pinned below. The resource ID identifies the annual release, but its contents can be replaced, so retain these files. Preparation, sampling and gold generation each repeated byte for byte.
+
+| File | Bytes | SHA-256 |
+|---|---:|---|
+| `tainan-114.csv` | 70,278,778 | `93dd7780f59a7d70f01bf08e9e4ad3c2e0458e1a4968671fabea64fae7f121c2` |
+| `tainan-114-4326.csv` | 101,154,871 | `dda2dfaf86f0c220fefac327cfeaaa8afda428268e747eb36e24b1aa5e17c6cd` |
+
+The page says **TWD97**, but does not specify the projection zone (its CRS metadata is the placeholder `0`). `tainan-csv.sql` interprets the metre coordinates as **EPSG:3826**, TWD97 / TM2 zone 121, and converts to WGS84 with DuckDB spatial / PROJ, `always_xy=true`, as for Taipei. A check against the [Labour Affairs Bureau's employment-service locations](https://data.tainan.gov.tw/Resource/0e2e6c3d-1ff1-44b6-8373-02edc5b8c09d) finds its published longitude/latitude within 1.7 m of the 忠政里 record of 民治路36號 (`179912.73, 2578949.67` → `23.31156039853972, 120.31473211844106`), but 231 m from 永華路二段6號. The employment dataset does not explicitly declare WGS84; this is a plausibility check on the interpretation, not survey calibration. Several 民治路36號 records themselves disagree by over 1 km and are excluded as ambiguous below.
+
+The address-register page warns that household offices manually placed the points relative to other addresses, that they are not accurate positions, and that a point does not prove a building/doorplate exists. The **300 m tolerance** was set before running the service to allow for that warning; it is not a measured bound on source error. Even a passing point is not verified at entrance or building precision.
+
+### Eligibility and draw
+
+The adapter reads only source rows whose number is one to five ASCII/full-width digits, without a leading zero, optionally followed by `之` and one to four digits, then `號`. The source spelling is kept in the native query. Floors, `97號之1`, prefixes such as `建`, ranges and other numbering are outside this frame; `97號之1` is not silently treated as `97之1號`. A street or locality must be present. One record has projected coordinates `3422483.03, 9441669.63`, far outside Tainan, and is excluded by the projected bounds (150,000–220,000 E, 2,530,000–2,600,000 N); every eligible converted point must also lie within 22.8–23.5° N, 120.0–120.7° E, so swapped axes fail loudly.
+
+Of 847,103 rows, 550,697 match the number shape and 550,696 also pass the coordinate bounds. They make 550,653 address keys after ASCII-digit normalization of district, street, locality, lane, alley and number, NUL-separated and SHA-256 hashed. A key is the address as queried, without a village/neighbourhood; 17 keys whose source rows disagree on the point are excluded, leaving **550,636 unambiguous keys**. Identical-point repeats use the lexicographically smallest source record, so input order does not choose the answer.
+
+District names expand the seven-digit source codes (`6700100` → 新營區) with the city's [臺南市各區代碼](https://data.tainan.gov.tw/Resource/5b389f60-dee6-425a-8a40-f5cb2f949cf1) (Research, Development and Evaluation Commission, updated 2025-07-25), whose eight-digit codes use `67000010` for the same district. The adapter's fixed 37-name table follows that list; an unknown source code fails rather than guessing. The downloaded table is 1,192 bytes, SHA-256 `5e1c23f9d1f7c459a77861e2907f047af4ff3ab698f2d9069d683b4f15f7a13e`.
+
+Each district/category pool contributes the address with the smallest seeded SHA-256 of its address key. Categories have precedence: suffix (`之`), alley, lane, section (`段`), locality/area without a street, then plain street. Pools that do not exist contribute nothing:
+
+| Category | Locations | Queries |
+|---|---:|---:|
+| Suffix | 37 | 74 |
+| Alley | 28 | 56 |
+| Lane | 28 | 56 |
+| Section | 22 | 44 |
+| Locality/area | 31 | 62 |
+| Plain street | 29 | 58 |
+| Total | 175 | 350 |
+
+All 37 districts contribute. Each location has a native query (`臺南市新營區太子路５３巷１弄３２號, Taiwan`) and an ASCII-digit control at the same point. The draw balances districts and address shapes, not population or address counts; it is not a representative citywide accuracy sample. **42 locations (84 queries)** are held out by the shared location-hash rule, both forms together. No service answer selects or supplies an expectation.
+
+Cases require house level, goodMatch true, the source number including any `之` suffix, and a point within 300 m in Taiwan and Tainan (`TW-TNN`). The input has no postcode. ReverseGeocode checks the house number and region at the point and 25 m away; ResolveRegion checks Tainan. As for Taipei, no district-level `places` expectation is asserted: the register has district codes rather than settlement names or bilingual aliases.
+
+**Index ancestry.** Overture 2026-09-23.1 holds 847,064 addresses from OpenAddresses' `tw/tnn/regionwide`, whose source definition cites this register and an uploaded 2025 extract (2026-06-04). All 175 sampled addresses match its district, street/locality/lane/alley and reconstructed number within 7 cm (median 4 cm). OpenAddresses splits the number's remainder into the unit; the builder's Taiwan import keeps `之` subnumbers. The local index has no separate Tainan OpenAddresses file, but also reads the chart's Taiwan OSM extract. This measures fidelity to the register, not independent real-world accuracy.
+
+### Local baseline
+
+On a full local index from builder `dbec0f0cae254966` (Overture 2026-09-23.1, OpenAddresses and the chart's OSM extracts including Taiwan), **SearchAddress and SuggestAddress each pass 332/350**, or 166/175 locations. Held-out SearchAddress passes 82/84 queries (41/42 locations). The other 18 queries abstain, with no critical result or label. ReverseGeocode at the point and 25 m away and ResolveRegion each pass 350/350. A same-binary repeat has zero response/scoring drift across all these RPCs. Preparation and sampling changed no Taipei case.
+
+Eight non-held-out failing locations were inspected; all have their exact number on their expected road at the register point in ReverseGeocode. Five are in 新市區 (蓮潭南一巷15弄, 勝利街35巷, 富強路, 環東路一段, 豐華), two in 左鎮區 (光和, 中正), and one in 中西區 (協進市場). Diagnostic queries without the district also abstain; an explicitly comma-separated number/road/district/city form still abstains for the five 新市區 locations and answers too coarsely for the other three. This attributes the failures to the query/lookup hierarchy path, not missing houses; the exact parser versus matching cause remains untriaged. The one held-out failing location was not inspected. No runtime repair, tolerance increase or label was used.
+
+These are local diagnostic results, not a CI gold run or a national accuracy claim. The documented fresh-service grpcurl SearchAddress hang reproduced as a known failure. Repeated local timings differed even with identical answers and binary, so no speed conclusion follows; CI's gold-speed is the speed gate. Human review of source points is pending.

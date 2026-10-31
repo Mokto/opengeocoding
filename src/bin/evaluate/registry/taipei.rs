@@ -16,7 +16,7 @@ static NUMBER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^([0-9]+(?:之[0-9]+)?)號((?:地下)?[一二三四五六七八九十百0-9]+樓.*)?$").unwrap()
 });
 
-fn digits(text: &str) -> String {
+pub(super) fn digits(text: &str) -> String {
     text.chars()
         .map(|c| {
             if ('０'..='９').contains(&c) {
