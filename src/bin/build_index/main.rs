@@ -72,7 +72,8 @@ const MAX_WRITER_THREADS: usize = 16;
 /// Groups the street segments are merged in, in parallel, before everything is merged into one
 /// segment. The writer leaves one segment per arena flush (84 for a world index), and a query
 /// looks its terms up in every segment: four took 40 s to merge and queried 13% slower than one,
-/// which takes about 30 s more.
+/// which takes about 30 s more. `reverse::pack_doc` fits 2^28 documents in a segment; a world
+/// index has 53 million.
 const STREET_MERGES: usize = 4;
 const NAME_SEP: char = '\u{1f}';
 const GB: f64 = (1u64 << 30) as f64;
