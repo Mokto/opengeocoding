@@ -54,8 +54,8 @@ const STREET_CANDIDATES: usize = 20;
 /// What one request remembers while `Index::memoized` runs on its thread.
 #[derive(Default)]
 struct Memo {
-    /// `Index::matching` results by query.
-    lookups: HashMap<String, Vec<DocAddress>>,
+    /// `Index::matching` results by query (`clause_key`).
+    lookups: HashMap<Vec<u8>, Vec<DocAddress>>,
     /// `Parser::parse` results by text: a resolve parses the same text several times, which the
     /// shared parse cache absorbs only while it is on.
     parses: HashMap<Box<str>, Parsed>,
@@ -443,6 +443,35 @@ fn names_hold<'a>(mut names: impl Iterator<Item = &'a str>, words: &[String]) ->
     })
 }
 
+/// A lookup clause as part of its memo key: each term's field and bytes behind their length, in
+/// the clauses' structure. Formatting the clauses with `Debug` took 4% of a search.
+fn clause_key(occur: Occur, q: &dyn TQuery, out: &mut Vec<u8>) {
+    out.push(match occur {
+        Occur::Must => b'+',
+        Occur::Should => b'?',
+        Occur::MustNot => b'-',
+    });
+    if let Some(t) = q.downcast_ref::<TermQuery>() {
+        let bytes = t.term().serialized_value_bytes();
+        out.push(b't');
+        out.extend(t.term().field().field_id().to_le_bytes());
+        out.extend((bytes.len() as u32).to_le_bytes());
+        out.extend(bytes);
+    } else if let Some(b) = q.downcast_ref::<BooleanQuery>() {
+        out.push(b'(');
+        out.extend((b.get_minimum_number_should_match() as u32).to_le_bytes());
+        for (occur, q) in b.clauses() {
+            clause_key(*occur, q.as_ref(), out);
+        }
+        out.push(b')');
+    } else {
+        let debug = format!("{q:?}");
+        out.push(b'd');
+        out.extend((debug.len() as u32).to_le_bytes());
+        out.extend(debug.as_bytes());
+    }
+}
+
 fn must(q: Box<dyn TQuery>) -> (Occur, Box<dyn TQuery>) {
     (Occur::Must, q)
 }
@@ -823,9 +852,15 @@ impl Index {
         if cl.iter().all(|(occur, _)| *occur != Occur::Must) {
             cl.push(must(Box::new(tantivy::query::AllQuery)));
         }
-        let key = MEMO
-            .with_borrow(Option::is_some)
-            .then(|| format!("{kind:?} {country:?} {n} {any} {cl:?}"));
+        let key = MEMO.with_borrow(Option::is_some).then(|| {
+            let mut key = vec![kind as u8, any as u8];
+            key.extend(country.map_or(u32::MAX, u32::from).to_le_bytes());
+            key.extend((n as u64).to_le_bytes());
+            for (occur, q) in &cl {
+                clause_key(*occur, q.as_ref(), &mut key);
+            }
+            key
+        });
         if let Some(found) = key.as_ref().and_then(|key| {
             MEMO.with_borrow(|memo| memo.as_ref().and_then(|m| m.lookups.get(key).cloned()))
         }) {
