@@ -748,6 +748,20 @@ impl Core {
             return Ok(found);
         }
         let found = self.resolve_address(query)?;
+        if found
+            .address_details
+            .as_option()
+            .is_some_and(|d| jp::conflicting_prefecture(&self.index, query, d))
+        {
+            return Ok(self
+                .stated_town(query)?
+                .filter(|f| {
+                    f.address_details.as_option().is_some_and(|d| {
+                        d.country_code == "jp" && !jp::conflicting_prefecture(&self.index, query, d)
+                    })
+                })
+                .unwrap_or_default());
+        }
         let ignored = self.stated_country_ignored(query, &found);
         if (found.display_name.is_empty() || ignored)
             && let Some(degraded) = self.degraded(query)?
