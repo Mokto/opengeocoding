@@ -93,7 +93,7 @@ The leader has unit tests for its build decisions and has not yet run against a 
 | --- | --- |
 | `INDEX_DIR` | Required; a `build_index` output directory, read-only |
 | `RPC_PORT` / `METRICS_PORT` | `11121` / `8000` |
-| `PARSE_CACHE` | `65536`; address parses kept (0 parses every call). One resolve parses its query twice and libpostal's lock is shared, so repeats skip both |
+| `PARSE_CACHE` | `65536`; address parses kept across requests (0 keeps none). A request parses each text once either way; libpostal's lock is shared, so a repeated query skips it |
 | `RUST_LOG` | `info` |
 | `SENTRY_DSN` / `ENV` | Optional |
 
