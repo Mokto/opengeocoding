@@ -129,7 +129,8 @@ pub fn digest(args: &[String]) -> Result<()> {
         ("country", f.country),
         ("ids", f.ids),
         ("pcode", f.pcode),
-        ("ctok", f.ctok),
+        ("cnames", f.cnames),
+        ("ccity", f.ccity),
         ("kind", f.kind),
     ] {
         // a term's document count is the sum over segments, so sum before hashing

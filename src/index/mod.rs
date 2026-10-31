@@ -50,6 +50,9 @@ const STREET: u64 = 1 << 40;
 const HOUSE: u64 = 2 << 40;
 const POSTCODE: u64 = 3 << 40;
 const STREET_CANDIDATES: usize = 20;
+/// Decompressed doc store blocks (16 KB each) a segment keeps: tantivy's default of 100 for each
+/// of the four segments indexes had before they became one.
+const DOC_STORE_BLOCKS: usize = 400;
 
 thread_local! {
     /// `Index::matching` results by query, while `Index::memoized` runs on this thread.
@@ -67,6 +70,11 @@ pub struct Index {
     columns: Vec<Columns>,
     /// Uppercase `country` terms -> their number in `Columns::countries`.
     country_codes: HashMap<String, u16>,
+    /// Each kind's documents, by `Kind as usize`: the first clause of a lookup of that kind.
+    kinds: [OfKind; 3],
+    /// Whether the index has `cnames`, which hand-built ones lack: a lookup in one country then
+    /// reads its words from there (`in_country`).
+    country_words: bool,
     f: Fields,
     /// Memory-mapped, so cold parts stay in the page cache instead of private memory.
     numbers: Vec<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
@@ -533,6 +541,7 @@ impl Index {
         let searcher = index
             .reader_builder()
             .reload_policy(tantivy::ReloadPolicy::Manual)
+            .doc_store_cache_num_blocks(DOC_STORE_BLOCKS)
             .try_into()?
             .searcher();
         let (_, f) = schema::schema();
@@ -703,6 +712,15 @@ impl Index {
             .iter()
             .map(|r| Columns::open(r, f.country, &mut country_codes))
             .collect::<Result<_>>()?;
+        let kinds = [Kind::Place, Kind::Street, Kind::Postcode]
+            .map(|kind| OfKind::new(searcher.segment_readers(), &columns, kind));
+        let country_words = searcher
+            .segment_readers()
+            .iter()
+            .map(|r| Ok(r.inverted_index(f.cnames)?.terms().num_terms() > 0))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .any(|has| has);
         let suggestion_scope =
             ring::digest::digest(&ring::digest::SHA256, &fs::read(dir.join("meta.json"))?)
                 .as_ref()
@@ -714,6 +732,8 @@ impl Index {
             suggestion_scope,
             columns,
             country_codes,
+            kinds,
+            country_words,
             f,
             numbers,
             far,
@@ -823,6 +843,15 @@ impl Index {
         }) {
             return found;
         }
+        if self.country_words
+            && let Some(cc) = cc.map(str::to_uppercase).filter(|cc| !cc.is_empty())
+        {
+            cl = cl
+                .iter()
+                .map(|(occur, q)| (*occur, self.in_country(q.as_ref(), &cc)))
+                .collect();
+        }
+        cl.insert(0, must(Box::new(self.kinds[kind as usize].clone())));
         let by = ByImportance {
             n,
             kind,
@@ -835,6 +864,32 @@ impl Index {
             MEMO.with_borrow_mut(|memo| memo.as_mut().map(|m| m.insert(key, found.clone())));
         }
         found
+    }
+
+    /// `q` with each `names` and `city` word read from `cnames` and `ccity` for `country` (a
+    /// `country` term). It matches the same documents of that country, the only ones a lookup
+    /// scoped to it keeps.
+    fn in_country(&self, q: &dyn TQuery, country: &str) -> Box<dyn TQuery> {
+        if let Some(t) = q.downcast_ref::<TermQuery>()
+            && let Some(word) = t.term().value().as_str()
+            && let Some(field) = match t.term().field() {
+                f if f == self.f.names => Some(self.f.cnames),
+                f if f == self.f.city => Some(self.f.ccity),
+                _ => None,
+            }
+        {
+            return term(field, &schema::country_word(country, word));
+        }
+        if let Some(b) = q.downcast_ref::<BooleanQuery>() {
+            return Box::new(BooleanQuery::with_minimum_required_clauses(
+                b.clauses()
+                    .iter()
+                    .map(|(occur, q)| (*occur, self.in_country(q.as_ref(), country)))
+                    .collect(),
+                b.get_minimum_number_should_match(),
+            ));
+        }
+        q.box_clone()
     }
 
     /// Runs `f` with lookups remembered until it returns. One request repeats a lookup several
