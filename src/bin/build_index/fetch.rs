@@ -1527,12 +1527,7 @@ async fn overture_within(
             .max()
             .unwrap_or(0);
         let (up, key, file) = (up.clone(), key.to_string(), file.clone());
-        tasks.spawn(async move {
-            use std::os::unix::fs::FileExt;
-            let bytes = up.get_range(&key, start..end).await?;
-            tokio::task::spawn_blocking(move || file.write_all_at(&bytes, start)).await??;
-            anyhow::Ok(())
-        });
+        tasks.spawn(async move { up.copy_range(&key, start..end, file).await });
     }
     while let Some(r) = tasks.join_next().await {
         r??;
