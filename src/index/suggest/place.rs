@@ -474,7 +474,7 @@ impl Index {
                     let Some((cl, rarest)) = self.typed_words(self.f.names, head, as_prefix) else {
                         continue;
                     };
-                    if rarest > MAX_PLACE_WORK {
+                    if as_prefix && rarest > MAX_PLACE_WORK {
                         continue;
                     }
                     for a in self.top_of(Kind::Place, cc, cl, pool) {

@@ -167,6 +167,53 @@ fn geonames_primary_names_survive_deduplication_without_exporting_other_labels()
 }
 
 #[test]
+fn an_exact_small_place_survives_a_word_shared_by_many_streets() {
+    use opengeocoding::index::schema;
+    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+        .join(format!("synthetic-common-place-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+    let (_, mut writer, f) = schema::create(root.to_str().unwrap(), 1, 15_000_000);
+    writer
+        .add_document(tantivy::doc!(
+            f.kind => "p", f.names => "Gleam", f.country => "GB",
+            f.id => 1u64, f.importance => 10_100u64, f.x => 0.0, f.y => 50.0
+        ))
+        .unwrap();
+    for id in 0..20_001u64 {
+        writer
+            .add_document(tantivy::doc!(
+                f.kind => "s", f.names => "Gleam Road", f.name => "Gleam Road",
+                f.country => "GB", f.id => id, f.place => 1u64,
+                f.importance => 1u64, f.x => 0.0, f.y => 50.0
+            ))
+            .unwrap();
+    }
+    writer.commit().unwrap();
+    drop(writer);
+    std::fs::write(
+        root.join("places.tsv"),
+        "country\t\tGB\t\t0\t0\t0\t50\t0\t50\t0\t50\t\tUnited Kingdom\t\t\n\
+         locality\tvillage\tGB\t\t0\t100\t0\t50\t0\t50\t0\t50\t0\tGleam\t\t\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("numbers.shards"), "1").unwrap();
+    std::fs::write(
+        root.join("numbers-00.fst"),
+        tantivy_fst::MapBuilder::memory().into_inner().unwrap(),
+    )
+    .unwrap();
+    let index = Index::open(&root, Arc::new(Parser::unloaded(0))).unwrap();
+    for query in ["Gleam", "Gleam ", "Gleam, United Kingdom"] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found[0].kind, "village", "{query}");
+        assert!(found[0].display_name.starts_with("Gleam, "), "{query}");
+    }
+    drop(index);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn a_small_geonames_place_fills_only_a_gap_no_namesake_shares_and_names_no_point() {
     let found = |text: &str| index().suggest(text, 5, Some("AT"), None, false);
     let hamlet = found("Kleinweiler");
