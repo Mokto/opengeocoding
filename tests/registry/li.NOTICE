@@ -1,0 +1,20 @@
+The registry-first sample tests/registry/li.jsonl contains addresses, postcodes, postal
+localities and coordinates from the "Offizielles Verzeichnis der Gebäudeadressen" (official
+directory of building addresses) of Liechtenstein, downloaded on 2026-10-31 from
+https://service.geo.llv.li/download/getfile.php?theme=officialAdress (dataset.csv of
+2026-08-18). Source: Liechtensteinische Landesverwaltung.
+
+Used under the "Nutzungsbedingungen für die offiziellen Verzeichnisse der Strassen, der
+Gebäudeadressen und der Ortschaften der Liechtensteinischen Landesverwaltung" (ABI/OGD-Version 2
+vom 5.2.2021), enclosed in the download as AbiOGDLizenz.pdf: the data may be copied, passed on
+free of charge, enriched, processed, combined and used commercially, provided the source
+"Liechtensteinische Landesverwaltung" is stated and these terms are enclosed or linked. All
+rights in the data remain with their statutory holders; the Landesverwaltung accepts no liability
+for its correctness. The terms are published with the download and listed on
+https://opendata.swiss/de/dataset/offizielles-verzeichnis-der-gebaudeadressen-liechtenstein.
+
+Changes: a sample was drawn and the query forms constructed from the directory's fields; each
+municipality number was given its municipality's name and ISO 3166-2 code. Neither the
+Landesverwaltung nor anyone else has approved this sample. Per-case file checksums and the
+retrieval date are recorded in the corpus; docs/evaluation/registry/li.md records the upstream
+checksums.
