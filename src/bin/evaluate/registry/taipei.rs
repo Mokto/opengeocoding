@@ -313,7 +313,10 @@ mod tests {
         for (id, a) in rows {
             let expected = &districts[&a.district];
             assert_eq!(a.district_name(), Some(expected.as_str()));
-            assert_eq!(prepared[&id].places, [expected.clone()]);
+            assert_eq!(
+                prepared[&id].places.as_slice(),
+                std::slice::from_ref(expected)
+            );
             assert_eq!(
                 prepared[&id].provenance["district_names"]["code_field"],
                 "towncode"
