@@ -342,7 +342,7 @@ impl Index {
             .flat_map(|w| std::iter::once(w.to_string()).chain(without_admin_word(w)))
             .map(|w| name_key(&w))
             .collect();
-        let mut ranked = self.top_of(Kind::Place, cc, cl, 100);
+        let mut ranked = self.top_of(Kind::Searched, cc, cl, 100);
         // The stated region places a small town among many of its name ("Temple, PA"): when
         // none of the top 100 is inside it, look in the countries that have such a region too.
         let is_inside = |a: &DocAddress| {
@@ -363,7 +363,7 @@ impl Index {
         {
             for country in self.region_countries(region) {
                 for a in self.top_of(
-                    Kind::Place,
+                    Kind::Searched,
                     Some(&country),
                     self.musts(self.f.names, text),
                     100,
@@ -457,6 +457,77 @@ impl Index {
                 .collect(),
             exact,
         )
+    }
+
+    /// The locality of country `cc` named `name`, or named so with or without a word that only
+    /// says what it is ("Taboiaki" is "Taboiaki Village", "Village of Maia" is "Maia"): the
+    /// most important of the places searches find, else one the builder added from GeoNames
+    /// below `cities500`'s bar, which only this finds; else the place a name of GeoNames' that
+    /// nothing else of the country has belongs to (`schema::ALTERNATES`). Without `gap`, only
+    /// the places searches find. None when localities of the name lie 10 km or more apart.
+    pub fn locality_named(&self, name: &str, cc: &str, gap: bool) -> Option<Hit> {
+        const SUFFIXES: [&str; 2] = [" village", " hamlet"];
+        const PREFIXES: [&str; 1] = ["village of "];
+        let folded = fold(name);
+        if folded.is_empty() {
+            return None;
+        }
+        let bare = SUFFIXES
+            .iter()
+            .find_map(|s| folded.strip_suffix(s))
+            .or_else(|| PREFIXES.iter().find_map(|p| folded.strip_prefix(p)))
+            .filter(|b| !b.is_empty());
+        let mut forms = vec![folded.clone()];
+        forms.extend(bare.map(str::to_owned));
+        if bare.is_none() {
+            forms.extend(SUFFIXES.iter().map(|s| format!("{folded}{s}")));
+        }
+        let text = bare.unwrap_or(&folded);
+        let cl = || self.musts(self.f.names, text);
+        let ids: Vec<Vec<u32>> = [Kind::Searched, Kind::Small][..if gap { 2 } else { 1 }]
+            .iter()
+            .copied()
+            .map(|kind| {
+                self.top_of(kind, Some(cc), cl(), 20)
+                    .into_iter()
+                    .map(|a| self.fast(a, "id") as u32)
+                    .filter(|&id| self.places[id as usize].subtype.as_ref() == "locality")
+                    .collect()
+            })
+            .collect();
+        let km = |a: &Place, b: &Place| {
+            let dx = (a.x - b.x) * a.y.to_radians().cos();
+            dx.hypot(a.y - b.y) * 111.2
+        };
+        let form = forms.iter().map(|f| name_key(f)).find_map(|key| {
+            let named: Vec<&Place> = ids
+                .iter()
+                .flatten()
+                .map(|&id| &self.places[id as usize])
+                .filter(|p| p.named(key))
+                .collect();
+            Some((
+                ids.iter()
+                    .flatten()
+                    .find(|&&id| self.places[id as usize].named(key))?,
+                named,
+            ))
+        });
+        let Some((&id, named)) = form else {
+            // a name only GeoNames gives the place, and only it ("Gahnpa" is Ganta)
+            let alternates = self.alternates.as_ref().filter(|_| gap)?;
+            let cc = cc.to_ascii_uppercase();
+            return forms.iter().find_map(|f| {
+                let id = alternates.get([cc.as_bytes(), f.as_bytes()].concat())? as u32;
+                (self.places.get(id as usize)?.subtype.as_ref() == "locality")
+                    .then_some(Hit::Place(id))
+            });
+        };
+        // namesakes apart: which one the query means is a guess
+        if named.iter().any(|p| km(p, named[0]) >= 10.0) {
+            return None;
+        }
+        Some(Hit::Place(id))
     }
 
     /// `text`, or its most specific part, if it names a place: words dropped from the front

@@ -75,6 +75,8 @@ pub struct Index {
     /// Per shard, a second house of a street's number far from the first (`schema::far_file`);
     /// absent from hand-built indexes.
     far: Vec<Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>>,
+    /// GeoNames' other names of places (`schema::ALTERNATES`); absent from older indexes.
+    alternates: Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
     /// Absent from hand-built indexes, which then answer reverse lookups with a locality only.
     reverse: Option<reverse::Reverse>,
     /// Administrative polygons for `reverse_region`; absent from hand-built indexes.
@@ -565,6 +567,15 @@ impl Index {
                 )?)))
             })
             .collect::<Result<_>>()?;
+        let alternates = if dir.join(schema::ALTERNATES).exists() {
+            use tantivy::directory::Directory;
+            let file = mmap.open_read(Path::new(schema::ALTERNATES))?;
+            Some(tantivy_fst::Map::from(tantivy_fst::raw::Fst::new(
+                file.read_bytes()?,
+            )?))
+        } else {
+            None
+        };
         let reverse = if dir.join(reverse::FILE).exists() {
             use tantivy::directory::Directory;
             let file = mmap.open_read(Path::new(reverse::FILE))?;
@@ -636,7 +647,9 @@ impl Index {
             places
                 .iter()
                 .enumerate()
-                .filter(|(_, p)| p.subtype.as_ref() == "locality")
+                .filter(|(_, p)| {
+                    p.subtype.as_ref() == "locality" && &*p.class != schema::SMALL_GEONAMES
+                })
                 .map(|(i, p)| (i as u32, p.x as f64, p.y as f64)),
         );
         let mut countries = HashMap::new();
@@ -703,7 +716,13 @@ impl Index {
         let columns: Vec<Columns> = searcher
             .segment_readers()
             .iter()
-            .map(|r| Columns::open(r, f.country, &mut country_codes))
+            .map(|r| {
+                Columns::open(r, f.country, &mut country_codes, &|id| {
+                    places
+                        .get(id as usize)
+                        .is_some_and(|p| &*p.class == schema::SMALL_GEONAMES)
+                })
+            })
             .collect::<Result<_>>()?;
         let suggestion_scope =
             ring::digest::digest(&ring::digest::SHA256, &fs::read(dir.join("meta.json"))?)
@@ -719,6 +738,7 @@ impl Index {
             f,
             numbers,
             far,
+            alternates,
             reverse,
             areas,
             streets,

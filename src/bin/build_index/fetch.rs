@@ -84,7 +84,8 @@ pub struct Fetched {
     pub osm_landmarks: Option<PathBuf>,
     pub openaddresses: Option<PathBuf>,
     pub geonames: Vec<PathBuf>,
-    /// The directory holding `cities500.txt` and `admin1CodesASCII.txt`.
+    /// The directory holding `populated.txt` (the `P` rows of `allCountries`) and
+    /// `admin1CodesASCII.txt`.
     pub geonames_places: Option<PathBuf>,
     /// The directory holding Korea's shop register, `shops.zip`, and its `source.json`.
     pub korea_shops: Option<PathBuf>,
@@ -525,17 +526,21 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         anyhow::Ok(geonames)
     };
     let geonames_places = async {
-        let dir = scratch.join("geonames-places");
+        let dir = scratch.join("geonames-populated");
         let bbox = src.bbox();
         let c = self::client()?;
         mirror(
             store,
-            &format!("sources/{}/geonames-places/{}", src.snapshot, src.scope()),
+            &format!(
+                "sources/{}/geonames-populated/{}",
+                src.snapshot,
+                src.scope()
+            ),
             &dir,
             1,
             || async {
                 Ok(vec![
-                    ("cities500.txt".to_string(), true),
+                    ("populated.txt".to_string(), true),
                     ("admin1CodesASCII.txt".to_string(), false),
                 ])
             },
@@ -548,7 +553,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
                         ensure!(http_get(&c, &url, &path).await?, "{url} not found");
                         return Ok(true);
                     }
-                    let url = format!("{base}/cities500.zip");
+                    let url = format!("{base}/allCountries.zip");
                     let tmp = path.with_extension("zip");
                     ensure!(http_get(&c, &url, &tmp).await?, "{url} not found");
                     tokio::task::spawn_blocking(move || {
@@ -560,9 +565,10 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
                             ) else {
                                 return false;
                             };
-                            bbox.is_none_or(|b| intersects(b, lon, lat, lon, lat))
+                            f.get(6) == Some(&"P")
+                                && bbox.is_none_or(|b| intersects(b, lon, lat, lon, lat))
                         };
-                        unzip_lines(&tmp, "cities500.txt", &path, keep)?;
+                        unzip_lines(&tmp, "allCountries.txt", &path, keep)?;
                         std::fs::remove_file(&tmp)?;
                         anyhow::Ok(())
                     })

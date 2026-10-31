@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Case, case, town};
+use crate::{Case, Want, case, town};
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -196,6 +196,20 @@ pub const PLACES: &[Place] = &[
         "Grenzdorf",
         &[("en", "Grenzdorf")],
     ),
+    // a town with no area of its own on Delta's side of the line, nearest a GeoNames hamlet on
+    // Gamma's (`write_geonames`)
+    place!(
+        "at-randweiler",
+        "locality",
+        "",
+        "AT",
+        "AT-4",
+        1000,
+        (60.51, 0.4),
+        "at-d",
+        "Randweiler",
+        &[("en", "Randweiler")],
+    ),
     place!(
         "at-randdorf",
         "locality",
@@ -298,5 +312,7 @@ pub fn cases() -> Vec<Case> {
         case("at-1-severnaya-roshcha", town("at-nordhain", true)),
         case("at-1-северная-роща", town("at-nordhain", true)),
         case("at-2-severnaya-roshcha", town("at-northgrove", true)),
+        // a hamlet only GeoNames has (`write_geonames`)
+        case("Kleinweiler, Austria", Want::At((40.0, 0.03), 1000.0, true)),
     ]
 }

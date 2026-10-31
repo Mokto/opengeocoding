@@ -167,6 +167,55 @@ fn geonames_primary_names_survive_deduplication_without_exporting_other_labels()
 }
 
 #[test]
+fn a_small_geonames_place_fills_only_a_gap_no_namesake_shares_and_names_no_point() {
+    let found = |text: &str| index().suggest(text, 5, Some("AT"), None, false);
+    let hamlet = found("Kleinweiler");
+    assert_eq!(hamlet.len(), 1);
+    assert!(metres((hamlet[0].x, hamlet[0].y), (40.0, 0.03)) < 5.);
+    // reverse lookups name Overture's localities, not the hamlet on the point
+    assert_eq!(
+        index().reverse(0.03, 40.0)["address"]["village"],
+        "Ohnecode"
+    );
+    // two of a name 111 km apart, or a name Overture's Mitcode has: neither is added
+    assert!(found("Zwilling").is_empty());
+    let mitcode = found("Mitcode");
+    assert_eq!(mitcode.len(), 1);
+    assert!(metres((mitcode[0].x, mitcode[0].y), (40.05, 0.0)) < 5.);
+    // two rows of a name 2 km apart are one place; a small section (PPLX) is none
+    assert_eq!(found("Doppelhof").len(), 1);
+    assert!(found("Weilerteil").is_empty());
+}
+
+#[test]
+fn a_town_answers_a_generic_word_and_only_geonames_other_names_no_namesake_shares() {
+    let at = |name: &str| {
+        index().locality_named(name, "at", true).map(|hit| {
+            let r = index().render(&hit, true);
+            let coord = |k: &str| r[k].as_str().unwrap().parse::<f64>().unwrap();
+            (coord("lon"), coord("lat"))
+        })
+    };
+    let near = |got: Option<(f64, f64)>| got.is_some_and(|p| metres(p, (40.0, 0.03)) < 5.);
+    assert!(near(at("Kleinweiler")));
+    assert!(near(at("Kleinweiler Village")));
+    assert!(near(at("Weilerlein")));
+    // another row 1,100 km away has it too; the Cyrillic one is not read
+    assert_eq!(at("Zweinamig"), None);
+    assert_eq!(at("Вейлер"), None);
+}
+
+#[test]
+fn a_geonames_place_takes_the_region_that_holds_it_not_the_nearby_towns() {
+    // nearest Randweiler (Delta, AT-4) but west of Delta's line, in Gamma (AT-3)
+    let hit = index().locality_named("Grenzweiler", "at", true).unwrap();
+    assert_eq!(
+        index().render(&hit, true)["address"]["ISO3166-2-lvl4"],
+        "AT-3"
+    );
+}
+
+#[test]
 fn place_slugs_require_a_known_subdivision_and_an_exact_settlement_name() {
     for (query, id) in [
         ("us-tx-paris", "us-tx-paris"),
