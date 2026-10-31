@@ -44,6 +44,9 @@ pub struct Sources {
     pub ryhti: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub denue: Option<Denue>,
+    /// Read the doors with a letter of IDE Uruguay's address base (see `dgu`).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub dgu: bool,
     /// Retired switches (`openaddresses.enabled` and `anyLicence`, `geonamesPlaces`): every source
     /// is always read, and OpenAddresses layers always pass the licence check. Accepted and
     /// ignored so a source list that still has them parses.
@@ -89,6 +92,8 @@ pub struct Fetched {
     pub ryhti: Option<PathBuf>,
     /// An OpenAddresses-style directory of DENUE's establishments (see `denue`).
     pub denue: Option<PathBuf>,
+    /// An OpenAddresses-style directory of Uruguay's doors with a letter (see `dgu`).
+    pub dgu: Option<PathBuf>,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -572,16 +577,26 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
     let korea_dir = scratch.join("korea-shops");
     let ryhti_dir = scratch.join("ryhti");
     let denue_dir = scratch.join("denue");
-    let (openaddresses, (osm, osm_landmarks), geonames, geonames_places, korea_shops, ryhti, denue) =
-        tokio::try_join!(
-            overture_then_openaddresses,
-            osm_files,
-            geonames_files,
-            geonames_places,
-            korea_shops(store, src, &korea_dir),
-            ryhti(store, src, &ryhti_dir),
-            denue(store, src, &denue_dir),
-        )?;
+    let dgu_dir = scratch.join("dgu");
+    let (
+        openaddresses,
+        (osm, osm_landmarks),
+        geonames,
+        geonames_places,
+        korea_shops,
+        ryhti,
+        denue,
+        dgu,
+    ) = tokio::try_join!(
+        overture_then_openaddresses,
+        osm_files,
+        geonames_files,
+        geonames_places,
+        korea_shops(store, src, &korea_dir),
+        ryhti(store, src, &ryhti_dir),
+        denue(store, src, &denue_dir),
+        dgu(store, src, &dgu_dir),
+    )?;
 
     Ok(Fetched {
         overture: local,
@@ -593,7 +608,173 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         korea_shops,
         ryhti,
         denue,
+        dgu,
     })
+}
+
+const DGU: &str =
+    "https://catalogodatos.gub.uy/dataset/85ca8574-3bb3-4329-b005-aed19883e19a/resource";
+const DGU_PAGE: &str =
+    "https://catalogodatos.gub.uy/dataset/ide-direcciones-geograficas-del-uruguay";
+/// The catalogue's resource and file of each department's addresses.
+const DGU_DEPARTMENTS: [(&str, &str); 19] = [
+    ("e2bb1efb-1e57-47d7-bc40-2ff8a5fa2d7b", "artigas.csv"),
+    ("4cd4cf75-b44a-4637-a43d-2cc5a0294ca5", "canelones.csv"),
+    ("64af2cac-cac4-44ee-b6be-09edf1536ed8", "cerro_largo.csv"),
+    ("11b10088-e286-4626-bd06-c45043045dc1", "colonia.csv"),
+    ("66a8e451-96ca-4c4d-afc4-1a32abc2295e", "durazno.csv"),
+    ("7306e8e1-27c0-473b-915f-30cc919ca765", "florida.csv"),
+    ("7d572335-106e-4282-8265-ca23e2f34baf", "flores.csv"),
+    ("0d5a007d-d01b-4fa6-9bdd-7fd08c68fb3d", "lavalleja.csv"),
+    ("42eef510-214c-479b-a580-09805c7c29c1", "maldonado.csv"),
+    ("c8e3e713-e755-4112-bfe3-fa01b20dcda1", "montevideo.csv"),
+    ("e5f583c8-c240-4fc3-9170-ff701cc1ae14", "paysandu.csv"),
+    ("558cadb0-4cb6-4fcc-9c24-6720e7a05912", "rio_negro.csv"),
+    ("da91a1a9-7149-4281-8ee8-53dbd29bab77", "rivera.csv"),
+    ("baa0c351-5a7c-4240-b54e-bfa8db442559", "rocha.csv"),
+    ("fba901e2-8918-4795-8249-0368d8c0586d", "salto.csv"),
+    ("ff75c363-a8a9-4105-9086-335f52beae50", "san_jose.csv"),
+    ("26820104-d0ee-4823-9b9a-ab7b441a6c94", "soriano.csv"),
+    ("c4827bfe-ceea-42dd-88a0-7043aa3fa779", "tacuarembo.csv"),
+    ("ccf4a98f-7223-4d9f-9bf5-061500623f18", "treinta_y_tres.csv"),
+];
+
+/// The doors with a letter ("109 BIS", "283A") of IDE Uruguay's address base, Direcciones
+/// Geográficas del Uruguay (`docs/evaluation/registry/uy.md`), written as an OpenAddresses layer
+/// for `--openaddresses`. OpenAddresses' `uy/*/regionwide` layers read the same files but keep
+/// only `num_puerta`, so they publish these doors as the plain number; drop this source once
+/// those conforms join `letra_puerta`. The catalogue serves only the latest monthly files, so
+/// they are fetched under `snapshot`.
+async fn dgu(store: &Store, src: &Sources, dir: &Path) -> Result<Option<PathBuf>> {
+    let bbox = src.bbox();
+    if !src.dgu || bbox.is_some_and(|b| !intersects(b, -58.5, -35.1, -53.0, -30.0)) {
+        return Ok(None);
+    }
+    let c = client()?;
+    mirror(
+        store,
+        &format!("sources/{}/dgu/{}", src.snapshot, src.scope()),
+        dir,
+        1,
+        || async {
+            Ok(vec![
+                ("uy_dgu-letters.geojson.gz".to_string(), true),
+                ("uy_dgu-letters.source.json".to_string(), false),
+            ])
+        },
+        move |data: bool, path: PathBuf| {
+            let c = c.clone();
+            Box::pin(async move {
+                if !data {
+                    let source = serde_json::json!({"layers": {"addresses": [{
+                        "name": "letters",
+                        "data": DGU,
+                        "website": DGU_PAGE,
+                        "license": {
+                            "url": "https://www.gub.uy/agencia-gobierno-electronico-sociedad-informacion-conocimiento/sites/agencia-gobierno-electronico-sociedad-informacion-conocimiento/files/documentos/publicaciones/licencia_de_datos_abiertos_0.pdf",
+                            "text": "Licencia de Datos Abiertos - Uruguay",
+                            "attribution": true,
+                            "attribution name": "Infraestructura de Datos Espaciales (IDE Uruguay), Correo Uruguayo",
+                        },
+                    }]}});
+                    tokio::fs::write(&path, source.to_string()).await?;
+                    return Ok(true);
+                }
+                let mut csvs = vec![];
+                for (resource, name) in DGU_DEPARTMENTS {
+                    let (url, csv) = (format!("{DGU}/{resource}/download/{name}"), path.with_file_name(name));
+                    ensure!(http_get(&c, &url, &csv).await?, "{url} not found");
+                    csvs.push(csv);
+                }
+                tokio::task::spawn_blocking(move || {
+                    let file = std::io::BufWriter::new(std::fs::File::create(&path)?);
+                    let mut gz =
+                        flate2::write::GzEncoder::new(file, flate2::Compression::default());
+                    let mut doors = 0;
+                    for csv in &csvs {
+                        doors += dgu_features(&std::fs::read(csv)?, bbox, &mut gz)
+                            .with_context(|| csv.display().to_string())?;
+                        std::fs::remove_file(csv)?;
+                    }
+                    gz.finish()?.flush()?;
+                    // 22,659 in October 2026; far fewer means the files changed shape
+                    ensure!(doors > 1000, "only {doors} Uruguayan doors with a letter");
+                    anyhow::Ok(())
+                })
+                .await??;
+                Ok(true)
+            })
+        },
+    )
+    .await?;
+    Ok(Some(dir.to_path_buf()))
+}
+
+/// Writes one department CSV's doors with a letter as OpenAddresses GeoJSON lines: a door number
+/// of one to five digits with one capital letter joined ("283A") or "BIS" spaced ("109 BIS"), on
+/// a named street (not a placeholder such as "UYCALDS_SN_003"). The CSVs are Windows-1252 with a
+/// few UTF-8 sequences; only building names, which are not read, and letters hold them. Returns
+/// the doors read, inside `bbox` or not.
+fn dgu_features(csv: &[u8], bbox: Option<[f64; 4]>, out: &mut impl Write) -> Result<usize> {
+    let text: String = csv.iter().map(|&b| char::from(b)).collect();
+    let mut lines = text.lines();
+    let header = crate::sources::csv_fields(lines.next().unwrap_or_default())?;
+    let col = |name: &str| {
+        header
+            .iter()
+            .position(|h| h == name)
+            .with_context(|| format!("no column {name}"))
+    };
+    let (lat, lon, postcode, street, number, letter, locality) = (
+        col("latitud")?,
+        col("longitud")?,
+        col("codigo_postal")?,
+        col("nombre_via")?,
+        col("num_puerta")?,
+        col("letra_puerta")?,
+        col("localidad")?,
+    );
+    let (mut rows, mut doors) = (0, 0);
+    for line in lines {
+        rows += 1;
+        let f = crate::sources::csv_fields(line)?;
+        ensure!(f.len() == header.len(), "row {rows}: column count");
+        let (n, l, name) = (&*f[number], &*f[letter], &*f[street]);
+        let number = match l {
+            "BIS" => format!("{n} BIS"),
+            l if l.len() == 1 && l.bytes().all(|b| b.is_ascii_uppercase()) => format!("{n}{l}"),
+            _ => continue,
+        };
+        if !(1..=5).contains(&n.len())
+            || n.starts_with('0')
+            || !n.bytes().all(|b| b.is_ascii_digit())
+            || name.is_empty()
+            || name.contains('_')
+        {
+            continue;
+        }
+        let (Ok(y), Ok(x)) = (f[lat].parse::<f64>(), f[lon].parse::<f64>()) else {
+            bail!("row {rows}: no point");
+        };
+        ensure!(
+            (-35.1..=-30.0).contains(&y) && (-58.5..=-53.0).contains(&x),
+            "row {rows}: needs a Uruguayan latitud, longitud, got {y}, {x}"
+        );
+        doors += 1;
+        if bbox.is_some_and(|b| !intersects(b, x, y, x, y)) {
+            continue;
+        }
+        let pc = &*f[postcode];
+        let pc = (pc.len() == 5 && pc.bytes().all(|b| b.is_ascii_digit())).then_some(pc);
+        let city = Some(&*f[locality]).filter(|c| *c != "N/A");
+        let feature = serde_json::json!({
+            "type": "Feature",
+            "properties": {"number": number, "street": name, "postcode": pc, "city": city},
+            "geometry": {"type": "Point", "coordinates": [x, y]},
+        });
+        writeln!(out, "{feature}")?;
+    }
+    Ok(doors)
 }
 
 const DENUE: &str = "https://www.inegi.org.mx/contenidos/masiva/denue";
@@ -1956,6 +2137,42 @@ mod tests {
         assert_eq!(mainland.lines().count(), 1);
         assert!(ryhti_features(&csv.replace("19.94 60.1", "60.1 19.94"), None).is_err());
         assert!(ryhti_features(csv.lines().next().unwrap(), None).is_err());
+    }
+
+    #[test]
+    fn uruguayan_doors_with_a_letter_become_openaddresses_lines() {
+        let mut csv = b"latitud,longitud,punto_wkb,codigo_postal,codigo_via,nombre_via,num_puerta,letra_puerta,km,manzana,solar,nombre_inmueble,localidad,codigo_localidad,departamento\r\n\
+            -30.26,-57.61,01,55100,1,GENERAL ARTIGAS,109,BIS,N/A,9,15,N/A,BELLA UNION,366,ARTIGAS\r\n\
+            -30.26,-57.61,01,55100,1,GENERAL ARTIGAS,109,N/A,N/A,9,15,N/A,BELLA UNION,366,ARTIGAS\r\n\
+            -34.82,-56.21,01,12900,2,BULEVAR JOSE BATLLE Y ORDO\xd1EZ,6413,A,N/A,N/A,N/A,\"Unidad Zonal 9, ANC\",MONTEVIDEO,3180,MONTEVIDEO\r\n\
+            -34.82,-56.21,01,12900,3,UYMO_SN_003,10,B,N/A,N/A,N/A,N/A,N/A,N/A,MONTEVIDEO\r\n\
+            -34.82,-56.21,01,12900,2,BULEVAR JOSE BATLLE Y ORDO\xd1EZ,6415,DU,N/A,N/A,N/A,N/A,MONTEVIDEO,3180,MONTEVIDEO\r\n\
+            -34.82,-56.21,01,12900,2,BULEVAR JOSE BATLLE Y ORDO\xd1EZ,6417,\xc3\x91,N/A,N/A,N/A,N/A,MONTEVIDEO,3180,MONTEVIDEO\r\n".to_vec();
+        let mut out = vec![];
+        assert_eq!(dgu_features(&csv, None, &mut out).unwrap(), 2);
+        let features: Vec<serde_json::Value> = String::from_utf8(out)
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert_eq!(
+            features[0]["properties"],
+            serde_json::json!({"number": "109 BIS", "street": "GENERAL ARTIGAS", "postcode": "55100", "city": "BELLA UNION"})
+        );
+        assert_eq!(
+            features[0]["geometry"]["coordinates"],
+            serde_json::json!([-57.61, -30.26])
+        );
+        assert_eq!(features[1]["properties"]["number"], "6413A");
+        assert_eq!(
+            features[1]["properties"]["street"],
+            "BULEVAR JOSE BATLLE Y ORDOÑEZ"
+        );
+        let mut south = vec![];
+        dgu_features(&csv, Some([-57.0, -35.0, -56.0, -34.0]), &mut south).unwrap();
+        assert_eq!(south.iter().filter(|b| **b == b'\n').count(), 1);
+        csv.extend(b"-57.61,-30.26,01,55100,1,GENERAL ARTIGAS,111,BIS,N/A,9,15,N/A,BELLA UNION,366,ARTIGAS\r\n");
+        assert!(dgu_features(&csv, None, &mut vec![]).is_err());
     }
 
     #[tokio::test]
