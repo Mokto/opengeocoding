@@ -152,6 +152,18 @@ pub const STREETS: &[Street] = &[
         lat: 48.86,
         numbers: &["1", "2", "3", "4", "5", "6", "7bis", "8a", "9 C"],
     },
+    // "Ch. Frau" is how a Swiss address's code and last word ("…, CH, Frau") read as a road
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Chemin de la Frau",
+        postcode: "50667",
+        city: "Nordville",
+        cc: "FR",
+        lon: 2.01,
+        lat: 47.5,
+        numbers: &["1"],
+    },
 ];
 
 pub fn cases() -> Vec<Case> {
@@ -204,6 +216,8 @@ pub fn cases() -> Vec<Case> {
         case("Atlantis, France", town("fr", false)),
         // a stated territory holds only its own places, and a stated country no other's
         case("Colmar, Guadeloupe", Want::Abstain),
+        // a country code between commas (Switzerland's) is no word of a French road's name
+        case("Kornhaldenstrasse 1, CH, Frau", Want::Abstain),
         case("Colmar, Western Sahara", Want::Abstain),
     ]
 }

@@ -888,7 +888,7 @@ fn a_town_without_postcodes_accepts_the_stated_one_but_not_a_contradicting_one()
 fn a_country_written_as_the_last_part_is_found_when_the_parser_missed_it() {
     let missed = parsed(&[("house", "kingdom of bahrain")]);
     assert_eq!(
-        country_in_tail(
+        unlabelled_country(
             "7th Flr. Al Zamel Building, Manama. P.O. Box 54482, Kingdom of Bahrain",
             &missed
         )
@@ -897,15 +897,56 @@ fn a_country_written_as_the_last_part_is_found_when_the_parser_missed_it() {
     );
     // a state code, a state the parser labelled, a lone part and a numbered part are no country
     assert_eq!(
-        country_in_tail("287 Traffic Road, VA 23924", &parsed(&[])),
+        unlabelled_country("287 Traffic Road, VA 23924", &parsed(&[])),
         None
     );
-    assert_eq!(country_in_tail("Springfield, VA", &parsed(&[])), None);
+    assert_eq!(unlabelled_country("Springfield, VA", &parsed(&[])), None);
     assert_eq!(
-        country_in_tail("Atlanta, Georgia", &parsed(&[("state", "georgia")])),
+        unlabelled_country("Atlanta, Georgia", &parsed(&[("state", "georgia")])),
         None
     );
-    assert_eq!(country_in_tail("Bahrain", &parsed(&[])), None);
+    assert_eq!(unlabelled_country("Bahrain", &parsed(&[])), None);
+    // a country written first, which the parser took for a house
+    assert_eq!(
+        unlabelled_country(
+            "India, Viman Nagar, Pune \u{2013} 14",
+            &parsed(&[("house", "india"), ("suburb", "viman nagar")])
+        )
+        .as_deref(),
+        Some("India")
+    );
+    assert_eq!(
+        unlabelled_country("Jordan, Amman Street", &parsed(&[("city", "jordan")])),
+        None
+    );
+}
+
+#[test]
+fn a_code_glued_into_a_road_or_house_is_found() {
+    assert_eq!(
+        glued_code(
+            "Buchhaldenstrasse 1, CH, Frau",
+            &parsed(&[("road", "ch frau"), ("house_number", "1")])
+        )
+        .as_deref(),
+        Some("CH")
+    );
+    // a code the parser read as a state or a level, or written in lowercase, is no glued code
+    assert_eq!(
+        glued_code("Somerville, NB, Canada", &parsed(&[("state", "nb")])),
+        None
+    );
+    assert_eq!(
+        glued_code("Friedrichstra\u{df}e 43, EG", &parsed(&[("level", "eg")])),
+        None
+    );
+    assert_eq!(
+        glued_code(
+            "Main Street, ch, Frau",
+            &parsed(&[("road", "main street ch frau")])
+        ),
+        None
+    );
 }
 
 #[test]

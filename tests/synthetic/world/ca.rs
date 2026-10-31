@@ -117,6 +117,8 @@ pub fn cases() -> Vec<Case> {
         case("Delhi, Ontario", town("ca-on-delhi", true)),
         case("Delhi, ON, Canada", town("ca-on-delhi", true)),
         case("Delhi, Canada", town("ca-on-delhi", true)),
+        // a province code no region of New Zealand has: not New Zealand's street and town
+        case("19 East Orchard Road, Harbourton, QC", Want::Abstain),
     ]
 }
 

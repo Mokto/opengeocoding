@@ -1,6 +1,9 @@
 use crate::index::country::{au, ca, dk, ee, hk_mo, ie, ps, pt, si, tw};
 use crate::{
-    index::{Index, Parser, canon::canon},
+    index::{
+        Index, Parser,
+        canon::{canon, is_canonical},
+    },
     matching::*,
     metrics::METRICS,
     proto::opengeocoding::*,
@@ -95,11 +98,19 @@ fn names_of(value: &Value, into: &mut Vec<String>) {
     for name in value["namedetails"].as_object().into_iter().flatten() {
         into.extend(string(name.1).split(';').map(str::to_owned));
     }
+    // A numbered region code ("FR-17") names no word of a query: "route 17" is not
+    // Charente-Maritime.
     into.extend(
         value["address"]
             .as_object()
             .into_iter()
             .flatten()
+            .filter(|(key, v)| {
+                !key.contains("ISO3166")
+                    || !v
+                        .as_str()
+                        .is_some_and(|v| v.chars().any(|c| c.is_ascii_digit()))
+            })
             .filter_map(|(_, v)| v.as_str().map(str::to_owned)),
     );
 }
@@ -571,9 +582,19 @@ impl Core {
                     && (!other_region(details)
                         || house_road_city(address, details)
                         || postcode_agrees(postcode, details))
-                    // a road alone doesn't outweigh the state: "10 Elm Street, MA" is not Newark's
+                    // a road alone doesn't outweigh the state: "10 Elm Street, MA" is not Newark's;
+                    // nor, with no country stated, do a road and town in a country with no region
+                    // of that code ("115 Somerville Rd, Somerville, NB" is not Auckland's)
                     && (!state_code_conflict(address, details)
-                        || (road_agrees(address, details) && city_agrees(address, details))
+                        || (road_agrees(address, details)
+                            && city_agrees(address, details)
+                            && (!country.is_empty()
+                                || details.is_some_and(|d| {
+                                    self.index
+                                        .region_countries(part(address, "state"))
+                                        .iter()
+                                        .any(|cc| cc == filed_country(&d.country_code))
+                                })))
                         || postcode_agrees(postcode, details))
                     && (postcode_matches(postcode, details) || house_road_city(address, details))
                     && !ee::municipality_conflict(address, details)
@@ -1393,9 +1414,33 @@ impl Core {
             }
         }
         let query = collapsed.as_deref().unwrap_or(query);
+        let coded = query;
         let named = self.index.with_region_names(query);
         let query = named.as_deref().unwrap_or(query);
         let mut found = self.resolve_once(query)?;
+        // A region's code is no place by itself: with no country stated and nothing else in the
+        // query naming the answer ("Uhlandstraße, 95 Wohnungen, BGF" is not Bangui), the query
+        // is read as written.
+        if named.is_some() && coded.split(',').all(|p| named_country(p).is_empty()) {
+            let rest: Vec<&str> = coded
+                .split(',')
+                .zip(query.split(','))
+                .filter(|(before, after)| before.trim() == after.trim())
+                .map(|(before, _)| before)
+                .collect();
+            let mut names = vec![found.display_name.as_str()];
+            if let Some(d) = found.address_details.as_option() {
+                names.extend([
+                    d.road.as_str(),
+                    d.city.as_str(),
+                    d.town.as_str(),
+                    d.village.as_str(),
+                ]);
+            }
+            if coverage(&rest.join(","), names).0 == 0 {
+                found = self.resolve_once(coded)?;
+            }
+        }
         if found
             .address_details
             .as_option()
@@ -1628,6 +1673,15 @@ impl Core {
                 *stated = words[..half].join(" ");
             }
         }
+        // A country written in its own language ("România") that the reference data lists only
+        // in others: the index knows it by its names in every language.
+        if let Some(stated) = address.get_mut("country")
+            && country_named(stated).is_empty()
+            && let Some(name) = self.index.country(stated).and_then(|cc| country_name(&cc))
+        {
+            *stated = name.into();
+        }
+        let coded = self.glued_code(query, &mut address);
         let country = expected_country(&address);
         let postcode = if part(&address, "postcode").is_empty() {
             ie::eircode(query)
@@ -1637,7 +1691,7 @@ impl Core {
         // A country the parser missed ("Kingdom of Bahrain" as a house) keeps a wrong place in
         // another country from answering, but it doesn't license a country-level fallback.
         let tailed = part(&address, "country").is_empty().then(|| {
-            country_in_tail(query, &address).map(|stated| {
+            unlabelled_country(query, &address).or(coded).map(|stated| {
                 let mut tailed = address.clone();
                 tailed.insert("country".into(), stated);
                 tailed
@@ -1711,6 +1765,17 @@ impl Core {
         {
             return Ok(found);
         }
+        if raw.as_ref().is_none_or(|chosen| {
+            chosen
+                .found
+                .address_details
+                .as_option()
+                .is_none_or(|d| d.house_number.is_empty())
+        }) && postcode.is_empty()
+            && let Some(found) = self.house_in_split_town(query, stated_address, &stated_country)?
+        {
+            return Ok(found);
+        }
         // "715 Meehan St, Santa Maria, CA 93454, Canada": no house in the stated country, but the
         // query without the country finds one whose number, road and postcode are the stated ones.
         if raw.as_ref().is_none_or(|chosen| {
@@ -1756,12 +1821,30 @@ impl Core {
             let named = ["city", "city_district", "suburb"]
                 .iter()
                 .any(|key| chosen.named_by(part(stated_address, key)));
-            let guess = details.is_none_or(|d| d.road.is_empty())
+            let thin = details.is_none_or(|d| d.road.is_empty())
                 && !postcode_agrees(&postcode, details)
                 && total >= 3
-                && explained * 2 < total
-                && !(named && chosen.countries <= 1);
-            if !guess {
+                && explained * 2 < total;
+            if thin && !(named && chosen.countries <= 1) {
+                weak = Some(chosen);
+            } else {
+                // a place the query names, beside more it doesn't explain: a part naming a
+                // place that explains more is the place meant ("Ungasan, Badung, Bali" is not
+                // the village Badung in Gianyar)
+                if thin
+                    && chosen.kind != "postcode"
+                    && let Some(parted) = self.search_parts(
+                        query,
+                        stated_address,
+                        &stated_country,
+                        Some(&chosen),
+                        true,
+                    )?
+                    && parted.kind != "postcode"
+                    && !same_place_name(&parted, &chosen)
+                {
+                    return Ok(part_answer(parted, query, stated_address, &postcode));
+                }
                 let road = part(stated_address, "road");
                 let road_found =
                     road.is_empty() || details.is_some_and(|d| !d.road.is_empty()) || {
@@ -1770,7 +1853,6 @@ impl Core {
                     };
                 return Ok(accept(chosen.found, &address, &postcode, "raw", road_found));
             }
-            weak = Some(chosen);
         }
         // "2725-377 Mem Martins": the postcode's place has another name than the town, which
         // only a stated country lets stand for it. The postcode and the town can state it.
@@ -1793,12 +1875,9 @@ impl Core {
             return Ok(found);
         }
         if let Some(chosen) =
-            self.search_parts(query, stated_address, &stated_country, weak.as_ref())?
+            self.search_parts(query, stated_address, &stated_country, weak.as_ref(), false)?
         {
-            // a part that accounts for every word of the query is no fallback
-            let (explained, total) = chosen.explained(query, stated_address);
-            let whole = total > 0 && explained == total;
-            return Ok(accept(chosen.found, &address, &postcode, "part", whole));
+            return Ok(part_answer(chosen, query, stated_address, &postcode));
         }
         if let Some(chosen) = weak {
             return Ok(accept(chosen.found, &address, &postcode, "weak", false));
@@ -1925,6 +2004,90 @@ impl Core {
             address.shift_remove("country");
             address.insert("state".into(), code);
         }
+    }
+
+    /// A part of two capitals that the parser glued into a house or road ("Buchhaldenstrasse 1,
+    /// CH, Frau" gives road "ch frau") is a code. A country's is returned, to rule out places
+    /// abroad; a region's ("NB" for New Brunswick, or Noord-Brabant) becomes the stated state.
+    fn glued_code(&self, query: &str, address: &mut ParsedAddress) -> Option<String> {
+        let code = glued_code(query, address)?;
+        if !expected_country(&parsed_country(&code)).is_empty() {
+            return Some(code);
+        }
+        let stated = expected_country(address);
+        let regions = self.index.region_countries(&code);
+        if part(address, "state").is_empty()
+            && regions
+                .iter()
+                .any(|cc| stated.is_empty() || filed_country(&stated) == cc)
+        {
+            for key in ["house", "road"] {
+                if let Some(value) = address.get_mut(key) {
+                    *value = value
+                        .split(whitespace)
+                        .filter(|w| !w.is_empty() && !w.eq_ignore_ascii_case(&code))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                }
+            }
+            address.retain(|_, value| !value.is_empty());
+            address.insert("state".into(), code.to_lowercase());
+        }
+        None
+    }
+
+    /// A neighbourhood the parser split into a suburb and a town ("Vila da Penha" read as suburb
+    /// "vila da" and town "penha"), with a house and a state but no postcode: the house of that
+    /// number and road in the stated state, when a place of the whole name lies within 5 km of it.
+    /// Never a confident answer.
+    fn house_in_split_town(
+        &self,
+        query: &str,
+        address: &ParsedAddress,
+        country: &str,
+    ) -> Result<Option<FullAddress>> {
+        let [number, road, suburb, city, state] =
+            ["house_number", "road", "suburb", "city", "state"].map(|key| part(address, key));
+        let name = format!("{suburb} {city}");
+        if [number, road, suburb, city, state]
+            .iter()
+            .any(|p| p.is_empty())
+            || !normalize_place(query).contains(&normalize_place(&name))
+        {
+            return Ok(None);
+        }
+        let place = create_query(address, &["state", "country"]);
+        // the parser reads a number first ("909 Av. Vicente de Carvalho") into the road's words
+        let written = [
+            format!("{road} {number}, {place}"),
+            format!("{number} {road}, {place}"),
+        ];
+        for candidate in written.iter().flat_map(|query| self.search(query).1) {
+            let found = format_response(&candidate)?;
+            let details = found.address_details.as_option();
+            if road_agrees(address, details)
+                && country_matches(country, details)
+                && state_consistent(address, details)
+                && let Some(d) = details
+                && let Some(g) = found.geo_coordinates.as_option()
+                && self.index.place_near(
+                    &name,
+                    Some(filed_country(&d.country_code)),
+                    g.lat,
+                    g.lon,
+                    5.0,
+                )
+            {
+                return Ok(Some(accept(
+                    found,
+                    address,
+                    "",
+                    "house_in_split_town",
+                    false,
+                )));
+            }
+        }
+        Ok(None)
     }
 
     /// A town that contradicts the rest ("8 Ayr Court, Yonkers, NY 10901" for a house in the next
@@ -2284,8 +2447,34 @@ impl Core {
                     && road_named_for_place(address, chosen.found.address_details.as_option()))
                 && !(state_only && chosen.kind == "country")
             {
+                let details = chosen.found.address_details.as_option();
+                // "3475 Las Vegas Blvd S NV": a street named for its town, which the state alone
+                // doesn't find, is in that town
+                if details.is_none_or(|d| d.road.is_empty() && !locality(Some(d)))
+                    && let Some(found) = self.town_in_road(address, country, postcode)?
+                {
+                    return Ok(Some(found));
+                }
+                // A town named in a query its other parts don't explain ("Białka Tatrzańska, ul.
+                // Środkowa 181 Termy Bania" is not Bania in Bulgaria): a part naming a place
+                // that explains more is the place meant.
+                let (explained, total) = chosen.explained(query, address);
+                if details.is_none_or(|d| d.road.is_empty())
+                    && chosen.kind != "postcode"
+                    && total >= 3
+                    && explained * 2 < total
+                    && let Some(parted) =
+                        self.search_parts(query, address, country, Some(&chosen), true)?
+                    && parted.kind != "postcode"
+                    && !same_place_name(&parted, &chosen)
+                {
+                    return Ok(Some(part_answer(parted, query, address, postcode)));
+                }
                 return Ok(Some(accept(chosen.found, address, postcode, tier, false)));
             }
+        }
+        if let Some(found) = self.town_in_road(address, country, postcode)? {
+            return Ok(Some(found));
         }
         let stripped = without_country(query, address);
         if !stripped.is_empty()
@@ -2368,16 +2557,70 @@ impl Core {
         Ok(None)
     }
 
+    /// A street named for a town ("3475 Las Vegas Blvd S NV") with a state but no town stated: the
+    /// street in the town of its name, in the stated state, when the data has it there. Never a
+    /// confident answer: the town is read from the street's name.
+    fn town_in_road(
+        &self,
+        address: &ParsedAddress,
+        country: &str,
+        postcode: &str,
+    ) -> Result<Option<FullAddress>> {
+        let road = part(address, "road");
+        if road.is_empty() || !part(address, "city").is_empty() || part(address, "state").is_empty()
+        {
+            return Ok(None);
+        }
+        let road = normalize_place(road);
+        let name: Vec<&str> = road
+            .split(' ')
+            .filter(|w| w.chars().count() > 1 && canon(w).is_none() && !is_canonical(w))
+            .collect();
+        if name.concat().chars().count() < 4 || name.len() == road.split(' ').count() {
+            return Ok(None);
+        }
+        let mut with = address.clone();
+        with.insert("city".into(), name.join(" "));
+        let written = format!(
+            "{} {}, {}",
+            part(address, "house_number"),
+            part(address, "road"),
+            create_query(&with, &["city", "state", "postcode", "country"])
+        );
+        let Some(chosen) = self.first_acceptable(
+            written.trim(),
+            &with,
+            (country, postcode),
+            "town_in_road",
+            false,
+            None,
+        )?
+        else {
+            return Ok(None);
+        };
+        let details = chosen.found.address_details.as_option();
+        let on_road = details.is_some_and(|d| {
+            let found = normalize_place(&d.road);
+            name.iter().all(|w| found.split(' ').any(|f| f == *w))
+        });
+        Ok(
+            (on_road && city_agrees(&with, details) && state_consistent(address, details))
+                .then(|| accept(chosen.found, address, postcode, "town_in_road", false)),
+        )
+    }
+
     /// Last resort for a query the parser garbled or that carries words no place has: each
     /// comma-separated part searched on its own. Only a settlement or postcode that accounts for
     /// at least two of the query's words answers, the one explaining most (a later part
-    /// breaking ties: addresses end with the larger place), and only when it beats `weak`.
+    /// breaking ties: addresses end with the larger place), and only when it beats `weak`. With
+    /// `named_only`, only a place its own part names.
     fn search_parts(
         &self,
         query: &str,
         address: &ParsedAddress,
         country: &str,
         weak: Option<&Chosen>,
+        named_only: bool,
     ) -> Result<Option<Chosen>> {
         let parts: Vec<&str> = query
             .split([',', ';'])
@@ -2458,7 +2701,7 @@ impl Core {
                 .filter(|&(la, lo)| km_between(lat, lon, la, lo) < 60.0)
                 .count()
         };
-        let mut best: Option<((usize, bool, usize, usize), usize)> = None;
+        let mut best: Option<((bool, usize, usize, usize), usize)> = None;
         for (at, (position, named, explained, chosen)) in found.iter().enumerate() {
             // "Nr. 2" is not the postcode NR2: with no country to place one, a postcode needs
             // more of the query behind it
@@ -2466,11 +2709,12 @@ impl Core {
                 chosen.kind == "postcode" && country.is_empty() && *explained < 3;
             if !chosen.anchor()
                 || unplaced_postcode
+                || (named_only && !*named)
                 || (*explained < floor && !(guess && *named && *explained >= 1))
             {
                 continue;
             }
-            let key = (support(at), *named, *explained, *position);
+            let key = (*named, support(at), *explained, *position);
             if best.is_none_or(|(k, _)| key > k) {
                 best = Some((key, at));
             }
@@ -2582,6 +2826,33 @@ fn same_house_number(found: &FullAddress, number: &str) -> bool {
         use crate::index::schema::number_key;
         crate::index::same_number(&number_key(number), &number_key(&d.house_number))
     })
+}
+
+/// Two places of one name ("Choloma" in Cortés and in Santa Bárbara, "Managua" and "La
+/// Managua"): a part naming the place a lookup already chose finds a namesake, not another place
+/// of the query.
+fn same_place_name(a: &Chosen, b: &Chosen) -> bool {
+    let own = |c: &Chosen| normalize_place(c.found.display_name.split(',').next().unwrap_or(""));
+    let (a, b) = (own(a), own(b));
+    let (long, short) = if a.len() >= b.len() {
+        (&a, &b)
+    } else {
+        (&b, &a)
+    };
+    !short.is_empty() && (long == short || long.ends_with(&format!(" {short}")))
+}
+
+/// A place `search_parts` found; a part that accounts for every word of the query is no
+/// fallback.
+fn part_answer(
+    chosen: Chosen,
+    query: &str,
+    address: &ParsedAddress,
+    postcode: &str,
+) -> FullAddress {
+    let (explained, total) = chosen.explained(query, address);
+    let whole = total > 0 && explained == total;
+    accept(chosen.found, address, postcode, "part", whole)
 }
 
 fn locality(details: Option<&AddressDetails>) -> bool {

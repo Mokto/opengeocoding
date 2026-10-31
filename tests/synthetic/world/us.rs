@@ -186,6 +186,18 @@ pub const PLACES: &[Place] = &[
         "Dallas",
         &[("en", "Dallas")],
     ),
+    place!(
+        "us-wy-laramie",
+        "locality",
+        "town",
+        "US",
+        "US-WY",
+        30_000,
+        (-106.3, 42.85),
+        "us-wy",
+        "Laramie",
+        &[("en", "Laramie")],
+    ),
 ];
 
 pub const STREETS: &[Street] = &[
@@ -302,6 +314,18 @@ pub const STREETS: &[Street] = &[
         lat: 33.5,
         numbers: &["1", "2", "3", "4", "5", "6", "7", "8", "9"],
     },
+    // a street named for its town, which holds no house 120
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Laramie Boulevard",
+        postcode: "82601",
+        city: "Laramie",
+        cc: "US",
+        lon: -106.3,
+        lat: 42.85,
+        numbers: &["100", "102"],
+    },
 ];
 
 pub fn cases() -> Vec<Case> {
@@ -328,6 +352,11 @@ pub fn cases() -> Vec<Case> {
         ),
         // France has this street, Texas has not: the town in Texas, never the French street
         case("Rue de Rivoli, Paris, Texas", town("us-tx-paris", false)),
+        // the street in the town it is named for, not Wyoming: no town stated, never a good match
+        case(
+            "120 Laramie Blvd, WY",
+            Want::At(house(street("Laramie Boulevard"), "100"), 300.0, false),
+        ),
     ]
 }
 
