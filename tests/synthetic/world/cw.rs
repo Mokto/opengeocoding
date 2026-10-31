@@ -131,6 +131,7 @@ pub const STREETS: &[Street] = &[
     ),
     curacaoan("Weg naar Santa Cruz", "Soto", (-69.118, 12.283), &["2"]),
     curacaoan("Hoffi Abou", "Soto", (-69.101, 12.295), &["9"]),
+    curacaoan("Groot Kwartierweg", "Willemstad", (-68.906, 12.13), &["12"]),
 ];
 
 /// libpostal reads a number before the street as a venue (`house`) with it, a number after it
@@ -154,6 +155,11 @@ pub fn cases() -> Vec<Case> {
             at_house("Weg naar Santa Cruz", "2"),
         ),
         case("9 Hoffi Abou, Soto, Curacao", at_house("Hoffi Abou", "9")),
+        // but tells a venue from the street it is on
+        case(
+            "LANDHUIS GROOT KWARTIER GROOT KWARTIERWEG 12, WILLEMSTAD, Curaçao",
+            at_house("Groot Kwartierweg", "12"),
+        ),
     ]
 }
 

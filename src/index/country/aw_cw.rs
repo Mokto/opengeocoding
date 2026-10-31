@@ -51,8 +51,14 @@ pub(crate) fn aligned(q: &str, whole: &[(String, String)]) -> Option<Vec<(String
         .to_string();
     let road = lower(road);
     let field = |key: &str| whole.iter().filter(|(k, _)| k == key).collect::<Vec<_>>();
+    // "Landhuis Groot Kwartier Groot Kwartierweg 12": libpostal tells a venue from its street
+    let venue = |r: &str| {
+        field("house")
+            .iter()
+            .any(|(_, h)| format!("{h} {r}") == road)
+    };
     if matches!(&field("house_number")[..], [(_, n)] if *n == number)
-        && matches!(&field("road")[..], [(_, r)] if *r == road)
+        && matches!(&field("road")[..], [(_, r)] if *r == road || venue(r))
     {
         return None;
     }
