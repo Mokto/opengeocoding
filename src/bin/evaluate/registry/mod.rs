@@ -31,6 +31,7 @@ mod ruian;
 mod ryhti;
 mod stadfangaskra;
 mod swisstopo;
+mod tainan;
 mod taipei;
 mod varis;
 
@@ -79,6 +80,7 @@ pub const ALL: &[Registry] = &[
     llv::REGISTRY,
     adressur::REGISTRY,
     ban::PF_REGISTRY,
+    tainan::REGISTRY,
 ];
 
 type Prepare = fn(&Path, &BTreeSet<String>) -> Result<BTreeMap<String, Entry>>;
