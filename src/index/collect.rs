@@ -65,6 +65,218 @@ impl Columns {
     }
 }
 
+/// The documents of one kind in each segment, from its first run to its last: a lookup's first
+/// clause. An intersection finds its first match when its scorer is made, before the collector
+/// can seek the kind's runs, so a place's words that name no place were otherwise sought through
+/// every street. Builds before indexes were ordered by kind interleave the runs, and this spans
+/// almost every document there.
+#[derive(Clone, Debug)]
+pub(super) struct OfKind(
+    pub(super) std::sync::Arc<[(tantivy::index::SegmentId, std::ops::Range<u32>)]>,
+);
+
+impl OfKind {
+    pub(super) fn new(readers: &[tantivy::SegmentReader], columns: &[Columns], kind: Kind) -> Self {
+        OfKind(
+            readers
+                .iter()
+                .zip(columns)
+                .map(|(r, c)| {
+                    let runs = &c.runs[kind as usize];
+                    let span = match (runs.first(), runs.last()) {
+                        (Some(first), Some(last)) => first.start..last.end,
+                        _ => 0..0,
+                    };
+                    (r.segment_id(), span)
+                })
+                .collect(),
+        )
+    }
+}
+
+impl tantivy::query::Query for OfKind {
+    fn weight(
+        &self,
+        _: tantivy::query::EnableScoring<'_>,
+    ) -> tantivy::Result<Box<dyn tantivy::query::Weight>> {
+        Ok(Box::new(self.clone()))
+    }
+}
+
+impl tantivy::query::Weight for OfKind {
+    fn scorer(
+        &self,
+        reader: &tantivy::SegmentReader,
+        _: tantivy::Score,
+    ) -> tantivy::Result<Box<dyn tantivy::query::Scorer>> {
+        let span = self
+            .0
+            .iter()
+            .find(|(id, _)| *id == reader.segment_id())
+            .map_or(0..0, |(_, span)| span.clone());
+        Ok(Box::new(Span {
+            doc: if span.is_empty() {
+                tantivy::TERMINATED
+            } else {
+                span.start
+            },
+            end: span.end,
+        }))
+    }
+
+    fn explain(
+        &self,
+        _: &tantivy::SegmentReader,
+        _: tantivy::DocId,
+    ) -> tantivy::Result<tantivy::query::Explanation> {
+        Err(tantivy::TantivyError::InvalidArgument(
+            "OfKind does not score".into(),
+        ))
+    }
+}
+
+/// Every document from `doc` up to `end`: seeking costs nothing.
+struct Span {
+    doc: tantivy::DocId,
+    end: tantivy::DocId,
+}
+
+impl tantivy::DocSet for Span {
+    fn advance(&mut self) -> tantivy::DocId {
+        self.seek(self.doc.saturating_add(1))
+    }
+
+    fn seek(&mut self, target: tantivy::DocId) -> tantivy::DocId {
+        self.doc = if target >= self.end {
+            tantivy::TERMINATED
+        } else {
+            target.max(self.doc)
+        };
+        self.doc
+    }
+
+    fn doc(&self) -> tantivy::DocId {
+        self.doc
+    }
+
+    fn size_hint(&self) -> u32 {
+        self.end.saturating_sub(self.doc)
+    }
+}
+
+impl tantivy::query::Scorer for Span {
+    fn score(&mut self) -> tantivy::Score {
+        1.0
+    }
+}
+
+/// A union of a few terms, as a lookup's scope ("ids:1 OR ids:2") is: tantivy's union fills a
+/// window of 4,096 documents from every term on each seek, which for a large place (a country's
+/// millions of streets) cost more than the rest of the lookup; this seeks each term instead.
+#[derive(Clone, Debug)]
+pub(super) struct AnyTerm(pub(super) Vec<Term>);
+
+impl tantivy::query::Query for AnyTerm {
+    fn weight(
+        &self,
+        _: tantivy::query::EnableScoring<'_>,
+    ) -> tantivy::Result<Box<dyn tantivy::query::Weight>> {
+        Ok(Box::new(self.clone()))
+    }
+}
+
+impl tantivy::query::Weight for AnyTerm {
+    fn scorer(
+        &self,
+        reader: &tantivy::SegmentReader,
+        _: tantivy::Score,
+    ) -> tantivy::Result<Box<dyn tantivy::query::Scorer>> {
+        use tantivy::DocSet;
+        let mut postings = vec![];
+        for t in &self.0 {
+            if let Some(p) = reader
+                .inverted_index(t.field())?
+                .read_postings(t, IndexRecordOption::Basic)?
+                && p.doc() != tantivy::TERMINATED
+            {
+                postings.push(p);
+            }
+        }
+        let doc = postings
+            .iter()
+            .map(|p| p.doc())
+            .min()
+            .unwrap_or(tantivy::TERMINATED);
+        Ok(Box::new(Any { postings, doc }))
+    }
+
+    fn explain(
+        &self,
+        _: &tantivy::SegmentReader,
+        _: tantivy::DocId,
+    ) -> tantivy::Result<tantivy::query::Explanation> {
+        Err(tantivy::TantivyError::InvalidArgument(
+            "AnyTerm does not score".into(),
+        ))
+    }
+}
+
+/// The documents of any of `postings`; `doc` is the least of theirs.
+struct Any {
+    postings: Vec<tantivy::postings::SegmentPostings>,
+    doc: tantivy::DocId,
+}
+
+impl tantivy::DocSet for Any {
+    fn advance(&mut self) -> tantivy::DocId {
+        let at = self.doc;
+        let mut doc = tantivy::TERMINATED;
+        for p in &mut self.postings {
+            let d = if p.doc() == at { p.advance() } else { p.doc() };
+            doc = doc.min(d);
+        }
+        self.doc = doc;
+        doc
+    }
+
+    fn seek(&mut self, target: tantivy::DocId) -> tantivy::DocId {
+        if self.doc >= target {
+            return self.doc;
+        }
+        let mut doc = tantivy::TERMINATED;
+        for p in &mut self.postings {
+            let d = if p.doc() < target {
+                p.seek(target)
+            } else {
+                p.doc()
+            };
+            doc = doc.min(d);
+        }
+        self.doc = doc;
+        doc
+    }
+
+    fn doc(&self) -> tantivy::DocId {
+        self.doc
+    }
+
+    fn size_hint(&self) -> u32 {
+        self.postings
+            .iter()
+            .fold(0u32, |n, p| n.saturating_add(p.size_hint()))
+    }
+
+    fn cost(&self) -> u64 {
+        self.postings.iter().map(|p| p.cost()).sum()
+    }
+}
+
+impl tantivy::query::Scorer for Any {
+    fn score(&mut self) -> tantivy::Score {
+        1.0
+    }
+}
+
 /// The kind of a document: `kind` is a string field whose terms (about 40 million street
 /// documents in a world index) are far longer than any name's, and intersecting with them walks
 /// postings the query needs none of. The fast columns tell the kinds apart as well: places have

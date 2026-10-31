@@ -481,7 +481,14 @@ fn equally_important_hits_come_in_the_same_order_whatever_the_document_order() {
 
 #[test]
 fn top_of_separates_kinds_and_countries() {
-    let dir = std::env::temp_dir().join(format!("kinds-index-{}", std::process::id()));
+    // the same answers whether a lookup in one country reads `names` or `cnames`
+    for words in [false, true] {
+        separates_kinds_and_countries(words);
+    }
+}
+
+fn separates_kinds_and_countries(words: bool) {
+    let dir = std::env::temp_dir().join(format!("kinds-index-{words}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let (schema, f) = schema::schema();
     let tantivy_index = tantivy::Index::create_in_dir(&dir, schema).unwrap();
@@ -493,13 +500,29 @@ fn top_of_separates_kinds_and_countries() {
         .unwrap();
     let docs = [
         tantivy::doc!(f.kind => "p", f.names => "oak", f.country => "US", f.id => 7u64, f.importance => 1u64),
-        tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "US", f.pcode => "12345", f.id => 8u64, f.place => 7u64, f.importance => 2u64),
-        tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "DK", f.id => 9u64, f.place => 7u64, f.importance => 3u64),
+        tantivy::doc!(f.kind => "s", f.names => "oak", f.city => "Springfield", f.country => "US", f.pcode => "12345", f.ids => "1", f.id => 8u64, f.place => 7u64, f.importance => 2u64),
+        tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "DK", f.ids => "2", f.id => 9u64, f.place => 7u64, f.importance => 3u64),
         tantivy::doc!(f.kind => "z", f.pcode => "12345", f.country => "US", f.place => 7u64, f.importance => 4u64),
         tantivy::doc!(f.kind => "s", f.names => "oak", f.country => "DK", f.id => 11u64, f.place => 7u64, f.importance => 1u64),
         tantivy::doc!(f.kind => "p", f.names => "oak", f.country => "DK", f.id => 10u64, f.importance => 5u64),
     ];
-    for (i, doc) in docs.into_iter().enumerate() {
+    for (i, mut doc) in docs.into_iter().enumerate() {
+        if words {
+            use tantivy::schema::Value;
+            let text = |field| {
+                doc.get_first(field)
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string()
+            };
+            let (cc, names, city) = (text(f.country), text(f.names), text(f.city));
+            for w in schema::country_words(&cc, &names) {
+                doc.add_text(f.cnames, w);
+            }
+            for w in schema::country_words(&cc, &city) {
+                doc.add_text(f.ccity, w);
+            }
+        }
         writer.add_document(doc).unwrap();
         if i == 3 || i == 5 {
             writer.commit().unwrap();
@@ -518,6 +541,7 @@ fn top_of_separates_kinds_and_countries() {
     )
     .unwrap();
     let index = Index::open(&dir, Arc::new(Parser::unloaded(0))).unwrap();
+    assert_eq!(index.country_words, words);
     let names = || index.musts(index.f.names, "oak");
     let ids = |hits: Vec<DocAddress>| {
         let mut ids: Vec<u64> = hits.into_iter().map(|a| index.fast(a, "id")).collect();
@@ -549,6 +573,62 @@ fn top_of_separates_kinds_and_countries() {
     assert_eq!(
         ids(index.top_of(Kind::Street, None, vec![], 10)),
         [8, 9, 11]
+    );
+    let in_town = || {
+        let mut cl = names();
+        cl.push(must(Box::new(BooleanQuery::new(vec![(
+            Occur::Should,
+            Box::new(BooleanQuery::new(index.musts(index.f.city, "springfield")))
+                as Box<dyn TQuery>,
+        )]))));
+        cl
+    };
+    assert_eq!(
+        ids(index.top_of(Kind::Street, Some("us"), in_town(), 10)),
+        [8]
+    );
+    assert!(
+        index
+            .top_of(Kind::Street, Some("dk"), in_town(), 10)
+            .is_empty()
+    );
+    let any = |ids: &[&str]| {
+        let terms = ids.iter().map(|id| Term::from_field_text(index.f.ids, id));
+        let query = AnyTerm(terms.collect());
+        index
+            .searcher
+            .search(&query, &tantivy::collector::Count)
+            .unwrap()
+    };
+    assert_eq!(
+        (any(&["2", "1"]), any(&["1", "3"]), any(&["3", "4"])),
+        (2, 1, 0)
+    );
+    let in_places = |ids: &[&str]| {
+        vec![must(Box::new(BooleanQuery::new(
+            ids.iter()
+                .map(|id| (Occur::Should, term(index.f.ids, id)))
+                .collect(),
+        )))]
+    };
+    for scope in [["1", "2", "3"], ["3", "2", "1"]] {
+        assert_eq!(
+            ids(index.top_of(Kind::Street, None, in_places(&scope), 10)),
+            [8, 9]
+        );
+    }
+    assert_eq!(
+        ids(index.top_of(Kind::Street, Some("dk"), in_places(&["1", "2"]), 10)),
+        [9]
+    );
+    assert_eq!(
+        ids(index.top_of(Kind::Street, None, in_places(&["2"]), 10)),
+        [9]
+    );
+    assert!(
+        index
+            .top_of(Kind::Street, None, in_places(&["3", "4"]), 10)
+            .is_empty()
     );
     assert!(index.any_of(Kind::Street, Some("dk"), names()));
     assert!(!index.any_of(Kind::Place, Some("fr"), names()));
