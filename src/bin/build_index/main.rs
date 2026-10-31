@@ -1328,8 +1328,8 @@ fn with_cell<'k>(key: &str, x: f64, y: f64, out: &'k mut String) -> &'k str {
 const LAST_RANK: u8 = 3;
 
 /// Marks a number derived from a suffixed one ("47" of 47B). It ranks as `BARE_RANK`, after the
-/// source's own house 47, which then keeps its point; Spain reads no OSM addresses, whose rank
-/// it shares.
+/// source's own house 47, which then keeps its point; Spain and Iceland read no OSM addresses,
+/// whose rank it shares.
 const BARE: char = '\u{1}';
 const BARE_RANK: u8 = 2;
 
@@ -1688,8 +1688,10 @@ fn numbers_with_unit<'a>(
     }
     // CartoCiudad's extension (47 B, 12 BIS) is Overture's unit: part of the house number, as
     // an address writes it ("47B"). The bare 47 stands for the building only where the source
-    // has no house 47 of its own (`BARE`).
-    if cc == *b"ES"
+    // has no house 47 of its own (`BARE`). Iceland's register (Staðfangaskrá) does the same
+    // with its one letter (22 with "A" is 22A); its other suffixes ("lóð", "spennistöð 1") are
+    // in the unit too and stay out of the number.
+    if (cc == *b"ES" || cc == *b"IS" && unit.is_some_and(|u| u.trim().len() == 1))
         && let Some(ext) = unit.map(str::trim)
         && !ext.is_empty()
         && ext.bytes().all(|b| b.is_ascii_alphabetic())
@@ -2683,6 +2685,10 @@ mod tests {
             (*b"ES", Some("12"), Some("2"), Some("12")),
             (*b"ES", Some("12-14"), Some("A"), Some("12-14")),
             (*b"ES", Some("12"), None, Some("12")),
+            (*b"IS", Some("22"), Some("A"), Some("22A;22\u{1}")),
+            (*b"IS", Some("8"), Some("b"), Some("8b;8\u{1}")),
+            (*b"IS", Some("8"), Some("lóð"), Some("8")),
+            (*b"IS", Some("8"), Some("spennistöð 1"), Some("8")),
             (*b"TW", Some("１０"), Some("之２６號"), Some("１０之２６")),
             (*b"TW", Some("261號"), Some(" 之2 "), Some("261之2")),
             (
