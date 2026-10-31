@@ -1196,6 +1196,205 @@ pub fn comma_before_country(query: &str) -> Option<String> {
     })
 }
 
+fn comma_parts(query: &str) -> Vec<&str> {
+    query
+        .split(',')
+        .map(|p| p.trim_matches(whitespace))
+        .filter(|p| !p.is_empty())
+        .collect()
+}
+
+/// A country named in `part` by four letters or more ("EE. UU."), not by a code ("CA").
+fn names_country(part: &str) -> bool {
+    part.chars().filter(|c| c.is_alphabetic()).count() >= 4 && !country_named(part).is_empty()
+}
+
+/// "…, EE. UU.": a last part that names a country in a form libpostal cuts up ("EE." a country,
+/// "UU." a state), as the country's English name.
+pub fn english_country(query: &str) -> Option<String> {
+    let (head, last) = query.rsplit_once(',')?;
+    if !names_country(last) {
+        return None;
+    }
+    let name = country_name(&country_named(last))?;
+    (normalize_place(name) != normalize_place(last)).then(|| format!("{head}, {name}"))
+}
+
+/// "Taubaté/SP", "Beyoğlu/İstanbul": two places joined by a slash, as two parts.
+pub fn slash_as_comma(query: &str) -> Option<String> {
+    static SLASH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\p{L})\s*/\s*(\p{L})").unwrap());
+    SLASH
+        .is_match(query)
+        .then(|| SLASH.replace_all(query, "$1, $2").into_owned())
+}
+
+/// `query` with the town of each part after the street (its words after a postcode) renamed by
+/// `rename`: "22303 Hamburg-Barmbek" as "22303 Hamburg". A lone part, or one before a country,
+/// is a town too. None when nothing is renamed.
+pub fn with_towns(query: &str, rename: impl Fn(&str) -> Option<String>) -> Option<String> {
+    let parts = comma_parts(query);
+    let lone = parts.len() == 1 || (parts.len() == 2 && names_country(parts[1]));
+    let mut changed = false;
+    let renamed: Vec<String> = parts
+        .iter()
+        .enumerate()
+        .map(|(i, part)| {
+            let words: Vec<&str> = part.split(whitespace).filter(|w| !w.is_empty()).collect();
+            let lead = words
+                .iter()
+                .take_while(|w| w.chars().any(|c| c.is_ascii_digit()))
+                .count();
+            let town = words[lead..].join(" ");
+            match (i > 0 || lone)
+                .then(|| rename(&town))
+                .flatten()
+                .filter(|t| !t.is_empty() && *t != town)
+            {
+                Some(new) => {
+                    changed = true;
+                    let mut out = words[..lead].to_vec();
+                    out.push(&new);
+                    out.join(" ")
+                }
+                None => part.to_string(),
+            }
+        })
+        .collect();
+    changed.then(|| renamed.join(", "))
+}
+
+/// "Charleroi Boulevard Joseph Tirou 139, 6000 Charleroi": a place written before the street and
+/// number that a later part names again, without it.
+pub fn without_leading_place(query: &str) -> Option<String> {
+    let (first, rest) = query.split_once(',')?;
+    let words: Vec<&str> = first.split(whitespace).filter(|w| !w.is_empty()).collect();
+    let lead = *words.first()?;
+    let later: Vec<String> = rest
+        .split([',', ' ', '/'])
+        .filter(|w| !w.is_empty())
+        .map(normalize_place)
+        .collect();
+    (words.len() >= 3
+        && words[1..]
+            .iter()
+            .any(|w| w.chars().any(|c| c.is_ascii_digit()))
+        && lead.chars().all(char::is_alphabetic)
+        && lead.chars().count() >= 3
+        && later.contains(&normalize_place(lead)))
+    .then(|| format!("{},{rest}", words[1..].join(" ")))
+}
+
+/// Words a listing writes after an address, before the contact details or hours that follow.
+/// Several are also a village's name somewhere ("Phone" in Laos, "Tel" in Azerbaijan).
+// ponytail: a fixed list; a label missing from it stays, unless it is a part of its own that
+// names no place.
+const TRAILING_LABELS: &[&str] = &[
+    "available",
+    "call",
+    "contact",
+    "direct",
+    "email",
+    "fax",
+    "hours",
+    "hubungi",
+    "kami",
+    "mon",
+    "open",
+    "phone",
+    "sold",
+    "tel",
+    "visítanos",
+];
+
+fn label(word: &str) -> bool {
+    let word = word
+        .trim_matches(|c: char| !c.is_alphanumeric())
+        .to_lowercase();
+    TRAILING_LABELS.contains(&word.as_str())
+}
+
+/// "…, Fukuoka, 802-0978 TEL": the last part without up to two words after its place or postcode
+/// that are a label, a symbol or a phone number's opening "(512". Not a country's words: "New
+/// Zealand" is no "New".
+pub fn without_trailing_words(query: &str) -> Option<String> {
+    let (head, last) = query.rsplit_once(',')?;
+    if !country_named(last).is_empty() {
+        return None;
+    }
+    let mut words: Vec<&str> = last.split(whitespace).filter(|w| !w.is_empty()).collect();
+    let before = words.len();
+    while words.len() > 1 && before - words.len() < 2 {
+        let word = words[words.len() - 1];
+        let junk = !word.chars().any(char::is_alphanumeric) || word.starts_with('(') || label(word);
+        if !junk {
+            break;
+        }
+        words.pop();
+    }
+    (words.len() < before).then(|| format!("{head}, {}", words.join(" ")))
+}
+
+/// "…, CA 94040, 650", "…, NS B1R 1B5, Phone": a last part that is a label, or no place, country
+/// or postcode (`is_place` says which names a place), dropped. The query keeps at least two parts.
+pub fn without_trailing_part(query: &str, is_place: impl Fn(&str) -> bool) -> Option<String> {
+    let parts = comma_parts(query);
+    let (&last, rest) = parts.split_last()?;
+    let digits = last.chars().filter(char::is_ascii_digit).count();
+    let junk = if digits > 0 {
+        digits <= 3 && !last.chars().any(char::is_alphabetic)
+    } else {
+        country_named(last).is_empty()
+            && (last.split(whitespace).all(|w| w.is_empty() || label(w)) || !is_place(last))
+    };
+    (rest.len() >= 2 && junk).then(|| rest.join(", "))
+}
+
+/// "150007, Ивановская область, г. Иваново, …": the query without a part that is only a number
+/// of four digits or more, a postcode the data may place elsewhere than the stated town. A part
+/// without digits that names a place (`is_place`) has to remain: without a town, the postcode is
+/// all that places the street.
+pub fn without_number_parts(query: &str, is_place: impl Fn(&str) -> bool) -> Option<String> {
+    let parts = comma_parts(query);
+    if !parts
+        .iter()
+        .any(|p| !p.chars().any(char::is_numeric) && !names_country(p) && is_place(p))
+    {
+        return None;
+    }
+    let kept: Vec<&str> = parts
+        .iter()
+        .copied()
+        .filter(|p| {
+            !(p.chars().filter(char::is_ascii_digit).count() >= 4
+                && p.chars()
+                    .all(|c| c.is_ascii_digit() || c == '-' || whitespace(c)))
+        })
+        .collect();
+    (kept.len() < parts.len() && kept.len() >= 2).then(|| kept.join(", "))
+}
+
+/// "St.Petersburg, ul. Rubinshteyna 29/28": a town (`is_place`) written before the street, moved
+/// after it and before a country that ends the query.
+pub fn town_last(query: &str, is_place: impl Fn(&str) -> bool) -> Option<String> {
+    let parts = comma_parts(query);
+    let (&first, rest) = parts.split_first()?;
+    if rest.is_empty()
+        || first.chars().any(char::is_numeric)
+        || !rest.iter().any(|p| p.chars().any(char::is_numeric))
+        || !is_place(first)
+    {
+        return None;
+    }
+    let mut out = rest.to_vec();
+    let at = if rest.len() > 1 && names_country(rest[rest.len() - 1]) {
+        out.len() - 1
+    } else {
+        out.len()
+    };
+    out.insert(at, first);
+    Some(out.join(", "))
+}
+
 pub fn without_country(query: &str, address: &ParsedAddress) -> String {
     let country = normalize_place(part(address, "country"));
     if country.is_empty() {

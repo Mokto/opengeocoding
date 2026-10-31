@@ -1,6 +1,9 @@
-use crate::index::country::{au, ca, dk, ee, hk_mo, ie, ps, pt, si, tw};
+use crate::index::country::{au, ca, de, dk, ee, gr, hk_mo, ie, jp, ps, pt, si, tw};
 use crate::{
-    index::{Index, Parser, canon::canon},
+    index::{
+        Index, Parser,
+        canon::{canon, is_canonical},
+    },
     matching::*,
     metrics::METRICS,
     proto::opengeocoding::*,
@@ -32,6 +35,9 @@ thread_local! {
     /// lacks.
     static PARSED_NUMBER: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
+
+/// A rewrite of a query, None when it doesn't apply.
+type Rewrite<'a> = dyn Fn(&str) -> Option<String> + 'a;
 
 /// How near a stated region must come to a town in another region for a place list to answer
 /// with the town: the region it was in before a split (Arica, Tarapacá).
@@ -721,7 +727,254 @@ impl Core {
         if ignored {
             return Ok(FullAddress::default());
         }
+        // a weak answer above the street to a query with a number may hide the stated house
+        let above_street = !found.display_name.is_empty()
+            && !found.good_match
+            && query.chars().any(|c| c.is_ascii_digit())
+            && found
+                .address_details
+                .as_option()
+                .is_some_and(|d| d.road.is_empty() && d.house_number.is_empty());
+        if (found.display_name.is_empty() || above_street)
+            && let Some(mended) = self.mended(query, above_street)?
+        {
+            return Ok(mended);
+        }
         self.named_settlement(query, found)
+    }
+
+    /// For a query nothing answers: the street, house or written postcode found once what may
+    /// have garbled its parse is mended, each mend kept for the next ("…, EE. UU." as the
+    /// country's name, "Taubaté/SP" as two parts, "Hamburg-Barmbek" as Hamburg, a Danish postal
+    /// district or a German town's long name as the town, a place repeated before the street, a
+    /// trailing label or phone fragment, a number-only part, a town written first); else the
+    /// town it names. With `house_only`, only a house found as a good match.
+    fn mended(&self, query: &str, house_only: bool) -> Result<Option<FullAddress>> {
+        let is_place = |text: &str| self.index.names_place(text.trim(), None);
+        let stated = named_country(query.rsplit(',').next().unwrap_or(""));
+        let postcoded = |digits: usize| {
+            query.split(',').any(|p| {
+                let code = p.trim().split(whitespace).next().unwrap_or("");
+                code.len() == digits && code.bytes().all(|b| b.is_ascii_digit())
+            })
+        };
+        let danish = stated == "dk" || (stated.is_empty() && postcoded(4));
+        let german = stated == "de" || (stated.is_empty() && postcoded(5));
+        let steps: [&Rewrite; 10] = [
+            &english_country,
+            &slash_as_comma,
+            &|q| with_towns(q, de::town_without_district).filter(|_| german),
+            &|q| {
+                with_towns(q, |t| dk::postal_district_town(t).map(str::to_owned)).filter(|_| danish)
+            },
+            &|q| with_towns(q, de::town_without_qualifier).filter(|_| german),
+            &without_leading_place,
+            &without_trailing_words,
+            &|q| without_trailing_part(q, is_place),
+            &|q| town_last(q, is_place),
+            &|q| without_number_parts(q, is_place),
+        ];
+        let written = normalize_postcode(query);
+        let mut mended = query.to_owned();
+        for (at, step) in steps.iter().enumerate() {
+            let Some(next) = step(&mended) else {
+                continue;
+            };
+            mended = next;
+            let mut found = self.resolve_address(&mended)?;
+            // a dropped postcode contradicted the answer, or the data lacks it
+            if at == steps.len() - 1 {
+                found.good_match = false;
+            }
+            // the resolver may place what is left of the query abroad
+            if !stated.is_empty() && !country_matches(&stated, found.address_details.as_option()) {
+                continue;
+            }
+            if found.address_details.as_option().is_some_and(|d| {
+                if house_only {
+                    return found.good_match && !d.house_number.is_empty();
+                }
+                !d.road.is_empty()
+                    || !d.house_number.is_empty()
+                    || (normalize_postcode(&d.postcode).len() >= 4
+                        && written.contains(&normalize_postcode(&d.postcode)))
+            }) {
+                METRICS.tiers.with_label_values(&["mended"]).inc();
+                return Ok(Some(found));
+            }
+        }
+        if house_only {
+            return Ok(None);
+        }
+        self.stated_town(query)
+    }
+
+    /// The town a query names when its street, house and postcode found nothing: the chōme,
+    /// ward or city of a Japanese address; else the town written first before the street
+    /// ("Galati, Str. Brailei, Nr. 32"), or the one part after the street that names no region
+    /// or district, within the region stated after it ("Kitakyushu, Fukuoka"). A region written
+    /// with a postal district and nothing else after the street is the town ("Dublin 1"). Only a
+    /// city, or a place the stated postcode lies in, answers, and only for an address with a
+    /// street or house, or a list of names; never a good match.
+    fn stated_town(&self, query: &str) -> Result<Option<FullAddress>> {
+        let (prefecture, tries) = jp::town_queries(query);
+        let prefecture = Some(prefecture)
+            .filter(|p| !p.is_empty())
+            .and_then(|p| self.index.region_named(&p, "jp"));
+        for tried in tries {
+            let found = self.resolve_written(&tried)?;
+            if found.address_details.as_option().is_some_and(|d| {
+                d.country_code == "jp"
+                    && d.road.is_empty()
+                    && prefecture.as_deref().is_none_or(|code| {
+                        d.region_codes
+                            .iter()
+                            .any(|r| r.code.eq_ignore_ascii_case(code))
+                    })
+            }) {
+                METRICS.tiers.with_label_values(&["stated_town"]).inc();
+                return Ok(Some(accept(
+                    found,
+                    &ParsedAddress::new(),
+                    "",
+                    "stated_town",
+                    false,
+                )));
+            }
+        }
+        let parsed = self.parse(query)?.unwrap_or_default();
+        // "PO Box 217, Apia": no street to have missed
+        if query.chars().any(char::is_numeric)
+            && part(&parsed, "road").is_empty()
+            && part(&parsed, "house_number").is_empty()
+        {
+            return Ok(None);
+        }
+        let mut body: Vec<&str> = query
+            .split(',')
+            .map(|p| p.trim_matches(whitespace))
+            .filter(|p| !p.is_empty())
+            .collect();
+        let cc = body
+            .last()
+            .map_or(String::new(), |last| named_country(last));
+        let country = if cc.is_empty() { None } else { body.pop() };
+        let regions_of = [
+            cc.clone(),
+            expected_country(&parsed),
+            implied_country(&parsed),
+        ]
+        .into_iter()
+        .find(|c| !c.is_empty());
+        let name_of = |p: &str| {
+            p.split(whitespace)
+                .filter(|w| !w.is_empty() && !w.chars().any(char::is_numeric))
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        let word_is = |p: &str, f: &dyn Fn(&str) -> bool| {
+            p.split(whitespace)
+                .map(normalize_place)
+                .any(|w| w.len() > 1 && f(&w))
+        };
+        let street = |p: &str| word_is(p, &|w| canon(w).is_some() || is_canonical(w));
+        let district = |p: &str| word_is(p, &|w| matches!(w, "dist" | "district" | "ward"));
+        let region = |name: &str| {
+            !name.to_lowercase().ends_with(" city")
+                && regions_of
+                    .as_deref()
+                    .is_some_and(|cc| self.index.region_named(name, cc).is_some())
+        };
+        let mut state = None;
+        let town = if let [first, rest @ ..] = &body[..]
+            && !rest.is_empty()
+            && !first.chars().any(char::is_numeric)
+            && !street(first)
+            && rest
+                .iter()
+                .all(|p| street(p) || p.chars().any(char::is_numeric))
+        {
+            Some(name_of(first))
+        } else {
+            // the first part of an address is its street, house or building
+            let address = query.chars().any(char::is_numeric);
+            let mut places = vec![];
+            let mut postal_region = None;
+            for (i, p) in body.iter().enumerate().rev() {
+                if street(p) || (i == 0 && address) {
+                    break;
+                }
+                let name = name_of(p);
+                if district(p) || name.chars().filter(|c| c.is_alphabetic()).count() < 3 {
+                    continue;
+                }
+                if region(&name) {
+                    if p.chars().any(char::is_numeric) {
+                        postal_region.get_or_insert(name.clone());
+                    }
+                    state.get_or_insert(name);
+                    continue;
+                }
+                places.push(name);
+            }
+            // several places, of which the data knows none as written: which is the town?
+            match &places[..] {
+                [only] => Some(only.clone()),
+                [] => postal_region.inspect(|_| state = None),
+                _ => None,
+            }
+        };
+        let Some(name) = town else {
+            return Ok(None);
+        };
+        let postcode = part(&parsed, "postcode").to_owned();
+        let in_country = Some(cc.as_str()).filter(|c| !c.is_empty());
+        let state_code = state
+            .as_deref()
+            .zip(regions_of.as_deref())
+            .and_then(|(state, cc)| self.index.region_named(state, cc));
+        // "Hamburg-Barmbek", "København N", "Kehl am Rhein", "Taipei City": the town without
+        // its district or qualifier too
+        let forms = [
+            Some(name.clone()),
+            de::town_without_district(&name).filter(|_| matches!(cc.as_str(), "de" | "")),
+            dk::postal_district_town(&name)
+                .filter(|_| matches!(cc.as_str(), "dk" | ""))
+                .map(str::to_owned),
+            de::town_without_qualifier(&name).filter(|_| matches!(cc.as_str(), "de" | "")),
+            name.rsplit_once(' ')
+                .filter(|(_, last)| last.eq_ignore_ascii_case("city"))
+                .map(|(head, _)| head.to_owned()),
+        ];
+        for form in forms.into_iter().flatten() {
+            // only a place of that name, not one a letter off
+            if !self.index.names_place(&form, in_country) {
+                continue;
+            }
+            let mut place = ParsedAddress::new();
+            place.insert("city".into(), form.clone());
+            if let Some(country) = country {
+                place.insert("country".into(), country.to_owned());
+            }
+            let Some(found) = self.settlement(&form, &place, &cc, &postcode)? else {
+                continue;
+            };
+            let details = found.address_details.as_option();
+            let city = details.is_some_and(|d| !d.city.is_empty() && names_agree(&form, &d.city));
+            let in_state = state_code.as_deref().is_none_or(|code| {
+                details.is_some_and(|d| {
+                    d.region_codes
+                        .iter()
+                        .any(|r| r.code.eq_ignore_ascii_case(code))
+                })
+            });
+            // a town's or village's name is often another's too ("Beni" in Myagdi and Mustang)
+            if in_state && (city || self.postcode_near(&postcode, &found, true) == Some(true)) {
+                METRICS.tiers.with_label_values(&["stated_town"]).inc();
+                return Ok(Some(found));
+            }
+        }
+        Ok(None)
     }
 
     /// An area answer whose region holds a city, town or village named as the query's first
@@ -2110,7 +2363,15 @@ impl Core {
             };
             // only a settlement named as stated: a region, province or country of that name is
             // another place, and a postcode is not a town
-            if !chosen.anchor() || chosen.kind == "postcode" || !chosen.named_by(&town) {
+            let county = chosen.kind == "county"
+                && chosen
+                    .found
+                    .address_details
+                    .as_option()
+                    .is_some_and(|d| gr::municipality_is_town(&d.country_code))
+                && self.postcode_near(postcode, &chosen.found, false) == Some(true);
+            if !(chosen.anchor() || county) || chosen.kind == "postcode" || !chosen.named_by(&town)
+            {
                 continue;
             }
             // with no country stated, the region and the postcode have to fit the one the town
@@ -2120,7 +2381,9 @@ impl Core {
             let fits = (!country.is_empty()
                 || (state_consistent(&place, details)
                     && details.is_none_or(|d| {
-                        postcode_shape(filed_country(&d.country_code), postcode) != Some(false)
+                        postcode.is_empty()
+                            || postcode_shape(filed_country(&d.country_code), postcode)
+                                != Some(false)
                     })))
                 && !self.postcode_elsewhere(
                     postcode,
@@ -2175,12 +2438,21 @@ impl Core {
     /// `town_only` is a query with no street: a code tagged with this country but sited in
     /// another ("28007" of Spain, placed in Niger) is not a contradiction. A house still is.
     fn postcode_elsewhere(&self, postcode: &str, found: &FullAddress, town_only: bool) -> bool {
+        self.postcode_near(postcode, found, town_only) == Some(false)
+    }
+
+    /// Whether the data places `postcode` within 30 km of `found`; None when it doesn't place it
+    /// (see `postcode_elsewhere`).
+    fn postcode_near(&self, postcode: &str, found: &FullAddress, town_only: bool) -> Option<bool> {
         let (Some(at), Some(details)) = (
             found.geo_coordinates.as_option(),
             found.address_details.as_option(),
         ) else {
-            return false;
+            return None;
         };
+        if postcode.is_empty() {
+            return None;
+        }
         let cc = Some(filed_country(&details.country_code)).filter(|c| !c.is_empty());
         let hits = self.index.postcode_hits(postcode, cc);
         // A code stored under this country but sited in another ("28007" of Spain, placed in
@@ -2204,7 +2476,7 @@ impl Core {
             any = true;
             near |= hit;
         }
-        !postcode.is_empty() && any && !near
+        any.then_some(near)
     }
 
     /// The one country a query that states none is in by its postcode: Portugal for a postcode

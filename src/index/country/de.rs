@@ -35,6 +35,30 @@ pub(crate) fn numbered_street(query: &str, parsed: &mut Vec<(String, String)>) {
     }
 }
 
+/// "Hamburg-Barmbek", "Limburg-Staffel": a German town and its district joined by a hyphen, as the
+/// town. Elsewhere the part before a hyphen is often another town ("Mbanza" of "Mbanza-Ngungu").
+pub fn town_without_district(town: &str) -> Option<String> {
+    let (head, tail) = town.split_once('-')?;
+    (head.chars().filter(|c| c.is_alphabetic()).count() >= 3
+        && head.chars().all(char::is_alphabetic)
+        && tail.chars().next().is_some_and(char::is_alphabetic))
+    .then(|| head.to_owned())
+}
+
+/// "Kehl am Rhein", "Neustadt an der Weinstraße": a German town's official long name, which the
+/// index may hold as the town alone ("Kehl").
+pub fn town_without_qualifier(name: &str) -> Option<String> {
+    let words: Vec<&str> = name.split_whitespace().collect();
+    let at = (1..words.len().saturating_sub(1)).find(|&i| {
+        matches!(
+            words[i].to_lowercase().as_str(),
+            "am" | "an" | "im" | "in" | "ob" | "bei" | "vor"
+        )
+    })?;
+    let town = words[..at].join(" ");
+    (town.chars().filter(|c| c.is_alphabetic()).count() >= 3).then_some(town)
+}
+
 /// A house token after the street's number: digits, or digits and one letter.
 fn house_token(house: &str) -> bool {
     let bytes = house.as_bytes();
@@ -47,6 +71,30 @@ fn house_token(house: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn towns_with_districts() {
+        assert_eq!(
+            town_without_district("Hamburg-Barmbek").as_deref(),
+            Some("Hamburg")
+        );
+        assert_eq!(town_without_district("Hamburg"), None);
+        assert_eq!(town_without_district("Bad Homburg-Gonzenheim"), None);
+    }
+
+    #[test]
+    fn long_town_names() {
+        assert_eq!(
+            town_without_qualifier("Kehl am Rhein").as_deref(),
+            Some("Kehl")
+        );
+        assert_eq!(
+            town_without_qualifier("Neustadt an der Weinstraße").as_deref(),
+            Some("Neustadt")
+        );
+        assert_eq!(town_without_qualifier("Kehl"), None);
+        assert_eq!(town_without_qualifier("Am Markt"), None);
+    }
 
     fn marked(query: &str, parts: &[(&str, &str)]) -> Vec<String> {
         let mut parsed: Vec<(String, String)> = parts
