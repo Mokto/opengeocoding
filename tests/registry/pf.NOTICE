@@ -1,0 +1,11 @@
+The registry-first sample tests/registry/pf.jsonl contains addresses and coordinates from the
+Base Adresse Nationale file for French Polynesia (adresses-987.csv.gz, last modified 2026-10-30),
+under Licence Ouverte / Open Licence 2.0
+(https://www.etalab.gouv.fr/licence-ouverte-open-licence/). Source: Base Adresse Nationale and
+its contributing communes, https://adresse.data.gouv.fr/. The Gouvernement de la Polynésie
+française republishes the same addresses as "Adressage en Polynésie française" under the same
+licence.
+
+Changes: a sample was drawn and the query forms constructed from the file's fields. Per-case file
+checksums and retrieval dates are recorded in the corpus; docs/evaluation/registry/pf.md records
+the upstream checksum.

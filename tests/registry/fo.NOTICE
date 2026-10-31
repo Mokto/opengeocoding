@@ -1,0 +1,17 @@
+The registry-first sample tests/registry/fo.jsonl contains addresses, postcodes, place names and
+coordinates from the address register (adressur, house numbers: us_adr_husanr) of the Faroese
+Environment Agency, Umhvørvisstovan, read from its ArcGIS service
+(https://gis.us.fo/arcgis/rest/services/adressur/us_adr_husanr/MapServer/0) on 2026-10-31.
+Source: Umhvørvisstovan.
+
+Used under Umhvørvisstovan's terms and conditions for data from www.foroyakort.fo
+(https://www.foroyakort.fo/um-foeroyakort/terms-and-conditions-in-english): a worldwide right to
+copy, distribute and publish the data, modify and combine it with other data, and use it
+commercially and non-commercially, provided the use does not appear to be authorised, endorsed,
+recommended or promoted by Umhvørvisstovan, and follows Faroese law and source reference
+practice.
+
+Changes: a sample was drawn and the query forms constructed from the register's fields. Neither
+Umhvørvisstovan nor anyone else has approved this sample. Per-case file checksums and the
+retrieval date are recorded in the corpus; docs/evaluation/registry/fo.md records the upstream
+checksum.

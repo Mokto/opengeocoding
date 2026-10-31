@@ -993,7 +993,7 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                                 json!(found.components),
                                 found.radius_floor_km,
                                 // overseas departments and Åland (postcodes 22xxx) answer
-                                // with their own ISO code too
+                                // with their own ISO code too, and French Polynesia with France's
                                 std::iter::once(country)
                                     .chain(found.components.get("postcode").and_then(|pc| {
                                         Some(match (name, pc.get(..3)?) {
@@ -1003,6 +1003,7 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                                             ("ban" | "ban-csv", "974") => "re",
                                             ("ban" | "ban-csv", "976") => "yt",
                                             ("ryhti", p) if p.starts_with("22") => "ax",
+                                            ("ban-pf", _) => "fr",
                                             _ => return None,
                                         })
                                     }))
