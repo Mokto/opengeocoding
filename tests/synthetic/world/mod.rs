@@ -87,7 +87,7 @@ mod gb;
 mod ge;
 mod gg;
 mod gt;
-mod hk;
+pub(super) mod hk;
 mod ie;
 mod il;
 mod r#in;

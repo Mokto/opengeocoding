@@ -1950,6 +1950,7 @@ async fn resolve_follows_the_authored_facts() {
             _ => {}
         }
     }
+    world::hk::check_bilingual_safeguards(&resolver).await;
     assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     for country in ["Netherlands", "NL"] {
         let query = format!("Meadowln. 4a, 1234 TJ Polderdam, {country}");

@@ -101,6 +101,18 @@ pub const PLACES: &[Place] = &[
         "西貢",
         &[("en", "Sai Kung")],
     ),
+    place!(
+        "hk-clear-water-bay",
+        "locality",
+        "village",
+        "HK",
+        "",
+        1_000,
+        (175.31, 15.0),
+        "hk",
+        "清水灣",
+        &[("en", "Clear Water Bay")],
+    ),
 ];
 
 pub const STREETS: &[Street] = &[
@@ -150,6 +162,28 @@ pub const STREETS: &[Street] = &[
         lat: 15.0,
         numbers: &["185"],
     },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "青松灣 Tsing Chung Wan",
+        postcode: "",
+        city: "Sai Kung",
+        cc: "HK",
+        lon: 175.31,
+        lat: 15.0,
+        numbers: &["72", "94B"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "翠湖路 Jade Lake Road",
+        postcode: "",
+        city: "Sai Kung",
+        cc: "HK",
+        lon: 175.315,
+        lat: 15.0,
+        numbers: &["青松商場42號鋪", "42"],
+    },
     // written as in Tai Wai, 2 km off, but nearer Sha Tin, which the data files it under
     Street {
         class: "residential",
@@ -168,6 +202,30 @@ pub fn cases() -> Vec<Case> {
     let ko_fong = at_house("KO FONG STREET", "27");
     vec![
         case("27 KO FONG STREET, HONG KONG", ko_fong),
+        case(
+            "72 青松灣 Tsing Chung Wan, 清水灣 Clear Water Bay, Hong Kong",
+            at_house("青松灣 Tsing Chung Wan", "72"),
+        ),
+        case(
+            "青松灣 Tsing Chung Wan 72, 清水灣 Clear Water Bay, Hong Kong",
+            at_house("青松灣 Tsing Chung Wan", "72"),
+        ),
+        case(
+            "94B 青松灣 Tsing Chung Wan, 清水灣 Clear Water Bay, Hong Kong",
+            at_house("青松灣 Tsing Chung Wan", "94B"),
+        ),
+        case(
+            "青松灣 Tsing Chung Wan 94B, 清水灣 Clear Water Bay, Hong Kong",
+            at_house("青松灣 Tsing Chung Wan", "94B"),
+        ),
+        case(
+            "青松商場42號鋪 翠湖路 Jade Lake Road, Sai Kung, Hong Kong",
+            at_house("翠湖路 Jade Lake Road", "青松商場42號鋪"),
+        ),
+        case(
+            "翠湖路 Jade Lake Road 青松商場42號鋪, Sai Kung, Hong Kong",
+            at_house("翠湖路 Jade Lake Road", "青松商場42號鋪"),
+        ),
         case(
             "27 Ko Fong Street, Kwai Chung, Kwai Tsing District, New Territories, Hong Kong",
             at_house("KO FONG STREET", "27"),
@@ -195,9 +253,71 @@ pub fn cases() -> Vec<Case> {
 }
 
 #[test]
+fn shop_identifiers_are_not_street_house_numbers() {
+    let street = street("翠湖路 Jade Lake Road");
+    for query in [
+        "青松商場42號鋪 翠湖路 Jade Lake Road, Sai Kung, Hong Kong",
+        "翠湖路 Jade Lake Road 青松商場42號鋪, Sai Kung, Hong Kong",
+    ] {
+        let found = index().suggest(query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert!(metres((found[0].x, found[0].y), house(street, "青松商場42號鋪")) < 5.);
+        assert!(metres((found[0].x, found[0].y), house(street, "42")) > 10.);
+    }
+}
+
+pub async fn check_bilingual_safeguards(resolver: &Resolver) {
+    for query in [
+        "72 青松灣 Tsing Chung Wan, 清水灣 Clear Water Bay, Hong Kong",
+        "青松灣 Tsing Chung Wan 72, 清水灣 Clear Water Bay, Hong Kong",
+        "94B 青松灣 Tsing Chung Wan, 清水灣 Clear Water Bay, Hong Kong",
+        "青松灣 Tsing Chung Wan 94B, 清水灣 Clear Water Bay, Hong Kong",
+    ] {
+        let parsed = resolver.parse(query).await.unwrap();
+        assert_eq!(parsed["country"], "hong kong", "{query}: {parsed:?}");
+        assert_eq!(
+            parsed["city"], "清水灣 clear water bay",
+            "{query}: {parsed:?}"
+        );
+        assert_eq!(
+            parsed["road"], "青松灣 tsing chung wan",
+            "{query}: {parsed:?}"
+        );
+    }
+    for query in [
+        "青松商場42號鋪 翠湖路 Jade Lake Road, Sai Kung, Hong Kong",
+        "翠湖路 Jade Lake Road 青松商場42號鋪, Sai Kung, Hong Kong",
+    ] {
+        let found = resolver.resolve(query).await.unwrap();
+        assert!(found.good_match, "{query}: {found:?}");
+        assert_eq!(
+            found.address_details.as_option().unwrap().house_number,
+            "青松商場42號鋪"
+        );
+    }
+    for query in [
+        "72 青松灣 Tsing Chung Wan, 清水灣 Clear Water Bay, France",
+        "青松灣 Tsing Chung Wan 94B, 清水灣 Clear Water Bay, France",
+        "青松商場42號鋪 翠湖路 Jade Lake Road, Sai Kung, France",
+        "青松商場43號鋪 翠湖路 Jade Lake Road, Sai Kung, Hong Kong",
+    ] {
+        let found = resolver.resolve(query).await.unwrap();
+        assert!(!found.good_match, "{query}: {found:?}");
+    }
+}
+
+#[test]
 fn hong_kong_suggestions_read_whole_addresses_and_chinese_numbers() {
     for (query, lon) in [
         ("27 KO FONG STREET, HONG KONG", 175.005),
+        (
+            "72 青松灣 Tsing Chung Wan, 清水灣 Clear Water Bay, Hong Kong",
+            175.31,
+        ),
+        (
+            "青松灣 Tsing Chung Wan 94B, 清水灣 Clear Water Bay, Hong Kong",
+            175.31,
+        ),
         (
             "27 Ko Fong Street, Kwai Chung, Kwai Tsing District, New Territories, Hong Kong",
             175.005,
