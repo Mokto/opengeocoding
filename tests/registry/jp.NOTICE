@@ -1,0 +1,18 @@
+街区レベル位置参照情報 国土交通省 (MLIT, Ministry of Land, Infrastructure, Transport and Tourism,
+Japan), 2025年度版, version 24.0a: the 47 prefectural archives (01000-24.0a.zip through
+47000-24.0a.zip), captured 2026-10-31. Source: https://nlftp.mlit.go.jp/isj/.
+Their URLs, byte sizes and SHA-256 checksums are recorded in tests/registry/jp.sources.tsv.
+
+The corpus tests/registry/jp.jsonl was sampled and reformatted by OpenGeocoding from this source.
+It decodes Shift-JIS to UTF-8, keeps current representative residential-address blocks with
+numeric block signs, transforms JGD2000 geographic coordinates to WGS84, draws a seeded sample,
+and constructs query forms from the source's names and block signs. These edits and queries are
+not unmodified MLIT publications and are not endorsed by MLIT. Points represent blocks, not
+individual residences or entrances.
+
+Used under the 位置参照情報利用約款 (Location Reference Information Terms of Use, revised
+2013-02-07), https://nlftp.mlit.go.jp/isj/agreement.html: free use, including reproduction,
+citation and edited outputs, with the required source credit above and, where possible, edition,
+filename and the party responsible for the edits. The information is not suitable for surveys
+requiring high accuracy or official certifications; use is at the user's responsibility.
+MLIT disclaims liability and may change the terms or withdraw the service.
