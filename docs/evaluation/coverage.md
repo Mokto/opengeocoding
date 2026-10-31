@@ -12,6 +12,8 @@ The same measurement on an index from the 0.18.0 builder (`e8c4a1473b15ae4a`, Ov
 
 The 1.0.1 builder's index (`e745019960b65d36`, Overture 2026-10-21.0 with the chart's OSM extracts and Korea's commercial-building addresses, 28 October 2026) is in [house-number-coverage-1.0.1.tsv](house-number-coverage-1.0.1.tsv). South Korea rose from 0.63 to 2.7 million houses and Serbia from 2.7 to 5.1 million; Bermuda, the Falklands, Guernsey, Jersey and the Isle of Man have houses for the first time. The largest gaps are unchanged.
 
+The 1.4.0 builder's index (`0d6237d777e33303`, also 1.5.0's builder; the same sources plus Ryhti's Swedish-only addresses and DENUE establishments registered before 2025, 30 October 2026) is in [house-number-coverage-1.4.0.tsv](house-number-coverage-1.4.0.tsv). Mexico rose from 16.5 to 17.8 million houses, Taiwan from 5.5 to 5.7 million and Finland from 2.22 to 2.24 million; the largest gaps are unchanged.
+
 | Country | Population | Houses | Per 1,000 people | Streets with a number | Estimated gap |
 |---|---:|---:|---:|---:|---:|
 | India | 1,464 M | 85,596 | 0 | 13% | 439.1 M |
