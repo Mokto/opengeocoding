@@ -69,7 +69,7 @@ jobs:
           models: ${{ contains(steps.select.outputs.benches, 'resolve') }}
       - if: steps.select.outputs.benches != ''
         name: Install Rust
-        run: rustup toolchain install 1.99.0 --profile minimal && rustup default 1.99.0
+        run: rustup toolchain install 1.99.1 --profile minimal && rustup default 1.99.1
       # Caches dependencies, build output and the binaries installed below.
       - if: steps.select.outputs.benches != ''
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -78,13 +78,13 @@ jobs:
         run: |
           curl -fsSL --retry 3 "https://github.com/bufbuild/buf/releases/download/v1.68.1/buf-Linux-x86_64" -o "$HOME/.cargo/bin/buf"
           chmod +x "$HOME/.cargo/bin/buf"
-          cargo install cargo-codspeed --locked --version 5.0.2
+          cargo install cargo-codspeed --locked --version 6.0.0
       # Builds them all (the build replaces earlier ones); only the selected ones run.
       - if: steps.select.outputs.benches != ''
         name: Build the benchmarks
         run: cargo codspeed build
       - if: steps.select.outputs.benches != ''
-        uses: CodSpeedHQ/action@821a40cd6c80e3cfe387caf55668287addd808da # v5.5.0
+        uses: CodSpeedHQ/action@78102a468f96d8e0ccb92d0ec49425753fc42062 # v5.6.0
         with:
           mode: simulation
           run: |

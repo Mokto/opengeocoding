@@ -9286,28 +9286,28 @@ DEALINGS IN THE SOFTWARE.
 
 ========================================================================
 
-codspeed 5.0.3
+codspeed 6.0.0
 License: MIT OR Apache-2.0
 Repository: https://github.com/CodSpeedHQ/codspeed-rust
 
 
 ========================================================================
 
-codspeed-divan-compat 5.0.3
+codspeed-divan-compat 6.0.0
 License: MIT OR Apache-2.0
 Repository: https://github.com/CodSpeedHQ/codspeed-rust
 
 
 ========================================================================
 
-codspeed-divan-compat-macros 5.0.3
+codspeed-divan-compat-macros 6.0.0
 License: MIT OR Apache-2.0
 Repository: https://github.com/CodSpeedHQ/codspeed-rust
 
 
 ========================================================================
 
-codspeed-divan-compat-walltime 5.0.3
+codspeed-divan-compat-walltime 6.0.0
 License: MIT OR Apache-2.0
 Repository: https://github.com/CodSpeedHQ/codspeed-rust
 
@@ -59770,7 +59770,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 
 ========================================================================
 
-tokio 1.53.3
+tokio 1.54.1
 License: MIT
 Repository: https://github.com/tokio-rs/tokio
 MIT License
