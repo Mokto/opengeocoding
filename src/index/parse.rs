@@ -663,6 +663,7 @@ impl Parser {
                 .or_else(|| si::aligned(q))
                 .or_else(|| lt::aligned(q))
                 .or_else(|| lv::aligned(q))
+                .or_else(|| aw_cw::aligned(q, &parsed))
             {
                 parsed = read;
             }
