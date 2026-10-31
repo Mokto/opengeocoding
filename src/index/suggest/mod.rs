@@ -177,7 +177,12 @@ fn kept(mut out: Vec<Suggestion>, cc: Option<&str>, limit: usize) -> Vec<Suggest
     // the filter matches a street's own country, which its place may not be in
     out.retain(|s| {
         cc.is_none_or(|c| s.country_code.is_empty() || s.country_code.eq_ignore_ascii_case(c))
-            && seen.insert((s.display_name.clone(), s.category))
+            // two houses a road numbers alike (in two cells of one place) read the same
+            && seen.insert((
+                s.display_name.clone(),
+                s.category,
+                (s.kind == "address").then_some((s.x.to_bits(), s.y.to_bits())),
+            ))
     });
     out.truncate(limit);
     out

@@ -1155,6 +1155,40 @@ fn a_country_name_is_the_country_most_of_its_languages_give_it() {
 }
 
 #[test]
+fn a_numbered_ruta_keeps_its_number() {
+    let owned = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    };
+    let mut parsed = owned(&[
+        ("house_number", "13"),
+        ("road", "ruta"),
+        ("house_number", "31"),
+        ("postcode", "50000"),
+    ]);
+    numbered_ruta(&mut parsed);
+    assert_eq!(
+        parsed,
+        owned(&[
+            ("house_number", "13"),
+            ("road", "ruta 31"),
+            ("postcode", "50000")
+        ])
+    );
+    // a named road keeps both numbers ("125 Ленина 125")
+    let named = owned(&[
+        ("house_number", "125"),
+        ("road", "ленина"),
+        ("house_number", "125"),
+    ]);
+    let mut parsed = named.clone();
+    numbered_ruta(&mut parsed);
+    assert_eq!(parsed, named);
+}
+
+#[test]
 fn a_number_or_a_town_and_country_read_as_a_house_name_are_relabelled() {
     let owned = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
         pairs

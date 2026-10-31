@@ -758,6 +758,16 @@ impl Index {
         .unwrap_or(0)
     }
 
+    /// The place of document `a`'s own country, which a street outside every place still has.
+    fn doc_country(&self, a: DocAddress) -> Option<u32> {
+        let code = self.columns[a.segment_ord as usize].countries[a.doc_id as usize];
+        let (cc, _) = self
+            .country_codes
+            .iter()
+            .find(|&(_, &c)| c == code && c != 0)?;
+        self.country_places.get(&cc.to_lowercase()).copied()
+    }
+
     fn fast_f64(&self, a: DocAddress, field: &str) -> f64 {
         let c = &self.columns[a.segment_ord as usize];
         match field {

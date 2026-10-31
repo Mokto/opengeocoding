@@ -293,6 +293,22 @@ pub(super) fn unit_from_road(parsed: &mut Vec<(String, String)>) {
     }
 }
 
+/// "13 Ruta 31": libpostal reads the number of a Spanish numbered road as a second house number
+/// (house 13, road "ruta", house 31). "Ruta" alone names no road, so the number is the road's.
+pub(super) fn numbered_ruta(parsed: &mut Vec<(String, String)>) {
+    let Some(at) = parsed.windows(3).position(|w| {
+        w[0].0 == "house_number"
+            && w[1].0 == "road"
+            && w[1].1 == "ruta"
+            && w[2].0 == "house_number"
+            && w[2].1.bytes().all(|b| b.is_ascii_digit())
+    }) else {
+        return;
+    };
+    let (_, number) = parsed.remove(at + 2);
+    parsed[at + 1].1 = format!("ruta {number}");
+}
+
 /// "13 Кӯчаи Каримов, Вахш": libpostal labels a bare number before the road a house name. With
 /// no house number, and a part of `q` that is that number and the whole road, it is the house
 /// number: a road cut short ("strada ion" of "2 Strada Ion Druță") or run on across commas is
@@ -652,6 +668,7 @@ impl Parser {
             }
             unit_from_road(&mut parsed);
             number_from_house(q, &mut parsed);
+            numbered_ruta(&mut parsed);
             town_country_from_house(q, &mut parsed);
             if estonian {
                 ee::typed_road(&mut parsed, typed);

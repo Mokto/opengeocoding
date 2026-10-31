@@ -32,6 +32,12 @@ pub(super) fn loop_stopped(retried: &str, depth: usize) {
     );
 }
 
+thread_local! {
+    /// Set while `suggest_houses` runs: the search takes a house the parse lost only when the
+    /// houses found agree, so it is given one per street name and place, without far copies.
+    static ONE_HOUSE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 impl Index {
     pub(super) fn suggest_number_comma(
         &self,
@@ -76,6 +82,14 @@ impl Index {
         if text.chars().count() > MAX_TEXT || text.trim().is_empty() || limit == 0 {
             return vec![];
         }
+        struct OneHouse;
+        impl Drop for OneHouse {
+            fn drop(&mut self) {
+                ONE_HOUSE.set(false);
+            }
+        }
+        ONE_HOUSE.set(true);
+        let _one = OneHouse;
         let mut out = match self.chinese_suggest(text, cc) {
             Some(found) => found,
             None => {
@@ -1225,22 +1239,27 @@ impl Index {
         });
         let mut houses = vec![];
         let mut plain = vec![];
-        // Each cell holds different houses; deduplicate names only after checking the number.
+        // Each cell holds different houses, so every cell holding the number answers (a long
+        // rural road numbers a house 1530 in several cells), with its far copy; deduplicate names
+        // only for streets without it.
+        let copies = !ONE_HOUSE.get();
         let mut answered = std::collections::HashSet::new();
         for (a, sid, place, name) in streets {
             let key = (fold(&name), place);
-            if answered.contains(&key) {
+            if (number.is_none() || !copies) && answered.contains(&key) {
                 continue;
             }
             let mut found = false;
             if let Some(n) = &number {
-                let shard = &self.numbers[sid as usize % self.numbers.len()];
+                let shard = sid as usize % self.numbers.len();
                 let mut key = sid.to_be_bytes().to_vec();
                 key.extend_from_slice(n.as_bytes());
-                let mut numbers: Vec<(String, u64)> = shard
-                    .get(&key)
+                let far = (self.far[shard].as_ref())
+                    .filter(|_| copies)
+                    .and_then(|m| m.get(&key));
+                let shard = &self.numbers[shard];
+                let mut numbers: Vec<(String, u64)> = (shard.get(&key).into_iter().chain(far))
                     .map(|v| (n.clone(), v))
-                    .into_iter()
                     .collect();
                 if numbers.is_empty()
                     && let Some((alt, v)) = self.house_record(sid, n)
@@ -1391,6 +1410,15 @@ impl Index {
     ) -> Suggestion {
         let mut display: Vec<String> = number.map(String::from).into_iter().collect();
         display.push(name.to_string());
+        // A road between towns is in no place, but in its country and a region's polygon.
+        let place = match (place, self.doc_country(a)) {
+            (NONE, Some(country)) => self
+                .area_at(y, x)
+                .0
+                .filter(|&p| self.places[p as usize].cc == self.places[country as usize].cc)
+                .unwrap_or(country),
+            _ => place,
+        };
         let mut country_code = String::new();
         if place != NONE {
             if let Some(chain) = number.and_then(|_| self.house_chain(&self.chain(place), x, y)) {
