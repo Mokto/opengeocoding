@@ -839,7 +839,11 @@ impl Core {
             &|q| with_towns(q, de::town_without_qualifier).filter(|_| german),
             &without_leading_place,
             &without_trailing_words,
-            &|q| without_trailing_part(q, is_place),
+            &|q| {
+                without_trailing_part(q, |part| {
+                    is_place(part) || !self.index.region_countries(part).is_empty()
+                })
+            },
             &|q| town_last(q, is_place),
             &|q| without_number_parts(q, is_place),
         ];

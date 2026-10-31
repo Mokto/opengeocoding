@@ -117,8 +117,19 @@ pub fn cases() -> Vec<Case> {
         case("Delhi, Ontario", town("ca-on-delhi", true)),
         case("Delhi, ON, Canada", town("ca-on-delhi", true)),
         case("Delhi, Canada", town("ca-on-delhi", true)),
+        case(
+            "12 Maple Scope Road, Delhi, ON",
+            at_house("Maple Scope Road", "12"),
+        ),
+        case(
+            "12 Maple Scope Road, Delhi, Phone",
+            at_house("Maple Scope Road", "12"),
+        ),
         // a province code no region of New Zealand has: not New Zealand's street and town
         case("19 East Orchard Road, Harbourton, QC", Want::Abstain),
+        case("19 East Orchard Road, Harbourton, qc", Want::Abstain),
+        case("19 East Orchard Road, Harbourton, ON", Want::Abstain),
+        case("19 East Orchard Road, Harbourton, QC, Phone", Want::Abstain),
     ]
 }
 
