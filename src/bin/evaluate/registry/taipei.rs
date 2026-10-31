@@ -12,6 +12,7 @@ use std::{
 };
 
 const URL: &str = "https://data.gov.tw/dataset/155472";
+const DISTRICTS: &str = include_str!("../../../../tests/registry/taipei-districts.xml");
 static NUMBER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^([0-9]+(?:之[0-9]+)?)號((?:地下)?[一二三四五六七八九十百0-9]+樓.*)?$").unwrap()
 });
@@ -264,14 +265,73 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
     refs.iter().map(|id| {
         let a = rows.get(id).with_context(|| format!("Taipei lacks building {id}"))?;
         let mut provenance = metadata.clone();
+        provenance.insert("district_names".into(), json!({
+            "name": "代碼服務－鄉鎮市區清單(戶政)",
+            "agency": "內政部國土測繪中心",
+            "url": "https://api.nlsc.gov.tw/other/ListTown1/A",
+            "catalogue": "https://data.gov.tw/dataset/102011",
+            "license": REGISTRY.license,
+            "retrieved": "2026-10-31",
+            "release": "taipei-districts.xml",
+            "sha256": sha256_hex(DISTRICTS.as_bytes()),
+            "code_field": "towncode",
+        }));
         provenance.extend(serde_json::from_value::<serde_json::Map<String, Value>>(json!({"district_code":a.district,"street":a.street,"area":a.area,"lane":a.lane,"alley":a.alley,"house_number":a.raw_number,"floor_address":a.floor.as_ref().map(|f| &f.0),"coordinate_transform":"EPSG:3826 to EPSG:4326, DuckDB spatial / PROJ, always_xy=true","location_key":"SHA256(district, street, area, lane, alley, house number), ASCII digits, NUL separated"}))?);
-        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number.clone())]), radius_floor_km: 0.15, provenance, number_aliases: None, places: vec![] }))
+        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number.clone())]), radius_floor_km: 0.15, provenance, number_aliases: None, places: vec![a.district_name().context("unknown Taipei district")?.into()] }))
     }).collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn official_district_codes_are_exact_and_supply_reverse_places() {
+        let path =
+            std::env::temp_dir().join(format!("taipei-districts-{}.csv", std::process::id()));
+        let header = "省市縣市代碼,鄉鎮市區代碼,街路段,地區,巷,弄,號,橫座標,縱座標,lat,lon\n";
+        let row =
+            |code: &str| format!("63000,{code},民生東路三段,,,,１號,306800,2772200,25.05,121.56\n");
+        let pattern =
+            Regex::new(r"(?s)<towncode>([^<]+)</towncode>.*?<townname>([^<]+)</townname>").unwrap();
+        let districts: BTreeMap<_, _> = pattern
+            .captures_iter(DISTRICTS)
+            .map(|c| (c[1].to_string(), c[2].to_string()))
+            .collect();
+        assert_eq!(districts.len(), 12);
+        assert_ne!(districts["63000010"], districts["63000100"]);
+        std::fs::write(
+            &path,
+            format!(
+                "{header}{}",
+                districts.keys().map(|c| row(c)).collect::<String>()
+            ),
+        )
+        .unwrap();
+        let rows = load(&path).unwrap();
+        let prepared = prepare(&path, &rows.keys().cloned().collect()).unwrap();
+        assert_eq!(prepared.len(), 12);
+        for (id, a) in rows {
+            let expected = &districts[&a.district];
+            assert_eq!(a.district_name(), Some(expected.as_str()));
+            assert_eq!(prepared[&id].places, [expected.clone()]);
+            assert_eq!(
+                prepared[&id].provenance["district_names"]["code_field"],
+                "towncode"
+            );
+        }
+        for code in ["63000130", "063000010", "6300010", "6300100", "A01"] {
+            std::fs::write(&path, format!("{header}{}", row(code))).unwrap();
+            assert!(
+                load(&path)
+                    .err()
+                    .unwrap()
+                    .to_string()
+                    .contains("unknown Taipei district")
+            );
+        }
+        std::fs::remove_file(path).unwrap();
+    }
+
     #[test]
     fn sections_lanes_alleys_and_floors_keep_one_location() {
         let path = std::env::temp_dir().join(format!("taipei-test-{}.csv", std::process::id()));

@@ -3,6 +3,13 @@ Source: https://data.gov.tw/dataset/155472
 Distribution: https://data.taipei/dataset/detail?id=b7c8e724-1e98-45ee-a0bd-f3840623ed97
 Licence: Government Data Open Licence, version 1 (政府資料開放授權條款-第1版), https://data.gov.tw/license
 This corpus samples and reformats the official address-point CSV, transforms projected coordinates to WGS84 and adds ASCII-digit forms. Floor queries retain published suffixes but test only the shared building point. Coverage is Taipei City, not all Taiwan. No people or household records are used.
+District code names: 內政部國土測繪中心 (National Land Surveying and Mapping Center),
+代碼服務－鄉鎮市區清單(戶政), Taipei response captured 2026-10-31 in taipei-districts.xml.
+Source: https://data.gov.tw/dataset/102011
+Distribution: https://api.nlsc.gov.tw/other/ListTown1/A
+Government Data Open Licence, version 1 (政府資料開放授權條款-第1版), https://data.gov.tw/license
+Changes: joined the address export's eight-digit district code to towncode and used townname
+as the reverse district expectation. The XML capture is unmodified. No translated aliases are inferred.
 
 臺南市門牌坐標資料-僅供參考 — 臺南市政府民政局 (Tainan City Government, Bureau of Civil Affairs),
 2025 (民國114年), resource updated 2026-07-16; used in tests/registry/tw-tainan.jsonl.
