@@ -196,7 +196,7 @@ thread_local! {
     /// `fold` without the street-type abbreviations: the word being typed is not yet one ("c"
     /// is not "calle").
     static RAW: std::cell::RefCell<tantivy::tokenizer::TextAnalyzer> = std::cell::RefCell::new(
-        tantivy::tokenizer::TextAnalyzer::builder(tantivy::tokenizer::SimpleTokenizer::default())
+        tantivy::tokenizer::TextAnalyzer::builder(crate::index::canon::Unmarked::default())
             .filter(tantivy::tokenizer::RemoveLongFilter::limit(40))
             .filter(tantivy::tokenizer::LowerCaser)
             .filter(tantivy::tokenizer::AsciiFoldingFilter)

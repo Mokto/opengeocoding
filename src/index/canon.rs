@@ -326,6 +326,39 @@ mod tests {
             assert!(super::canon(c).is_none(), "{c} is canonical and a variant");
         }
     }
+
+    #[test]
+    fn combining_diacritics_do_not_split_a_word() {
+        use crate::index::schema::fold;
+        assert_eq!(fold("Wa\u{331}a\u{331}t"), "waat");
+        assert_eq!(
+            fold("Ta\u{302}n Phu\u{31b}o\u{31b}\u{301}c"),
+            fold("Tân Phước")
+        );
+    }
+}
+
+/// `SimpleTokenizer` on text without combining diacritics, at which it would split a word
+/// ("Wa̱a̱t" is "wa", "a", "t"; Vietnamese written decomposed, "Tân Phước", worse). Precomposed
+/// letters are left to ASCII folding.
+#[derive(Clone, Default)]
+pub struct Unmarked {
+    text: String,
+    inner: tantivy::tokenizer::SimpleTokenizer,
+}
+
+impl Tokenizer for Unmarked {
+    type TokenStream<'a> = tantivy::tokenizer::SimpleTokenStream<'a>;
+
+    fn token_stream<'a>(&'a mut self, text: &'a str) -> Self::TokenStream<'a> {
+        let Unmarked { text: buf, inner } = self;
+        buf.clear();
+        buf.extend(
+            text.chars()
+                .filter(|c| !('\u{300}'..='\u{36f}').contains(c)),
+        );
+        inner.token_stream(buf)
+    }
 }
 
 impl TokenFilter for Canon {

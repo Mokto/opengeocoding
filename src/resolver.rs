@@ -726,12 +726,12 @@ impl Core {
     }
 
     /// "Madgoul, Djibouti" answered with no more than the country, or not at all, with a county
-    /// of that name ("Kolahun, Liberia"), or with a town, street or other place below a region
-    /// that no part of the answer is named like ("Keskese Street" in Asmara, the city of
-    /// Djibouti): the locality of that name in that country (in that county), if there is one.
-    /// A region, named so or not, stays: "Banten, Indonesia" is the province. A locality the
-    /// builder added from GeoNames below `cities500`'s bar answers nothing else: often no one is
-    /// recorded living there and only GeoNames has it, the weakest evidence the index holds.
+    /// or region of that name ("Kolahun, Liberia"), or with a town, street or other place below
+    /// a region that no part of the answer is named like ("Keskese Street" in Asmara, the city
+    /// of Djibouti): the locality of that name in that country (in that county or region), if
+    /// there is one. A region of another name stays. A locality the builder added from GeoNames
+    /// below `cities500`'s bar answers nothing else: often no one is recorded living there and
+    /// only GeoNames has it, the weakest evidence the index holds.
     pub(crate) fn named_locality(&self, query: &str, found: FullAddress) -> Result<FullAddress> {
         let Some((name, country)) = query.split_once(',') else {
             return Ok(found);
@@ -783,12 +783,19 @@ impl Core {
                     .iter()
                     .any(|r| r.code.to_uppercase().starts_with(&own))
         });
-        // a county named as the query is no more than the town of that name in it
-        let county = details
-            .map(|d| d.county.as_str())
-            .filter(|c| finer.is_empty() && !c.is_empty() && fold(c) == key);
+        // a county, or a region with none, named as the query is no more than the town of that
+        // name in it: "Kolahun, Liberia", "Bel Ombre, Seychelles"
+        let area = details
+            .map(|d| {
+                if d.county.is_empty() {
+                    &d.state
+                } else {
+                    &d.county
+                }
+            })
+            .filter(|a| finer.is_empty() && !a.is_empty() && fold(a) == key);
         let elsewhere = !finer.is_empty() && !named;
-        if !(coarse || county.is_some() || elsewhere) {
+        if !(coarse || area.is_some() || elsewhere) {
             return Ok(found);
         }
         // what only GeoNames has fills a gap, never replaces an answer: "Koksan" is a hamlet
@@ -797,11 +804,11 @@ impl Core {
             return Ok(found);
         };
         let mut place = format_response(&self.index.render(&hit, true))?;
-        if let Some(county) = county
+        if let Some(area) = area
             && place
                 .address_details
                 .as_option()
-                .is_none_or(|d| d.county != county)
+                .is_none_or(|d| d.county != *area && d.state != *area)
         {
             return Ok(found);
         }

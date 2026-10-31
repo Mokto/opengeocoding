@@ -25,8 +25,7 @@ struct Row {
     admin1: String,
     population: u64,
     subtype: &'static str,
-    /// The seat of a second-order division (`PPLA2`): a district's or county's town.
-    district_seat: bool,
+    seat: Seat,
     x: f64,
     y: f64,
     /// Meets the bar of GeoNames' `cities500`: more than 500 people, a capital or the seat of a
@@ -69,7 +68,11 @@ fn parse(line: &str) -> Option<Row> {
         admin1: format!("{}.{}", f[8], f[10]),
         population,
         listed,
-        district_seat: f[7] == "PPLA2",
+        seat: match f[7] {
+            "PPLA2" => Seat::District,
+            "PPLC" | "PPLA" | "PPLA3" | "PPLA4" => Seat::Other,
+            _ => Seat::No,
+        },
         subtype: if f[7] == "PPLX" {
             "neighborhood"
         } else {
@@ -82,10 +85,20 @@ fn parse(line: &str) -> Option<Row> {
 
 /// What a row finds: a place outside the box, places it names (the one it can add its names to,
 /// with the indices and folded forms of those the place lacks), or none, and its parent.
+#[derive(Clone, Copy, PartialEq)]
+enum Seat {
+    No,
+    /// The seat of a second-order division (`PPLA2`): a district's or county's town.
+    District,
+    /// A capital or the seat of a first-, third- or fourth-order division.
+    Other,
+}
+
 enum Seen {
     Outside,
     Known(Option<(u32, Vec<(usize, String)>)>),
-    New(Option<u32>),
+    /// The parent, and whether the place is added as `SMALL_GEONAMES`.
+    New(Option<u32>, bool),
 }
 
 fn km(a: (f64, f64), b: (f64, f64)) -> f64 {
@@ -193,11 +206,25 @@ pub fn add_places(
                 .filter_map(|n| near.get(&(r.cc, fold(n))))
                 .flatten()
                 .filter(|(_, xy)| km(*xy, (r.x, r.y)) < NEAR_KM)
-                // A district named for its seat is not the seat: Overture has Thrissur only as
-                // a county.
-                .filter(|(id, _)| !(r.district_seat && area(&places[*id as usize])))
                 .map(|(id, _)| *id)
                 .collect();
+            // A district named for its seat is not the seat: Overture has Thrissur only as a
+            // county. Another seat (Seychelles' Bel Ombre, a region's) is told from the area
+            // only where the country has nothing else of the name (Overture's Bimbo is 13 km
+            // from GeoNames'), and only the last step of a search finds it: it names no point
+            // ("Yangor" is also Aiwo district's other name, beside Orro).
+            let only_areas = || {
+                r.names.iter().all(|n| {
+                    near.get(&(r.cc, fold(n)))
+                        .is_none_or(|v| v.iter().all(|(id, _)| area(&places[*id as usize])))
+                })
+            };
+            let beside_area = known.iter().any(|&id| area(&places[id as usize]));
+            let seat = r.seat == Seat::District || (r.seat == Seat::Other && only_areas());
+            if seat {
+                known.retain(|&id| !area(&places[id as usize]));
+            }
+            let small = !r.listed || (beside_area && r.seat == Seat::Other && seat);
             known.sort_unstable();
             known.dedup();
             // A small place of a name its country has elsewhere can't be told from the namesake;
@@ -232,7 +259,7 @@ pub fn add_places(
                     let name = admin1.get(&r.admin1)?;
                     regions.get(&(r.cc, fold(name))).copied()
                 });
-                return Seen::New(parent);
+                return Seen::New(parent, small);
             }
             known.retain(|&id| places[id as usize].subtype == r.subtype);
             let [id] = known[..] else {
@@ -254,7 +281,7 @@ pub fn add_places(
     let mut small = 0;
     let mut target: Vec<Option<u32>> = vec![None; rows.len()];
     for (i, (r, seen)) in rows.into_iter().zip(seen).enumerate() {
-        let parent = match seen {
+        let (parent, below) = match seen {
             Seen::Outside | Seen::Known(None) => continue,
             Seen::Known(Some((id, missing))) => {
                 target[i] = Some(id);
@@ -268,7 +295,7 @@ pub fn add_places(
                 }
                 continue;
             }
-            Seen::New(parent) => parent,
+            Seen::New(parent, below) => (parent, below),
         };
         let (region, anc) = parent.map_or((Str::default(), Box::default()), |p| {
             let mut anc: Vec<u32> = places[p as usize].anc.to_vec();
@@ -281,13 +308,13 @@ pub fn add_places(
             .iter()
             .map(|n| format!("alt_name={}", cell(n)))
             .collect();
-        small += usize::from(!r.listed);
+        small += usize::from(below);
         target[i] = Some(places.len() as u32);
         writeln!(
             tsv,
             "{}\t{}\t{}\t{}\t0\t{}\t{}\t{}\tNaN\tNaN\tNaN\tNaN\t{}\t{}\t{}\t",
             r.subtype,
-            if r.listed { "geonames" } else { SMALL_GEONAMES },
+            if below { SMALL_GEONAMES } else { "geonames" },
             crate::country_str(&r.cc),
             region,
             r.population,
@@ -433,7 +460,7 @@ mod tests {
     }
 
     #[test]
-    fn a_district_seat_beside_only_its_namesake_district_is_added() {
+    fn a_seat_beside_only_its_namesake_district_or_region_is_added() {
         let root = std::env::temp_dir().join(format!("geonames-district-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
         let cities = root.join("cities.txt");
@@ -441,6 +468,7 @@ mod tests {
         let assigner = Assigner::new(vec![], polys, vec![], vec![]);
         for (code, subtype, added) in [
             ("PPLA2", "county", 1),
+            ("PPLA", "region", 1),
             ("PPLA2", "locality", 0),
             ("PPLA2", "neighborhood", 0),
             ("PPL", "county", 0),
@@ -468,6 +496,58 @@ mod tests {
                 "{code} {subtype}"
             );
         }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_regions_seat_is_added_small_and_only_where_nothing_else_has_its_name() {
+        let root = std::env::temp_dir().join(format!("geonames-seat-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let cities = root.join("cities.txt");
+        std::fs::write(&cities, line("PPLA", "")).unwrap();
+        let assigner = Assigner::new(
+            vec![],
+            crate::geo::PolyFile::new(root.join("polys")),
+            vec![],
+            vec![],
+        );
+        let place = |subtype, x| Place {
+            subtype,
+            country: *b"IN",
+            region: "IN-16".into(),
+            names: "Kalas".into(),
+            population: 0,
+            xy: Some((x, 18.1)),
+            anc: Box::default(),
+        };
+        let row = |p: &Place| {
+            format!(
+                "{}\t\tIN\tIN-16\t0\t0\t{}\t18.1\tNaN\tNaN\tNaN\tNaN\t\tKalas\t\t\n",
+                p.subtype,
+                p.xy.unwrap().0
+            )
+        };
+        // beside its region only: added, as a place only the last step of a search finds
+        let mut places = vec![place("region", 74.9)];
+        std::fs::write(root.join("places.tsv"), row(&places[0])).unwrap();
+        assert_eq!(
+            add_places(&mut places, &assigner, &cities, None, &root),
+            (1, 1)
+        );
+        let tsv = std::fs::read_to_string(root.join("places.tsv")).unwrap();
+        assert!(
+            tsv.lines()
+                .last()
+                .unwrap()
+                .starts_with("locality\tgeonames_small\t")
+        );
+        // a town of the name 21 km away is the seat GeoNames places elsewhere
+        let mut places = vec![place("region", 74.9), place("locality", 75.1)];
+        std::fs::write(root.join("places.tsv"), row(&places[0]) + &row(&places[1])).unwrap();
+        assert_eq!(
+            add_places(&mut places, &assigner, &cities, None, &root).0,
+            0
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
 

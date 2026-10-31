@@ -14,12 +14,12 @@ use tantivy::{
     schema::{
         FAST, Field, IndexRecordOption, STORED, STRING, Schema, TextFieldIndexing, TextOptions,
     },
-    tokenizer::{AsciiFoldingFilter, LowerCaser, RemoveLongFilter, SimpleTokenizer, TextAnalyzer},
+    tokenizer::{AsciiFoldingFilter, LowerCaser, RemoveLongFilter, TextAnalyzer},
 };
 
 /// Query-time normalization must use the same analyzer.
 pub fn analyzer() -> TextAnalyzer {
-    TextAnalyzer::builder(SimpleTokenizer::default())
+    TextAnalyzer::builder(super::canon::Unmarked::default())
         .filter(RemoveLongFilter::limit(40))
         .filter(LowerCaser)
         .filter(AsciiFoldingFilter)
