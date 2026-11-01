@@ -39,6 +39,8 @@ pub struct Sources {
     pub osm_landmarks: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub korea_shops: Option<KoreaShops>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub iceland_addresses: Option<IcelandAddresses>,
     /// Read the addresses Syke's Ryhti register names only in Swedish (see `ryhti`).
     #[serde(default, skip_serializing_if = "is_false")]
     pub ryhti: bool,
@@ -68,6 +70,13 @@ pub struct KoreaShops {
     pub sha256: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct IcelandAddresses {
+    pub url: String,
+    pub sha256: String,
+}
+
 /// INEGI's establishment directory (see `denue`), its latest edition fetched under `snapshot`.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -90,6 +99,7 @@ pub struct Fetched {
     pub geonames_small: Option<PathBuf>,
     /// The directory holding Korea's shop register, `shops.zip`, and its `source.json`.
     pub korea_shops: Option<PathBuf>,
+    pub iceland_addresses: Option<PathBuf>,
     /// An OpenAddresses-style directory of Ryhti's Swedish-only addresses (see `ryhti`).
     pub ryhti: Option<PathBuf>,
     /// An OpenAddresses-style directory of DENUE's establishments (see `denue`).
@@ -134,6 +144,24 @@ impl Sources {
                         .bytes()
                         .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()),
                 "koreaShops needs a FILE_ attachment id and a lowercase SHA-256"
+            );
+        }
+        if let Some(source) = &self.iceland_addresses {
+            let url = reqwest::Url::parse(&source.url)?;
+            ensure!(
+                url.scheme() == "https"
+                    && url.host_str().is_some()
+                    && url.username().is_empty()
+                    && url.password().is_none(),
+                "icelandAddresses.url must be an HTTPS URL without credentials"
+            );
+            ensure!(
+                source.sha256.len() == 64
+                    && source
+                        .sha256
+                        .bytes()
+                        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()),
+                "icelandAddresses.sha256 must be a lowercase SHA-256"
             );
         }
         if let Some(d) = &self.denue {
@@ -588,6 +616,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         let [places, small] = dirs;
         anyhow::Ok((places, small))
     };
+    let iceland_dir = scratch.join("iceland-addresses");
     let korea_dir = scratch.join("korea-shops");
     let ryhti_dir = scratch.join("ryhti");
     let denue_dir = scratch.join("denue");
@@ -598,6 +627,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         geonames,
         (geonames_places, geonames_small),
         korea_shops,
+        iceland_addresses,
         ryhti,
         denue,
         dgu,
@@ -607,6 +637,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         geonames_files,
         geonames_places,
         korea_shops(store, src, &korea_dir),
+        iceland_addresses(store, src, &iceland_dir),
         ryhti(store, src, &ryhti_dir),
         denue(store, src, &denue_dir),
         dgu(store, src, &dgu_dir),
@@ -621,10 +652,53 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         geonames_places,
         geonames_small,
         korea_shops,
+        iceland_addresses,
         ryhti,
         denue,
         dgu,
     })
+}
+
+async fn iceland_addresses(store: &Store, src: &Sources, dir: &Path) -> Result<Option<PathBuf>> {
+    let Some(source) = &src.iceland_addresses else {
+        return Ok(None);
+    };
+    if src
+        .bbox()
+        .is_some_and(|b| !intersects(b, -24.7, 63.0, -13.3, 66.7))
+    {
+        return Ok(None);
+    }
+    let client = client()?;
+    let expected = source.sha256.clone();
+    mirror(
+        store,
+        &format!("sources/iceland-addresses/{}", source.sha256),
+        dir,
+        1,
+        || async { Ok(vec![("addresses.csv".to_string(), source.url.clone())]) },
+        move |url: String, path: PathBuf| {
+            let client = client.clone();
+            let expected = expected.clone();
+            Box::pin(async move {
+                ensure!(
+                    http_get(&client, &url, &path).await?,
+                    "Iceland capture not found"
+                );
+                ensure!(
+                    store::sha256(&path)? == expected,
+                    "Iceland capture SHA-256 mismatch"
+                );
+                Ok(true)
+            })
+        },
+    )
+    .await?;
+    ensure!(
+        store::sha256(&dir.join("addresses.csv"))? == source.sha256,
+        "Iceland mirrored capture SHA-256 mismatch"
+    );
+    Ok(Some(dir.join("addresses.csv")))
 }
 
 const DGU: &str =
@@ -2183,6 +2257,60 @@ mod tests {
         assert_eq!(south.iter().filter(|b| **b == b'\n').count(), 1);
         csv.extend(b"-57.61,-30.26,01,55100,1,GENERAL ARTIGAS,111,BIS,N/A,9,15,N/A,BELLA UNION,366,ARTIGAS\r\n");
         assert!(dgu_features(&csv, None, &mut vec![]).is_err());
+    }
+
+    #[tokio::test]
+    async fn iceland_capture_is_optional_pinned_and_reusable_offline() {
+        let base = std::env::temp_dir().join(format!("iceland-source-test-{}", std::process::id()));
+        let store = Store::open(&format!("file://{}", base.join("bucket").display())).unwrap();
+        let mut src: Sources =
+            serde_json::from_str(r#"{"overtureRelease":"r","snapshot":"s"}"#).unwrap();
+        assert!(
+            iceland_addresses(&store, &src, &base.join("disabled"))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let seed = base.join("seed");
+        std::fs::create_dir_all(&seed).unwrap();
+        std::fs::write(seed.join("addresses.csv"), "a pinned capture").unwrap();
+        let hash = store::sha256(&seed.join("addresses.csv")).unwrap();
+        src.iceland_addresses = Some(IcelandAddresses {
+            url: "https://example.invalid/immutable.csv".into(),
+            sha256: hash.clone(),
+        });
+        src.validate().unwrap();
+        store
+            .publish(&seed, &format!("sources/iceland-addresses/{hash}"))
+            .await
+            .unwrap();
+        let got = iceland_addresses(&store, &src, &base.join("offline"))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(std::fs::read(got).unwrap(), b"a pinned capture");
+        src.iceland_addresses.as_mut().unwrap().sha256 = "0".repeat(64);
+        store
+            .publish(
+                &seed,
+                &format!("sources/iceland-addresses/{}", "0".repeat(64)),
+            )
+            .await
+            .unwrap();
+        let error = iceland_addresses(&store, &src, &base.join("wrong-hash"))
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("SHA-256 mismatch"), "{error}");
+        src.bbox = vec![9.0, 50.0, 10.0, 51.0];
+        assert!(
+            iceland_addresses(&store, &src, &base.join("outside"))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        src.iceland_addresses.as_mut().unwrap().url = "http://example.invalid/immutable.csv".into();
+        assert!(src.validate().is_err());
+        std::fs::remove_dir_all(base).unwrap();
     }
 
     #[tokio::test]
