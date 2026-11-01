@@ -949,6 +949,22 @@ fn latency(
             .collect::<Vec<_>>();
         if !metrics.is_empty() {
             slower.push(format!("{} slower, {}", t.rpc, metrics.join(", ")));
+            if t.rpc == "SuggestAddress" {
+                let mut tail: Vec<_> = shared
+                    .iter()
+                    .flat_map(|id| {
+                        new[*id].suggest.iter().filter_map(move |(name, check)| {
+                            Some((*id, name, old[*id].suggest.get(name)?.ms?, check.ms?))
+                        })
+                    })
+                    .collect();
+                tail.sort_by(|a, b| b.3.total_cmp(&a.3));
+                sections.push_str("\nSlowest suggestion checks (diagnostic only; individual cases are not gated):\n\n| Case/check | Base ms | Head ms |\n|---|---:|---:|\n");
+                for (id, name, before, after) in tail.into_iter().take(30) {
+                    let label = format!("{id}/{name}").replace(['\n', '\r', '|', '`'], " ");
+                    let _ = writeln!(sections, "| `{label}` | {before:.3} | {after:.3} |");
+                }
+            }
         }
     }
     // Pacing between cases changes how warm the service is, so timings only compare at one rate.
@@ -1840,6 +1856,47 @@ mod tests {
             }
         }
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_suggestion_slowdown_names_the_timed_check_without_changing_its_gate() {
+        let side = |scale| -> IndexMap<String, Record> {
+            (1..=35)
+                .map(|i| {
+                    let id = format!("slow-case-{i}");
+                    (
+                        id.clone(),
+                        Record {
+                            id,
+                            suggest: [(
+                                "full".to_string(),
+                                SuggestCheck {
+                                    ms: Some(i as f64 * scale),
+                                    ..Default::default()
+                                },
+                            )]
+                            .into(),
+                            ..Default::default()
+                        },
+                    )
+                })
+                .collect()
+        };
+        let old = side(2.0);
+        let new = side(4.0);
+        let shared: Vec<_> = old.keys().collect();
+        let manifest = json!({"repeat": 3});
+        let report = latency(&shared, &old, &new, [&manifest, &manifest]);
+        assert!(report.contains("<!-- speed: fail -->"));
+        assert!(report.contains("p99 +100%"));
+        assert!(report.contains("| `slow-case-35/full` | 70.000 | 140.000 |"));
+        assert!(report.contains("| `slow-case-6/full` | 12.000 | 24.000 |"));
+        assert!(!report.contains("`slow-case-5/full`"));
+        assert_eq!(report.matches("| `slow-case-").count(), 30);
+        assert!(report.find("`slow-case-35/full`") < report.find("`slow-case-34/full`"));
+        let report = latency(&shared, &old, &old, [&manifest, &manifest]);
+        assert!(report.contains("<!-- speed: pass -->"));
+        assert!(!report.contains("Slowest suggestion checks"));
     }
 
     #[test]
