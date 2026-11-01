@@ -992,6 +992,19 @@ fn admin_words_and_number_prefixes() {
 }
 
 #[test]
+fn number_prefixes_preserve_unicode_suffixes() {
+    for prefix in ["No.", "NO:", "Nº", "N°", "N.", "NO", "№", "#", "NR.", "NR"] {
+        for number in ["1İ", "1İİ", "1İİİİ", "1Ⱥ", "12ẞ", "12B", "12東京"] {
+            let input = format!(" {prefix} :.{number} ");
+            assert_eq!(house_number(&input), number, "{input}");
+        }
+    }
+    for input in ["İstanbul", "No:İ", "Nº", "#", ""] {
+        assert_eq!(house_number(input), input, "{input}");
+    }
+}
+
+#[test]
 fn spaced_house_suffixes_and_postcode_city_parts() {
     assert_eq!(compact_house_suffix("7 bis").as_deref(), Some("7bis"));
     assert_eq!(compact_house_suffix("40 C").as_deref(), Some("40C"));

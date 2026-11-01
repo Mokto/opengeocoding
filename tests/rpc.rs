@@ -654,6 +654,26 @@ async fn checks(env: &mut Env) -> Result<()> {
             String::from_utf8_lossy(&body)
         );
     }
+    for (expanding, padding) in [(4, 82), (2, 38)] {
+        let text = format!(
+            "Missing Road, #1{}{}",
+            "İ".repeat(expanding),
+            "x".repeat(padding)
+        );
+        for (method, payload) in [
+            ("SearchAddress", json!({"addressString": text})),
+            ("SuggestAddress", json!({"text": text})),
+        ] {
+            let (status, body) = env
+                .rpc(method, payload.to_string().into_bytes(), false)
+                .await?;
+            ensure!(
+                status.is_success(),
+                "{method}: {}",
+                String::from_utf8_lossy(&body)
+            );
+        }
+    }
     let shared = Arc::new(tokio::sync::Semaphore::new(16));
     let mut tasks = tokio::task::JoinSet::new();
     for _ in 0..64 {
