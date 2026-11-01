@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.6.0](https://github.com/Mokto/opengeocoding/compare/v1.5.1...v1.6.0) (2026-11-01)
+
+
+### Features
+
+* require the official district name in Taipei reverse-geocode cases ([#478](https://github.com/Mokto/opengeocoding/issues/478)) ([7cd4b37](https://github.com/Mokto/opengeocoding/commit/7cd4b37eaff85dbc06292c9f29d4b0f7ce39dfae))
+
+
+### Bug Fixes
+
+* answer small-town "Town, Country" searches from GeoNames' full populated-places list ([#455](https://github.com/Mokto/opengeocoding/issues/455)) ([78622dc](https://github.com/Mokto/opengeocoding/commit/78622dc6bac82a88b512c99ddca0e5a81d97c5c1))
+* complete city-first landmark queries with scoped qualifiers ([#490](https://github.com/Mokto/opengeocoding/issues/490)) ([1988244](https://github.com/Mokto/opengeocoding/commit/19882443f33e0a086098ba9665be6fdea1477856))
+* keep a namesake town and a metropolitan name from placing a house in the wrong state or municipality ([#479](https://github.com/Mokto/opengeocoding/issues/479)) ([419b9a2](https://github.com/Mokto/opengeocoding/commit/419b9a2c0c0446596eb695c695707b6e71262190))
+* keep Unicode house-number prefixes from panicking and stop redundant postcode rewrites from looping ([#484](https://github.com/Mokto/opengeocoding/issues/484)) ([cbf0533](https://github.com/Mokto/opengeocoding/commit/cbf0533fae66d80b8ab9891f01af91c14ecf7e80))
+* read complete Japanese residence numbers in search and suggestions ([#487](https://github.com/Mokto/opengeocoding/issues/487)) ([d26d5a4](https://github.com/Mokto/opengeocoding/commit/d26d5a41ab64564b1e6519230029c8b6ae0cb4d6))
+* read Hong Kong bilingual village houses and mall shop identifiers ([#471](https://github.com/Mokto/opengeocoding/issues/471)) ([ca6c1e7](https://github.com/Mokto/opengeocoding/commit/ca6c1e70497a31ce4465fa2fa9c495ff41b81c2e))
+
 ## [1.5.1](https://github.com/Mokto/opengeocoding/compare/v1.5.0...v1.5.1) (2026-10-31)
 
 
