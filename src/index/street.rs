@@ -1,6 +1,81 @@
 use super::*;
 
 impl Index {
+    // The shared town supports the named neighbourhood, not a street or house inside it.
+    pub(super) fn street_supported_neighborhood(
+        &self,
+        hit: &Hit,
+        city: &str,
+        cc: Option<&str>,
+    ) -> Option<Hit> {
+        use tantivy::schema::Value as _;
+        let Hit::Street { name, place, .. } = hit else {
+            return None;
+        };
+        let key = name_key(city);
+        if *place == NONE
+            || self
+                .chain(*place)
+                .iter()
+                .any(|&p| self.places[p as usize].named(key))
+        {
+            return None;
+        }
+        let candidates = self.top_of(Kind::Place, cc, self.musts(self.f.names, city), 100);
+        if candidates.len() == 100 {
+            return None;
+        }
+        let candidates: Vec<u32> = candidates
+            .into_iter()
+            .map(|a| self.fast(a, "id") as u32)
+            .filter(|&id| {
+                let p = &self.places[id as usize];
+                p.named(key)
+                    && matches!(
+                        p.subtype.as_ref(),
+                        "locality" | "localadmin" | "macrohood" | "neighborhood" | "microhood"
+                    )
+            })
+            .collect();
+        if candidates.len() < 2 {
+            return None;
+        }
+        let mut supported = None;
+        for id in candidates {
+            let p = &self.places[id as usize];
+            let Some(scope) = self.chain(id).into_iter().find(|&p| {
+                matches!(
+                    self.places[p as usize].subtype.as_ref(),
+                    "locality" | "localadmin"
+                )
+            }) else {
+                continue;
+            };
+            let mut cl = self.musts(self.f.names, name);
+            cl.push(must(term(self.f.ids, &scope.to_string())));
+            let streets = self.top_of(Kind::Street, Some(&p.cc), cl, 100);
+            if streets.len() == 100 {
+                return None;
+            }
+            if streets.into_iter().any(|a| {
+                self.document(a).is_ok_and(|doc| {
+                    doc.get_all(self.f.name)
+                        .filter_map(|v| v.as_str())
+                        .any(|n| crate::matching::roads_agree(name, n))
+                })
+            }) && supported.replace(id).is_some()
+            {
+                return None;
+            }
+        }
+        let id = supported?;
+        matches!(
+            self.places[id as usize].subtype.as_ref(),
+            "macrohood" | "neighborhood" | "microhood"
+        )
+        .then_some(Hit::Place(id))
+    }
+
     pub(super) fn streets(
         &self,
         road: &str,
@@ -100,6 +175,7 @@ impl Index {
                 .or(postcode
                     .filter(|p| pt::portuguese_postcode(p))
                     .map(|_| "pt"))
+                .filter(|cc| !cc.eq_ignore_ascii_case("us") || hits.is_empty())
                 .map(|cc| crate::matching::road_expansions(road, cc))
                 .unwrap_or_default();
             alternatives.extend(pl::bare_road(road, cc));

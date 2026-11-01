@@ -763,6 +763,11 @@ pub fn road_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
 }
 
 pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
+    if cc.eq_ignore_ascii_case("us") {
+        return crate::index::country::us::full_road(road)
+            .into_iter()
+            .collect();
+    }
     if cc.eq_ignore_ascii_case("pt") {
         return pt::ctt_road(road);
     }

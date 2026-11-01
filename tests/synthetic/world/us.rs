@@ -3,6 +3,54 @@ use crate::*;
 
 pub const PLACES: &[Place] = &[
     place!(
+        "us-tx-alderhaven",
+        "locality",
+        "town",
+        "US",
+        "US-TX",
+        1_000,
+        (-96.0, 34.0),
+        "us-tx",
+        "Ashford",
+        &[("en", "Ashford")]
+    ),
+    place!(
+        "us-tx-north-alderhaven",
+        "macrohood",
+        "",
+        "US",
+        "US-TX",
+        0,
+        (-96.0, 34.02),
+        "us-tx-alderhaven",
+        "North Ashford",
+        &[("en", "North Ashford")]
+    ),
+    place!(
+        "us-ga-alderhaven",
+        "locality",
+        "city",
+        "US",
+        "US-GA",
+        100_000,
+        (-82.0, 33.0),
+        "us-ga",
+        "Ashford",
+        &[("en", "Ashford")]
+    ),
+    place!(
+        "us-ga-north-alderhaven",
+        "locality",
+        "hamlet",
+        "US",
+        "US-GA",
+        0,
+        (-82.0, 33.02),
+        "us-ga-alderhaven",
+        "North Ashford",
+        &[("en", "North Ashford")]
+    ),
+    place!(
         "us",
         "country",
         "",
@@ -204,6 +252,50 @@ pub const STREETS: &[Street] = &[
     Street {
         class: "residential",
         length: 0.0,
+        name: "Laurel Mtn Road",
+        postcode: "75480",
+        city: "Ashford",
+        cc: "US",
+        lon: -96.05,
+        lat: 34.02,
+        numbers: &["1", "3"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Laurel Mountain Road",
+        postcode: "75480",
+        city: "Ashford",
+        cc: "US",
+        lon: -95.95,
+        lat: 34.02,
+        numbers: &["100", "102"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Birch Mountain Highway",
+        postcode: "75480",
+        city: "Ashford",
+        cc: "US",
+        lon: -96.0,
+        lat: 34.02,
+        numbers: &["100", "102"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Cedar Avenue",
+        postcode: "31001",
+        city: "North Ashford",
+        cc: "US",
+        lon: -82.0,
+        lat: 33.02,
+        numbers: &["104", "106"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
         name: "Township Lane",
         postcode: "60001",
         city: "Postalton",
@@ -330,6 +422,34 @@ pub const STREETS: &[Street] = &[
 
 pub fn cases() -> Vec<Case> {
     vec![
+        case(
+            "102 Laurel Mtn Road, Ashford, United States",
+            Want::At(house(street("Laurel Mtn Road"), "1"), 300.0, false),
+        ),
+        case(
+            "102 Laurel Mountain Road, Ashford, United States",
+            at_house("Laurel Mountain Road", "102"),
+        ),
+        case(
+            "2760 Birch Mtn Highway, North Ashford, United States",
+            town("us-tx-north-alderhaven", false),
+        ),
+        case(
+            "2760 Birch Mountain Highway, North Ashford, United States",
+            town("us-tx-north-alderhaven", false),
+        ),
+        case(
+            "102 Birch Mtn Highway, Ashford, United States",
+            at_house("Birch Mountain Highway", "102"),
+        ),
+        case(
+            "104 Cedar Avenue, North Ashford, United States",
+            at_house("Cedar Avenue", "104"),
+        ),
+        case(
+            "North Ashford, Georgia, United States",
+            town("us-ga-north-alderhaven", true),
+        ),
         named("Jackson County, Missouri", "us", "", &["US-MO"], true),
         // a metro label the caller does not drop reaches its first town, never confidently
         named(
