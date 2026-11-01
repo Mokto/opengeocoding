@@ -819,6 +819,9 @@ impl Index {
         if let Some(repaired) = self.country_as_road(q, &parsed)? {
             parsed = repaired;
         }
+        if let Some(repaired) = self.hk_comma_house(q, &parsed) {
+            parsed = repaired;
+        }
         if q.contains('號')
             && let Some((units, road, number)) = cn_tw::chinese(q)
             && let [state, city] = units.as_slice()

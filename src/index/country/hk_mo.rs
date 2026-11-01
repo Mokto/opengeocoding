@@ -83,6 +83,36 @@ fn bilingual(head: &str) -> Option<Vec<(String, String)>> {
     ])
 }
 
+fn shop(head: &str) -> Option<Vec<(String, String)>> {
+    static SHOP: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\p{Han}+(?:商場|街市)[1-9][0-9]{0,3}[A-Za-z]?號[鋪舖]").unwrap()
+    });
+    let head = head.trim();
+    let found = SHOP.find(head)?;
+    let road = if found.start() == 0 {
+        head[found.end()..].strip_prefix(char::is_whitespace)?
+    } else if found.end() == head.len() {
+        head[..found.start()].strip_suffix(char::is_whitespace)?
+    } else {
+        return None;
+    };
+    if road.trim().is_empty() {
+        return None;
+    }
+    // The source stores the mall and shop as one opaque number, never the street's civic number.
+    Some(vec![
+        ("house_number".into(), found.as_str().to_lowercase()),
+        ("road".into(), road.trim().to_lowercase()),
+    ])
+}
+
+fn latin_place(part: &str) -> &str {
+    match part.find(|c: char| c.is_ascii_alphabetic()) {
+        Some(at) if !part.is_ascii() => &part[at..],
+        _ => part,
+    }
+}
+
 /// Whether a lower-cased part names the territory or one of its regions, which no place of the
 /// data is named for. OpenStreetMap writes both scripts: "新界 new territories".
 fn region(part: &str) -> bool {
@@ -200,6 +230,34 @@ pub(crate) fn chinese(q: &str) -> Option<(Option<&'static str>, String, String)>
 }
 
 impl Index {
+    pub(crate) fn hk_comma_house(&self, q: &str, parsed: &Parsed) -> Option<Parsed> {
+        if q.is_ascii() {
+            return None;
+        }
+        let parts: Vec<_> = q.split(',').map(str::trim).collect();
+        let [head, rest @ .., country] = parts.as_slice() else {
+            return None;
+        };
+        if self.country(country).as_deref() != Some("hk")
+            || parts
+                .iter()
+                .skip(1)
+                .any(|p| self.country(p).is_some_and(|cc| cc != "hk"))
+            || parsed
+                .iter()
+                .any(|(k, v)| k == "country" && self.country(v).is_some_and(|cc| cc != "hk"))
+        {
+            return None;
+        }
+        let head = bilingual(head).or_else(|| shop(head))?;
+        if self.hk_typed_houses(q, Some("hk")).is_empty() {
+            return None;
+        }
+        let mut repaired = aligned(&head, rest);
+        repaired.push(("country".into(), country.to_lowercase()));
+        Some(repaired.into())
+    }
+
     /// Whether no other house far off has this house's number on a street that shares one of its
     /// names: "8 Yat Tung Street" is two OpenStreetMap houses 280 m apart on one estate, and
     /// villages share names. Only a house alone is one the territory or an area near it names.
@@ -302,21 +360,13 @@ impl Index {
         }
         let parts: Vec<&str> = text.split(',').map(str::trim).collect();
         // the flat, floor and building come first: "Flat A, 5/F, 29 Elgin Street, Central"
-        let Some((at, head)) = parts
-            .iter()
-            .enumerate()
-            .find_map(|(i, p)| Some((i, numbered(p).or_else(|| bilingual(p))?)))
-        else {
+        let Some((at, head)) = parts.iter().enumerate().find_map(|(i, p)| {
+            Some((i, numbered(p).or_else(|| bilingual(p)).or_else(|| shop(p))?))
+        }) else {
             return vec![];
         };
         // "西貢 Sai Kung": the place by its English name
-        let places: Vec<&str> = parts[at + 1..]
-            .iter()
-            .map(|p| match p.find(|c: char| c.is_ascii_alphabetic()) {
-                Some(at) if !p.is_ascii() => &p[at..],
-                _ => p,
-            })
-            .collect();
+        let places: Vec<&str> = parts[at + 1..].iter().map(|p| latin_place(p)).collect();
         let Some(last) = places.last() else {
             return vec![];
         };
@@ -518,6 +568,29 @@ mod tests {
                 ("city".to_string(), "屯門 tuen mun".to_string()),
             ]
         );
+    }
+
+    #[test]
+    fn keeps_the_mall_in_a_shop_identifier() {
+        for head in [
+            "青松商場42B號鋪 翠湖路 Jade Lake Road",
+            "翠湖路 Jade Lake Road 青松商場42B號鋪",
+        ] {
+            assert_eq!(
+                shop(head).unwrap(),
+                [
+                    ("house_number".into(), "青松商場42b號鋪".into()),
+                    ("road".into(), "翠湖路 jade lake road".into()),
+                ]
+            );
+        }
+        for head in [
+            "42號鋪 翠湖路",
+            "青松商場42號鋪",
+            "翠湖路 青松商場42號鋪 後門",
+        ] {
+            assert_eq!(shop(head), None, "{head}");
+        }
     }
 
     #[test]
