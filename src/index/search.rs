@@ -20,6 +20,9 @@ impl Index {
         {
             return hits;
         }
+        if let Some(hits) = jp::areas(self, q) {
+            return hits.into_iter().map(|(hit, _)| hit).collect();
+        }
         if let Some(hits) = jp::houses(self, q)
             && !hits.is_empty()
         {

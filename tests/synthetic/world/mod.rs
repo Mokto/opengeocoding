@@ -793,10 +793,37 @@ pub fn write_release(dir: &Path) {
         }
         Arc::new(b.finish()) as ArrayRef
     };
+    let sources = {
+        let mut b = ListBuilder::new(StructBuilder::new(
+            Fields::from(vec![
+                Field::new("provider", DataType::Utf8, false),
+                Field::new("dataset", DataType::Utf8, false),
+                Field::new("version", DataType::Utf8, false),
+                Field::new("property", DataType::Utf8, false),
+            ]),
+            (0..4)
+                .map(|_| Box::new(StringBuilder::new()) as _)
+                .collect(),
+        ));
+        for (s, _) in &rows {
+            for &(provider, dataset, version) in jp::sources(s) {
+                for (i, value) in [provider, dataset, version, ""].into_iter().enumerate() {
+                    b.values()
+                        .field_builder::<StringBuilder>(i)
+                        .unwrap()
+                        .append_value(value);
+                }
+                b.values().append(true);
+            }
+            b.append(true);
+        }
+        Arc::new(b.finish()) as ArrayRef
+    };
     write(
         dir,
         "address",
         vec![
+            ("sources", sources),
             ("country", strings(rows.iter().map(|(s, _)| s.cc))),
             ("street", strings(rows.iter().map(|(s, _)| s.name))),
             (

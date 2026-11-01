@@ -1,5 +1,72 @@
 use crate::{index::*, proto::opengeocoding::AddressDetails};
 
+pub const MLIT_DIR: &str = "jp-mlit";
+
+const MLIT: &[(&str, &str, &str)] = &[
+    ("jp/hokkaido", "jp-mlit:JP-01", "911152"),
+    ("jp/aomori", "jp-mlit:JP-02", "911161"),
+    ("jp/iwate", "jp-mlit:JP-03", "911148"),
+    ("jp/miyagi", "jp-mlit:JP-04", "911140"),
+    ("jp/akita", "jp-mlit:JP-05", "911162"),
+    ("jp/yamagata", "jp-mlit:JP-06", "911119"),
+    ("jp/fukushima", "jp-mlit:JP-07", "911156"),
+    ("jp/ibaraki", "jp-mlit:JP-08", "906200"),
+    ("jp/tochigi", "jp-mlit:JP-09", "911125"),
+    ("jp/gunma", "jp-mlit:JP-10", "911154"),
+    ("jp/saitama", "jp-mlit:JP-11", "911129"),
+    ("jp/chiba", "jp-mlit:JP-12", "911160"),
+    ("jp/tokyo", "jp-mlit:JP-13", "911123"),
+    ("jp/kanagawa", "jp-mlit:JP-14", "911145"),
+    ("jp/niigata", "jp-mlit:JP-15", "911135"),
+    ("jp/toyama", "jp-mlit:JP-16", "911121"),
+    ("jp/ishikawa", "jp-mlit:JP-17", "911149"),
+    ("jp/fukui", "jp-mlit:JP-18", "911158"),
+    ("jp/yamanashi", "jp-mlit:JP-19", "911117"),
+    ("jp/nagano", "jp-mlit:JP-20", "911138"),
+    ("jp/gifu", "jp-mlit:JP-21", "911155"),
+    ("jp/shizuoka", "jp-mlit:JP-22", "911126"),
+    ("jp/aichi", "jp-mlit:JP-23", "911163"),
+    ("jp/mie", "jp-mlit:JP-24", "911141"),
+    ("jp/shiga", "jp-mlit:JP-25", "911128"),
+    ("jp/kyoto", "jp-mlit:JP-26", "911142"),
+    ("jp/osaka", "jp-mlit:JP-27", "906181"),
+    ("jp/hyogo", "jp-mlit:JP-28", "911151"),
+    ("jp/nara", "jp-mlit:JP-29", "911136"),
+    ("jp/wakayama", "jp-mlit:JP-30", "911120"),
+    ("jp/tottori", "jp-mlit:JP-31", "911122"),
+    ("jp/shimane", "jp-mlit:JP-32", "911127"),
+    ("jp/okayama", "jp-mlit:JP-33", "911133"),
+    ("jp/hiroshima", "jp-mlit:JP-34", "911153"),
+    ("jp/yamaguchi", "jp-mlit:JP-35", "911118"),
+    ("jp/tokushima", "jp-mlit:JP-36", "911124"),
+    ("jp/kagawa", "jp-mlit:JP-37", "911147"),
+    ("jp/ehime", "jp-mlit:JP-38", "911159"),
+    ("jp/kochi", "jp-mlit:JP-39", "911144"),
+    ("jp/fukuoka", "jp-mlit:JP-40", "911157"),
+    ("jp/saga", "jp-mlit:JP-41", "911130"),
+    ("jp/nagasaki", "jp-mlit:JP-42", "911137"),
+    ("jp/kumamoto", "jp-mlit:JP-43", "911143"),
+    ("jp/oita", "jp-mlit:JP-44", "911134"),
+    ("jp/miyazaki", "jp-mlit:JP-45", "911139"),
+    ("jp/kagoshima", "jp-mlit:JP-46", "911146"),
+    ("jp/okinawa", "jp-mlit:JP-47", "911132"),
+];
+
+pub fn mlit_source(dataset: &str, version: &str) -> Option<(&'static str, bool)> {
+    MLIT.iter()
+        .find(|&&(name, _, _)| name == dataset)
+        .map(|&(_, tag, old)| (tag, version == old))
+}
+
+pub fn mlit_number(number: &str, legacy: bool) -> Option<&str> {
+    if !legacy {
+        return (!number.trim().is_empty()).then_some(number.trim());
+    }
+    // OA 304d22e fixed this join; the pinned pre-fix jobs appended the coordinate zone, not a residence number.
+    let (number, zone) = number.rsplit_once('-')?;
+    (!number.is_empty() && (1..=19).contains(&zone.parse::<u8>().ok()?)).then_some(number)
+}
+
 static POSTCODE: LazyLock<regex::Regex> = LazyLock::new(|| {
     regex::Regex::new(r"^(?:日本国?)?〒?([0-9０-９]{3}[-－−‐―‑ー]?[0-9０-９]{4})").unwrap()
 });
@@ -44,6 +111,10 @@ fn kanji_numeral(n: u32) -> Option<String> {
 /// first: "東京都港区芝公園4-2-8" is chōme 4 of 芝公園 in 港区, block 2, house 8, stored as street
 /// "芝公園四丁目" and number "2-8"; towns without chōme store "block-house" under the town.
 pub(crate) fn japanese(q: &str) -> Vec<(String, String, String)> {
+    readings(q, false)
+}
+
+fn readings(q: &str, block: bool) -> Vec<(String, String, String)> {
     static NUMBER: LazyLock<regex::Regex> = LazyLock::new(|| {
         regex::Regex::new(r"[0-9]+(?:(?:[-－−‐―‑ーの]|番地?)[0-9]+){0,3}(?:号|番地?)?$").unwrap()
     });
@@ -81,7 +152,7 @@ pub(crate) fn japanese(q: &str) -> Vec<(String, String, String)> {
     if prefix.is_empty()
         || !prefix
             .chars()
-            .all(|c| c as u32 >= 0x3040 || explicit && c.is_ascii_digit())
+            .all(|c| c as u32 >= 0x3040 || c == '々' || explicit && c.is_ascii_digit())
     {
         return vec![];
     }
@@ -92,7 +163,7 @@ pub(crate) fn japanese(q: &str) -> Vec<(String, String, String)> {
         .replace(['番', 'の', '－', '−', '‐', 'ー', '―', '‑'], "-")
         .replace('号', "");
     let numbers: Vec<&str> = number.split('-').collect();
-    if !explicit && numbers.len() < 2 || explicit && numbers.len() > 3 {
+    if !explicit && numbers.len() < 2 && !block || explicit && numbers.len() > 3 {
         return vec![];
     }
     let prefecture = town_queries(q).0;
@@ -194,6 +265,168 @@ pub(crate) fn ward(index: &Index, q: &str) -> Option<Hit> {
         [id] => Some(Hit::Place(*id)),
         _ => None,
     }
+}
+
+#[derive(Default)]
+pub(crate) struct Blocks {
+    numbers: Vec<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
+    far: Vec<Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>>,
+}
+
+impl Blocks {
+    pub(crate) fn open(dir: &std::path::Path) -> anyhow::Result<Self> {
+        use tantivy::directory::Directory as _;
+        let dir = dir.join(MLIT_DIR);
+        if !dir.exists() {
+            return Ok(Self::default());
+        }
+        let shards: usize = std::fs::read_to_string(dir.join("numbers.shards"))?
+            .trim()
+            .parse()?;
+        anyhow::ensure!((1..=256).contains(&shards), "invalid MLIT shard count");
+        let mmap = tantivy::directory::MmapDirectory::open(&dir)?;
+        let load = |name: &str| -> anyhow::Result<_> {
+            Ok(tantivy_fst::Map::from(tantivy_fst::raw::Fst::new(
+                mmap.open_read(std::path::Path::new(name))?.read_bytes()?,
+            )?))
+        };
+        let numbers = (0..shards)
+            .map(|s| load(&format!("numbers-{s:02}.fst")))
+            .collect::<anyhow::Result<_>>()?;
+        let far = (0..shards)
+            .map(|s| {
+                let name = schema::far_file(s);
+                dir.join(&name).exists().then(|| load(&name)).transpose()
+            })
+            .collect::<anyhow::Result<_>>()?;
+        Ok(Self { numbers, far })
+    }
+
+    fn get(&self, sid: u32, number: &str) -> Option<(f64, f64)> {
+        if self.numbers.is_empty() {
+            return None;
+        }
+        let shard = sid as usize % self.numbers.len();
+        let mut key = sid.to_be_bytes().to_vec();
+        key.extend_from_slice(number.as_bytes());
+        if self.far[shard]
+            .as_ref()
+            .is_some_and(|m| m.get(&key).is_some())
+        {
+            return None;
+        }
+        let (x, y, _) = schema::unpack(self.numbers[shard].get(&key)?);
+        Some((x, y))
+    }
+}
+
+pub(crate) fn block_hit(index: &Index, doc: DocAddress, number: &str) -> Option<Hit> {
+    let sid = index.fast(doc, "id") as u32;
+    let (x, y) = index.jp_blocks.get(sid, number)?;
+    let data = index.document(doc).ok()?;
+    Some(Hit::Street {
+        doc,
+        sid,
+        place: index.fast(doc, "place") as u32,
+        name: format!("{}{number}番", stored(&data, index.f.name)),
+        x,
+        y,
+        number: None,
+        postcode: None,
+        city: None,
+        postal_town: None,
+        cc: "jp".into(),
+    })
+}
+
+pub(crate) fn block_suggestion(index: &Index, doc: DocAddress, number: &str) -> Option<Suggestion> {
+    let Hit::Street {
+        sid,
+        place,
+        name,
+        x,
+        y,
+        ..
+    } = block_hit(index, doc, number)?
+    else {
+        return None;
+    };
+    let mut suggestion = index.street_suggestion(doc, sid, place, &name, None, (x, y));
+    suggestion.id = format!("b{sid}:{number}");
+    suggestion.retrieval_id = format!(
+        "{}/b{}:{}:{number}",
+        index.suggestion_scope, doc.segment_ord, doc.doc_id
+    );
+    Some(suggestion)
+}
+
+pub(crate) fn areas(index: &Index, q: &str) -> Option<Vec<(Hit, String)>> {
+    use tantivy::schema::Value as _;
+    if index.jp_blocks.numbers.is_empty() || !q.split(',').next()?.trim_end().ends_with('番') {
+        return None;
+    }
+    let readings = readings(q, true);
+    if readings.is_empty() {
+        return None;
+    }
+    let prefecture = town_queries(q).0;
+    let code = index.region_named(&prefecture, "jp")?;
+    let region = *index.regions.get(code.as_ref())?;
+    let tag = format!("jp-mlit:{code}");
+    if q.split(',')
+        .skip(1)
+        .any(|p| index.country(p.trim()).as_deref() != Some("jp"))
+    {
+        return Some(vec![]);
+    }
+    let compact: String = q.chars().filter(|c| !c.is_whitespace()).collect();
+    if POSTCODE.is_match(&compact) {
+        return Some(vec![]);
+    }
+    let mut hits = vec![];
+    for (city, road, number) in readings {
+        if !number.bytes().all(|b| b.is_ascii_digit()) {
+            continue;
+        }
+        let mut clauses = index.musts(index.f.names, &road);
+        clauses.extend(index.musts(index.f.city, &city));
+        clauses.push(must(term(index.f.ids, &region.to_string())));
+        let docs = index.top_of(Kind::Street, Some("jp"), clauses, 1000);
+        if docs.len() == 1000 {
+            return Some(vec![]);
+        }
+        for doc in docs {
+            let stored = index.document(doc).ok()?;
+            if !stored
+                .get_all(index.f.name)
+                .filter_map(|v| v.as_str())
+                .any(|n| fold(n) == fold(&road))
+            {
+                continue;
+            }
+            let mut found = false;
+            let mut valid = true;
+            for value in stored.get_all(index.f.postal_town) {
+                let (_, n, name, source): (&str, &str, &str, &str) =
+                    serde_json::from_str(value.as_str()?).ok()?;
+                if n != number || !source.starts_with("jp-mlit:") {
+                    continue;
+                }
+                found = true;
+                valid &= source == tag && crate::matching::names_agree(&city, name);
+            }
+            if found
+                && valid
+                && let Some(hit) = block_hit(index, doc, &number)
+                && !hits.iter().any(|(h, n)| {
+                    matches!(h, Hit::Street { doc: d, .. } if *d == doc) && n == &number
+                })
+            {
+                hits.push((hit, number.clone()));
+            }
+        }
+    }
+    Some(hits)
 }
 
 pub(crate) fn houses(index: &Index, q: &str) -> Option<Vec<Hit>> {
@@ -365,6 +598,19 @@ pub(crate) fn ward_house_matches(
 }
 
 pub(crate) fn suggest(index: &Index, q: &str, want: usize) -> Option<Vec<Suggestion>> {
+    if let Some(hits) = areas(index, q) {
+        return Some(
+            hits.into_iter()
+                .take(want)
+                .filter_map(|(h, n)| {
+                    let Hit::Street { doc, .. } = h else {
+                        return None;
+                    };
+                    block_suggestion(index, doc, &n)
+                })
+                .collect(),
+        );
+    }
     Some(
         houses(index, q)?
             .into_iter()
@@ -416,7 +662,7 @@ pub(crate) fn town_queries(q: &str) -> (String, Vec<String>) {
         })
         .collect();
     let t = POSTCODE.replace(&t, "");
-    let kanji = |s: &str| !s.is_empty() && s.chars().all(|c| c as u32 >= 0x3040);
+    let kanji = |s: &str| !s.is_empty() && s.chars().all(|c| c as u32 >= 0x3040 || c == '々');
     // the first `mark` among the first `within` characters, and what follows it
     let cut = |s: &str, marks: &[char], within: usize| -> Option<(String, String)> {
         let at = s
@@ -577,7 +823,44 @@ mod tests {
     }
 
     #[test]
+    fn mlit_provenance_and_legacy_coordinate_zones() {
+        assert_eq!(MLIT.len(), 47);
+        assert_eq!(
+            MLIT.iter()
+                .map(|(_, tag, _)| tag)
+                .collect::<std::collections::HashSet<_>>()
+                .len(),
+            47
+        );
+        assert_eq!(
+            mlit_source("jp/oita", "911134"),
+            Some(("jp-mlit:JP-44", true))
+        );
+        assert_eq!(
+            mlit_source("jp/oita", "future"),
+            Some(("jp-mlit:JP-44", false))
+        );
+        assert!(mlit_source("jp/countrywide", "911134").is_none());
+        assert_eq!(mlit_number("5-12", true), Some("5"));
+        assert_eq!(mlit_number("1-2-9", true), Some("1-2"));
+        assert_eq!(mlit_number("5", false), Some("5"));
+        assert_eq!(mlit_number("5-12", false), Some("5-12"));
+        for invalid in ["5", "5-0", "5-20", "5-x", "-12"] {
+            assert!(mlit_number(invalid, true).is_none(), "{invalid}");
+        }
+    }
+
+    #[test]
     fn japanese_towns() {
+        assert_eq!(
+            readings("日本石川県野々市市菅原町11番", true)[0],
+            ("野々市市".into(), "菅原町".into(), "11".into())
+        );
+        assert!(
+            town_queries("石川県野々市市菅原町11番")
+                .1
+                .contains(&"野々市市, 石川県".into())
+        );
         assert_eq!(
             town_queries("〒812-0053 福岡県福岡市東区箱崎２丁目１０−３５"),
             (

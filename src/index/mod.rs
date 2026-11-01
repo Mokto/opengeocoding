@@ -92,6 +92,7 @@ pub struct Index {
     f: Fields,
     /// Memory-mapped, so cold parts stay in the page cache instead of private memory.
     numbers: Vec<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
+    jp_blocks: jp::Blocks,
     /// Per shard, a second house of a street's number far from the first (`schema::far_file`);
     /// absent from hand-built indexes.
     far: Vec<Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>>,
@@ -401,7 +402,7 @@ fn postal_town(
     for value in doc.get_all(field) {
         let (pc, house, name, source): (&str, &str, &str, &str) =
             serde_json::from_str(value.as_str()?).ok()?;
-        if source == schema::TOWN_CITY {
+        if source == schema::TOWN_CITY || source.starts_with("jp-mlit:") {
             continue;
         }
         if if pc.is_empty() {
@@ -829,6 +830,7 @@ impl Index {
             country_words,
             f,
             numbers,
+            jp_blocks: jp::Blocks::open(dir)?,
             far,
             alternates,
             reverse,

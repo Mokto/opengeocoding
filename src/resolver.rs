@@ -861,6 +861,30 @@ impl Core {
         if let Some(found) = self.numbered_place(query)? {
             return Ok(found);
         }
+        if let Some(areas) = jp::areas(&self.index, query) {
+            let found = match areas.as_slice() {
+                [(hit, _)] => {
+                    let mut found = format_response(&self.index.render(hit, true))?;
+                    found.good_match = true;
+                    found
+                }
+                _ => {
+                    let mut found = self
+                        .stated_town(query)?
+                        .filter(|f| {
+                            f.address_details.as_option().is_some_and(|d| {
+                                d.country_code == "jp"
+                                    && !jp::conflicting_prefecture(&self.index, query, d)
+                            })
+                        })
+                        .unwrap_or_default();
+                    found.good_match = false;
+                    found
+                }
+            };
+            METRICS.tiers.with_label_values(&["japanese_area"]).inc();
+            return Ok(found);
+        }
         let found = self.resolve_address(query)?;
         if found
             .address_details

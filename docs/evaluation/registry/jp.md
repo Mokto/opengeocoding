@@ -101,6 +101,33 @@ The former 505 km Nakatsu→Tsu result becomes **Okidaimachi 1-chome, Nakatsu, O
 
 The block corpus remains weak: **11/368 pass**, 257 too coarse, 46 confidence mismatches, 13 abstentions, 41 near misses and no far miss on this index. SuggestAddress remains 0/368. A general block-aware lookup is still needed. Broadly aligning block-only forms was rejected before publication: the index's existing ambiguity between chōme/block and block/house readings promoted wrong nearby houses. Those results are not retained or counted as improvements. Synthetic cases retain the exact-house and missing-house checks, plus the wrong-prefecture block fallback that failed before the guard.
 
+## Source-aware numbered-area lookup
+
+The builder now distinguishes MLIT area reference points from residences. The prefectural OpenAddresses layers cite MLIT's **街区符号・地番** (block sign or parcel number), not a residence-number table. Older exports joined that identifier with **座標系番号**, a coordinate-system zone, so block 5 became a false residence such as `5-12`. OpenAddresses corrected the join in [304d22e6682c1dec74599806637ed05b033512f6](https://github.com/openaddresses/openaddresses/commit/304d22e6682c1dec74599806637ed05b033512f6). The builder recognizes the 47 prefectural datasets only with OpenAddresses number/whole-record provenance, strips the zone only for the pinned pre-fix job versions, and leaves newer identifiers as written. It does not infer this correction from hyphens or apply it to ABR's `jp/countrywide` residences. Mixed number provenance contributes no numbered point.
+
+Area identifiers and their packed positions are written under `jp-mlit/`, using the existing sharded FST format but separate from house numbers and house reverse postings. Their stored source municipality and prefecture remain attached to the identifier. Other house-source metadata never takes an MLIT area association as a residence's postal town. The builder hash includes the Japanese source rules; changes to that module can now require an index rebuild. Older indexes remain readable, but retain their historical numbers and do not gain this lookup: rebuild to correct the granularity.
+
+Search and full-string suggestions recognize a prefecture-qualified native numbered-area form ending in `番`, verify the exact town/road, area identifier, source municipality and prefecture, and decline missing, contradictory or distant duplicate records. `々` is allowed in native names such as 野々市市. A match is a **street-level area point**: the road/display contains the town and numbered-area label, the house number is empty, and the suggestion kind is `street`. Its opaque selection ID retrieves the same area point. A block-only form is no longer reinterpreted as a residence `chōme-block`; the genuine complete residence form remains supported. Unsupported forms keep a weak locality fallback or abstain rather than invent a house.
+
+The Overture/OpenAddresses rows do not carry MLIT's residential-addressing, representative or deletion flags. The serving area store therefore includes both block and parcel-area records and cannot certify which frame a row belongs to, the block's boundary, its measured extent, or an entrance. Its duplicate policy is the existing number writer's near-point merge (about 300 m) and a stored distant-copy ambiguity check; it does not reconstruct publisher record identities. The gold panel remains the separately sampled, flag-filtered residential-block frame above, with unchanged 300 m, level and confidence expectations. Passing it remains a geographic/representation consistency diagnostic, not independent accuracy or survey evidence. Romanized, incomplete and implicit-chōme block forms are outside this correction.
+
+### Controlled full-index comparison
+
+The code comparison uses `5104ea8` / builder `eb225d0b385a41f5` against builder `106359a2b69c5841`, the same Overture 2026-09-23.1 and other source files, the same evaluator and models. Japan's existing Geofabrik file is passed as an **address** extract on both sides, as the chart already does, not as landmarks-only. No production source switch or upstream data refresh accompanies this code change.
+
+| Block-panel check | Before | After |
+|---|---:|---:|
+| SearchAddress | 12/368 | 360/368 |
+| Full-string SuggestAddress | 0/368 | 362/368 |
+| Held-out SearchAddress | 2/62 | 62/62 |
+| Held-out SuggestAddress | 0/62 | 62/62 |
+
+Non-held-out search passes rise from 10 to 298/306 and suggestions from 0 to 300/306; the held-out set was validation, not a tuning target. Eight search queries remain too coarse. The residence panel remains **506/512** for search and **502/512** for suggestions. Four passing residence searches move slightly because an actual residence's point replaces the historical MLIT-number collision. ReverseGeocode gains 12 residence checks by returning the correct genuine house rather than a false zone-suffixed number. No new known-failure label, expectation, scoring or tolerance change is used.
+
+Across **44,047 shared gold cases**, search gains 348 passes, suggestions 362 and reverse 12. Region and reverse-offset results are unchanged; only Japan changes, with no newly failing check or worse class. The source-area store has 16,617,587 keys. The house FST count falls from 503,779,483 to 487,883,270 because area points are no longer counted as houses; that is a granularity correction, not lost residences. Local runs use `--repeat 1 --speed-cases 0`, so they establish no speed improvement. Absolute runs retain inherited critical failures outside this panel; the relative comparison passes.
+
+An earlier **separate local-input experiment** used the old reference build's misplaced landmarks-only Japan extract. Removing false MLIT houses then exposed 56 reverse-offset losses: those baseline checks had accepted a nearby coordinate-zone suffix as a house. The existing extract contains the genuine OSM addresses, and the chart already enables them for addresses. Rebuilding **both** sides with that same address input removes those losses without retaining false residences or changing the checks. This local configuration correction is not counted as a code gain, and the two input experiments are not mixed.
+
 ## ABR residence-level supplement
 
 `jp.abr.seeds.jsonl` and `jp.abr.jsonl` are a separate **residence-level** panel: 256 locations in 210 municipality/ward codes across all 47 prefectures, 512 queries. They do not replace, refine or reuse the MLIT block expectations above.

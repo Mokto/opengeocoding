@@ -196,7 +196,100 @@ const WARD_STREET: Street = Street {
     numbers: &["7-8-9"],
 };
 
+const MLIT_STREET: Street = Street {
+    name: "真珠一丁目",
+    city: "中津市",
+    lon: 145.5,
+    lat: 41.0,
+    numbers: &["5-12"],
+    ..WARD_STREET
+};
+
+pub fn sources(s: &Street) -> &'static [(&'static str, &'static str, &'static str)] {
+    match s.name {
+        "真珠一丁目" if s.lon == 145.5 => &[("open_addresses", "jp/oita", "911134")],
+        "真珠一丁目" | "遠霞五丁目" => &[("open_addresses", "jp/countrywide", "911134")],
+        "凪通二丁目" | "裂野三丁目" | "砂丘一丁目" | "朝露一丁目" | "孤潮七丁目" => {
+            &[("open_addresses", "jp/oita", "911134")]
+        }
+        "次波四丁目" => &[("open_addresses", "jp/oita", "999999")],
+        "遠波五丁目" => &[("other_provider", "jp/oita", "911134")],
+        "混波六丁目" => &[
+            ("open_addresses", "jp/oita", "911134"),
+            ("open_addresses", "jp/countrywide", "911134"),
+        ],
+        _ => &[],
+    }
+}
+
 pub const STREETS: &[Street] = &[
+    MLIT_STREET,
+    Street {
+        name: "孤潮七丁目",
+        numbers: &["16-12"],
+        lon: 145.62,
+        ..MLIT_STREET
+    },
+    Street {
+        numbers: &["5-12", "5-2-3"],
+        postcode: "123-4567",
+        lon: 145.52,
+        ..MLIT_STREET
+    },
+    Street {
+        name: "凪通二丁目",
+        numbers: &["7-12"],
+        lon: 145.51,
+        ..MLIT_STREET
+    },
+    Street {
+        name: "裂野三丁目",
+        numbers: &["8-99"],
+        ..MLIT_STREET
+    },
+    Street {
+        name: "次波四丁目",
+        numbers: &["9", "11-12"],
+        lon: 145.55,
+        ..MLIT_STREET
+    },
+    Street {
+        name: "遠波五丁目",
+        numbers: &["10-12"],
+        lon: 145.54,
+        ..MLIT_STREET
+    },
+    Street {
+        name: "遠霞五丁目",
+        numbers: &["12-13"],
+        lon: 145.54,
+        ..MLIT_STREET
+    },
+    Street {
+        name: "混波六丁目",
+        numbers: &["13-12"],
+        lon: 145.56,
+        ..MLIT_STREET
+    },
+    Street {
+        name: "砂丘一丁目",
+        numbers: &["14-12"],
+        lon: 145.51,
+        ..MLIT_STREET
+    },
+    Street {
+        name: "砂丘一丁目",
+        numbers: &["14-12"],
+        lon: 145.57,
+        ..MLIT_STREET
+    },
+    Street {
+        name: "朝露一丁目",
+        numbers: &["15-12"],
+        lon: 146.0,
+        lat: 38.0,
+        ..MLIT_STREET
+    },
     WARD_STREET,
     Street {
         name: "朱明二丁目",
@@ -396,6 +489,26 @@ pub fn cases() -> Vec<Case> {
     .map(|q| case(q, at_house("沖代町一丁目", "5-9")))
     .chain([
         case(
+            "大分県中津市真珠一丁目5番, Japan",
+            crate::Want::At((145.5, 41.0), 25., true),
+        ),
+        case(
+            "日本大分県中津市凪通二丁目7番",
+            crate::Want::At((145.51, 41.0), 25., true),
+        ),
+        case(
+            "日本大分県中津市次波四丁目9番",
+            crate::Want::At((145.55, 41.0), 25., true),
+        ),
+        case(
+            "日本大分県中津市真珠一丁目5-12",
+            crate::Want::At((145.52, 41.0), 25., true),
+        ),
+        case(
+            "大分県中津市凪通二丁目7-12, Japan",
+            town("jp-nakatsu", false),
+        ),
+        case(
             "大分県朝凪市朝村区朱明二丁目14-15, Japan",
             at_house("朱明二丁目", "14-15"),
         ),
@@ -490,6 +603,71 @@ pub fn cases() -> Vec<Case> {
         ),
     ])
     .collect()
+}
+
+#[test]
+fn mlit_areas_are_not_residences_and_keep_selection_coordinates() {
+    for (road, number, lon) in [
+        ("真珠一丁目", "5", 145.5),
+        ("凪通二丁目", "7", 145.51),
+        ("次波四丁目", "9", 145.55),
+    ] {
+        for q in [
+            format!("日本大分県中津市{road}{number}番"),
+            format!("大分県中津市{road}{number}番, Japan"),
+        ] {
+            let found = index().suggest(&q, 5, Some("JP"), None, false);
+            assert_eq!(found.len(), 1, "{q}");
+            let s = &found[0];
+            assert_eq!(s.kind, "street");
+            assert!(s.id.starts_with('b'));
+            assert!(metres((s.x, s.y), (lon, 41.)) < 5.);
+            let retrieved = index().retrieve_suggestion(&s.retrieval_id).unwrap();
+            assert_eq!(
+                (retrieved.id, retrieved.kind, retrieved.x, retrieved.y),
+                (s.id.clone(), "street", s.x, s.y)
+            );
+            let hits = index().search(&q);
+            assert_eq!(hits.len(), 1);
+            let value = index().render(&hits[0], true);
+            assert!(value["address"].get("house_number").is_none());
+            assert_eq!(value["address"]["road"], format!("{road}{number}番"));
+        }
+    }
+    for q in [
+        "大分県中津市凪通二丁目8番, Japan",
+        "大分県中津市裂野三丁目8番, Japan",
+        "大分県中津市砂丘一丁目14番, Japan",
+        "大分県中津市混波六丁目13番, Japan",
+        "朝雲県中津市朝露一丁目15番, Japan",
+        "大分県中津市朝露一丁目15番, Japan",
+        "大分県中津市真珠一丁目5番, France",
+    ] {
+        assert!(
+            index()
+                .suggest(q, 5, Some("JP"), None, false)
+                .iter()
+                .all(|s| s.kind != "address" && !s.id.starts_with('b')),
+            "{q}"
+        );
+    }
+    for (road, number, lon) in [
+        ("真珠一丁目", "5-12", 145.52),
+        ("遠波五丁目", "10-12", 145.54),
+        ("遠霞五丁目", "12-13", 145.54),
+    ] {
+        let q = format!("大分県中津市{road}{number}, Japan");
+        let found = index().suggest(&q, 5, Some("JP"), None, false);
+        assert_eq!(found.len(), 1, "{q}");
+        assert_eq!(found[0].kind, "address");
+        assert!(metres((found[0].x, found[0].y), (lon, 41.)) < 5.);
+    }
+    assert!(
+        index()
+            .reverse_search(41., 145.62, 100., 5)
+            .iter()
+            .all(|(_, v, _)| v["address"].get("house_number").is_none())
+    );
 }
 
 #[test]
@@ -612,11 +790,16 @@ fn native_houses_keep_residence_numbers_numeric_streets_and_prefecture_scope() {
                 .is_empty()
         );
     }
-    let flat_block = index().search("大分県中津市海風一丁目6番, Japan");
-    assert_eq!(flat_block.len(), 1);
+    let flat_house = index().search("大分県中津市海風1-6, Japan");
+    assert_eq!(flat_house.len(), 1);
     assert_eq!(
-        index().render(&flat_block[0], true)["address"]["house_number"],
+        index().render(&flat_house[0], true)["address"]["house_number"],
         "1-6"
+    );
+    assert!(
+        index()
+            .search("大分県中津市海風一丁目6番, Japan")
+            .is_empty()
     );
     let postal = index().suggest(
         "日本　〒１２３−４５６７ 大分県中津市海風一丁目2番3-4号",

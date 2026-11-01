@@ -1281,6 +1281,7 @@ struct Shared<'a> {
     /// Country of each place, for sources without one.
     countries: Vec<[u8; 2]>,
     numbers: &'a NumberSpill,
+    areas: &'a NumberSpill,
     towns: &'a TownSpill,
     streets: Vec<Mutex<AddrShard>>,
     postcodes: Vec<Mutex<HashMap<PcKey, PcAgg>>>,
@@ -1298,12 +1299,14 @@ impl<'a> Shared<'a> {
         assigner: &'a Assigner,
         places: &[Place],
         numbers: &'a NumberSpill,
+        areas: &'a NumberSpill,
         towns: &'a TownSpill,
     ) -> Shared<'a> {
         Shared {
             assigner,
             countries: places.iter().map(|p| p.country).collect(),
             numbers,
+            areas,
             towns,
             streets: sharded(),
             postcodes: sharded(),
@@ -1354,6 +1357,8 @@ struct Sink<'s, 'a> {
     pair_cache: HashMap<Pair, u32>,
     /// sid holds the index into `aggs` until the flush remaps it.
     nums: Bucket,
+    areas: Bucket,
+    area: Option<&'static str>,
     /// By index into `aggs`, sorted: postcodes past the street's `MAX_HELD_POSTCODES`.
     more: HashMap<u32, Vec<u32>>,
     rows: u64,
@@ -1387,6 +1392,8 @@ impl<'s, 'a> Sink<'s, 'a> {
             cache: HashMap::new(),
             pair_cache: HashMap::new(),
             nums: Bucket::default(),
+            areas: Bucket::default(),
+            area: None,
             more: HashMap::new(),
             rows: 0,
             key: String::new(),
@@ -1519,7 +1526,7 @@ impl<'s, 'a> Sink<'s, 'a> {
         if st != &*e.name && prefer(st, &e.name) {
             e.name = st.into();
         }
-        let pc_id = (pc.is_some() && !self.pcn.is_empty())
+        let pc_id = (self.area.is_none() && pc.is_some() && !self.pcn.is_empty())
             .then(|| self.shared.strings.cached(&mut self.cache, &self.pcn));
         if let Some(id) = pc_id {
             push_unique(&mut e.pcs, id, MAX_HELD_POSTCODES);
@@ -1530,7 +1537,7 @@ impl<'s, 'a> Sink<'s, 'a> {
         for &(city, source) in cities.iter().filter(|(name, _)| !name.trim().is_empty()) {
             let strings = &self.shared.strings;
             let id = strings.cached(&mut self.cache, city.trim());
-            let source = strings.cached(&mut self.cache, source);
+            let source = strings.cached(&mut self.cache, self.area.unwrap_or(source));
             insert_sorted(&mut e.cities, id);
             let pair = self.shared.pairs.cached(&mut self.pair_cache, (id, source));
             let towns: Vec<u64> = match pc_id {
@@ -1572,12 +1579,17 @@ impl<'s, 'a> Sink<'s, 'a> {
                 .map_or(0, |i| i as u8 + 1);
             let (px, py) = pack(x, y, slot);
             let unslotted = pc_id.filter(|_| slot == 0).unwrap_or(schema::NO_PC);
+            let bucket = if self.area.is_some() {
+                &mut self.areas
+            } else {
+                &mut self.nums
+            };
             match Num::new(li, &self.lower, with_rank(px, rank), py) {
-                Ok(v) if unslotted == schema::NO_PC => self.nums.short.push(v),
-                Ok(v) => self.nums.long.push(v.into_long(unslotted)),
+                Ok(v) if unslotted == schema::NO_PC => bucket.short.push(v),
+                Ok(v) => bucket.long.push(v.into_long(unslotted)),
                 Err(mut v) => {
                     v.pc = unslotted;
-                    self.nums.long.push(v);
+                    bucket.long.push(v);
                 }
             }
         }
@@ -1656,8 +1668,6 @@ impl<'s, 'a> Sink<'s, 'a> {
             }
         }
         let shards = sh.numbers.shards();
-        let mut out: Vec<Bucket> = (0..shards).map(|_| Bucket::default()).collect();
-        let nums = std::mem::take(&mut self.nums);
         // a house's merged slot, or with none its postcode
         let slot = |li: u32, x: u32| match held_slot(x) {
             0 => (x, schema::NO_PC),
@@ -1666,23 +1676,32 @@ impl<'s, 'a> Sink<'s, 'a> {
                 merged => ((x & 0xc0ff_ffff) | (merged as u32) << 24, schema::NO_PC),
             },
         };
-        for mut n in nums.short {
-            let (x, pc) = slot(n.sid, n.x);
-            (n.x, n.sid) = (x, remap[n.sid as usize]);
-            let o = &mut out[n.sid as usize % shards];
-            match pc {
-                schema::NO_PC => o.short.push(n),
-                pc => o.long.push(n.into_long(pc)),
+        for (nums, spill) in [
+            (std::mem::take(&mut self.nums), sh.numbers),
+            (std::mem::take(&mut self.areas), sh.areas),
+        ] {
+            if nums.short.is_empty() && nums.long.is_empty() {
+                continue;
             }
-        }
-        for mut n in nums.long {
-            if n.pc == schema::NO_PC {
-                (n.x, n.pc) = slot(n.sid, n.x);
+            let mut out: Vec<Bucket> = (0..shards).map(|_| Bucket::default()).collect();
+            for mut n in nums.short {
+                let (x, pc) = slot(n.sid, n.x);
+                (n.x, n.sid) = (x, remap[n.sid as usize]);
+                let o = &mut out[n.sid as usize % shards];
+                match pc {
+                    schema::NO_PC => o.short.push(n),
+                    pc => o.long.push(n.into_long(pc)),
+                }
             }
-            n.sid = remap[n.sid as usize];
-            out[n.sid as usize % shards].long.push(n);
+            for mut n in nums.long {
+                if n.pc == schema::NO_PC {
+                    (n.x, n.pc) = slot(n.sid, n.x);
+                }
+                n.sid = remap[n.sid as usize];
+                out[n.sid as usize % shards].long.push(n);
+            }
+            spill.add(out);
         }
-        sh.numbers.add(out);
     }
 }
 
@@ -1766,6 +1785,46 @@ fn float_civic(number: &str) -> Option<String> {
     (digits(num) && digits(den)).then(|| format!("{whole} {suffix}"))
 }
 
+fn mlit_area(b: &RecordBatch, row: usize, cc: [u8; 2]) -> Option<(&'static str, Option<bool>)> {
+    if cc != *b"JP" {
+        return None;
+    }
+    let list = b.column_by_name("sources")?.as_list::<i32>();
+    if list.is_null(row) {
+        return None;
+    }
+    let records = list.values().as_struct();
+    let get = |key: &str, i| {
+        records
+            .column_by_name(key)
+            .and_then(|a| text(a.as_string::<i32>(), i))
+    };
+    let mut selected = None;
+    let mut origins = vec![];
+    for i in list.value_offsets()[row] as usize..list.value_offsets()[row + 1] as usize {
+        if !matches!(get("property", i).unwrap_or(""), "" | "number" | "/number") {
+            continue;
+        }
+        let source = if get("provider", i) == Some("open_addresses") {
+            opengeocoding::index::country::jp::mlit_source(
+                get("dataset", i).unwrap_or(""),
+                get("version", i).unwrap_or(""),
+            )
+        } else {
+            None
+        };
+        if selected.is_none() {
+            selected = source;
+        }
+        origins.push(source);
+    }
+    let (tag, legacy) = selected?;
+    Some((
+        tag,
+        origins.iter().all(|s| *s == selected).then_some(legacy),
+    ))
+}
+
 fn pass_addresses(dir: &Path, shared: &Shared) {
     let tasks = tasks(dir);
     let done = progress::Progress::items(
@@ -1784,6 +1843,7 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                 "unit",
                 "postcode",
                 "postal_city",
+                "sources",
                 "address_levels",
                 "geometry",
             ],
@@ -1828,7 +1888,14 @@ fn pass_addresses(dir: &Path, shared: &Shared) {
                     .flatten()
                     .filter(|town| city.is_some_and(|(suburb, _)| fold(suburb) != fold(town)))
                     .map(|name| (name, TOWN_CITY));
-                let number = text(&number, i);
+                let area = mlit_area(&b, i, c);
+                sink.area = area.map(|(tag, _)| tag);
+                let number = match area {
+                    Some((_, legacy)) => legacy.and_then(|old| {
+                        opengeocoding::index::country::jp::mlit_number(text(&number, i)?, old)
+                    }),
+                    None => text(&number, i),
+                };
                 let latvian = (c == *b"LV")
                     .then(|| latvian(text(&street, i), number?, level(o[i]), level(o[i + 1] - 1)))
                     .flatten();
@@ -2269,7 +2336,8 @@ fn build(args: &[String]) {
     lap("segments");
     let spill = NumberSpill::new(Path::new(out).join(".numbers-spill"), NUMBER_SHARDS);
     let towns = TownSpill::new(Path::new(out).join(".towns-spill"));
-    let shared = Shared::new(&assigner, &places, &spill, &towns);
+    let area_spill = NumberSpill::new(Path::new(out).join(".jp-areas-spill"), NUMBER_SHARDS);
+    let shared = Shared::new(&assigner, &places, &spill, &area_spill, &towns);
     progress::phase("Parse addresses");
     pass_addresses(&dir.join("address"), &shared);
     lap(&format!(
@@ -2400,6 +2468,13 @@ fn build(args: &[String]) {
     let parallel = (headroom() / 2 / shard_bytes.max(1)).clamp(1, NUMBER_SHARDS as u64) as usize;
     println!("  sorting {parallel} of {NUMBER_SHARDS} house-number shards at a time");
     let n = spill.write_fsts(out, parallel, &|sid, slot, pc| canon.resolve(sid, slot, pc));
+    let area_dir = Path::new(out).join(opengeocoding::index::country::jp::MLIT_DIR);
+    std::fs::create_dir_all(&area_dir).unwrap();
+    let areas = area_spill.write_fsts(area_dir.to_str().unwrap(), parallel, &|sid, slot, pc| {
+        canon.resolve(sid, slot, pc)
+    });
+    std::fs::remove_dir_all(area_dir.join(reverse::SPILL)).unwrap();
+    println!("  MLIT area numbers ({areas}), excluded from houses and house reverse postings");
     let Canon {
         streets, renumber, ..
     } = canon;
@@ -2997,7 +3072,7 @@ mod tests {
             let towns = TownSpill::new(dir.join("towns"));
             std::fs::create_dir_all(&dir).unwrap();
             let assigner = Assigner::new(vec![], PolyFile::new(dir.join("polys")), vec![], vec![]);
-            let shared = Shared::new(&assigner, &[], &spill, &towns);
+            let shared = Shared::new(&assigner, &[], &spill, &spill, &towns);
             for chunk in order.chunks(batch) {
                 let mut sink = Sink::new(&shared);
                 for &i in chunk {
