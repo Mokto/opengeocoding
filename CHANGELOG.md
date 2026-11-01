@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.1](https://github.com/Mokto/opengeocoding/compare/v1.6.0...v1.6.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* corroborate qualified village names with GeoNames ([#492](https://github.com/Mokto/opengeocoding/issues/492)) ([fd4c0a3](https://github.com/Mokto/opengeocoding/commit/fd4c0a3fd5b9e5aef1a031eddcc29fd5c334535a))
+* keep the stated Japanese ward when a house is indexed under its parent city ([#491](https://github.com/Mokto/opengeocoding/issues/491)) ([5104ea8](https://github.com/Mokto/opengeocoding/commit/5104ea806b548cdcc9caa501d1fefbb1d59cf356))
+* name the containing Australian suburb on reverse house results ([#494](https://github.com/Mokto/opengeocoding/issues/494)) ([e12c4f1](https://github.com/Mokto/opengeocoding/commit/e12c4f1f3780403b8befb012c2fb12485542464a))
+
 ## [1.6.0](https://github.com/Mokto/opengeocoding/compare/v1.5.1...v1.6.0) (2026-11-01)
 
 
