@@ -84,8 +84,10 @@ pub struct Fetched {
     pub osm_landmarks: Option<PathBuf>,
     pub openaddresses: Option<PathBuf>,
     pub geonames: Vec<PathBuf>,
-    /// The directory holding `cities500.txt` and `admin1CodesASCII.txt`.
+    /// The pinned `cities500.txt` and `admin1CodesASCII.txt` directory.
     pub geonames_places: Option<PathBuf>,
+    /// The separately pinned `populated.txt` supplement from `allCountries`.
+    pub geonames_small: Option<PathBuf>,
     /// The directory holding Korea's shop register, `shops.zip`, and its `source.json`.
     pub korea_shops: Option<PathBuf>,
     /// An OpenAddresses-style directory of Ryhti's Swedish-only addresses (see `ryhti`).
@@ -525,54 +527,66 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         anyhow::Ok(geonames)
     };
     let geonames_places = async {
-        let dir = scratch.join("geonames-places");
-        let bbox = src.bbox();
-        let c = self::client()?;
-        mirror(
-            store,
-            &format!("sources/{}/geonames-places/{}", src.snapshot, src.scope()),
-            &dir,
-            1,
-            || async {
-                Ok(vec![
-                    ("cities500.txt".to_string(), true),
-                    ("admin1CodesASCII.txt".to_string(), false),
-                ])
-            },
-            move |zipped: bool, path: PathBuf| {
-                let c = c.clone();
-                Box::pin(async move {
-                    let base = "https://download.geonames.org/export/dump";
-                    if !zipped {
-                        let url = format!("{base}/admin1CodesASCII.txt");
-                        ensure!(http_get(&c, &url, &path).await?, "{url} not found");
-                        return Ok(true);
-                    }
-                    let url = format!("{base}/cities500.zip");
-                    let tmp = path.with_extension("zip");
-                    ensure!(http_get(&c, &url, &tmp).await?, "{url} not found");
-                    tokio::task::spawn_blocking(move || {
-                        let keep = |line: &str| {
-                            let f: Vec<&str> = line.split('\t').collect();
-                            let (Some(lat), Some(lon)) = (
-                                f.get(4).and_then(|v| v.parse::<f64>().ok()),
-                                f.get(5).and_then(|v| v.parse::<f64>().ok()),
-                            ) else {
-                                return false;
+        let mut dirs = [None, None];
+        for ((source, archive, filename), target) in [
+            ("geonames-places", "cities500", "cities500.txt"),
+            ("geonames-populated", "allCountries", "populated.txt"),
+        ]
+        .into_iter()
+        .zip(&mut dirs)
+        {
+            let dir = scratch.join(source);
+            let bbox = src.bbox();
+            let c = self::client()?;
+            mirror(
+                store,
+                &format!("sources/{}/{source}/{}", src.snapshot, src.scope()),
+                &dir,
+                1,
+                || async {
+                    Ok(vec![
+                        (filename.to_string(), true),
+                        ("admin1CodesASCII.txt".to_string(), false),
+                    ])
+                },
+                move |zipped: bool, path: PathBuf| {
+                    let c = c.clone();
+                    Box::pin(async move {
+                        let base = "https://download.geonames.org/export/dump";
+                        if !zipped {
+                            let url = format!("{base}/admin1CodesASCII.txt");
+                            ensure!(http_get(&c, &url, &path).await?, "{url} not found");
+                            return Ok(true);
+                        }
+                        let url = format!("{base}/{archive}.zip");
+                        let tmp = path.with_extension("zip");
+                        ensure!(http_get(&c, &url, &tmp).await?, "{url} not found");
+                        tokio::task::spawn_blocking(move || {
+                            let keep = |line: &str| {
+                                let f: Vec<&str> = line.split('\t').collect();
+                                let (Some(lat), Some(lon)) = (
+                                    f.get(4).and_then(|v| v.parse::<f64>().ok()),
+                                    f.get(5).and_then(|v| v.parse::<f64>().ok()),
+                                ) else {
+                                    return false;
+                                };
+                                f.get(6) == Some(&"P")
+                                    && bbox.is_none_or(|b| intersects(b, lon, lat, lon, lat))
                             };
-                            bbox.is_none_or(|b| intersects(b, lon, lat, lon, lat))
-                        };
-                        unzip_lines(&tmp, "cities500.txt", &path, keep)?;
-                        std::fs::remove_file(&tmp)?;
-                        anyhow::Ok(())
+                            unzip_lines(&tmp, &format!("{archive}.txt"), &path, keep)?;
+                            std::fs::remove_file(&tmp)?;
+                            anyhow::Ok(())
+                        })
+                        .await??;
+                        Ok(true)
                     })
-                    .await??;
-                    Ok(true)
-                })
-            },
-        )
-        .await?;
-        anyhow::Ok(Some(dir))
+                },
+            )
+            .await?;
+            *target = Some(dir);
+        }
+        let [places, small] = dirs;
+        anyhow::Ok((places, small))
     };
     let korea_dir = scratch.join("korea-shops");
     let ryhti_dir = scratch.join("ryhti");
@@ -582,7 +596,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         openaddresses,
         (osm, osm_landmarks),
         geonames,
-        geonames_places,
+        (geonames_places, geonames_small),
         korea_shops,
         ryhti,
         denue,
@@ -605,6 +619,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         openaddresses,
         geonames,
         geonames_places,
+        geonames_small,
         korea_shops,
         ryhti,
         denue,

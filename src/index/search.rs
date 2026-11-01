@@ -20,6 +20,11 @@ impl Index {
         {
             return hits;
         }
+        if let Some(hits) = jp::houses(self, q)
+            && !hits.is_empty()
+        {
+            return hits;
+        }
         // Japanese block addresses: libpostal splits them, and the data names the chōme
         // ("芝公園四丁目", number "2-8"), so they're read here.
         let mut chome = None;
@@ -179,6 +184,20 @@ impl Index {
                 cc,
                 exact,
             );
+            if hits.is_empty()
+                && cc == Some("us")
+                && let Some(expanded) = country::us::full_road(road)
+            {
+                hits = self.streets_in(
+                    &expanded,
+                    get("house_number").map(house_number),
+                    resolved_city.as_deref(),
+                    None,
+                    get("postcode"),
+                    cc,
+                    exact,
+                );
+            }
             if let Some(found) = self.hk_house_anywhere(
                 &hits,
                 road,
@@ -364,6 +383,24 @@ impl Index {
                     }
                 }
             }
+        }
+        if let (Some(hit), Some(city)) = (hits.first(), city)
+            && get("house_number").is_some()
+            && parsed.iter().all(|(key, _)| {
+                matches!(key.as_str(), "house_number" | "road" | "city" | "country")
+            })
+            && !hits.iter().any(|h| {
+                matches!(
+                    h,
+                    Hit::Street {
+                        number: Some(_),
+                        ..
+                    }
+                )
+            })
+            && let Some(place) = self.street_supported_neighborhood(hit, city, cc)
+        {
+            return vec![place];
         }
         // "1516 Ruth Avenue, OH": a house with only its US state to place it, answered when the
         // state holds that number on one street of that name.
@@ -936,7 +973,7 @@ impl Index {
                 number: Some(_),
                 ..
             }
-        ) && self.locality_named(hit, name, true)
+        ) && self.hit_locality_named(hit, name, true)
     }
 
     /// The house's source names its town so (New Zealand's town_city, around its locality).
@@ -950,7 +987,7 @@ impl Index {
         else {
             return false;
         };
-        let Ok(doc) = self.searcher.doc::<tantivy::TantivyDocument>(*doc) else {
+        let Ok(doc) = self.document(*doc) else {
             return false;
         };
         let number = schema::number_key(number);
@@ -968,12 +1005,12 @@ impl Index {
 
     /// A town or municipality above the street is named so.
     pub(crate) fn street_locality_named(&self, hit: &Hit, name: &str) -> bool {
-        self.locality_named(hit, name, false)
+        self.hit_locality_named(hit, name, false)
     }
 
     /// A town or municipality above the street is named so; with `own`, a town around the
     /// street's own only when its centre is within 30 km.
-    fn locality_named(&self, hit: &Hit, name: &str, own: bool) -> bool {
+    fn hit_locality_named(&self, hit: &Hit, name: &str, own: bool) -> bool {
         let Hit::Street { place, x, y, .. } = hit else {
             return false;
         };
@@ -1105,7 +1142,7 @@ impl Index {
         }
         let mut found = false;
         for a in streets {
-            let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
+            let doc = self.document(a).unwrap();
             if doc.get_all(self.f.pcode).any(|value| {
                 value
                     .as_str()

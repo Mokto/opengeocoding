@@ -473,6 +473,9 @@ impl Parser {
                 Some(read) => read.clone(),
                 None => libpostal(q)?,
             };
+            if let Some(aligned) = jp::administrative_aligned(q, &whole) {
+                whole = aligned;
+            }
             let mut swapped = None;
             if kosovo.is_none()
                 && let Some((turned, number)) = arabic_number_last(q)
@@ -810,6 +813,9 @@ impl Index {
 
     pub(crate) fn parse_address(&self, q: &str, corroboration: bool) -> Result<Option<Parsed>> {
         let mut parsed = self.parser.parse(q)?;
+        if let Some(repaired) = country::vn::aligned(self, q, &parsed)? {
+            parsed = repaired;
+        }
         if let Some(repaired) = self.country_as_road(q, &parsed)? {
             parsed = repaired;
         }

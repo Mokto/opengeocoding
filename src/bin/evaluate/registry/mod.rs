@@ -1,14 +1,17 @@
+mod abr;
 mod act;
 mod adr;
 mod adressur;
 mod ads;
 mod als;
 mod anncsu;
+mod asiaq;
 mod bag;
 mod ban;
 mod berlin;
 mod best;
 mod bev;
+mod bkk;
 mod bogota;
 mod cartociudad;
 mod cnefe;
@@ -21,6 +24,7 @@ mod kartverket;
 mod korea;
 mod linz;
 mod llv;
+mod mlit;
 mod nad;
 mod nar;
 mod onemap;
@@ -31,6 +35,7 @@ mod ruian;
 mod ryhti;
 mod stadfangaskra;
 mod swisstopo;
+mod tainan;
 mod taipei;
 mod varis;
 
@@ -79,6 +84,11 @@ pub const ALL: &[Registry] = &[
     llv::REGISTRY,
     adressur::REGISTRY,
     ban::PF_REGISTRY,
+    tainan::REGISTRY,
+    mlit::REGISTRY,
+    abr::REGISTRY,
+    asiaq::REGISTRY,
+    bkk::REGISTRY,
 ];
 
 type Prepare = fn(&Path, &BTreeSet<String>) -> Result<BTreeMap<String, Entry>>;

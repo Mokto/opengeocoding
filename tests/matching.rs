@@ -29,6 +29,48 @@ fn candidate(country: &str, city: &str, state: &str, postcode: &str) -> FullAddr
 }
 
 #[test]
+fn numeric_places_need_independent_geography() {
+    let zone = format_response(&json!({
+        "display_name": "47, Duneward, Qatar",
+        "address": {"county": "47", "state": "Duneward", "country": "Qatar", "country_code": "qa"}
+    }))
+    .unwrap();
+    for query in [
+        "47",
+        "Unknown Road 47",
+        "Unknown Hamlet (47)",
+        "47, 47",
+        "47, Duneward, France",
+        "47 Duneward France",
+    ] {
+        assert!(!numeric_place_supported(query, &zone), "{query}");
+    }
+    for query in [
+        "47, Qatar",
+        "47, Duneward",
+        "Duneward 47",
+        "47, QA",
+        "47 Duneward Qatar",
+    ] {
+        assert!(numeric_place_supported(query, &zone), "{query}");
+    }
+    for name in ["Forty Seven", "47 Oaks"] {
+        let mut named = zone.clone();
+        named.display_name = format!("{name}, Duneward, Qatar");
+        assert!(numeric_place_supported(name, &named));
+    }
+    let mut house = zone.clone();
+    house.address_details.get_or_insert_default().house_number = "47".into();
+    assert!(numeric_place_supported("47 Unknown Road", &house));
+    let postcode = format_response(&json!({
+        "display_name": "47, Duneward, Qatar",
+        "address": {"postcode": "47", "state": "Duneward", "country": "Qatar", "country_code": "qa"}
+    }))
+    .unwrap();
+    assert!(numeric_place_supported("47", &postcode));
+}
+
+#[test]
 fn multilingual_normalization() {
     for (input, expected) in [
         ("München", "munchen"),

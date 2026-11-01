@@ -61,11 +61,32 @@ pub const STREETS: &[Street] = &[
 #[test]
 fn an_address_whose_rewrites_lead_back_to_it_ends() {
     for typed in ["Zona 9, Zona 13", "Calzada Aguilar 2, 3A"] {
+        let events = std::sync::Arc::new(std::sync::Mutex::new(vec![]));
+        let captured = events.clone();
+        let mut options = sentry::ClientOptions::new();
+        options.transport = Some(std::sync::Arc::new(
+            sentry::transports::DefaultTransportFactory,
+        ));
+        options.before_send = Some(std::sync::Arc::new(move |event| {
+            captured.lock().unwrap().push(event.message);
+            None
+        }));
+        let client = sentry::Client::from_config(("https://public@example.invalid/1", options));
+        assert!(client.is_enabled());
+        let hub = sentry::Hub::new(
+            Some(std::sync::Arc::new(client)),
+            std::sync::Arc::new(sentry::Scope::default()),
+        );
         let (tx, rx) = std::sync::mpsc::channel();
-        std::thread::spawn(move || tx.send(index().suggest(typed, 5, None, None, false)));
+        std::thread::spawn(move || {
+            sentry::Hub::run(hub.into(), || {
+                tx.send(index().suggest(typed, 5, None, None, false))
+            })
+        });
         let found = rx
             .recv_timeout(std::time::Duration::from_secs(30))
             .unwrap_or_else(|_| panic!("{typed} did not end"));
         assert!(found.iter().all(|s| s.kind != "address"), "{typed}");
+        assert!(events.lock().unwrap().is_empty(), "{typed}: {events:?}");
     }
 }

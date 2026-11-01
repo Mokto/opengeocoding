@@ -19,7 +19,7 @@ impl Index {
         self.top_of(Kind::Postcode, cc, vec![must(term(self.f.pcode, &pc))], 5)
             .into_iter()
             .map(|a| {
-                let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
+                let doc = self.document(a).unwrap();
                 let get = |f: Field| stored(&doc, f);
                 Hit::Postcode {
                     display: br::undotted_cep(get(self.f.name)),
@@ -36,7 +36,7 @@ impl Index {
     pub(super) fn postcode_display(&self, norm: &str, cc: Option<&str>) -> String {
         let cl = vec![must(term(self.f.pcode, norm))];
         match self.top_of(Kind::Postcode, cc, cl, 1).first() {
-            Some(&a) => br::undotted_cep(stored(&self.searcher.doc(a).unwrap(), self.f.name)),
+            Some(&a) => br::undotted_cep(stored(&self.document(a).unwrap(), self.f.name)),
             None => norm.to_string(),
         }
     }

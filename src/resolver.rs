@@ -187,7 +187,9 @@ impl Resolver {
         tokio::task::spawn_blocking(move || {
             let _entered = span.enter();
             core.index.memoized(|| {
-                let mut found = core.resolve(&query)?;
+                // only the query as written: `resolve` also answers the forms it rewrites it to
+                let found = core.resolve(&query)?;
+                let mut found = core.named_locality(&query, found)?;
                 if found.geo_coordinates.as_option().is_some_and(|g| {
                     let (road, number) = found
                         .address_details
@@ -213,6 +215,10 @@ impl Resolver {
                     METRICS.tiers.with_label_values(&["korean_locality"]).inc();
                 }
                 own_regions(&mut found);
+                // Rewrites and direct fallbacks must also respect the original geographic context.
+                if !numeric_place_supported(&query, &found) {
+                    found = FullAddress::default();
+                }
                 Ok(found)
             })
         })
@@ -232,8 +238,10 @@ impl Resolver {
         let (text, cc) = (text.to_owned(), country_code.to_owned());
         Ok(tokio::task::spawn_blocking(move || {
             let cc = Some(cc.as_str()).filter(|c| !c.is_empty());
-            core.index
-                .suggest(&text, limit, cc, focus.as_ref(), landmarks)
+            core.index.memoized(|| {
+                core.index
+                    .suggest(&text, limit, cc, focus.as_ref(), landmarks)
+            })
         })
         .await?)
     }
@@ -570,7 +578,10 @@ impl Core {
             .enumerate()
             .filter(|(i, f)| {
                 let details = f.address_details.as_option();
-                !(candidates[*i]["addresstype"] == "country"
+                (query.chars().any(char::is_alphabetic)
+                    || candidates[*i]["addresstype"] == "postcode")
+                    && numeric_place_supported(query, &english[*i])
+                    && !(candidates[*i]["addresstype"] == "country"
                     && !part(address, "road").is_empty()
                     && !part(address, "house_number").is_empty())
                     && (!overriding || state_consistent(&stated_state, details))
@@ -600,6 +611,7 @@ impl Core {
                                 })))
                         || postcode_agrees(postcode, details))
                     && (postcode_matches(postcode, details) || house_road_city(address, details))
+                    && !au::municipal_conflict(&self.index, &candidates[*i], address, postcode)
                     && !ee::municipality_conflict(address, details)
                     && !si::municipality_conflict(address, details)
                     && (part(address, "city").is_empty()
@@ -714,6 +726,102 @@ impl Core {
         }))
     }
 
+    /// "Madgoul, Djibouti" answered with no more than the country, or not at all, with a county
+    /// or region of that name ("Kolahun, Liberia"), or with a town, street or other place below
+    /// a region that no part of the answer is named like ("Keskese Street" in Asmara, the city
+    /// of Djibouti): the locality of that name in that country (in that county or region), if
+    /// there is one. Refining an empty, country-only or area answer requires nearby source
+    /// addresses naming the locality. A region of another name stays. A locality added from GeoNames
+    /// below `cities500`'s bar answers nothing else: often no one is recorded living there and
+    /// only GeoNames has it, the weakest evidence the index holds.
+    pub(crate) fn named_locality(&self, query: &str, found: FullAddress) -> Result<FullAddress> {
+        let Some((name, country)) = query.split_once(',') else {
+            return Ok(found);
+        };
+        let name = name.trim_matches(whitespace);
+        let cc = named_country(country);
+        if country.contains(',') || cc.is_empty() || !named_country(name).is_empty() {
+            return Ok(found);
+        }
+        use crate::index::schema::fold;
+        let key = fold(name);
+        let details = found.address_details.as_option();
+        let below = |d: &AddressDetails| {
+            [
+                &d.city,
+                &d.town,
+                &d.village,
+                &d.suburb,
+                &d.hamlet,
+                &d.road,
+                &d.neighbourhood,
+                &d.city_district,
+                &d.quarter,
+                &d.municipality,
+            ]
+            .into_iter()
+            .filter(|s| !s.is_empty())
+            .cloned()
+            .collect::<Vec<String>>()
+        };
+        let finer = details.map(below).unwrap_or_default();
+        // "Afiamalu Sasa'e" is named so; a street is not ("Keskese Street")
+        let words = format!(" {key} ");
+        let named = details.is_some_and(|d| {
+            fold(&d.road) == key
+                || finer
+                    .iter()
+                    .filter(|s| **s != d.road)
+                    .chain([&d.state, &d.region, &d.county])
+                    .any(|s| format!(" {} ", fold(s)).contains(&words))
+        });
+        // A territory filed under its sovereign is the answer's state ("American Samoa"), with
+        // only the sovereign's code for it (US-AS), which the response drops (`own_regions`).
+        let coarse = details.is_none_or(|d| {
+            let own = format!("{}-", d.country_code.to_uppercase());
+            d.county.is_empty()
+                && !d
+                    .region_codes
+                    .iter()
+                    .any(|r| r.code.to_uppercase().starts_with(&own))
+        });
+        // a county, or a region with none, named as the query is no more than the town of that
+        // name in it: "Kolahun, Liberia", "Bel Ombre, Seychelles"
+        let area = details
+            .map(|d| {
+                if d.county.is_empty() {
+                    &d.state
+                } else {
+                    &d.county
+                }
+            })
+            .filter(|a| finer.is_empty() && !a.is_empty() && fold(a) == key);
+        let elsewhere = !finer.is_empty() && !named;
+        if !(coarse || area.is_some() || elsewhere) {
+            return Ok(found);
+        }
+        // what only GeoNames has fills a gap, never replaces an answer: "Koksan" is a hamlet
+        // there and, in Cyrillic only, the Goksan-eup the query found
+        let Some(hit) = self.index.locality_named(name, &cc, !elsewhere) else {
+            return Ok(found);
+        };
+        if !elsewhere && !self.index.locality_has_addresses(&hit) {
+            return Ok(found);
+        }
+        let mut place = format_response(&self.index.render(&hit, true))?;
+        if let Some(area) = area
+            && place
+                .address_details
+                .as_option()
+                .is_none_or(|d| d.county != *area && d.state != *area)
+        {
+            return Ok(found);
+        }
+        place.good_match = true;
+        METRICS.tiers.with_label_values(&["named_locality"]).inc();
+        Ok(place)
+    }
+
     fn resolve(&self, query: &str) -> Result<FullAddress> {
         let sar = hk_mo::without_sar(query);
         let query = sar.as_deref().unwrap_or(query);
@@ -735,7 +843,24 @@ impl Core {
             METRICS.tiers.with_label_values(&["country_name"]).inc();
             return Ok(found);
         }
+        if let Some(found) = self.numbered_place(query)? {
+            return Ok(found);
+        }
         let found = self.resolve_address(query)?;
+        if found
+            .address_details
+            .as_option()
+            .is_some_and(|d| jp::conflicting_prefecture(&self.index, query, d))
+        {
+            return Ok(self
+                .stated_town(query)?
+                .filter(|f| {
+                    f.address_details.as_option().is_some_and(|d| {
+                        d.country_code == "jp" && !jp::conflicting_prefecture(&self.index, query, d)
+                    })
+                })
+                .unwrap_or_default());
+        }
         let ignored = self.stated_country_ignored(query, &found);
         if (found.display_name.is_empty() || ignored)
             && let Some(degraded) = self.degraded(query)?
@@ -759,6 +884,45 @@ impl Core {
             return Ok(mended);
         }
         self.named_settlement(query, found)
+    }
+
+    fn numbered_place(&self, query: &str) -> Result<Option<FullAddress>> {
+        if query
+            .split(',')
+            .filter(|p| !p.trim().is_empty() && p.trim().chars().all(char::is_numeric))
+            .count()
+            != 1
+        {
+            return Ok(None);
+        }
+        for number in query
+            .split(',')
+            .map(str::trim)
+            .filter(|p| !p.is_empty() && p.chars().all(char::is_numeric))
+        {
+            for value in self.search(number).1 {
+                if value["addresstype"] == "postcode"
+                    || !matches!(value["class"].as_str(), Some("place" | "boundary"))
+                    || !own_name(&value, number).is_some_and(|n| n == number)
+                {
+                    continue;
+                }
+                let found = format_response(&value)?;
+                let mut names = vec![];
+                names_of(&value, &mut names);
+                let (explained, total) = coverage(query, names.iter().map(String::as_str));
+                if explained == total && numeric_place_supported(query, &found) {
+                    return Ok(Some(accept(
+                        found,
+                        &ParsedAddress::new(),
+                        "",
+                        "numbered_place",
+                        true,
+                    )));
+                }
+            }
+        }
+        Ok(None)
     }
 
     /// For a query nothing answers: the street, house or written postcode found once what may
@@ -788,7 +952,11 @@ impl Core {
             &|q| with_towns(q, de::town_without_qualifier).filter(|_| german),
             &without_leading_place,
             &without_trailing_words,
-            &|q| without_trailing_part(q, is_place),
+            &|q| {
+                without_trailing_part(q, |part| {
+                    is_place(part) || !self.index.region_countries(part).is_empty()
+                })
+            },
             &|q| town_last(q, is_place),
             &|q| without_number_parts(q, is_place),
         ];
@@ -1576,7 +1744,17 @@ impl Core {
                         // department)
                         || (!locality(Some(d)) && d.hamlet.is_empty() && named(&d.county)))
                     && (stated.is_some() || parts_named());
-                if verified {
+                if verified
+                    && !(d.country_code == "au"
+                        && self.parse(query)?.is_some_and(|parsed| {
+                            au::municipal_conflict(
+                                &self.index,
+                                &value,
+                                &parsed,
+                                part(&parsed, "postcode"),
+                            )
+                        }))
+                {
                     houses.push(house);
                 }
             }
@@ -1825,6 +2003,21 @@ impl Core {
                 .observe(started.elapsed().as_secs_f64());
             METRICS.tiers.with_label_values(&["korean"]).inc();
             return Ok(found);
+        }
+        if let Some(hits) = jp::houses(&self.index, query) {
+            METRICS
+                .search
+                .with_label_values(&["japanese"])
+                .observe(started.elapsed().as_secs_f64());
+            if let [hit] = hits.as_slice() {
+                let mut found = format_response(&self.index.render(hit, true))?;
+                found.good_match = true;
+                METRICS.tiers.with_label_values(&["japanese"]).inc();
+                return Ok(found);
+            }
+            if hits.len() > 1 {
+                return Ok(FullAddress::default());
+            }
         }
         if let Some(hits) = self.index.korean_search(query) {
             METRICS

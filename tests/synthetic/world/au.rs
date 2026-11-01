@@ -63,7 +63,7 @@ pub const PLACES: &[Place] = &[
         (150.0, -22.5),
         "au-qld",
         "Ardmore",
-        &[("en", "Ardmore")]
+        &[("en", "Ardmore"), ("alt_name", "Greater Ardmore")]
     ),
     place!(
         "au-burrum-flats",
@@ -77,9 +77,103 @@ pub const PLACES: &[Place] = &[
         "Burrum Flats",
         &[("en", "Burrum Flats")]
     ),
+    place!(
+        "au-ardmore-municipality",
+        "county",
+        "",
+        "AU",
+        "AU-QLD",
+        0,
+        (149.8, -22.5),
+        "au-qld",
+        "City of Ardmore",
+        &[("en", "Ardmore")]
+    ),
+    place!(
+        "au-fenbank",
+        "county",
+        "",
+        "AU",
+        "AU-QLD",
+        0,
+        (150.4, -22.5),
+        "au-qld",
+        "City of Fenbank",
+        &[("en", "Fenbank")]
+    ),
+    place!(
+        "au-silverbank",
+        "locality",
+        "town",
+        "AU",
+        "AU-QLD",
+        10_000,
+        (150.25, -22.5),
+        "au-ardmore",
+        "Oak Point",
+        &[("en", "Oak Point")]
+    ),
+    place!(
+        "au-westhaven",
+        "locality",
+        "",
+        "AU",
+        "AU-QLD",
+        5_000,
+        (149.6, -22.5),
+        "au-ardmore",
+        "Westhaven",
+        &[("en", "Westhaven")]
+    ),
+];
+
+pub const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
+    (
+        "au-ardmore-municipality",
+        "county",
+        true,
+        true,
+        149.8,
+        -22.5,
+        0.4,
+    ),
+    ("au-fenbank", "county", true, true, 150.4, -22.5, 0.2),
 ];
 
 pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Regent Street",
+        postcode: "4512",
+        city: "Oak Point",
+        cc: "AU",
+        lon: 150.25,
+        lat: -22.5,
+        numbers: &["119", "121"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Harbour Crescent",
+        postcode: "4501",
+        city: "Westhaven",
+        cc: "AU",
+        lon: 149.6,
+        lat: -22.5,
+        numbers: &["119", "121"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Coastal Road",
+        postcode: "4512",
+        city: "Ardmore",
+        cc: "AU",
+        lon: 150.26,
+        lat: -22.5,
+        numbers: &["119", "121"],
+    },
     Street {
         class: "residential",
         length: 0.0,
@@ -153,6 +247,39 @@ pub const STREETS: &[Street] = &[
 
 pub fn cases() -> Vec<Case> {
     vec![
+        case("121 Regent Street, Ardmore", town("au-ardmore", false)),
+        case(
+            "121 Regent Street, Ardmore, Australia",
+            town("au-ardmore", false),
+        ),
+        case(
+            "121 Regent Street, Ardmore QLD 4599, Australia",
+            town("au-ardmore", false),
+        ),
+        case(
+            "121 Regent Street, Ardmore QLD 4512, Australia",
+            at_house("Regent Street", "121"),
+        ),
+        case(
+            "121 Regent Street, Oak Point, Australia",
+            at_house("Regent Street", "121"),
+        ),
+        case(
+            "121 Regent Street, Oak Point, Ardmore, Australia",
+            at_house("Regent Street", "121"),
+        ),
+        case(
+            "121 Regent Street, Greater Ardmore, Australia",
+            at_house("Regent Street", "121"),
+        ),
+        case(
+            "121 Harbour Crescent, Ardmore, Australia",
+            at_house("Harbour Crescent", "121"),
+        ),
+        case(
+            "121 Coastal Road, Ardmore, Australia",
+            at_house("Coastal Road", "121"),
+        ),
         // a house in a town 41 km from the metropolitan locality stated is no good match there
         case("121 King Street, Ardmore", town("au-ardmore", false)),
         // the town written first, which the parse drops, not France's town of the last word

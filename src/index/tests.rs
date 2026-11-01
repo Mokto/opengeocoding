@@ -636,6 +636,16 @@ fn separates_kinds_and_countries(words: bool) {
     let twice =
         index.memoized(|| [0, 1].map(|_| ids(index.top_of(Kind::Street, Some("dk"), names(), 10))));
     assert_eq!(twice, [vec![9, 11], vec![9, 11]]);
+    let doc = index.top_of(Kind::Street, None, names(), 1)[0];
+    let first = index.memoized(|| {
+        let first = index.document(doc).unwrap();
+        let second = index.document(doc).unwrap();
+        assert!(Arc::ptr_eq(&first, &second));
+        first
+    });
+    let next = index.memoized(|| index.document(doc).unwrap());
+    assert!(!Arc::ptr_eq(&first, &next));
+    assert!(MEMO.with_borrow(Option::is_none));
     let pcode = || vec![must(term(index.f.pcode, "12345"))];
     let hits = index.top_of(Kind::Postcode, None, pcode(), 10);
     assert_eq!(hits.len(), 1);
@@ -979,6 +989,19 @@ fn admin_words_and_number_prefixes() {
     assert_eq!(house_number("№ 43"), "43");
     assert_eq!(house_number("12b"), "12b");
     assert_eq!(house_number("Nordweg"), "Nordweg");
+}
+
+#[test]
+fn number_prefixes_preserve_unicode_suffixes() {
+    for prefix in ["No.", "NO:", "Nº", "N°", "N.", "NO", "№", "#", "NR.", "NR"] {
+        for number in ["1İ", "1İİ", "1İİİİ", "1Ⱥ", "12ẞ", "12B", "12東京"] {
+            let input = format!(" {prefix} :.{number} ");
+            assert_eq!(house_number(&input), number, "{input}");
+        }
+    }
+    for input in ["İstanbul", "No:İ", "Nº", "#", ""] {
+        assert_eq!(house_number(input), input, "{input}");
+    }
 }
 
 #[test]

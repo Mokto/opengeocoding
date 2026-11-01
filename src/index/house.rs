@@ -150,7 +150,7 @@ impl Index {
         own: u8,
     ) -> Option<Hit> {
         use tantivy::schema::Value as _;
-        let doc: tantivy::TantivyDocument = self.searcher.doc(a).ok()?;
+        let doc = self.document(a).ok()?;
         let postcode = (own > 0)
             .then(|| {
                 doc.get_all(self.f.pcode)

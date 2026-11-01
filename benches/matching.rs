@@ -33,19 +33,23 @@ fn candidate(country: &str, city: &str, state: &str, postcode: &str) -> FullAddr
 }
 
 #[divan::bench]
-fn normalize_places() -> usize {
-    [
-        "München",
-        "São-Paulo",
-        "Łódź",
-        "København",
-        "Αθήνα",
-        "Москва",
-        "東京",
-    ]
-    .iter()
-    .map(|p| normalize_place(black_box(p)).len())
-    .sum()
+fn normalize_places(bencher: divan::Bencher) {
+    // CodSpeed isolates each benchmark; reference-data startup is not per-request work.
+    country_name("fr");
+    bencher.bench(|| {
+        [
+            "München",
+            "São-Paulo",
+            "Łódź",
+            "København",
+            "Αθήνα",
+            "Москва",
+            "東京",
+        ]
+        .iter()
+        .map(|p| normalize_place(black_box(p)).len())
+        .sum::<usize>()
+    });
 }
 
 #[divan::bench]

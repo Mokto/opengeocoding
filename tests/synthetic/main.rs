@@ -167,6 +167,132 @@ fn geonames_primary_names_survive_deduplication_without_exporting_other_labels()
 }
 
 #[test]
+fn an_exact_small_place_survives_a_word_shared_by_many_streets() {
+    use opengeocoding::index::schema;
+    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+        .join(format!("synthetic-common-place-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+    let (_, mut writer, f) = schema::create(root.to_str().unwrap(), 1, 15_000_000);
+    writer
+        .add_document(tantivy::doc!(
+            f.kind => "p", f.names => "Gleam", f.country => "GB",
+            f.id => 1u64, f.importance => 10_100u64, f.x => 0.0, f.y => 50.0
+        ))
+        .unwrap();
+    for id in 0..20_001u64 {
+        writer
+            .add_document(tantivy::doc!(
+                f.kind => "s", f.names => "Gleam Road", f.name => "Gleam Road",
+                f.country => "GB", f.id => id, f.place => 1u64,
+                f.importance => 1u64, f.x => 0.0, f.y => 50.0
+            ))
+            .unwrap();
+    }
+    writer.commit().unwrap();
+    drop(writer);
+    std::fs::write(
+        root.join("places.tsv"),
+        "country\t\tGB\t\t0\t0\t0\t50\t0\t50\t0\t50\t\tUnited Kingdom\t\t\n\
+         locality\tvillage\tGB\t\t0\t100\t0\t50\t0\t50\t0\t50\t0\tGleam\t\t\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("numbers.shards"), "1").unwrap();
+    std::fs::write(
+        root.join("numbers-00.fst"),
+        tantivy_fst::MapBuilder::memory().into_inner().unwrap(),
+    )
+    .unwrap();
+    let index = Index::open(&root, Arc::new(Parser::unloaded(0))).unwrap();
+    for query in ["Gleam", "Gleam ", "Gleam, United Kingdom"] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found[0].kind, "village", "{query}");
+        assert!(found[0].display_name.starts_with("Gleam, "), "{query}");
+    }
+    drop(index);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn small_place_words_are_separate_from_ordinary_lookup_words() {
+    use opengeocoding::index::schema;
+    let raw = tantivy::Index::open_in_dir(dir()).unwrap();
+    let searcher = raw.reader().unwrap().searcher();
+    let (_, fields) = schema::schema();
+    let qualified = schema::country_word("AT", "kleinweiler");
+    for (field, word, expected) in [
+        (fields.names, "kleinweiler", 0),
+        (fields.cnames, qualified.as_str(), 0),
+        (fields.small_names, "kleinweiler", 1),
+        (fields.small_cnames, qualified.as_str(), 1),
+    ] {
+        let count: u64 = searcher
+            .segment_readers()
+            .iter()
+            .map(|segment| {
+                segment
+                    .inverted_index(field)
+                    .unwrap()
+                    .terms()
+                    .get(word.as_bytes())
+                    .unwrap()
+                    .map_or(0, |info| info.doc_freq as u64)
+            })
+            .sum();
+        assert_eq!(count, expected, "{word}");
+    }
+}
+
+#[test]
+fn a_small_geonames_place_fills_only_a_gap_no_namesake_shares_and_names_no_point() {
+    let found = |text: &str| index().suggest(text, 5, Some("AT"), None, false);
+    let hamlet = found("Kleinweiler");
+    assert_eq!(hamlet.len(), 1);
+    assert!(metres((hamlet[0].x, hamlet[0].y), (40.0, 0.03)) < 5.);
+    // reverse lookups name Overture's localities, not the hamlet on the point
+    assert_eq!(
+        index().reverse(0.03, 40.0)["address"]["village"],
+        "Ohnecode"
+    );
+    // two of a name 111 km apart, or a name Overture's Mitcode has: neither is added
+    assert!(found("Zwilling").is_empty());
+    let mitcode = found("Mitcode");
+    assert_eq!(mitcode.len(), 1);
+    assert!(metres((mitcode[0].x, mitcode[0].y), (40.05, 0.0)) < 5.);
+    // two rows of a name 2 km apart are one place; a small section (PPLX) is none
+    assert_eq!(found("Doppelhof").len(), 1);
+    assert!(found("Weilerteil").is_empty());
+}
+
+#[test]
+fn a_town_answers_a_generic_word_and_only_geonames_other_names_no_namesake_shares() {
+    let at = |name: &str| {
+        index().locality_named(name, "at", true).map(|hit| {
+            let r = index().render(&hit, true);
+            let coord = |k: &str| r[k].as_str().unwrap().parse::<f64>().unwrap();
+            (coord("lon"), coord("lat"))
+        })
+    };
+    let near = |got: Option<(f64, f64)>| got.is_some_and(|p| metres(p, (40.0, 0.03)) < 5.);
+    assert!(near(at("Kleinweiler")));
+    assert!(near(at("Kleinweiler Village")));
+    assert!(near(at("Weilerlein")));
+    // another row 1,100 km away has it too; the Cyrillic one is not read
+    assert_eq!(at("Zweinamig"), None);
+    assert_eq!(at("Вейлер"), None);
+}
+
+#[test]
+fn a_geonames_place_takes_the_region_that_holds_it_not_the_nearby_towns() {
+    // nearest Randweiler (Delta, AT-4) but west of Delta's line, in Gamma (AT-3)
+    let hit = index().locality_named("Grenzweiler", "at", true).unwrap();
+    assert_eq!(
+        index().render(&hit, true)["address"]["ISO3166-2-lvl4"],
+        "AT-3"
+    );
+}
+
+#[test]
 fn place_slugs_require_a_known_subdivision_and_an_exact_settlement_name() {
     for (query, id) in [
         ("us-tx-paris", "us-tx-paris"),

@@ -1,0 +1,41 @@
+街区レベル位置参照情報 国土交通省 (MLIT, Ministry of Land, Infrastructure, Transport and Tourism,
+Japan), 2025年度版, version 24.0a: the 47 prefectural archives (01000-24.0a.zip through
+47000-24.0a.zip), captured 2026-10-31. Source: https://nlftp.mlit.go.jp/isj/.
+Their URLs, byte sizes and SHA-256 checksums are recorded in tests/registry/jp.sources.tsv.
+
+The corpus tests/registry/jp.jsonl was sampled and reformatted by OpenGeocoding from this source.
+It decodes Shift-JIS to UTF-8, keeps current representative residential-address blocks with
+numeric block signs, transforms JGD2000 geographic coordinates to WGS84, draws a seeded sample,
+and constructs query forms from the source's names and block signs. These edits and queries are
+not unmodified MLIT publications and are not endorsed by MLIT. Points represent blocks, not
+individual residences or entrances.
+
+Used under the 位置参照情報利用約款 (Location Reference Information Terms of Use, revised
+2013-02-07), https://nlftp.mlit.go.jp/isj/agreement.html: free use, including reproduction,
+citation and edited outputs, with the required source credit above and, where possible, edition,
+filename and the party responsible for the edits. The information is not suitable for surveys
+requiring high accuracy or official certifications; use is at the user's responsibility.
+MLIT disclaims liability and may change the terms or withdraw the service.
+
+デジタル庁 アドレス・ベース・レジストリ (Digital Agency, Address Base Registry),
+https://www.digital.go.jp/policies/base_registry_address, used under Creative Commons
+Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/), as permitted by
+PDL1.0 and the dataset-specific terms:
+https://www.digital.go.jp/policies/base_registry_address_tos.
+
+The separate tests/registry/jp.abr.jsonl corpus uses residence-level records from the
+OpenAddresses export jp_abr_residential.csv.zip, uploaded 2026-10-01:
+https://data.openaddresses.io/cache/uploads/jeffdefacto/2026-10-01-tkes5/jp_abr_residential.csv.zip.
+OpenAddresses joined ABR's residence master, residence-position extension, town and city
+masters using scripts/jp/abr_residential.py at commit 5172acb847e0127cab772a75f92b43444cac5db0.
+The export is not geocoder output. It drops per-record CRS, scale and coordinate-source codes
+and chooses one of multiple position records for the same residence. Underlying data remains
+experimental outside the formally maintained town-name text, with no freshness guarantee.
+
+OpenGeocoding samples eligible residences, constructs two native-script country-qualified
+query forms, adds postcode punctuation, rounds source coordinates to six decimals and uses
+JGD2011 geographic coordinates as WGS84 at a 150 m diagnostic tolerance. These edits are not
+unmodified publications of the Digital Agency or OpenAddresses and imply no endorsement.
+The corpus is not a survey or certification of individual entrances or national accuracy.
+The ABR export also supplies index data, so agreement is source consistency, not independent
+real-world accuracy. No ABR residence data was added to the index by this corpus change.

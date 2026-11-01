@@ -29,6 +29,8 @@ pub(in crate::index) fn weight(p: &Place) -> u64 {
         // a place the builder added from GeoNames weighs like a locality Overture gives no size,
         // however populous: it fills a gap and must not crowd out Overture's places
         "locality" if &*p.class == "geonames" => 100,
+        // and one below cities500's bar after every other locality of its name
+        "locality" if &*p.class == schema::SMALL_GEONAMES => 50,
         "locality" => pop.max(match &*p.class {
             "megacity" => 10_000_000,
             "city" => 50_000,
@@ -416,6 +418,7 @@ impl Index {
             let acceptable = |id: u32| {
                 let pl = &self.places[id as usize];
                 pl.subtype.as_ref() != "microhood"
+                    && (pl.class.as_ref() == schema::SMALL_GEONAMES) == (names == Names::Small)
                     && cc.is_none_or(|c| pl.cc.eq_ignore_ascii_case(c))
                     && (quals.is_empty() || self.qualifies(id, &quals, open))
             };
@@ -464,18 +467,28 @@ impl Index {
             // first, for the places a prefix adds ("paris" -> "parish") are many.
             if ranked.len() < want && !typo {
                 let want_name = name_key(&text);
+                let field = if names == Names::Small {
+                    self.f.small_names
+                } else {
+                    self.f.names
+                };
                 let mut ids: Vec<u32> = vec![];
                 for as_prefix in [false, true] {
                     if as_prefix && !head_open {
                         break;
                     }
-                    let Some((cl, rarest)) = self.typed_words(self.f.names, head, as_prefix) else {
+                    let Some((cl, rarest)) = self.typed_words(field, head, as_prefix) else {
                         continue;
                     };
-                    if rarest > MAX_PLACE_WORK {
+                    if as_prefix && rarest > MAX_PLACE_WORK {
                         continue;
                     }
-                    for a in self.top_of(Kind::Place, cc, cl, pool) {
+                    let kind = if names == Names::Small {
+                        Kind::Small
+                    } else {
+                        Kind::Searched
+                    };
+                    for a in self.top_of(kind, cc, cl, pool) {
                         let id = self.fast(a, "id") as u32;
                         if !ids.contains(&id)
                             && !found.iter().any(|f| f.0 == id)

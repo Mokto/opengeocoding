@@ -31,7 +31,7 @@ jobs:
           models: "true"
       - name: Install Rust and Buf
         run: |
-          rustup toolchain install 1.99.0 --profile minimal --component rustfmt,clippy && rustup default 1.99.0
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt,clippy && rustup default 1.99.1
           curl -fsSL --retry 3 "https://github.com/bufbuild/buf/releases/download/v1.68.1/buf-Linux-$(uname -m)" -o "$HOME/.cargo/bin/buf"
           chmod +x "$HOME/.cargo/bin/buf"
       # Only main writes caches: PRs and release tags can read the default branch's entries,

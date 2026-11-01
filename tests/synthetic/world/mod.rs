@@ -107,12 +107,14 @@ mod pl;
 mod pr;
 mod ps;
 mod pt;
+mod qa;
 mod rs;
 mod si;
 mod th;
 mod tw;
 mod us;
 mod uy;
+mod vn;
 mod wf;
 mod xk;
 mod za;
@@ -162,12 +164,14 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         pr::PLACES,
         ps::PLACES,
         pt::PLACES,
+        qa::PLACES,
         rs::PLACES,
         si::PLACES,
         th::PLACES,
         tw::PLACES,
         us::PLACES,
         uy::PLACES,
+        vn::PLACES,
         wf::PLACES,
         xk::PLACES,
         za::PLACES,
@@ -297,6 +301,7 @@ pub fn cases() -> Vec<crate::Case> {
         ie::cases(),
         r#in::cases(),
         it::cases(),
+        jp::cases(),
         lt::cases(),
         mk::cases(),
         mx::cases(),
@@ -306,12 +311,14 @@ pub fn cases() -> Vec<crate::Case> {
         pr::cases(),
         ps::cases(),
         pt::cases(),
+        qa::cases(),
         rs::cases(),
         si::cases(),
         th::cases(),
         tw::cases(),
         us::cases(),
         uy::cases(),
+        vn::cases(),
         wf::cases(),
         xk::cases(),
         za::cases(),
@@ -366,6 +373,7 @@ pub static STREETS: LazyLock<Vec<Street>> = LazyLock::new(|| {
         tw::STREETS,
         us::STREETS,
         uy::STREETS,
+        vn::STREETS,
         xk::STREETS,
         za::STREETS,
     ]
@@ -518,9 +526,10 @@ fn chain(p: &Place) -> Vec<&'static str> {
 }
 
 /// Localities without a square of their own: a point only, or the area `AREAS` gives them.
-const POINT_ONLY: [&str; 11] = [
+const POINT_ONLY: [&str; 12] = [
     "au-ardmore",
     "gb-harbor-city",
+    "at-randweiler",
     "de-koeln-feldheim",
     "es-villaseca-pinedo",
     "nl-polderdam-centrum",
@@ -690,6 +699,7 @@ pub fn write_release(dir: &Path) {
             (p.id, p.subtype, true, true, p.lon, p.lat, r)
         })
         .chain(AREAS.iter().copied())
+        .chain(au::AREAS.iter().copied())
         .collect();
     write(
         dir,
@@ -1040,8 +1050,17 @@ fn blob(out: &mut Vec<u8>, kind: &str, data: &[u8]) {
 pub fn write_geonames(path: &Path) {
     std::fs::write(
         path,
-        "1\tСеверная Роща\tSevernaya Roshcha\tNordhain,Untrusted Alias\t0.21\t30.0\tP\tPPL\tAT\t\t01\t\t\t\t1000\n\
-         2\tThrissur\tThrissur\tTrichur\t10.527\t76.214\tP\tPPLA2\tIN\t\t13\t\t\t\t315957\n",
+        "1\tСеверная Роща\tSevernaya Roshcha\tNordhain,Untrusted Alias,Zweinamig\t0.21\t30.0\tP\tPPL\tAT\t\t01\t\t\t\t1000\n\
+         2\tThrissur\tThrissur\tTrichur\t10.527\t76.214\tP\tPPLA2\tIN\t\t13\t\t\t\t315957\n\
+         3\tKleinweiler\tKleinweiler\tWeilerlein,Zweinamig,Вейлер\t0.03\t40.0\tP\tPPL\tAT\t\t01\t\t\t\t0\n\
+         4\tZwilling\tZwilling\t\t0.06\t40.0\tP\tPPL\tAT\t\t01\t\t\t\t0\n\
+         5\tZwilling\tZwilling\t\t0.06\t41.0\tP\tPPL\tAT\t\t01\t\t\t\t0\n\
+         6\tMitcode\tMitcode\t\t0.0\t45.0\tP\tPPL\tAT\t\t01\t\t\t\t0\n\
+         7\tDoppelhof\tDoppelhof\t\t0.09\t40.0\tP\tPPL\tAT\t\t01\t\t\t\t0\n\
+         8\tDoppelhof\tDoppelhof\t\t0.09\t40.02\tP\tPPLL\tAT\t\t01\t\t\t\t0\n\
+         9\tWeilerteil\tWeilerteil\t\t0.12\t40.0\tP\tPPLX\tAT\t\t01\t\t\t\t0\n\
+         10\tGrenzweiler\tGrenzweiler\t\t0.4\t60.49\tP\tPPL\tAT\t\t04\t\t\t\t0\n\
+         11\tNord\tNord\t\t0.6\t30.5\tP\tPPL\tAT\t\t01\t\t\t\t0\n",
     )
     .unwrap();
 }

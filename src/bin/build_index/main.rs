@@ -37,6 +37,7 @@ use std::{
     collections::{HashMap, HashSet},
     fs::File,
     hash::{BuildHasher, BuildHasherDefault, DefaultHasher, Hash},
+    io::BufRead,
     path::{Path, PathBuf},
     sync::{
         Mutex,
@@ -50,7 +51,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1] [--sources-mirror URL]
        build_index fetch --store URL --sources FILE --scratch DIR [--sources-mirror URL]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
@@ -2249,14 +2250,18 @@ fn build(args: &[String]) {
     ));
     if let Some(cities) = opt("--geonames-places").last() {
         let admin1 = opt("--geonames-admin1");
-        let added = geonames::add_places(
+        let supplement = opt("--geonames-small");
+        let (added, small) = geonames::add_places(
             &mut places,
             &assigner,
             Path::new(cities),
+            supplement.last().map(Path::new),
             admin1.last().map(Path::new),
             Path::new(out),
         );
-        lap(&format!("geonames places ({added} added)"));
+        lap(&format!(
+            "geonames places ({added} added, {small} of them below cities500's bar)"
+        ));
     }
     let street_spill = StreetSpill::new(&Path::new(out).join(reverse::STREETS_SPILL));
     let segs = pass_segments(&dir.join("segment"), &assigner, &street_spill);
@@ -2434,6 +2439,11 @@ fn build(args: &[String]) {
                 .collect(),
         );
     };
+    let small: Vec<bool> =
+        std::io::BufReader::new(File::open(Path::new(out).join("places.tsv")).unwrap())
+            .lines()
+            .map(|line| line.unwrap().split('\t').nth(1) == Some(schema::SMALL_GEONAMES))
+            .collect();
     places
         .par_iter()
         .enumerate()
@@ -2441,9 +2451,14 @@ fn build(args: &[String]) {
         .for_each(|(i, p)| {
             let names = p.names.replace(NAME_SEP, " ");
             let cnames = schema::country_words(country_str(&p.country), &names);
+            let (name_field, country_field) = if small[i] {
+                (f.small_names, f.small_cnames)
+            } else {
+                (f.names, f.cnames)
+            };
             let mut d = doc!(
                 f.kind => "p",
-                f.names => names,
+                name_field => names,
                 f.country => country_str(&p.country),
                 f.ids => i.to_string(),
                 f.name => p.names.split(NAME_SEP).next().unwrap_or(""),
@@ -2451,7 +2466,7 @@ fn build(args: &[String]) {
                 f.importance => p.population + place_weight(p.subtype),
             );
             for w in cnames {
-                d.add_text(f.cnames, w);
+                d.add_text(country_field, w);
             }
             if let Some((x, y)) = p.xy {
                 d.add_f64(f.x, x);

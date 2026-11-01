@@ -949,6 +949,22 @@ fn latency(
             .collect::<Vec<_>>();
         if !metrics.is_empty() {
             slower.push(format!("{} slower, {}", t.rpc, metrics.join(", ")));
+            if t.rpc == "SuggestAddress" {
+                let mut tail: Vec<_> = shared
+                    .iter()
+                    .flat_map(|id| {
+                        new[*id].suggest.iter().filter_map(move |(name, check)| {
+                            Some((*id, name, old[*id].suggest.get(name)?.ms?, check.ms?))
+                        })
+                    })
+                    .collect();
+                tail.sort_by(|a, b| b.3.total_cmp(&a.3));
+                sections.push_str("\nSlowest suggestion checks (diagnostic only; individual cases are not gated):\n\n| Case/check | Base ms | Head ms |\n|---|---:|---:|\n");
+                for (id, name, before, after) in tail.into_iter().take(30) {
+                    let label = format!("{id}/{name}").replace(['\n', '\r', '|', '`'], " ");
+                    let _ = writeln!(sections, "| `{label}` | {before:.3} | {after:.3} |");
+                }
+            }
         }
     }
     // Pacing between cases changes how warm the service is, so timings only compare at one rate.
@@ -1191,7 +1207,7 @@ fn by_evidence(counts: &Evidence) -> String {
         out
     };
     let mut out = String::from(
-        "\n<!-- by-evidence -->\n## Pass rate by country and evidence\n\nIndependent sources are registers, curated Wikidata places, Wikidata towns and GLEIF company addresses placed by Wikidata towns, none of them the index's own data. OpenStreetMap cases check agreement with mapped addresses, which the index itself reads in many countries: consistency, not accuracy. Each cell is passing checks / checked · rate, baseline → candidate where it changed.\n",
+        "\n<!-- by-evidence -->\n## Pass rate by country and evidence\n\nThe \"Independent sources\" table groups registers, curated Wikidata places, Wikidata towns and GLEIF company addresses placed by Wikidata towns, selected outside the index. Registers can also supply index data: those checks measure source fidelity, not independent real-world accuracy. OpenStreetMap cases check agreement with mapped addresses, which the index itself reads in many countries: consistency, not accuracy. Each cell is passing checks / checked · rate, baseline → candidate where it changed.\n",
     );
     let countries = |n: usize| format!("{n} countr{}", if n == 1 { "y" } else { "ies" });
     out += &fold(
@@ -1843,6 +1859,47 @@ mod tests {
     }
 
     #[test]
+    fn a_suggestion_slowdown_names_the_timed_check_without_changing_its_gate() {
+        let side = |scale| -> IndexMap<String, Record> {
+            (1..=35)
+                .map(|i| {
+                    let id = format!("slow-case-{i}");
+                    (
+                        id.clone(),
+                        Record {
+                            id,
+                            suggest: [(
+                                "full".to_string(),
+                                SuggestCheck {
+                                    ms: Some(i as f64 * scale),
+                                    ..Default::default()
+                                },
+                            )]
+                            .into(),
+                            ..Default::default()
+                        },
+                    )
+                })
+                .collect()
+        };
+        let old = side(2.0);
+        let new = side(4.0);
+        let shared: Vec<_> = old.keys().collect();
+        let manifest = json!({"repeat": 3});
+        let report = latency(&shared, &old, &new, [&manifest, &manifest]);
+        assert!(report.contains("<!-- speed: fail -->"));
+        assert!(report.contains("p99 +100%"));
+        assert!(report.contains("| `slow-case-35/full` | 70.000 | 140.000 |"));
+        assert!(report.contains("| `slow-case-6/full` | 12.000 | 24.000 |"));
+        assert!(!report.contains("`slow-case-5/full`"));
+        assert_eq!(report.matches("| `slow-case-").count(), 30);
+        assert!(report.find("`slow-case-35/full`") < report.find("`slow-case-34/full`"));
+        let report = latency(&shared, &old, &old, [&manifest, &manifest]);
+        assert!(report.contains("<!-- speed: pass -->"));
+        assert!(!report.contains("Slowest suggestion checks"));
+    }
+
+    #[test]
     fn latency_compares_shared_timed_cases() {
         let side = |times: &[(&str, Option<f64>)]| -> IndexMap<String, Record> {
             times
@@ -2451,6 +2508,8 @@ mod tests {
         let text = by_evidence(&counts);
         assert!(text.starts_with("\n<!-- by-evidence -->\n"), "{text}");
         assert!(text.ends_with("<!-- by-evidence end -->\n"), "{text}");
+        assert!(text.contains("Registers can also supply index data"));
+        assert!(!text.contains("none of them the index's own data"));
         assert!(
             text.contains("<summary><b>Independent sources (2 countries)</b></summary>\n\n| Country | Evidence | SearchAddress | SuggestAddress | ReverseGeocode | ResolveRegion |\n|---|---|---:|---:|---:|---:|\n| **All** | | 95→100/110 · 86.4%→90.9% | - | - | - |\n| Denmark | places, registry | 90→95/100 · 90.0%→95.0% | - | - | - |\n| Kenya | towns | 5/10 · 50.0% | - | - | - |\n"),
             "{text}"

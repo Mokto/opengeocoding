@@ -1,6 +1,6 @@
 [package]
 name = "opengeocoding"
-version = "1.5.0"
+version = "1.5.1"
 edition = "2024"
 # PolyForm Shield 1.0.0 has no SPDX identifier.
 license-file = "LICENSE"
@@ -62,7 +62,7 @@ debug = true
 
 [dev-dependencies]
 arrow-schema = "60"
-divan = { package = "codspeed-divan-compat", version = "5.0.2" }
+divan = { package = "codspeed-divan-compat", version = "6.0.0" }
 
 [[bench]]
 name = "index"

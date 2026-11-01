@@ -6,7 +6,7 @@ mod place;
 mod postcode;
 mod street;
 
-use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, it, lt, pl, ps, pt, th, tw};
+use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, it, jp, lt, pl, ps, pt, th, tw};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 pub(super) use place::place_names;
@@ -153,6 +153,7 @@ enum Names {
     Inside,
     /// Only the names one edit from the text, for when the others leave room.
     Typo,
+    Small,
 }
 
 pub struct Suggestion {
@@ -196,7 +197,7 @@ thread_local! {
     /// `fold` without the street-type abbreviations: the word being typed is not yet one ("c"
     /// is not "calle").
     static RAW: std::cell::RefCell<tantivy::tokenizer::TextAnalyzer> = std::cell::RefCell::new(
-        tantivy::tokenizer::TextAnalyzer::builder(tantivy::tokenizer::SimpleTokenizer::default())
+        tantivy::tokenizer::TextAnalyzer::builder(crate::index::canon::Unmarked::default())
             .filter(tantivy::tokenizer::RemoveLongFilter::limit(40))
             .filter(tantivy::tokenizer::LowerCaser)
             .filter(tantivy::tokenizer::AsciiFoldingFilter)
@@ -444,6 +445,11 @@ impl Index {
                 return kept(vec![found], cc, limit);
             }
         }
+        if cc.is_none_or(|c| c.eq_ignore_ascii_case("jp"))
+            && let Some(found) = jp::suggest(self, text, limit)
+        {
+            return kept(found, cc, limit);
+        }
         if let Some(hits) = self.korean_search(text)
             && !hits.is_empty()
         {
@@ -608,6 +614,10 @@ impl Index {
             && let Some(found) = self.suggest_without_place(&typed, cc, focus, limit)
         {
             out = found;
+        }
+        let mut out = kept(out, cc, limit);
+        if out.len() < limit {
+            out.extend(places(Names::Small).map(|(id, _)| self.place_suggestion(id)));
         }
         kept(out, cc, limit)
     }
