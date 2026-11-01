@@ -1401,10 +1401,19 @@ mod tests {
         assert_eq!(cases[2]["expect"]["level"], "landmark");
         assert_eq!(
             cases[2]["expect"]["components"],
-            json!({"category":"station"})
+            json!({"category":"station", "name":"Station"})
         );
         assert_eq!(cases[2]["include_landmarks"], true);
-        crate::model::validate_gold(&crate::model::load_corpus(&out).unwrap()).unwrap();
+        assert_eq!(cases[0]["source"]["scope"], "building-location-diagnostic");
+        let mut typed = crate::model::load_corpus(&out).unwrap();
+        crate::model::validate_gold(&typed).unwrap();
+        typed[2]
+            .expect
+            .as_mut()
+            .unwrap()
+            .components
+            .insert("name".into(), "---".into());
+        assert!(crate::model::validate_gold(&typed).is_err());
         std::fs::remove_dir_all(dir).unwrap();
     }
 

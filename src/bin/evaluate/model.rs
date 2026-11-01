@@ -438,6 +438,13 @@ pub fn validate_gold(cases: &[Case]) -> Result<()> {
                     .all(|code| alt.country.contains(&code[..2].to_lowercase())),
                 "{at}: region country"
             );
+            if let Some(name) = alt.components.get("name") {
+                ensure!(
+                    alt.level == "landmark"
+                        && !opengeocoding::matching::normalize_place(name).is_empty(),
+                    "{at}: landmark name"
+                );
+            }
             ensure!(
                 alt.places.iter().all(|p| !p.trim().is_empty())
                     && alt.places.iter().collect::<BTreeSet<_>>().len() == alt.places.len(),

@@ -174,6 +174,10 @@ pub fn suggest_rank(expect: &Expect, found: &[Suggested]) -> Option<usize> {
                 .get("category")
                 .is_none_or(|c| c == &s.category)
             && alt
+                .components
+                .get("name")
+                .is_none_or(|name| names_landmark(&s.name, name))
+            && alt
                 .point
                 .is_none_or(|p| haversine(p, s.point) <= alt.radius_km.unwrap_or(0.))
     };
@@ -353,6 +357,19 @@ pub fn reverse_class(
     } else {
         "pass"
     }
+}
+
+fn names_landmark(display: &str, wanted: &str) -> bool {
+    let answer = display.split(',').next().unwrap_or("");
+    if names_place(answer, wanted) {
+        return true;
+    }
+    let answer = answer.to_lowercase();
+    let wanted = wanted.to_lowercase();
+    wanted
+        .strip_suffix(" tér")
+        .zip(answer.strip_suffix(" square"))
+        .is_some_and(|(wanted, answer)| names_place(answer, wanted))
 }
 
 /// An answer's place name is the wanted one, compared transliterated and folded without spaces
@@ -1469,6 +1486,72 @@ mod tests {
         }
         expect.any_of = Some(vec![]);
         assert!(expected_place(&expect).is_none());
+    }
+
+    #[test]
+    fn landmark_names_reject_a_nearby_station() {
+        let mut expect = Expect {
+            country: vec!["hu".into()],
+            level: "landmark".into(),
+            point: Some([47.5, 19.05]),
+            radius_km: Some(0.3),
+            components: IndexMap::from([
+                ("category".into(), "station".into()),
+                ("name".into(), "Bajcsy-Zsilinszky út".into()),
+            ]),
+            ..Default::default()
+        };
+        let mut found = vec![Suggested {
+            kind: "landmark".into(),
+            category: "station".into(),
+            name: "Deák Ferenc tér, Budapest, Hungary".into(),
+            country: "hu".into(),
+            point: [47.498, 19.05],
+            ..Default::default()
+        }];
+        assert_eq!(suggest_rank(&expect, &found), None);
+        found.push(Suggested {
+            name: "BAJCSY ZSILINSZKY UT, Budapest, Hungary".into(),
+            ..found[0].clone()
+        });
+        assert_eq!(suggest_rank(&expect, &found), Some(2));
+        found[1].name = "Bajcsy-Zsilinszky út extension, Budapest, Hungary".into();
+        assert_eq!(suggest_rank(&expect, &found), None);
+        expect.components.shift_remove("name");
+        assert_eq!(suggest_rank(&expect, &found), Some(1));
+    }
+
+    #[test]
+    fn translated_square_requires_the_complete_proper_name() {
+        assert!(names_landmark(
+            "Fővám Square, Budapest, Hungary",
+            "Fővám tér"
+        ));
+        assert!(names_landmark(
+            "Rákóczi square, Budapest, Hungary",
+            "Rákóczi tér"
+        ));
+        assert!(names_landmark(
+            "Blaha Lujza square, Budapest, Hungary",
+            "Blaha Lujza tér"
+        ));
+        assert!(!names_landmark(
+            "Fővám square, Budapest, Hungary",
+            "Rákóczi tér"
+        ));
+        assert!(!names_landmark(
+            "Blaha Lujza square, Budapest, Hungary",
+            "Fővám tér"
+        ));
+        assert!(!names_landmark(
+            "Rákóczi street, Budapest, Hungary",
+            "Rákóczi tér"
+        ));
+        assert!(!names_landmark(
+            "Rákóczi square extension, Budapest, Hungary",
+            "Rákóczi tér"
+        ));
+        assert!(!names_landmark("square, Budapest, Hungary", "tér"));
     }
 
     #[test]
