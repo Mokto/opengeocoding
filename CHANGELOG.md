@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.5.1](https://github.com/Mokto/opengeocoding/compare/v1.5.0...v1.5.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* corroborate numeric places and Vietnamese administrative names ([#473](https://github.com/Mokto/opengeocoding/issues/473)) ([3acd7b2](https://github.com/Mokto/opengeocoding/commit/3acd7b2ba9de526b6fba52f195c3072aeb4182d0))
+* **evaluate:** score a reverse answer without a country as wrong_country, and compare postcodes by their letters and digits ([#449](https://github.com/Mokto/opengeocoding/issues/449)) ([8ccc903](https://github.com/Mokto/opengeocoding/commit/8ccc9033fd4cd0e03500e0b363fdf76e7b5eb801))
+* hold a store transfer's permit until its range is written, bounding download memory ([#442](https://github.com/Mokto/opengeocoding/issues/442)) ([fef0ec3](https://github.com/Mokto/opengeocoding/commit/fef0ec32c10685f476bb8e41c8111716aef9e5af))
+* index Uruguay's doors with a letter from IDE Uruguay's address register, and show a postcode in a form without a dot ([#454](https://github.com/Mokto/opengeocoding/issues/454)) ([f67b4db](https://github.com/Mokto/opengeocoding/commit/f67b4db7f2325b944b24a1ac2d2c6ffdf5ebb27e))
+* join an Icelandic house letter to its number ([#453](https://github.com/Mokto/opengeocoding/issues/453)) ([3226464](https://github.com/Mokto/opengeocoding/commit/322646452c6399be7d876247d97d0e583b586f29))
+* keep a trailing region code from being dropped as junk, so QC no longer resolves to a New Zealand namesake ([#476](https://github.com/Mokto/opengeocoding/issues/476)) ([3d65e3e](https://github.com/Mokto/opengeocoding/commit/3d65e3eed09263ba9c4ecd70b538104f13f703b4))
+* keep answers inside the country, region or town a query states ([#469](https://github.com/Mokto/opengeocoding/issues/469)) ([9802fd1](https://github.com/Mokto/opengeocoding/commit/9802fd1be91d4900d322f4fc19af4ef2c66f5270))
+* keep OSM houses far from any settlement, with their region and country ([#435](https://github.com/Mokto/opengeocoding/issues/435)) ([62b4277](https://github.com/Mokto/opengeocoding/commit/62b4277561b94f092a1e857bbd28726a96ce7080))
+* preserve Japanese address administration and prefecture guards ([#477](https://github.com/Mokto/opengeocoding/issues/477)) ([0d14abc](https://github.com/Mokto/opengeocoding/commit/0d14abc7dbbe0b7346c6fd5a739f0fb03e021bfa))
+* read addresses past a trailing label, a district or long town name, and fall back to the stated town ([#466](https://github.com/Mokto/opengeocoding/issues/466)) ([#467](https://github.com/Mokto/opengeocoding/issues/467)) ([7fa5073](https://github.com/Mokto/opengeocoding/commit/7fa50734aea2c85d22feb561d847699133842373))
+* read Aruban and Curaçaoan house numbers before or after the street ([#457](https://github.com/Mokto/opengeocoding/issues/457)) ([e573dc7](https://github.com/Mokto/opengeocoding/commit/e573dc7019e13ee0c9841d3e1d93215b442c3c71))
+* read Latvian register addresses part by part and file their streets and named houses as the register names them ([#433](https://github.com/Mokto/opengeocoding/issues/433)) ([33dade5](https://github.com/Mokto/opengeocoding/commit/33dade534b7800e1fa510b1df6bc5cde785656e6))
+* read Thai addresses libpostal mislabels, and accept a house whose stated town is its province ([#458](https://github.com/Mokto/opengeocoding/issues/458)) ([d6cf041](https://github.com/Mokto/opengeocoding/commit/d6cf041733e27496837952c72c07f6332e8c6a2d))
+* suggest every copy of a rural house with its country, and find the street named as written ([#451](https://github.com/Mokto/opengeocoding/issues/451)) ([a3e02db](https://github.com/Mokto/opengeocoding/commit/a3e02dbc7d2746b1a86b0209e17ae0e1dfb7731f))
+
+
+### Performance Improvements
+
+* parse each text once per request and build lookup memo keys from term bytes ([#464](https://github.com/Mokto/opengeocoding/issues/464)) ([ba96627](https://github.com/Mokto/opengeocoding/commit/ba96627f466a7b4180310a68a31959093d629864))
+* read lookups from per-country words in one kind-ordered segment ([#465](https://github.com/Mokto/opengeocoding/issues/465)) ([b1ceb66](https://github.com/Mokto/opengeocoding/commit/b1ceb663f7eafad8e9eaa268192c037ea8fb913d))
+* reuse lookup and document reads within a request ([#472](https://github.com/Mokto/opengeocoding/issues/472)) ([7205211](https://github.com/Mokto/opengeocoding/commit/7205211bdb4f1e6b9871e63117e34b4de284ec26))
+
 ## [1.5.0](https://github.com/Mokto/opengeocoding/compare/v1.4.1...v1.5.0) (2026-10-30)
 
 
