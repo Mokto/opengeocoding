@@ -1,3 +1,4 @@
+use super::country::au;
 use super::*;
 
 impl Index {
@@ -799,6 +800,14 @@ impl Index {
 
     /// A candidate as Nominatim-style JSON, with English names when `en`.
     pub fn render(&self, hit: &Hit, en: bool) -> Value {
+        self.render_with_suburb(hit, en, false)
+    }
+
+    pub(super) fn render_reverse(&self, hit: &Hit) -> Value {
+        self.render_with_suburb(hit, true, true)
+    }
+
+    fn render_with_suburb(&self, hit: &Hit, en: bool, geographic: bool) -> Value {
         let mut a = Map::new();
         let mut display: Vec<String> = vec![];
         let (id, osm_type, class, typ, addresstype, x, y, bbox, namedetails) = match hit {
@@ -874,6 +883,15 @@ impl Index {
                     a.insert("country_code".into(), cc.clone().into());
                     a.insert("country".into(), country.into());
                     display.push(country.into());
+                }
+                if geographic
+                    && city.is_none()
+                    && !a.contains_key("suburb")
+                    && let Some(number) = number
+                    && let Some(suburb) = au::house_suburb(self, *sid, number, (*x, *y), place, en)
+                {
+                    display.insert(2, suburb.clone());
+                    a.insert("suburb".into(), suburb.into());
                 }
                 if let Some(c) = city {
                     // Nominatim names the postal city and lists the smaller locality as suburb.

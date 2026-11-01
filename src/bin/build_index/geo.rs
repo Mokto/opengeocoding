@@ -1,8 +1,9 @@
 use rstar::{RTree, primitives::GeomWithData};
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufWriter, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Mutex,
 };
 use tantivy::directory::{Directory, MmapDirectory, OwnedBytes};
@@ -379,6 +380,8 @@ pub const KINDS: [&str; 6] = [
     "country",
 ];
 
+pub const SUBURB: u8 = 6;
+
 fn canonical_country(cc: [u8; 2]) -> [u8; 2] {
     if matches!(&cc, b"XW" | b"XG") {
         return *b"PS";
@@ -512,6 +515,7 @@ pub struct Assigner {
     towns: RTree<GeomWithData<[f64; 2], u32>>,
     countries: Vec<[u8; 2]>,
     sovereigns: Vec<[u8; 2]>,
+    pub suburbs: HashMap<u32, Box<[u32]>>,
     /// `[min x, min y, max x, max y]`: nothing outside is placed, so nothing outside is indexed.
     pub bbox: Option<[f64; 4]>,
 }
@@ -541,6 +545,7 @@ impl Assigner {
             towns,
             countries,
             sovereigns,
+            suburbs: HashMap::new(),
             bbox: None,
         }
     }
@@ -569,7 +574,7 @@ impl Assigner {
     pub fn admin(&self, x: f64, y: f64) -> Option<u32> {
         self.levels
             .at(&self.polys, x, y)
-            .filter(|p| p.kind != 0 && p.contains(&self.data, x, y))
+            .filter(|p| p.kind != 0 && p.kind != SUBURB && p.contains(&self.data, x, y))
             .min_by(|a, b| {
                 a.kind
                     .cmp(&b.kind)
@@ -577,6 +582,91 @@ impl Assigner {
                     .then(a.place.cmp(&b.place))
             })
             .map(|p| p.place)
+    }
+
+    pub fn suburb_in(&self, x: f64, y: f64, place: u32) -> Option<u32> {
+        let country = *self.countries.get(place as usize)?;
+        let regions: Vec<_> = self
+            .levels
+            .at(&self.polys, x, y)
+            .filter(|p| {
+                p.kind == 3
+                    && self.countries[p.place as usize] == country
+                    && p.contains(&self.data, x, y)
+            })
+            .map(|p| p.place)
+            .collect();
+        let suburbs: Vec<_> = self
+            .levels
+            .at(&self.polys, x, y)
+            .filter(|p| {
+                p.kind == SUBURB
+                    && self.countries[p.place as usize] == country
+                    && p.contains(&self.data, x, y)
+            })
+            .filter(|p| {
+                self.suburbs.get(&p.place).is_some_and(|ancestors| {
+                    ancestors.contains(&place)
+                        && regions.iter().all(|region| ancestors.contains(region))
+                })
+            })
+            .map(|p| p.place)
+            .collect();
+        suburbs.iter().copied().find(|p| {
+            suburbs
+                .iter()
+                .all(|q| p == q || self.suburbs[p].contains(q))
+        })
+    }
+
+    // Same-source unit points may be averaged, so annotate the final FST point.
+    pub fn write_suburbs(&self, out: &Path, streets: &[(u32, u32)]) -> anyhow::Result<u64> {
+        use opengeocoding::index::{country::au, schema};
+        use tantivy_fst::{IntoStreamer, Streamer};
+        let directory = MmapDirectory::open(out)?;
+        let numbers: Vec<Vec<_>> = (0..super::NUMBER_SHARDS)
+            .map(|s| {
+                [format!("numbers-{s:02}.fst"), schema::far_file(s)]
+                    .into_iter()
+                    .map(|name| {
+                        let file = directory.open_read(Path::new(&name))?;
+                        Ok(tantivy_fst::Map::from(tantivy_fst::raw::Fst::new(
+                            file.read_bytes()?,
+                        )?))
+                    })
+                    .collect::<anyhow::Result<_>>()
+            })
+            .collect::<anyhow::Result<_>>()?;
+        let mut writer = tantivy_fst::MapBuilder::new(BufWriter::new(File::create(
+            out.join(au::SUBURBS_FILE),
+        )?))?;
+        let mut entries = vec![];
+        let mut count = 0;
+        for &(sid, place) in streets {
+            entries.clear();
+            for numbers in &numbers[sid as usize % super::NUMBER_SHARDS] {
+                let mut range = numbers.range().ge(sid.to_be_bytes());
+                if let Some(next) = sid.checked_add(1) {
+                    range = range.lt(next.to_be_bytes());
+                }
+                let mut stream = range.into_stream();
+                while let Some((key, value)) = stream.next() {
+                    let (x, y, _) = schema::unpack(value);
+                    if let Some(suburb) = self.suburb_in(x, y, place) {
+                        let number = std::str::from_utf8(&key[4..])?;
+                        entries.push((au::suburb_key(sid, number, x, y), u64::from(suburb)));
+                    }
+                }
+            }
+            entries.sort_unstable();
+            entries.dedup();
+            for (key, place) in &entries {
+                writer.insert(key, *place)?;
+                count += 1;
+            }
+        }
+        writer.finish()?;
+        Ok(count)
     }
 
     /// Source country, else the containing administration, constrains every settlement candidate.
@@ -587,7 +677,7 @@ impl Assigner {
         let containing = || {
             self.levels
                 .at(&self.polys, x, y)
-                .filter(|p| p.contains(&self.data, x, y))
+                .filter(|p| p.kind != SUBURB && p.contains(&self.data, x, y))
         };
         let cc = cc
             .map(canonical_country)
