@@ -1,4 +1,4 @@
-use crate::index::country::{co, ee, eh, mx, pt};
+use crate::index::country::{co, ee, eh, es, mx, pt};
 use crate::{
     index::{
         canon::{canon, is_canonical},
@@ -781,24 +781,7 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
         return mx::bare_road(road).into_iter().collect();
     }
     if cc.eq_ignore_ascii_case("es") {
-        // Spain's address registry leaves most articles and prepositions out of a road's name:
-        // "Calle del Castillo" is its "CALLE CASTILLO".
-        let road = normalize_place(road);
-        let all: Vec<&str> = road.split(' ').collect();
-        let mut words: Vec<&str> = all
-            .iter()
-            .copied()
-            .filter(|w| !SPANISH_PARTICLES.contains(w))
-            .collect();
-        let kind = |w: &str| canon(w).is_some() || is_canonical(w);
-        // and Basque names put the type last ("Belakasoro kalea" is its "CALLE BELAKASORO")
-        if words.len() > 1 && kind(words[words.len() - 1]) && !kind(words[0]) {
-            words.rotate_right(1);
-        }
-        return (words.iter().any(|w| !kind(w)) && words != all)
-            .then(|| words.join(" "))
-            .into_iter()
-            .collect();
+        return es::registry_road(road).into_iter().collect();
     }
     if cc.eq_ignore_ascii_case("za") {
         let road = normalize_place(road);
@@ -869,11 +852,6 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
         .map(|suffix| format!("{stem}{suffix} {rest}").trim_end().to_owned())
         .collect()
 }
-
-/// Spanish, Catalan and Galician articles and prepositions.
-const SPANISH_PARTICLES: &[&str] = &[
-    "de", "del", "la", "las", "los", "el", "dels", "les", "els", "da", "do", "das", "dos",
-];
 
 /// One road, or one with a single word misspelt as the index corrects it: "West 54th Srteet" is
 /// the candidate's "West 54th Street" when the index found it by that correction.

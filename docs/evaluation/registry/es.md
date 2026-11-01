@@ -73,3 +73,9 @@ Of the 77 SearchAddress failures left, 41 are too coarse (Balearic streets the i
 Before the Danish addition, the full candidate run had 11,005 cases. It passes its absolute gate while all eight attributed Spanish far misses remain failures. Comparing it with the 8,939-case existing-suite baseline produces zero answer/scoring drift across all four RPCs, with no newly failing or worse-class cases; both new datasets' standalone classifications are unchanged in the full run. The local speed comparator passes, but the identical-binary head is 66–68% faster in total on a non-isolated, differently warmed host, so no speedup or request-latency claim follows. See [Denmark's validation](dk.md#validation) for the later three-country run and its failed, confounded local speed comparison. Check current-head CI quality and measured speed separately in the pull request.
 
 Each case's `places`, the names ReverseGeocode's answer must include one of, are the address area and the municipality, each language of a bilingual name ("Alacant/Alicante") on its own.
+
+### Registry road spellings in suggestions
+
+When a qualified Spanish address finds no literal street result, suggestions can retry the registry spelling already used by search: `Calle del Castillo` becomes `CALLE CASTILLO`. The retry preserves the complete civic number and all locality, postcode and country qualifiers. It accepts one house only and refuses the repair if any supporting street lookup reaches its candidate limit; one house in a truncated list is not evidence of uniqueness. Literal street results take precedence, including a street that lacks the requested number.
+
+This changes completion only, not search, reverse scoring, expected addresses or source selection. It does not resolve source-point/postcode conflicts or add houses absent from the address inputs.
