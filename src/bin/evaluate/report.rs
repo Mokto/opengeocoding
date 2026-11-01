@@ -1191,7 +1191,7 @@ fn by_evidence(counts: &Evidence) -> String {
         out
     };
     let mut out = String::from(
-        "\n<!-- by-evidence -->\n## Pass rate by country and evidence\n\nIndependent sources are registers, curated Wikidata places, Wikidata towns and GLEIF company addresses placed by Wikidata towns, none of them the index's own data. OpenStreetMap cases check agreement with mapped addresses, which the index itself reads in many countries: consistency, not accuracy. Each cell is passing checks / checked · rate, baseline → candidate where it changed.\n",
+        "\n<!-- by-evidence -->\n## Pass rate by country and evidence\n\nThe \"Independent sources\" table groups registers, curated Wikidata places, Wikidata towns and GLEIF company addresses placed by Wikidata towns, selected outside the index. Registers can also supply index data: those checks measure source fidelity, not independent real-world accuracy. OpenStreetMap cases check agreement with mapped addresses, which the index itself reads in many countries: consistency, not accuracy. Each cell is passing checks / checked · rate, baseline → candidate where it changed.\n",
     );
     let countries = |n: usize| format!("{n} countr{}", if n == 1 { "y" } else { "ies" });
     out += &fold(
@@ -2451,6 +2451,8 @@ mod tests {
         let text = by_evidence(&counts);
         assert!(text.starts_with("\n<!-- by-evidence -->\n"), "{text}");
         assert!(text.ends_with("<!-- by-evidence end -->\n"), "{text}");
+        assert!(text.contains("Registers can also supply index data"));
+        assert!(!text.contains("none of them the index's own data"));
         assert!(
             text.contains("<summary><b>Independent sources (2 countries)</b></summary>\n\n| Country | Evidence | SearchAddress | SuggestAddress | ReverseGeocode | ResolveRegion |\n|---|---|---:|---:|---:|---:|\n| **All** | | 95→100/110 · 86.4%→90.9% | - | - | - |\n| Denmark | places, registry | 90→95/100 · 90.0%→95.0% | - | - | - |\n| Kenya | towns | 5/10 · 50.0% | - | - | - |\n"),
             "{text}"

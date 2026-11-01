@@ -74,7 +74,7 @@ def body(report, previous, names, head, run_url, server, date, minimum):
         "",
         rpc_table(report),
         "",
-        "Independent sources are registers, curated Wikidata places, Wikidata towns and GLEIF company addresses placed by Wikidata towns: they measure accuracy. OpenStreetMap cases check agreement with mapped addresses the index itself reads in many countries: consistency, not accuracy. Cells are passing checks / checked · rate.",
+        "The 'Independent sources' table groups registers, curated Wikidata places, Wikidata towns and GLEIF company addresses placed by Wikidata towns, selected outside the index. Registers can also supply index data: those checks measure source fidelity, not independent real-world accuracy. OpenStreetMap cases check agreement with mapped addresses the index itself reads in many countries: consistency, not accuracy. Cells are passing checks / checked · rate.",
         "",
         "## History",
         "",
