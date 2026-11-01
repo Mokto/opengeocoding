@@ -166,3 +166,24 @@ Full-string SuggestAddress passes **0/512**. ResolveRegion passes **512/512**. A
 The three-part queries expose truncated numbers: for example, `日本青森県十和田市東四番町5-6-3` returns nearby house `5-6`, while reverse at the source point finds `5-6-3`. Two-part failures include source houses present in raw candidates but returned only as locality fallbacks. These are diagnostic examples, not repairs or grounds to drop cases, relax numbers or increase tolerances. No parsing, matching, index, scoring or existing-corpus expectation was changed.
 
 The full comparison retains **43,244 shared cases with zero changed answers or classes across all RPCs**, and reports the 512 added cases separately. Both absolute full runs still fail inherited untriaged critical cases outside this panel; the relative diff passes. No existing label or expectation was changed to silence them. Local runs used no timed speed sample and provide no speed sign-off. The report and nightly issue now disclose that their existing "Independent sources" grouping means selection outside the index, not independence of upstream registry inputs; counting and scoring are unchanged.
+
+### Complete residence-number lookup
+
+The subsequent runtime correction preserves an explicit chōme as part of the indexed road and every residence-number part. It reads digits inside road names without mistaking them for house numbers and shares the complete-address lookup between search and autocomplete, without calling libpostal for autocomplete. A confident direct answer needs an exact indexed road and number, an indexed prefecture, and the complete written municipality hierarchy in that prefecture. A stated postcode must not contradict the house's stored postcode. Conflicting countries are not overridden. Distant copies remain ambiguous; co-located copies of the same road/number within roughly 100 m collapse. This does not distinguish nearby buildings sharing an address; building-level disambiguation needs source identities in the index.
+
+Block-only forms retain their existing chōme/block representations and do not enter the confident residence shortcut. Neither the corpora, tolerances, known-failure labels, scoring nor index inputs change.
+
+Against the `ecd8645` baseline on the same full index (`dbec0f0cae254966`, data digest `c831e5894669`) and models:
+
+| Check | Before | After |
+|---|---:|---:|
+| SearchAddress, two-part | 235/354 | 296/354 |
+| SearchAddress, three-part | 3/158 | 132/158 |
+| SearchAddress, total | 238/512 | 428/512 |
+| Full-string SuggestAddress | 0/512 | 416/512 |
+| Held-out SearchAddress | 57/110 | 94/110 |
+| Held-out SuggestAddress | 0/110 | 94/110 |
+
+The remaining residence search failures are 74 too coarse, eight abstentions and two near misses. Many ward-qualified addresses have their streets stored under the city, not the ward; the direct lookup does not discard that qualifier to claim a match. This change does not establish general half-typed native-script completion, romanized address coverage or building/entrance accuracy. The weak block panel remains **12/368** for search and **0/368** for full-string suggestions; a block-aware lookup is still needed.
+
+A 1,005-case Japan comparison includes the two registries, the OSM panel and the other Japanese gold checks. Repeated baseline and candidate runs have zero answer/scoring drift. The full **44,047-case** comparison gains 191 SearchAddress passes and 416 SuggestAddress passes, all in Japan, with no newly failing check or worse failure class. ResolveRegion and both reverse checks are unchanged. Absolute runs still fail inherited critical results; the relative comparison passes. Expectations were not weakened. Development used the non-held-out residence panel; held-out counts are validation, not tuning targets. These are shared-source consistency checks, not national accuracy estimates. Local runs use `--repeat 1 --speed-cases 0`; only CI can provide the measured speed gate.

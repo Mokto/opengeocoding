@@ -6,7 +6,7 @@ mod place;
 mod postcode;
 mod street;
 
-use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, it, lt, pl, ps, pt, th, tw};
+use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, it, jp, lt, pl, ps, pt, th, tw};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 pub(super) use place::place_names;
@@ -443,6 +443,11 @@ impl Index {
             if let Some(found) = self.ee_named_house(text) {
                 return kept(vec![found], cc, limit);
             }
+        }
+        if cc.is_none_or(|c| c.eq_ignore_ascii_case("jp"))
+            && let Some(found) = jp::suggest(self, text, limit)
+        {
+            return kept(found, cc, limit);
         }
         if let Some(hits) = self.korean_search(text)
             && !hits.is_empty()

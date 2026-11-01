@@ -1,5 +1,9 @@
 use crate::{index::*, proto::opengeocoding::AddressDetails};
 
+static POSTCODE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r"^(?:日本国?)?〒?([0-9０-９]{3}[-－−‐―‑ー]?[0-9０-９]{4})").unwrap()
+});
+
 /// Reads 一 to 九十九.
 fn kanji_number(t: &str) -> Option<u32> {
     let digit = |c: char| {
@@ -40,67 +44,229 @@ fn kanji_numeral(n: u32) -> Option<String> {
 /// first: "東京都港区芝公園4-2-8" is chōme 4 of 芝公園 in 港区, block 2, house 8, stored as street
 /// "芝公園四丁目" and number "2-8"; towns without chōme store "block-house" under the town.
 pub(crate) fn japanese(q: &str) -> Vec<(String, String, String)> {
-    static POSTCODE: LazyLock<regex::Regex> =
-        LazyLock::new(|| regex::Regex::new(r"〒?\d{3}-\d{4}|^日本国?|,?Japan$").unwrap());
+    static NUMBER: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"[0-9]+(?:(?:[-－−‐―‑ーの]|番地?)[0-9]+){0,3}(?:号|番地?)?$").unwrap()
+    });
+    let mut parts = q.split(',').map(str::trim);
+    let head = parts.next().unwrap_or("");
+    if parts.any(|p| crate::matching::country_named(p) != "jp") {
+        return vec![];
+    }
     static CHOME: LazyLock<regex::Regex> =
         LazyLock::new(|| regex::Regex::new("([〇一二三四五六七八九十]+)丁目").unwrap());
-    let t: String = q
+    let t: String = head
         .chars()
         .filter(|c| !c.is_whitespace())
         .map(|c| match c {
             '０'..='９' => char::from_u32(c as u32 - '０' as u32 + '0' as u32).unwrap(),
-            '－' | '−' | '‐' | 'ー' | '―' | '‑' => '-',
             _ => c,
         })
         .collect();
-    let t = POSTCODE.replace_all(&t, "");
+    let t = t
+        .strip_prefix("日本国")
+        .or_else(|| t.strip_prefix("日本"))
+        .unwrap_or(&t);
+    let t = POSTCODE.replace(t, "");
     let t = CHOME.replace_all(&t, |c: &regex::Captures| {
         kanji_number(&c[1]).map_or(c[0].to_string(), |n| format!("{n}丁目"))
     });
-    let Some(at) = t.find(|c: char| c.is_ascii_digit()) else {
+    let Some(tail) = NUMBER.find(&t) else {
         return vec![];
     };
-    let (prefix, rest) = t.split_at(at);
-    if prefix.is_empty() || !prefix.chars().all(|c| c as u32 >= 0x3040) {
+    let (prefix, rest) = t.split_at(tail.start());
+    let explicit = prefix.ends_with("丁目");
+    if prefix.is_empty()
+        || !prefix
+            .chars()
+            .all(|c| c as u32 >= 0x3040 || explicit && c.is_ascii_digit())
+    {
         return vec![];
     }
-    let rest = rest
-        .replace("丁目", "-")
+    let number = rest
+        .trim_end_matches("番地")
+        .trim_end_matches('番')
         .replace("番地", "-")
-        .replace(['番', 'の'], "-")
+        .replace(['番', 'の', '－', '−', '‐', 'ー', '―', '‑'], "-")
         .replace('号', "");
-    let numbers: Vec<u32> = rest
-        .split(|c: char| !c.is_ascii_digit() && c != '-')
-        .next()
-        .unwrap_or("")
-        .split('-')
-        .filter_map(|n| n.parse().ok())
-        .collect();
-    if numbers.len() < 2 {
+    let numbers: Vec<&str> = number.split('-').collect();
+    if !explicit && numbers.len() < 2 || explicit && numbers.len() > 3 {
         return vec![];
     }
-    let joined = |ns: &[u32]| ns.iter().map(u32::to_string).collect::<Vec<_>>().join("-");
+    let prefecture = town_queries(q).0;
+    let first_digit = prefix
+        .find(|c: char| c.is_ascii_digit())
+        .unwrap_or(prefix.len());
     let mut out = vec![];
     for (i, c) in prefix.char_indices().rev() {
         let end = i + c.len_utf8();
-        if !"都道府県市区郡町村".contains(c) || end == prefix.len() {
+        if !"都道府県市区郡町村".contains(c) || end == prefix.len() || end == first_digit {
             continue;
         }
         let (city, town) = prefix.split_at(end);
-        // the municipality, without its prefecture
-        let city = city
-            .rfind(['都', '道', '府', '県'])
-            .map(|k| &city[k + 3..])
-            .filter(|c| !c.is_empty())
-            .unwrap_or(city);
-        out.push((
-            city.to_string(),
-            format!("{town}{}丁目", numbers[0]),
-            joined(&numbers[1..numbers.len().min(3)]),
-        ));
-        out.push((city.to_string(), town.to_string(), joined(&numbers[..2])));
+        let city = city.strip_prefix(&prefecture).unwrap_or(city);
+        if city.is_empty() {
+            continue;
+        }
+        if !explicit && numbers.len() >= 3 {
+            out.push((
+                city.to_string(),
+                format!("{town}{}丁目", numbers[0]),
+                numbers[1..].join("-"),
+            ));
+        }
+        if numbers.len() <= 3 {
+            out.push((city.to_string(), town.to_string(), number.clone()));
+        }
+        if numbers.len() == 1
+            && let Some(stem) = town.strip_suffix("丁目")
+        {
+            let base = stem.trim_end_matches(|c: char| c.is_ascii_digit());
+            let chome = &stem[base.len()..];
+            if !chome.is_empty() {
+                out.push((
+                    city.to_string(),
+                    base.to_string(),
+                    format!("{chome}-{number}"),
+                ));
+            }
+        }
     }
     out
+}
+
+pub(crate) fn houses(index: &Index, q: &str) -> Option<Vec<Hit>> {
+    use tantivy::schema::Value as _;
+    if q.is_ascii()
+        || q.split_whitespace()
+            .collect::<Vec<_>>()
+            .windows(2)
+            .any(|p| p[0].ends_with(char::is_numeric) && p[1].starts_with(char::is_numeric))
+    {
+        return None;
+    }
+    let readings = japanese(q);
+    if !readings.first().is_some_and(|(_, _, n)| n.contains('-')) {
+        return None;
+    }
+    let prefecture = town_queries(q).0;
+    let code = index.region_named(&prefecture, "jp")?;
+    let compact: String = q.chars().filter(|c| !c.is_whitespace()).collect();
+    let postcode = POSTCODE.captures(&compact).map(|c| {
+        schema::number_key(&c[1])
+            .chars()
+            .filter(char::is_ascii_digit)
+            .collect::<String>()
+    });
+    let mut hits = vec![];
+    for (city, road, number) in readings {
+        let Some(named) = index.resolve_place(&city, Some("jp")).or_else(|| {
+            city.split_once('郡')
+                .and_then(|(_, town)| index.resolve_place(town, Some("jp")))
+        }) else {
+            continue;
+        };
+        let scope: Vec<_> = index
+            .places(&named, Some("jp"), Some(&prefecture), &|p| {
+                p.named(name_key(&named))
+                    && matches!(p.subtype.as_ref(), "locality" | "localadmin" | "county")
+            })
+            .into_iter()
+            .filter_map(|h| {
+                let Hit::Place(id) = h else {
+                    return None;
+                };
+                let chain = index.chain(id);
+                if !chain
+                    .iter()
+                    .any(|&p| index.places[p as usize].region.eq_ignore_ascii_case(&code))
+                {
+                    return None;
+                }
+                let mut rest = city.as_str();
+                for &p in chain.iter().rev() {
+                    if let Some(name) = index.places[p as usize]
+                        .all_names()
+                        .filter(|n| !n.is_empty() && rest.starts_with(n))
+                        .max_by_key(|n| n.len())
+                    {
+                        rest = &rest[name.len()..];
+                    }
+                }
+                rest.is_empty().then_some(id)
+            })
+            .collect();
+        if scope.is_empty() {
+            continue;
+        }
+        let mut clauses = index.musts(index.f.names, &road);
+        clauses.push(must(Box::new(BooleanQuery::new(
+            scope
+                .iter()
+                .map(|p| (Occur::Should, term(index.f.ids, &p.to_string())))
+                .collect(),
+        ))));
+        let docs = index.top_of(Kind::Street, Some("jp"), clauses, 1000);
+        if docs.len() == 1000 {
+            return Some(vec![]);
+        }
+        for doc in docs {
+            let stored = index.document(doc).ok()?;
+            if !stored
+                .get_all(index.f.name)
+                .filter_map(|v| v.as_str())
+                .any(|n| fold(n) == fold(&road))
+            {
+                continue;
+            }
+            let sid = index.fast(doc, "id") as u32;
+            let Some((number, value)) = index.house_record(sid, &schema::number_key(&number))
+            else {
+                continue;
+            };
+            let (x, y, own) = schema::unpack(value);
+            let hit = index.house_hit(doc, number, x, y, own)?;
+            if matches!(&hit, Hit::Street { postcode: own, .. } if postcode_not_contradicted(own.as_deref(), postcode.as_deref()))
+            {
+                hits.push(hit);
+            }
+        }
+    }
+    hits.sort_by_key(|h| match h {
+        Hit::Street { sid, .. } => *sid,
+        _ => 0,
+    });
+    if let Some(Hit::Street { name, number, x, y, .. }) = hits.first()
+        && hits.iter().all(|h| matches!(h, Hit::Street { name: n, number: hn, x: hx, y: hy, .. }
+            if fold(n) == fold(name) && hn == number && ((hx - x) * y.to_radians().cos()).hypot(hy - y) < 0.0009))
+    {
+        // ponytail: co-located copies of one road/number collapse within roughly 100 m; building-level disambiguation needs source identities in the number index.
+        hits.truncate(1);
+    }
+    Some(hits)
+}
+
+pub(crate) fn suggest(index: &Index, q: &str, want: usize) -> Option<Vec<Suggestion>> {
+    Some(
+        houses(index, q)?
+            .into_iter()
+            .filter_map(|h| match h {
+                Hit::Street {
+                    doc,
+                    sid,
+                    place,
+                    name,
+                    number,
+                    x,
+                    y,
+                    ..
+                } => {
+                    Some(index.street_suggestion(doc, sid, place, &name, number.as_deref(), (x, y)))
+                }
+                _ => None,
+            })
+            .take(want)
+            .collect(),
+    )
 }
 
 /// "〒812-0053 福岡県福岡市東区箱崎２丁目１０−３５": the ward, city and prefecture written before
@@ -121,9 +287,6 @@ pub(crate) fn town_queries(q: &str) -> (String, Vec<String>) {
         };
         return (pref.into(), vec![format!("{}, {within}Japan", &c[1])]);
     }
-    static POSTCODE: LazyLock<regex::Regex> = LazyLock::new(|| {
-        regex::Regex::new(r"^〒?\s*[0-9０-９]{3}[-－‐−ー]?[0-9０-９]{4}").unwrap()
-    });
     let q = q.trim_start_matches(['日', '本', '国']);
     let t: String = q
         .chars()
@@ -333,7 +496,7 @@ mod tests {
     fn japanese_block_addresses() {
         let got = japanese("〒105-0011 東京都港区芝公園４丁目２番８号");
         assert_eq!(got[0], ("港区".into(), "芝公園4丁目".into(), "2-8".into()));
-        assert_eq!(got[1], ("港区".into(), "芝公園".into(), "4-2".into()));
+        assert_eq!(got.len(), 1);
         assert_eq!(
             japanese("東京都千代田区大手町1-1-1")[0],
             ("千代田区".into(), "大手町1丁目".into(), "1-1".into())
@@ -342,6 +505,41 @@ mod tests {
         assert_eq!(kanji_number("二十一"), Some(21));
         assert!(japanese("1600 Pennsylvania Avenue").is_empty());
         assert!(japanese("東京都").is_empty());
+        for query in [
+            "大分県中津市沖代町一丁目5番",
+            "大分県中津市沖代町一丁目5番地",
+        ] {
+            assert_eq!(
+                japanese(query),
+                [
+                    ("中津市".into(), "沖代町1丁目".into(), "5".into()),
+                    ("中津市".into(), "沖代町".into(), "1-5".into()),
+                ]
+            );
+        }
+        assert!(japanese("大分県中津市沖代町一丁目5-9, China").is_empty());
+        for (query, road, number) in [
+            ("日本青森県十和田市東四番町5-6-3", "東四番町", "5-6-3"),
+            (
+                "北海道帯広市西１９条南２丁目31-4-8, Japan",
+                "西19条南2丁目",
+                "31-4-8",
+            ),
+            ("大分県中津市海風一丁目2-3-4, Japan", "海風1丁目", "2-3-4"),
+            ("大分県中津市海風1-2-3-4, Japan", "海風1丁目", "2-3-4"),
+        ] {
+            let found = japanese(query);
+            assert!(
+                found.iter().any(|(_, r, n)| r == road && n == number),
+                "{query}: {found:?}"
+            );
+            if query.contains("丁目") {
+                assert!(
+                    found.iter().all(|(_, _, n)| n == number),
+                    "{query}: {found:?}"
+                );
+            }
+        }
     }
 
     #[test]
