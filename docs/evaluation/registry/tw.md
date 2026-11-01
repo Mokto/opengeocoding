@@ -2,7 +2,7 @@
 
 [Evaluation guide](../README.md) · [Source notice](../../../tests/registry/tw.NOTICE)
 
-Two municipal registers, not a national sample: Taipei (`tw.jsonl`, `sample-tw --taipei`) and [Tainan](#tainan-city) (`tw-tainan.jsonl`, `sample-tainan --tainan`). Both are included automatically in the nightly gold suite. Taipei's existing files and command are unchanged.
+Two municipal registers, not a national sample: Taipei (`tw.jsonl`, `sample-tw --taipei`) and [Tainan](#tainan-city) (`tw-tainan.jsonl`, `sample-tainan --tainan`). Both are included automatically in the nightly gold suite. Each retains its own seeds and preparation command.
 
 ## Taipei City
 
@@ -101,7 +101,52 @@ Remaining failures:
 
 The local world index in `~/opengeocoding-index` is built from `~/geodata/osm`, which lacks the five extracts #233 moved, so its Taipei suffix results (0/114) understate the chart's index. These numbers measure this municipal sample, not national Taiwan accuracy, floor or apartment coverage.
 
-Cases have no `places` for ReverseGeocode to name: the export gives the district only as a code.
+### Reverse district expectations (#345)
+
+Both adapters originally left `Entry::places` empty, despite already expanding district codes for forward query generation. Taipei's 622 cases now require the named district; Tainan's 350 cases still have no district check. Tainan uses a different seven-digit address code and its own official-name table; its recent #470 corpus is intentionally not regenerated here.
+
+Taipei's existing 12-name mapping is verified against the National Land Surveying and Mapping Center (內政部國土測繪中心), **代碼服務－鄉鎮市區清單(戶政)** ([catalogue and licence](https://data.gov.tw/dataset/102011), [API specification](https://maps.nlsc.gov.tw/demo/COM_004_代碼服務_鄉鎮市區清單(戶政)_OAS2_V1.yml)). The catalogue explicitly licenses this code service under Government Data Open Licence v1, https://data.gov.tw/license. The unmodified API response is committed as `tests/registry/taipei-districts.xml`: captured 2026-10-31, **1,590 bytes**, SHA-256 `28f02758973901261c7d2c6b3733ed06a196fa64250a1deca7fc08564629157d`. Each generated case cites that capture separately from the address export.
+
+The [county list](https://api.nlsc.gov.tw/other/ListCounty) identifies `A` as 臺北市 / `63000`. `/other/ListTown1/A` returns its 12 **districts**, not villages, postal towns or the city itself. Join `鄉鎮市區代碼` to the exact eight-character `towncode` (`63000010` → 松山區, `63000100` → 內湖區); do not join the separate `towncode01` (`A01`, `A14`). All 12 codes in the pinned 2026-10-19 address capture occur in this list, and every name agrees with the adapter's pre-existing query mapping. The API response is undated, not a historical boundary release; this verifies compatibility with this snapshot, not arbitrary older exports.
+
+#### Official English aliases
+
+`tests/registry/taipei-district-english.tsv` supplements, rather than replaces, the Chinese names. Its 12 full English district names are transcribed from page 1 of the Ministry of the Interior's [臺灣地區鄉鎮市區級以上行政區域名稱中英對照表](https://gn.moi.gov.tw/GeoNamesApi/Files/Translation/臺灣地區鄉鎮市區級以上行政區域名稱中英對照表.pdf), version **111.09.16 (2022-09-16)**. The ministry's [website data declaration](https://gn.moi.gov.tw/GeoNames/License) releases its material under Government Data Open Licence unless specifically marked otherwise. PDF extraction whitespace is collapsed; the published apostrophe in `Da’an District` is retained. The table is joined by the exact Chinese name within its **臺北市** section, not by row number or a national name-only join (other cities have namesakes).
+
+The thirteenth English row, `北投區 → Beitou`, is an explicitly published short name in the Beitou District Office's [About Beitou District](https://english.gov.taipei/cp.aspx?n=1163FEB04E2A3189), updated **2026-10-02**. Its introductory text uses “Beitou” for the present district; its history separately distinguishes the former township. Taipei City's [open-access declaration](https://english.gov.taipei/News_Content.aspx?n=4E3FA84AC9A12D24&sms=5E019B60E5224755&s=52C7D2409618530A) permits reproduction, adaptation and sublicensing with attribution. No generic removal of `District`, transliteration or alias inferred from a service answer is used.
+
+This is a **transcribed extract**, not an unmodified PDF capture: the PDF was read through text extraction; direct local download timed out. The TSV, captured 2026-11-01, is **352 bytes**, SHA-256 `298654086562e7ce39ad4334f23818624bcc5e6d50799e80f0912da282a3f241`. Both publications predate the pinned address snapshot, and their 12 native names agree exactly with its NLSC mapping. Their dates do not establish compatibility with arbitrary historical district boundaries. Each generated row cites both the official table and the short-name source.
+
+Codes remain strings: zeros are significant. Taipei codes have no initial zero, so neither adding an initial zero nor removing an internal zero is accepted; seven-digit codes such as Tainan's are not interchangeable. Unknown eligible address codes fail preparation rather than assigning a default district. The runnable adapter test checks all 12 mappings against the pinned official XML, distinct `63000010`/`63000100`, malformed zero padding, the alternate identifier and an unknown code. It also passes every official native/English alias through the existing scorer, rejects every other Taipei district in both reverse checks, rejects a city-wide substitute and preserves wrong-house failures.
+
+Reproduction (reuse the pinned address input above; do not refresh it). Compare the code-list checksum before accepting a changed capture:
+
+```sh
+curl -fL 'https://api.nlsc.gov.tw/other/ListTown1/A' -o SOURCE/taipei-districts.xml
+sha256sum SOURCE/taipei-districts.xml tests/registry/taipei-districts.xml
+target/release/evaluate build-gold --seeds tests/registry/tw.seeds.jsonl --out tests/registry/tw.jsonl --taipei SOURCE/taipei-4326-2026-10-19.csv
+cargo test --locked --release --bin evaluate registry::taipei
+```
+
+Only `expect.places` (the official Chinese and full English district names, plus the official short name for Beitou), `source.district_names`, `source.district_english` and the verification date `source.retrieved` change in the 622 generated rows. The original address input is byte-identical to its pinned SHA-256 above. Query IDs, query text, locations, hold-outs, coordinates, radii, numbers, regions, labels and all other expectations are unchanged. No city-wide alternative is added: accepting 臺北市 alone would not check the district.
+
+#### Saved-run re-scoring
+
+The full saved run at consumer `ce977aa3f9647f7a9424c83f5500a83e6a7b838f`, index fingerprint `fc7a4814f632` (2026-10-31), includes all 622 Taipei cases with reverse place names, house answers and offset answers. Copies were re-scored using `evaluate report RUN_DIR --corpus FILE --rescore`, against the original expectations, the initial Chinese-only attempt and the corrected bilingual corpus. Original run artifacts are untouched.
+
+| Check | Old classes | New classes |
+|---|---|---|
+| ReverseGeocode | 608 pass, 14 wrong_house | unchanged |
+| ReverseGeocode offset | 622 pass | 619 pass, 3 wrong_place |
+| SearchAddress | 620 pass, 2 abstain | unchanged |
+| SuggestAddress | 619 pass, 3 missing | unchanged |
+| ResolveRegion | not applicable (no expected region) | unchanged |
+
+The initial Chinese-only attempt was an evaluation defect: it rejected English answers such as `Songshan District` for `松山區`, producing 1,230 newly failing checks and masking 14 existing wrong-house results as `wrong_place`. The [first CI comparison](https://github.com/Mokto/opengeocoding/actions/runs/41237357672) confirmed that score drop with identical service binaries, models and index on both sides. It was not evidence of a runtime regression. The official bilingual aliases remove those language-only failures without changing the scorer or accepting another district. Relative to that defective attempt, 608 at-point checks return to pass, 14 return to wrong_house and 619 offset checks return to pass.
+
+The remaining three `pass → wrong_place` changes are the native, ASCII-digit and floor forms of **one location**, 信義區市民大道六段38號 (`tw_section-taiwan-96ec6b`, `tw_section-taiwan-4c809d`, `tw_section-taiwan-5c5b7d`). At the original point, the saved answer is house 38 in `Xinyi District`, as the register requires. At the offset point, it is 八德路四段498之1號 in `Songshan District`. The pinned register independently places that returned house at `25.049501061808158, 121.57048554451896` in 松山區 (`63000010`). The generated offset is `25.0492887, 121.5705602`: that official Songshan point is 24.8 m away, versus 25.0 m for the original Xinyi point. The returned house therefore has source-backed geography and is a plausible nearer neighbour; this is not evidence of a wrongly located house. The offset rule still requires the original address's district, exposing its boundary assumption. These three failures remain visible rather than accepting Songshan for the at-point Xinyi check; independently sourcing offset-specific place expectations would be a separate evaluator change. No `Songshan District` alias, city-wide alternative, radius change or failure label is added to make this case pass.
+
+Review the report tables, not only the CLI diagnostic: `report --rescore`'s changed-count message does not include offset-only changes, so it prints zero for this re-score even though the offset table correctly shows these three failures. No response, runtime, index-builder or scoring rule changes. These are diagnostic checks on 240 locations, not a national accuracy estimate.
 
 ## Tainan City
 
@@ -167,7 +212,7 @@ Each district/category pool contributes the address with the smallest seeded SHA
 
 All 37 districts contribute. Each location has a native query (`臺南市新營區太子路５３巷１弄３２號, Taiwan`) and an ASCII-digit control at the same point. The draw balances districts and address shapes, not population or address counts; it is not a representative citywide accuracy sample. **42 locations (84 queries)** are held out by the shared location-hash rule, both forms together. No service answer selects or supplies an expectation.
 
-Cases require house level, goodMatch true, the source number including any `之` suffix, and a point within 300 m in Taiwan and Tainan (`TW-TNN`). The input has no postcode. ReverseGeocode checks the house number and region at the point and 25 m away; ResolveRegion checks Tainan. As for Taipei, no district-level `places` expectation is asserted: the register has district codes rather than settlement names or bilingual aliases.
+Cases require house level, goodMatch true, the source number including any `之` suffix, and a point within 300 m in Taiwan and Tainan (`TW-TNN`). The input has no postcode. ReverseGeocode checks the house number and region at the point and 25 m away; ResolveRegion checks Tainan. No district-level `places` expectation is asserted for Tainan: its adapter currently does not propagate the mapped district name to `Entry::places`. This remains outside the Taipei-only #345 update above.
 
 **Index ancestry.** Overture 2026-09-23.1 holds 847,064 addresses from OpenAddresses' `tw/tnn/regionwide`, whose source definition cites this register and an uploaded 2025 extract (2026-06-04). All 175 sampled addresses match its district, street/locality/lane/alley and reconstructed number within 7 cm (median 4 cm). OpenAddresses splits the number's remainder into the unit; the builder's Taiwan import keeps `之` subnumbers. The local index has no separate Tainan OpenAddresses file, but also reads the chart's Taiwan OSM extract. This measures fidelity to the register, not independent real-world accuracy.
 
