@@ -423,9 +423,7 @@ impl Index {
                     && (quals.is_empty() || self.qualifies(id, &quals, open))
             };
             let mut ranked: Vec<(Reverse<u64>, u8, u32)> = vec![];
-            let forms = if names == Names::Small {
-                vec![]
-            } else if head_open && !typo {
+            let forms = if head_open && !typo {
                 open_forms(head)
             } else {
                 vec![text.clone()]
@@ -435,7 +433,7 @@ impl Index {
                 candidates.extend(self.name_candidates(form, head_open, typo).iter());
             }
             // "koeln" is read as "köln" only when no place is named as typed
-            let umlaut = umlaut_form(&text).filter(|_| !typo && names != Names::Small);
+            let umlaut = umlaut_form(&text).filter(|_| !typo);
             for n in 0..2 {
                 if n == 1 {
                     match &umlaut {

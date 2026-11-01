@@ -503,11 +503,11 @@ impl Index {
                 return self.suggest_number_comma(&typed, cc, focus, limit);
             }
         }
-        let places = |names, want| {
-            self.suggest_places(&typed.parts, typed.open, cc, focus, names, want)
+        let places = |names| {
+            self.suggest_places(&typed.parts, typed.open, cc, focus, names, limit)
                 .into_iter()
         };
-        let found = places(Names::Inside, limit).collect::<Vec<_>>();
+        let found = places(Names::Inside).collect::<Vec<_>>();
         // a place whose name only contains the words (a "Main Street Historic District") comes
         // after the streets that are named so, unless it is a city ("york" is New York)
         let (named, contains): (Vec<_>, Vec<_>) = found.into_iter().partition(|&(id, fit)| {
@@ -530,7 +530,7 @@ impl Index {
         );
         // a name a letter off only fills what the text as typed leaves
         if out.len() < limit && !coded {
-            out.extend(places(Names::Typo, limit).map(|(id, _)| self.place_suggestion(id)));
+            out.extend(places(Names::Typo).map(|(id, _)| self.place_suggestion(id)));
         }
         if !out.iter().any(|s| s.kind == "address") {
             let found = self.suggest_australian(&typed, cc, focus, limit);
@@ -611,10 +611,8 @@ impl Index {
             out = found;
         }
         let mut out = kept(out, cc, limit);
-        if out.len() < limit {
-            out.extend(
-                places(Names::Small, limit - out.len()).map(|(id, _)| self.place_suggestion(id)),
-            );
+        if out.len() < limit && !out.iter().any(|s| s.kind == "address") {
+            out.extend(places(Names::Small).map(|(id, _)| self.place_suggestion(id)));
         }
         kept(out, cc, limit)
     }
