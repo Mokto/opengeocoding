@@ -176,7 +176,7 @@ pub fn suggest_rank(expect: &Expect, found: &[Suggested]) -> Option<usize> {
             && alt
                 .components
                 .get("name")
-                .is_none_or(|name| names_place(s.name.split(',').next().unwrap_or(""), name))
+                .is_none_or(|name| names_landmark(&s.name, name))
             && alt
                 .point
                 .is_none_or(|p| haversine(p, s.point) <= alt.radius_km.unwrap_or(0.))
@@ -357,6 +357,19 @@ pub fn reverse_class(
     } else {
         "pass"
     }
+}
+
+fn names_landmark(display: &str, wanted: &str) -> bool {
+    let answer = display.split(',').next().unwrap_or("");
+    if names_place(answer, wanted) {
+        return true;
+    }
+    let answer = answer.to_lowercase();
+    let wanted = wanted.to_lowercase();
+    wanted
+        .strip_suffix(" tér")
+        .zip(answer.strip_suffix(" square"))
+        .is_some_and(|(wanted, answer)| names_place(answer, wanted))
 }
 
 /// An answer's place name is the wanted one, compared transliterated and folded without spaces
@@ -1506,6 +1519,39 @@ mod tests {
         assert_eq!(suggest_rank(&expect, &found), None);
         expect.components.shift_remove("name");
         assert_eq!(suggest_rank(&expect, &found), Some(1));
+    }
+
+    #[test]
+    fn translated_square_requires_the_complete_proper_name() {
+        assert!(names_landmark(
+            "Fővám Square, Budapest, Hungary",
+            "Fővám tér"
+        ));
+        assert!(names_landmark(
+            "Rákóczi square, Budapest, Hungary",
+            "Rákóczi tér"
+        ));
+        assert!(names_landmark(
+            "Blaha Lujza square, Budapest, Hungary",
+            "Blaha Lujza tér"
+        ));
+        assert!(!names_landmark(
+            "Fővám square, Budapest, Hungary",
+            "Rákóczi tér"
+        ));
+        assert!(!names_landmark(
+            "Blaha Lujza square, Budapest, Hungary",
+            "Fővám tér"
+        ));
+        assert!(!names_landmark(
+            "Rákóczi street, Budapest, Hungary",
+            "Rákóczi tér"
+        ));
+        assert!(!names_landmark(
+            "Rákóczi square extension, Budapest, Hungary",
+            "Rákóczi tér"
+        ));
+        assert!(!names_landmark("square, Budapest, Hungary", "tér"));
     }
 
     #[test]
