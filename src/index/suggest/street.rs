@@ -689,13 +689,16 @@ impl Index {
                     .chain(town)
                     .chain(rest)
                     .collect();
-                let found: Vec<_> = self
-                    .retry_streets(parts, typed.open, cc, focus, want, chain)
-                    .into_iter()
-                    .filter(|s| s.kind == "address" && self.house_accepts_postcode(s, pc))
-                    .collect();
-                if !found.is_empty() {
-                    return found;
+                // A postcode's place can contain that postcode and reconstruct an earlier input.
+                if !chain.contains(&parts) {
+                    let found: Vec<_> = self
+                        .retry_streets(parts, typed.open, cc, focus, want, chain)
+                        .into_iter()
+                        .filter(|s| s.kind == "address" && self.house_accepts_postcode(s, pc))
+                        .collect();
+                    if !found.is_empty() {
+                        return found;
+                    }
                 }
             }
         }
@@ -759,15 +762,11 @@ impl Index {
                     && (words[i].len() >= 5 || words[i].contains(|c: char| !c.is_ascii_digit()))
                     && self.postcode_exists(words[i], cc)
             });
-            if let Some(at) = at {
-                let found = self.retry_streets(
-                    vec![words[..at].join(" "), words[at..].join(" ")],
-                    typed.open,
-                    cc,
-                    focus,
-                    want,
-                    chain,
-                );
+            let parts = at
+                .map(|at| vec![words[..at].join(" "), words[at..].join(" ")])
+                .filter(|parts| !chain.contains(parts));
+            if let Some(parts) = parts {
+                let found = self.retry_streets(parts, typed.open, cc, focus, want, chain);
                 if found.iter().any(|s| s.kind == "address") {
                     return found;
                 }

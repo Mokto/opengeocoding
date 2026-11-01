@@ -329,7 +329,7 @@ fn without_number_mark(road: &str) -> &str {
 /// "No:5", "nº 1824", "№ 43", "#12" -> the number itself.
 fn house_number(n: &str) -> &str {
     let t = n.trim();
-    let lower = t.to_lowercase();
+    let lower = t.to_ascii_lowercase();
     for prefix in ["no.", "no:", "nº", "n°", "n.", "no", "№", "#", "nr.", "nr"] {
         if let Some(rest) = lower.strip_prefix(prefix) {
             let rest = rest.trim_start_matches([' ', ':', '.']);
