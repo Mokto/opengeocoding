@@ -1,4 +1,4 @@
-use crate::index::country::{au, ca, de, dk, ee, gr, hk_mo, ie, jp, ps, pt, si, tw};
+use crate::index::country::{au, ca, de, dk, ee, gr, hk_mo, ie, is, jp, ps, pt, si, tw};
 use crate::{
     index::{
         Index, Parser,
@@ -230,7 +230,12 @@ impl Resolver {
                 }
                 own_regions(&mut found);
                 // Rewrites and direct fallbacks must also respect the original geographic context.
-                if !numeric_place_supported(&query, &found) {
+                if !numeric_place_supported(&query, &found)
+                    || found
+                        .address_details
+                        .as_option()
+                        .is_some_and(|d| is::country_conflict(&core.index, &query, &d.country_code))
+                {
                     found = FullAddress::default();
                 }
                 Ok(found)
@@ -2009,6 +2014,25 @@ impl Core {
             return Ok(FullAddress::default());
         }
         let started = std::time::Instant::now();
+        if is::alias_conflict(&self.index, query) {
+            return Ok(FullAddress::default());
+        }
+        if let Some(hits) = is::numberless(&self.index, query) {
+            METRICS
+                .search
+                .with_label_values(&["iceland_numberless"])
+                .observe(started.elapsed().as_secs_f64());
+            METRICS
+                .tiers
+                .with_label_values(&["iceland_numberless"])
+                .inc();
+            if let [hit] = hits.as_slice() {
+                let mut found = format_response(&self.index.render(hit, true))?;
+                found.good_match = true;
+                return Ok(found);
+            }
+            return Ok(FullAddress::default());
+        }
         if let Some(hit) = self.index.korean_region(query) {
             let mut found = format_response(&self.index.render(&hit, true))?;
             found.good_match = true;

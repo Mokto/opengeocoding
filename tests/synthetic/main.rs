@@ -26,6 +26,8 @@ fn dir() -> &'static PathBuf {
         world::write_osm(&root.join("osm"));
         world::write_geonames(&root.join("cities.txt"));
         let out = root.join("index");
+        let iceland = root.join("iceland.csv");
+        let iceland_sha = world::is::write(&iceland);
         let built = Command::new(env!("CARGO_BIN_EXE_build_index"))
             .arg(root.join("release"))
             .arg(&out)
@@ -33,6 +35,10 @@ fn dir() -> &'static PathBuf {
             .arg(root.join("osm"))
             .arg("--geonames-places")
             .arg(root.join("cities.txt"))
+            .arg("--iceland-addresses")
+            .arg(&iceland)
+            .arg("--iceland-addresses-sha256")
+            .arg(&iceland_sha)
             .output()
             .unwrap();
         assert!(
@@ -2133,6 +2139,7 @@ async fn resolve_follows_the_authored_facts() {
         }
     }
     world::hk::check_bilingual_safeguards(&resolver).await;
+    world::is::check_safeguards(&resolver).await;
     assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     for country in ["Netherlands", "NL"] {
         let query = format!("Meadowln. 4a, 1234 TJ Polderdam, {country}");

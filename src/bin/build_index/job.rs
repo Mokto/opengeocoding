@@ -115,6 +115,14 @@ pub fn job(args: Vec<String>) -> Result<()> {
             d.join("shops.zip").to_string_lossy().into_owned(),
         ]);
     }
+    if let Some(path) = &got.iceland_addresses {
+        build.extend([
+            "--iceland-addresses".into(),
+            path.to_string_lossy().into_owned(),
+            "--iceland-addresses-sha256".into(),
+            sources.iceland_addresses.as_ref().unwrap().sha256.clone(),
+        ]);
+    }
     if let Some(b) = sources.bbox() {
         build.extend([
             "--bbox".into(),
@@ -256,6 +264,12 @@ fn attribution(sources: &Sources, out: &Path, korea_shops: Option<&Path>) -> Res
         text += "GeoNames postal codes: CC BY 4.0, https://www.geonames.org/\n";
     }
     text += "GeoNames populated places: CC BY 4.0, https://www.geonames.org/\n";
+    if let Some(source) = &sources.iceland_addresses {
+        text += &format!(
+            "Byggir á upplýsingum frá HMS, Staðfangaskrá (https://hms.is/stadfangaskra), Icelandic public information reuse terms: official nominative/dative locator aliases and numberless address points, geographically joined to indexed streets; capture SHA-256 {}, {}\n",
+            source.sha256, source.url
+        );
+    }
     if let Some(d) = korea_shops {
         let source: serde_json::Value =
             serde_json::from_slice(&std::fs::read(d.join("source.json"))?)?;

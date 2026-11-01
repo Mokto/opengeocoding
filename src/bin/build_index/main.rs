@@ -6,6 +6,7 @@ mod digest;
 mod fetch;
 mod geo;
 mod geonames;
+mod iceland;
 mod job;
 mod landmarks;
 mod mem;
@@ -52,7 +53,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--iceland-addresses CSV --iceland-addresses-sha256 HASH] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1] [--sources-mirror URL]
        build_index fetch --store URL --sources FILE --scratch DIR [--sources-mirror URL]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
@@ -2419,6 +2420,24 @@ fn build(args: &[String]) {
             (k, v, place)
         })
         .collect();
+    let iceland = opt("--iceland-addresses")
+        .first()
+        .map(|path| {
+            let hash = opt("--iceland-addresses-sha256").into_iter().next()
+                .expect("--iceland-addresses needs --iceland-addresses-sha256");
+            let streets = iceland::read(Path::new(path), &hash, &assigner)
+                .expect("read Iceland address capture");
+            let source = serde_json::json!({
+                "dataset": "HMS Staðfangaskrá",
+                "capture_sha256": hash,
+                "source": "https://hms.is/stadfangaskra",
+                "changes": "Official locator aliases and numberless points joined to existing street geography"
+            });
+            std::fs::write(Path::new(out).join("iceland-source.json"), serde_json::to_vec_pretty(&source).unwrap()).unwrap();
+            std::fs::write(Path::new(out).join("ICELAND-NOTICE.txt"), iceland::NOTICE).unwrap();
+            streets
+        })
+        .unwrap_or_default();
 
     // Each shard sorts in memory; allow as many at once as half the headroom fits.
     let shard_bytes = spill.bytes() / NUMBER_SHARDS as u64;
@@ -2530,7 +2549,9 @@ fn build(args: &[String]) {
                       cities: &[u32],
                       postal_towns: &[u64],
                       (x, y): (f64, f64),
-                      weight: u64| {
+                      weight: u64,
+                      numberless: &[(String, f64, f64)],
+                      aliases: &[String]| {
         let cities: Vec<&str> = cities.iter().map(|&c| strings.get(c)).collect();
         let joined = names.join(" ");
         let cnames = schema::country_words(cc, &joined);
@@ -2549,6 +2570,12 @@ fn build(args: &[String]) {
         );
         for n in names {
             d.add_text(f.name, n);
+        }
+        for alias in aliases {
+            d.add_text(f.iceland_alias, fold(alias));
+        }
+        for address in numberless {
+            d.add_text(f.numberless, serde_json::to_string(address).unwrap());
         }
         for w in cnames {
             d.add_text(f.cnames, w);
@@ -2623,7 +2650,7 @@ fn build(args: &[String]) {
             let seg = (place != NO_PLACE && places[place as usize].country == cc)
                 .then(|| find_seg(&segs, place, key))
                 .flatten();
-            let names = match seg {
+            let mut names = match seg {
                 Some((gs, gp)) => {
                     seg_sid[seg_at(gp << 8 | gs as u32)].store(sid, Relaxed);
                     merged.fetch_add(1, Relaxed);
@@ -2631,6 +2658,16 @@ fn build(args: &[String]) {
                 }
                 None => vec![s.text.get(st.name)],
             };
+            let official = (cc == *b"IS")
+                .then(|| iceland.get(&(place, key.to_string())))
+                .flatten();
+            if let Some(official) = official {
+                for alias in &official.aliases {
+                    if !names.contains(&alias.as_str()) {
+                        names.push(alias);
+                    }
+                }
+            }
             if seg.is_none() && st.lot {
                 lots.lock().unwrap().insert(sid);
             }
@@ -2658,6 +2695,8 @@ fn build(args: &[String]) {
                 &shard_towns[from..t],
                 point,
                 n,
+                official.map_or(&[], |s| s.numberless.as_slice()),
+                official.map_or(&[], |s| s.aliases.as_slice()),
             );
         }
     });
@@ -2686,6 +2725,8 @@ fn build(args: &[String]) {
             &[],
             (mean(g.sx, g.n.into()), mean(g.sy, g.n.into())),
             g.n.into(),
+            &[],
+            &[],
         );
     });
     commit(&mut writer);
