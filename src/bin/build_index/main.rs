@@ -37,6 +37,7 @@ use std::{
     collections::{HashMap, HashSet},
     fs::File,
     hash::{BuildHasher, BuildHasherDefault, DefaultHasher, Hash},
+    io::BufRead,
     path::{Path, PathBuf},
     sync::{
         Mutex,
@@ -2438,6 +2439,11 @@ fn build(args: &[String]) {
                 .collect(),
         );
     };
+    let small: Vec<bool> =
+        std::io::BufReader::new(File::open(Path::new(out).join("places.tsv")).unwrap())
+            .lines()
+            .map(|line| line.unwrap().split('\t').nth(1) == Some(schema::SMALL_GEONAMES))
+            .collect();
     places
         .par_iter()
         .enumerate()
@@ -2445,9 +2451,14 @@ fn build(args: &[String]) {
         .for_each(|(i, p)| {
             let names = p.names.replace(NAME_SEP, " ");
             let cnames = schema::country_words(country_str(&p.country), &names);
+            let (name_field, country_field) = if small[i] {
+                (f.small_names, f.small_cnames)
+            } else {
+                (f.names, f.cnames)
+            };
             let mut d = doc!(
                 f.kind => "p",
-                f.names => names,
+                name_field => names,
                 f.country => country_str(&p.country),
                 f.ids => i.to_string(),
                 f.name => p.names.split(NAME_SEP).next().unwrap_or(""),
@@ -2455,7 +2466,7 @@ fn build(args: &[String]) {
                 f.importance => p.population + place_weight(p.subtype),
             );
             for w in cnames {
-                d.add_text(f.cnames, w);
+                d.add_text(country_field, w);
             }
             if let Some((x, y)) = p.xy {
                 d.add_f64(f.x, x);

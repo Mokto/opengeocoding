@@ -214,6 +214,36 @@ fn an_exact_small_place_survives_a_word_shared_by_many_streets() {
 }
 
 #[test]
+fn small_place_words_are_separate_from_ordinary_lookup_words() {
+    use opengeocoding::index::schema;
+    let raw = tantivy::Index::open_in_dir(dir()).unwrap();
+    let searcher = raw.reader().unwrap().searcher();
+    let (_, fields) = schema::schema();
+    let qualified = schema::country_word("AT", "kleinweiler");
+    for (field, word, expected) in [
+        (fields.names, "kleinweiler", 0),
+        (fields.cnames, qualified.as_str(), 0),
+        (fields.small_names, "kleinweiler", 1),
+        (fields.small_cnames, qualified.as_str(), 1),
+    ] {
+        let count: u64 = searcher
+            .segment_readers()
+            .iter()
+            .map(|segment| {
+                segment
+                    .inverted_index(field)
+                    .unwrap()
+                    .terms()
+                    .get(word.as_bytes())
+                    .unwrap()
+                    .map_or(0, |info| info.doc_freq as u64)
+            })
+            .sum();
+        assert_eq!(count, expected, "{word}");
+    }
+}
+
+#[test]
 fn a_small_geonames_place_fills_only_a_gap_no_namesake_shares_and_names_no_point() {
     let found = |text: &str| index().suggest(text, 5, Some("AT"), None, false);
     let hamlet = found("Kleinweiler");

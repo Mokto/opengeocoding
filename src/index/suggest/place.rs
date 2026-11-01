@@ -467,12 +467,17 @@ impl Index {
             // first, for the places a prefix adds ("paris" -> "parish") are many.
             if ranked.len() < want && !typo {
                 let want_name = name_key(&text);
+                let field = if names == Names::Small {
+                    self.f.small_names
+                } else {
+                    self.f.names
+                };
                 let mut ids: Vec<u32> = vec![];
                 for as_prefix in [false, true] {
                     if as_prefix && !head_open {
                         break;
                     }
-                    let Some((cl, rarest)) = self.typed_words(self.f.names, head, as_prefix) else {
+                    let Some((cl, rarest)) = self.typed_words(field, head, as_prefix) else {
                         continue;
                     };
                     if as_prefix && rarest > MAX_PLACE_WORK {

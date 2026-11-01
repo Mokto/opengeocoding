@@ -483,12 +483,16 @@ impl Index {
             forms.extend(SUFFIXES.iter().map(|s| format!("{folded}{s}")));
         }
         let text = bare.unwrap_or(&folded);
-        let cl = || self.musts(self.f.names, text);
         let ids: Vec<Vec<u32>> = [Kind::Searched, Kind::Small][..if gap { 2 } else { 1 }]
             .iter()
             .copied()
             .map(|kind| {
-                self.top_of(kind, Some(cc), cl(), 20)
+                let field = if matches!(kind, Kind::Small) {
+                    self.f.small_names
+                } else {
+                    self.f.names
+                };
+                self.top_of(kind, Some(cc), self.musts(field, text), 20)
                     .into_iter()
                     .map(|a| self.fast(a, "id") as u32)
                     .filter(|&id| self.places[id as usize].subtype.as_ref() == "locality")

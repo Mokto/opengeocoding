@@ -991,6 +991,7 @@ impl Index {
             && let Some(word) = t.term().value().as_str()
             && let Some(field) = match t.term().field() {
                 f if f == self.f.names => Some(self.f.cnames),
+                f if f == self.f.small_names => Some(self.f.small_cnames),
                 f if f == self.f.city => Some(self.f.ccity),
                 _ => None,
             }

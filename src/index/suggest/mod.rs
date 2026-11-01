@@ -611,7 +611,7 @@ impl Index {
             out = found;
         }
         let mut out = kept(out, cc, limit);
-        if out.len() < limit && !out.iter().any(|s| s.kind == "address") {
+        if out.len() < limit {
             out.extend(places(Names::Small).map(|(id, _)| self.place_suggestion(id)));
         }
         kept(out, cc, limit)

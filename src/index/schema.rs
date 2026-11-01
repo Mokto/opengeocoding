@@ -153,6 +153,8 @@ pub struct Fields {
     pub x: Field,
     pub y: Field,
     pub postal_town: Field,
+    pub small_names: Field,
+    pub small_cnames: Field,
 }
 
 /// The source of a `postal_town` entry naming the town around the house's postal locality (New
@@ -193,6 +195,8 @@ pub fn schema() -> (Schema, Fields) {
         x: b.add_f64_field("x", FAST),
         y: b.add_f64_field("y", FAST),
         postal_town: b.add_text_field("postal_town", STORED),
+        small_names: b.add_text_field("small_names", folded()),
+        small_cnames: b.add_text_field("small_cnames", STRING),
     };
     (b.build(), f)
 }
