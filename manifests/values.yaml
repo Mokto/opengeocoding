@@ -38,7 +38,7 @@ index:
   # test` fails when the code and this disagree. Changing it, or anything under sources or
   # modelsVersion, names a new index: the leader builds it while the running pods keep
   # serving the old one.
-  builderHash: "eb225d0b385a41f5"
+  builderHash: "87ca114eef0ee0e8"
   modelsVersion: v1
   sources:
     overtureRelease: "2026-10-21.0"
@@ -58,6 +58,9 @@ index:
     # The addresses Syke's Ryhti register names only in Swedish (most of Åland's), which
     # OpenAddresses' Finnish layers publish without a number; fetched under `snapshot`.
     ryhti: true
+    # Optional pinned HMS WFS CSV; see docs/evaluation/registry/is.md. A mutable WFS URL
+    # cannot reproduce an older capture: host its pinned bytes at your own HTTPS URL.
+    icelandAddresses: null
     # INEGI's establishment directory (DENUE), its latest edition fetched under `snapshot`: the
     # establishments that entered it before `before`. The Mexico corpus samples later ones, so
     # moving `before` means sampling that corpus again (docs/evaluation/registry/mx.md).

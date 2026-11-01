@@ -16,6 +16,7 @@ pub mod gb;
 pub mod gr;
 pub mod hk_mo;
 pub mod ie;
+pub mod is;
 pub mod it;
 pub mod jp;
 pub mod kr;
