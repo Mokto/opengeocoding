@@ -184,6 +184,25 @@ Against the `ecd8645` baseline on the same full index (`dbec0f0cae254966`, data 
 | Held-out SearchAddress | 57/110 | 94/110 |
 | Held-out SuggestAddress | 0/110 | 94/110 |
 
-The remaining residence search failures are 74 too coarse, eight abstentions and two near misses. Many ward-qualified addresses have their streets stored under the city, not the ward; the direct lookup does not discard that qualifier to claim a match. This change does not establish general half-typed native-script completion, romanized address coverage or building/entrance accuracy. The weak block panel remains **12/368** for search and **0/368** for full-string suggestions; a block-aware lookup is still needed.
+After this correction, the remaining residence search failures were 74 too coarse, eight abstentions and two near misses. Many ward-qualified addresses have their streets stored under the city, not the ward; the direct lookup does not discard that qualifier to claim a match. This change does not establish general half-typed native-script completion, romanized address coverage or building/entrance accuracy. The weak block panel remains **12/368** for search and **0/368** for full-string suggestions; a block-aware lookup is still needed.
 
 A 1,005-case Japan comparison includes the two registries, the OSM panel and the other Japanese gold checks. Repeated baseline and candidate runs have zero answer/scoring drift. The full **44,047-case** comparison gains 191 SearchAddress passes and 416 SuggestAddress passes, all in Japan, with no newly failing check or worse failure class. ResolveRegion and both reverse checks are unchanged. Absolute runs still fail inherited critical results; the relative comparison passes. Expectations were not weakened. Development used the non-held-out residence panel; held-out counts are validation, not tuning targets. These are shared-source consistency checks, not national accuracy estimates. Local runs use `--repeat 1 --speed-cases 0`; only CI can provide the measured speed gate.
+
+### Ward-qualified residence lookup
+
+The next correction uses the already-stored source municipality/ward attached to a house number or its own postcode when the geographic hierarchy files the street under the parent city. It requires the full written municipality and ward in the requested prefecture, an exact road and complete residence number, and an unambiguous source municipality/ward match. A different indexed district, a second distant copy of the number, conflicting source municipalities or an unverified ward prevents this shortcut. A source association keyed only by postcode cannot disambiguate two wards sharing that postcode in the same street document. Houses already found within the indexed ward take precedence over this source-backed fallback.
+
+Municipality lookup tries complete suffixes instead of splitting a proper ward name at every administrative-looking character: `中村区` must remain intact even though it contains `村`. The entire written hierarchy still has to match; no municipality or ward is silently discarded. The original query is checked after resolver rewrites as well, so an unsupported ward cannot become a confident city-only house answer. A verified ward can instead be returned as a structured fallback with goodMatch false. The source-backed house's stored geographic hierarchy may still display the parent city; this change does not rewrite the index geography or establish ward-level reverse coverage.
+
+Compared with `bcdf9d9` on the same full index (unchanged builder `495ed3bf27ad1ccd`, data digest `696ca51d63f3`) and models:
+
+| Residence-panel check | Before | After |
+|---|---:|---:|
+| SearchAddress | 428/512 | 506/512 |
+| Full-string SuggestAddress | 416/512 | 502/512 |
+| Held-out SearchAddress | 94/110 | 108/110 |
+| Held-out SuggestAddress | 94/110 | 108/110 |
+
+The non-held-out panel improves from 334 to 398/402 search passes and 322 to 394/402 suggestion passes; held-out cases were reserved for validation. Remaining search failures are four abstentions and two too-coarse responses. The full **44,047-case** comparison gains 78 search passes and 86 suggestion passes, all within this residence panel, with no newly failing check or worse class. The three other changed search answers remain passing at the same house coordinates and number: two display Sapporo rather than Teine Ward as the city, and one displays Niigata rather than Nishi Ward and normalizes postcode punctuation. ResolveRegion, both reverse checks, the block panel and all other countries are unchanged. Full baseline/head repeats have zero answer/scoring drift. Absolute full runs retain inherited critical failures; the relative diff passes.
+
+No corpus, expectation, tolerance, failure label, scoring, source input or builder hash changes. Authored synthetic checks cover number- and postcode-specific source associations, conflicting wards/countries/prefectures, missing/ambiguous source associations, distant duplicate numbers, proper ward names containing `村`, preservation of an existing geographic-ward match, and the resolver rewrite guard. These remain shared-source consistency measurements, not national accuracy or entrance-level accuracy. Local runs have no timed speed sample; measured speed remains a CI check.
