@@ -9,7 +9,20 @@ Source: https://data.gov.tw/dataset/102011
 Distribution: https://api.nlsc.gov.tw/other/ListTown1/A
 Government Data Open Licence, version 1 (政府資料開放授權條款-第1版), https://data.gov.tw/license
 Changes: joined the address export's eight-digit district code to towncode and used townname
-as the reverse district expectation. The XML capture is unmodified. No translated aliases are inferred.
+as the reverse district expectation. The XML capture is unmodified.
+English district names: 內政部 (Ministry of the Interior), 2022-09-16 (111.09.16),
+臺灣地區鄉鎮市區級以上行政區域名稱中英對照表, page 1, Taipei City section.
+Source: https://gn.moi.gov.tw/GeoNamesApi/Files/Translation/臺灣地區鄉鎮市區級以上行政區域名稱中英對照表.pdf
+Government Data Open Licence: https://gn.moi.gov.tw/GeoNames/License
+Changes: transcribed the 12 Taipei Chinese-English pairs into taipei-district-english.tsv,
+collapsing PDF extraction whitespace, and joined the Chinese names to the NLSC district codes.
+The short name Beitou comes from Beitou District Office, Taipei City, About Beitou District
+(updated 2026-10-02): https://english.gov.taipei/cp.aspx?n=1163FEB04E2A3189
+Taipei City's open-access declaration permits reproduction, adaptation and sublicensing
+with source attribution:
+https://english.gov.taipei/News_Content.aspx?n=4E3FA84AC9A12D24&sms=5E019B60E5224755&s=52C7D2409618530A
+Changes: added the published short name as a second English row for 北投區 in the same TSV.
+No English name is guessed from transliteration or copied from a geocoder.
 
 臺南市門牌坐標資料-僅供參考 — 臺南市政府民政局 (Tainan City Government, Bureau of Civil Affairs),
 2025 (民國114年), resource updated 2026-07-16; used in tests/registry/tw-tainan.jsonl.

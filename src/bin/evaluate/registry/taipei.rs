@@ -13,6 +13,7 @@ use std::{
 
 const URL: &str = "https://data.gov.tw/dataset/155472";
 const DISTRICTS: &str = include_str!("../../../../tests/registry/taipei-districts.xml");
+const ENGLISH_NAMES: &str = include_str!("../../../../tests/registry/taipei-district-english.tsv");
 static NUMBER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^([0-9]+(?:之[0-9]+)?)號((?:地下)?[一二三四五六七八九十百0-9]+樓.*)?$").unwrap()
 });
@@ -74,6 +75,24 @@ impl Address {
             "63000120" => Some("北投區"),
             _ => None,
         }
+    }
+    fn district_places(&self) -> Result<Vec<String>> {
+        let native = self.district_name().context("unknown Taipei district")?;
+        let names = super::places(
+            std::iter::once(native).chain(
+                ENGLISH_NAMES
+                    .lines()
+                    .skip(1)
+                    .filter_map(|line| line.split_once('\t'))
+                    .filter(|(name, _)| *name == native)
+                    .map(|(_, english)| english),
+            ),
+        );
+        ensure!(
+            names.len() >= 2,
+            "Taipei district lacks official English name: {native}"
+        );
+        Ok(names)
     }
     fn query(&self, number: &str) -> String {
         format!(
@@ -276,8 +295,29 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
             "sha256": sha256_hex(DISTRICTS.as_bytes()),
             "code_field": "towncode",
         }));
+        provenance.insert("district_english".into(), json!({
+            "name": "臺灣地區鄉鎮市區級以上行政區域名稱中英對照表",
+            "agency": "內政部",
+            "url": "https://gn.moi.gov.tw/GeoNamesApi/Files/Translation/臺灣地區鄉鎮市區級以上行政區域名稱中英對照表.pdf",
+            "version": "111.09.16 (2022-09-16)",
+            "page": 1,
+            "license": REGISTRY.license,
+            "license_url": "https://gn.moi.gov.tw/GeoNames/License",
+            "retrieved": "2026-11-01",
+            "release": "taipei-district-english.tsv",
+            "sha256": sha256_hex(ENGLISH_NAMES.as_bytes()),
+            "preparation": "Taipei rows transcribed from official PDF text; extraction whitespace collapsed; Beitou short name from the district office's profile",
+            "short_name_source": {
+                "name": "About Beitou District",
+                "agency": "Beitou District Office, Taipei City",
+                "url": "https://english.gov.taipei/cp.aspx?n=1163FEB04E2A3189",
+                "updated": "2026-10-02",
+                "license": "Taipei-City-Government-Open-Access",
+                "license_url": "https://english.gov.taipei/News_Content.aspx?n=4E3FA84AC9A12D24&sms=5E019B60E5224755&s=52C7D2409618530A",
+            },
+        }));
         provenance.extend(serde_json::from_value::<serde_json::Map<String, Value>>(json!({"district_code":a.district,"street":a.street,"area":a.area,"lane":a.lane,"alley":a.alley,"house_number":a.raw_number,"floor_address":a.floor.as_ref().map(|f| &f.0),"coordinate_transform":"EPSG:3826 to EPSG:4326, DuckDB spatial / PROJ, always_xy=true","location_key":"SHA256(district, street, area, lane, alley, house number), ASCII digits, NUL separated"}))?);
-        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number.clone())]), radius_floor_km: 0.15, provenance, number_aliases: None, places: vec![a.district_name().context("unknown Taipei district")?.into()] }))
+        Ok((id.clone(), Entry { point: Point::Wgs84(a.point), components: indexmap::IndexMap::from([("house_number", a.number.clone())]), radius_floor_km: 0.15, provenance, number_aliases: None, places: a.district_places()? }))
     }).collect()
 }
 
@@ -299,6 +339,12 @@ mod tests {
             .collect();
         assert_eq!(districts.len(), 12);
         assert_ne!(districts["63000010"], districts["63000100"]);
+        assert_eq!(ENGLISH_NAMES.lines().count(), 14);
+        for line in ENGLISH_NAMES.lines().skip(1) {
+            let (name, english) = line.split_once('\t').unwrap();
+            assert!(districts.values().any(|n| n == name));
+            assert!(!english.is_empty() && !english.contains('\t'));
+        }
         std::fs::write(
             &path,
             format!(
@@ -313,15 +359,67 @@ mod tests {
         for (id, a) in rows {
             let expected = &districts[&a.district];
             assert_eq!(a.district_name(), Some(expected.as_str()));
+            let places = &prepared[&id].places;
+            assert_eq!(&places[0], expected);
+            assert!(places[1].ends_with(" District"));
+            let expect = crate::score::Expect {
+                country: vec!["tw".into()],
+                level: "house".into(),
+                point: Some(a.point),
+                radius_km: Some(0.15),
+                places: places.clone(),
+                components: indexmap::IndexMap::from([("house_number".into(), a.number.clone())]),
+                ..Default::default()
+            };
+            let answer = |place: &str, number: &str| {
+                crate::score::reversed(&json!({
+                    "results": [{"layer": "address", "address": {
+                        "geoCoordinates": {"lat": a.point[0], "lon": a.point[1]},
+                        "addressDetails": {"countryCode": "tw", "city": place, "houseNumber": number}
+                    }}]
+                }))
+            };
+            for place in places {
+                assert_eq!(
+                    crate::score::reverse_class(&expect, None, &answer(place, "1"), false),
+                    "pass"
+                );
+                assert_eq!(
+                    crate::score::reverse_class(&expect, None, &answer(place, "2"), false),
+                    "wrong_house"
+                );
+            }
+            for (other_id, other) in &prepared {
+                if other_id != &id {
+                    for place in &other.places {
+                        for offset in [false, true] {
+                            assert_eq!(
+                                crate::score::reverse_class(
+                                    &expect,
+                                    None,
+                                    &answer(place, "1"),
+                                    offset
+                                ),
+                                "wrong_place"
+                            );
+                        }
+                    }
+                }
+            }
             assert_eq!(
-                prepared[&id].places.as_slice(),
-                std::slice::from_ref(expected)
+                crate::score::reverse_class(&expect, None, &answer("Taipei", "1"), false),
+                "wrong_place"
             );
             assert_eq!(
                 prepared[&id].provenance["district_names"]["code_field"],
                 "towncode"
             );
         }
+        let beitou = prepared
+            .values()
+            .find(|entry| entry.places[0] == "北投區")
+            .unwrap();
+        assert_eq!(beitou.places, ["北投區", "Beitou District", "Beitou"]);
         for code in ["63000130", "063000010", "6300010", "6300100", "A01"] {
             std::fs::write(&path, format!("{header}{}", row(code))).unwrap();
             assert!(
