@@ -244,6 +244,10 @@ pub fn cases() -> Vec<Case> {
             town("jp-nakatsu", false),
         ),
         case(
+            "大分県中津市海風一丁目2-3-4, Nakatsu 123-4567, Japan",
+            at_house("海風一丁目", "2-3-4"),
+        ),
+        case(
             "大分県星雲郡夏見町日和二丁目6-7-8, Japan",
             at_house("日和二丁目", "6-7-8"),
         ),
@@ -274,6 +278,11 @@ fn native_houses_keep_residence_numbers_numeric_streets_and_prefecture_scope() {
             "大分県中津市海風一丁目2-3101, Japan",
             "海風一丁目",
             "2-3101",
+        ),
+        (
+            "大分県中津市海風一丁目2-3-4, Nakatsu 123-4567, Japan",
+            "海風一丁目",
+            "2-3-4",
         ),
         (
             "日本大分県中津市桜９条東三丁目7-8-9",
@@ -343,6 +352,8 @@ fn native_houses_keep_residence_numbers_numeric_streets_and_prefecture_scope() {
         "〒999-9999 大分県中津市海風一丁目2-3-4, Japan",
         "日本　〒９９９ー９９９９ 大分県中津市海風一丁目2-3-4",
         "大分県中津市沖代町一丁目5-9, China",
+        "大分県中津市海風一丁目2-3-4, Shadow Nakatsu 123-4567, Japan",
+        "大分県中津市海風一丁目2-3-4, Nakatsu 999-9999, Japan",
     ] {
         assert!(
             !index()

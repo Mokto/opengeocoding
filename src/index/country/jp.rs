@@ -49,7 +49,10 @@ pub(crate) fn japanese(q: &str) -> Vec<(String, String, String)> {
     });
     let mut parts = q.split(',').map(str::trim);
     let head = parts.next().unwrap_or("");
-    if parts.any(|p| crate::matching::country_named(p) != "jp") {
+    if parts.any(|p| {
+        let country = crate::matching::country_named(p);
+        !country.is_empty() && country != "jp"
+    }) {
         return vec![];
     }
     static CHOME: LazyLock<regex::Regex> =
@@ -151,12 +154,34 @@ pub(crate) fn houses(index: &Index, q: &str) -> Option<Vec<Hit>> {
     let prefecture = town_queries(q).0;
     let code = index.region_named(&prefecture, "jp")?;
     let compact: String = q.chars().filter(|c| !c.is_whitespace()).collect();
-    let postcode = POSTCODE.captures(&compact).map(|c| {
+    let mut postcode = POSTCODE.captures(&compact).map(|c| {
         schema::number_key(&c[1])
             .chars()
             .filter(char::is_ascii_digit)
             .collect::<String>()
     });
+    let mut qualifiers = vec![];
+    for part in q.split(',').skip(1).map(str::trim) {
+        if let Some(country) = index.country(part) {
+            if country != "jp" {
+                return None;
+            }
+            continue;
+        }
+        let place = if let Some((pc, place)) = index.find_postcode(part, Some("jp")) {
+            if pc_norm(&pc).len() != 7 || !postcode_not_contradicted(postcode.as_deref(), Some(&pc))
+            {
+                return None;
+            }
+            postcode = Some(pc);
+            place
+        } else {
+            part.to_string()
+        };
+        if !place.is_empty() {
+            qualifiers.push(name_key(&place));
+        }
+    }
     let mut hits = vec![];
     for (city, road, number) in readings {
         let Some(named) = index.resolve_place(&city, Some("jp")).or_else(|| {
@@ -179,6 +204,9 @@ pub(crate) fn houses(index: &Index, q: &str) -> Option<Vec<Hit>> {
                 if !chain
                     .iter()
                     .any(|&p| index.places[p as usize].region.eq_ignore_ascii_case(&code))
+                    || qualifiers
+                        .iter()
+                        .any(|&key| !chain.iter().any(|&p| index.places[p as usize].named(key)))
                 {
                     return None;
                 }
@@ -225,7 +253,8 @@ pub(crate) fn houses(index: &Index, q: &str) -> Option<Vec<Hit>> {
             };
             let (x, y, own) = schema::unpack(value);
             let hit = index.house_hit(doc, number, x, y, own)?;
-            if matches!(&hit, Hit::Street { postcode: own, .. } if postcode_not_contradicted(own.as_deref(), postcode.as_deref()))
+            if matches!(&hit, Hit::Street { postcode: own, .. }
+                if postcode.as_deref().is_none_or(|pc| own.as_deref().is_some_and(|p| pc_norm(p) == pc_norm(pc))))
             {
                 hits.push(hit);
             }
