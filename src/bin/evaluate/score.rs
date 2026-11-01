@@ -174,6 +174,10 @@ pub fn suggest_rank(expect: &Expect, found: &[Suggested]) -> Option<usize> {
                 .get("category")
                 .is_none_or(|c| c == &s.category)
             && alt
+                .components
+                .get("name")
+                .is_none_or(|name| names_place(s.name.split(',').next().unwrap_or(""), name))
+            && alt
                 .point
                 .is_none_or(|p| haversine(p, s.point) <= alt.radius_km.unwrap_or(0.))
     };
@@ -1469,6 +1473,39 @@ mod tests {
         }
         expect.any_of = Some(vec![]);
         assert!(expected_place(&expect).is_none());
+    }
+
+    #[test]
+    fn landmark_names_reject_a_nearby_station() {
+        let mut expect = Expect {
+            country: vec!["hu".into()],
+            level: "landmark".into(),
+            point: Some([47.5, 19.05]),
+            radius_km: Some(0.3),
+            components: IndexMap::from([
+                ("category".into(), "station".into()),
+                ("name".into(), "Bajcsy-Zsilinszky út".into()),
+            ]),
+            ..Default::default()
+        };
+        let mut found = vec![Suggested {
+            kind: "landmark".into(),
+            category: "station".into(),
+            name: "Deák Ferenc tér, Budapest, Hungary".into(),
+            country: "hu".into(),
+            point: [47.498, 19.05],
+            ..Default::default()
+        }];
+        assert_eq!(suggest_rank(&expect, &found), None);
+        found.push(Suggested {
+            name: "BAJCSY ZSILINSZKY UT, Budapest, Hungary".into(),
+            ..found[0].clone()
+        });
+        assert_eq!(suggest_rank(&expect, &found), Some(2));
+        found[1].name = "Bajcsy-Zsilinszky út extension, Budapest, Hungary".into();
+        assert_eq!(suggest_rank(&expect, &found), None);
+        expect.components.shift_remove("name");
+        assert_eq!(suggest_rank(&expect, &found), Some(1));
     }
 
     #[test]

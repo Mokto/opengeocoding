@@ -148,7 +148,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
         provenance.insert("upstream".into(), json!("https://go.bkk.hu/api/static/v1/public-gtfs/budapest_gtfs.zip"));
         provenance.insert("attribution".into(), json!("Data source: BKK Zrt., CC BY 4.0; https://opendata.bkk.hu/data-sources"));
         provenance.insert("coordinate_reference".into(), json!("Published GTFS parent-station WGS84 latitude/longitude, not a platform or entrance point; no geocoder used"));
-        Ok((id.clone(), Entry { point: Point::Wgs84(s.point), components: indexmap::IndexMap::from([("category", "station".into())]), radius_floor_km:0.3, provenance, number_aliases:None, places:vec![] }))
+        Ok((id.clone(), Entry { point: Point::Wgs84(s.point), components: indexmap::IndexMap::from([("category", "station".into()), ("name", s.name().into())]), radius_floor_km:0.3, provenance, number_aliases:None, places:vec![] }))
     }).collect()
 }
 
@@ -185,8 +185,9 @@ mod tests {
         write(&rows);
         assert_eq!(first, sample(&path, "test").unwrap());
         let entries = prepare(&path, &BTreeSet::from(["1".into()])).unwrap();
-        assert_eq!(entries["1"].components.len(), 1);
+        assert_eq!(entries["1"].components.len(), 2);
         assert_eq!(entries["1"].components["category"], "station");
+        assert_eq!(entries["1"].components["name"], "Állomás");
         assert!(prepare(&path, &BTreeSet::from(["missing".into()])).is_err());
         let mut bad = row("1", "Állomás", "47.5");
         bad["record"]["location_type"] = json!("0");

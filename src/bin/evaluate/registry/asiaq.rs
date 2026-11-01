@@ -154,6 +154,7 @@ fn prepare(path: &Path, refs: &BTreeSet<String>) -> Result<BTreeMap<String, Entr
     refs.iter().map(|id| {
         let b = buildings.get(id).with_context(|| format!("Asiaq lacks unambiguous building {id}"))?;
         let mut provenance = metadata.clone();
+        provenance.insert("scope".into(), json!("building-location-diagnostic"));
         provenance.insert("record".into(), serde_json::to_value(b)?);
         provenance.insert("upstream".into(), json!(format!("https://kortforsyning.asiaq.gl/files/{}_{}/SHP/{}_TekniskGrundkort_SHP.zip", b.locality, b.town(), b.locality)));
         provenance.insert("attribution".into(), json!("Contains data from Asiaq, Greenland Survey, Technical Base Map (BYGNING), obtained 2026-10-31; https://www.asiaq.gl/wp-content/uploads/2026/04/EN_Terms_of_use_for_Asiaq_geodata.pdf"));

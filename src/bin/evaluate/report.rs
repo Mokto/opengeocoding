@@ -284,6 +284,12 @@ pub fn summarize(cases: &[Case], results: &[Record], manifest: &Value) -> (Strin
     if let Some(stopped) = manifest["stopped"].as_str() {
         let _ = writeln!(out, "**Run stopped early: {stopped}.**");
     }
+    if results
+        .iter()
+        .any(|r| evidence(case(r)) == "location diagnostic")
+    {
+        out += "\n**Building-location diagnostics:** proximity, level and confidence do not establish building/B-number identity, a postal address or an entrance. Their reverse checks establish only the expected country/area, not the building.\n";
+    }
     out += "\n## Outcomes\n\n| Class | Cases |\n|---|---:|\n";
     for class in CLASSES.iter().chain(&["unscored"]) {
         let count = results.iter().filter(|r| r.class == *class).count();
@@ -727,6 +733,24 @@ fn rpc_of(check: &'static str) -> &'static str {
     check.split(' ').next().unwrap_or(check)
 }
 
+fn suggest_rpc(check: &SuggestCheck) -> &'static str {
+    if check.landmarks_off {
+        "SuggestAddress (flag off)"
+    } else {
+        "SuggestAddress"
+    }
+}
+
+fn diagnostic_rpc(check: &'static str) -> &'static str {
+    match check {
+        "SearchAddress" => "SearchAddress (location only)",
+        "SuggestAddress" => "SuggestAddress (location only)",
+        "ReverseGeocode" => "ReverseGeocode (country/area only)",
+        "ResolveRegion" => "ResolveRegion (country/area only)",
+        _ => check,
+    }
+}
+
 fn locate_label(found: &Located) -> String {
     match &found.error {
         Some(error) => format!("error {error}"),
@@ -1100,17 +1124,24 @@ fn by_country(counts: &BTreeMap<String, BTreeMap<&str, [usize; 3]>>) -> String {
 
 /// Passing checks per country (as `by_country`) by where the expectation comes from: `osm` for
 /// the OpenStreetMap address panel, which the index reads itself in many countries; otherwise
-/// `registry`, `places` (curated Wikidata places), `towns`, `gleif` (company addresses placed by
-/// Wikidata towns) or `constructed`.
+/// `registry`, `places`, `landmarks`, `towns`, `gleif`, `constructed` or location diagnostics.
 #[derive(Default)]
 struct Evidence {
     independent: BTreeMap<String, EvidenceRow>,
     osm: BTreeMap<String, EvidenceRow>,
+    diagnostics: BTreeMap<String, EvidenceRow>,
 }
 
 type EvidenceRow = (BTreeSet<&'static str>, BTreeMap<&'static str, [usize; 3]>);
 
 fn evidence(case: &Case) -> &'static str {
+    if case
+        .source
+        .as_ref()
+        .is_some_and(|s| s["scope"] == "building-location-diagnostic")
+    {
+        return "location diagnostic";
+    }
     let source = case
         .source
         .as_ref()
@@ -1122,6 +1153,8 @@ fn evidence(case: &Case) -> &'static str {
         "towns"
     } else if source == "gleif" {
         "gleif"
+    } else if case.expect.as_ref().is_some_and(|e| e.level == "landmark") {
+        "landmarks"
     } else if source == "wikidata" {
         "places"
     } else if source.is_empty() || source == "constructed" {
@@ -1142,8 +1175,7 @@ fn rate_cell([checked, base, head]: [usize; 3]) -> String {
     }
 }
 
-/// Every country's passing checks in two folded tables, independent sources and agreement with
-/// OpenStreetMap, between markers the nightly gold issue reads. Each starts with their sum.
+/// Passing checks by evidence, between markers the nightly gold issue reads.
 fn by_evidence(counts: &Evidence) -> String {
     const RPCS: [&str; 4] = [
         "SearchAddress",
@@ -1151,10 +1183,10 @@ fn by_evidence(counts: &Evidence) -> String {
         "ReverseGeocode",
         "ResolveRegion",
     ];
-    if counts.independent.is_empty() && counts.osm.is_empty() {
+    if counts.independent.is_empty() && counts.osm.is_empty() && counts.diagnostics.is_empty() {
         return String::new();
     }
-    let table = |rows: &BTreeMap<String, EvidenceRow>, kinds: bool| {
+    let table = |rows: &BTreeMap<String, EvidenceRow>, kinds: bool, diagnostic: bool| {
         let cells = |rpcs: &BTreeMap<&str, [usize; 3]>| {
             RPCS.map(|rpc| rate_cell(rpcs.get(rpc).copied().unwrap_or_default()))
                 .join(" | ")
@@ -1174,7 +1206,12 @@ fn by_evidence(counts: &Evidence) -> String {
         let mut out = format!(
             "| Country |{} {} |\n|---|{}{}\n| **All** |{} {} |\n",
             if kinds { " Evidence |" } else { "" },
-            RPCS.join(" | "),
+            if diagnostic {
+                RPCS.map(diagnostic_rpc)
+            } else {
+                RPCS
+            }
+            .join(" | "),
             if kinds { "---|" } else { "" },
             "---:|".repeat(RPCS.len()),
             kind(&BTreeSet::new()),
@@ -1191,7 +1228,7 @@ fn by_evidence(counts: &Evidence) -> String {
         out
     };
     let mut out = String::from(
-        "\n<!-- by-evidence -->\n## Pass rate by country and evidence\n\nThe \"Independent sources\" table groups registers, curated Wikidata places, Wikidata towns and GLEIF company addresses placed by Wikidata towns, selected outside the index. Registers can also supply index data: those checks measure source fidelity, not independent real-world accuracy. OpenStreetMap cases check agreement with mapped addresses, which the index itself reads in many countries: consistency, not accuracy. Each cell is passing checks / checked · rate, baseline → candidate where it changed.\n",
+        "\n<!-- by-evidence -->\n## Pass rate by country and evidence\n\nThe \"Independent sources\" table groups registers, curated Wikidata places, Wikidata towns and GLEIF company addresses placed by Wikidata towns, selected outside the index. Registers can also supply index data: those checks measure source fidelity, not independent real-world accuracy. OpenStreetMap cases check agreement with mapped addresses, which the index itself reads in many countries: consistency, not accuracy. Operator landmarks are reported as landmarks, not address registers. Flag-off integrity checks are excluded from retrieval rates. Each cell is passing checks / checked · rate, baseline → candidate where it changed.\n",
     );
     let countries = |n: usize| format!("{n} countr{}", if n == 1 { "y" } else { "ies" });
     out += &fold(
@@ -1199,7 +1236,7 @@ fn by_evidence(counts: &Evidence) -> String {
             "Independent sources ({})",
             countries(counts.independent.len())
         ),
-        &table(&counts.independent, true),
+        &table(&counts.independent, true, false),
         false,
     );
     out += &fold(
@@ -1207,9 +1244,20 @@ fn by_evidence(counts: &Evidence) -> String {
             "Agreement with OpenStreetMap ({})",
             countries(counts.osm.len())
         ),
-        &table(&counts.osm, false),
+        &table(&counts.osm, false, false),
         false,
     );
+    if !counts.diagnostics.is_empty() {
+        out += "\nBuilding-location diagnostics are excluded from the source-fidelity totals above. They check proximity, level and confidence, not building identity or postal/entrance accuracy; their reverse checks establish only the expected country/area. Landmark flag-off integrity checks are excluded from retrieval rates.\n";
+        out += &fold(
+            &format!(
+                "Building-location diagnostics ({})",
+                countries(counts.diagnostics.len())
+            ),
+            &table(&counts.diagnostics, false, true),
+            false,
+        );
+    }
     out + "<!-- by-evidence end -->\n"
 }
 
@@ -1285,7 +1333,7 @@ pub fn diff(
     let (mut lost, mut won) = (BTreeMap::new(), BTreeSet::new());
     let mut changed: IndexMap<&str, Vec<String>> = IndexMap::new();
     let mut by_cohort: BTreeMap<String, BTreeMap<&str, usize>> = BTreeMap::new();
-    let mut search_pass = [0; 2];
+    let mut summary_counts: BTreeMap<&str, [usize; 4]> = BTreeMap::new();
     // Per check kind: checked, base passing, head passing, head's other classes.
     let mut suggest_counts: BTreeMap<&str, [usize; 2 + SUGGEST_CLASSES.len()]> = BTreeMap::new();
     let mut added_counts: BTreeMap<&str, [usize; 2]> = BTreeMap::new();
@@ -1328,8 +1376,6 @@ pub fn diff(
     let mut changed_checks: BTreeMap<&str, usize> = BTreeMap::new();
     for id in &shared {
         let (a, b) = (&old[*id], &new[*id]);
-        search_pass[0] += usize::from(a.class == "pass");
-        search_pass[1] += usize::from(b.class == "pass");
         let cohort = cases
             .get(id.as_str())
             .map_or("?".into(), |c| c.cohort.clone());
@@ -1349,37 +1395,59 @@ pub fn diff(
             let tradable = lost.entry(location.clone()).or_insert(true);
             *tradable &= kind == "osm";
         };
-        let mut tally = |rpc: &'static str, base: bool, head: bool| {
+        let mut tally = |check: &'static str, base: bool, head: bool, changed: bool| {
+            let diagnostic = kind == "location diagnostic";
+            let label = if diagnostic {
+                diagnostic_rpc(check)
+            } else {
+                check
+            };
+            let counts = summary_counts.entry(label).or_default();
+            *counts = [
+                counts[0] + 1,
+                counts[1] + usize::from(base),
+                counts[2] + usize::from(head),
+                counts[3] + usize::from(changed),
+            ];
+            if check == "SuggestAddress (flag off)" {
+                return;
+            }
+            let rpc = rpc_of(check);
             let add = |c: &mut [usize; 3]| {
                 *c = [c[0] + 1, c[1] + usize::from(base), c[2] + usize::from(head)];
             };
-            add(country_counts
-                .entry(country.clone())
-                .or_default()
-                .entry(rpc)
-                .or_default());
-            let row = if kind == "osm" {
-                evidence_counts.osm.entry(country.clone()).or_default()
-            } else {
-                evidence_counts
-                    .independent
+            if !diagnostic {
+                add(country_counts
                     .entry(country.clone())
                     .or_default()
+                    .entry(rpc)
+                    .or_default());
+            }
+            let rows = match kind {
+                "osm" => &mut evidence_counts.osm,
+                "location diagnostic" => &mut evidence_counts.diagnostics,
+                _ => &mut evidence_counts.independent,
             };
+            let row = rows.entry(country.clone()).or_default();
             row.0.insert(kind);
             add(row.1.entry(rpc).or_default());
         };
-        if !cases.get(id.as_str()).is_some_and(|c| {
-            c.suggest_address.is_some() || c.expect.as_ref().is_some_and(|e| e.level == "landmark")
-        }) {
-            tally("SearchAddress", a.class == "pass", b.class == "pass");
-        }
         let counts = by_cohort.entry(cohort.clone()).or_default();
         *counts.entry("cases").or_default() += 1;
         let kinds = drift(
             (a.error.as_deref(), a.summary.as_ref()),
             (b.error.as_deref(), b.summary.as_ref()),
         );
+        if !cases.get(id.as_str()).is_some_and(|c| {
+            c.suggest_address.is_some() || c.expect.as_ref().is_some_and(|e| e.level == "landmark")
+        }) {
+            tally(
+                "SearchAddress",
+                a.class == "pass",
+                b.class == "pass",
+                !kinds.is_empty(),
+            );
+        }
         if let Some(first) = kinds.first() {
             *counts.entry("changed").or_default() += 1;
             for kind in &kinds {
@@ -1401,7 +1469,7 @@ pub fn diff(
             if ca != cb {
                 *changed_checks.entry(name.as_str()).or_default() += 1;
             }
-            tally("SuggestAddress", ca == "pass", cb == "pass");
+            tally(suggest_rpc(sb), ca == "pass", cb == "pass", ca != cb);
             let counts = suggest_counts.entry(name).or_default();
             counts[0] += 1;
             counts[1] += usize::from(ca == "pass");
@@ -1439,7 +1507,7 @@ pub fn diff(
             if ca != cb {
                 *changed_checks.entry(name).or_default() += 1;
             }
-            tally(rpc_of(name), ca == "pass", cb == "pass");
+            tally(name, ca == "pass", cb == "pass", ca != cb);
             let counts = locate_counts.entry(name).or_default();
             counts[0] += 1;
             counts[1] += usize::from(ca == "pass");
@@ -1525,29 +1593,8 @@ pub fn diff(
     let mut summary = String::from(
         "| RPC | Checked | Pass base | Pass head | Change | Results changed |\n|---|---:|---:|---:|---:|---:|\n",
     );
-    let searched = shared
-        .iter()
-        .filter(|id| {
-            !cases.get(id.as_str()).is_some_and(|c| {
-                c.suggest_address.is_some()
-                    || c.expect.as_ref().is_some_and(|e| e.level == "landmark")
-            })
-        })
-        .count();
-    summary += &passing("SearchAddress", search_pass, searched, total);
-    if !suggest_counts.is_empty() {
-        let sums = suggest_counts
-            .values()
-            .fold([0; 3], |t, c| [t[0] + c[0], t[1] + c[1], t[2] + c[2]]);
-        let changed: usize = suggest_counts
-            .keys()
-            .filter_map(|name| changed_checks.get(name))
-            .sum();
-        summary += &passing("SuggestAddress", [sums[1], sums[2]], sums[0], changed);
-    }
-    for (name, c) in &locate_counts {
-        let changed = changed_checks.get(name).copied().unwrap_or(0);
-        summary += &passing(name, [c[1], c[2]], c[0], changed);
+    for (check, [checked, base, head, changed]) in summary_counts {
+        summary += &passing(check, [base, head], checked, changed);
     }
     let countries = by_country(&country_counts);
     summary += &countries;
@@ -1556,7 +1603,11 @@ pub fn diff(
     for (id, record) in new.iter().filter(|(id, _)| !old.contains_key(*id)) {
         added += 1;
         let cohort = cases.get(id.as_str()).map_or("?", |c| c.cohort.as_str());
+        let diagnostic = cases
+            .get(id.as_str())
+            .is_some_and(|c| evidence(c) == "location diagnostic");
         let mut count = |rpc, class: &str| {
+            let rpc = if diagnostic { diagnostic_rpc(rpc) } else { rpc };
             if !matches!(class, "unscored" | "") {
                 let counts = added_counts.entry((cohort, rpc)).or_default();
                 counts[0] += usize::from(class == "pass");
@@ -1565,7 +1616,7 @@ pub fn diff(
         };
         count("SearchAddress", &record.class);
         for check in record.suggest.values() {
-            count("SuggestAddress", suggest_class(check));
+            count(suggest_rpc(check), suggest_class(check));
         }
         for (name, result) in located(record) {
             if let Some(result) = result {
@@ -1576,7 +1627,7 @@ pub fn diff(
     if added > 0 {
         let _ = write!(
             summary,
-            "\n## Added cases ({added})\n\nCandidate-only results, excluded from regression and speed comparisons. Rates count checks, not independent locations; SuggestAddress can check a case twice.\n\n| Cohort | RPC | Passed | Checked | Success rate |\n|---|---|---:|---:|---:|\n"
+            "\n## Added cases ({added})\n\nCandidate-only results, excluded from regression and speed comparisons. Rates count checks, not independent locations. Landmark flag-off integrity and building-location/area diagnostics are separate from retrieval and identity checks.\n\n| Cohort | Check | Passed | Checked | Success rate |\n|---|---|---:|---:|---:|\n"
         );
         for ((cohort, rpc), [passed, checked]) in added_counts {
             let _ = writeln!(
@@ -1925,6 +1976,110 @@ mod tests {
         assert!(report.contains("--speed-cases"), "{report}");
         let untimed = side(&[("a", None), ("b", None), ("c", None)]);
         assert!(latency(&ids, &old, &untimed, [&json!({}), &json!({})]).is_empty());
+    }
+
+    #[test]
+    fn diagnostics_and_flag_off_do_not_inflate_retrieval_rates() {
+        let dir = std::env::temp_dir().join(format!("eval-scopes-{}", std::process::id()));
+        for side in ["base", "head"] {
+            std::fs::create_dir_all(dir.join(side)).unwrap();
+            std::fs::write(dir.join(side).join("manifest.json"), "{}").unwrap();
+        }
+        let cases: Vec<Case> = serde_json::from_value(json!([
+            {"id":"building","query":"B-12","cohort":"building","location":"building:12","source":{"scope":"building-location-diagnostic"},"expect":{"level":"street","country":["gl"]}},
+            {"id":"station","query":"Station","cohort":"stations","location":"station:1","source":{"name":"operator"},"expect":{"level":"landmark","country":["hu"]}}
+        ])).unwrap();
+        let mut records = vec![
+            json!({"id":"building","query":"B-12","class":"pass","reverse":{"class":"pass","country":"gl","regions":[]}}),
+            json!({"id":"station","query":"Station","class":"unscored","suggest":{
+                "full":{"text":"Station","want":5,"rank":null,"found":[]},
+                "off":{"text":"Station","want":5,"rank":null,"found":[],"landmarks_off":true}
+            }}),
+        ];
+        let lines =
+            |records: &[Value]| records.iter().map(|r| format!("{r}\n")).collect::<String>();
+        std::fs::write(dir.join("base/results.jsonl"), "").unwrap();
+        std::fs::write(dir.join("head/results.jsonl"), lines(&records)).unwrap();
+        let out = dir.join("diff.md");
+        let decoded: Vec<Record> = records
+            .iter()
+            .cloned()
+            .map(serde_json::from_value)
+            .collect::<std::result::Result<_, _>>()
+            .unwrap();
+        let (single, _) = summarize(&cases, &decoded, &json!({}));
+        assert!(
+            single.contains("**Building-location diagnostics:**"),
+            "{single}"
+        );
+        assert!(
+            !diff(
+                &cases,
+                &dir.join("base"),
+                &dir.join("head"),
+                Some(&out),
+                false,
+                true
+            )
+            .unwrap()
+        );
+        let report = std::fs::read_to_string(&out).unwrap();
+        for row in [
+            "| building | SearchAddress (location only) | 1 | 1 | 100.0% |",
+            "| building | ReverseGeocode (country/area only) | 1 | 1 | 100.0% |",
+            "| stations | SuggestAddress | 0 | 1 | 0.0% |",
+            "| stations | SuggestAddress (flag off) | 1 | 1 | 100.0% |",
+        ] {
+            assert!(report.contains(row), "{report}");
+        }
+        assert!(
+            !diff(
+                &cases,
+                &dir.join("head"),
+                &dir.join("head"),
+                Some(&out),
+                false,
+                true
+            )
+            .unwrap()
+        );
+        let report = std::fs::read_to_string(&out).unwrap();
+        assert!(
+            report.contains("| SuggestAddress | 1 | 0 | 0 | 0 | 0 |"),
+            "{report}"
+        );
+        assert!(
+            report.contains("| SuggestAddress (flag off) | 1 | 1 | 1 | 0 | 0 |"),
+            "{report}"
+        );
+        assert!(
+            report.contains("Independent sources (1 country)"),
+            "{report}"
+        );
+        assert!(
+            report.contains("Building-location diagnostics (1 country)"),
+            "{report}"
+        );
+        assert!(
+            report.contains("| Hungary | landmarks | - | 0/1 · 0.0% | - | - |"),
+            "{report}"
+        );
+        std::fs::write(dir.join("base/results.jsonl"), lines(&records)).unwrap();
+        records[1]["suggest"]["off"]["found"] =
+            json!([{"kind":"landmark","name":"Station","country":"hu","point":[47.5,19.05]}]);
+        std::fs::write(dir.join("head/results.jsonl"), lines(&records)).unwrap();
+        assert!(
+            diff(
+                &cases,
+                &dir.join("base"),
+                &dir.join("head"),
+                Some(&out),
+                false,
+                true
+            )
+            .unwrap()
+        );
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
