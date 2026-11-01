@@ -191,6 +191,20 @@ impl Resolver {
                 let found = core.resolve(&query)?;
                 let mut found = core.named_locality(&query, found)?;
                 if found.geo_coordinates.as_option().is_some_and(|g| {
+                    let number = found
+                        .address_details
+                        .as_option()
+                        .map_or("", |d| d.house_number.as_str());
+                    !jp::ward_house_matches(&core.index, &query, number, (g.lon, g.lat))
+                }) {
+                    found = match jp::ward(&core.index, &query) {
+                        Some(hit) => format_response(&core.index.render(&hit, true))?,
+                        None => core.stated_town(&query)?.unwrap_or_default(),
+                    };
+                    found.good_match = false;
+                    METRICS.tiers.with_label_values(&["japanese_ward"]).inc();
+                }
+                if found.geo_coordinates.as_option().is_some_and(|g| {
                     let (road, number) = found
                         .address_details
                         .as_option()

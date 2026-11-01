@@ -63,6 +63,66 @@ pub const PLACES: &[Place] = &[
         &[("en", "Nakatsu")]
     ),
     place!(
+        "jp-asanagi",
+        "locality",
+        "city",
+        "JP",
+        "JP-44",
+        50_000,
+        (145.5, 43.0),
+        "jp-oita",
+        "朝凪市",
+        &[("en", "Asanagi")]
+    ),
+    place!(
+        "jp-harukaze",
+        "macrohood",
+        "",
+        "JP",
+        "JP-44",
+        10_000,
+        (145.51, 43.0),
+        "jp-asanagi",
+        "晴風区",
+        &[("en", "Harukaze Ward")]
+    ),
+    place!(
+        "jp-asamura",
+        "macrohood",
+        "",
+        "JP",
+        "JP-44",
+        10_000,
+        (145.515, 43.0),
+        "jp-asanagi",
+        "朝村区",
+        &[("en", "Asamura Ward")]
+    ),
+    place!(
+        "jp-aonami",
+        "macrohood",
+        "",
+        "JP",
+        "JP-44",
+        10_000,
+        (145.52, 43.0),
+        "jp-asanagi",
+        "青波区",
+        &[("en", "Aonami Ward")]
+    ),
+    place!(
+        "jp-yunagi",
+        "locality",
+        "",
+        "JP",
+        "JP-44",
+        10_000,
+        (146.0, 43.0),
+        "jp-asanagi",
+        "夕凪区",
+        &[("en", "Yunagi Ward")]
+    ),
+    place!(
         "jp-hoshi-county",
         "county",
         "",
@@ -124,7 +184,119 @@ pub const PLACES: &[Place] = &[
     ),
 ];
 
+const WARD_STREET: Street = Street {
+    class: "residential",
+    length: 0.0,
+    name: "風見二丁目",
+    postcode: "",
+    city: "朝凪市晴風区",
+    cc: "JP",
+    lon: 145.51,
+    lat: 43.0,
+    numbers: &["7-8-9"],
+};
+
 pub const STREETS: &[Street] = &[
+    WARD_STREET,
+    Street {
+        name: "朱明二丁目",
+        city: "朝凪市朝村区",
+        numbers: &["14-15"],
+        ..WARD_STREET
+    },
+    Street {
+        city: "朝凪市青波区",
+        lon: 145.62,
+        ..WARD_STREET
+    },
+    Street {
+        name: "霞通一丁目",
+        numbers: &["3-4"],
+        ..WARD_STREET
+    },
+    Street {
+        name: "霞通一丁目",
+        city: "朝凪市青波区",
+        numbers: &["3-5"],
+        lon: 145.51015,
+        ..WARD_STREET
+    },
+    Street {
+        name: "浜道三丁目",
+        numbers: &["6-7"],
+        postcode: "223-4455",
+        ..WARD_STREET
+    },
+    Street {
+        name: "浜道三丁目",
+        city: "朝凪市青波区",
+        numbers: &["6-8"],
+        postcode: "223-4456",
+        lon: 145.51015,
+        ..WARD_STREET
+    },
+    Street {
+        name: "霧道一丁目",
+        numbers: &["8-9"],
+        postcode: "223-4457",
+        ..WARD_STREET
+    },
+    Street {
+        name: "霧道一丁目",
+        city: "朝凪市青波区",
+        numbers: &["8-10"],
+        postcode: "223-4457",
+        lon: 145.51015,
+        ..WARD_STREET
+    },
+    Street {
+        name: "重波一丁目",
+        numbers: &["11-12"],
+        ..WARD_STREET
+    },
+    Street {
+        name: "重波一丁目",
+        city: "朝凪市青波区",
+        numbers: &["11-12"],
+        lon: 145.516,
+        ..WARD_STREET
+    },
+    Street {
+        name: "波路一丁目",
+        city: "朝凪市",
+        numbers: &["4-5"],
+        ..WARD_STREET
+    },
+    Street {
+        name: "二重一丁目",
+        numbers: &["13-14"],
+        ..WARD_STREET
+    },
+    Street {
+        name: "二重一丁目",
+        numbers: &["13-14"],
+        lon: 145.55,
+        ..WARD_STREET
+    },
+    Street {
+        name: "朝影一丁目",
+        city: "朝凪市夕凪区",
+        numbers: &["10-11"],
+        lon: 146.0,
+        ..WARD_STREET
+    },
+    Street {
+        name: "朝影一丁目",
+        city: "朝凪市夕凪区",
+        numbers: &["10-11"],
+        ..WARD_STREET
+    },
+    Street {
+        name: "夕映一丁目",
+        numbers: &["9-10"],
+        lon: 146.0,
+        ..WARD_STREET
+    },
     Street {
         class: "residential",
         length: 0.0,
@@ -224,6 +396,58 @@ pub fn cases() -> Vec<Case> {
     .map(|q| case(q, at_house("沖代町一丁目", "5-9")))
     .chain([
         case(
+            "大分県朝凪市朝村区朱明二丁目14-15, Japan",
+            at_house("朱明二丁目", "14-15"),
+        ),
+        case(
+            "大分県朝凪市晴風区霞通一丁目3-5, Japan",
+            town("jp-asanagi", false),
+        ),
+        case(
+            "大分県朝凪市晴風区霧道一丁目8-9, Japan",
+            town("jp-asanagi", false),
+        ),
+        case(
+            "大分県朝凪市晴風区二重一丁目13-14, Japan",
+            town("jp-asanagi", false),
+        ),
+        case(
+            "大分県朝凪市晴風区波路一丁目4-5, Japan",
+            town("jp-asanagi", false),
+        ),
+        case(
+            "大分県朝凪市晴風区夕映一丁目9-10, Japan",
+            town("jp-asanagi", false),
+        ),
+        case(
+            "大分県朝凪市夕凪区朝影一丁目10-11, Japan",
+            at_house("朝影一丁目", "10-11"),
+        ),
+        case(
+            "大分県朝凪市晴風区風見二丁目7-8-9, Japan",
+            at_house("風見二丁目", "7-8-9"),
+        ),
+        case(
+            "日本大分県朝凪市青波区風見二丁目7-8-9",
+            crate::Want::At((145.62, 43.0), 25., true),
+        ),
+        case(
+            "日本大分県朝凪市晴風区霞通一丁目3-4",
+            at_house("霞通一丁目", "3-4"),
+        ),
+        case(
+            "日本大分県朝凪市青波区霞通一丁目3-5",
+            crate::Want::At((145.51015, 43.0), 25., true),
+        ),
+        case(
+            "日本大分県朝凪市晴風区浜道三丁目6-7",
+            at_house("浜道三丁目", "6-7"),
+        ),
+        case(
+            "日本大分県朝凪市青波区浜道三丁目6-8",
+            crate::Want::At((145.51015, 43.0), 25., true),
+        ),
+        case(
             "大分県中津市海風一丁目2-3-4, Japan",
             at_house("海風一丁目", "2-3-4"),
         ),
@@ -266,6 +490,80 @@ pub fn cases() -> Vec<Case> {
         ),
     ])
     .collect()
+}
+
+#[test]
+fn ward_qualified_houses_need_their_own_source_ward() {
+    let mut number_streets = vec![];
+    let mut namesakes = vec![];
+    for (ward, road, number, lon) in [
+        ("朝村区", "朱明二丁目", "14-15", 145.51),
+        ("晴風区", "風見二丁目", "7-8-9", 145.51),
+        ("青波区", "風見二丁目", "7-8-9", 145.62),
+        ("晴風区", "霞通一丁目", "3-4", 145.51),
+        ("青波区", "霞通一丁目", "3-5", 145.51015),
+        ("晴風区", "浜道三丁目", "6-7", 145.51),
+        ("青波区", "浜道三丁目", "6-8", 145.51015),
+    ] {
+        for query in [
+            format!("日本大分県朝凪市{ward}{road}{number}"),
+            format!("大分県朝凪市{ward}{road}{number}, Japan"),
+        ] {
+            let found = index().suggest(&query, 5, Some("JP"), None, false);
+            assert_eq!(found.len(), 1, "{query}");
+            assert_eq!(
+                (found[0].kind, found[0].country_code.as_str()),
+                ("address", "jp")
+            );
+            assert!(metres((found[0].x, found[0].y), (lon, 43.)) < 5., "{query}");
+            let hit = index().suggested_house(&found[0]).unwrap();
+            assert_eq!(hit["address"]["house_number"], number);
+            assert_eq!(hit["address"]["city"], "Asanagi");
+            assert_eq!(hit["address"]["postal_town"], format!("朝凪市{ward}"));
+            assert_eq!(hit["address"]["ISO3166-2-lvl4"], "JP-44");
+            if road == "風見二丁目" {
+                namesakes.push(found[0].id.split(':').next().unwrap().to_string());
+            }
+            if road == "霞通一丁目" {
+                number_streets.push(found[0].id.split(':').next().unwrap().to_string());
+            }
+        }
+    }
+    assert!(number_streets.iter().all(|id| id == &number_streets[0]));
+    assert_ne!(namesakes[0], namesakes[2]);
+    let preferred = index().suggest(
+        "大分県朝凪市夕凪区朝影一丁目10-11, Japan",
+        5,
+        None,
+        None,
+        false,
+    );
+    assert_eq!(preferred.len(), 1);
+    assert!(metres((preferred[0].x, preferred[0].y), (146., 43.)) < 5.);
+    for text in [
+        "大分県朝凪市晴風区霞通一丁目3-5, Japan",
+        "大分県朝凪市青波区霞通一丁目3-4, Japan",
+        "大分県朝凪市晴風区浜道三丁目6-8, Japan",
+        "大分県朝凪市青波区浜道三丁目6-7, Japan",
+        "大分県朝凪市晴風区霧道一丁目8-9, Japan",
+        "大分県朝凪市青波区霧道一丁目8-10, Japan",
+        "大分県朝凪市晴風区波路一丁目4-5, Japan",
+        "大分県朝凪市晴風区二重一丁目13-14, Japan",
+        "大分県朝凪市晴風区重波一丁目11-12, Japan",
+        "大分県朝凪市青波区重波一丁目11-12, Japan",
+        "大分県朝凪市晴風区夕映一丁目9-10, Japan",
+        "〒223-4456 大分県朝凪市晴風区浜道三丁目6-7, Japan",
+        "大分県朝凪市晴風区風見二丁目7-8-9, France",
+        "朝雲県朝凪市晴風区風見二丁目7-8-9, Japan",
+    ] {
+        assert!(
+            !index()
+                .suggest(text, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{text}"
+        );
+    }
 }
 
 #[test]
