@@ -137,6 +137,65 @@ pub(crate) fn japanese(q: &str) -> Vec<(String, String, String)> {
     out
 }
 
+fn scope(index: &Index, city: &str, prefecture: &str, code: &str, qualifiers: &[u64]) -> Vec<u32> {
+    let names = std::iter::once(city).chain(city.char_indices().filter_map(|(i, c)| {
+        let end = i + c.len_utf8();
+        ("市区郡町村".contains(c) && end < city.len()).then_some(&city[end..])
+    }));
+    let mut scope: Vec<_> = names
+        .flat_map(|named| {
+            index.places(named, Some("jp"), Some(prefecture), &|p| {
+                p.named(name_key(named))
+                    && (matches!(p.subtype.as_ref(), "locality" | "localadmin" | "county")
+                        || city.ends_with('区')
+                            && matches!(p.subtype.as_ref(), "macrohood" | "neighborhood"))
+            })
+        })
+        .filter_map(|h| {
+            let Hit::Place(id) = h else {
+                return None;
+            };
+            let chain = index.chain(id);
+            if !chain
+                .iter()
+                .any(|&p| index.places[p as usize].region.eq_ignore_ascii_case(code))
+                || qualifiers
+                    .iter()
+                    .any(|&key| !chain.iter().any(|&p| index.places[p as usize].named(key)))
+            {
+                return None;
+            }
+            let mut rest = city;
+            for &p in chain.iter().rev() {
+                if let Some(name) = index.places[p as usize]
+                    .all_names()
+                    .filter(|n| !n.is_empty() && rest.starts_with(n))
+                    .max_by_key(|n| n.len())
+                {
+                    rest = &rest[name.len()..];
+                }
+            }
+            rest.is_empty().then_some(id)
+        })
+        .collect();
+    scope.sort_unstable();
+    scope.dedup();
+    scope
+}
+
+pub(crate) fn ward(index: &Index, q: &str) -> Option<Hit> {
+    let (city, _, _) = japanese(q)
+        .into_iter()
+        .find(|(city, _, _)| city.ends_with('区'))?;
+    let prefecture = town_queries(q).0;
+    let code = index.region_named(&prefecture, "jp")?;
+    let ids = scope(index, &city, &prefecture, &code, &[]);
+    match ids.as_slice() {
+        [id] => Some(Hit::Place(*id)),
+        _ => None,
+    }
+}
+
 pub(crate) fn houses(index: &Index, q: &str) -> Option<Vec<Hit>> {
     use tantivy::schema::Value as _;
     if q.is_ascii()
@@ -184,79 +243,92 @@ pub(crate) fn houses(index: &Index, q: &str) -> Option<Vec<Hit>> {
     }
     let mut hits = vec![];
     for (city, road, number) in readings {
-        let Some(named) = index.resolve_place(&city, Some("jp")).or_else(|| {
-            city.split_once('郡')
-                .and_then(|(_, town)| index.resolve_place(town, Some("jp")))
-        }) else {
-            continue;
-        };
-        let scope: Vec<_> = index
-            .places(&named, Some("jp"), Some(&prefecture), &|p| {
-                p.named(name_key(&named))
-                    && matches!(p.subtype.as_ref(), "locality" | "localadmin" | "county")
-            })
-            .into_iter()
-            .filter_map(|h| {
-                let Hit::Place(id) = h else {
-                    return None;
-                };
-                let chain = index.chain(id);
-                if !chain
-                    .iter()
-                    .any(|&p| index.places[p as usize].region.eq_ignore_ascii_case(&code))
-                    || qualifiers
-                        .iter()
-                        .any(|&key| !chain.iter().any(|&p| index.places[p as usize].named(key)))
-                {
-                    return None;
-                }
-                let mut rest = city.as_str();
-                for &p in chain.iter().rev() {
-                    if let Some(name) = index.places[p as usize]
-                        .all_names()
-                        .filter(|n| !n.is_empty() && rest.starts_with(n))
-                        .max_by_key(|n| n.len())
-                    {
-                        rest = &rest[name.len()..];
-                    }
-                }
-                rest.is_empty().then_some(id)
-            })
-            .collect();
+        let scope = scope(index, &city, &prefecture, &code, &qualifiers);
         if scope.is_empty() {
             continue;
         }
-        let mut clauses = index.musts(index.f.names, &road);
-        clauses.push(must(Box::new(BooleanQuery::new(
-            scope
-                .iter()
-                .map(|p| (Occur::Should, term(index.f.ids, &p.to_string())))
-                .collect(),
-        ))));
-        let docs = index.top_of(Kind::Street, Some("jp"), clauses, 1000);
-        if docs.len() == 1000 {
-            return Some(vec![]);
+        let mut parents = vec![];
+        if city.ends_with('区') {
+            for &id in &scope {
+                if let Some(parent) = index.chain(id).into_iter().skip(1).find(|&p| {
+                    matches!(
+                        index.places[p as usize].subtype.as_ref(),
+                        "locality" | "localadmin"
+                    )
+                }) && !parents.contains(&parent)
+                {
+                    parents.push(parent);
+                }
+            }
         }
-        for doc in docs {
-            let stored = index.document(doc).ok()?;
-            if !stored
-                .get_all(index.f.name)
-                .filter_map(|v| v.as_str())
-                .any(|n| fold(n) == fold(&road))
-            {
+        for lookup in [&scope, &parents] {
+            if lookup.is_empty() {
                 continue;
             }
-            let sid = index.fast(doc, "id") as u32;
-            let Some((number, value)) = index.house_record(sid, &schema::number_key(&number))
-            else {
-                continue;
-            };
-            let (x, y, own) = schema::unpack(value);
-            let hit = index.house_hit(doc, number, x, y, own)?;
-            if matches!(&hit, Hit::Street { postcode: own, .. }
+            let before = hits.len();
+            let mut clauses = index.musts(index.f.names, &road);
+            clauses.push(must(Box::new(BooleanQuery::new(
+                lookup
+                    .iter()
+                    .map(|p| (Occur::Should, term(index.f.ids, &p.to_string())))
+                    .collect(),
+            ))));
+            let docs = index.top_of(Kind::Street, Some("jp"), clauses, 1000);
+            if docs.len() == 1000 {
+                return Some(vec![]);
+            }
+            for doc in docs {
+                let stored = index.document(doc).ok()?;
+                if !stored
+                    .get_all(index.f.name)
+                    .filter_map(|v| v.as_str())
+                    .any(|n| fold(n) == fold(&road))
+                {
+                    continue;
+                }
+                let sid = index.fast(doc, "id") as u32;
+                let Some((number, value)) = index.house_record(sid, &schema::number_key(&number))
+                else {
+                    continue;
+                };
+                let (x, y, own) = schema::unpack(value);
+                let hit = index.house_hit(doc, number, x, y, own)?;
+                if let Hit::Street {
+                    place,
+                    postal_town,
+                    number: Some(number),
+                    ..
+                } = &hit
+                {
+                    let chain = index.chain(*place);
+                    if !scope.iter().any(|id| chain.contains(id)) {
+                        let mut key = sid.to_be_bytes().to_vec();
+                        key.extend_from_slice(number.as_bytes());
+                        if !postal_town.as_deref().is_some_and(|town| {
+                            crate::matching::names_agree(
+                                &city,
+                                town.strip_prefix(&prefecture).unwrap_or(town),
+                            )
+                        }) || chain.iter().any(|&p| {
+                            index.places[p as usize]
+                                .all_names()
+                                .any(|n| n.ends_with('区'))
+                        }) || index.far[sid as usize % index.far.len()]
+                            .as_ref()
+                            .is_some_and(|m| m.get(&key).is_some())
+                        {
+                            continue;
+                        }
+                    }
+                }
+                if matches!(&hit, Hit::Street { postcode: own, .. }
                 if postcode.as_deref().is_none_or(|pc| own.as_deref().is_some_and(|p| pc_norm(p) == pc_norm(pc))))
-            {
-                hits.push(hit);
+                {
+                    hits.push(hit);
+                }
+            }
+            if hits.len() > before {
+                break;
             }
         }
     }
@@ -272,6 +344,24 @@ pub(crate) fn houses(index: &Index, q: &str) -> Option<Vec<Hit>> {
         hits.truncate(1);
     }
     Some(hits)
+}
+
+pub(crate) fn ward_house_matches(
+    index: &Index,
+    q: &str,
+    number: &str,
+    (lon, lat): (f32, f32),
+) -> bool {
+    if number.is_empty()
+        || !q.contains('区')
+        || !japanese(q).iter().any(|(city, _, _)| city.ends_with('区'))
+    {
+        return true;
+    }
+    houses(index, q).is_none_or(|hits| {
+        matches!(hits.as_slice(), [Hit::Street { number: Some(n), x, y, .. }]
+            if schema::number_key(n) == schema::number_key(number) && *x as f32 == lon && *y as f32 == lat)
+    })
 }
 
 pub(crate) fn suggest(index: &Index, q: &str, want: usize) -> Option<Vec<Suggestion>> {
