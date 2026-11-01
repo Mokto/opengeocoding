@@ -20,6 +20,11 @@ impl Index {
         {
             return hits;
         }
+        if let Some(hits) = jp::houses(self, q)
+            && !hits.is_empty()
+        {
+            return hits;
+        }
         // Japanese block addresses: libpostal splits them, and the data names the chōme
         // ("芝公園四丁目", number "2-8"), so they're read here.
         let mut chome = None;

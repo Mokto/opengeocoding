@@ -2004,6 +2004,21 @@ impl Core {
             METRICS.tiers.with_label_values(&["korean"]).inc();
             return Ok(found);
         }
+        if let Some(hits) = jp::houses(&self.index, query) {
+            METRICS
+                .search
+                .with_label_values(&["japanese"])
+                .observe(started.elapsed().as_secs_f64());
+            if let [hit] = hits.as_slice() {
+                let mut found = format_response(&self.index.render(hit, true))?;
+                found.good_match = true;
+                METRICS.tiers.with_label_values(&["japanese"]).inc();
+                return Ok(found);
+            }
+            if hits.len() > 1 {
+                return Ok(FullAddress::default());
+            }
+        }
         if let Some(hits) = self.index.korean_search(query) {
             METRICS
                 .search
