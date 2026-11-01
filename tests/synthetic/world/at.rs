@@ -173,6 +173,30 @@ pub const PLACES: &[Place] = &[
         &[("en", "Delta")],
     ),
     place!(
+        "at-laubtal",
+        "locality",
+        "village",
+        "AT",
+        "AT-3",
+        1000,
+        (60.05, 0.2),
+        "at-g",
+        "Laubtal",
+        &[("en", "Laubtal")],
+    ),
+    place!(
+        "at-buchenhain",
+        "locality",
+        "village",
+        "AT",
+        "AT-3",
+        1000,
+        (60.12, 0.3),
+        "at-g",
+        "Buchenhain",
+        &[("en", "Buchenhain")],
+    ),
+    place!(
         "at-gammadorf",
         "locality",
         "",
@@ -260,6 +284,10 @@ pub const PLACES: &[Place] = &[
     ),
 ];
 
+pub const GEONAMES: &str = "12\tVillage of Laubtal\tVillage of Laubtal\tLaubtal,Unverified Alias\t0.2\t60.05\tP\tPPL\tAT\t\t03\t\t\t\t0\n\
+    13\tLaubtal Village\tLaubtal Village\tLaubtal\t0.2\t60.05\tP\tPPL\tAT\t\t03\t\t\t\t0\n\
+    14\tLaubtal Hamlet\tLaubtal Hamlet\tLaubtal\t0.2\t60.05\tP\tPPL\tAT\t\t03\t\t\t\t0\n";
+
 pub const STREETS: &[Street] = &[
     Street {
         class: "residential",
@@ -337,5 +365,16 @@ pub fn cases() -> Vec<Case> {
         case("at-2-severnaya-roshcha", town("at-northgrove", true)),
         case("Kleinweiler, Austria", Want::At((40.0, 0.03), 1000.0, true)),
         case("Grenzweiler, Austria", Want::Named("at", "", &[], false)),
+        case("Laubtal Village, Austria", town("at-laubtal", true)),
+        case("Village of Laubtal, Austria", town("at-laubtal", true)),
+        case(
+            "Village of Buchenhain, Austria",
+            Want::Named("at", "", &[], false),
+        ),
+        case("Laubtal Hamlet, Austria", Want::Named("at", "", &[], false)),
+        case(
+            "Grenzweiler Village, Austria",
+            Want::Named("at", "", &[], false),
+        ),
     ]
 }

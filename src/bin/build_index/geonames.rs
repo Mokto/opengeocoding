@@ -195,6 +195,55 @@ pub fn add_places(
         }
     }
 
+    let mut qualified = Vec::new();
+    for (key, positions) in &spots {
+        let bare = [" village", " hamlet"]
+            .iter()
+            .find_map(|suffix| key.1.strip_suffix(suffix))
+            .or_else(|| key.1.strip_prefix("village of "))
+            .filter(|name| !name.is_empty());
+        let Some(bare) = bare.filter(|_| latin(&key.1)) else {
+            continue;
+        };
+        let (first, xy) = positions[0];
+        let row = &rows[first];
+        if row.subtype != "locality"
+            || !assigner.within(xy.0, xy.1)
+            || (supplement.is_some() && row.listed && !pinned.contains(&row.id))
+        {
+            continue;
+        }
+        let apart = |rows: &[Spot]| rows.iter().any(|&(_, point)| km(point, xy) >= NEAR_KM);
+        if apart(positions) || others.get(key).is_some_and(|rows| apart(rows)) {
+            continue;
+        }
+        let Some(known) = near.get(&(key.0, bare.to_owned())) else {
+            continue;
+        };
+        let ids: HashSet<u32> = known
+            .iter()
+            .filter(|&&(id, point)| {
+                let p = &places[id as usize];
+                p.subtype == "locality"
+                    && fold(p.names.split(NAME_SEP).next().unwrap_or("")) == bare
+                    && km(point, xy) < 5.0
+            })
+            .map(|&(id, _)| id)
+            .collect();
+        if ids.len() != 1 {
+            continue;
+        }
+        let id = *ids.iter().next().unwrap();
+        if known.iter().any(|&(_, point)| km(point, xy) >= NEAR_KM)
+            || near
+                .get(key)
+                .is_some_and(|v| v.iter().any(|&(other, _)| other != id))
+        {
+            continue;
+        }
+        qualified.push(([&key.0[..], b"\0", key.1.as_bytes()].concat(), id as u64));
+    }
+
     let mut tsv = std::io::BufWriter::new(
         std::fs::OpenOptions::new()
             .append(true)
@@ -390,6 +439,9 @@ pub fn add_places(
             map.insert([&k.0[..], k.1.as_bytes()].concat(), id as u64);
         }
     }
+    for (name, id) in qualified {
+        map.entry(name).or_insert(id);
+    }
     let mut fst = tantivy_fst::MapBuilder::memory();
     fst.extend_iter(map).unwrap();
     std::fs::write(out.join(ALTERNATES), fst.into_inner().unwrap()).unwrap();
@@ -540,6 +592,58 @@ mod tests {
             let first: Vec<_> = tsv.lines().next().unwrap().split('\t').collect();
             assert_eq!(first[14].contains("alt_name=Kalas"), enriched);
             assert_eq!((first[12], first[13], first[15]), ("", "Oldname", "Q1"));
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn qualified_small_names_corroborate_only_one_nearby_mapped_primary() {
+        let root = std::env::temp_dir().join(format!("geonames-qualified-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let cities = root.join("cities.txt");
+        let polys = crate::geo::PolyFile::new(root.join("polys"));
+        let assigner = Assigner::new(vec![], polys, vec![], vec![]);
+        let row = line("PPL", "Kalas,Unverified Alias")
+            .replacen("\tKalas\tKalas\t", "\tKalas Village\tKalas Village\t", 1)
+            .replace("\t4100", "\t0");
+        for (positions, duplicate, supported) in [
+            (vec![(74.9, 18.1)], false, true),
+            (vec![(74.96, 18.1)], false, false),
+            (vec![(74.9, 18.1), (80.0, 18.1)], false, false),
+            (vec![(74.9, 18.1)], true, false),
+        ] {
+            let mut places: Vec<Place> = positions
+                .iter()
+                .map(|&xy| Place {
+                    subtype: "locality",
+                    country: *b"IN",
+                    region: "IN-16".into(),
+                    names: "Kalas".into(),
+                    population: 0,
+                    xy: Some(xy),
+                    anc: Box::default(),
+                })
+                .collect();
+            let tsv: String = positions.iter().map(|&(x,y)| {
+                format!("locality\tvillage\tIN\tIN-16\t0\t0\t{x}\t{y}\tNaN\tNaN\tNaN\tNaN\t\tKalas\t\t\n")
+            }).collect();
+            std::fs::write(root.join("places.tsv"), tsv).unwrap();
+            let rows = if duplicate {
+                format!(
+                    "{row}\n{}",
+                    row.replacen('1', "2", 1).replace("74.9", "80.0")
+                )
+            } else {
+                row.clone()
+            };
+            std::fs::write(&cities, rows).unwrap();
+            add_places(&mut places, &assigner, &cities, None, None, &root);
+            let names = tantivy_fst::Map::from_bytes(std::fs::read(root.join(ALTERNATES)).unwrap())
+                .unwrap();
+            assert_eq!(names.get(b"IN\0kalas village"), supported.then_some(0));
+            assert_eq!(names.get(b"INkalas village"), None);
+            assert_ne!(names.get(b"INunverified alias"), Some(0));
+            assert_eq!(places[0].names.as_ref(), "Kalas");
         }
         std::fs::remove_dir_all(root).unwrap();
     }

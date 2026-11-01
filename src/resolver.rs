@@ -731,7 +731,8 @@ impl Core {
     /// a region that no part of the answer is named like ("Keskese Street" in Asmara, the city
     /// of Djibouti): the locality of that name in that country (in that county or region), if
     /// there is one. Refining an empty, country-only or area answer requires nearby source
-    /// addresses naming the locality. A region of another name stays. A locality added from GeoNames
+    /// addresses naming the locality, or GeoNames corroborating its type-qualified primary name
+    /// as a mapped village/hamlet. A region of another name stays. A locality added from GeoNames
     /// below `cities500`'s bar answers nothing else: often no one is recorded living there and
     /// only GeoNames has it, the weakest evidence the index holds.
     pub(crate) fn named_locality(&self, query: &str, found: FullAddress) -> Result<FullAddress> {
@@ -805,7 +806,7 @@ impl Core {
         let Some(hit) = self.index.locality_named(name, &cc, !elsewhere) else {
             return Ok(found);
         };
-        if !elsewhere && !self.index.locality_has_addresses(&hit) {
+        if !elsewhere && !self.index.locality_supported(&hit, name) {
             return Ok(found);
         }
         let mut place = format_response(&self.index.render(&hit, true))?;
