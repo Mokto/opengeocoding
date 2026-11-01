@@ -534,13 +534,31 @@ impl Index {
         Some(Hit::Place(id))
     }
 
-    pub(crate) fn locality_has_addresses(&self, hit: &Hit) -> bool {
+    pub(crate) fn locality_supported(&self, hit: &Hit, query_name: &str) -> bool {
         use tantivy::schema::Value as _;
         let Hit::Place(id) = hit else {
             return false;
         };
         let place = &self.places[*id as usize];
         let name = fold(&place.primary);
+        let typed = fold(query_name);
+        let kind = place.class.as_ref();
+        if matches!(kind, "village" | "hamlet")
+            && (typed.strip_suffix(&format!(" {kind}")) == Some(name.as_str())
+                || (kind == "village" && typed.strip_prefix("village of ") == Some(name.as_str())))
+            && self.alternates.as_ref().is_some_and(|names| {
+                names.get(
+                    [
+                        place.cc.to_ascii_uppercase().as_bytes(),
+                        b"\0",
+                        typed.as_bytes(),
+                    ]
+                    .concat(),
+                ) == Some(*id as u64)
+            })
+        {
+            return true;
+        }
         let clauses = self.musts(self.f.city, &name);
         if clauses.is_empty() {
             return false;
