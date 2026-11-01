@@ -137,6 +137,7 @@ pub struct Index {
     suggest: suggest::Caches,
     /// Read only by a suggestion that asks for landmarks.
     landmarks: landmark::Landmarks,
+    buildings: std::collections::BTreeMap<String, country::gl::Building>,
     /// `region_spelt`'s region names of a country as words, made when first asked for.
     region_words: Mutex<HashMap<String, RegionWords>>,
     region_named: Mutex<HashMap<String, Option<Box<str>>>>,
@@ -830,6 +831,7 @@ impl Index {
                 .iter()
                 .map(|byte| format!("{byte:02x}"))
                 .collect();
+        let buildings = country::gl::load(&dir.join(country::gl::FILE), places.len())?;
         Ok(Index {
             searcher,
             suggestion_scope,
@@ -863,6 +865,7 @@ impl Index {
             place_prefixes: Mutex::default(),
             suggest: Default::default(),
             landmarks,
+            buildings,
             region_words: Mutex::default(),
             region_named: Mutex::default(),
         })
