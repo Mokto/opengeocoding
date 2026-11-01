@@ -53,6 +53,8 @@ def build(previous="", head="b" * 40, date="2026-10-22 01:30 UTC"):
 class Issue(unittest.TestCase):
     def test_each_table_keeps_its_sum_and_the_countries_with_enough_cases_of_its_kind(self):
         text = build()
+        self.assertIn("Registers can also supply index data", text)
+        self.assertNotIn("they measure accuracy", text)
         independent = text.split("## Independent sources: countries with at least 100 cases")[1].split("##")[0]
         self.assertIn("| **All** |  | 195→200/230 · 84.8%→87.0% |", independent)
         self.assertIn("| Denmark | places, registry |", independent)

@@ -1,6 +1,6 @@
 # Japan
 
-[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/jp.NOTICE)
+[Evaluation guide](../README.md) · [Source notice](../../../tests/registry/jp.NOTICE) · [ABR residence supplement](#abr-residence-level-supplement)
 
 **Japan** (`jp.seeds.jsonl`, `jp.jsonl`): 184 blocks in all 47 prefectures, 368 queries, drawn from MLIT's **街区レベル位置参照情報** (*block-level location reference information*), 2025年度版, version 24.0a. A point represents a block, not a house, residence or entrance. This corpus measures block-area resolution and does not establish house-level or national address accuracy.
 
@@ -14,7 +14,7 @@ The [Location Reference Information Terms](https://nlftp.mlit.go.jp/isj/agreemen
 
 The Digital Agency's [2024-01-15 specification](https://www.digital.go.jp/assets/contents/node/basic_page/field_ref_resources/3d996df3-f87c-4439-b474-c0fbbf3ddad8/31267348/20240115_policies_base_registry_format_01.xlsx), sheet **13住居表示-住居位置参照**, defines a separate residence-position extension: municipality/town/block/residence IDs, `rep_lon`, `rep_lat`, `rep_srid` (example EPSG:6668), map scale and source code. Thus coordinates are not confined to MLIT's block table in the published schema. The [official catalogue](https://dataset.address-br.digital.go.jp/) advertises the residence-position datasets (for example [Tokyo](https://www.arcgis.com/sharing/rest/content/items/e47e9d22d50f4b74bd9827b284292b53?f=json), updated 2025-10-27) under CC BY 4.0 and links the [Digital Agency terms](https://www.digital.go.jp/policies/base_registry_address_tos).
 
-However, `data.address-br.digital.go.jp` returns a CloudFront 403 explicitly blocking downloads from this country, so the residence-position files' actual coordinate completeness was not inspected. The Digital Agency [also states](https://www.digital.go.jp/policies/base_registry_address) that residence/block/position data remains experimental; only town-name text is formally maintained, and the other tables are not guaranteed current. This corpus therefore uses the accessible MLIT block register instead of claiming residence coverage from a schema. The index separately reads OpenAddresses' cached ABR residence export; that is not used to generate these expectations.
+However, `data.address-br.digital.go.jp` returns a CloudFront 403 explicitly blocking downloads from this country, so the residence-position files' actual coordinate completeness was not inspected. The Digital Agency [also states](https://www.digital.go.jp/policies/base_registry_address) that residence/block/position data remains experimental; only town-name text is formally maintained, and the other tables are not guaranteed current. This corpus therefore uses the accessible MLIT block register instead of claiming residence coverage from a schema. The index separately reads OpenAddresses' cached ABR residence export; that is not used to generate the MLIT expectations. The separate residence-level supplement below uses that export and must not be conflated with the block corpus.
 
 ## Capture and preparation
 
@@ -100,3 +100,69 @@ On a fresh full index with builder `dbec0f0cae254966`, base and candidate use th
 The former 505 km Nakatsu→Tsu result becomes **Okidaimachi 1-chome, Nakatsu, Oita (JP-44), 139 m from the source point, goodMatch false**. It remains `too_coarse` because it does not resolve the block. Its obsolete wrong-city failure note was removed and the corpus regenerated from the same pinned MLIT input: this removes only `known_failure`, without changing any expectation or tolerance. Re-scoring both saved runs changes zero classes. The other block changes are the two Hatsukaichi forms (abstain→too_coarse) and the Yokohama form (near_miss in Ageo→too_coarse in Yokohama).
 
 The block corpus remains weak: **11/368 pass**, 257 too coarse, 46 confidence mismatches, 13 abstentions, 41 near misses and no far miss on this index. SuggestAddress remains 0/368. A general block-aware lookup is still needed. Broadly aligning block-only forms was rejected before publication: the index's existing ambiguity between chōme/block and block/house readings promoted wrong nearby houses. Those results are not retained or counted as improvements. Synthetic cases retain the exact-house and missing-house checks, plus the wrong-prefecture block fallback that failed before the guard.
+
+## ABR residence-level supplement
+
+`jp.abr.seeds.jsonl` and `jp.abr.jsonl` are a separate **residence-level** panel: 256 locations in 210 municipality/ward codes across all 47 prefectures, 512 queries. They do not replace, refine or reuse the MLIT block expectations above.
+
+### Source, access and licence
+
+The source is the Digital Agency's **住居表示-住居マスター** joined to **住居表示-住居マスター位置参照拡張**, with town/city names and available postcodes from the town and city masters. The official CDN explicitly returns a country-blocking CloudFront 403 from Denmark. Instead, this panel uses the public [OpenAddresses export uploaded 2026-10-01](https://data.openaddresses.io/cache/uploads/jeffdefacto/2026-10-01-tkes5/jp_abr_residential.csv.zip), not a geocoder's responses. Its [preparation script at commit 5172acb847e0127cab772a75f92b43444cac5db0](https://github.com/openaddresses/openaddresses/blob/5172acb847e0127cab772a75f92b43444cac5db0/scripts/jp/abr_residential.py) joins the source IDs and copies `rep_lat`/`rep_lon`; it does not call a geocoder. The export contains **21,984,066 rows**.
+
+The [official Tokyo residence-position catalogue metadata](https://www.arcgis.com/sharing/rest/content/items/e47e9d22d50f4b74bd9827b284292b53?f=json) explicitly names CC BY 4.0. The [ABR-specific terms](https://www.digital.go.jp/policies/base_registry_address_tos) apply [PDL1.0](https://www.digital.go.jp/resources/open_data/public_data_license_v1.0), whose section 1.7 explicitly permits use under CC BY 4.0, including commercial reuse and redistribution. The required Digital Agency attribution, OpenAddresses join and OpenGeocoding edits are recorded in `jp.NOTICE` and each case. This panel uses residential-address tables, not the parcel masters subject to additional Ministry of Justice terms. This is a reading of the published terms, not legal advice.
+
+**Limitations of the export:** it selects the smallest longitude/latitude pair where a residence has multiple position records, keeps one town record per key and drops per-record `rep_srid`, map scale and coordinate-source codes. The mirror therefore cannot establish that all original position records agree, or support source-method/precision stratification. The original raw tables were not downloaded locally. Residence positions remain experimental and are not guaranteed current; the upload date is not an asserted date for every source record. This source is sufficient for a disclosed registry-consistency diagnostic, not a surveyed entrance benchmark.
+
+### Pinned capture and reproduction
+
+```sh
+SOURCE=../jp-data
+mkdir -p "$SOURCE"
+curl -fL -o "$SOURCE/jp_abr_residential.csv.zip" 'https://data.openaddresses.io/cache/uploads/jeffdefacto/2026-10-01-tkes5/jp_abr_residential.csv.zip'
+printf '%s  %s\n' 5f9a914bfbf53d5fc4a9ddd10ea217b4872cb56c36456489deffa9d78984d655 "$SOURCE/jp_abr_residential.csv.zip" | shasum -a 256 -c -
+unzip -p "$SOURCE/jp_abr_residential.csv.zip" jp_abr_residential.csv > "$SOURCE/jp_abr_residential.csv"
+printf '%s  %s\n' 9ae62879562f5990ba483a0b9e925af6fa10bff7f7c4b1a7a205f6dfdef56fc3 "$SOURCE/jp_abr_residential.csv" | shasum -a 256 -c -
+target/release/evaluate sample-jp-abr --abr "$SOURCE/jp_abr_residential.csv" --seed jp-abr-2026-11 --out tests/registry/jp.abr.seeds.jsonl
+target/release/evaluate build-gold --seeds tests/registry/jp.abr.seeds.jsonl --out tests/registry/jp.abr.jsonl --abr "$SOURCE/jp_abr_residential.csv"
+nice -n 15 target/release/evaluate run --corpus tests/registry/jp.abr.jsonl --index "$HOME/opengeocoding-index/out" --out eval-results/jp-abr
+```
+
+Captured 2026-11-01: ZIP **349,857,474 bytes**, uncompressed CSV **2,111,961,652 bytes**. Retain both files. Each generated case records the CSV checksum, release filename, original nine fields, export URL, pinned join script and licence/attribution. Sampling and `build-gold` each repeated byte for byte. No expectations are hand-edited.
+
+### Eligibility, sampling and expectations
+
+The adapter accepts only the export's exact nine-column schema. An eligible residence has a numeric source ID whose first two digits identify prefecture 01–47, nonempty prefecture/city/town names, a complete two- or three-part number with one to four ASCII digits per part and no zero/leading-zero parts, coordinates, and an empty or seven-digit postcode. A bare block number, nonnumeric or incomplete number is not a residence candidate. Malformed IDs, column counts, nonfinite or out-of-Japan coordinates fail the input. The coordinate bounds, 20–46° N and 122–154° E, also reject swapped axes. **21,979,778 rows** meet the frame; 4,288 do not.
+
+Per prefecture and number class, `sample-jp-abr` keeps the smallest 200 seeded SHA-256 hashes of source IDs, then takes up to four different municipality/ward codes for two-part numbers and two for three-part numbers. Diversity is limited to those 200 candidates, not an exhaustive search of every municipality. The result has **177 two-part and 79 three-part locations**. Equal prefecture/class targets and oversampling secondary numbers are diagnostic choices, not population or address-count weights. Sampling does not inspect the index or service answers.
+
+Before writing seeds, a second lookup rejects repeated selected IDs and a full-source scan rejects any other eligible ID with exactly the same complete address text. `build-gold` repeats those checks and rejects missing/ineligible IDs. This detects ambiguity present in the export, not records the upstream exporter already discarded.
+
+Both queries preserve source spelling, full-width digits, small-area names when present and every number part:
+
+- `北海道釧路市貝塚３丁目7-22-54, Japan`
+- `日本北海道釧路市貝塚３丁目7-22-54`
+
+No residence part is silently reinterpreted as a unit or dropped. Both forms share a source ID, location and held-out assignment: **55 locations / 110 queries** held out. All sampled small-area fields are empty; this panel does not demonstrate small-area coverage. It adds no romanized, floor or damaged-input variants.
+
+Each expects house level, goodMatch true, the complete source number, the source prefecture (`JP-01`–`JP-47`, from the municipality-code prefix) and a point within **150 m**. When the source supplies a postcode (61 locations), it is checked with the usual Japanese hyphen punctuation. Source JGD2011 geographic coordinates (EPSG:6668, as the OpenAddresses source declares) are used as WGS84 without transformation and rounded to six decimals. That approximation is for this 150 m diagnostic tolerance, not survey accuracy; the export lacks the original per-record CRS and error estimates. The tolerance was fixed before querying the service and is not a certified bound.
+
+Road names remain in provenance but are not scored without an alias crosswalk, so a nearby different road with the same house number can satisfy the component checks. There is no bilingual municipality-name crosswalk: ReverseGeocode checks the source number, available postcode, radius and prefecture, not the municipality's identity. ResolveRegion checks the prefecture. The 25 m offset check only asks for a nearby house, not the same residence.
+
+**Index ancestry:** the local index already reads this same OpenAddresses ABR export as a supplement. No source was imported or changed for this panel. Selection is independent of index coverage, but agreement measures fidelity to a shared source, not independent real-world accuracy. It is reported separately from the MLIT block panel.
+
+### Initial local baseline
+
+On the rebuilt local full index from builder `dbec0f0cae254966`, with `main`'s service at `0d14abc` and the new evaluator:
+
+| Number class | Locations | Queries | SearchAddress passes |
+|---|---:|---:|---:|
+| Two-part | 177 | 354 | 235 |
+| Three-part | 79 | 158 | 3 |
+
+Overall **238/512** pass, 57/110 held-out queries. Other classes: 192 too coarse, 56 wrong component, 13 abstain, 12 near miss and one confidence mismatch. There is no critical result and no new known-failure label. Both forms pass for 110/256 locations; none of the three-part locations passes in both forms. These are registry-consistency observations on a deliberately biased panel, not national accuracy estimates.
+
+Full-string SuggestAddress passes **0/512**. ResolveRegion passes **512/512**. At the source point, ReverseGeocode passes **498/512** (all 14 failures have the wrong house number); the 25 m house-offset check passes **512/512**. A same-binary repeat has zero answer/scoring drift. The documented grpcurl SearchAddress hang reproduces as a known failure. Human review of source points remains pending.
+
+The three-part queries expose truncated numbers: for example, `日本青森県十和田市東四番町5-6-3` returns nearby house `5-6`, while reverse at the source point finds `5-6-3`. Two-part failures include source houses present in raw candidates but returned only as locality fallbacks. These are diagnostic examples, not repairs or grounds to drop cases, relax numbers or increase tolerances. No parsing, matching, index, scoring or existing-corpus expectation was changed.
+
+The full comparison retains **43,244 shared cases with zero changed answers or classes across all RPCs**, and reports the 512 added cases separately. Both absolute full runs still fail inherited untriaged critical cases outside this panel; the relative diff passes. No existing label or expectation was changed to silence them. Local runs used no timed speed sample and provide no speed sign-off. The report and nightly issue now disclose that their existing "Independent sources" grouping means selection outside the index, not independence of upstream registry inputs; counting and scoring are unchanged.
