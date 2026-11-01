@@ -7,6 +7,7 @@ import sys
 import tempfile
 from unittest.mock import patch
 import urllib.parse
+from zipfile import ZipFile
 
 
 def module(name):
@@ -131,7 +132,42 @@ def check_onemap():
         assert not list(Path(directory).rglob("*.json"))
 
 
+def check_bkk():
+    exporter = module("bkk-metro-jsonl")
+    with tempfile.TemporaryDirectory() as directory:
+        source, out = Path(directory) / "source.zip", Path(directory) / "out.jsonl"
+        files = {
+            "routes.txt": "route_id,route_short_name,route_type\nm,M1,1\nb,Bus,3\n",
+            "trips.txt": "trip_id,route_id\nmt,m\nbt,b\n",
+            "stops.txt": "stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\nS,Állomás,47.5,19.06,1,\nP,Platform,47.5,19.06,0,S\nB,Bus station,47.5,19.06,1,\nBP,Bus platform,47.5,19.06,0,B\n",
+            "stop_times.txt": "trip_id,stop_id\nmt,P\nbt,BP\n",
+            "feed_info.txt": "feed_version,feed_start_date,feed_end_date\ntest,20261031,20261201\n",
+        }
+        def archive():
+            with ZipFile(source, "w") as z:
+                for name, data in files.items():
+                    z.writestr(name, data)
+        archive()
+        exporter.prepare(source, out)
+        first = out.read_bytes()
+        records = [json.loads(line) for line in first.splitlines()]
+        assert len(records) == 1 and records[0]["record"]["stop_id"] == "S"
+        assert records[0]["metro_lines"] == ["M1"] and records[0]["point"] == [47.5, 19.06]
+        exporter.prepare(source, out)
+        assert first == out.read_bytes()
+        original = files["stops.txt"]
+        files["stops.txt"] += "S,Duplicate,47.5,19.06,1,\n"
+        archive()
+        expect_error(lambda: exporter.prepare(source, out))
+        assert first == out.read_bytes()
+        files["stops.txt"] = original.replace("47.5,19.06", "19.06,47.5")
+        archive()
+        expect_error(lambda: exporter.prepare(source, out))
+        assert first == out.read_bytes()
+
+
 if __name__ == "__main__":
+    check_bkk()
     check_linz()
     check_bogota()
     check_onemap()

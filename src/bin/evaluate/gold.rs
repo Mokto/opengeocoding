@@ -652,10 +652,12 @@ impl Sources {
     }
 }
 
-/// (source, ref) of a seed answered by an address registry rather than Wikidata.
+/// (source, ref) of a seed answered by a registry rather than Wikidata.
 fn registry_ref(seed: &Seed) -> Option<(String, String)> {
-    (matches!(seed.kind.as_str(), "address" | "postcode")
-        && seed.source.as_deref() != Some("wikidata"))
+    (matches!(
+        seed.kind.as_str(),
+        "address" | "postcode" | "building" | "suggest_landmark"
+    ) && seed.source.as_deref() != Some("wikidata"))
     .then(|| Some((seed.source.clone()?, seed.reference.clone()?)))
     .flatten()
 }
@@ -933,7 +935,7 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                     )
                 }
                 // a landmark's name or code typed into SuggestAddress with `includeLandmarks`
-                "suggest_landmark" => {
+                "suggest_landmark" if registry_ref(seed).is_none() => {
                     let qid = seed
                         .qid
                         .as_deref()
@@ -953,7 +955,13 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                         source("wikidata", qid),
                     )
                 }
-                "address" | "postcode" => {
+                "address" | "postcode" | "building" | "suggest_landmark" => {
+                    if matches!(seed.kind.as_str(), "building" | "suggest_landmark") {
+                        ensure!(
+                            found.is_some(),
+                            "non-address registry seed needs a registered source and ref"
+                        );
+                    }
                     let name = seed
                         .source
                         .as_deref()
@@ -1014,11 +1022,16 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                             )
                         }
                     };
-                    let house = seed.kind == "address";
+                    let level = match seed.kind.as_str() {
+                        "address" => "house",
+                        "building" => "street",
+                        "suggest_landmark" => "landmark",
+                        _ => "postcode",
+                    };
                     let expect = json!({
-                        "country": country,
-                        "level": seed.level.as_deref().unwrap_or(if house { "house" } else { "postcode" }),
-                        "max_level": if house { "house" } else { "postcode" },
+                        "country": seed.country.as_ref().unwrap_or(&country),
+                        "level": seed.level.as_deref().unwrap_or(level),
+                        "max_level": if seed.kind == "postcode" { "postcode" } else { "house" },
                         "point": point,
                         "radius_km": seed.radius_km.unwrap_or(0.15).max(floor),
                         "region": regions,
@@ -1348,6 +1361,51 @@ mod tests {
         .unwrap();
         assert!(apply_labels(&mut cases, &seeds).is_err());
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[tokio::test]
+    async fn local_building_and_landmark_seeds_preserve_their_scope() {
+        let dir = std::env::temp_dir().join(format!("nonaddress-gold-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let asiaq = dir.join("asiaq.jsonl");
+        let bkk = dir.join("bkk.jsonl");
+        std::fs::write(&asiaq, format!("{}\n", json!({"locality":"0600NUK","crs":"EPSG:3182","point":[64.1,-51.7],"projected":[465000.,7120000.],"extent_m":40.,"record":{"B_nummer":"B-12","lokalitet":"0600NUK","lokal_id":"a"}}))).unwrap();
+        std::fs::write(&bkk, format!("{}\n", json!({"record":{"stop_id":"1","stop_name":"Station","stop_lat":"47.5","stop_lon":"19.06","location_type":"1","parent_station":""},"metro_lines":["M1"],"point":[47.5,19.06],"feed_version":"test","feed_start_date":"20261031","feed_end_date":"20261201","source_sha256":"0".repeat(64)}))).unwrap();
+        let seeds = dir.join("test.seeds.jsonl");
+        std::fs::write(&seeds, format!("{}\n{}\n",
+            json!({"kind":"building","source":"asiaq-buildings","ref":"0600NUK:B-12","country":["gl","dk"],"radius_km":0.05,"queries":["B-12, Nuuk, Greenland","Nuuk, B-12, Greenland"]}),
+            json!({"kind":"suggest_landmark","source":"bkk-metro","ref":"1","queries":["Station, Budapest, Hungary"]})
+        )).unwrap();
+        let out = dir.join("out.jsonl");
+        build(
+            &seeds,
+            &out,
+            &HashMap::from([
+                (
+                    "asiaq-buildings".into(),
+                    asiaq.to_string_lossy().into_owned(),
+                ),
+                ("bkk-metro".into(), bkk.to_string_lossy().into_owned()),
+            ]),
+        )
+        .await
+        .unwrap();
+        let cases = crate::model::load_jsonl::<Value>(&out).unwrap();
+        assert_eq!(cases.len(), 3);
+        assert_eq!(cases[0]["expect"]["country"], json!(["gl", "dk"]));
+        assert_eq!(cases[0]["expect"]["level"], "street");
+        assert_eq!(cases[0]["expect"]["radius_km"], 0.065);
+        assert_eq!(cases[0]["expect"]["components"], json!({}));
+        assert_eq!(cases[0]["location"], cases[1]["location"]);
+        assert_eq!(cases[0]["holdout"], cases[1]["holdout"]);
+        assert_eq!(cases[2]["expect"]["level"], "landmark");
+        assert_eq!(
+            cases[2]["expect"]["components"],
+            json!({"category":"station"})
+        );
+        assert_eq!(cases[2]["include_landmarks"], true);
+        crate::model::validate_gold(&crate::model::load_corpus(&out).unwrap()).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
