@@ -377,6 +377,9 @@ impl Index {
         if text.chars().count() > MAX_TEXT || text.trim().is_empty() || limit == 0 {
             return vec![];
         }
+        if let Some(found) = super::country::gl::suggest(self, text, cc, limit) {
+            return found;
+        }
         if cc.is_none_or(|c| c.eq_ignore_ascii_case("tw"))
             && let Some(without) = tw::without_taiwan_province(text)
         {
@@ -873,6 +876,7 @@ impl Index {
         }
         let (kind, rest) = key.split_at_checked(1)?;
         match kind {
+            "b" => super::country::gl::retrieve(self, rest),
             "p" => {
                 let id: u32 = rest.parse().ok()?;
                 self.places.get(id as usize)?;

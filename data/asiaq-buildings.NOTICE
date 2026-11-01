@@ -1,0 +1,13 @@
+Contains data from Asiaq, Greenland Survey, Technical Base Map (BYGNING), obtained 2026-10-31.
+
+Source: https://www.asiaq.gl/data-distribution/
+Terms: https://www.asiaq.gl/wp-content/uploads/2026/04/EN_Terms_of_use_for_Asiaq_geodata.pdf
+Terms captured SHA-256: 59a75ff0156c82add655d5964656f0a5eac1c56927a07048c1dd076ce2ad5cb4
+
+These are building references and interior roof-outline points, not postal house numbers, dwelling or entrance locations. The data cover Qaqortoq, Nuuk, Sisimiut, Aasiaat, Ilulissat and Tasiilaq only. They do not come from GAR.
+
+The terms permit free worldwide non-exclusive copying, distribution, publication, modification, combination, commercial and noncommercial use. Retain the attribution, dataset/acquisition date and terms link. A service naming other data sources on its front page must also name Asiaq there. No endorsement is implied. Data are supplied as-is; Greenlandic law applies. Consult the linked terms for the full conditions.
+
+The 7,874 references are the entire unambiguous canonical B-number frame, not an evaluation sample. Identical point/extent duplicates keep the first source feature id; conflicting keys are excluded. Points are derived with point-on-surface, GR96/UTM to WGS84 via DuckDB spatial/PROJ, always_xy=true.
+
+Reproduce data/asiaq-buildings.tsv with tests/registry/asiaq-buildings.sql using the six source archives pinned in tests/registry/gl.sources.tsv; copy its asiaq-building-refs.tsv output. TSV columns: locality code, town, B-number, WGS84 latitude, longitude. No geocoder supplies these data. See docs/evaluation/registry/gl.md for capture, derivation and limitations.

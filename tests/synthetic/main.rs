@@ -25,6 +25,7 @@ fn dir() -> &'static PathBuf {
         world::write_release(&root.join("release"));
         world::write_osm(&root.join("osm"));
         world::write_geonames(&root.join("cities.txt"));
+        world::gl::write(&root.join("buildings.tsv"));
         let out = root.join("index");
         let built = Command::new(env!("CARGO_BIN_EXE_build_index"))
             .arg(root.join("release"))
@@ -33,6 +34,8 @@ fn dir() -> &'static PathBuf {
             .arg(root.join("osm"))
             .arg("--geonames-places")
             .arg(root.join("cities.txt"))
+            .arg("--asiaq-buildings")
+            .arg(root.join("buildings.tsv"))
             .output()
             .unwrap();
         assert!(
@@ -1438,6 +1441,7 @@ fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
 #[ignore = "needs the libpostal models; run with --ignored"]
 async fn resolve_follows_the_authored_facts() {
     let resolver = Resolver::open(dir()).unwrap();
+    world::gl::check_search(&resolver).await;
     // a Japanese town, district or road and its number, in either order
     for (road, number, query) in [
         ("朝日町伊勢宮", "472-2", "朝日町伊勢宮 472-2, 松江市, Japan"),
