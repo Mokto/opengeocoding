@@ -1,0 +1,14 @@
+Contains data from Asiaq, Greenland Survey, Technical Base Map (BYGNING), obtained 2026-10-31.
+https://www.asiaq.gl/data-distribution/
+
+Used under the Terms of Use for Asiaq Geodata:
+https://www.asiaq.gl/wp-content/uploads/2026/04/EN_Terms_of_use_for_Asiaq_geodata.pdf
+The terms grant worldwide free non-exclusive copying, distribution, publication, modification,
+combination and commercial/noncommercial use, with the specified source credit, dataset name,
+acquisition time, and terms made available to recipients. Asiaq must also appear on a service's
+front page if other sources are named there. No endorsement is implied. Greenlandic law applies;
+the data are as-is and Asiaq may change its terms.
+
+OpenGeocoding selects building outlines with unambiguous B-numbers, derives interior points, transforms
+GR96 / UTM to WGS84, and samples building-location queries. These are modified outputs, not
+unmodified Asiaq publications. They are not GAR addresses, house-address or entrance ground truth.

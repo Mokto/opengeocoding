@@ -5,11 +5,13 @@ mod adressur;
 mod ads;
 mod als;
 mod anncsu;
+mod asiaq;
 mod bag;
 mod ban;
 mod berlin;
 mod best;
 mod bev;
+mod bkk;
 mod bogota;
 mod cartociudad;
 mod cnefe;
@@ -85,6 +87,8 @@ pub const ALL: &[Registry] = &[
     tainan::REGISTRY,
     mlit::REGISTRY,
     abr::REGISTRY,
+    asiaq::REGISTRY,
+    bkk::REGISTRY,
 ];
 
 type Prepare = fn(&Path, &BTreeSet<String>) -> Result<BTreeMap<String, Entry>>;

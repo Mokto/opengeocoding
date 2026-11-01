@@ -1,0 +1,11 @@
+Data source: BKK Zrt., CC BY 4.0
+https://opendata.bkk.hu/data-sources
+https://creativecommons.org/licenses/by/4.0/
+
+The source is BKK's static Budapest GTFS, feed version 2826.20261031, service dates 2026-10-31
+through 2026-12-01, captured 2026-10-31. It is not KCR or EHA.
+OpenGeocoding joins routes, trips, stop_times and stops to select metro-served parent stations,
+excludes ambiguous station names, and constructs landmark queries with city/country context.
+Coordinates remain the published GTFS station coordinates. Query forms and sampling are modified
+outputs; BKK does not endorse this corpus or OpenGeocoding. No house-address, platform or entrance
+accuracy is asserted.

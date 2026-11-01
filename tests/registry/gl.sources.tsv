@@ -1,0 +1,7 @@
+locality	town	crs	url	bytes	sha256
+0200QAQ	Qaqortoq	EPSG:3183	https://kortforsyning.asiaq.gl/files/0200QAQ_Qaqortoq/SHP/0200QAQ_TekniskGrundkort_SHP.zip	13415250	ee9664e1fb44fbd5f12af6a4cf2300f5b96cf4e22012d60d1ac59d1a611091a0
+0600NUK	Nuuk	EPSG:3182	https://kortforsyning.asiaq.gl/files/0600NUK_Nuuk/SHP/0600NUK_TekniskGrundkort_SHP.zip	90312741	1eb9e2f5f21f6097e794b688d75d072926b49d21b22248cf93401022d8e546ed
+0800SIS	Sisimiut	EPSG:3182	https://kortforsyning.asiaq.gl/files/0800SIS_Sisimiut/SHP/0800SIS_TekniskGrundkort_SHP.zip	42741140	4686482cac4d8bc250f8cff3b3ce1f048e515edad47526d8232f79b2241f4c48
+1000AAS	Aasiaat	EPSG:3182	https://kortforsyning.asiaq.gl/files/1000AAS_Aasiaat/SHP/1000AAS_TekniskGrundkort_SHP.zip	11007146	ba1f8ade72ed65a2e8bc2972b33cca324b2a0b34d434a89e4ffa5a4e9b1600d8
+1200ILU	Ilulissat	EPSG:3182	https://kortforsyning.asiaq.gl/files/1200ILU_Ilulissat/SHP/1200ILU_TekniskGrundkort_SHP.zip	42823625	9904473de2fa9826c6be27f9a5e67e440af4210ca3cc06bc7772895214012b33
+1800TAS	Tasiilaq	EPSG:3184	https://kortforsyning.asiaq.gl/files/1800TAS_Tasiilaq/SHP/1800TAS_TekniskGrundkort_SHP.zip	15025752	4a0a347532203357f2bd1c154adaeaa264759ac6292afd9bef291d1d73818acc
