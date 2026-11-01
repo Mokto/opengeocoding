@@ -187,7 +187,9 @@ impl Resolver {
         tokio::task::spawn_blocking(move || {
             let _entered = span.enter();
             core.index.memoized(|| {
-                let mut found = core.resolve(&query)?;
+                // only the query as written: `resolve` also answers the forms it rewrites it to
+                let found = core.resolve(&query)?;
+                let mut found = core.named_locality(&query, found)?;
                 if found.geo_coordinates.as_option().is_some_and(|g| {
                     let (road, number) = found
                         .address_details
@@ -722,6 +724,102 @@ impl Core {
                 .collect::<std::collections::HashSet<_>>()
                 .len(),
         }))
+    }
+
+    /// "Madgoul, Djibouti" answered with no more than the country, or not at all, with a county
+    /// or region of that name ("Kolahun, Liberia"), or with a town, street or other place below
+    /// a region that no part of the answer is named like ("Keskese Street" in Asmara, the city
+    /// of Djibouti): the locality of that name in that country (in that county or region), if
+    /// there is one. Refining an empty, country-only or area answer requires nearby source
+    /// addresses naming the locality. A region of another name stays. A locality added from GeoNames
+    /// below `cities500`'s bar answers nothing else: often no one is recorded living there and
+    /// only GeoNames has it, the weakest evidence the index holds.
+    pub(crate) fn named_locality(&self, query: &str, found: FullAddress) -> Result<FullAddress> {
+        let Some((name, country)) = query.split_once(',') else {
+            return Ok(found);
+        };
+        let name = name.trim_matches(whitespace);
+        let cc = named_country(country);
+        if country.contains(',') || cc.is_empty() || !named_country(name).is_empty() {
+            return Ok(found);
+        }
+        use crate::index::schema::fold;
+        let key = fold(name);
+        let details = found.address_details.as_option();
+        let below = |d: &AddressDetails| {
+            [
+                &d.city,
+                &d.town,
+                &d.village,
+                &d.suburb,
+                &d.hamlet,
+                &d.road,
+                &d.neighbourhood,
+                &d.city_district,
+                &d.quarter,
+                &d.municipality,
+            ]
+            .into_iter()
+            .filter(|s| !s.is_empty())
+            .cloned()
+            .collect::<Vec<String>>()
+        };
+        let finer = details.map(below).unwrap_or_default();
+        // "Afiamalu Sasa'e" is named so; a street is not ("Keskese Street")
+        let words = format!(" {key} ");
+        let named = details.is_some_and(|d| {
+            fold(&d.road) == key
+                || finer
+                    .iter()
+                    .filter(|s| **s != d.road)
+                    .chain([&d.state, &d.region, &d.county])
+                    .any(|s| format!(" {} ", fold(s)).contains(&words))
+        });
+        // A territory filed under its sovereign is the answer's state ("American Samoa"), with
+        // only the sovereign's code for it (US-AS), which the response drops (`own_regions`).
+        let coarse = details.is_none_or(|d| {
+            let own = format!("{}-", d.country_code.to_uppercase());
+            d.county.is_empty()
+                && !d
+                    .region_codes
+                    .iter()
+                    .any(|r| r.code.to_uppercase().starts_with(&own))
+        });
+        // a county, or a region with none, named as the query is no more than the town of that
+        // name in it: "Kolahun, Liberia", "Bel Ombre, Seychelles"
+        let area = details
+            .map(|d| {
+                if d.county.is_empty() {
+                    &d.state
+                } else {
+                    &d.county
+                }
+            })
+            .filter(|a| finer.is_empty() && !a.is_empty() && fold(a) == key);
+        let elsewhere = !finer.is_empty() && !named;
+        if !(coarse || area.is_some() || elsewhere) {
+            return Ok(found);
+        }
+        // what only GeoNames has fills a gap, never replaces an answer: "Koksan" is a hamlet
+        // there and, in Cyrillic only, the Goksan-eup the query found
+        let Some(hit) = self.index.locality_named(name, &cc, !elsewhere) else {
+            return Ok(found);
+        };
+        if !elsewhere && !self.index.locality_has_addresses(&hit) {
+            return Ok(found);
+        }
+        let mut place = format_response(&self.index.render(&hit, true))?;
+        if let Some(area) = area
+            && place
+                .address_details
+                .as_option()
+                .is_none_or(|d| d.county != *area && d.state != *area)
+        {
+            return Ok(found);
+        }
+        place.good_match = true;
+        METRICS.tiers.with_label_values(&["named_locality"]).inc();
+        Ok(place)
     }
 
     fn resolve(&self, query: &str) -> Result<FullAddress> {

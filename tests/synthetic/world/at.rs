@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Case, case, town};
+use crate::{Case, Want, case, town};
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -196,6 +196,20 @@ pub const PLACES: &[Place] = &[
         "Grenzdorf",
         &[("en", "Grenzdorf")],
     ),
+    // a town with no area of its own on Delta's side of the line, nearest a GeoNames hamlet on
+    // Gamma's (`write_geonames`)
+    place!(
+        "at-randweiler",
+        "locality",
+        "",
+        "AT",
+        "AT-4",
+        1000,
+        (60.51, 0.4),
+        "at-d",
+        "Randweiler",
+        &[("en", "Randweiler")],
+    ),
     place!(
         "at-randdorf",
         "locality",
@@ -250,6 +264,17 @@ pub const STREETS: &[Street] = &[
     Street {
         class: "residential",
         length: 0.0,
+        name: "Weilerweg",
+        postcode: "",
+        city: "Kleinweiler",
+        cc: "AT",
+        lon: 40.0,
+        lat: 0.03,
+        numbers: &["1"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
         name: "Uferweg",
         postcode: "5555",
         city: "Eastufer",
@@ -293,10 +318,24 @@ pub const STREETS: &[Street] = &[
     },
 ];
 
+#[test]
+fn small_places_fill_suggestion_gaps_without_displacing_existing_places() {
+    let found = crate::index().suggest("Nord", 5, Some("AT"), None, false);
+    assert!(found[0].display_name.starts_with("Nordhain, "));
+    assert!(
+        crate::index()
+            .suggest("Nord", 20, Some("AT"), None, false)
+            .iter()
+            .any(|s| s.display_name.split(',').next() == Some("Nord"))
+    );
+}
+
 pub fn cases() -> Vec<Case> {
     vec![
         case("at-1-severnaya-roshcha", town("at-nordhain", true)),
         case("at-1-северная-роща", town("at-nordhain", true)),
         case("at-2-severnaya-roshcha", town("at-northgrove", true)),
+        case("Kleinweiler, Austria", Want::At((40.0, 0.03), 1000.0, true)),
+        case("Grenzweiler, Austria", Want::Named("at", "", &[], false)),
     ]
 }

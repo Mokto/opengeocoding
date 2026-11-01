@@ -153,6 +153,7 @@ enum Names {
     Inside,
     /// Only the names one edit from the text, for when the others leave room.
     Typo,
+    Small,
 }
 
 pub struct Suggestion {
@@ -196,7 +197,7 @@ thread_local! {
     /// `fold` without the street-type abbreviations: the word being typed is not yet one ("c"
     /// is not "calle").
     static RAW: std::cell::RefCell<tantivy::tokenizer::TextAnalyzer> = std::cell::RefCell::new(
-        tantivy::tokenizer::TextAnalyzer::builder(tantivy::tokenizer::SimpleTokenizer::default())
+        tantivy::tokenizer::TextAnalyzer::builder(crate::index::canon::Unmarked::default())
             .filter(tantivy::tokenizer::RemoveLongFilter::limit(40))
             .filter(tantivy::tokenizer::LowerCaser)
             .filter(tantivy::tokenizer::AsciiFoldingFilter)
@@ -608,6 +609,10 @@ impl Index {
             && let Some(found) = self.suggest_without_place(&typed, cc, focus, limit)
         {
             out = found;
+        }
+        let mut out = kept(out, cc, limit);
+        if out.len() < limit {
+            out.extend(places(Names::Small).map(|(id, _)| self.place_suggestion(id)));
         }
         kept(out, cc, limit)
     }

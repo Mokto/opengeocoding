@@ -14,13 +14,18 @@ pub(super) struct Columns {
     /// term has millions of postings that tantivy's skip list walks one block at a time in every
     /// lookup it intersects; this costs 2 bytes per document instead.
     pub(super) countries: Box<[u16]>,
+    /// The documents of places the builder added from GeoNames below `cities500`'s bar.
+    pub(super) small: tantivy::BitSet,
 }
 
 impl Columns {
+    /// `small` tells, by place id, the places the builder added from GeoNames below
+    /// `cities500`'s bar.
     pub(super) fn open(
         reader: &tantivy::SegmentReader,
         country: Field,
         codes: &mut HashMap<String, u16>,
+        small: &dyn Fn(u64) -> bool,
     ) -> Result<Columns> {
         use tantivy::DocSet;
         let mut countries = vec![0u16; reader.max_doc() as usize];
@@ -42,12 +47,16 @@ impl Columns {
         let f = reader.fast_fields();
         let (id, place) = (f.u64("id")?, f.u64("place")?);
         let mut runs: [Vec<std::ops::Range<u32>>; 3] = Default::default();
+        let mut smalls = tantivy::BitSet::with_max_value(reader.max_doc());
         for doc in 0..reader.max_doc() {
             let kind = match (place.index.has_value(doc), id.index.has_value(doc)) {
                 (false, _) => Kind::Place,
                 (true, true) => Kind::Street,
                 (true, false) => Kind::Postcode,
             } as usize;
+            if kind == Kind::Place as usize && id.first(doc).is_some_and(small) {
+                smalls.insert(doc);
+            }
             match runs[kind].last_mut() {
                 Some(run) if run.end == doc => run.end += 1,
                 _ => runs[kind].push(doc..doc + 1),
@@ -61,6 +70,7 @@ impl Columns {
             importance: f.u64("importance")?,
             runs,
             countries: countries.into(),
+            small: smalls,
         })
     }
 }
@@ -286,6 +296,20 @@ pub(super) enum Kind {
     Place,
     Street,
     Postcode,
+    /// Places but those the builder added from GeoNames below `cities500`'s bar: what a search
+    /// looks up. Suggestions read every place.
+    Searched,
+    /// Only those, for `Index::small_place_named`.
+    Small,
+}
+
+impl Kind {
+    pub(super) fn runs(self) -> usize {
+        match self {
+            Kind::Searched | Kind::Small => Kind::Place as usize,
+            kind => kind as usize,
+        }
+    }
 }
 
 pub(super) struct ByImportance<'a> {
@@ -361,13 +385,19 @@ impl tantivy::collector::Collector for ByImportance<'_> {
         let alive = reader.alive_bitset();
         let mut scorer = weight.scorer(reader, 1.0)?;
         let columns = &self.columns[segment as usize];
-        for run in &columns.runs[self.kind as usize] {
+        for run in &columns.runs[self.kind.runs()] {
             let mut doc = scorer.doc();
             if doc < run.start {
                 doc = scorer.seek(run.start);
             }
             while doc < run.end {
-                if alive.is_none_or(|a| a.is_alive(doc))
+                let wanted = match self.kind {
+                    Kind::Searched => !columns.small.contains(doc),
+                    Kind::Small => columns.small.contains(doc),
+                    _ => true,
+                };
+                if wanted
+                    && alive.is_none_or(|a| a.is_alive(doc))
                     && self
                         .country
                         .is_none_or(|c| columns.countries[doc as usize] == c)

@@ -968,7 +968,7 @@ impl Index {
                 number: Some(_),
                 ..
             }
-        ) && self.locality_named(hit, name, true)
+        ) && self.hit_locality_named(hit, name, true)
     }
 
     /// The house's source names its town so (New Zealand's town_city, around its locality).
@@ -1000,12 +1000,12 @@ impl Index {
 
     /// A town or municipality above the street is named so.
     pub(crate) fn street_locality_named(&self, hit: &Hit, name: &str) -> bool {
-        self.locality_named(hit, name, false)
+        self.hit_locality_named(hit, name, false)
     }
 
     /// A town or municipality above the street is named so; with `own`, a town around the
     /// street's own only when its centre is within 30 km.
-    fn locality_named(&self, hit: &Hit, name: &str, own: bool) -> bool {
+    fn hit_locality_named(&self, hit: &Hit, name: &str, own: bool) -> bool {
         let Hit::Street { place, x, y, .. } = hit else {
             return false;
         };

@@ -95,6 +95,8 @@ pub struct Index {
     /// Per shard, a second house of a street's number far from the first (`schema::far_file`);
     /// absent from hand-built indexes.
     far: Vec<Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>>,
+    /// GeoNames' other names of places (`schema::ALTERNATES`); absent from older indexes.
+    alternates: Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
     /// Absent from hand-built indexes, which then answer reverse lookups with a locality only.
     reverse: Option<reverse::Reverse>,
     /// Administrative polygons for `reverse_region`; absent from hand-built indexes.
@@ -646,6 +648,15 @@ impl Index {
                 )?)))
             })
             .collect::<Result<_>>()?;
+        let alternates = if dir.join(schema::ALTERNATES).exists() {
+            use tantivy::directory::Directory;
+            let file = mmap.open_read(Path::new(schema::ALTERNATES))?;
+            Some(tantivy_fst::Map::from(tantivy_fst::raw::Fst::new(
+                file.read_bytes()?,
+            )?))
+        } else {
+            None
+        };
         let reverse = if dir.join(reverse::FILE).exists() {
             use tantivy::directory::Directory;
             let file = mmap.open_read(Path::new(reverse::FILE))?;
@@ -717,7 +728,9 @@ impl Index {
             places
                 .iter()
                 .enumerate()
-                .filter(|(_, p)| p.subtype.as_ref() == "locality")
+                .filter(|(_, p)| {
+                    p.subtype.as_ref() == "locality" && &*p.class != schema::SMALL_GEONAMES
+                })
                 .map(|(i, p)| (i as u32, p.x as f64, p.y as f64)),
         );
         let mut countries = HashMap::new();
@@ -784,7 +797,13 @@ impl Index {
         let columns: Vec<Columns> = searcher
             .segment_readers()
             .iter()
-            .map(|r| Columns::open(r, f.country, &mut country_codes))
+            .map(|r| {
+                Columns::open(r, f.country, &mut country_codes, &|id| {
+                    places
+                        .get(id as usize)
+                        .is_some_and(|p| &*p.class == schema::SMALL_GEONAMES)
+                })
+            })
             .collect::<Result<_>>()?;
         let kinds = [Kind::Place, Kind::Street, Kind::Postcode]
             .map(|kind| OfKind::new(searcher.segment_readers(), &columns, kind));
@@ -811,6 +830,7 @@ impl Index {
             f,
             numbers,
             far,
+            alternates,
             reverse,
             areas,
             streets,
@@ -946,7 +966,7 @@ impl Index {
             .into_iter()
             .map(|(occur, q)| (occur, any_term(q)))
             .collect();
-        cl.insert(0, must(Box::new(self.kinds[kind as usize].clone())));
+        cl.insert(0, must(Box::new(self.kinds[kind.runs()].clone())));
         let by = ByImportance {
             n,
             kind,
@@ -971,6 +991,7 @@ impl Index {
             && let Some(word) = t.term().value().as_str()
             && let Some(field) = match t.term().field() {
                 f if f == self.f.names => Some(self.f.cnames),
+                f if f == self.f.small_names => Some(self.f.small_cnames),
                 f if f == self.f.city => Some(self.f.ccity),
                 _ => None,
             }

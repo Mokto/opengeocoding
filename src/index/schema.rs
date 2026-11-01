@@ -14,12 +14,12 @@ use tantivy::{
     schema::{
         FAST, Field, IndexRecordOption, STORED, STRING, Schema, TextFieldIndexing, TextOptions,
     },
-    tokenizer::{AsciiFoldingFilter, LowerCaser, RemoveLongFilter, SimpleTokenizer, TextAnalyzer},
+    tokenizer::{AsciiFoldingFilter, LowerCaser, RemoveLongFilter, TextAnalyzer},
 };
 
 /// Query-time normalization must use the same analyzer.
 pub fn analyzer() -> TextAnalyzer {
-    TextAnalyzer::builder(SimpleTokenizer::default())
+    TextAnalyzer::builder(super::canon::Unmarked::default())
         .filter(RemoveLongFilter::limit(40))
         .filter(LowerCaser)
         .filter(AsciiFoldingFilter)
@@ -153,11 +153,22 @@ pub struct Fields {
     pub x: Field,
     pub y: Field,
     pub postal_town: Field,
+    pub small_names: Field,
+    pub small_cnames: Field,
 }
 
 /// The source of a `postal_town` entry naming the town around the house's postal locality (New
 /// Zealand's town_city), not the locality itself.
 pub const TOWN_CITY: &str = "town_city";
+
+/// The class of a place the builder added from GeoNames below `cities500`'s bar (more than 500
+/// people, a capital or a division's seat). Suggestions find it; a search only when the query is
+/// its name and country and nothing else answers it; reverse lookups never name it.
+pub const SMALL_GEONAMES: &str = "geonames_small";
+
+/// GeoNames' other names of places (country code and folded name to place id) that only the
+/// last step of a search for "<town>, <country>" reads.
+pub const ALTERNATES: &str = "alternates.fst";
 
 pub fn schema() -> (Schema, Fields) {
     let mut b = Schema::builder();
@@ -184,6 +195,8 @@ pub fn schema() -> (Schema, Fields) {
         x: b.add_f64_field("x", FAST),
         y: b.add_f64_field("y", FAST),
         postal_town: b.add_text_field("postal_town", STORED),
+        small_names: b.add_text_field("small_names", folded()),
+        small_cnames: b.add_text_field("small_cnames", STRING),
     };
     (b.build(), f)
 }
