@@ -36,6 +36,8 @@ thread_local! {
     /// Set while `suggest_houses` runs: the search takes a house the parse lost only when the
     /// houses found agree, so it is given one per street name and place, without far copies.
     static ONE_HOUSE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// One house among a capped street list does not establish a unique registry-spelling repair.
+    static TRUNCATED_STREETS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 impl Index {
@@ -818,6 +820,26 @@ impl Index {
                 }
             }
         }
+        if out.is_empty()
+            && !ONE_HOUSE.get()
+            && !one_part
+            && cc.is_some_and(|c| c.eq_ignore_ascii_case("es"))
+            && let Some(road) = es::registry_address(&typed.parts[0])
+        {
+            let mut parts = typed.parts.clone();
+            parts[0] = road;
+            let previous = TRUNCATED_STREETS.replace(false);
+            let found: Vec<_> = self
+                .retry_streets(parts, typed.open, cc, focus, want.max(2), chain)
+                .into_iter()
+                .filter(|s| s.kind == "address" && s.country_code == "es")
+                .collect();
+            let truncated = TRUNCATED_STREETS.get();
+            TRUNCATED_STREETS.set(previous || truncated);
+            if !truncated && found.len() == 1 {
+                return found;
+            }
+        }
         out.truncate(want);
         out
     }
@@ -1217,7 +1239,12 @@ impl Index {
                         .collect(),
                 ))));
             }
-            for a in self.top_of(Kind::Street, cc, cl, want.max(5) * 4) {
+            let limit = want.max(5) * 4;
+            let matches = self.top_of(Kind::Street, cc, cl, limit);
+            if matches.len() == limit {
+                TRUNCATED_STREETS.set(true);
+            }
+            for a in matches {
                 let doc: tantivy::TantivyDocument = self.searcher.doc(a).unwrap();
                 let name = best_name(&doc, self.f.name, &road_text);
                 let (sid, place) = (self.fast(a, "id") as u32, self.fast(a, "place") as u32);
