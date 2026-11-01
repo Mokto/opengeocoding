@@ -530,6 +530,39 @@ impl Index {
         Some(Hit::Place(id))
     }
 
+    pub(crate) fn locality_has_addresses(&self, hit: &Hit) -> bool {
+        use tantivy::schema::Value as _;
+        let Hit::Place(id) = hit else {
+            return false;
+        };
+        let place = &self.places[*id as usize];
+        let name = fold(&place.primary);
+        let clauses = self.musts(self.f.city, &name);
+        if clauses.is_empty() {
+            return false;
+        }
+        // ponytail: inspect the 100 busiest matching streets; a spatial collector can recover
+        // corroboration hidden by more than 100 distant namesakes without an unbounded scan.
+        self.top_of(Kind::Street, Some(&place.cc), clauses, 100)
+            .into_iter()
+            .any(|address| {
+                let dx = (self.fast_f64(address, "x") - place.x as f64)
+                    * (place.y as f64).to_radians().cos();
+                let dy = self.fast_f64(address, "y") - place.y as f64;
+                dx.hypot(dy) * 111.195 < 5.0
+                    && self.document(address).is_ok_and(|doc| {
+                        doc.get_all(self.f.postal_town).any(|value| {
+                            value
+                                .as_str()
+                                .and_then(|v| {
+                                    serde_json::from_str::<(&str, &str, &str, &str)>(v).ok()
+                                })
+                                .is_some_and(|(_, _, city, _)| fold(city) == name)
+                        })
+                    })
+            })
+    }
+
     /// `text`, or its most specific part, if it names a place: words dropped from the front
     /// ("fra seynod" -> "seynod"), or for CJK the administrative parts ("南京市江宁区" ->
     /// "江宁区", "南京市").

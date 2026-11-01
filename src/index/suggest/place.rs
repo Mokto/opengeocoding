@@ -418,6 +418,7 @@ impl Index {
             let acceptable = |id: u32| {
                 let pl = &self.places[id as usize];
                 pl.subtype.as_ref() != "microhood"
+                    && (pl.class.as_ref() == schema::SMALL_GEONAMES) == (names == Names::Small)
                     && cc.is_none_or(|c| pl.cc.eq_ignore_ascii_case(c))
                     && (quals.is_empty() || self.qualifies(id, &quals, open))
             };
@@ -477,7 +478,12 @@ impl Index {
                     if as_prefix && rarest > MAX_PLACE_WORK {
                         continue;
                     }
-                    for a in self.top_of(Kind::Place, cc, cl, pool) {
+                    let kind = if names == Names::Small {
+                        Kind::Small
+                    } else {
+                        Kind::Searched
+                    };
+                    for a in self.top_of(kind, cc, cl, pool) {
                         let id = self.fast(a, "id") as u32;
                         if !ids.contains(&id)
                             && !found.iter().any(|f| f.0 == id)

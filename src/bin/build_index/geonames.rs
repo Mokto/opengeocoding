@@ -15,6 +15,7 @@ const NEAR_KM: f64 = 10.0;
 const SKIPPED: [&str; 5] = ["PPLH", "PPLQ", "PPLW", "PPLCH", "PPLR"];
 
 struct Row {
+    id: u32,
     /// The source's primary name and its ASCII form: what the place answers to.
     names: Vec<String>,
     /// Every other name, used only to see whether Overture has the place. GeoNames' alternates
@@ -62,6 +63,7 @@ fn parse(line: &str) -> Option<Row> {
         .map(str::to_string)
         .collect();
     Some(Row {
+        id: f[0].parse().ok()?,
         names,
         others,
         cc: country(Some(f[8])),
@@ -113,11 +115,22 @@ pub fn add_places(
     places: &mut Vec<Place>,
     assigner: &Assigner,
     cities: &Path,
+    supplement: Option<&Path>,
     admin1: Option<&Path>,
     out: &Path,
 ) -> (usize, usize) {
     let text = std::fs::read_to_string(cities).expect("read GeoNames cities file");
-    let rows: Vec<Row> = text.par_lines().filter_map(parse).collect();
+    let mut rows: Vec<Row> = text.par_lines().filter_map(parse).collect();
+    let pinned: HashSet<u32> = rows.iter().map(|r| r.id).collect();
+    if let Some(supplement) = supplement {
+        let text = std::fs::read_to_string(supplement).expect("read GeoNames supplement");
+        rows.extend(
+            text.par_lines()
+                .filter_map(parse)
+                .filter(|r| !pinned.contains(&r.id))
+                .collect::<Vec<_>>(),
+        );
+    }
     let admin1: HashMap<String, String> = admin1
         .map(|p| std::fs::read_to_string(p).expect("read GeoNames admin1 file"))
         .unwrap_or_default()
@@ -196,7 +209,9 @@ pub fn add_places(
         .par_iter()
         .enumerate()
         .map(|(i, r)| {
-            if !assigner.within(r.x, r.y) {
+            if !assigner.within(r.x, r.y)
+                || (supplement.is_some() && r.listed && !pinned.contains(&r.id))
+            {
                 return Seen::Outside;
             }
             let mut known: Vec<u32> = r
@@ -420,6 +435,76 @@ mod tests {
     }
 
     #[test]
+    fn small_rows_supplement_but_never_refresh_the_pinned_cities() {
+        let root = std::env::temp_dir().join(format!("geonames-pinned-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let cities = root.join("cities.txt");
+        let supplement = root.join("small.txt");
+        std::fs::write(&cities, line("PPL", "Pinned Alias")).unwrap();
+        let renamed = line("PPL", "Renamed Alias")
+            .replace("Kalas", "Renamed")
+            .replace("4100", "0")
+            .replace("74.9", "80.0");
+        let small = line("PPL", "Small Alias")
+            .replacen('1', "2", 1)
+            .replace("Kalas", "Littleplace")
+            .replace("4100", "0")
+            .replace("74.9", "81.0");
+        let listed = line("PPL", "")
+            .replacen('1', "3", 1)
+            .replace("Kalas", "Newcity");
+        std::fs::write(&supplement, [renamed, small, listed].join("\n")).unwrap();
+        std::fs::write(root.join("places.tsv"), "").unwrap();
+        let assigner = Assigner::new(
+            vec![],
+            crate::geo::PolyFile::new(root.join("polys")),
+            vec![],
+            vec![],
+        );
+        let mut places = vec![];
+        assert_eq!(
+            add_places(
+                &mut places,
+                &assigner,
+                &cities,
+                Some(&supplement),
+                None,
+                &root
+            ),
+            (2, 1)
+        );
+        assert_eq!(&*places[0].names, "Kalas");
+        assert_eq!(places[0].xy, Some((74.9, 18.1)));
+        assert_eq!(places[0].population, 4100);
+        assert_eq!(&*places[1].names, "Littleplace");
+        let aliases =
+            tantivy_fst::Map::from_bytes(std::fs::read(root.join(ALTERNATES)).unwrap()).unwrap();
+        assert_eq!(aliases.get(b"INpinned alias"), Some(0));
+        assert_eq!(aliases.get(b"INsmall alias"), Some(1));
+        assert_eq!(aliases.get(b"INrenamed alias"), None);
+        let namesake = line("PPL", "")
+            .replacen('1', "4", 1)
+            .replace("Kalas", "Littleplace")
+            .replace("74.9", "90.0");
+        let previous = std::fs::read_to_string(&supplement).unwrap();
+        std::fs::write(&supplement, format!("{previous}\n{namesake}")).unwrap();
+        places.clear();
+        std::fs::write(root.join("places.tsv"), "").unwrap();
+        assert_eq!(
+            add_places(
+                &mut places,
+                &assigner,
+                &cities,
+                Some(&supplement),
+                None,
+                &root
+            ),
+            (1, 0)
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn only_an_unambiguous_same_country_settlement_keeps_the_primary_names() {
         let root = std::env::temp_dir().join(format!("geonames-aliases-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
@@ -448,7 +533,7 @@ mod tests {
                 .collect();
             let original = "locality\tvillage\tIN\tIN-16\t0\t4100\t74.9\t18.1\tNaN\tNaN\tNaN\tNaN\t\tOldname\t\tQ1\n";
             std::fs::write(root.join("places.tsv"), original.repeat(places.len())).unwrap();
-            add_places(&mut places, &assigner, &cities, None, &root);
+            add_places(&mut places, &assigner, &cities, None, None, &root);
             assert_eq!(places[0].names.contains("Kalas"), enriched);
             assert!(!places[0].names.contains("Untrusted Alias"));
             let tsv = std::fs::read_to_string(root.join("places.tsv")).unwrap();
@@ -491,7 +576,7 @@ mod tests {
             )
             .unwrap();
             assert_eq!(
-                add_places(&mut places, &assigner, &cities, None, &root).0,
+                add_places(&mut places, &assigner, &cities, None, None, &root).0,
                 added,
                 "{code} {subtype}"
             );
@@ -531,7 +616,7 @@ mod tests {
         let mut places = vec![place("region", 74.9)];
         std::fs::write(root.join("places.tsv"), row(&places[0])).unwrap();
         assert_eq!(
-            add_places(&mut places, &assigner, &cities, None, &root),
+            add_places(&mut places, &assigner, &cities, None, None, &root),
             (1, 1)
         );
         let tsv = std::fs::read_to_string(root.join("places.tsv")).unwrap();
@@ -545,7 +630,7 @@ mod tests {
         let mut places = vec![place("region", 74.9), place("locality", 75.1)];
         std::fs::write(root.join("places.tsv"), row(&places[0]) + &row(&places[1])).unwrap();
         assert_eq!(
-            add_places(&mut places, &assigner, &cities, None, &root).0,
+            add_places(&mut places, &assigner, &cities, None, None, &root).0,
             0
         );
         std::fs::remove_dir_all(root).unwrap();

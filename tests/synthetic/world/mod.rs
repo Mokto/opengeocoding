@@ -1058,7 +1058,8 @@ pub fn write_geonames(path: &Path) {
          7\tDoppelhof\tDoppelhof\t\t0.09\t40.0\tP\tPPL\tAT\t\t01\t\t\t\t0\n\
          8\tDoppelhof\tDoppelhof\t\t0.09\t40.02\tP\tPPLL\tAT\t\t01\t\t\t\t0\n\
          9\tWeilerteil\tWeilerteil\t\t0.12\t40.0\tP\tPPLX\tAT\t\t01\t\t\t\t0\n\
-         10\tGrenzweiler\tGrenzweiler\t\t0.4\t60.49\tP\tPPL\tAT\t\t04\t\t\t\t0\n",
+         10\tGrenzweiler\tGrenzweiler\t\t0.4\t60.49\tP\tPPL\tAT\t\t04\t\t\t\t0\n\
+         11\tNord\tNord\t\t0.6\t30.5\tP\tPPL\tAT\t\t01\t\t\t\t0\n",
     )
     .unwrap();
 }
