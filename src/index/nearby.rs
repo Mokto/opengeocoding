@@ -74,7 +74,10 @@ impl Index {
         found
             .into_iter()
             .filter_map(|(m, _, a, number, x, y, own)| {
-                Some((self.render(&self.house_hit(a, number, x, y, own)?, true), m))
+                Some((
+                    self.render_reverse(&self.house_hit(a, number, x, y, own)?),
+                    m,
+                ))
             })
             .collect()
     }

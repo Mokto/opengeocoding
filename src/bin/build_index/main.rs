@@ -21,6 +21,7 @@ use arrow_array::{
 use geo::{Assigner, KINDS, Poly, PolyFile, wkb_line, wkb_point, wkb_polygons};
 use hashbrown::HashTable;
 use opengeocoding::index::{
+    country::au,
     reverse::{self, StreetSpill, street_edges},
     schema::{
         self, Bucket, Num, NumberSpill, TOWN_CITY, fold, fold_into, held_slot, pack, pc_norm,
@@ -685,18 +686,23 @@ fn load_assigner(
                     col(&b, "geometry").as_binary::<i32>(),
                 );
                 for i in 0..b.num_rows() {
-                    let Some(kind) = KINDS.iter().position(|k| *k == sub.value(i)) else {
+                    let Some(&place) = idx.get(id.value(i)) else {
                         continue;
                     };
+                    let kind =
+                        if au::suburb_level(places[place as usize].country) == Some(sub.value(i)) {
+                            geo::SUBURB
+                        } else if let Some(kind) = KINDS.iter().position(|k| *k == sub.value(i)) {
+                            kind as u8
+                        } else {
+                            continue;
+                        };
                     // is_land picks the coastline-clipped polygon, exactly one per division
                     if land.is_null(i) || !land.value(i) || geom.is_null(i) {
                         continue;
                     }
-                    let Some(&place) = idx.get(id.value(i)) else {
-                        continue;
-                    };
                     if let Some((xy, rings)) = wkb_polygons(geom.value(i)) {
-                        out.extend(Poly::new(place, kind as u8, xy, &rings, &file));
+                        out.extend(Poly::new(place, kind, xy, &rings, &file));
                     }
                 }
             }
@@ -2228,6 +2234,26 @@ fn build(args: &[String]) {
     let polys = PolyFile::new(Path::new(out).join(".polygons"));
     let mut assigner = load_assigner(&dir.join("division_area"), &places, &idx, polys);
     reconcile_parents(&mut places, &mut rows, &idx, &assigner);
+    assigner.suburbs = places
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| au::suburb_level(p.country) == Some(p.subtype))
+        .map(|(id, _)| {
+            let parent = |p: u32| {
+                rows[p as usize]
+                    .parent
+                    .as_ref()
+                    .and_then(|id| idx.get(id))
+                    .copied()
+            };
+            (
+                id as u32,
+                std::iter::successors(parent(id as u32), |&p| parent(p))
+                    .take(15)
+                    .collect(),
+            )
+        })
+        .collect();
     write_places(rows, &idx, out);
     assigner.bbox = opt("--bbox").last().map(|b| {
         let v: Vec<f64> = b.split(',').filter_map(|v| v.trim().parse().ok()).collect();
@@ -2393,7 +2419,6 @@ fn build(args: &[String]) {
             (k, v, place)
         })
         .collect();
-    drop(assigner);
 
     // Each shard sorts in memory; allow as many at once as half the headroom fits.
     let shard_bytes = spill.bytes() / NUMBER_SHARDS as u64;
@@ -2404,6 +2429,26 @@ fn build(args: &[String]) {
         streets, renumber, ..
     } = canon;
     lap(&format!("house numbers ({n})"));
+    let mut suburb_streets: Vec<_> = streets
+        .iter()
+        .enumerate()
+        .flat_map(|(shard, s)| {
+            s.streets
+                .iter()
+                .enumerate()
+                .filter_map(move |(position, _)| {
+                    let (country, place, _) = s.key(position as u32);
+                    au::suburb_level(country)
+                        .map(|_| ((position as u32) << 8 | shard as u32, place))
+                })
+        })
+        .collect();
+    suburb_streets.sort_unstable();
+    let suburbs = assigner
+        .write_suburbs(Path::new(out), &suburb_streets)
+        .unwrap();
+    drop(assigner);
+    lap(&format!("house suburbs ({suburbs})"));
 
     progress::phase("Build search index");
     let headroom = headroom();

@@ -693,7 +693,11 @@ pub fn write_release(dir: &Path) {
 
     let areas: Vec<_> = PLACES
         .iter()
-        .filter(|p| p.subtype == "locality" && !POINT_ONLY.contains(&p.id))
+        .filter(|p| {
+            p.subtype == "locality"
+                && !POINT_ONLY.contains(&p.id)
+                && !au::POINT_ONLY.contains(&p.id)
+        })
         .map(|p| {
             let r = if p.id == "li-vaduz" { 0.05 } else { 0.2 };
             (p.id, p.subtype, true, true, p.lon, p.lat, r)
@@ -1093,7 +1097,7 @@ pub fn write_osm(dir: &Path) {
         node_messages.push(n);
         id
     };
-    for f in FEATURES.iter().chain(uy::FEATURES) {
+    for f in FEATURES.iter().chain(uy::FEATURES).chain(au::FEATURES) {
         let t = tags(f);
         let r = match f.shape {
             Shape::Node => {

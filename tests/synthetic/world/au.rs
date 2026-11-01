@@ -1,7 +1,181 @@
 use super::*;
 use crate::*;
 
+pub const POINT_ONLY: &[&str] = &["au-close-village", "au-unbounded-metro"];
+
+// Both copies must stay in one 0.1° street cell, or they are separate indexed houses.
+pub const FEATURES: &[Feature] = &[
+    Feature {
+        shape: Shape::Node,
+        lon: 150.00507,
+        lat: -22.5,
+        tags: &[
+            ("addr:country", "AU"),
+            ("addr:street", "Boundary Walk"),
+            ("addr:housenumber", "12"),
+            ("addr:postcode", "4511"),
+            ("addr:city", "Posthaven"),
+        ],
+    },
+    Feature {
+        shape: Shape::Node,
+        lon: 150.0032,
+        lat: -22.5,
+        tags: &[
+            ("addr:country", "AU"),
+            ("addr:street", "Conflict Walk"),
+            ("addr:housenumber", "33"),
+            ("addr:postcode", "4513"),
+            ("addr:city", "Farhaven"),
+        ],
+    },
+];
+
 pub const PLACES: &[Place] = &[
+    place!(
+        "au-unbounded-metro",
+        "locality",
+        "city",
+        "AU",
+        "AU-QLD",
+        100_000,
+        (152.0, -22.5),
+        "au-qld",
+        "Unbounded",
+        &[]
+    ),
+    place!(
+        "au-unbounded-central",
+        "macrohood",
+        "",
+        "AU",
+        "AU-QLD",
+        0,
+        (152.0, -22.5),
+        "au-qld",
+        "Unbounded Central",
+        &[]
+    ),
+    place!(
+        "au-reconciled-metro",
+        "locality",
+        "city",
+        "AU",
+        "AU-SA",
+        100_000,
+        (151.0, -22.5),
+        "au-sa",
+        "Shorebay",
+        &[]
+    ),
+    place!(
+        "au-reconciled-suburb",
+        "macrohood",
+        "",
+        "AU",
+        "AU-SA",
+        0,
+        (151.0, -22.5),
+        "au-reconciled-metro",
+        "Harbour Quay",
+        &[]
+    ),
+    place!(
+        "au-coast",
+        "macrohood",
+        "",
+        "AU",
+        "AU-QLD",
+        0,
+        (150.0, -22.5),
+        "au-ardmore",
+        "Copper Coast",
+        &[]
+    ),
+    place!(
+        "au-fern-quay",
+        "macrohood",
+        "",
+        "AU",
+        "AU-QLD",
+        0,
+        (149.99, -22.5),
+        "au-coast",
+        "Fern Quay",
+        &[]
+    ),
+    place!(
+        "au-wattle-quay",
+        "macrohood",
+        "",
+        "AU",
+        "AU-QLD",
+        0,
+        (150.01, -22.5),
+        "au-coast",
+        "Wattle Quay",
+        &[]
+    ),
+    place!(
+        "au-close-village",
+        "locality",
+        "village",
+        "AU",
+        "AU-QLD",
+        100,
+        (150.0002, -22.5),
+        "au-qld",
+        "Nearbank",
+        &[]
+    ),
+    place!(
+        "au-foreign-suburb",
+        "macrohood",
+        "",
+        "NZ",
+        "NZ-AUK",
+        0,
+        (150.00495, -22.5),
+        "nz-harbourton",
+        "Foreign Quay",
+        &[]
+    ),
+    place!(
+        "au-other-region-suburb",
+        "macrohood",
+        "",
+        "AU",
+        "AU-SA",
+        0,
+        (150.00495, -22.5),
+        "au-sa",
+        "Other Quay",
+        &[]
+    ),
+    place!(
+        "au-overlap-a",
+        "macrohood",
+        "",
+        "AU",
+        "AU-QLD",
+        0,
+        (150.05, -22.5),
+        "au-coast",
+        "First Quay",
+        &[]
+    ),
+    place!(
+        "au-overlap-b",
+        "macrohood",
+        "",
+        "AU",
+        "AU-QLD",
+        0,
+        (150.05, -22.5),
+        "au-coast",
+        "Second Quay",
+        &[]
+    ),
     place!(
         "au",
         "country",
@@ -128,6 +302,82 @@ pub const PLACES: &[Place] = &[
 ];
 
 pub const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
+    ("au-qld", "region", true, true, 152.0, -22.5, 0.1),
+    (
+        "au-unbounded-central",
+        "macrohood",
+        true,
+        true,
+        152.0,
+        -22.5,
+        0.01,
+    ),
+    ("au-qld", "region", true, true, 151.0, -22.5, 0.1),
+    (
+        "au-reconciled-suburb",
+        "macrohood",
+        true,
+        true,
+        151.0,
+        -22.5,
+        0.01,
+    ),
+    ("au-qld", "region", true, true, 150.0, -22.5, 0.1),
+    ("au-coast", "macrohood", true, true, 150.0, -22.5, 0.06),
+    (
+        "au-fern-quay",
+        "macrohood",
+        true,
+        true,
+        149.99,
+        -22.5,
+        0.015,
+    ),
+    (
+        "au-wattle-quay",
+        "macrohood",
+        true,
+        true,
+        150.01,
+        -22.5,
+        0.005,
+    ),
+    (
+        "au-foreign-suburb",
+        "macrohood",
+        true,
+        true,
+        150.00495,
+        -22.5,
+        0.0001,
+    ),
+    (
+        "au-other-region-suburb",
+        "macrohood",
+        true,
+        true,
+        150.00495,
+        -22.5,
+        0.0001,
+    ),
+    (
+        "au-overlap-a",
+        "macrohood",
+        true,
+        true,
+        150.05,
+        -22.5,
+        0.005,
+    ),
+    (
+        "au-overlap-b",
+        "macrohood",
+        true,
+        true,
+        150.05,
+        -22.5,
+        0.005,
+    ),
     (
         "au-ardmore-municipality",
         "county",
@@ -141,6 +391,94 @@ pub const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
 ];
 
 pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Conflict Walk",
+        postcode: "4513",
+        city: "Posthaven",
+        cc: "AU",
+        lon: 150.003,
+        lat: -22.5,
+        numbers: &["33"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Repeat Walk",
+        postcode: "4511",
+        city: "Posthaven",
+        cc: "AU",
+        lon: 150.0061,
+        lat: -22.5,
+        numbers: &["31"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Repeat Walk",
+        postcode: "4511",
+        city: "Posthaven",
+        cc: "AU",
+        lon: 150.0065,
+        lat: -22.5,
+        numbers: &["31"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Remnant Walk",
+        postcode: "4514",
+        city: "Posthaven",
+        cc: "AU",
+        lon: 152.0,
+        lat: -22.5,
+        numbers: &["19"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Reconciled Walk",
+        postcode: "4513",
+        city: "Posthaven",
+        cc: "AU",
+        lon: 151.0,
+        lat: -22.5,
+        numbers: &["18"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Boundary Walk",
+        postcode: "4511",
+        city: "Posthaven",
+        cc: "AU",
+        lon: 150.00495,
+        lat: -22.5,
+        numbers: &["12"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Boundary Walk",
+        postcode: "4511",
+        city: "Posthaven",
+        cc: "AU",
+        lon: 150.00505,
+        lat: -22.5,
+        numbers: &["14"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Overlap Walk",
+        postcode: "4511",
+        city: "Posthaven",
+        cc: "AU",
+        lon: 150.05,
+        lat: -22.5,
+        numbers: &["16"],
+    },
     Street {
         class: "residential",
         length: 0.0,
@@ -247,6 +585,10 @@ pub const STREETS: &[Street] = &[
 
 pub fn cases() -> Vec<Case> {
     vec![
+        case(
+            "12 Boundary Walk, Posthaven 4511, Australia",
+            at_house("Boundary Walk", "12"),
+        ),
         case("121 Regent Street, Ardmore", town("au-ardmore", false)),
         case(
             "121 Regent Street, Ardmore, Australia",
@@ -398,4 +740,64 @@ fn australian_houses_are_suggested_with_state_codes_suburbs_and_units() {
     ] {
         assert!(at(typed).iter().all(|s| s.kind != "address"), "{typed}");
     }
+}
+
+#[test]
+fn australian_suburbs_follow_reconciled_region_parents() {
+    let found = index().reverse_search(-22.5, 151.0, 2.0, 1);
+    let address = &found[0].1["address"];
+    assert_eq!(address["house_number"], "18");
+    assert_eq!(address["suburb"], "Harbour Quay");
+    assert_eq!(address["city"], "Shorebay");
+    assert_eq!(address["ISO3166-2-lvl4"], "AU-QLD");
+}
+
+#[test]
+fn australian_reverse_houses_keep_their_containing_suburb_and_metro() {
+    let lat: f64 = -22.5;
+    for (lon, number, suburb) in [
+        (150.00495, "12", "Fern Quay"),
+        (150.00505, "14", "Wattle Quay"),
+        (150.0063, "31", "Wattle Quay"),
+    ] {
+        let found = index().reverse_search(lat, lon, 2.0, 1);
+        assert_eq!(found.len(), 1);
+        let (layer, hit, _) = &found[0];
+        assert_eq!(*layer, "address", "{lon}: {number}");
+        assert_eq!(hit["address"]["house_number"], number);
+        assert_eq!(hit["address"]["suburb"], suburb);
+        assert_eq!(hit["address"]["city"], "Ardmore");
+        assert_eq!(hit["address"]["postal_town"], "Posthaven");
+        assert_eq!(hit["address"]["country_code"], "au");
+        assert_eq!(hit["address"]["ISO3166-2-lvl4"], "AU-QLD");
+        let point = (
+            hit["lon"].as_str().unwrap().parse().unwrap(),
+            hit["lat"].as_str().unwrap().parse().unwrap(),
+        );
+        assert!(metres(point, (lon, lat)) < 1.0);
+    }
+    let conflict = index().reverse_search(lat, 150.003, 2.0, 1);
+    let address = &conflict[0].1["address"];
+    assert_eq!(address["house_number"], "33");
+    assert_eq!(address["city"], "Ardmore");
+    assert_eq!(address["suburb"], "Fern Quay");
+    assert!(address.get("postal_town").is_none());
+
+    let offset_lon = 150.00495 + 25.0 / (111_195.0 * lat.to_radians().cos());
+    let offset = index().reverse_search(lat, offset_lon, 30.0, 1);
+    assert_eq!(offset[0].1["address"]["house_number"], "14");
+    assert_eq!(offset[0].1["address"]["suburb"], "Wattle Quay");
+
+    let unbounded = index().reverse_search(lat, 152.0, 2.0, 1);
+    assert_eq!(unbounded[0].1["address"]["house_number"], "19");
+    assert_eq!(unbounded[0].1["address"]["city"], "Unbounded");
+    assert!(unbounded[0].1["address"].get("suburb").is_none());
+
+    let overlap = index().reverse_search(lat, 150.05, 2.0, 1);
+    assert_eq!(overlap[0].1["address"]["house_number"], "16");
+    assert_eq!(overlap[0].1["address"]["city"], "Ardmore");
+    assert!(overlap[0].1["address"].get("suburb").is_none());
+    let control = index().reverse_search(-21.2, 149.2, 2.0, 1);
+    assert_eq!(control[0].1["address"]["house_number"], "206");
+    assert_eq!(control[0].1["address"]["town"], "Wattleford");
 }

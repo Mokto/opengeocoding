@@ -31,7 +31,7 @@ COPY src src
 COPY benches benches
 RUN find src benches -name '*.rs' | while read -r f; do \
       case "$f" in \
-        src/lib.rs|src/index/area.rs|src/index/schema.rs|src/index/canon.rs|src/index/reverse.rs|src/index/landmark.rs) body='' ;; \
+        src/lib.rs|src/index/area.rs|src/index/schema.rs|src/index/canon.rs|src/index/reverse.rs|src/index/landmark.rs|src/index/country/au.rs) body='' ;; \
         src/main.rs|src/bin/*/main.rs|benches/*.rs) body='fn main() {}' ;; \
         src/bin/*/*) continue ;; \
         src/bin/*.rs) body='fn main() {}' ;; \
