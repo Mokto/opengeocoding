@@ -921,6 +921,62 @@ fn landmarks_come_only_when_asked_and_after_the_towns_of_their_name() {
 }
 
 #[test]
+fn city_first_landmarks_keep_the_place_country_and_word_boundaries() {
+    for text in [
+        "Paris, Paris Museum",
+        "Paris, Paris Mus",
+        "Paris, Paris Museum, France",
+        "Paris, Paris Museum, France ",
+        "Paris, Paris Museum, Franc",
+    ] {
+        let found = index().suggest(text, 5, None, None, true);
+        let museum = found
+            .iter()
+            .find(|s| s.kind == "landmark" && s.category == "museum")
+            .unwrap_or_else(|| panic!("missing museum for {text:?}"));
+        assert!(
+            museum
+                .display_name
+                .starts_with("Paris Museum of Things, Paris, ")
+        );
+        assert_eq!(museum.country_code, "fr");
+        assert!(metres((museum.x, museum.y), (FEATURES[2].lon, FEATURES[2].lat)) < 5.0);
+        assert!(
+            index()
+                .suggest(text, 5, None, None, false)
+                .iter()
+                .all(|s| s.kind != "landmark")
+        );
+        assert!(
+            index()
+                .suggest(text, 5, Some("us"), None, true)
+                .iter()
+                .all(|s| s.kind != "landmark")
+        );
+    }
+    for text in [
+        "Paris, Paris Mus ",
+        "Paris, Paris Museum, Texas",
+        "Paris, Paris Museum, United States",
+        "Paris, Paris Museum, Germany",
+        "Nordville, Paris Museum, France",
+        "X, Paris Museum, France",
+        "Franc, Paris Museum, France",
+        "Par, Paris Museum, France",
+        "Paris Museum, X, France",
+        "Paris Museum, Franc, France",
+    ] {
+        assert!(
+            index()
+                .suggest(text, 5, None, None, true)
+                .iter()
+                .all(|s| s.kind != "landmark"),
+            "{text:?}"
+        );
+    }
+}
+
+#[test]
 fn reverse_names_the_nearest_locality_and_nothing_in_the_ocean() {
     let koeln = place("de-koeln");
     let found = index().reverse(koeln.lat + 0.01, koeln.lon);

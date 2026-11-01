@@ -68,4 +68,20 @@ Held-out flag-on checks pass **8/15**. No station passes in all three forms. All
 
 The city-first form remains unsupported in this draw, and two station-first names do not retrieve an acceptable station. A non-held-out example, Arany János utca, returns a street rather than the required landmark; the precise missing/indexing/name/ranking attribution remains unresolved. The held-out failing station was not inspected for tuning. All failing variants remain in the corpus without labels or adjusted tolerances.
 
-A repeated run has zero suggestion/scoring drift. Neither run has flag-off failures or RPC errors, and the documented fresh-service grpcurl SearchAddress hang reproduces as a known failure. These are local diagnostics, not nationwide accuracy or speed evidence. No runtime landmark-ranking fix is included.
+A repeated run has zero suggestion/scoring drift. Neither run has flag-off failures or RPC errors, and the documented fresh-service grpcurl SearchAddress hang reproduces as a known failure. These are local diagnostics, not nationwide accuracy or speed evidence. No runtime landmark-ranking fix was included in the corpus addition.
+
+## City-first completion
+
+The service now tries the second comma component as the landmark name only when the original name-first lookup has no qualified landmark. The other components still qualify the landmark's place, including any written country or region. A final landmark component may be an unfinished prefix; a completed word before a comma or trailing space is not treated as unfinished. Only the first two name positions are tried, not arbitrary permutations. Existing place-first ranking and the landmark opt-in remain intact.
+
+A full-index comparison against main `78622dc`, on one index built by `495ed3bf27ad1ccd` with unchanged models/reference data, improves **46 city-first queries from missing to passing** across 44,047 shared cases. All 46 gains also have a top-five station corroborated by the published native name (or terminal `tér`/`square`), category, country and source position; the evaluator on that main revision did not yet require name corroboration. No samples or expectations changed.
+
+| Form | Base passing | Candidate passing | Checked |
+|---|---:|---:|---:|
+| Station first, English country | 46 | 46 | 48 |
+| City first | 0 | 46 | 48 |
+| Station first, Hungarian country | 46 | 46 | 48 |
+
+Flag-on retrieval therefore rises from **92/144 to 138/144**, including **8/15 to 12/15** held-out checks. Flag-off remains 144/144. SearchAddress, ResolveRegion and both reverse scores are unchanged, with no newly failing or worse classes in the full comparison. These are source-consistency checks on this local index, not independent or production accuracy.
+
+The repeated base run has zero scoring drift, but two unrelated lower-ranked suggestion lists vary even with the same binary: `Washington, PA` can offer different fifth streets, and `La Plata, MD` can offer foreign streets after the correct first town. Both variations also occur without this change and leave the evaluated rank/pass unchanged; they are not claimed fixed here. No such default suggestions are intentionally altered by the landmark-only change. Local timing swings between identical-binary runs are large, so only CI's measured speed gate can validate latency.
