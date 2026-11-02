@@ -141,6 +141,28 @@ pub fn cases() -> Vec<Case> {
 }
 
 #[test]
+fn chart_enables_the_pinned_official_capture() {
+    let source = include_str!("../../../manifests/values.yaml")
+        .split_once("    icelandAddresses:\n")
+        .expect("the chart must enable the official Iceland capture")
+        .1;
+    let mut lines = source.lines();
+    let url = lines.next().unwrap().trim().strip_prefix("url: ").unwrap();
+    let sha = lines
+        .next()
+        .unwrap()
+        .trim()
+        .strip_prefix("sha256: ")
+        .unwrap();
+    assert_eq!(
+        sha,
+        "667e1026b60622e67d3c9f3b076a1dcb0dffeec2b538e5b64f880122717b3c5b"
+    );
+    assert!(url.starts_with("https://github.com/Mokto/opengeocoding/releases/download/"));
+    assert!(url.ends_with(&format!("-{sha}.csv")));
+}
+
+#[test]
 fn an_official_capture_must_match_its_checksum_and_coordinate_order() {
     let root = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
         .join(format!("iceland-invalid-{}", std::process::id()));

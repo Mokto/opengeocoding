@@ -58,9 +58,10 @@ index:
     # The addresses Syke's Ryhti register names only in Swedish (most of Åland's), which
     # OpenAddresses' Finnish layers publish without a number; fetched under `snapshot`.
     ryhti: true
-    # Optional pinned HMS WFS CSV; see docs/evaluation/registry/is.md. A mutable WFS URL
-    # cannot reproduce an older capture: host its pinned bytes at your own HTTPS URL.
-    icelandAddresses: null
+    # The live HMS WFS returns request-dependent feature IDs; preserve the captured bytes.
+    icelandAddresses:
+      url: https://github.com/Mokto/opengeocoding/releases/download/v1.6.0/hms-stadfangaskra-2026-10-30-667e1026b60622e67d3c9f3b076a1dcb0dffeec2b538e5b64f880122717b3c5b.csv
+      sha256: 667e1026b60622e67d3c9f3b076a1dcb0dffeec2b538e5b64f880122717b3c5b
     # INEGI's establishment directory (DENUE), its latest edition fetched under `snapshot`: the
     # establishments that entered it before `before`. The Mexico corpus samples later ones, so
     # moving `before` means sampling that corpus again (docs/evaluation/registry/mx.md).
