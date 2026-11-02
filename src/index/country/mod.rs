@@ -26,6 +26,7 @@ pub mod lt_si;
 pub mod lv;
 pub mod mx;
 pub mod nz;
+pub mod pf;
 pub mod pl;
 pub mod ps;
 pub mod pt;

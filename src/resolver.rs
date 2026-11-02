@@ -440,7 +440,13 @@ impl Core {
                                         },
                                     )))
                     });
+                    let commune =
+                        crate::index::country::pf::commune_named(&self.index, &hits[index], city)
+                            && postcode_matches(postcode, details)
+                            && state_consistent(address, details)
+                            && !state_code_conflict(address, details);
                     if self.index.house_locality_named(&hits[index], city)
+                        || commune
                         || seat
                         || territory
                         || ((postal_town || administrative_twin)
