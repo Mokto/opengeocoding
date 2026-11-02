@@ -170,6 +170,65 @@ pub const STREETS: &[Street] = &[
 ];
 
 #[test]
+fn country_first_preserves_scope_and_completion_boundaries() {
+    for country in ["South Korea", "대한민국"] {
+        for (province, lon) in [
+            ("가람도", 140.),
+            ("경기", 140.),
+            ("나래도", 142.),
+            ("충북", 142.),
+        ] {
+            let query = format!("{country}, {province} 솔빛시 새봄면 새로12길 13-34");
+            let found = index().suggest(&query, 5, None, None, false);
+            assert_eq!(found.len(), 1, "{query}");
+            assert_eq!(found[0].kind, "address");
+            assert!(found[0].display_name.starts_with("13-34, "));
+            assert!(metres((found[0].x, found[0].y), (lon, 35.)) < 5., "{query}");
+            assert!(
+                index()
+                    .suggest(&query, 5, Some("JP"), None, false)
+                    .is_empty()
+            );
+        }
+        for (tail, want) in [("새로1", 2), ("새로12길 13-", 1)] {
+            let query = format!("{country}, 가람도 솔빛시 새봄면 {tail}");
+            assert_eq!(
+                index().suggest(&query, 5, None, None, false).len(),
+                want,
+                "{query}"
+            );
+            let closed = index().suggest(&format!("{query} "), 5, None, None, false);
+            if tail == "새로1" {
+                assert!(closed.is_empty(), "{query}");
+            } else {
+                assert_eq!(closed.len(), 1, "{query}");
+                assert_eq!(closed[0].kind, "street", "{query}");
+                assert!(closed[0].display_name.starts_with("새로12길, "), "{query}");
+            }
+        }
+        let query = format!("{country}, 가람도 솔빛시 새봄면 들길 7");
+        let found = index().suggest(&query, 5, None, None, false);
+        assert_eq!(found.len(), 1, "{query}");
+        assert!(metres((found[0].x, found[0].y), (140.3, 35.)) < 5.);
+    }
+    for query in [
+        "Japan, 가람도 솔빛시 새봄면 새로12길 13-34",
+        "South Korea, 가람도 없는시 새봄면 새로12길 13-34",
+        "South Korea, 나래도 솔빛시 새봄면 들길 7",
+        "South Korea, 가람도 솔빛시 없는면 들길 7",
+        "South Korea, 가람도 솔빛시 새봄면 새로12길 999",
+    ] {
+        assert!(
+            !index()
+                .suggest(query, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+}
+
+#[test]
 fn short_provinces_keep_the_house_and_qualifiers() {
     for (province, number, lon) in [
         ("경기", "13-34", 140.0),
@@ -224,22 +283,32 @@ pub async fn check_short_provinces(resolver: &opengeocoding::resolver::Resolver)
         ("경기", "290", 140.0001, "KR-41"),
         ("충북", "13-34", 142.0, "KR-43"),
     ] {
-        let query = format!("{province} 솔빛시 새봄면 새로12길 {number}, South Korea");
-        let found = resolver.resolve(&query).await.unwrap();
-        let detail = found.address_details.as_option().unwrap();
-        assert!(found.good_match, "{query}: {found:?}");
-        assert_eq!(detail.house_number, number, "{query}");
-        assert!(
-            detail.region_codes.iter().any(|r| r.code == code),
-            "{query}"
-        );
-        let point = found.geo_coordinates.as_option().unwrap();
-        assert!(
-            metres((point.lon as f64, point.lat as f64), (lon, 35.0)) < 5.,
-            "{query}"
-        );
+        for query in [
+            format!("{province} 솔빛시 새봄면 새로12길 {number}, South Korea"),
+            format!("South Korea, {province} 솔빛시 새봄면 새로12길 {number}"),
+            format!("대한민국, {province} 솔빛시 새봄면 새로12길 {number}"),
+        ] {
+            let found = resolver.resolve(&query).await.unwrap();
+            let detail = found.address_details.as_option().unwrap();
+            assert!(found.good_match, "{query}: {found:?}");
+            assert_eq!(detail.house_number, number, "{query}");
+            assert!(
+                detail.region_codes.iter().any(|r| r.code == code),
+                "{query}"
+            );
+            let point = found.geo_coordinates.as_option().unwrap();
+            assert!(
+                metres((point.lon as f64, point.lat as f64), (lon, 35.0)) < 5.,
+                "{query}"
+            );
+        }
     }
     for query in [
+        "Japan, 경기 솔빛시 새봄면 새로12길 13-34",
+        "South Korea, 충북 솔빛시 새봄면 들길 7",
+        "South Korea, 경기 없는시 새봄면 새로12길 13-34",
+        "South Korea, 경기 솔빛시 새봄면 새로12길 999",
+        "South Korea, 경기 솔빛시 새봄면 새로12길 17",
         "경기 솔빛시 새봄면 새로12길 999, South Korea",
         "충북 솔빛시 새봄면 들길 7, South Korea",
         "경기 없는시 새봄면 새로12길 13-34, South Korea",
@@ -248,6 +317,21 @@ pub async fn check_short_provinces(resolver: &opengeocoding::resolver::Resolver)
     ] {
         let found = resolver.resolve(query).await.unwrap();
         assert!(!found.good_match, "{query}: {found:?}");
+        if query.starts_with("Japan,") {
+            assert!(
+                found.geo_coordinates.as_option().is_none(),
+                "{query}: {found:?}"
+            );
+        }
+        if query.starts_with("South Korea, 충북") {
+            assert!(
+                found
+                    .address_details
+                    .as_option()
+                    .is_none_or(|d| d.region_codes.iter().all(|r| r.code != "KR-41")),
+                "{query}: {found:?}"
+            );
+        }
     }
 }
 

@@ -221,6 +221,7 @@ impl Resolver {
                         g.lon as f64,
                         road,
                         number,
+                        found.good_match,
                     )
                 }) {
                     found = FullAddress::default();
