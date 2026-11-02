@@ -57,6 +57,33 @@ pub(crate) fn spain(country: &str) -> bool {
     )
 }
 
+pub(crate) fn number_from_avenida(query: &str, parsed: &mut Vec<(String, String)>) {
+    if parsed.iter().any(|(k, _)| k == "house_number") {
+        return;
+    }
+    let mut roads = parsed.iter().enumerate().filter(|(_, (k, _))| k == "road");
+    let Some((at, (_, first))) = roads.next() else {
+        return;
+    };
+    let Some((number, road)) = first.split_once(' ') else {
+        return;
+    };
+    if roads.next().is_some()
+        || number.is_empty()
+        || !number.bytes().all(|b| b.is_ascii_digit())
+        || !road
+            .strip_prefix("avenida ")
+            .is_some_and(|name| name.chars().any(char::is_alphabetic))
+        || query.split(',').next().unwrap_or("").trim().to_lowercase() != *first
+        || crate::matching::expected_country(&parsed.iter().cloned().collect()) != "es"
+    {
+        return;
+    }
+    let (number, road) = (number.to_owned(), road.to_owned());
+    parsed[at].1 = road;
+    parsed.insert(at, ("house_number".into(), number));
+}
+
 pub(crate) fn registry_road(road: &str) -> Option<String> {
     const PARTICLES: &[&str] = &[
         "de", "del", "la", "las", "los", "el", "dels", "les", "els", "da", "do", "das", "dos",
@@ -115,6 +142,87 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn a_leading_avenida_number_keeps_every_other_component() {
+        let mut parsed = pairs(&[
+            ("road", "40 avenida de galicia"),
+            ("suburb", "centro"),
+            ("city", "zamora"),
+            ("state", "castilla y león"),
+            ("postcode", "49024"),
+            ("country", "spain"),
+        ]);
+        let qualifiers = parsed[1..].to_vec();
+        number_from_avenida("40 Avenida de Galicia, Zamora, 49024, Spain", &mut parsed);
+        assert_eq!(
+            &parsed[..2],
+            &pairs(&[("house_number", "40"), ("road", "avenida de galicia")])
+        );
+        assert_eq!(parsed[2..], qualifiers);
+    }
+
+    #[test]
+    fn only_an_unparsed_spanish_civic_number_is_split_from_avenida() {
+        for (query, road, country, extra) in [
+            (
+                "40 Avenida de Galicia, France",
+                "40 avenida de galicia",
+                "france",
+                None,
+            ),
+            ("40 Avenida de Galicia", "40 avenida de galicia", "", None),
+            (
+                "40 Avenida de Galicia, Spain",
+                "40 avenida de galicia",
+                "spain",
+                Some(("house_number", "99")),
+            ),
+            (
+                "40 Avenida de Galicia, Spain",
+                "40 avenida de galicia",
+                "spain",
+                Some(("road", "zamora")),
+            ),
+            (
+                "40 Avenida de Galicia, Spain",
+                "40 avenida de galicia zamora",
+                "spain",
+                None,
+            ),
+            (
+                "Avenida 9 de Octubre, Spain",
+                "avenida 9 de octubre",
+                "spain",
+                None,
+            ),
+            (
+                "40B Avenida de Galicia, Spain",
+                "40b avenida de galicia",
+                "spain",
+                None,
+            ),
+            (
+                "40-42 Avenida de Galicia, Spain",
+                "40-42 avenida de galicia",
+                "spain",
+                None,
+            ),
+            (
+                "40 1/2 Avenida de Galicia, Spain",
+                "40 1/2 avenida de galicia",
+                "spain",
+                None,
+            ),
+            ("40 Avenida, Spain", "40 avenida", "spain", None),
+        ] {
+            let mut parsed = pairs(&[("road", road), ("country", country)]);
+            parsed.extend(extra.map(|(k, v)| (k.into(), v.into())));
+            let before = parsed.clone();
+            number_from_avenida(query, &mut parsed);
+            assert_eq!(parsed, before, "{query}");
+        }
     }
 
     #[test]

@@ -704,6 +704,7 @@ impl Parser {
                 ee::typed_road(&mut parsed, typed);
             }
             pt::number_from_avenida(&mut parsed);
+            es::number_from_avenida(q, &mut parsed);
             cn_tw::number_from_cjk_road(&mut parsed);
             cz_sk::czech_number_marks(&mut parsed);
             de::numbered_street(q, &mut parsed);
