@@ -887,11 +887,11 @@ impl Index {
                 self.landmarks.list.get(id as usize)?;
                 Some(self.landmark_suggestion(id))
             }
-            "s" | "h" | "z" => {
+            "s" | "h" | "z" | "a" => {
                 let mut parts = rest.split(':');
                 let segment: u32 = parts.next()?.parse().ok()?;
                 let doc: u32 = parts.next()?.parse().ok()?;
-                let number = if kind == "h" {
+                let number = if kind == "h" || kind == "a" {
                     Some(parts.next()?)
                 } else {
                     None
@@ -918,6 +918,9 @@ impl Index {
                 let a = tantivy::DocAddress::new(segment, doc);
                 if kind == "z" {
                     return self.postcode_suggestion(a);
+                }
+                if kind == "a" {
+                    return jp::block_suggestion(self, a, number?);
                 }
                 let sid = self.fast(a, "id") as u32;
                 let xy = if let Some(number) = number {

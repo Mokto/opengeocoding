@@ -10,6 +10,14 @@ and constructs query forms from the source's names and block signs. These edits 
 not unmodified MLIT publications and are not endorsed by MLIT. Points represent blocks, not
 individual residences or entrances.
 
+The index builder also recognizes the MLIT-derived prefectural OpenAddresses records carried
+by Overture. OpenGeocoding removes the coordinate-system zone appended by identified older
+exports, retains the corrected identifier as a numbered area, and serves it at street/area
+level rather than as a residence. Later exports keep their identifier as published. These
+are OpenGeocoding processing changes, not unmodified or endorsed MLIT publications. The
+serving exports lack the original residential-addressing and representative flags; they can
+include parcel areas and cannot establish block boundaries or entrance-level positions.
+
 Used under the 位置参照情報利用約款 (Location Reference Information Terms of Use, revised
 2013-02-07), https://nlftp.mlit.go.jp/isj/agreement.html: free use, including reproduction,
 citation and edited outputs, with the required source credit above and, where possible, edition,

@@ -19,6 +19,7 @@ fn builder_hash() -> String {
                 "src/index/landmark.rs",
                 "src/index/country/au.rs",
                 "src/index/country/gl.rs",
+                "src/index/country/jp.rs",
                 "data/asiaq-buildings.tsv",
                 "data/asiaq-buildings.NOTICE",
             ]
