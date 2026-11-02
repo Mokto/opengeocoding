@@ -2,6 +2,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -166,7 +167,38 @@ def check_bkk():
         assert first == out.read_bytes()
 
 
+def check_korean_input_forms():
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        script = root / "kr-input-forms.py"
+        script.write_bytes(Path(__file__).with_name(script.name).read_bytes())
+        source = root / "kr.jsonl"
+        original = [
+            {"id": "training", "query": "경기도 가상시 새로길 13, South Korea", "location": "fictional-training", "holdout": False, "expect": {"point": [35, 140], "radius_km": 0.25}, "review": {"note": "source"}},
+            {"id": "heldout", "query": "경기도 가상시 새로길 14, South Korea", "location": "fictional-heldout", "holdout": True, "expect": {"point": [35, 140], "radius_km": 0.25}, "review": {"note": "source"}},
+        ]
+        source.write_text("".join(json.dumps(row) + "\n" for row in original))
+        first = source.read_bytes()
+        out = root / "audit.jsonl"
+        command = [sys.executable, str(script), "--out", str(out)]
+        subprocess.run(command, check=True, capture_output=True)
+        data = out.read_bytes()
+        rows = [json.loads(line) for line in data.splitlines()]
+        assert len(rows) == 6 and all(row["location"] == "fictional-training" for row in rows)
+        for row in rows:
+            if row["cohort"] == "kr_format_without_province":
+                assert "expect" not in row
+            else:
+                assert row["expect"] == original[0]["expect"]
+        assert next(r["query"] for r in rows if r["cohort"] == "kr_format_short_province") == "경기 가상시 새로길 13, South Korea"
+        subprocess.run(command, check=True, capture_output=True)
+        assert out.read_bytes() == data and source.read_bytes() == first
+        assert subprocess.run([sys.executable, str(script), "--out", str(source)], capture_output=True).returncode != 0
+        assert source.read_bytes() == first
+
+
 if __name__ == "__main__":
+    check_korean_input_forms()
     check_bkk()
     check_linz()
     check_bogota()

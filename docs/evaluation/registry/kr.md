@@ -96,3 +96,32 @@ The 39,622-case full comparison gains 61 SearchAddress passes and 59 SuggestAddr
 The supplement ranks behind OSM and other address sources for duplicate houses. It cannot move an existing street's centroid or importance, and supplementary-only streets are appended after primary streets when assigning IDs: otherwise importing Korean data can reverse a tied candidate choice in another country. Unit checks preserve these invariants. An initial trial violated both and produced two Korean street-fallback regressions and two Nigerian regressions; the final comparison removes all four without a parser or fallback change. Business points still need not identify a particular campus member or an entrance.
 
 `cargo fmt --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked`, and the separate model-backed synthetic test pass locally. The real-index RPC contract test reaches the documented `grpcurl` timeout and fails; the other RPC diagnostics pass. The local full comparison exceeds the timing threshold and is not a speed sign-off; CI's measured gold-speed gate remains required.
+
+## Shortened province input forms
+
+Native province shorthand such as `서울 …구`, `경기 …시` and `충북 …군` now enters the same Korean lookup as its full province name, provided the city, county or district is explicitly written and resolves beneath that province. Only the first token is expanded; the remaining hierarchy, exact street/number and country checks are unchanged. Bare `광주 + road + number` and `제주 + road + number` are not newly interpreted as provinces: they can also name cities. Shorthand without a city/county/district, including many Sejong forms, stays outside this repair. Complete province names retain their existing behavior. Suggestions also accept a road or number prefix after complete administrative qualifiers; partial administrative names are not added here.
+
+The input-form audit was frozen before inspecting responses: all **163 training school locations / 326 source queries**, without selecting by existing passes, keep their original source points, house expectations and 250 m radii. Forms are the native control, domestic native, country-first, province omitted, shortened province with country and shortened domestic. No shorthand is invented for the 20 source queries naming the combined `전남광주통합특별시`; their controls remain. Province omission is diagnostic-only because deleting context can introduce namesakes. Postcode-first and fully romanized road strings are unmeasured: this corpus supplies neither source postcodes nor published romanized road strings. They are not fabricated from service answers or deunicode.
+
+Reproduce the training-only diagnostic file, not a new gold corpus:
+
+```sh
+python3 tests/registry/kr-input-forms.py --out /tmp/kr-input-forms.jsonl
+target/release/evaluate run --corpus /tmp/kr-input-forms.jsonl --index "$INDEX_DIR" --repeat 1 --out /tmp/kr-input-forms-run
+```
+
+The generator preserves scored expectations unchanged, removes `expect` for province-omitted queries, leaves held-out rows out and refuses to overwrite its source corpus. Its manifest records the input/output checksums and unsupported short forms. On source-corpus SHA-256 `a14fc53dc44ef0f81cb8ddb0b3d67066d9aaa3883f20f8b80820c79ca02f07f9`, the 1,916-query output has SHA-256 `50f57212dac796b7aa3040e03572272e6266141fed2859154e0266a8b385836a`. The initial pre-response audit had the same queries and scored expectations; a schema correction removes expectations rather than using an unsupported `unscored` field for the omitted-province diagnostic. This changes neither the shorthand cases nor their comparisons.
+
+On main `32154ee` versus the repair, with the same full index (`bb05cfe6f44d46bd`), evaluator, models and reference data:
+
+| Training input form | Queries | Search before → after | Suggest before → after |
+|---|---:|---:|---:|
+| Full native control | 326 | 90 → 90 | 90 → 90 |
+| Short province, country last | 306 | 15 → 79 | 0 → 79 |
+| Short province, domestic | 306 | 20 → 79 | 0 → 85 |
+
+All 79 recovered country-qualified suggestions and 79 domestic suggestions also carry the **exact typed number**, independently of the proximity scorer. The other six domestic suggestion passes are nearby number-prefix completions, not recovered exact-number addresses; they are not claimed as such. Search passes were also checked for the exact typed number. The remaining supported native controls are recovered; eight passing Sejong controls lack the required child qualifier and are not repaired by shorthand expansion. These are training/source-fidelity checks, not held-out generalization, residential accuracy or entrance identity.
+
+The diagnostic comparison gains 123 Search passes and 164 proximity-scored Suggest passes with no newly failing or worse classes. The unchanged base repeat has zero response/scoring drift. Full-name domestic and country-first results are unchanged; country-first still passes 84/326 Search queries and no suggestions and remains a separate defect. Absolute diagnostic gates retain those unrelated critical failures; no labels were added. The original 414-query school corpus, including its held-out queries, has zero response/scoring drift and remains 118/414 in both Search and Suggest. The 1,000-address snapshot comparison also has zero drift; no accepted snapshot was regenerated. No original corpus, label, sample, coordinate, tolerance, index input or builder hash changed.
+
+Parser and synthetic Suggest checks were demonstrated failing before the repair, then passing. Synthetic Search additionally checks exact numbers, province codes, conflicting countries, missing qualifiers and ambiguous houses. Formatting, strict all-target clippy, ordinary Rust tests, the separately run model-backed synthetic test and registry exporter checks pass locally. The ignored real-index RPC tests still fail the documented grpcurl timeout and oversized-query log assertion; those failures are not passes. Local timings vary and do not validate speed. CI quality and measured speed remain outstanding.

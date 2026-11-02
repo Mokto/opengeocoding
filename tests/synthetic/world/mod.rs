@@ -94,7 +94,7 @@ mod il;
 mod r#in;
 mod it;
 mod jp;
-mod kr;
+pub mod kr;
 mod li;
 mod lt;
 mod mk;
