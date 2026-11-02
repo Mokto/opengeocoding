@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.1](https://github.com/Mokto/opengeocoding/compare/v1.6.0...v1.6.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* answer Greenland B-number building references from Asiaq basemap ([#496](https://github.com/Mokto/opengeocoding/issues/496)) ([32154ee](https://github.com/Mokto/opengeocoding/commit/32154eeae36a1e46003426f83bc7b8884cad730a))
+* corroborate qualified village names with GeoNames ([#492](https://github.com/Mokto/opengeocoding/issues/492)) ([fd4c0a3](https://github.com/Mokto/opengeocoding/commit/fd4c0a3fd5b9e5aef1a031eddcc29fd5c334535a))
+* keep the stated Japanese ward when a house is indexed under its parent city ([#491](https://github.com/Mokto/opengeocoding/issues/491)) ([5104ea8](https://github.com/Mokto/opengeocoding/commit/5104ea806b548cdcc9caa501d1fefbb1d59cf356))
+* name the containing Australian suburb on reverse house results ([#494](https://github.com/Mokto/opengeocoding/issues/494)) ([e12c4f1](https://github.com/Mokto/opengeocoding/commit/e12c4f1f3780403b8befb012c2fb12485542464a))
+* read a leading house number before Avenida in Spanish addresses ([#500](https://github.com/Mokto/opengeocoding/issues/500)) ([5437798](https://github.com/Mokto/opengeocoding/commit/54377981998b78ade83dd33b18e39661d5819600))
+* read official Icelandic dative street names and verified numberless addresses ([#493](https://github.com/Mokto/opengeocoding/issues/493)) ([df7608a](https://github.com/Mokto/opengeocoding/commit/df7608a9b1262c1b3b469117f034eec6aaaff7d7))
+* suggest Spanish houses whose registry road name omits particles ([#498](https://github.com/Mokto/opengeocoding/issues/498)) ([b31aca0](https://github.com/Mokto/opengeocoding/commit/b31aca0760543cae0f2c33cb5315537da4389dbb))
+
 ## [1.6.0](https://github.com/Mokto/opengeocoding/compare/v1.5.1...v1.6.0) (2026-11-01)
 
 
