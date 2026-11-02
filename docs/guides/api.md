@@ -80,7 +80,13 @@ curl http://localhost:11121/opengeocoding.OpenGeocoding/RetrieveSuggestion \
 
 Empty IDs, NUL characters and IDs over 256 bytes return `invalid_argument`. Unknown, malformed or stale nonempty IDs return `not_found`. IDs are opaque references, not authorization tokens. The service still requires an authenticated proxy or a trusted network.
 
-### Landmarks
+### Greenland building references
+
+`B-123, Nuuk, Greenland` and `Nuuk, B-123, Greenland` address a building reference, not postal house 123. The pinned Asiaq basemap source covers Qaqortoq, Nuuk, Sisimiut, Aasiaat, Ilulissat and Tasiilaq. Search returns the verified identifier in `house_name`; `house_number` and `road` remain empty. The point is an interior roof-outline anchor, not a dwelling or entrance. In a covered town, an absent identifier abstains rather than falling through to a numeric house lookup. Other query forms and towns retain the ordinary lookup path.
+
+Suggestions use the additive `type: "building"`, with an empty category, independently of `include_landmarks`. An explicit Greenland country or `country_code: "gl"` is required. With that filter, `Nuuk, B-12` completes B-number prefixes; a trailing space finishes the number. The town must match a published town name after normal folding. The opaque ID works with RetrieveSuggestion on the same index. Building references do not participate in reverse geocoding. The index carries [Asiaq attribution and terms](../../data/asiaq-buildings.NOTICE); services naming other sources on a front page must name Asiaq there too.
+
+## Landmarks
 
 With `include_landmarks` (`includeLandmarks` in JSON, default false) suggestions may also be landmarks: `type` `landmark`, with a `category` of `airport`, `station`, `attraction`, `museum`, `university`, `hospital` or `stadium` (empty for every other type). Without it the answer is what it was before landmarks existed: they live in their own file and name FST, which nothing else reads.
 

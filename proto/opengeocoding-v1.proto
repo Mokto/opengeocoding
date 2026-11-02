@@ -146,14 +146,14 @@ message SuggestFocus {
 }
 
 message Suggestion {
-  // Stable for one index, and opaque: a place, street, house, postcode or landmark.
+  // Stable for one index, and opaque: a place, street, house, building reference, postcode or landmark.
   string id = 1;
   string display_name = 2;
-  // The point of the place, street, house, postcode or landmark. Places also carry their
+  // The point of the place, street, house, building reference, postcode or landmark. Places also carry their
   // bounding box.
   GeoCoordinates geo_coordinates = 3;
   // country, region, county, municipality, city, town, village, neighbourhood, street, address,
-  // postcode or landmark.
+  // building (a named building reference, not a postal house number), postcode or landmark.
   string type = 4;
   string country_code = 5;
   // Landmarks only: airport, station, attraction, museum, university, hospital or stadium.

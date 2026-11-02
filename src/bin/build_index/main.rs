@@ -1,6 +1,7 @@
 //! Builds the address index from a local Overture release directory (division, division_area,
 //! segment, address and, when present, place parquet), plus optional OSM extracts, OpenAddresses
 //! exports and GeoNames postcodes, without Nominatim. Only house numbers are spilled to disk.
+mod asiaq;
 mod custom_names;
 mod digest;
 mod fetch;
@@ -52,7 +53,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--asiaq-buildings TSV] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1] [--sources-mirror URL]
        build_index fetch --store URL --sources FILE --scratch DIR [--sources-mirror URL]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
@@ -2375,6 +2376,10 @@ fn build(args: &[String]) {
             counts.join(", ")
         ));
     }
+    let asiaq = opt("--asiaq-buildings");
+    let buildings = asiaq::write(Path::new(out), &assigner, asiaq.last().map(String::as_str))
+        .expect("Asiaq building source");
+    lap(&format!("Asiaq building references ({buildings})"));
     progress::phase("Merge streets, postcodes and house numbers");
     let Shared {
         streets,

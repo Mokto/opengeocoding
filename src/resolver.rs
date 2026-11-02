@@ -187,6 +187,12 @@ impl Resolver {
         tokio::task::spawn_blocking(move || {
             let _entered = span.enter();
             core.index.memoized(|| {
+                if let Some(value) = crate::index::country::gl::address(&core.index, &query) {
+                    let mut found = format_response(&value)?;
+                    found.good_match = !value.is_null();
+                    own_regions(&mut found);
+                    return Ok(found);
+                }
                 // only the query as written: `resolve` also answers the forms it rewrites it to
                 let found = core.resolve(&query)?;
                 let mut found = core.named_locality(&query, found)?;

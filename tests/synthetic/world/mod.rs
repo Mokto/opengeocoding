@@ -86,6 +86,7 @@ mod ga;
 mod gb;
 mod ge;
 mod gg;
+pub mod gl;
 mod gt;
 pub(super) mod hk;
 mod ie;
@@ -133,6 +134,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         cz::PLACES,
         de::PLACES,
         dk::PLACES,
+        gl::PLACES,
         ee::PLACES,
         eg::PLACES,
         es::PLACES,
@@ -341,6 +343,7 @@ pub static STREETS: LazyLock<Vec<Street>> = LazyLock::new(|| {
         cz::STREETS,
         de::STREETS,
         dk::STREETS,
+        gl::STREETS,
         ee::STREETS,
         eg::STREETS,
         es::STREETS,

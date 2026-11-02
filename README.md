@@ -6,7 +6,7 @@
 
 Turn free-text addresses into coordinates, help users find an address as they type, and resolve coordinates to nearby addresses or administrative regions.
 
-Built in Rust, OpenGeocoding combines [libpostal](https://github.com/openvenues/libpostal) parsing with a read-only index built from [Overture Maps](https://overturemaps.org/), with optional OpenStreetMap, OpenAddresses and GeoNames inputs. The engine serves lookups in-process: no database, external geocoding backend or runtime data downloads.
+Built in Rust, OpenGeocoding combines [libpostal](https://github.com/openvenues/libpostal) parsing with a read-only index built from [Overture Maps](https://overturemaps.org/), with optional OpenStreetMap, OpenAddresses and GeoNames inputs, plus pinned building references for six Greenlandic towns. **Contains data from Asiaq, Greenland Survey, Technical Base Map (BYGNING), obtained 2026-10-31**, under the [Asiaq geodata terms](https://www.asiaq.gl/wp-content/uploads/2026/04/EN_Terms_of_use_for_Asiaq_geodata.pdf). The engine serves lookups in-process: no database, external geocoding backend or runtime data downloads.
 
 **[Try the live demo](https://opengeocoding.com/) · [Hosted API docs](https://opengeocoding.com/docs) · [Self-host](#self-host) · [Releases](https://github.com/Mokto/opengeocoding/releases)**
 

@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 
-pub const LEVELS: [&str; 7] = [
-    "none", "country", "region", "locality", "postcode", "street", "house",
+pub const LEVELS: [&str; 8] = [
+    "none", "country", "region", "locality", "postcode", "street", "building", "house",
 ];
 /// Ordered from best to worst; a case's class is the least severe over its documented alternatives.
 pub const CLASSES: [&str; 12] = [
@@ -160,13 +160,20 @@ pub fn suggest_rank(expect: &Expect, found: &[Suggested]) -> Option<usize> {
         let kind = match alt.level.as_str() {
             "none" => false,
             "house" => s.kind == "address",
+            "building" => {
+                s.kind == "building"
+                    || s.kind == "address" && alt.max_level.as_deref().unwrap_or("house") == "house"
+            }
             "street" => {
                 s.kind == "street"
+                    || s.kind == "building"
+                        && rank(alt.max_level.as_deref().unwrap_or("house")) >= rank("building")
                     || (s.kind == "address"
                         && alt.max_level.as_deref().unwrap_or("house") == "house")
             }
             "postcode" | "country" | "landmark" => s.kind == alt.level,
-            _ => !["address", "street", "postcode", "landmark"].contains(&s.kind.as_str()),
+            _ => !["address", "building", "street", "postcode", "landmark"]
+                .contains(&s.kind.as_str()),
         };
         kind && alt.country.contains(&s.country.to_lowercase())
             && alt
@@ -523,6 +530,9 @@ pub fn level_of(response: &Value) -> &'static str {
     }
     if !text(d, "houseNumber").is_empty() {
         return "house";
+    }
+    if !text(d, "houseName").is_empty() {
+        return "building";
     }
     if !text(d, "road").is_empty() {
         return "street";
@@ -909,6 +919,34 @@ mod tests {
 
     fn class(e: &Expect, r: &Value) -> &'static str {
         score(Some(e), r, true).class
+    }
+
+    #[test]
+    fn building_references_are_finer_than_streets_not_postal_house_numbers() {
+        let building = full(
+            "gl",
+            63.1,
+            -45.1,
+            true,
+            json!({"city":"Fjordhaven", "houseName":"B-345"}),
+        );
+        assert_eq!(level_of(&building), "building");
+        let mut expected = expect(
+            json!({"country":["gl"], "level":"street", "max_level":"house", "point":[63.1,-45.1], "radius_km":0.05, "good_match":true}),
+        );
+        assert_eq!(class(&expected, &building), "pass");
+        let suggestions = suggested(
+            &json!({"suggestions":[{"type":"building", "displayName":"B-345, Fjordhaven, Greenland", "countryCode":"gl", "geoCoordinates":{"lat":63.1,"lon":-45.1}}]}),
+        );
+        assert_eq!(suggest_rank(&expected, &suggestions), Some(1));
+        expected.level = "house".into();
+        assert_eq!(class(&expected, &building), "too_coarse");
+        assert_eq!(suggest_rank(&expected, &suggestions), None);
+        expected.level = "locality".into();
+        assert_eq!(suggest_rank(&expected, &suggestions), None);
+        expected.level = "street".into();
+        expected.max_level = Some("street".into());
+        assert_eq!(suggest_rank(&expected, &suggestions), None);
     }
 
     #[test]

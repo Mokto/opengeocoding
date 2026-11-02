@@ -21,6 +21,27 @@ fn chart_pins_this_builder() {
     );
 }
 
+#[test]
+fn docker_dependency_stubs_cover_shared_builder_inputs() {
+    let patterns = include_str!("../Dockerfile")
+        .split_once("case \"$f\" in")
+        .unwrap()
+        .1
+        .split_once(") body=''")
+        .unwrap()
+        .0;
+    for path in include_str!("../build.rs")
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix('"')?.strip_suffix("\","))
+        .filter(|path| path.starts_with("src/index/"))
+    {
+        assert!(
+            patterns.contains(path),
+            "missing Docker dependency stub: {path}"
+        );
+    }
+}
+
 /// The index reads DENUE's establishments up to the month the Mexico corpus starts sampling them.
 #[test]
 fn chart_reads_denue_only_before_the_corpus_sample() {

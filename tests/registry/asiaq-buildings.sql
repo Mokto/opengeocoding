@@ -30,3 +30,18 @@ SELECT CASE WHEN count(*) > 0 AND bool_and(
 FROM prepared p JOIN buildings b ON p.locality = b.lokalitet AND p.record.lokal_id = b.lokal_id;
 COPY (SELECT * FROM prepared ORDER BY locality, record.B_nummer, record.lokal_id)
     TO 'asiaq-buildings-4326.jsonl' (FORMAT JSON, ARRAY false);
+COPY (
+    WITH eligible AS (
+        SELECT *,
+            count(DISTINCT row(point, extent_m)) OVER (PARTITION BY locality, record.B_nummer) AS versions,
+            row_number() OVER (PARTITION BY locality, record.B_nummer ORDER BY record.lokal_id) AS occurrence
+        FROM prepared WHERE regexp_full_match(record.B_nummer, 'B-[1-9][0-9]{0,4}')
+    ), towns(locality, town) AS (
+        VALUES ('0200QAQ', 'Qaqortoq'), ('0600NUK', 'Nuuk'), ('0800SIS', 'Sisimiut'),
+            ('1000AAS', 'Aasiaat'), ('1200ILU', 'Ilulissat'), ('1800TAS', 'Tasiilaq')
+    )
+    SELECT locality, town, record.B_nummer, point[1], point[2]
+    FROM eligible JOIN towns USING (locality)
+    WHERE versions = 1 AND occurrence = 1
+    ORDER BY locality, record.B_nummer
+) TO 'asiaq-building-refs.tsv' (FORMAT CSV, HEADER false, DELIMITER '\t', QUOTE '', ESCAPE '');
