@@ -80,6 +80,12 @@ When a qualified Spanish address finds no literal street result, suggestions can
 
 This changes completion only, not search, reverse scoring, expected addresses or source selection. It does not resolve source-point/postcode conflicts or add houses absent from the address inputs.
 
+### Cadastral path spellings
+
+The Spain-only registry fallback used by search and suggestions also recognizes `Camí` and the existing `Camino`/`Cmno`/`Cno` forms as the cadastral `CM` type ([Catastro street-type codes, Annex II](https://www.catastro.hacienda.gob.es/ws/Webservices_Libres.pdf)), and drops the Catalan article `ses`. Thus `Camí de ses Pinedes` can reach `CM PINEDES`. The type is rewritten only in the street-type position; a name such as `Calle del Cami` retains `Cami`.
+
+Complete civic numbers and all qualifiers remain unchanged. Literal house matches still win; suggestions retain their literal-street precedence, uniqueness and candidate-truncation checks. This adds no houses or source preference and does not bypass postcode conflicts.
+
 ### Leading numbers before Avenida
 
 libpostal can read a leading civic number into the road (`40 Avenida de Galicia`). With Spain stated, the parser separates a plain integer from `Avenida` only when no house number was already parsed, there is exactly one road, and that road is the complete first comma-separated part. The street name and every locality, postcode and country qualifier stay unchanged. Existing house numbers, suffixes, ranges, fractions and numeric street names are not rewritten by this repair.
