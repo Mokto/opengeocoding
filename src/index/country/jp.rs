@@ -173,7 +173,11 @@ fn readings(q: &str, block: bool) -> Vec<(String, String, String)> {
     let mut out = vec![];
     for (i, c) in prefix.char_indices().rev() {
         let end = i + c.len_utf8();
-        if !"都道府県市区郡町村".contains(c) || end == prefix.len() || end == first_digit {
+        if !"都道府県市区郡町村".contains(c)
+            || end == prefix.len()
+            || end == first_digit
+            || prefix.starts_with(&prefecture) && end <= prefecture.len()
+        {
             continue;
         }
         let (city, town) = prefix.split_at(end);
@@ -429,18 +433,55 @@ pub(crate) fn areas(index: &Index, q: &str) -> Option<Vec<(Hit, String)>> {
     Some(hits)
 }
 
-pub(crate) fn houses(index: &Index, q: &str) -> Option<Vec<Hit>> {
-    use tantivy::schema::Value as _;
-    if q.is_ascii()
-        || q.split_whitespace()
-            .collect::<Vec<_>>()
-            .windows(2)
-            .any(|p| p[0].ends_with(char::is_numeric) && p[1].starts_with(char::is_numeric))
+fn qualified_house(q: &str) -> Option<String> {
+    let mut parts = q.split(',').map(str::trim);
+    let head = parts.next()?;
+    let municipality = parts.next()?;
+    if town_queries(municipality).0.is_empty() || !municipality.ends_with(['市', '区', '町', '村'])
     {
         return None;
     }
-    let readings = japanese(q);
-    if !readings.first().is_some_and(|(_, _, n)| n.contains('-')) {
+    for (number, road) in head.split_once(char::is_whitespace).into_iter().chain(
+        head.rsplit_once(char::is_whitespace)
+            .map(|(road, number)| (number, road)),
+    ) {
+        if number
+            .split('-')
+            .all(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+            && !road.trim().is_empty()
+            && road
+                .chars()
+                .all(|c| c as u32 >= 0x3040 || c == '々' || c.is_whitespace())
+        {
+            return Some(format!(
+                "{municipality}{road}{number},{}",
+                parts.collect::<Vec<_>>().join(",")
+            ));
+        }
+    }
+    None
+}
+
+pub(crate) fn houses(index: &Index, q: &str) -> Option<Vec<Hit>> {
+    use tantivy::schema::Value as _;
+    if q.is_ascii() {
+        return None;
+    }
+    let qualified = qualified_house(q);
+    let q = qualified.as_deref().unwrap_or(q);
+    if q.split_whitespace()
+        .collect::<Vec<_>>()
+        .windows(2)
+        .any(|p| p[0].ends_with(char::is_numeric) && p[1].starts_with(char::is_numeric))
+    {
+        return None;
+    }
+    let single = !index.jp_blocks.numbers.is_empty();
+    let readings = readings(q, single);
+    if readings.is_empty()
+        || !single && !readings[0].2.contains('-')
+        || q.split(',').next()?.trim_end().ends_with('番')
+    {
         return None;
     }
     let prefecture = town_queries(q).0;
@@ -852,6 +893,23 @@ mod tests {
 
     #[test]
     fn japanese_towns() {
+        assert_eq!(
+            readings("日本京都府風凪市桜台一丁目15番", true),
+            [
+                ("風凪市".into(), "桜台1丁目".into(), "15".into()),
+                ("風凪市".into(), "桜台".into(), "1-15".into())
+            ]
+        );
+        for q in [
+            "85 百合野, 大分県中津市, Japan",
+            "百合野 85, 大分県中津市, Japan",
+        ] {
+            assert_eq!(
+                qualified_house(q).as_deref(),
+                Some("大分県中津市百合野85,Japan")
+            );
+        }
+        assert!(qualified_house("85 86, 大分県中津市, Japan").is_none());
         assert_eq!(
             readings("日本石川県野々市市菅原町11番", true)[0],
             ("野々市市".into(), "菅原町".into(), "11".into())

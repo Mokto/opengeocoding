@@ -225,6 +225,12 @@ pub fn sources(s: &Street) -> &'static [(&'static str, &'static str, &'static st
 pub const STREETS: &[Street] = &[
     MLIT_STREET,
     Street {
+        name: "百合野",
+        numbers: &["85"],
+        lon: 145.58,
+        ..MLIT_STREET
+    },
+    Street {
         name: "孤潮七丁目",
         numbers: &["16-12"],
         lon: 145.62,
@@ -489,6 +495,18 @@ pub fn cases() -> Vec<Case> {
     .map(|q| case(q, at_house("沖代町一丁目", "5-9")))
     .chain([
         case(
+            "85 百合野, 大分県中津市, Japan",
+            crate::Want::At((145.58, 41.0), 25., true),
+        ),
+        case(
+            "百合野 85, 大分県中津市, Japan",
+            crate::Want::At((145.58, 41.0), 25., true),
+        ),
+        case(
+            "日本大分県中津市百合野85",
+            crate::Want::At((145.58, 41.0), 25., true),
+        ),
+        case(
             "大分県中津市真珠一丁目5番, Japan",
             crate::Want::At((145.5, 41.0), 25., true),
         ),
@@ -607,6 +625,34 @@ pub fn cases() -> Vec<Case> {
 
 #[test]
 fn mlit_areas_are_not_residences_and_keep_selection_coordinates() {
+    for q in [
+        "85 百合野, 大分県中津市, Japan",
+        "百合野 85, 大分県中津市, Japan",
+        "日本大分県中津市百合野85",
+    ] {
+        let found = index().suggest(q, 5, Some("JP"), None, false);
+        assert_eq!(found.len(), 1, "{q}");
+        assert_eq!(found[0].kind, "address");
+        assert!(metres((found[0].x, found[0].y), (145.58, 41.)) < 5.);
+        assert_eq!(
+            index().suggested_house(&found[0]).unwrap()["address"]["house_number"],
+            "85"
+        );
+    }
+    for q in [
+        "85 百合野, 朝雲県中津市, Japan",
+        "85 百合野, 大分県朝凪市, Japan",
+        "85 百合野, 大分県中津市, France",
+        "85 86, 大分県中津市, Japan",
+    ] {
+        assert!(
+            index()
+                .suggest(q, 5, Some("JP"), None, false)
+                .iter()
+                .all(|s| s.kind != "address"),
+            "{q}"
+        );
+    }
     for (road, number, lon) in [
         ("真珠一丁目", "5", 145.5),
         ("凪通二丁目", "7", 145.51),
