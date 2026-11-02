@@ -115,6 +115,18 @@ pub const STREETS: &[Street] = &[
     },
     REGISTRY_STREET,
     Street {
+        name: "AV GALICIA",
+        numbers: &["40"],
+        lon: 50.04,
+        ..REGISTRY_STREET
+    },
+    Street {
+        name: "AV CANDELAS",
+        numbers: &["63"],
+        lon: 50.041,
+        ..REGISTRY_STREET
+    },
+    Street {
         name: "PLAZA CONSTITUCION",
         numbers: &["10"],
         lon: 50.004,
@@ -299,6 +311,22 @@ pub fn cases() -> Vec<Case> {
         Want::At(house(s, "3"), 25.0, true)
     };
     vec![
+        case(
+            "40 Avenida de Galicia, Villaseca, 09120, Spain",
+            at_house("AV GALICIA", "40"),
+        ),
+        case(
+            "63 Avenida de las Candelas, Villaseca, 09120, Spain",
+            at_house("AV CANDELAS", "63"),
+        ),
+        case(
+            "Avenida de Galicia 40, Villaseca, 09120, Spain",
+            at_house("AV GALICIA", "40"),
+        ),
+        case(
+            "Avenida de las Candelas 63, Villaseca, 09120, Spain",
+            at_house("AV CANDELAS", "63"),
+        ),
         case("Calle Mayor 3, 09120 Villaseca, Spain", mayor("09120")),
         case("Calle Mayor 3, 09128 Villaseca, Spain", mayor("09128")),
         case(

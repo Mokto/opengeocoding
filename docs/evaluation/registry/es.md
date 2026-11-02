@@ -79,3 +79,9 @@ Each case's `places`, the names ReverseGeocode's answer must include one of, are
 When a qualified Spanish address finds no literal street result, suggestions can retry the registry spelling already used by search: `Calle del Castillo` becomes `CALLE CASTILLO`. The retry preserves the complete civic number and all locality, postcode and country qualifiers. It accepts one house only and refuses the repair if any supporting street lookup reaches its candidate limit; one house in a truncated list is not evidence of uniqueness. Literal street results take precedence, including a street that lacks the requested number.
 
 This changes completion only, not search, reverse scoring, expected addresses or source selection. It does not resolve source-point/postcode conflicts or add houses absent from the address inputs.
+
+### Leading numbers before Avenida
+
+libpostal can read a leading civic number into the road (`40 Avenida de Galicia`). With Spain stated, the parser separates a plain integer from `Avenida` only when no house number was already parsed, there is exactly one road, and that road is the complete first comma-separated part. The street name and every locality, postcode and country qualifier stay unchanged. Existing house numbers, suffixes, ranges, fractions and numeric street names are not rewritten by this repair.
+
+This fixes number extraction, not house coverage or source conflicts. An avenue whose indexed houses have a different street name can still return a street fallback with `goodMatch=false`.
