@@ -77,7 +77,7 @@ mod co;
 mod cw;
 mod cz;
 mod de;
-mod dk;
+pub(super) mod dk;
 mod ee;
 mod eg;
 mod es;
@@ -716,6 +716,7 @@ pub fn write_release(dir: &Path) {
         })
         .chain(AREAS.iter().copied())
         .chain(au::AREAS.iter().copied())
+        .chain(dk::AREAS.iter().copied())
         .collect();
     write(
         dir,

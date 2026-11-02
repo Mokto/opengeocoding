@@ -1,0 +1,19 @@
+Danish settlement boundaries: Bebyggelser_2024.zip, Byer layer.
+Copyright Klimadatastyrelsen (Danish Agency for Climate Data).
+Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0).
+https://creativecommons.org/licenses/by/4.0/
+Source and licence: https://dataforsyningen.dk/data/1038
+Archive: https://ftp.sdfe.dk/main.html?download&weblink=a21c146073ae7810022a6037a75a5732&realfilename=Bebyggelser%5F2024%2Ezip
+Archive SHA256: a56addf371a081c75f88e567040d4935ef5f1185ddf2d3d167289d32ee0bd16c
+Archive layer date: 2024-03-18; retrieved 2026-11-02.
+
+Modified: the 8,006 Byer polygons (not summer-house areas) were transformed
+from ETRS89 / UTM zone 32N (EPSG:25832) to WGS84 (EPSG:4326), rounded to
+1e-7 degrees, delta-encoded and gzip-compressed. Rings and holes are retained;
+no cartographic simplification, expansion or nearest-place assignment is applied.
+Regenerate with data/prepare-dk-localities.py (Python 3.9+, DuckDB with spatial).
+
+These are named built-up settlement areas, not postal districts, municipal
+boundaries or a current national address register. Their 2024 extent can be stale
+at later development boundaries. Index crosswalks omit ambiguous or unmatched
+names; runtime recovery additionally requires source postal corroboration.

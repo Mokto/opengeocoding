@@ -83,9 +83,9 @@ What remains, not fixed here:
 
 Each case's `places`, the names ReverseGeocode's answer must include one of, are the supplementary town name, the postal town and the postal town without its district ("København NV" is also København).
 
-## Reverse-locality investigation (2026-11-02)
+## Initial reverse-locality investigation (2026-11-02)
 
-This investigation follows [#345](https://github.com/Mokto/opengeocoding/issues/345), not a resolution of it. No supported geographic-locality replacement was established from the pinned DAR fields or existing index metadata. Runtime, builder, scoring, expectations and known-failure labels are unchanged. The new synthetic controls protect geographic membership from both a misleading nearby village point and a distinct postal town, and demonstrate a legitimate locality-boundary crossing at a 25 m offset. They pass on the existing runtime; they are safeguards, not a locality recovery fix.
+This initial investigation followed [#345](https://github.com/Mokto/opengeocoding/issues/345), not a resolution of it. No supported geographic-locality replacement was established from the pinned DAR fields or existing index metadata, so the first version changed only tests and documentation. The controls protect geographic membership from both a misleading nearby village point and a distinct postal town, and demonstrate a legitimate locality-boundary crossing at a 25 m offset. The historical results below describe that first version. **The follow-up section adds a runtime repair from a separately sourced official polygon dataset.** Scoring, expectations and known-failure labels remain unchanged.
 
 ### Reproduction and versions
 
@@ -158,7 +158,7 @@ For boundary controls, the source point and its 25 m offset fall in different in
 
 A safe geographic recovery needs independently attributed settlement boundaries or address-to-settlement membership with explicit treatment of postal districts, supplementary names, aliases and conflicts. Until that evidence exists, preserve the selected house and geographic fields, expose no fabricated membership, and keep postal/alias evaluator mismatches distinct. **Actual geography improvements: zero; expectation changes: zero; previously failing checks relabelled as passes: zero.**
 
-### Validation of the safeguards
+### Initial safeguards validation (before the runtime repair)
 
 The candidate service and evaluator hashes are byte-identical to the base. The Danish rerun has no changed answers or classes; the complete 44,047-case gold comparison also has zero drift, no newly failing checks, no worse failure classes and no abstain-to-miss changes. All root-cause buckets and held-out aggregates above are unchanged.
 
@@ -175,3 +175,61 @@ Formatting, all-target clippy, `cargo test --locked`, the ordinary synthetic sui
 `INDEX_DIR=... cargo test --locked --test rpc -- --ignored --nocapture` was run with models and grpcurl installed. Both tests fail: `rpc_contracts` reaches the documented grpcurl SearchAddress timeout, and `search_diagnostics` fails its oversized-input log-truncation assertion. Neither assertion was changed, skipped or retried. These remain verification limitations, not passes.
 
 The candidate's local speed section reports no slowdown, but the identical-binary repeat's contradictory slowdown above prevents a performance conclusion. This is not a measured CI quality/speed verdict. No runtime performance improvement is claimed.
+
+## Runtime follow-up: official settlement polygons
+
+A further source search found KDS's public **Bebyggelser_2024.zip**, linked from the [Danske Stednavne catalogue](https://dataforsyningen.dk/data/1038), under CC BY 4.0. Its `Byer` layer contains 8,006 polygon parts, including holes, with named settlement codes. [Statistics Denmark's definition](https://www.dst.dk/da/Statistik/dokumentation/statistikdokumentation/byopgoerelsen/indhold) explains that these built-up settlement polygons establish which addresses belong to the settlements. They are not postal districts or the whole of a same-named municipality. The summer-house layer is not imported.
+
+This is new geographic evidence, not a reinterpretation of DAR's postal names. The locally available Overture releases have only 473/8,642 (September) and 461/8,640 (October) Danish localities with polygons; the builder already reads those polygons. A second nearest-point lookup would not fill that gap.
+
+### Source and crosswalk
+
+`data/dk-localities.NOTICE` records the licence, public archive URL and SHA256 `a56addf371a081c75f88e567040d4935ef5f1185ddf2d3d167289d32ee0bd16c`. The layer was dated 2024-03-18 and retrieved 2026-11-02. `data/prepare-dk-localities.py` verifies the archive before reading it, uses DuckDB spatial to transform EPSG:25832 to EPSG:4326 with `always_xy`, and stores all rings at 1e-7-degree precision without simplification or expansion. The delta-encoded gzip is 9,548,013 bytes, SHA256 `bf8bc9b3bd82f213b0764718aa28d13c17b7309770277174e5dd3f4b994e3912`. Regeneration with Python 3.9 and DuckDB v1.5.6 is byte-identical:
+
+```sh
+python3 data/prepare-dk-localities.py SOURCE/Bebyggelser_2024.zip /tmp/dk-localities.json.gz
+cmp data/dk-localities.json.gz /tmp/dk-localities.json.gz
+```
+
+The builder joins a settlement code to an **existing Danish locality** only when the primary names agree after the index's folding and that locality's point lies inside a polygon of the code. More than one candidate omits the code rather than choosing a nearest point. Separate parts of the same code share the unique crosswalk. The world build links 6,160 polygon parts; unmatched/ambiguous settlements remain uncovered. It writes `dk-localities.bin` in the existing `Areas` layout, about 24 MiB, and a source notice. The file is memory-mapped, optional on older indexes, and read-only at runtime. No new places, streets or houses are imported. The default source is bundled and pinned; no serving-time network or new runtime dependency is introduced. `--denmark-localities JSON.GZ` supplies authored diagnostic fixtures in that same delta format.
+
+### Runtime rule and limits
+
+For a Danish reverse **house** result, `country/dk.rs` checks the selected house's own FST point against those polygons. Exactly one linked locality must contain it. Its geographic name must also agree with the separately stored postal town, allowing Danish postal direction districts such as `København NV`. Postal evidence alone never changes the locality. When postal and geographic towns differ, the original rendering remains; those cases need more evidence, not a distance heuristic.
+
+A locality already in the indexed chain is left alone, including its valid English rendering. Otherwise the confirmed locality replaces the unsupported settlement name, with the confirmed indexed place's type and primary name. The old settlement is removed from the display, not retained as an invented suburb. After this repair, a containing indexed Danish county can replace the old county only with the same region code and no finer subdivision code to invalidate. This is not a general county repair: an already-correct settlement can still carry inconsistent county ancestry. County polygons also retain their existing approximately 55 m simplification limitation near borders.
+
+House selection, coordinates, number, road, postcode, country and all region codes remain unchanged. Forward search, suggestions, locality-only reverse, street-only reverse and ResolveRegion do not use the new rule. This is a polygon lookup at request time, not the Australian house/suburb FST mechanism.
+
+The source's 2024 boundary can be stale at newer developments. Rural points outside a polygon, unmatched names, ambiguous crosswalks/overlaps, distinct postal/geographic names and unsupported supplementary-name membership are not repaired. Native/exonym expectation mismatches are not fixed by renaming an already-correct settlement or widening expected names.
+
+### Before and after on identical data
+
+The branch was rebased onto main `018c2ce`. The shared index had meanwhile been rebuilt to main's `8c53269491f72efb`; it was read only. Candidate builds used this session's separate directories, the same local source recipe and no competing builder. The final builder and chart pin are **`ce904d2d446c68ba`**, with index metadata fingerprint `7e1105d1cd42`; its private `builder.hash.txt` is recorded alongside the runs, not written over the shared index's sidecar.
+
+The unchanged base service and the candidate both read the same candidate index, models and corpus. A full unchanged-base rerun has zero drift. Base service SHA256 is `0da25d3074c762b8816e5d8850403ea6aa28c18a43d394d49e73b9b452e90cd6`; candidate is `59f571a3c106dbb27b16966f534fb08a6cef9e1b263565818f0a6c069036af70`. Models, reference data, historical memberships and Danish corpus have the digests recorded above. The expanded current full suite has 44,823 cases, SHA256 `e992bff1986eacb77695ad10790fcb9dcdd7347e67f12078c9287eb951bdeecb`.
+
+| DAR reverse channel | Passing variants before → after | Passing locations before → after |
+|---|---:|---:|
+| At-point, all | 1,166 → 1,362 / 1,883 | 803 → 957 / 1,358 |
+| Offset, all | 1,168 → 1,367 / 1,883 | 805 → 960 / 1,358 |
+| At-point, training | 929 → 1,085 / 1,495 | 645 → 769 / 1,086 |
+| Offset, training | 931 → 1,090 / 1,495 | 647 → 772 / 1,086 |
+| At-point, held-out aggregate | 237 → 277 / 388 | 158 → 188 / 272 |
+| Offset, held-out aggregate | 237 → 277 / 388 | 158 → 188 / 272 |
+
+The initial training triage buckets remain diagnostic, not independent ground truth. Failing checks below are **variants / locations**, before → after. A pass gained from an administrative-alias bucket is a newly supported geographic settlement, not a change accepting the municipality's alias. The 41/28 training locality-exonym/alias failures stay unchanged.
+
+| Initial training bucket | At-point failures before → after | Offset failures before → after |
+|---|---:|---:|
+| Conflicting indexed ancestry | 85/56 → 71/46 | 87/57 → 71/46 |
+| Indexed name equivalence (locality + administration) | 56/42 → 43/30 | 55/41 → 43/30 |
+| Postal-only, geographic membership unresolved | 285/224 → 179/141 | 287/225 → 179/141 |
+| Supplementary/postal, geographic membership unresolved | 136/117 → 113/98 | 135/116 → 112/97 |
+| Wrong house | 4/2 → 4/2 | 0/0 → 0/0 |
+
+At-point locality information changes at 204 variants / 162 locations; 196 variants / 154 locations gain passes. Offset locality information changes at 208 variants / 164 locations; 199 variants / 155 locations gain passes. The remaining changed answers still have a name-expectation mismatch. All changed settlement identities are supported by the imported polygon and crosswalk; these are not independently surveyed counts of previously wrong houses or national accuracy. No native/exonym-only case was relabelled as a runtime fix. No expectations or known-failure labels changed.
+
+The full-suite comparison has 196 additional at-point and 199 additional offset passes, with SearchAddress (37,335/44,600), SuggestAddress (38,698/48,136) and ResolveRegion (7,849/8,037) unchanged. No country outside Denmark changes. There are no newly failing checks, worse classes or abstain-to-miss changes. The absolute run still fails existing critical/must-pass cases; only the relative quality gate passes. Local timings are confounded (one comparison flags suggestion total +20%, p99 +36%; the final one flags reverse p99 +19%); CI measured speed is a separate outstanding check, not a local performance conclusion.
+
+Formatting, all-target clippy, ordinary unit/synthetic tests (90 ordinary synthetic tests) and the separately invoked model-backed synthetic test pass. Docker checks and the Linux arm64 runtime image build pass; the image runs as uid/gid 1000 and its builder reports `ce904d2d446c68ba`. amd64 CI remains separate verification. Removing the runtime hook makes the new recovery regression fail; restoring it passes. Added checks cover source checksum/decoding, holes, wrong-country and ambiguous name crosswalks, a misleading village point, distinct postal/geographic names, preserved house fields, containing-county correction and a cross-boundary offset. The model-backed RPC command was run on the private index and again fails the documented grpcurl timeout and the diagnostic-log truncation assertion; neither failure was hidden or skipped.

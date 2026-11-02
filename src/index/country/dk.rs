@@ -4,6 +4,92 @@ use crate::matching::*;
 use regex::Regex;
 use std::sync::LazyLock;
 
+pub const LOCALITIES_FILE: &str = "dk-localities.bin";
+
+pub(in crate::index) fn reverse_locality(
+    index: &Index,
+    hit: &Hit,
+    address: &mut serde_json::Map<String, serde_json::Value>,
+    display: &mut Vec<String>,
+) {
+    let Hit::Street {
+        place,
+        x,
+        y,
+        number: Some(_),
+        postal_town: Some(postal),
+        ..
+    } = hit
+    else {
+        return;
+    };
+    if address
+        .get("country_code")
+        .and_then(serde_json::Value::as_str)
+        != Some("dk")
+    {
+        return;
+    }
+    let Some(areas) = &index.danish_localities else {
+        return;
+    };
+    let mut containing = areas.containing(*y, *x).into_iter().map(|(_, p)| p);
+    let Some(locality) = containing.next() else {
+        return;
+    };
+    if containing.any(|p| p != locality) || index.chain(*place).contains(&locality) {
+        return;
+    }
+    let Some(town) = index.places.get(locality as usize) else {
+        return;
+    };
+    let postal = postal
+        .rsplit_once(' ')
+        .filter(|(_, district)| {
+            ["C", "K", "N", "NV", "NØ", "S", "SV", "SØ", "V", "Ø"].contains(district)
+        })
+        .map_or(postal.as_str(), |(town, _)| town);
+    if town.cc.as_ref() != "dk"
+        || town.subtype.as_ref() != "locality"
+        || fold(postal) != fold(&town.primary)
+    {
+        return;
+    }
+    let old: Vec<_> = ["city", "town", "village"]
+        .iter()
+        .filter_map(|key| address.remove(*key))
+        .collect();
+    let mut at = 0;
+    display.retain(|name| {
+        at += 1;
+        at <= 2 || !old.iter().any(|value| value.as_str() == Some(name))
+    });
+    display.insert(2.min(display.len()), town.primary.to_string());
+    address.insert(town.key().into(), town.primary.to_string().into());
+    if let Some(county) = index.area_at(*y, *x).0 {
+        let parent = &index.places[county as usize];
+        if parent.cc.as_ref() == "dk"
+            && parent.subtype.as_ref() == "county"
+            && !address.contains_key("ISO3166-2-lvl6")
+            && index.region_code(&index.chain(county))
+                == address
+                    .get("ISO3166-2-lvl4")
+                    .and_then(serde_json::Value::as_str)
+        {
+            let name = parent.name(true);
+            if let Some(old) = address.insert("county".into(), name.into()) {
+                for value in display.iter_mut().skip(2) {
+                    if old.as_str() == Some(value) {
+                        *value = name.into();
+                    }
+                }
+            } else {
+                display.insert(3.min(display.len()), name.into());
+            }
+        }
+    }
+}
+
 /// A Danish unit part: a floor with or without a door ("st.", "1. th", "st. 11", "1. c"), or a
 /// side door alone.
 pub(crate) fn danish_floor(text: &str) -> bool {

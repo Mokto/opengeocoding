@@ -36,7 +36,7 @@ mod search;
 mod street;
 use collect::*;
 use country::{
-    aw_cw, cn_tw, co, cz_sk, de, ee, es, hk_mo, ie, it, jp, lt, lv, mx, pl, pt, si, th, tw, xk,
+    aw_cw, cn_tw, co, cz_sk, de, dk, ee, es, hk_mo, ie, it, jp, lt, lv, mx, pl, pt, si, th, tw, xk,
 };
 pub use fuzzy::*;
 pub use house::same_number;
@@ -103,6 +103,7 @@ pub struct Index {
     reverse: Option<reverse::Reverse>,
     /// Administrative polygons for `reverse_region`; absent from hand-built indexes.
     areas: Option<area::Areas>,
+    danish_localities: Option<area::Areas>,
     /// Streets' lines, for a point with no house in range; absent like `reverse`.
     streets: Option<reverse::Streets>,
     places: Vec<Place>,
@@ -683,6 +684,13 @@ impl Index {
         } else {
             None
         };
+        let danish_localities = if dir.join(dk::LOCALITIES_FILE).exists() {
+            use tantivy::directory::Directory;
+            let file = mmap.open_read(Path::new(dk::LOCALITIES_FILE))?;
+            Some(area::Areas::new(file.read_bytes()?)?)
+        } else {
+            None
+        };
         let streets = if dir.join(reverse::STREETS).exists() {
             use tantivy::directory::Directory;
             let file = mmap.open_read(Path::new(reverse::STREETS))?;
@@ -848,6 +856,7 @@ impl Index {
             alternates,
             reverse,
             areas,
+            danish_localities,
             streets,
             places,
             history,
