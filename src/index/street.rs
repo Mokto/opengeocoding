@@ -638,7 +638,8 @@ impl Index {
                 // within 1 km of the house.
                 let own = own.filter(|o| {
                     postcode.is_none_or(|p| {
-                        pc_norm(o) == pc_norm(p)
+                        country::pf::preserve_house_postcode(cc)
+                            || pc_norm(o) == pc_norm(p)
                             || !(with_postcode.contains(&a)
                                 && near_postcode.is_some_and(|c| km(c) < 1.0))
                     })
