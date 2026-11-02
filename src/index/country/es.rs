@@ -1,4 +1,4 @@
-use crate::index::parse::field;
+use crate::index::{canon, parse::field};
 
 /// "CALLE REAL 7, Pinedo, Valdegovía, Araba/Álava, Spain": the cadastre's form names the
 /// settlement (the address area) before the municipality the house is filed under. libpostal
@@ -57,6 +57,55 @@ pub(crate) fn spain(country: &str) -> bool {
     )
 }
 
+pub(crate) fn registry_road(road: &str) -> Option<String> {
+    const PARTICLES: &[&str] = &[
+        "de", "del", "la", "las", "los", "el", "dels", "les", "els", "da", "do", "das", "dos",
+    ];
+    let road = crate::matching::normalize_place(road);
+    let all: Vec<&str> = road.split(' ').collect();
+    let mut words: Vec<&str> = all
+        .iter()
+        .copied()
+        .filter(|w| !PARTICLES.contains(w))
+        .collect();
+    let kind = |w: &str| canon::canon(w).is_some() || canon::is_canonical(w);
+    if words.len() > 1 && kind(words[words.len() - 1]) && !kind(words[0]) {
+        words.rotate_right(1);
+    }
+    (words.iter().any(|w| !kind(w)) && words != all).then(|| words.join(" "))
+}
+
+pub(crate) fn registry_address(text: &str) -> Option<String> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    if words.len() < 2 {
+        return None;
+    }
+    for at in [0, words.len() - 1] {
+        let number = words[at];
+        if !number.starts_with(|c: char| c.is_ascii_digit())
+            || !number.bytes().all(|b| b.is_ascii_alphanumeric())
+        {
+            continue;
+        }
+        let road = words[..at]
+            .iter()
+            .chain(&words[at + 1..])
+            .copied()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if road.chars().any(|c| c.is_ascii_digit()) {
+            return None;
+        }
+        let road = registry_road(&road)?;
+        return Some(if at == 0 {
+            format!("{number} {road}")
+        } else {
+            format!("{road} {number}")
+        });
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -66,6 +115,28 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn registry_addresses_preserve_complete_numbers_and_require_a_road_name() {
+        assert_eq!(
+            registry_address("2B Calle del Castillo"),
+            Some("2B calle castillo".into())
+        );
+        assert_eq!(
+            registry_address("Calle del Castillo 2B"),
+            Some("calle castillo 2B".into())
+        );
+        for text in [
+            "2 Calle del",
+            "Calle del 2",
+            "2/3 Calle del Castillo",
+            "Calle del Castillo 2 1/2",
+            "Calle 11 de Mayo 2",
+            "Castillo",
+        ] {
+            assert_eq!(registry_address(text), None, "{text}");
+        }
     }
 
     #[test]
