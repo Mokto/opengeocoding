@@ -134,6 +134,36 @@ fn key(seed: &str, id: &str) -> String {
     sha256_hex(format!("{seed}\0{id}").as_bytes())
 }
 
+fn queries(address: &str) -> Vec<(&'static str, String)> {
+    let address = address.trim();
+    let mut found = vec![("", format!("{address}, South Korea"))];
+    if let Some((province, rest)) = address.split_once(' ') {
+        let short = match province {
+            "서울특별시" => "서울",
+            "부산광역시" => "부산",
+            "대구광역시" => "대구",
+            "인천광역시" => "인천",
+            "광주광역시" => "광주",
+            "대전광역시" => "대전",
+            "울산광역시" => "울산",
+            "세종특별자치시" => "세종",
+            "경기도" => "경기",
+            "강원특별자치도" => "강원",
+            "충청북도" => "충북",
+            "충청남도" => "충남",
+            "전북특별자치도" | "전라북도" => "전북",
+            "전라남도" => "전남",
+            "경상북도" => "경북",
+            "경상남도" => "경남",
+            "제주특별자치도" => "제주",
+            _ => return found,
+        };
+        found.push(("_short_province", format!("{short} {rest}, South Korea")));
+        found.push(("_short_domestic", format!("{short} {rest}")));
+    }
+    found
+}
+
 pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
     let release = path
         .file_name()
@@ -179,7 +209,9 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
         );
         for a in selected {
             for (form, address) in [("road", &a.road), ("lot", &a.lot)] {
-                lines.push(json!({"kind":"address", "source":"korean-schools", "ref":a.id, "cohort":format!("kr_{form}"), "radius_km":0.25, "queries":[format!("{}, South Korea", address.trim())], "label":a.road, "tags":["registry-sample", "school-sample", "kr", release, category, form, format!("education-authority:{authority}")]}));
+                for (suffix, query) in queries(address) {
+                    lines.push(json!({"kind":"address", "source":"korean-schools", "ref":a.id, "cohort":format!("kr_{form}{suffix}"), "radius_km":0.25, "queries":[query], "label":a.road, "tags":["registry-sample", "school-sample", "kr", release, category, form, format!("education-authority:{authority}")]}));
+                }
             }
         }
     }
@@ -254,7 +286,26 @@ mod tests {
         co_located["LNMADR"] = json!("서울특별시 종로구 다른동 산8");
         write(&[a.clone(), b.clone(), co_located.clone()]);
         let first = sample(&path, "test").unwrap();
-        assert_eq!(first.len(), 4);
+        assert_eq!(first.len(), 12);
+        assert_eq!(
+            first
+                .iter()
+                .filter(|s| ["kr_road", "kr_lot"].iter().any(|c| s["cohort"] == *c))
+                .count(),
+            4
+        );
+        assert_eq!(
+            queries("서울특별시 종로구 새길 12-3"),
+            vec![
+                ("", "서울특별시 종로구 새길 12-3, South Korea".into()),
+                (
+                    "_short_province",
+                    "서울 종로구 새길 12-3, South Korea".into()
+                ),
+                ("_short_domestic", "서울 종로구 새길 12-3".into()),
+            ]
+        );
+        assert_eq!(queries("전남광주통합특별시 가상구 새길 1").len(), 1);
         write(&[co_located, b.clone(), a.clone()]);
         assert_eq!(first, sample(&path, "test").unwrap());
         let ids = BTreeSet::from(["B000000001".into()]);

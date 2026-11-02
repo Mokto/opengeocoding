@@ -24,7 +24,7 @@ locations = set()
 missing = {}
 for line in source.read_text().splitlines():
     case = json.loads(line)
-    if case["holdout"]:
+    if case["holdout"] or case["cohort"] not in {"kr_road", "kr_lot"}:
         continue
     locations.add(case["location"])
     native, country = case["query"].rsplit(", ", 1)

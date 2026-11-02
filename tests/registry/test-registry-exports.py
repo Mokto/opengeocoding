@@ -174,10 +174,11 @@ def check_korean_input_forms():
         script.write_bytes(Path(__file__).with_name(script.name).read_bytes())
         source = root / "kr.jsonl"
         original = [
-            {"id": "training", "query": "경기도 가상시 새로길 13, South Korea", "location": "fictional-training", "holdout": False, "expect": {"point": [35, 140], "radius_km": 0.25}, "review": {"note": "source"}},
-            {"id": "heldout", "query": "경기도 가상시 새로길 14, South Korea", "location": "fictional-heldout", "holdout": True, "expect": {"point": [35, 140], "radius_km": 0.25}, "review": {"note": "source"}},
+            {"id": "training", "cohort": "kr_road", "query": "경기도 가상시 새로길 13, South Korea", "location": "fictional-training", "holdout": False, "expect": {"point": [35, 140], "radius_km": 0.25}, "review": {"note": "source"}},
+            {"id": "heldout", "cohort": "kr_road", "query": "경기도 가상시 새로길 14, South Korea", "location": "fictional-heldout", "holdout": True, "expect": {"point": [35, 140], "radius_km": 0.25}, "review": {"note": "source"}},
         ]
-        source.write_text("".join(json.dumps(row) + "\n" for row in original))
+        variant = {**original[0], "id": "existing-variant", "cohort": "kr_road_short_domestic", "query": "경기 가상시 새로길 13"}
+        source.write_text("".join(json.dumps(row) + "\n" for row in [*original, variant]))
         first = source.read_bytes()
         out = root / "audit.jsonl"
         command = [sys.executable, str(script), "--out", str(out)]
