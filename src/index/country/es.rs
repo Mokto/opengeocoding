@@ -75,7 +75,12 @@ pub(crate) fn number_from_avenida(query: &str, parsed: &mut Vec<(String, String)
             .strip_prefix("avenida ")
             .is_some_and(|name| name.chars().any(char::is_alphabetic))
         || query.split(',').next().unwrap_or("").trim().to_lowercase() != *first
-        || crate::matching::expected_country(&parsed.iter().cloned().collect()) != "es"
+        || crate::matching::country_named(
+            parsed
+                .iter()
+                .rfind(|(k, _)| k == "country")
+                .map_or("", |(_, v)| v.as_str()),
+        ) != "es"
     {
         return;
     }
@@ -161,6 +166,26 @@ mod tests {
             &pairs(&[("house_number", "40"), ("road", "avenida de galicia")])
         );
         assert_eq!(parsed[2..], qualifiers);
+    }
+
+    #[test]
+    fn the_avenida_country_check_keeps_aliases_and_last_label_semantics() {
+        for countries in [
+            &["spain"][..],
+            &["españa"],
+            &["ES"],
+            &["france", "spain"],
+            &["spain", "france"],
+        ] {
+            let mut parsed = pairs(&[("road", "40 avenida de galicia")]);
+            parsed.extend(countries.iter().map(|c| ("country".into(), (*c).into())));
+            let expected = crate::matching::expected_country(&parsed.iter().cloned().collect());
+            number_from_avenida("40 Avenida de Galicia, Spain", &mut parsed);
+            assert_eq!(
+                parsed.iter().any(|(k, _)| k == "house_number"),
+                expected == "es"
+            );
+        }
     }
 
     #[test]
