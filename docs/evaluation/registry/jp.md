@@ -113,7 +113,7 @@ The Overture/OpenAddresses rows do not carry MLIT's residential-addressing, repr
 
 ### Controlled full-index comparison
 
-The branch is now rebased onto `32154ee`, retaining the Australian suburb and Greenland building changes, with builder `b1327f7e4030628e`. Japanese area selection IDs use the separate opaque `a` namespace; Greenland retains `b`. The measurements below predate this rebase. Rebuilt-index comparisons and actual-head CI quality and measured-speed checks are still required before pushing.
+The branch is now rebased onto `32154ee`, retaining the Australian suburb and Greenland building changes, with builder `b1327f7e4030628e`. Japanese area selection IDs use the separate opaque `a` namespace; Greenland retains `b`. Fresh full indexes for base builder `bb05cfe6f44d46bd` and this builder confirm the same gains below across 44,047 shared cases, with no newly failing or worse class and no change outside Japan. Both full reruns and the 1,000-address comparison have zero answer/scoring drift. The original comparison below is retained as provenance; actual-head CI quality and measured-speed checks remain separate requirements.
 
 The code comparison uses `5104ea8` / builder `eb225d0b385a41f5` against builder `106359a2b69c5841`, the same Overture 2026-09-23.1 and other source files, the same evaluator and models. Japan's existing Geofabrik file is passed as an **address** extract on both sides, as the chart already does, not as landmarks-only. No production source switch or upstream data refresh accompanies this code change.
 
