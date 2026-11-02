@@ -22,6 +22,8 @@ On 2026-10-30 the dataset page's CSV (`https://hmsstgsftpprodweu001.blob.core.wi
 | `postnumeraskra_2024.xlsx` | `https://www.byggdastofnun.is/static/files/Postmal/Postnumer/postnumeraskra_2024.xlsx` (Last-Modified 2024-04-18) | 14,317 | `a230577bfdf988cb880121dcdc979b5284a68648be81a254556cc44ab6f079f0` |
 | `sveitarfelog-wfs.csv` | `https://gis.lmi.is/geoserver/wfs?service=wfs&version=2.0.0&request=GetFeature&typeNames=IS_50V:mork_sveitarf_flakar&outputFormat=csv&propertyName=objectid,uuid,stjornsyslusvaedi,nrsveitarfelags,sveitarfelag,upphafnotkunar,dagsleidrettingar,heimild,gagnaeigandi,gagnasafn` (IS 50V release 2026-09-24) | 10,592 | `9999896a3153e022595381d5204fd9f7eaef6db5684d9b4a7c8971ffeea8fefe` |
 
+The unchanged WFS CSV is also available as a [checksum-named archive](https://github.com/Mokto/opengeocoding/releases/download/v1.6.0/hms-stadfangaskra-2026-10-30-667e1026b60622e67d3c9f3b076a1dcb0dffeec2b538e5b64f880122717b3c5b.csv), with its [HMS attribution](https://github.com/Mokto/opengeocoding/releases/download/v1.6.0/hms-stadfangaskra-2026-10-30.NOTICE.txt). Its public download was verified against the raw capture's SHA-256 above. This archive is separate from the sampled corpus and is not replaced by later WFS requests.
+
 The register has 139,774 rows (one per HNITNUM), the latest corrected on 2026-10-30. `tests/registry/stadfangaskra-csv.sql` joins each row to its post town (every one of the 139,760 rows with a postcode has one in Póstnúmeraskrá) and municipality name, and fails on a postcode or municipality number without one. IS 50V numbers the Borgarbyggð that absorbed Skorradalshreppur on 2026-06-01 with Skorradalshreppur's 3506, while the register keeps Borgarbyggð's 3609 for both (it has no 3506), so the script reads IS 50V's 3506 as 3609. It writes one CSV named after the capture date:
 
 ```sh
@@ -62,7 +64,79 @@ Street and letter cases require goodMatch true at house level within 150 m of th
 
 **Index ancestry.** Overture release 2026-10-21.0 has 139,583 Icelandic addresses, all from Staðfangaskrá. 139,542 of them have a record id that is a `HNITNUM` of this extract, and all 181 sampled points are among them. Against this extract the median distance is 0 m, 139,512 lie within 1 m and 6 farther than 150 m; 139,523 have its number, 139,530 its locator and 139,541 its postcode. Overture keeps only the nominative locator and writes the letter as the unit (13,739 of 14,009 lettered rows: number "22", unit "A"), the suffix too (12,154 rows), and gives each address its postcode's place as Pósturinn names it ("Selfoss, dreifbýli"). OpenAddresses' `is/countrywide` reads the same register, but the builder skips it (its licence is not one the builder recognises), and the chart reads the Iceland OpenStreetMap extract for landmarks only. Selection is independent of the index, but a pass measures fidelity to the register, not independent real-world accuracy, as for RÚIAN in `cz.md`.
 
-## Local baseline
+## Optional index enrichment
+
+The offline builder can read the **whole pinned HMS WFS capture**, not the sampled corpus or this service's answers:
+
+```sh
+build_index OVERTURE_DIR INDEX_DIR \
+  --iceland-addresses ../is-data/stadfangaskra-wfs.csv \
+  --iceland-addresses-sha256 667e1026b60622e67d3c9f3b076a1dcb0dffeec2b538e5b64f880122717b3c5b
+```
+
+Other source flags must stay identical to the baseline build. This input is the raw WFS CSV, not the three-source joined CSV used by `sample-is`. The builder verifies its checksum, required columns, unique `HNITNUM` values and WGS84 coordinate bounds. It attaches the official `HEITI_TGF` spellings to existing `HEITI_NF` street documents using the same containing place and 0.1° geographic cell as the address importer. Shared aliases remain on every matching local street; no word is rewritten globally. It does not create missing streets or change numbered-house import.
+
+For numberless rows without a letter or suffix and not flagged for review (`YFIRFARID` 2 or 9), the document also preserves the official postcode and point. A conventional `Locator, Postcode Town, Iceland` query can use that evidence only when the complete locator matches an indexed spelling, the postcode is stored, and the postal town or geographic locality corroborates the town. A postcode misparsed as a house number cannot veto this verified address. Distinct matching numberless addresses abstain, even when their points coincide; a nearby street, town or postcode is not promoted. Conventional official-alias queries also abstain when the same alias and requested house remain spatially ambiguous after the stated qualifiers. Other input forms retain the normal resolver's limitations.
+
+The index records the input checksum in `iceland-source.json` and the HMS attribution and changes in `ICELAND-NOTICE.txt`; build Jobs also include the source in `build.json` and `ATTRIBUTION.txt`.
+
+The chart enables this capture through `index.sources.icelandAddresses`, pinning the checksum-named archive URL and the raw CSV's SHA-256. Its sealed source mirror is `sources/iceland-addresses/<sha256>`; the builder rechecks the checksum even when the mirror supplied it. Set `icelandAddresses: null` to exclude the enrichment, or use another HTTPS mirror of these exact bytes. Do not substitute the live WFS URL: its request-dependent feature identifiers prevent reproducing the pinned capture. There are no serving-time downloads.
+
+The source overlap remains deliberate: these HMS addresses also feed Overture. Gains measure fidelity to the published register and its alternative forms, not independent national accuracy.
+
+## Local enrichment comparison (2026-11-01)
+
+Baseline service: `bcdf9d9c6cbaad5bce7dc456279e5f0200ddb913`, binary SHA-256 `df2d6a0938f0bfe4b8d5d16f51c520f8986c8dc63fd2e6e62f804942b1db670e`; candidate binary SHA-256 `05802aa5ca15109d49a392ea983b353dd6e34dc8a213a770aa9e32e95c0d6a71`. Both use the same libpostal models (`65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7`), native library (`9d1a67692bba9f72af1708590666c67be11cb3edfe69e106e964c95d7e137185`) and reference data. Iceland corpus SHA-256: `778b68fd4ba472001c9fa6b8539a31e247d6374015e08a00b3026fe63751ca8c`.
+
+The two full indexes use builders `495ed3bf27ad1ccd` and `c381bdd9d776d281`, Overture **2026-10-21.0**, and the same local OpenAddresses, OSM, Korean-shop and GeoNames captures. A 5,835-file checksum manifest was retained with the local run; source sizes and modification times remained unchanged throughout. Index `meta.json` hashes: baseline `2da4be713dafe7667632475e396f87c3eb111bab59f8283b6cd4946e278abd61`, candidate `79fe318ac0f5b090baf79345522b26026c960257b67d1958e9dbae531967b33b`. The candidate additionally reads the pinned raw HMS capture above. The earlier shared index had no sealed provenance record, so these comparisons use separately built indexes rather than assuming its release from an old build script.
+
+SearchAddress passes (each cohort has one query per location; locations overlap across cohorts):
+
+| Cohort | Training, before → after | Held-out, before → after |
+|---|---:|---:|
+| Nominative street | 48/48 → 48/48 | 13/13 → 13/13 |
+| Nominative letter | 48/49 → 48/49 | 10/10 → 10/10 |
+| Nominative name | 21/52 → 52/52 | 4/9 → 9/9 |
+| Dative | 25/112 → 107/112 | 5/19 → 18/19 |
+| All queries | 142/261 → 255/261 | 32/51 → 50/51 |
+| Locations passing **every** variant | 56/149 → 144/149 | 17/32 → 31/32 |
+
+Overall: **174/312 → 305/312 queries**, **73/181 → 175/181 locations passing every variant**. Failing locations fall from 108 to 6. Training failure classes change from 72 too-coarse, 15 confidence-mismatch, 23 near-miss, 8 abstain and 1 far-miss to 6 too-coarse. Held-out failure classes change from 14 too-coarse, 3 confidence-mismatch and 2 near-miss to 1 too-coarse. Held-out individual cases were not inspected for tuning.
+
+A training-only scan of all Icelandic street documents and exact number keys finds every failed nominative address in the baseline. Thirty of the 31 failed name addresses have a street point within 150 m with the right postcode; Miðvangur has the indexed street's centroid 174.6 m away. The 15 training confidence mismatches arise when the parser takes the postcode for a house number. Other name failures mix that misinterpretation, a locator labelled as a building rather than a road, and rejection of a postal town outside the address's geographic locality. The numberless path now uses the source's address point and stored postcode, not proximity or a copied postcode, to establish the address. Dative failures have an indexed nominative address but lack the official alternative spelling; numberless interpretation can be a second obstacle.
+
+Remaining training failures (six queries, five locations):
+
+- `Starrastöðum 2`: the parser merges the locator, number and postcode into a building name.
+- `Álaleira 13B` and `Álaleiru 13B`: house `13b` and postcode `780` are parsed together as house number `13b 780`. The indexed house and dative alias work; this is not the letter import fixed in #453.
+- `Silfurbotni 3` and `Skagnesi 1`: the locator and real number become a building name, and the postcode becomes the requested house number.
+- `Rimum 8`: the same parsing failure, plus postal/geographic corroboration: its postal town is stored as `Selfoss, dreifbýli`, while its geographic locality is Flóahreppur. The precise generic structured-lookup rejection branch remains unconfirmed.
+
+Each requested training house is stored within 0.08 m with its expected postcode; none of these remaining failures is missing house data or a missing official alias. The remaining held-out failure is one dative too-coarse result at one location, left uninspected.
+
+SuggestAddress improves from 213/312 to 310/312; reverse checks stay at 296/312 at the point and 200/203 at the 25 m offset. On the **44,047-case full gold comparison**, SearchAddress gains 131 passes, SuggestAddress 97, with no newly failing case, worse failure class or abstain-to-miss transition. Reverse and region checks do not change. Changes are confined to Iceland; 17 Iceland GLEIF responses change without changing their classes. A code-only comparison on the baseline index has zero response drift, as do unchanged-binary repeats of both Iceland and full gold. The full gold corpus hash is `3dcefbd1fa019468d7c09baeb6a28344516e964662e7529f05ba0f1fa6125e9e`.
+
+Formatting, all-target clippy, unit/integration tests and the separate model-backed synthetic suite pass locally. Standalone full gold runs exit 1 on both sides because of existing baseline gate failures; their comparison exits 0. The model-backed RPC run still fails the documented grpcurl timeout and an oversized-query logging assertion; the logging assertion also fails with the untouched baseline service and index. These failures are not waived or repaired by this change. Laptop timings do not establish a speed improvement, and the initial CI runs, before the chart enabled this capture, did not measure its cost.
+
+**This is source-fidelity evidence, not independent national accuracy.** The sampled HMS points also supply Overture; the sample weights municipalities and address classes rather than population.
+
+### Validation after rebasing onto `e12c4f1`
+
+Main's GeoNames enrichment and Australian reverse-house suburbs change the builder too. The rebased comparison rebuilds both full indexes: baseline `060849a64adb798d`, candidate `87ca114eef0ee0e8`. The geographic assigner stays alive until both HMS enrichment and Australian suburb generation finish. All 5,835 source-file SHA-256 digests match the original comparison; models, reference data and corpora are unchanged. The baseline binary was built from `e12c4f1` (SHA-256 `8537eda55fa3d39e01d5978464036db2e905a24e962d6b272c46751d668e2c02`); the candidate binary is `89c48faddf86742f3f39b67921ede07fb24cf7e57f9b170bfeef3c2ca4c2edf6`. Index metadata hashes are `9d92eff962b396bb5a13b0a3be4e88a8d04adeae47d0545480e04c27a6f8ff86` and `cc1f4201ae6fd0ce40a33c9db0a0fcc869ef8d7131c9ae03290317666cd897c1`.
+
+The Iceland results remain **174/312 → 305/312**, with the same suggestion and reverse results. Full gold SearchAddress passes change from **36,713 to 36,844**, and SuggestAddress from **38,022 to 38,119**. There are no newly failing cases, worse failure classes or abstain-to-miss transitions; region and reverse results do not change. The full-gold baseline repeat and code-only comparison both have zero response drift, including the Iceland cases. No individual held-out case was inspected for tuning.
+
+Formatting, all-target clippy, unit/integration tests and the separate libpostal synthetic suite pass again. Standalone full gold still exits 1 on both sides, and RPC checks still fail the grpcurl timeout and oversized-query logging assertion. Local timings vary: an intermediate comparison against `5104ea8` flagged total +40% SearchAddress, +47% SuggestAddress and +41% ReverseGeocode. The latest full-gold timings flag no slowdown over 15%, but the Iceland-only run flags SuggestAddress p50 +26% / p90 +44% and ReverseGeocode total +16% / p90 +23%. These uncontrolled laptop measurements do not establish a performance regression or improvement. CI's measured-speed gate is checked separately. The source-disabled CI run at `d49df8f` established compatibility only; enabling the archived capture requires a new source-enabled quality and speed comparison.
+
+### Default-enabled validation after rebasing onto `32154ee`
+
+The enabled chart was rebased again to retain main's Greenland building references and Spanish suggestion changes. Both full indexes were rebuilt: baseline `bb05cfe6f44d46bd`, candidate `fcef606998022e7c`. The candidate reads the verified public archive download. All 5,835 external source-file hashes still match the original comparison; both sides include main's pinned Asiaq input. Baseline/candidate binary hashes are `0afe7fbc926720e4a60ec1a4ba1e4c79f65107036f179b35ccffb242a7917d49` / `1e2a1f743b40a9356c3a7f8fe6149b1736de82bf2cd4ebe21f84e911f7cbc172`; index metadata hashes are `7c54d241f3ae7cc35ce5a50ac2951868b09d9aa48c90b52f9c548bdb80632f9d` / `1ba67077d36509e706870c43a71e86b1bf937a88daa39d4c3927352ccce82f46`.
+
+Full gold again gains **131 SearchAddress passes** (36,857 → 36,988) and **97 SuggestAddress passes** (38,183 → 38,280), with no newly failing cases, worse classes or abstain-to-miss transitions. Iceland remains **174/312 → 305/312**. Region and reverse results do not change. The unchanged baseline repeat and code-only comparison have zero response drift. Copies of the earlier saved runs were re-scored with main's new building-level scorer: no classes changed, and neither old run contains a building-type suggestion or a response with a house name but no house number that would activate the new scoring branches.
+
+Formatting, all-target clippy, Helm lint/render checks, unit/integration tests and both synthetic suites pass. RPC still fails the same two known checks, and standalone gold still exits 1 on both sides. Laptop timings remain unstable: the same-binary repeat flags +22% SearchAddress / +23% ReverseGeocode totals, while the enriched comparison flags +54% / +49% / +86% SearchAddress / SuggestAddress / ReverseGeocode totals. The source-enabled CI quality and measured-speed reports, rather than these uncontrolled timings or the earlier source-disabled CI pass, are required for this configuration.
+
+## Historical local baseline (2026-10-30)
 
 On a local full index from builder `2ee0057bc161acd7` (Overture 2026-10-21.0, OpenAddresses and the chart's OSM extracts), SearchAddress passes 174 of 312 queries: all 61 street, 58 of 59 letter, 25 of 61 name and 30 of 131 dative forms (13 of 43 on streets, 17 of 40 lettered, none of 48 numberless), and 32 of the 51 held-out cases. A same-binary repeat has zero response drift. SuggestAddress finds an acceptable full-string result for 212 (61 street, 59 letter, 59 name and 33 dative forms). ReverseGeocode returns the country, a place of the address and, for a numbered address, the house at 296 of 312 points, and a house 25 m away at 200 of 203. One critical result is triaged and labelled in `is.labels.jsonl`.
 
