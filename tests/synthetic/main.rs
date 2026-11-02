@@ -1448,6 +1448,7 @@ fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
 async fn resolve_follows_the_authored_facts() {
     let resolver = Resolver::open(dir()).unwrap();
     world::gl::check_search(&resolver).await;
+    world::kr::check_short_provinces(&resolver).await;
     // a Japanese town, district or road and its number, in either order
     for (road, number, query) in [
         ("朝日町伊勢宮", "472-2", "朝日町伊勢宮 472-2, 松江市, Japan"),

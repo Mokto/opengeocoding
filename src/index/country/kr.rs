@@ -36,7 +36,26 @@ pub(super) fn parse(q: &str, partial: bool) -> Option<Address<'_>> {
     if parts.next().is_some() || words.len() < 2 {
         return None;
     }
-    let province = words[0];
+    let province = match words[0] {
+        "서울" => "서울특별시",
+        "부산" => "부산광역시",
+        "대구" => "대구광역시",
+        "인천" => "인천광역시",
+        "광주" => "광주광역시",
+        "대전" => "대전광역시",
+        "울산" => "울산광역시",
+        "세종" => "세종특별자치시",
+        "경기" => "경기도",
+        "강원" => "강원특별자치도",
+        "충북" => "충청북도",
+        "충남" => "충청남도",
+        "전북" => "전북특별자치도",
+        "전남" => "전라남도",
+        "경북" => "경상북도",
+        "경남" => "경상남도",
+        "제주" => "제주특별자치도",
+        name => name,
+    };
     if !province.chars().all(|c| ('가'..='힣').contains(&c))
         || !["특별시", "광역시", "특별자치시", "도"]
             .iter()
@@ -91,6 +110,15 @@ pub(super) fn parse(q: &str, partial: bool) -> Option<Address<'_>> {
     {
         return None;
     }
+    // ponytail: shorthand needs a city/county/district; province-only forms need namesake disambiguation first.
+    if province != words[0]
+        && words
+            .get(1)
+            .is_none_or(|w| !w.ends_with(['시', '군', '구']))
+    {
+        return None;
+    }
+    words[0] = province;
     Some(Address {
         areas: words,
         road,
@@ -351,6 +379,46 @@ impl Index {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn short_provinces_keep_an_explicit_city_county_or_district() {
+        for (short, full) in [
+            ("서울", "서울특별시"),
+            ("부산", "부산광역시"),
+            ("대구", "대구광역시"),
+            ("인천", "인천광역시"),
+            ("광주", "광주광역시"),
+            ("대전", "대전광역시"),
+            ("울산", "울산광역시"),
+            ("세종", "세종특별자치시"),
+            ("경기", "경기도"),
+            ("강원", "강원특별자치도"),
+            ("충북", "충청북도"),
+            ("충남", "충청남도"),
+            ("전북", "전북특별자치도"),
+            ("전남", "전라남도"),
+            ("경북", "경상북도"),
+            ("경남", "경상남도"),
+            ("제주", "제주특별자치도"),
+        ] {
+            let query = format!("{short} 가상시 가상구 새로12길 13-34, South Korea");
+            let parsed = parse(&query, false).unwrap();
+            assert_eq!(parsed.areas, [full, "가상시", "가상구"]);
+            assert_eq!((parsed.road, parsed.number.as_str()), ("새로12길", "13-34"));
+        }
+        let partial = parse("경기 가상시 새로1", true).unwrap();
+        assert_eq!(partial.areas, ["경기도", "가상시"]);
+        for query in [
+            "광주 새로12길 13",
+            "제주 제주시 1",
+            "경기 가상면 새로12길 13",
+            "세종 새로12길 13",
+            "가람 가상시 새로12길 13",
+        ] {
+            assert!(parse(query, false).is_none(), "{query}");
+            assert!(parse(query, true).is_none(), "{query}");
+        }
+    }
 
     #[test]
     fn native_hierarchy_and_both_numbering_systems() {

@@ -95,7 +95,7 @@ mod r#in;
 pub(super) mod is;
 mod it;
 mod jp;
-mod kr;
+pub mod kr;
 mod li;
 mod lt;
 mod mk;
