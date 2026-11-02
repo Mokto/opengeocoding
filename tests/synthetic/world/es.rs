@@ -127,6 +127,24 @@ pub const STREETS: &[Street] = &[
         ..REGISTRY_STREET
     },
     Street {
+        name: "CM PINEDES",
+        numbers: &["3", "3B"],
+        lon: 50.01,
+        ..REGISTRY_STREET
+    },
+    Street {
+        name: "CAMI DE SES FONTS",
+        numbers: &["4"],
+        lon: 50.046,
+        ..REGISTRY_STREET
+    },
+    Street {
+        name: "CM FONTS",
+        numbers: &["4"],
+        lon: 50.047,
+        ..REGISTRY_STREET
+    },
+    Street {
         name: "PLAZA CONSTITUCION",
         numbers: &["10"],
         lon: 50.004,
@@ -312,6 +330,26 @@ pub fn cases() -> Vec<Case> {
     };
     vec![
         case(
+            "3 Camí de ses Pinedes, Villaseca, 09120, Spain",
+            at_house("CM PINEDES", "3"),
+        ),
+        case(
+            "Camí de ses Pinedes 3, Villaseca, 09120, Spain",
+            at_house("CM PINEDES", "3"),
+        ),
+        case(
+            "Camino de ses Pinedes 3, Villaseca, 09120, Spain",
+            at_house("CM PINEDES", "3"),
+        ),
+        case(
+            "Camí de ses Pinedes 3B, Villaseca, 09120, Spain",
+            at_house("CM PINEDES", "3B"),
+        ),
+        case(
+            "Camí de ses Fonts 4, Villaseca, 09120, Spain",
+            at_house("CAMI DE SES FONTS", "4"),
+        ),
+        case(
             "40 Avenida de Galicia, Villaseca, 09120, Spain",
             at_house("AV GALICIA", "40"),
         ),
@@ -413,6 +451,56 @@ fn spanish_registry_road_names_complete_only_unambiguous_houses() {
                     .collect::<Vec<_>>()
             );
         }
+    }
+}
+
+#[test]
+fn spanish_registry_paths_keep_complete_numbers_and_qualifiers() {
+    let village = place("es-villaseca-pinedo");
+    assert!(metres(house(street("CM PINEDES"), "3"), (village.lon, village.lat)) > 3000.0);
+    for text in [
+        "3 Camí de ses Pinedes, Villaseca, 09120, Spain",
+        "Camí de ses Pinedes 3, Villaseca, 09120, Spain",
+        "Camino de ses Pinedes 3, Villaseca, 09120, Spain",
+        "Cno. de ses Pinedes 3, Villaseca, 09120, Spain",
+        "Camí de ses Pinedes 3B, Villaseca, 09120, Spain",
+    ] {
+        let number = if text.contains("3B") { "3B" } else { "3" };
+        let found = index().suggest(text, 5, None, None, false);
+        assert_eq!(found.len(), 1, "{text}");
+        assert_eq!(found[0].kind, "address", "{text}");
+        assert!(
+            metres(
+                (found[0].x, found[0].y),
+                house(street("CM PINEDES"), number)
+            ) < 5.0,
+            "{text}"
+        );
+    }
+    let literal = index().suggest(
+        "Camí de ses Fonts 4, Villaseca, 09120, Spain",
+        5,
+        None,
+        None,
+        false,
+    );
+    assert!(
+        metres(
+            (literal[0].x, literal[0].y),
+            house(street("CAMI DE SES FONTS"), "4")
+        ) < 5.0
+    );
+    for (text, cc) in [
+        ("Camí de ses Pinedes 3, Villaseca, 09128, Spain", None),
+        ("Camí de ses Pinedes 3, Pinedo, Spain", None),
+        ("Camí de ses Pinedes 3, Villaseca, Spain", Some("FR")),
+        ("Camí de ses Pinedes 3C, Villaseca, Spain", None),
+        ("Camí de ses Pinedes 3/4, Villaseca, Spain", None),
+        ("Camí de ses Pinedes 3-4, Villaseca, Spain", None),
+        ("Camí de ses Pinedes 3", Some("ES")),
+    ] {
+        let found = index().suggest(text, 5, cc, None, false);
+        assert!(found.iter().all(|s| s.kind != "address"), "{text}");
     }
 }
 

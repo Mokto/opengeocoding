@@ -91,7 +91,8 @@ pub(crate) fn number_from_avenida(query: &str, parsed: &mut Vec<(String, String)
 
 pub(crate) fn registry_road(road: &str) -> Option<String> {
     const PARTICLES: &[&str] = &[
-        "de", "del", "la", "las", "los", "el", "dels", "les", "els", "da", "do", "das", "dos",
+        "de", "del", "la", "las", "los", "el", "dels", "les", "els", "ses", "da", "do", "das",
+        "dos",
     ];
     let road = crate::matching::normalize_place(road);
     let all: Vec<&str> = road.split(' ').collect();
@@ -101,10 +102,22 @@ pub(crate) fn registry_road(road: &str) -> Option<String> {
         .filter(|w| !PARTICLES.contains(w))
         .collect();
     let kind = |w: &str| canon::canon(w).is_some() || canon::is_canonical(w);
-    if words.len() > 1 && kind(words[words.len() - 1]) && !kind(words[0]) {
+    let path = |w: &str| matches!(w, "cami" | "camino" | "cmno" | "cno" | "cm");
+    let typed = |w: &str| kind(w) || path(w);
+    if words.len() > 1 && typed(words[words.len() - 1]) && !typed(words[0]) {
         words.rotate_right(1);
     }
-    (words.iter().any(|w| !kind(w)) && words != all).then(|| words.join(" "))
+    if let Some(first) = words.first_mut()
+        && path(first)
+    {
+        *first = "cm";
+    }
+    (words
+        .iter()
+        .enumerate()
+        .any(|(i, w)| !kind(w) && !(i == 0 && path(w)))
+        && words != all)
+        .then(|| words.join(" "))
 }
 
 pub(crate) fn registry_address(text: &str) -> Option<String> {
@@ -247,6 +260,36 @@ mod tests {
             let before = parsed.clone();
             number_from_avenida(query, &mut parsed);
             assert_eq!(parsed, before, "{query}");
+        }
+    }
+
+    #[test]
+    fn registry_paths_use_the_cadastral_type_without_rewriting_a_name() {
+        for road in [
+            "Camí de ses Pinedes",
+            "Camino de ses Pinedes",
+            "Cmno de ses Pinedes",
+            "Cno de ses Pinedes",
+            "Pinedes camí",
+        ] {
+            assert_eq!(registry_road(road), Some("cm pinedes".into()), "{road}");
+        }
+        assert_eq!(registry_road("Calle del Cami"), Some("calle cami".into()));
+        assert_eq!(registry_road("Calle del CM"), Some("calle cm".into()));
+        assert_eq!(
+            registry_road("Camí de Sescorts"),
+            Some("cm sescorts".into())
+        );
+        assert_eq!(
+            registry_address("3B Camí de ses Pinedes"),
+            Some("3B cm pinedes".into())
+        );
+        assert_eq!(
+            registry_address("Camí de ses Pinedes 3B"),
+            Some("cm pinedes 3B".into())
+        );
+        for road in ["Camí", "Camino", "Camí de ses", "CM de ses"] {
+            assert_eq!(registry_road(road), None, "{road}");
         }
     }
 
