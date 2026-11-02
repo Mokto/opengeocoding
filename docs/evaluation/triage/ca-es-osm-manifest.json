@@ -1,0 +1,974 @@
+{
+  "commit": "5104ea806b548cdcc9caa501d1fefbb1d59cf356",
+  "builder_hash": "eb225d0b385a41f5",
+  "index_meta_sha256": "81e90c4350cb7752f8ada2a2292f18f614edffaeb2a8f2d037321a63053bf5c3",
+  "binary_sha256": "5d302fe0c783737f753792fc5d0d41af6129b72ff62c749defb12cdc5e1da7ca",
+  "evaluator_sha256": "3087211e44c0a271de3d9e53efc254da1abc1129c744916e341565e0ccec3ab5",
+  "models_sha256": "65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7",
+  "native_libpostal_sha256": "9d1a67692bba9f72af1708590666c67be11cb3edfe69e106e964c95d7e137185",
+  "reference_data_sha256": "9a68f034f3b05f57aecdec9776b06c63a15cf48619703a6fd797bb61ce7cfb01",
+  "historical_memberships_sha256": "16871dd9c5b3dc74b8a9262f7986e2b35abde43231f6f72e9d643cfa4dc665fc",
+  "source_inventory_sha256": "948ba91560d4cff513e6ac789a33794cfffca3ca767a6b995975c772432b2ee7",
+  "source_files": 847,
+  "source_bytes": 207476194757,
+  "corpora": {
+    "tests/registry/ca.jsonl": "9ff0828438dd1480acae5cb77b9549cad1c879dc7a89d27ddea9b9ae76af9d5a",
+    "tests/registry/es.jsonl": "8d693ffb075740e1547fefee0b89f4269a6183570251a7b57661184c77bb8886",
+    "tests/global/global-addresses.jsonl": "046aac6c7df2bff47bc6962ed74bb3dd07e0396b8fc926c163c8d986de1af89c",
+    "tests/global/manifest.json": "c91be18cde64bd38c3b3b64e4b9c09b9c5d29e887af0fc7e6dca099725122a11",
+    "Cargo.lock": "a4c79e2d74db33b0bc291d2104fce7561b33f9b9cd6249bcde5cd4b981d9e1ff"
+  },
+  "summary": {
+    "ca": {
+      "zero_drift": 0,
+      "ca-all": {
+        "queries": 550,
+        "locations": 373,
+        "classes": [
+          {
+            "pass": 525,
+            "too_coarse": 23,
+            "confidence_mismatch": 1,
+            "abstain": 1
+          },
+          {
+            "pass": 507,
+            "missing": 43
+          },
+          {
+            "pass": 397,
+            "wrong_house": 80,
+            "wrong_place": 73
+          },
+          {
+            "pass": 477,
+            "wrong_place": 73
+          }
+        ],
+        "failing_locations": 126
+      },
+      "ca-training": {
+        "queries": 450,
+        "locations": 304,
+        "classes": [
+          {
+            "pass": 431,
+            "too_coarse": 18,
+            "abstain": 1
+          },
+          {
+            "pass": 415,
+            "missing": 35
+          },
+          {
+            "pass": 332,
+            "wrong_house": 64,
+            "wrong_place": 54
+          },
+          {
+            "pass": 396,
+            "wrong_place": 54
+          }
+        ],
+        "failing_locations": 99
+      },
+      "ca-heldout": {
+        "queries": 100,
+        "locations": 69,
+        "classes": [
+          {
+            "pass": 94,
+            "too_coarse": 5,
+            "confidence_mismatch": 1
+          },
+          {
+            "pass": 92,
+            "missing": 8
+          },
+          {
+            "pass": 65,
+            "wrong_house": 16,
+            "wrong_place": 19
+          },
+          {
+            "pass": 81,
+            "wrong_place": 19
+          }
+        ],
+        "failing_locations": 27
+      }
+    },
+    "es": {
+      "zero_drift": 0,
+      "es-all": {
+        "queries": 1544,
+        "locations": 910,
+        "classes": [
+          {
+            "pass": 1496,
+            "too_coarse": 28,
+            "near_miss": 11,
+            "far_miss": 1,
+            "abstain": 3,
+            "confidence_mismatch": 5
+          },
+          {
+            "pass": 1488,
+            "missing": 56
+          },
+          {
+            "pass": 1410,
+            "wrong_house": 120,
+            "wrong_place": 14
+          },
+          {
+            "pass": 1526,
+            "wrong_place": 18
+          }
+        ],
+        "failing_locations": 115
+      },
+      "es-training": {
+        "queries": 1239,
+        "locations": 724,
+        "classes": [
+          {
+            "pass": 1197,
+            "too_coarse": 25,
+            "near_miss": 11,
+            "abstain": 3,
+            "confidence_mismatch": 3
+          },
+          {
+            "pass": 1192,
+            "missing": 47
+          },
+          {
+            "pass": 1124,
+            "wrong_house": 101,
+            "wrong_place": 14
+          },
+          {
+            "pass": 1221,
+            "wrong_place": 18
+          }
+        ],
+        "failing_locations": 95
+      },
+      "es-heldout": {
+        "queries": 305,
+        "locations": 186,
+        "classes": [
+          {
+            "pass": 299,
+            "too_coarse": 3,
+            "far_miss": 1,
+            "confidence_mismatch": 2
+          },
+          {
+            "pass": 296,
+            "missing": 9
+          },
+          {
+            "pass": 286,
+            "wrong_house": 19
+          },
+          {
+            "pass": 305
+          }
+        ],
+        "failing_locations": 20
+      }
+    },
+    "osm": {
+      "zero_drift": 0,
+      "ca-all": {
+        "queries": 100,
+        "locations": 50,
+        "classes": [
+          {
+            "too_coarse": 32,
+            "near_miss": 11,
+            "far_miss": 7,
+            "wrong_component": 4,
+            "abstain": 14,
+            "pass": 32
+          },
+          {
+            "missing": 66,
+            "pass": 34
+          },
+          {
+            "no_house": 18,
+            "wrong_house": 52,
+            "pass": 28,
+            "wrong_postcode": 2
+          },
+          {
+            "no_house": 18,
+            "wrong_house": 14,
+            "pass": 68
+          }
+        ],
+        "failing_locations": 39
+      },
+      "ca-training": {
+        "queries": 80,
+        "locations": 40,
+        "classes": [
+          {
+            "too_coarse": 26,
+            "near_miss": 9,
+            "far_miss": 7,
+            "wrong_component": 2,
+            "abstain": 12,
+            "pass": 24
+          },
+          {
+            "missing": 54,
+            "pass": 26
+          },
+          {
+            "no_house": 18,
+            "wrong_house": 38,
+            "pass": 22,
+            "wrong_postcode": 2
+          },
+          {
+            "no_house": 18,
+            "pass": 52,
+            "wrong_house": 10
+          }
+        ],
+        "failing_locations": 31
+      },
+      "ca-heldout": {
+        "queries": 20,
+        "locations": 10,
+        "classes": [
+          {
+            "too_coarse": 6,
+            "pass": 8,
+            "abstain": 2,
+            "near_miss": 2,
+            "wrong_component": 2
+          },
+          {
+            "missing": 12,
+            "pass": 8
+          },
+          {
+            "wrong_house": 14,
+            "pass": 6
+          },
+          {
+            "wrong_house": 4,
+            "pass": 16
+          }
+        ],
+        "failing_locations": 8
+      },
+      "es-all": {
+        "queries": 100,
+        "locations": 50,
+        "classes": [
+          {
+            "near_miss": 8,
+            "pass": 60,
+            "too_coarse": 32
+          },
+          {
+            "missing": 50,
+            "pass": 50
+          },
+          {
+            "wrong_house": 48,
+            "pass": 46,
+            "wrong_postcode": 6
+          },
+          {
+            "pass": 100
+          }
+        ],
+        "failing_locations": 32
+      },
+      "es-training": {
+        "queries": 88,
+        "locations": 44,
+        "classes": [
+          {
+            "near_miss": 7,
+            "pass": 54,
+            "too_coarse": 27
+          },
+          {
+            "missing": 44,
+            "pass": 44
+          },
+          {
+            "wrong_house": 44,
+            "pass": 40,
+            "wrong_postcode": 4
+          },
+          {
+            "pass": 88
+          }
+        ],
+        "failing_locations": 29
+      },
+      "es-heldout": {
+        "queries": 12,
+        "locations": 6,
+        "classes": [
+          {
+            "too_coarse": 5,
+            "near_miss": 1,
+            "pass": 6
+          },
+          {
+            "missing": 6,
+            "pass": 6
+          },
+          {
+            "wrong_house": 4,
+            "wrong_postcode": 2,
+            "pass": 6
+          },
+          {
+            "pass": 12
+          }
+        ],
+        "failing_locations": 3
+      }
+    }
+  },
+  "composition": {
+    "ca-ca": {
+      "all": {
+        "queries": 550,
+        "locations": 373,
+        "passes": [
+          525,
+          507,
+          397,
+          477
+        ]
+      },
+      "postcode-True": {
+        "queries": 550,
+        "locations": 373,
+        "passes": [
+          525,
+          507,
+          397,
+          477
+        ]
+      },
+      "number-integer": {
+        "queries": 361,
+        "locations": 246,
+        "passes": [
+          353,
+          341,
+          295,
+          305
+        ]
+      },
+      "number-other": {
+        "queries": 189,
+        "locations": 127,
+        "passes": [
+          172,
+          166,
+          102,
+          172
+        ]
+      },
+      "all-projection": {
+        "suggest_top1": 507,
+        "reverse_country_only": 550,
+        "search_house_country_radius_only": 526
+      },
+      "training-projection": {
+        "suggest_top1": 415,
+        "reverse_country_only": 450,
+        "search_house_country_radius_only": 431
+      },
+      "heldout-projection": {
+        "suggest_top1": 92,
+        "reverse_country_only": 100,
+        "search_house_country_radius_only": 95
+      }
+    },
+    "es-es": {
+      "all": {
+        "queries": 1544,
+        "locations": 910,
+        "passes": [
+          1496,
+          1488,
+          1410,
+          1526
+        ]
+      },
+      "postcode-False": {
+        "queries": 1544,
+        "locations": 910,
+        "passes": [
+          1496,
+          1488,
+          1410,
+          1526
+        ]
+      },
+      "number-integer": {
+        "queries": 1092,
+        "locations": 653,
+        "passes": [
+          1069,
+          1053,
+          1052,
+          1083
+        ]
+      },
+      "number-other": {
+        "queries": 452,
+        "locations": 257,
+        "passes": [
+          427,
+          435,
+          358,
+          443
+        ]
+      },
+      "all-projection": {
+        "suggest_top1": 1482,
+        "reverse_country_only": 1544,
+        "search_house_country_radius_only": 1501
+      },
+      "training-projection": {
+        "suggest_top1": 1186,
+        "reverse_country_only": 1239,
+        "search_house_country_radius_only": 1200
+      },
+      "heldout-projection": {
+        "suggest_top1": 296,
+        "reverse_country_only": 305,
+        "search_house_country_radius_only": 301
+      }
+    },
+    "osm-ca": {
+      "all": {
+        "queries": 100,
+        "locations": 50,
+        "passes": [
+          32,
+          34,
+          28,
+          68
+        ]
+      },
+      "postcode-False": {
+        "queries": 76,
+        "locations": 38,
+        "passes": [
+          24,
+          24,
+          16,
+          48
+        ]
+      },
+      "number-integer": {
+        "queries": 98,
+        "locations": 49,
+        "passes": [
+          32,
+          34,
+          28,
+          66
+        ]
+      },
+      "postcode-True": {
+        "queries": 24,
+        "locations": 12,
+        "passes": [
+          8,
+          10,
+          12,
+          20
+        ]
+      },
+      "number-other": {
+        "queries": 2,
+        "locations": 1,
+        "passes": [
+          0,
+          0,
+          0,
+          2
+        ]
+      },
+      "all-projection": {
+        "suggest_top1": 34,
+        "reverse_country_only": 100,
+        "search_house_country_radius_only": 36
+      },
+      "training-projection": {
+        "suggest_top1": 26,
+        "reverse_country_only": 80,
+        "search_house_country_radius_only": 26
+      },
+      "heldout-projection": {
+        "suggest_top1": 8,
+        "reverse_country_only": 20,
+        "search_house_country_radius_only": 10
+      }
+    },
+    "osm-es": {
+      "all": {
+        "queries": 100,
+        "locations": 50,
+        "passes": [
+          60,
+          50,
+          46,
+          100
+        ]
+      },
+      "postcode-True": {
+        "queries": 90,
+        "locations": 45,
+        "passes": [
+          52,
+          42,
+          38,
+          90
+        ]
+      },
+      "number-integer": {
+        "queries": 92,
+        "locations": 46,
+        "passes": [
+          56,
+          46,
+          42,
+          92
+        ]
+      },
+      "postcode-False": {
+        "queries": 10,
+        "locations": 5,
+        "passes": [
+          8,
+          8,
+          8,
+          10
+        ]
+      },
+      "number-other": {
+        "queries": 8,
+        "locations": 4,
+        "passes": [
+          4,
+          4,
+          4,
+          8
+        ]
+      },
+      "all-projection": {
+        "suggest_top1": 50,
+        "reverse_country_only": 100,
+        "search_house_country_radius_only": 60
+      },
+      "training-projection": {
+        "suggest_top1": 44,
+        "reverse_country_only": 88,
+        "search_house_country_radius_only": 54
+      },
+      "heldout-projection": {
+        "suggest_top1": 6,
+        "reverse_country_only": 12,
+        "search_house_country_radius_only": 6
+      }
+    }
+  },
+  "training_ledger_sha256": "da34d2fb11d567893f1b6e14a3bf253b71276b9e1199e2ad121c6c504663f651",
+  "run_manifests": {
+    "ca-1": {
+      "backend": {
+        "label": "",
+        "status": {
+          "data_updated": "index 81e90c4350cb",
+          "software_version": "overture-index"
+        }
+      },
+      "budget": 18446744073709551615,
+      "cases": 550,
+      "consumer": {
+        "binary_sha256": "5d302fe0c783737f753792fc5d0d41af6129b72ff62c749defb12cdc5e1da7ca",
+        "dirty": false,
+        "git": "5104ea806b548cdcc9caa501d1fefbb1d59cf356",
+        "libpostal_models_sha256": "65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7",
+        "region_cache": "none: regions come from the index"
+      },
+      "corpus": "ca.jsonl",
+      "corpus_sha256": "9ff0828438dd1480acae5cb77b9549cad1c879dc7a89d27ddea9b9ae76af9d5a",
+      "evaluator": "1.6.0",
+      "finished_at": "2026-11-01T16:26:52Z",
+      "historical_memberships_sha256": "16871dd9c5b3dc74b8a9262f7986e2b35abde43231f6f72e9d643cfa4dc665fc",
+      "max_rps": 1000000.0,
+      "reference_data_sha256": "9a68f034f3b05f57aecdec9776b06c63a15cf48619703a6fd797bb61ce7cfb01",
+      "repeat": 1,
+      "resumed": false,
+      "rpc_requests": 2200,
+      "speed_cases": 0,
+      "started_at": "2026-11-01T16:26:35Z",
+      "stopped": null,
+      "suite": "gold",
+      "transport": {
+        "connect_proto_matches_json": {
+          "checked": 5,
+          "mismatches": [],
+          "ok": true
+        },
+        "grpcurl_search_address": {
+          "known_failure": true,
+          "ok": false
+        },
+        "list_regions": {
+          "ok": true
+        }
+      },
+      "workers": 4
+    },
+    "ca-2": {
+      "backend": {
+        "label": "",
+        "status": {
+          "data_updated": "index 81e90c4350cb",
+          "software_version": "overture-index"
+        }
+      },
+      "budget": 18446744073709551615,
+      "cases": 550,
+      "consumer": {
+        "binary_sha256": "5d302fe0c783737f753792fc5d0d41af6129b72ff62c749defb12cdc5e1da7ca",
+        "dirty": false,
+        "git": "5104ea806b548cdcc9caa501d1fefbb1d59cf356",
+        "libpostal_models_sha256": "65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7",
+        "region_cache": "none: regions come from the index"
+      },
+      "corpus": "ca.jsonl",
+      "corpus_sha256": "9ff0828438dd1480acae5cb77b9549cad1c879dc7a89d27ddea9b9ae76af9d5a",
+      "evaluator": "1.6.0",
+      "finished_at": "2026-11-01T16:27:42Z",
+      "historical_memberships_sha256": "16871dd9c5b3dc74b8a9262f7986e2b35abde43231f6f72e9d643cfa4dc665fc",
+      "max_rps": 1000000.0,
+      "reference_data_sha256": "9a68f034f3b05f57aecdec9776b06c63a15cf48619703a6fd797bb61ce7cfb01",
+      "repeat": 1,
+      "resumed": false,
+      "rpc_requests": 2200,
+      "speed_cases": 0,
+      "started_at": "2026-11-01T16:27:26Z",
+      "stopped": null,
+      "suite": "gold",
+      "transport": {
+        "connect_proto_matches_json": {
+          "checked": 5,
+          "mismatches": [],
+          "ok": true
+        },
+        "grpcurl_search_address": {
+          "known_failure": true,
+          "ok": false
+        },
+        "list_regions": {
+          "ok": true
+        }
+      },
+      "workers": 4
+    },
+    "es-1": {
+      "backend": {
+        "label": "",
+        "status": {
+          "data_updated": "index 81e90c4350cb",
+          "software_version": "overture-index"
+        }
+      },
+      "budget": 18446744073709551615,
+      "cases": 1544,
+      "consumer": {
+        "binary_sha256": "5d302fe0c783737f753792fc5d0d41af6129b72ff62c749defb12cdc5e1da7ca",
+        "dirty": false,
+        "git": "5104ea806b548cdcc9caa501d1fefbb1d59cf356",
+        "libpostal_models_sha256": "65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7",
+        "region_cache": "none: regions come from the index"
+      },
+      "corpus": "es.jsonl",
+      "corpus_sha256": "8d693ffb075740e1547fefee0b89f4269a6183570251a7b57661184c77bb8886",
+      "evaluator": "1.6.0",
+      "finished_at": "2026-11-01T16:27:09Z",
+      "historical_memberships_sha256": "16871dd9c5b3dc74b8a9262f7986e2b35abde43231f6f72e9d643cfa4dc665fc",
+      "max_rps": 1000000.0,
+      "reference_data_sha256": "9a68f034f3b05f57aecdec9776b06c63a15cf48619703a6fd797bb61ce7cfb01",
+      "repeat": 1,
+      "resumed": false,
+      "rpc_requests": 6176,
+      "speed_cases": 0,
+      "started_at": "2026-11-01T16:26:53Z",
+      "stopped": null,
+      "suite": "gold",
+      "transport": {
+        "connect_proto_matches_json": {
+          "checked": 5,
+          "mismatches": [],
+          "ok": true
+        },
+        "grpcurl_search_address": {
+          "known_failure": true,
+          "ok": false
+        },
+        "list_regions": {
+          "ok": true
+        }
+      },
+      "workers": 4
+    },
+    "es-2": {
+      "backend": {
+        "label": "",
+        "status": {
+          "data_updated": "index 81e90c4350cb",
+          "software_version": "overture-index"
+        }
+      },
+      "budget": 18446744073709551615,
+      "cases": 1544,
+      "consumer": {
+        "binary_sha256": "5d302fe0c783737f753792fc5d0d41af6129b72ff62c749defb12cdc5e1da7ca",
+        "dirty": false,
+        "git": "5104ea806b548cdcc9caa501d1fefbb1d59cf356",
+        "libpostal_models_sha256": "65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7",
+        "region_cache": "none: regions come from the index"
+      },
+      "corpus": "es.jsonl",
+      "corpus_sha256": "8d693ffb075740e1547fefee0b89f4269a6183570251a7b57661184c77bb8886",
+      "evaluator": "1.6.0",
+      "finished_at": "2026-11-01T16:27:59Z",
+      "historical_memberships_sha256": "16871dd9c5b3dc74b8a9262f7986e2b35abde43231f6f72e9d643cfa4dc665fc",
+      "max_rps": 1000000.0,
+      "reference_data_sha256": "9a68f034f3b05f57aecdec9776b06c63a15cf48619703a6fd797bb61ce7cfb01",
+      "repeat": 1,
+      "resumed": false,
+      "rpc_requests": 6176,
+      "speed_cases": 0,
+      "started_at": "2026-11-01T16:27:43Z",
+      "stopped": null,
+      "suite": "gold",
+      "transport": {
+        "connect_proto_matches_json": {
+          "checked": 5,
+          "mismatches": [],
+          "ok": true
+        },
+        "grpcurl_search_address": {
+          "known_failure": true,
+          "ok": false
+        },
+        "list_regions": {
+          "ok": true
+        }
+      },
+      "workers": 4
+    },
+    "osm-1": {
+      "backend": {
+        "label": "",
+        "status": {
+          "data_updated": "index 81e90c4350cb",
+          "software_version": "overture-index"
+        }
+      },
+      "budget": 18446744073709551615,
+      "cases": 200,
+      "consumer": {
+        "binary_sha256": "5d302fe0c783737f753792fc5d0d41af6129b72ff62c749defb12cdc5e1da7ca",
+        "dirty": false,
+        "git": "5104ea806b548cdcc9caa501d1fefbb1d59cf356",
+        "libpostal_models_sha256": "65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7",
+        "region_cache": "none: regions come from the index"
+      },
+      "corpus": "global-addresses.jsonl",
+      "corpus_sha256": "046aac6c7df2bff47bc6962ed74bb3dd07e0396b8fc926c163c8d986de1af89c",
+      "evaluator": "1.6.0",
+      "finished_at": "2026-11-01T16:27:25Z",
+      "historical_memberships_sha256": "16871dd9c5b3dc74b8a9262f7986e2b35abde43231f6f72e9d643cfa4dc665fc",
+      "max_rps": 1000000.0,
+      "reference_data_sha256": "9a68f034f3b05f57aecdec9776b06c63a15cf48619703a6fd797bb61ce7cfb01",
+      "repeat": 1,
+      "resumed": false,
+      "rpc_requests": 800,
+      "speed_cases": 0,
+      "started_at": "2026-11-01T16:27:09Z",
+      "stopped": null,
+      "suite": "gold",
+      "transport": {
+        "connect_proto_matches_json": {
+          "checked": 5,
+          "mismatches": [],
+          "ok": true
+        },
+        "grpcurl_search_address": {
+          "known_failure": true,
+          "ok": false
+        },
+        "list_regions": {
+          "ok": true
+        }
+      },
+      "workers": 4
+    },
+    "osm-2": {
+      "backend": {
+        "label": "",
+        "status": {
+          "data_updated": "index 81e90c4350cb",
+          "software_version": "overture-index"
+        }
+      },
+      "budget": 18446744073709551615,
+      "cases": 200,
+      "consumer": {
+        "binary_sha256": "5d302fe0c783737f753792fc5d0d41af6129b72ff62c749defb12cdc5e1da7ca",
+        "dirty": false,
+        "git": "5104ea806b548cdcc9caa501d1fefbb1d59cf356",
+        "libpostal_models_sha256": "65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7",
+        "region_cache": "none: regions come from the index"
+      },
+      "corpus": "global-addresses.jsonl",
+      "corpus_sha256": "046aac6c7df2bff47bc6962ed74bb3dd07e0396b8fc926c163c8d986de1af89c",
+      "evaluator": "1.6.0",
+      "finished_at": "2026-11-01T16:28:15Z",
+      "historical_memberships_sha256": "16871dd9c5b3dc74b8a9262f7986e2b35abde43231f6f72e9d643cfa4dc665fc",
+      "max_rps": 1000000.0,
+      "reference_data_sha256": "9a68f034f3b05f57aecdec9776b06c63a15cf48619703a6fd797bb61ce7cfb01",
+      "repeat": 1,
+      "resumed": false,
+      "rpc_requests": 800,
+      "speed_cases": 0,
+      "started_at": "2026-11-01T16:27:59Z",
+      "stopped": null,
+      "suite": "gold",
+      "transport": {
+        "connect_proto_matches_json": {
+          "checked": 5,
+          "mismatches": [],
+          "ok": true
+        },
+        "grpcurl_search_address": {
+          "known_failure": true,
+          "ok": false
+        },
+        "list_regions": {
+          "ok": true
+        }
+      },
+      "workers": 4
+    },
+    "other-1": {
+      "backend": {
+        "label": "",
+        "status": {
+          "data_updated": "index 81e90c4350cb",
+          "software_version": "overture-index"
+        }
+      },
+      "budget": 18446744073709551615,
+      "cases": 314,
+      "consumer": {
+        "binary_sha256": "5d302fe0c783737f753792fc5d0d41af6129b72ff62c749defb12cdc5e1da7ca",
+        "dirty": false,
+        "git": "5104ea806b548cdcc9caa501d1fefbb1d59cf356",
+        "libpostal_models_sha256": "65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7",
+        "region_cache": "none: regions come from the index"
+      },
+      "corpus": "other-evidence.jsonl",
+      "corpus_sha256": "500570440ac141b8c5cbb2d3998458ca54a194c340f8946e3cc8f5e913e3f275",
+      "evaluator": "1.6.0",
+      "finished_at": "2026-11-01T16:50:03Z",
+      "historical_memberships_sha256": "16871dd9c5b3dc74b8a9262f7986e2b35abde43231f6f72e9d643cfa4dc665fc",
+      "max_rps": 1000000.0,
+      "reference_data_sha256": "9a68f034f3b05f57aecdec9776b06c63a15cf48619703a6fd797bb61ce7cfb01",
+      "repeat": 1,
+      "resumed": false,
+      "rpc_requests": 1126,
+      "speed_cases": 0,
+      "started_at": "2026-11-01T16:49:46Z",
+      "stopped": null,
+      "suite": "gold",
+      "transport": {
+        "connect_proto_matches_json": {
+          "checked": 2,
+          "mismatches": [],
+          "ok": true
+        },
+        "grpcurl_search_address": {
+          "known_failure": true,
+          "ok": false
+        },
+        "list_regions": {
+          "ok": true
+        }
+      },
+      "workers": 4
+    },
+    "other-2": {
+      "backend": {
+        "label": "",
+        "status": {
+          "data_updated": "index 81e90c4350cb",
+          "software_version": "overture-index"
+        }
+      },
+      "budget": 18446744073709551615,
+      "cases": 314,
+      "consumer": {
+        "binary_sha256": "5d302fe0c783737f753792fc5d0d41af6129b72ff62c749defb12cdc5e1da7ca",
+        "dirty": false,
+        "git": "5104ea806b548cdcc9caa501d1fefbb1d59cf356",
+        "libpostal_models_sha256": "65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7",
+        "region_cache": "none: regions come from the index"
+      },
+      "corpus": "other-evidence.jsonl",
+      "corpus_sha256": "500570440ac141b8c5cbb2d3998458ca54a194c340f8946e3cc8f5e913e3f275",
+      "evaluator": "1.6.0",
+      "finished_at": "2026-11-01T16:50:20Z",
+      "historical_memberships_sha256": "16871dd9c5b3dc74b8a9262f7986e2b35abde43231f6f72e9d643cfa4dc665fc",
+      "max_rps": 1000000.0,
+      "reference_data_sha256": "9a68f034f3b05f57aecdec9776b06c63a15cf48619703a6fd797bb61ce7cfb01",
+      "repeat": 1,
+      "resumed": false,
+      "rpc_requests": 1126,
+      "speed_cases": 0,
+      "started_at": "2026-11-01T16:50:03Z",
+      "stopped": null,
+      "suite": "gold",
+      "transport": {
+        "connect_proto_matches_json": {
+          "checked": 2,
+          "mismatches": [],
+          "ok": true
+        },
+        "grpcurl_search_address": {
+          "known_failure": true,
+          "ok": false
+        },
+        "list_regions": {
+          "ok": true
+        }
+      },
+      "workers": 4
+    }
+  }
+}
