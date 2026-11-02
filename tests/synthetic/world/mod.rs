@@ -708,6 +708,7 @@ pub fn write_release(dir: &Path) {
             p.subtype == "locality"
                 && !POINT_ONLY.contains(&p.id)
                 && !au::POINT_ONLY.contains(&p.id)
+                && !dk::POINT_ONLY.contains(&p.id)
         })
         .map(|p| {
             let r = if p.id == "li-vaduz" { 0.05 } else { 0.2 };

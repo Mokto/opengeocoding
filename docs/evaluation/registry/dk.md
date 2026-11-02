@@ -82,3 +82,96 @@ What remains, not fixed here:
 - The Thailand path itself (the CI index) was not reproduced locally.
 
 Each case's `places`, the names ReverseGeocode's answer must include one of, are the supplementary town name, the postal town and the postal town without its district ("København NV" is also København).
+
+## Reverse-locality investigation (2026-11-02)
+
+This investigation follows [#345](https://github.com/Mokto/opengeocoding/issues/345), not a resolution of it. No supported geographic-locality replacement was established from the pinned DAR fields or existing index metadata. Runtime, builder, scoring, expectations and known-failure labels are unchanged. The new synthetic controls protect geographic membership from both a misleading nearby village point and a distinct postal town, and demonstrate a legitimate locality-boundary crossing at a 25 m offset. They pass on the existing runtime; they are safeguards, not a locality recovery fix.
+
+### Reproduction and versions
+
+The [nightly issue #501](https://github.com/Mokto/opengeocoding/issues/501) reported main `32154ee` and combined several Danish corpora and both reverse channels. Its counts are not the baseline below. This reproduction uses fresh main `37c8fa86fd1ad9c4d3fa7b5d4dfe48b412ec8dd4`, a separate worktree/target, and the shared local full index read-only, with its owner's approval. No index was rebuilt, overwritten or deleted.
+
+| Input | Recorded version |
+|---|---|
+| Service binary SHA256 | `50f33d6398be548ae027ead1a160b9c5f936cb46b2cd9510c89921da48872349` |
+| Evaluator | 1.6.1; binary SHA256 `e04ef8ec0f6f5eea8a9c93efb6258a38511ad359ab1c4f2859c2881eb1a54d6a` |
+| Danish corpus SHA256 | `d36546fe0a792048b517fb403c89e09638909782f924b3c518ebc983496ebbdb` |
+| Complete gold corpus SHA256 | `3dcefbd1fa019468d7c09baeb6a28344516e964662e7529f05ba0f1fa6125e9e` |
+| libpostal | Homebrew 1.1.4; model digest `65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7` |
+| Reference data SHA256 | `9a68f034f3b05f57aecdec9776b06c63a15cf48619703a6fd797bb61ce7cfb01` |
+| Historical memberships SHA256 | `16871dd9c5b3dc74b8a9262f7986e2b35abde43231f6f72e9d643cfa4dc665fc` |
+| Local index | `~/opengeocoding-index/out`; metadata fingerprint `b6d5435392fc`; sidecar builder `bb05cfe6f44d46bd` |
+| Current main builder/chart pin | `8c53269491f72efb`, **not** the local index's sidecar hash |
+
+The shared build recipe names Overture 2026-09-23.1, OpenAddresses, OSM address/landmark extracts, Korean shops and GeoNames populated places plus GB/CA/NL postcodes. This local directory has no sealed `MANIFEST` proving every input's checksum; the recipe and builder sidecar are not a complete source receipt. These results therefore do not establish equivalence to the nightly's source snapshots or to a current-builder index. All local comparisons keep this exact directory, models, reference data and corpus unchanged.
+
+```sh
+INDEX="$HOME/opengeocoding-index/out"
+nice -n 15 target/release/evaluate run --corpus tests/registry/dk.jsonl --index "$INDEX" --repeat 1 --out eval-results/dk-reverse/base
+nice -n 15 target/release/evaluate run --corpus tests/registry/dk.jsonl --index "$INDEX" --repeat 1 --out eval-results/dk-reverse/base-repeat
+target/release/evaluate diff eval-results/dk-reverse/base eval-results/dk-reverse/base-repeat --fail-on-drift
+nice -n 15 target/release/evaluate run --suite gold --index "$INDEX" --repeat 1 --out eval-results/dk-reverse/gold-base
+nice -n 15 target/release/evaluate run --suite gold --index "$INDEX" --repeat 1 --out eval-results/dk-reverse/gold-base-repeat
+target/release/evaluate diff eval-results/dk-reverse/gold-base eval-results/dk-reverse/gold-base-repeat --relative --fail-on-drift
+```
+
+The Danish and full-suite unchanged-binary repeats have zero response/class drift. Local timing changes are not speed evidence: even the identical-binary full-suite repeat flagged reverse total +46%, p50 +30%, p90 +43%, p99 +58%. The absolute full-suite gate fails on pre-existing must-pass/critical results on this older index; the relative comparison has no newly failing or worse cases. Do not describe the absolute suite or measured speed as passing.
+
+### Current Danish results
+
+The DAR corpus has 1,883 query variants at 1,358 source-ID location groups. At-point reverse passes 1,166 variants / 803 locations; 713 variants / 553 locations are `wrong_place`, and four variants / two locations are `wrong_house`. Offset reverse passes 1,168 variants / 805 locations, with 715 variants / 553 locations `wrong_place`. Search passes 1,870/1,883 and suggestions 1,879/1,883. These are source-fidelity diagnostics, not independent population accuracy estimates.
+
+Training comprises 1,495 variants / 1,086 locations. Held-out aggregates, not used to select changes, are 237 passing and 151 `wrong_place` variants in **each** reverse channel: 158 passing and 114 failing locations out of 272. All 388 held-out forward variants pass. An initial unfiltered helper search exposed held-out rows; subsequent case-level probes were guarded to reject held-out locations. No runtime tuning was performed from those rows.
+
+### Training failure triage
+
+Counts below are **variants / unique locations**, identical before and after the test/documentation change. They are disjoint diagnostic buckets, with house failure first, then indexed ancestry conflict, then name equivalence, then unresolved source-name semantics. They are not a count of independently verified geographic errors. Every at-point `wrong_place` has the source street, number and postcode and lies within 3.7 m of the DAR point; it passes the house-only proximity check; locality scoring runs before house scoring, so this was checked separately.
+
+| Diagnostic bucket | At-point | Offset |
+|---|---:|---:|
+| Rendered county conflicts with the selected house's containing indexed county polygon | 85 / 56 | 87 / 57 |
+| Expected name is an indexed alias of a rendered locality | 41 / 28 | 41 / 28 |
+| Expected name is an indexed alias of a rendered administration | 15 / 14 | 14 / 13 |
+| Only postal-town expectations remain; geographic membership unestablished | 285 / 224 | 287 / 225 |
+| Supplementary/postal expectations remain; geographic membership unestablished | 136 / 117 | 135 / 116 |
+| Wrong house at the source point | 4 / 2 | 0 / 0 |
+| **All failing checks** | **566 / 441** | **564 / 439** |
+
+An ancestry conflict compares the selected house's own point, not the request point, against `Areas::containing` from the same index and the rendered county from its parent chain. This identifies inconsistent index evidence; it does not prove the replacement geographic settlement. Four training locations with passing at-point name checks also have a county conflict, outside the failure table. Name-equivalence buckets require an unambiguous Danish rendered name in `places.tsv`, whose primary or stored language names match an expected name after Danish/Latin folding. They do not add aliases or neighbouring settlements to the corpus. Examples include Helsingør/Elsinore, København/Copenhagen and Nykøbing M/Nykøbing Mors. Administrative aliases are reported separately: agreement with a municipality does not establish a settlement.
+
+Johan Krohns Vej 9 illustrates the ancestry conflict: its house point and stored postal town Valby are correct, its indexed parent names Frederiksberg and Frederiksberg Municipality, but its own point's indexed county polygon names Københavns Kommune. The DAR road-authority code is not evidence of physical municipality, and that county polygon alone cannot establish Valby settlement membership. Replacing the locality with either the postal town or the nearest village would be unjustified.
+
+The two at-point house failures are Søndre Tangvej 6 and Rynkevangen 8, each with two query variants: the nearest indexed houses are number 10, respectively about 10 m and 36 m from the source point. No duplicate-source explanation was established. Keep these house-coverage failures separate from locality identity; offset scoring deliberately permits a different house within tolerance.
+
+For boundary controls, the source point and its 25 m offset fall in different indexed counties at one training location (Hf. Grænsen 32C); the selected houses fall in different counties at two locations (that location and Bispeengen 17). Both checks pass at all three query variants involved. These are indexed-boundary observations, not failures requiring a repair, and not proof of surveyed boundaries. No failing check was certified as a legitimate settlement-boundary crossing: the available evidence cannot settle that membership, so such cases remain unresolved rather than counted as runtime defects.
+
+### Name provenance and the stopping point
+
+- `nearby.rs::reverse_houses` chooses number-FST houses by distance. `house.rs::house_hit` obtains the street document's indexed parent and house-scoped number, coordinates and postcode slot. It does **not** substitute the nearest locality returned by `Index::reverse`.
+- `search.rs::render_with_suburb` and `address` render locality and administrative names from that parent chain, preferring English names for reverse. `house_chain` reconciles a conflicting same-country **region** from polygon containment; it does not resolve conflicting counties within the same region or establish a new settlement. `areas.bin` contains county-and-above polygons, not settlement boundaries.
+- The builder's `geo.rs::place_in` uses a containing locality polygon when available, otherwise nearby settlement points. That approximation can already be baked into the indexed parent; it is not repaired by running another nearest-point lookup at request time. Street-only reverse has its separate `street_place` refinement; it does not supply house locality names.
+- Source `postal_city` (or the last `address_levels` name), OpenAddresses `city` and OSM `addr:city` become scoped postal metadata. `mod.rs::postal_town` rejects conflicting applicable names. Every training first house, including failures, already has raw `address.postal_town` equal to the pinned DAR postal town. Missing postal metadata is not the explanation in this sample.
+- The raw index JSON has a distinct `postal_town`; protobuf `AddressDetails` currently has **no** postal-town field and conversion does not expose that raw value. Reusing `city`, `town`, `village` or `suburb` would relabel geographic information. This investigation makes no wire-contract change.
+- DAR v4 generation 787 links `Husnummer.postnummer` to `Postnummer.navn` and `Husnummer.supplerendeBynavn` to `SupplerendeBynavn.navn`. Its access point, linked names and building identifiers are authoritative address facts, not settlement polygons or an audited settlement-membership crosswalk. The preparer projects these facts without establishing geographic town membership. Its retained road/postcode/supplementary-name relationship exports do not supply that missing geometry.
+
+[#494](https://github.com/Mokto/opengeocoding/pull/494) uses an Australian house-and-point-scoped containing-suburb annotation with ancestor guards. Denmark has neither that annotation nor demonstrated equivalent authoritative membership in the pinned inputs; no Australian mechanism is copied.
+
+A safe geographic recovery needs independently attributed settlement boundaries or address-to-settlement membership with explicit treatment of postal districts, supplementary names, aliases and conflicts. Until that evidence exists, preserve the selected house and geographic fields, expose no fabricated membership, and keep postal/alias evaluator mismatches distinct. **Actual geography improvements: zero; expectation changes: zero; previously failing checks relabelled as passes: zero.**
+
+### Validation of the safeguards
+
+The candidate service and evaluator hashes are byte-identical to the base. The Danish rerun has no changed answers or classes; the complete 44,047-case gold comparison also has zero drift, no newly failing checks, no worse failure classes and no abstain-to-miss changes. All root-cause buckets and held-out aggregates above are unchanged.
+
+| RPC | Passing before → after | Checked |
+|---|---:|---:|
+| SearchAddress | 36,735 → 36,735 | 43,824 |
+| SuggestAddress | 38,120 → 38,120 | 47,360 |
+| ResolveRegion | 7,849 → 7,849 | 8,037 |
+| ReverseGeocode at-point | 36,018 → 36,018 | 43,446 |
+| ReverseGeocode offset | 33,868 → 33,868 | 37,056 |
+
+Formatting, all-target clippy, `cargo test --locked`, the ordinary synthetic suite and the separately invoked model-backed synthetic suite pass. The initial release link failed to find libpostal; `LIBRARY_PATH=/opt/homebrew/lib` resolved it. The initial clippy command selected an older nightly; invoking the installed Rust 1.99.1 `cargo-clippy` passes without suppressing warnings.
+
+`INDEX_DIR=... cargo test --locked --test rpc -- --ignored --nocapture` was run with models and grpcurl installed. Both tests fail: `rpc_contracts` reaches the documented grpcurl SearchAddress timeout, and `search_diagnostics` fails its oversized-input log-truncation assertion. Neither assertion was changed, skipped or retried. These remain verification limitations, not passes.
+
+The candidate's local speed section reports no slowdown, but the identical-binary repeat's contradictory slowdown above prevents a performance conclusion. This is not a measured CI quality/speed verdict. No runtime performance improvement is claimed.
