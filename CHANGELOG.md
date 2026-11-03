@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.2](https://github.com/Mokto/opengeocoding/compare/v1.6.1...v1.6.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* find Canadian houses written with a bare number part after the street ([#509](https://github.com/Mokto/opengeocoding/issues/509)) ([8aa7e78](https://github.com/Mokto/opengeocoding/commit/8aa7e78ae2ccfaaf41dc451545ddb27be3f9be51))
+* find Spanish houses on Camí roads whose registry type is CM ([#504](https://github.com/Mokto/opengeocoding/issues/504)) ([7ff4033](https://github.com/Mokto/opengeocoding/commit/7ff4033c7aafe4221507c623dc70ffa412f0e011))
+* match French Polynesian commune qualifiers and numbered street names ([#503](https://github.com/Mokto/opengeocoding/issues/503)) ([018c2ce](https://github.com/Mokto/opengeocoding/commit/018c2ce4431725036e0729906cc653942dfee161))
+* name the containing Danish settlement on reverse house results ([#507](https://github.com/Mokto/opengeocoding/issues/507)) ([2bccbde](https://github.com/Mokto/opengeocoding/commit/2bccbde9146183515f53b3f86054d7bc5ee8a221))
+* read country-first Korean addresses such as "South Korea, 서울특별시 …" in searches and suggestions ([#508](https://github.com/Mokto/opengeocoding/issues/508)) ([844193f](https://github.com/Mokto/opengeocoding/commit/844193f07d041eeb903bf463abb102ad27ed28d2))
+* read shortened Korean province names in house searches and suggestions ([#502](https://github.com/Mokto/opengeocoding/issues/502)) ([0f16e06](https://github.com/Mokto/opengeocoding/commit/0f16e06f5028b7c3a27413b7c5ed292005f2764c))
+* serve Japanese numbered-block addresses as street-level areas, not false residences ([#499](https://github.com/Mokto/opengeocoding/issues/499)) ([37c8fa8](https://github.com/Mokto/opengeocoding/commit/37c8fa86fd1ad9c4d3fa7b5d4dfe48b412ec8dd4))
+
 ## [1.6.1](https://github.com/Mokto/opengeocoding/compare/v1.6.0...v1.6.1) (2026-11-02)
 
 
