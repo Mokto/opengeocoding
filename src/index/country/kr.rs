@@ -1,6 +1,60 @@
 use crate::index::suggest::*;
 use crate::index::*;
 
+// ponytail: road POIs need cross-place duplicate precedence before they can preserve existing house postcodes.
+pub fn listed_lot(
+    freeform: &str,
+    mut known_area: impl FnMut(&str) -> bool,
+) -> Option<(&str, String)> {
+    let freeform = freeform.trim();
+    if !freeform.starts_with(|c: char| ('가'..='힣').contains(&c) || c.is_ascii_digit())
+        || freeform.chars().take(257).count() > 256
+    {
+        return None;
+    }
+    let mut words: Vec<_> = freeform.split_whitespace().collect();
+    let raw = words.pop()?;
+    if raw.starts_with('산') && words.last() == Some(&"산") {
+        return None;
+    }
+    let mountain = raw.starts_with('산') || words.last() == Some(&"산");
+    let digits = raw.strip_prefix('산').unwrap_or(raw);
+    let parts: Vec<_> = digits.split('-').collect();
+    if parts.len() > 2
+        || parts.iter().any(|p| {
+            p.is_empty()
+                || p.len() > 5
+                || !p.bytes().all(|b| b.is_ascii_digit())
+                || p.starts_with('0')
+        })
+    {
+        return None;
+    }
+    if words.last() == Some(&"산") {
+        words.pop();
+    }
+    let street = words.pop()?;
+    let native = |s: &str| {
+        s.chars()
+            .all(|c| ('가'..='힣').contains(&c) || c.is_ascii_digit())
+    };
+    if !native(street)
+        || !street.ends_with(['동', '리', '가'])
+        || !known_area(street)
+        || words.iter().any(|w| {
+            !native(w)
+                || !w.ends_with(['시', '군', '구', '읍', '면', '동', '리', '도'])
+                || !known_area(w)
+        })
+    {
+        return None;
+    }
+    Some((
+        street,
+        format!("{}{digits}", if mountain { "산" } else { "" }),
+    ))
+}
+
 pub(super) struct Address<'a> {
     pub areas: Vec<&'a str>,
     pub road: &'a str,

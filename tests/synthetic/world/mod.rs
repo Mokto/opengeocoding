@@ -583,7 +583,10 @@ pub fn write_poi_addresses(dir: &Path) {
         ("996 High Street", f64::NAN, 10.0),
         ("995 High Street", -195.555, 10.0),
         ("994 Main Street", -95.555, 33.66),
-    ];
+    ]
+    .into_iter()
+    .chain(kr::LISTINGS.iter().copied())
+    .collect::<Vec<_>>();
     let mut addresses = ListBuilder::new(StructBuilder::new(
         Fields::from(vec![
             Field::new("freeform", DataType::Utf8, true),
@@ -594,8 +597,8 @@ pub fn write_poi_addresses(dir: &Path) {
             Box::new(StringBuilder::new()) as _,
         ],
     ));
-    for (address, _, _) in rows {
-        for (i, value) in [address, "CN"].iter().enumerate() {
+    for (address, _, _) in &rows {
+        for (i, value) in [*address, "CN"].iter().enumerate() {
             addresses
                 .values()
                 .field_builder::<StringBuilder>(i)

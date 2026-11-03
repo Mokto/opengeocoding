@@ -24,7 +24,7 @@ use arrow_array::{
 use geo::{Assigner, KINDS, Poly, PolyFile, wkb_line, wkb_point, wkb_polygons};
 use hashbrown::HashTable;
 use opengeocoding::index::{
-    country::au,
+    country::{au, kr},
     reverse::{self, StreetSpill, street_edges},
     schema::{
         self, Bucket, Num, NumberSpill, TOWN_CITY, fold, fold_into, held_slot, pack, pc_norm,
@@ -1022,7 +1022,7 @@ fn pass_segments(dir: &Path, a: &Assigner, spill: &StreetSpill) -> Vec<SegShard>
 #[derive(Default)]
 struct AddrAgg {
     name: Str,
-    primary: bool,
+    priority: u8,
     /// Every house of it is a shop's land-lot address, so its name is a neighbourhood's, not a
     /// road's; reverse lookups skip it.
     lot: bool,
@@ -1053,7 +1053,7 @@ struct Street {
     name: u32,
     cc: [u8; 2],
     pcs: u8,
-    primary: bool,
+    priority: u8,
     lot: bool,
 }
 
@@ -1084,12 +1084,12 @@ impl Street {
         if pcs.len() + cities.len() != self.lists.len() {
             self.set_lists(&pcs, &cities);
         }
-        if self.primary == other.primary {
+        if self.priority == other.priority {
             (self.sx, self.sy, self.n) = (self.sx + other.sx, self.sy + other.sy, self.n + other.n);
-        } else if other.primary {
+        } else if other.priority > self.priority {
             (self.sx, self.sy, self.n) = (other.sx, other.sy, other.n);
         }
-        self.primary |= other.primary;
+        self.priority = self.priority.max(other.priority);
         self.lot &= other.lot;
     }
 }
@@ -1380,7 +1380,8 @@ struct Sink<'s, 'a> {
     rank: u8,
     /// Whether the houses move their street's point and add to its weight.
     weighs: bool,
-    supplemental: bool,
+    /// Street precedence, also used for stable IDs: 2 primary, 1 shop register, 0 POIs.
+    street_priority: u8,
     /// Whether these rows are land-lot addresses (see `AddrAgg::lot`).
     lot: bool,
     covered: HashMap<[u8; 2], u64>,
@@ -1412,7 +1413,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             pcn: String::new(),
             rank: 0,
             weighs: true,
-            supplemental: false,
+            street_priority: 2,
             lot: false,
             covered: HashMap::new(),
             placeless: HashMap::new(),
@@ -1522,7 +1523,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             None => {
                 self.aggs.push(AddrAgg {
                     name: st.into(),
-                    primary: !self.supplemental,
+                    priority: self.street_priority,
                     lot: self.lot,
                     ..Default::default()
                 });
@@ -1988,8 +1989,8 @@ fn freeform_house(freeform: &str) -> Option<(&str, &str)> {
 }
 
 /// Use the containing place's country, not the listing's: BAN covers Réunion, which its rows
-/// file under France. Require a known road; listings alone give unreliable street centroids.
-fn pass_places(dir: &Path, shared: &Shared, segs: &[SegShard]) {
+/// file under France. Roads need a segment; Korean land lots need their named locality.
+fn pass_places(dir: &Path, shared: &Shared, segs: &[SegShard], places: &[Place]) {
     // ponytail: a fixed floor, so the few addresses a registry files across a border do not
     // cover the neighbour; French Polynesia's 2,000 rows fall under it. A share of the country's
     // expected addresses would be the better test.
@@ -2026,9 +2027,12 @@ fn pass_places(dir: &Path, shared: &Shared, segs: &[SegShard]) {
                 let Some((x, y)) = wkb_point(geom.value(i)) else {
                     continue;
                 };
-                let houses = (o[i] as usize..o[i + 1] as usize)
-                    .filter_map(|j| text(freeform, j).and_then(freeform_house));
-                let mut houses = houses.peekable();
+                let mut houses = (o[i] as usize..o[i + 1] as usize)
+                    .filter_map(|j| text(freeform, j))
+                    .filter(|raw| {
+                        freeform_house(raw).is_some() || kr::listed_lot(raw, |_| true).is_some()
+                    })
+                    .peekable();
                 if houses.peek().is_none()
                     || !(-180.0..=180.0).contains(&x)
                     || !(-90.0..=90.0).contains(&y)
@@ -2040,15 +2044,36 @@ fn pass_places(dir: &Path, shared: &Shared, segs: &[SegShard]) {
                     continue;
                 };
                 let c = shared.countries[p as usize];
-                // ponytail: ship the two largest measured gains first; each further country
-                // needs a full-index gold comparison, including reverse lookups.
-                if ![*b"GB", *b"VN"].contains(&c) || covered.contains(&c) {
+                // ponytail: only measured countries; further countries need a full-index gold comparison, including reverse lookups.
+                if ![*b"GB", *b"VN", *b"KR"].contains(&c) || covered.contains(&c) {
                     continue;
                 }
-                for (number, street) in houses {
+                for raw in houses {
+                    let house = if c == *b"KR" {
+                        kr::listed_lot(raw, |area| {
+                            std::iter::once(&p)
+                                .chain(places[p as usize].anc.iter())
+                                .any(|id| {
+                                    places[*id as usize]
+                                        .names
+                                        .split(NAME_SEP)
+                                        .any(|name| name == area)
+                                })
+                        })
+                        .map(|(name, number)| (name, number, true))
+                    } else {
+                        freeform_house(raw)
+                            .map(|(number, street)| (street, number.to_string(), false))
+                    };
+                    let Some((street, number, lot)) = house else {
+                        continue;
+                    };
                     fold_into(street, &mut key);
-                    if find_seg(segs, p, with_cell(&key, x, y, &mut cell_key)).is_some() {
-                        sink.add(Some(c), x, y, Some(street), Some(number), None, &[]);
+                    if lot || find_seg(segs, p, with_cell(&key, x, y, &mut cell_key)).is_some() {
+                        sink.street_priority = if c == *b"KR" { 0 } else { 2 };
+                        sink.weighs = lot;
+                        sink.lot = lot;
+                        sink.add(Some(c), x, y, Some(street), Some(&number), None, &[]);
                     }
                 }
             }
@@ -2118,8 +2143,8 @@ fn canonical_streets(shards: Vec<Mutex<AddrShard>>, strings: &Strings) -> Canon 
             let mut order: Vec<u32> = (0..shard.streets.len() as u32).collect();
             // Appending supplementary-only streets preserves other countries' candidate tie order.
             order.sort_unstable_by(|&a, &b| {
-                let primary = |i: u32| !shard.streets[i as usize].primary;
-                (primary(a), shard.key(a)).cmp(&(primary(b), shard.key(b)))
+                let priority = |i: u32| std::cmp::Reverse(shard.streets[i as usize].priority);
+                (priority(a), shard.key(a)).cmp(&(priority(b), shard.key(b)))
             });
             let mut renumber = vec![0; order.len()];
             let mut slots = HashMap::new();
@@ -2392,7 +2417,7 @@ fn build(args: &[String]) {
             ),
         )
         .unwrap();
-        pass_places(&dir.join("place"), &shared, &segs);
+        pass_places(&dir.join("place"), &shared, &segs, &places);
         lap(&format!(
             "overture places ({} rows)",
             shared.rows.swap(0, Relaxed)
@@ -2757,11 +2782,14 @@ fn build(args: &[String]) {
                 lots.lock().unwrap().insert(sid);
             }
             let g = seg.map(|(gs, gp)| segs[gs].segs[gp as usize]);
-            let n = u64::from(if st.primary || g.is_none() { st.n } else { 0 })
-                + g.map_or(0, |g| u64::from(g.n));
+            let n = u64::from(if st.priority == 2 || g.is_none() {
+                st.n
+            } else {
+                0
+            }) + g.map_or(0, |g| u64::from(g.n));
             // Supplementary business points must not move a mapped road or change its importance.
             let point = match g {
-                Some(g) if st.n == 0 || !st.primary => {
+                Some(g) if st.n == 0 || st.priority < 2 => {
                     (mean(g.sx, g.n.into()), mean(g.sy, g.n.into()))
                 }
                 _ => (mean(st.sx, st.n.into()), mean(st.sy, st.n.into())),
@@ -3065,46 +3093,60 @@ mod tests {
 
     #[test]
     fn supplementary_streets_keep_primary_centroids_and_ids() {
-        for order in [[false, true], [true, false]] {
+        for order in [
+            &[0, 1, 2][..],
+            &[2, 1, 0],
+            &[1, 2, 0],
+            &[0, 2, 1],
+            &[0, 1],
+            &[1, 0],
+        ] {
+            let best = *order.iter().max().unwrap();
             let mut text = Arena::default();
             let mut merged = Street {
                 name: text.push(""),
                 ..Default::default()
             };
-            for primary in order {
+            for &priority in order {
                 let agg = AddrAgg {
-                    primary,
-                    sx: if primary { 10 } else { 1000 },
-                    sy: if primary { 20 } else { 2000 },
+                    priority,
+                    sx: if priority == best { 10 } else { 1000 },
+                    sy: if priority == best { 20 } else { 2000 },
                     n: 1,
                     ..Default::default()
                 };
                 merged.add(&mut text, &agg);
             }
             assert_eq!((merged.sx, merged.sy, merged.n), (10, 20, 1));
-            assert!(merged.primary);
+            assert_eq!(merged.priority, best);
         }
         let strings = Interner::new().table();
-        let build = |supplement: bool| {
+        let build = |floor: u8| {
             let mut shard = AddrShard::default();
-            for (cc, primary) in [(*b"NG", true), (*b"US", true), (*b"KR", false)] {
-                if !primary && !supplement {
+            for (cc, priority, name) in [
+                (*b"NG", 2, "road"),
+                (*b"US", 2, "road"),
+                (*b"KR", 1, "shop road"),
+                (*b"KR", 0, "a new POI road"),
+            ] {
+                if priority < floor {
                     continue;
                 }
-                let key = (cc, 0, "road");
+                let key = (cc, 0, name);
                 let agg = AddrAgg {
-                    primary,
+                    priority,
                     ..Default::default()
                 };
                 shard.add(hash(&key), key, &agg);
             }
             canonical_streets(vec![Mutex::new(shard)], &strings).streets
         };
-        let (base, head) = (build(false), build(true));
-        for i in 0..base[0].streets.len() as u32 {
-            assert_eq!(base[0].key(i), head[0].key(i));
+        for (base, head) in [(build(2), build(1)), (build(1), build(0))] {
+            for i in 0..base[0].streets.len() as u32 {
+                assert_eq!(base[0].key(i), head[0].key(i));
+            }
         }
-        assert_eq!(head[0].key(2).0, *b"KR");
+        assert_eq!(build(0)[0].key(3).2, "a new POI road");
     }
 
     #[test]

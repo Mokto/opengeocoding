@@ -126,6 +126,7 @@ fn poi_houses_need_a_known_road_and_never_override_addresses_or_move_streets() {
             .iter()
             .any(|s| s.kind == "address")
     );
+    world::kr::check_listed_houses(&poi);
     drop(poi);
     world::cover_address_countries(&root.join("release"));
     let covered = root.join("covered-index");
