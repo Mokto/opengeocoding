@@ -1530,6 +1530,17 @@ impl Core {
                 return Ok(alt);
             }
         }
+        for (form, number, postcode) in ca::possessive_forms(query) {
+            let alt = self.resolve_written(&form)?;
+            if alt.good_match
+                && same_house_number(&alt, &number)
+                && alt.address_details.as_option().is_some_and(|d| {
+                    d.country_code == "ca" && d.postcode.replace(' ', "") == postcode
+                })
+            {
+                return Ok(alt);
+            }
+        }
         // A Danish supplementary place the index files differently breaks the parse of the whole
         // address; the house, road and postcode still name it. The place is unverified unless
         // the answer names it.

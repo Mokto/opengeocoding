@@ -177,3 +177,55 @@ pub fn other_street_direction(query: &str, road: &str) -> bool {
         .filter_map(direction)
         .any(|d| !asked.contains(&d))
 }
+
+/// The forms of a Canadian street part with one possessive written the other way ("57 Roberts
+/// Rd S" as "57 Robert's Rd S", "10B Dick's Sq" as "10B Dicks Sq"), with the civic number and the
+/// compact postcode, at most four. Canada Post's mailing form drops the apostrophe that some
+/// sources keep, and the index reads "Robert's" as two words. Only the stated postcode, which
+/// places a block face, may confirm the house found.
+pub fn possessive_forms(query: &str) -> Vec<(String, String, String)> {
+    static POSTCODE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b([A-Za-z][0-9][A-Za-z]) ?([0-9][A-Za-z][0-9])\b").unwrap());
+    let Some((head, tail)) = query.split_once(',') else {
+        return vec![];
+    };
+    let Some(postcode) = POSTCODE.captures(tail) else {
+        return vec![];
+    };
+    let postcode = format!("{}{}", &postcode[1], &postcode[2]).to_uppercase();
+    let words: Vec<&str> = head.split_whitespace().collect();
+    let Some(&number) = words.first() else {
+        return vec![];
+    };
+    if !number.starts_with(|c: char| c.is_ascii_digit()) || words.len() < 3 {
+        return vec![];
+    }
+    let mut forms = vec![];
+    for (i, w) in words.iter().enumerate().skip(1) {
+        let other = if let Some(stem) = ["'s", "'S", "’s", "’S"]
+            .iter()
+            .find_map(|end| w.strip_suffix(end))
+        {
+            format!("{stem}{}", &w[w.len() - 1..])
+        } else if w.chars().count() >= 4
+            && w.chars().all(char::is_alphabetic)
+            && w.ends_with(['s', 'S'])
+            && canon(&w.to_lowercase()).is_none()
+        {
+            format!("{}'{}", &w[..w.len() - 1], &w[w.len() - 1..])
+        } else {
+            continue;
+        };
+        let mut changed = words.clone();
+        changed[i] = &other;
+        forms.push((
+            format!("{},{tail}", changed.join(" ")),
+            number.to_owned(),
+            postcode.clone(),
+        ));
+        if forms.len() == 4 {
+            break;
+        }
+    }
+    forms
+}

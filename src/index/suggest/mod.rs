@@ -640,6 +640,28 @@ impl Index {
                 out = recovered;
             }
         }
+        // "57 Roberts Rd S" where the source writes "Robert's Rd S": the postcode left in the
+        // text has to be the house's
+        if !out.iter().any(|s| s.kind == "address")
+            && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
+        {
+            for (form, number, _) in ca::possessive_forms(text) {
+                let number = schema::number_key(&number);
+                let recovered: Vec<_> = self
+                    .retry_suggest(&form, limit, Some("ca"), focus, landmarks, chain)
+                    .into_iter()
+                    .filter(|s| {
+                        s.kind == "address"
+                            && s.country_code == "ca"
+                            && s.id.rsplit(':').next() == Some(number.as_str())
+                    })
+                    .collect();
+                if !recovered.is_empty() {
+                    out = recovered;
+                    break;
+                }
+            }
+        }
         // "Via Praga 3, Possidente, Avigliano (PZ)": the houses name the municipality, not the
         // frazione
         if !out.iter().any(|s| s.kind == "address")

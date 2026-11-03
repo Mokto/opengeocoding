@@ -123,6 +123,29 @@ pub const STREETS: &[Street] = &[
         lat: 42.856,
         numbers: &["31", "716.0 E"],
     },
+    // a possessive the source keeps and Canada Post's mailing form drops, and the other way
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Robert's Road",
+        postcode: "N4B 1A4",
+        city: "Delhi",
+        cc: "CA",
+        lon: -80.493,
+        lat: 42.859,
+        numbers: &["57"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Dicks Square",
+        postcode: "N4B 1A5",
+        city: "Delhi",
+        cc: "CA",
+        lon: -80.488,
+        lat: 42.851,
+        numbers: &["10.0 B"],
+    },
     // Overture's Canadian rows: the direction abbreviated, a suffixed civic number as a float
     Street {
         class: "residential",
@@ -278,8 +301,26 @@ fn canadian_unit_suggestions_identify_buildings_not_apartments_or_range_endpoint
 }
 
 /// A bare number written as a part of its own after the street (OSM's `addr:district`, or a unit)
-/// garbles libpostal's road; the building with the civic number as written answers.
+/// garbles libpostal's road; the building with the civic number as written answers. A possessive
+/// written the other way than the source's is found only with the house's postcode.
 pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
+    for (query, road, number) in POSSESSIVE {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres((at.lon as f64, at.lat as f64), house(street(road), number)) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
+    for query in NOT_POSSESSIVE {
+        let got = resolver.resolve(query).await.unwrap();
+        let house = got
+            .address_details
+            .as_option()
+            .map_or("", |d| d.house_number.as_str());
+        assert!(!got.good_match && house.is_empty(), "{query}: {got:?}");
+    }
     let road = street("Maple Scope Road");
     for (query, number) in [
         ("12 Maple Scope Road, 2, Delhi, ON, Canada", "12"),
@@ -473,6 +514,55 @@ fn a_subdivision_designator_part_suggests_the_house_the_name_before_it_qualifies
         "12 Maple Scope Road, Delhi, Subd. B, ON N4B 1A1, CA",
         "12 Maple Scope Road, Delhi, Subd. B, ON N4B 1A1, Australia",
     ] {
+        assert!(
+            !index
+                .suggest(query, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+}
+
+const POSSESSIVE: [(&str, &str, &str); 3] = [
+    (
+        "57 Roberts Rd, Delhi, ON N4B 1A4, Canada",
+        "Robert's Road",
+        "57",
+    ),
+    (
+        "57 ROBERT’S ROAD, DELHI, ON N4B 1A4, Canada",
+        "Robert's Road",
+        "57",
+    ),
+    (
+        "10B Dick's Sq, Delhi, ON N4B 1A5, Canada",
+        "Dicks Square",
+        "10.0 B",
+    ),
+];
+
+const NOT_POSSESSIVE: [&str; 4] = [
+    // another postcode, a number or a suffix the street lacks
+    "57 Roberts Rd, Delhi, ON N4B 1A5, Canada",
+    "59 Roberts Rd, Delhi, ON N4B 1A4, Canada",
+    "10 Dick's Sq, Delhi, ON N4B 1A5, Canada",
+    "10C Dick's Sq, Delhi, ON N4B 1A5, Canada",
+];
+
+#[test]
+fn a_possessive_written_the_other_way_is_suggested_only_with_the_house_postcode() {
+    let index = index();
+    for (query, road, number) in POSSESSIVE {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert!(
+            metres((found[0].x, found[0].y), house(street(road), number)) < 2.,
+            "{query}"
+        );
+        assert!(index.suggest(query, 5, Some("us"), None, false).is_empty());
+    }
+    for query in NOT_POSSESSIVE {
         assert!(
             !index
                 .suggest(query, 5, None, None, false)

@@ -55,7 +55,9 @@ French street directions fold like English ones (`Ouest`/`O`, `Est`/`E`, `Nord`/
 
 Two SearchAddress retries run only when the query as written finds no house. A suffix glued to a number the parser reads as part of the road (`82A AV MERCIER`) is retried spaced, and answers only with that exact number. A street direction the source omits (`31 THATCHER DR E` for Overture's `Thatcher DR`) is retried without it, and answers only with a Canadian house of the same number whose postcode equals the one stated, on a road that holds no other direction (`870 6e Rue Est` never answers `6e Rue O`); without a postcode in the query there is no retry. SuggestAddress makes the same retry with the postcode left in the text, which a suggested house has to carry.
 
-Remaining failures include suffixed buildings the sources lack (several Whitehorse ones), `Robert's RD` against a query's `ROBERTS RD`, and duplicated house numbers on same-named streets of one city.
+A possessive written the other way than the source's (`57 ROBERTS RD S` for `Robert's RD S`, as Canada Post's mailing form drops the apostrophe, or `DICK'S SQ` for `Dicks SQ`) is retried with one street word changed at a time, at most four forms, under the same postcode requirement; the index otherwise reads `Robert's` as two words.
+
+Remaining failures include suffixed buildings the sources lack (several Whitehorse ones), street types the source leaves out (`Clarke's Hillview` for `CLARKES HILLVIEW ST`), and duplicated house numbers on same-named streets of one city.
 
 ## Corpus-introduction validation
 
