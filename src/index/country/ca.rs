@@ -13,17 +13,67 @@ pub fn canadian_building(query: &str) -> Option<(&str, &str)> {
     if query.chars().count() > 256 {
         return None;
     }
+    let number = captures.get(1)?;
+    states_canada(query).then(|| (&query[number.start()..], number.as_str()))
+}
+
+/// Whether a later comma part names Canada and none names another country. A bare `CA` is
+/// also California's code, so it does not count.
+fn states_canada(query: &str) -> bool {
     let mut canadian = false;
     for part in query.split(',').skip(1).map(str::trim) {
         let country = expected_country(&parsed_country(part));
         if country == "ca" {
             canadian |= !part.eq_ignore_ascii_case("ca");
         } else if !country.is_empty() {
-            return None;
+            return false;
         }
     }
-    let number = captures.get(1)?;
-    canadian.then(|| (&query[number.start()..], number.as_str()))
+    canadian
+}
+
+/// A Canadian address whose second comma part is only a number ("471 Upper Lakeville Road, 2, Upper Lakeville, Nova Scotia, Canada": OSM's
+/// `addr:district`, or a unit), as (the query without that part, the civic number). libpostal
+/// reads the number into the road or as the house. No Canadian place or postcode is a bare
+/// number, so the building answers; the unit or district stays unverified. The civic number is
+/// kept as written (`20-24`, `29 1/2`), so the retry is the literal one before any unit reading.
+pub fn without_bare_number(query: &str) -> Option<(String, String)> {
+    if query.chars().count() > 256 || !states_canada(query) {
+        return None;
+    }
+    let parts: Vec<&str> = query.split(',').map(str::trim).collect();
+    let bare = |p: &str| (1..=5).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_digit());
+    let mut bares = (1..parts.len() - 1).filter(|&i| bare(parts[i]));
+    let (Some(1), None) = (bares.next(), bares.next()) else {
+        return None;
+    };
+    let words: Vec<&str> = parts[0].split_whitespace().collect();
+    let civic = |w: &str| {
+        w.starts_with(|c: char| c.is_ascii_digit() && c != '0')
+            && w.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
+    };
+    let fraction = |w: &str| {
+        w.split_once('/').is_some_and(|(a, b)| {
+            [a, b]
+                .iter()
+                .all(|n| !n.is_empty() && n.bytes().all(|c| c.is_ascii_digit()))
+        })
+    };
+    // a spaced letter may be the civic suffix or the street's own name ("55 A Street")
+    let letter = |w: &str| w.len() == 1 && w.bytes().all(|c| c.is_ascii_alphabetic());
+    // "93 Highway 4548": a number at both ends leaves the civic one unknown
+    let (first, last) = (civic(words.first()?), civic(words.last()?));
+    let number = match words[..] {
+        [n, second, _, ..] if first && !last && fraction(second) => format!("{n} {second}"),
+        [n, second, ..] if first && !last && !letter(second) => n.to_owned(),
+        [_, .., n] if !first && last => n.to_owned(),
+        _ => return None,
+    };
+    let kept: Vec<&str> = (parts.iter().enumerate())
+        .filter(|(i, _)| *i != 1)
+        .map(|(_, p)| *p)
+        .collect();
+    Some((kept.join(", "), number))
 }
 
 /// A Canadian address with its street's direction left out ("31 Thatcher Dr E" as "31 Thatcher
