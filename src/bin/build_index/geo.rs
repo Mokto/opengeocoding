@@ -654,7 +654,10 @@ impl Assigner {
                     let (x, y, _) = schema::unpack(value);
                     if let Some(suburb) = self.suburb_in(x, y, place) {
                         let number = std::str::from_utf8(&key[4..])?;
-                        entries.push((au::suburb_key(sid, number, x, y), u64::from(suburb)));
+                        entries.push((
+                            schema::house_point_key(sid, number, x, y),
+                            u64::from(suburb),
+                        ));
                     }
                 }
             }

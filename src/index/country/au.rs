@@ -10,16 +10,6 @@ pub fn suburb_level(country: [u8; 2]) -> Option<&'static str> {
     (country == *b"AU").then_some("macrohood")
 }
 
-pub fn suburb_key(sid: u32, number: &str, x: f64, y: f64) -> Vec<u8> {
-    [
-        &sid.to_be_bytes()[..],
-        &x.to_bits().to_be_bytes()[..],
-        &y.to_bits().to_be_bytes()[..],
-        schema::number_key(number).as_bytes(),
-    ]
-    .concat()
-}
-
 pub(in crate::index) fn house_suburb(
     index: &Index,
     sid: u32,
@@ -36,7 +26,7 @@ pub(in crate::index) fn house_suburb(
     {
         return None;
     }
-    let key = suburb_key(sid, number, point.0, point.1);
+    let key = schema::house_point_key(sid, number, point.0, point.1);
     let place = u32::try_from(index.suburbs.as_ref()?.get(&key)?).ok()?;
     let suburb = index.places.get(place as usize)?;
     (suburb.cc.eq_ignore_ascii_case("au")

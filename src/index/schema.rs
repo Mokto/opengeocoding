@@ -297,6 +297,16 @@ pub fn pack(lon: f64, lat: f64, postcode: u8) -> (u32, u32) {
 
 const STEPS: f64 = (1u64 << 28) as f64;
 
+pub fn house_point_key(sid: u32, number: &str, x: f64, y: f64) -> Vec<u8> {
+    [
+        &sid.to_be_bytes()[..],
+        &x.to_bits().to_be_bytes()[..],
+        &y.to_bits().to_be_bytes()[..],
+        number_key(number).as_bytes(),
+    ]
+    .concat()
+}
+
 /// The longitude and latitude of `pack`ed halves, in steps of 2^-28 of their ranges.
 fn steps(x: u32, y: u32) -> (u32, u32) {
     ((x & 0xff_ffff) << 4 | y & 0xf, y >> 4)
