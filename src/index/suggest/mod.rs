@@ -758,42 +758,43 @@ impl Index {
             ((pl.x as f64 - x) * y.to_radians().cos()).hypot(pl.y as f64 - y) * 111.195
         };
         // a postcode the data holds places the town too: Sainte-Luce of 97225 is Martinique's
-        let near: Vec<(f64, f64)> = self
-            .find_postcode(&parts[1..].join(", "), Some(&country))
-            .map(|(pc, _)| self.postcodes(&pc, Some(&country)))
-            .unwrap_or_default()
-            .iter()
-            .filter_map(|hit| match hit {
-                Hit::Postcode { x, y, .. } => Some((*x, *y)),
-                _ => None,
-            })
-            .collect();
-        // and so does a part left out that names a town of the country: of "Hannover, Mitte",
-        // Berlin's Mitte is not it
-        let named: Vec<Vec<(f64, f64)>> = parts[..parts.len() - 1]
-            .iter()
-            .map(|p| {
-                self.name_candidates(&fold(p), false, false)
+        let near = std::cell::OnceCell::new();
+        let near = || {
+            near.get_or_init(|| -> Vec<(f64, f64)> {
+                self.find_postcode(&parts[1..].join(", "), Some(&country))
+                    .map(|(pc, _)| self.postcodes(&pc, Some(&country)))
+                    .unwrap_or_default()
                     .iter()
-                    .map(|&(id, fit, _)| (&self.places[id as usize], fit))
-                    // a region's point says little of where its towns are
-                    .filter(|(pl, fit)| {
-                        *fit == 0
-                            && pl.cc.eq_ignore_ascii_case(&country)
-                            && !matches!(
-                                &*pl.subtype,
-                                "country"
-                                    | "dependency"
-                                    | "macroregion"
-                                    | "region"
-                                    | "macrocounty"
-                                    | "county"
-                            )
+                    .filter_map(|hit| match hit {
+                        Hit::Postcode { x, y, .. } => Some((*x, *y)),
+                        _ => None,
                     })
-                    .map(|(pl, _)| (pl.x as f64, pl.y as f64))
                     .collect()
             })
-            .collect();
+        };
+        // and so does a part left out that names a town of the country: of "Hannover, Mitte",
+        // Berlin's Mitte is not it
+        let named = |p: &str| -> Vec<(f64, f64)> {
+            self.name_candidates(&fold(p), false, false)
+                .iter()
+                .map(|&(id, fit, _)| (&self.places[id as usize], fit))
+                // a region's point says little of where its towns are
+                .filter(|(pl, fit)| {
+                    *fit == 0
+                        && pl.cc.eq_ignore_ascii_case(&country)
+                        && !matches!(
+                            &*pl.subtype,
+                            "country"
+                                | "dependency"
+                                | "macroregion"
+                                | "region"
+                                | "macrocounty"
+                                | "county"
+                        )
+                })
+                .map(|(pl, _)| (pl.x as f64, pl.y as f64))
+                .collect()
+        };
         (1..parts.len() - 1)
             .find_map(|i| {
                 let later = parts[i..].join(", ");
@@ -801,23 +802,34 @@ impl Index {
                     .find_postcode(&later, Some(&country))
                     .map_or(later, |(_, rest)| rest);
                 let later = Typed::new(&later).parts;
-                if later.len() < 2 {
+                // a part with a number left is a road, a box or a unit far more often than a town
+                if later.len() < 2 || later[0].chars().any(|c| c.is_ascii_digit()) {
                     return None;
                 }
-                let found: Vec<_> = self
+                let mut found: Vec<u32> = self
                     .suggest_places(&later, false, Some(&country), focus, Names::Strict, limit)
                     .into_iter()
                     .filter(|&(id, fit)| {
-                        fit == 0
-                            && &*self.places[id as usize].subtype != "country"
-                            && (near.is_empty()
-                                || near.iter().any(|&at| km(at, id) < STATED_POSTCODE_KM))
-                            && named[..i].iter().all(|towns| {
-                                towns.is_empty()
-                                    || towns.iter().any(|&at| km(at, id) < STATED_TOWN_KM)
-                            })
+                        fit == 0 && &*self.places[id as usize].subtype != "country"
                     })
-                    .map(|(id, _)| self.place_suggestion(id))
+                    .map(|(id, _)| id)
+                    .collect();
+                if found.is_empty() {
+                    return None;
+                }
+                let near = near();
+                found.retain(|&id| {
+                    near.is_empty() || near.iter().any(|&at| km(at, id) < STATED_POSTCODE_KM)
+                });
+                for part in &parts[..i] {
+                    let towns = named(part);
+                    found.retain(|&id| {
+                        towns.is_empty() || towns.iter().any(|&at| km(at, id) < STATED_TOWN_KM)
+                    });
+                }
+                let found: Vec<_> = found
+                    .into_iter()
+                    .map(|id| self.place_suggestion(id))
                     .collect();
                 (!found.is_empty()).then(|| kept(found, cc, limit))
             })
