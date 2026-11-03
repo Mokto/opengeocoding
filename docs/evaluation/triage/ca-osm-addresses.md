@@ -83,6 +83,6 @@ Points and postcodes stay unadjudicated: NAR raw files were not available locall
 
 ## Unresolved and next steps
 
-- **Panel frame.** The [global panel guide](../global-addresses.md) excludes interpolation lines, but their end nodes are sampled as addresses. Excluding nodes that end an `addr:interpolation` way would change the sampler and regenerate the corpus for every country. That is an evaluator experiment, kept separate from this one.
+- **Panel frame.** The global panel's sampler now leaves out the nodes of `addr:interpolation` ways (#512), so these range ends are no longer sampled; the counts above describe the panel before that change.
 - **A narrower source rule.** Reading Canadian OSM without interpolation and its end nodes is the only form that does not fabricate numbers. Its independent benefit is unmeasured: zero in NAR's 550 queries and Canada's other gold evidence. The gate also fails on OSM's own duplicate addresses. It would need a builder rule (new builder hash), a decision for the Canadian nodes that end a contributor-drawn interpolation over real houses, and an independent sample of the OSM-only houses.
 - **Not established.** Whether a range end's number is a real civic address, the true point of any conflicting house, and national coverage. These are 50 panel locations and 373 registry locations, not accuracy estimates. Speed was not measured (`--speed-cases 0`).
