@@ -382,7 +382,8 @@ impl Index {
             return vec![];
         }
         let found = self.suggest_typed(text, limit, cc, focus, landmarks, chain);
-        if !found.is_empty() {
+        // a rewrite's own constraints stand: what was typed falls back, not a retry of it
+        if !found.is_empty() || chain.len() > 1 {
             return found;
         }
         self.suggest_stated(text, cc, focus, landmarks, limit, chain)
@@ -738,9 +739,6 @@ impl Index {
             .filter(|(pc, _)| !fragment(pc))
         {
             let mut found = self.retry_suggest(&rest, limit, cc, focus, landmarks, chain);
-            if found.is_empty() {
-                return found;
-            }
             // as in SearchAddress, a house whose own postcode contradicts the dropped one is not it
             found.retain(|s| {
                 s.kind != "address"
