@@ -1760,12 +1760,25 @@ impl Core {
                         })
                     })
                 });
+                // a postcode written spaced ("T4M 0W5") whose house holds it compact
+                let halves: Vec<String> = query
+                    .split(',')
+                    .flat_map(|part| {
+                        let ws: Vec<&str> =
+                            part.split(whitespace).filter(|w| !w.is_empty()).collect();
+                        ws.windows(2)
+                            .filter(|p| !postcode.is_empty() && pc_norm(&p.concat()) == postcode)
+                            .flat_map(|p| p.iter().map(|w| pc_norm(w)).collect::<Vec<_>>())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
                 // and no other number of the query (a postcode, another house) goes unexplained
                 let explained = |w: &&str| {
                     let w = number_key(w);
                     !numbered(&w)
                         || number.split(' ').any(|n| n == w)
                         || pc_norm(&w) == postcode
+                        || halves.contains(&pc_norm(&w))
                         || fold(&w).split(' ').all(|f| known.contains(f))
                 };
                 // Without a street or postcode in the answer, the parse found nothing to check

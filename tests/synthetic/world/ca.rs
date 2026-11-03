@@ -123,6 +123,18 @@ pub const STREETS: &[Street] = &[
         lat: 42.856,
         numbers: &["31", "716.0 E"],
     },
+    // a source writing the postcode compact, under a street libpostal reads the number into
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Avenue W South",
+        postcode: "N4B1A6",
+        city: "Delhi",
+        cc: "CA",
+        lon: -80.484,
+        lat: 42.854,
+        numbers: &["422.0 A"],
+    },
     // a possessive the source keeps and Canada Post's mailing form drops, and the other way
     Street {
         class: "residential",
@@ -302,8 +314,32 @@ fn canadian_unit_suggestions_identify_buildings_not_apartments_or_range_endpoint
 
 /// A bare number written as a part of its own after the street (OSM's `addr:district`, or a unit)
 /// garbles libpostal's road; the building with the civic number as written answers. A possessive
-/// written the other way than the source's is found only with the house's postcode.
+/// written the other way than the source's is found only with the house's postcode, and a postcode
+/// written spaced confirms a house whose source writes it compact.
 pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
+    let query = "422A AVENUE W S, DELHI, ON N4B 1A6, Canada";
+    let got = resolver.resolve(query).await.unwrap();
+    assert!(got.good_match, "{query}: {got:?}");
+    let at = got.geo_coordinates.as_option().unwrap();
+    assert!(
+        metres(
+            (at.lon as f64, at.lat as f64),
+            house(street("Avenue W South"), "422.0 A")
+        ) < 5.0,
+        "{query}: {got:?}"
+    );
+    for query in [
+        "422B AVENUE W S, DELHI, ON N4B 1A6, Canada",
+        "422 AVENUE W S, DELHI, ON N4B 1A6, Canada",
+        "422A AVENUE W S, DELHI, ON N4B 1A5, Canada",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        let house = got
+            .address_details
+            .as_option()
+            .map_or("", |d| d.house_number.as_str());
+        assert!(!got.good_match && house.is_empty(), "{query}: {got:?}");
+    }
     for (query, road, number) in POSSESSIVE {
         let got = resolver.resolve(query).await.unwrap();
         assert!(got.good_match, "{query}: {got:?}");
