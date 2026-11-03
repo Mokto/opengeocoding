@@ -560,6 +560,24 @@ impl Index {
         }
         if !out.iter().any(|s| s.kind == "address")
             && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
+            && let Some((kept, number)) = ca::without_bare_number(text)
+        {
+            let number = schema::number_key(&number);
+            let recovered: Vec<_> = self
+                .retry_suggest(&kept, limit, Some("ca"), focus, landmarks, chain)
+                .into_iter()
+                .filter(|s| {
+                    s.kind == "address"
+                        && s.country_code == "ca"
+                        && s.id.rsplit(':').next() == Some(number.as_str())
+                })
+                .collect();
+            if !recovered.is_empty() {
+                out = recovered;
+            }
+        }
+        if !out.iter().any(|s| s.kind == "address")
+            && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
             && let Some((building, number)) = ca::canadian_building(text)
         {
             let number = schema::number_key(number);

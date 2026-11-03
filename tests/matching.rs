@@ -1557,6 +1557,67 @@ fn canadian_unit_prefixes_need_an_unambiguous_canadian_country() {
 }
 
 #[test]
+fn a_bare_canadian_number_part_is_set_aside_keeping_the_civic_number_as_written() {
+    for (query, kept, number) in [
+        (
+            "471 Upper Lakeville Road, 2, Upper Lakeville, Nova Scotia, Canada",
+            "471 Upper Lakeville Road, Upper Lakeville, Nova Scotia, Canada",
+            "471",
+        ),
+        (
+            "Upper Lakeville Road 471, 2, Upper Lakeville, Nova Scotia, Canada",
+            "Upper Lakeville Road 471, Upper Lakeville, Nova Scotia, Canada",
+            "471",
+        ),
+        (
+            "55A Maple Road, 12, Delhi, ON N4B 1A1, Canada",
+            "55A Maple Road, Delhi, ON N4B 1A1, Canada",
+            "55A",
+        ),
+        (
+            "29 1/2 Maple Road, 3, Delhi, Canada",
+            "29 1/2 Maple Road, Delhi, Canada",
+            "29 1/2",
+        ),
+        (
+            "20-24 Maple Road, 3, Delhi, Canada",
+            "20-24 Maple Road, Delhi, Canada",
+            "20-24",
+        ),
+    ] {
+        assert_eq!(
+            ca::without_bare_number(query),
+            Some((kept.to_owned(), number.to_owned())),
+            "{query}"
+        );
+    }
+    for query in [
+        "471 Upper Lakeville Road, Upper Lakeville, Nova Scotia, Canada",
+        // a bare CA is also California
+        "471 Upper Lakeville Road, 2, Upper Lakeville, NS, CA",
+        "471 Upper Lakeville Road, 2, Upper Lakeville",
+        "471 Upper Lakeville Road, 2, Upper Lakeville, Canada, United States",
+        "471 Upper Lakeville Road, 2, Springfield, Australia",
+        // two bare numbers: which is which is unknown
+        "471 Upper Lakeville Road, 2, 3, Upper Lakeville, Canada",
+        // the number elsewhere than after the street, or the only number in the query
+        "471 Upper Lakeville Road, Upper Lakeville, 2, Canada",
+        "Upper Lakeville Road, 471, Upper Lakeville, Canada",
+        "Upper Lakeville Road, 2, Upper Lakeville, Canada",
+        // a spaced letter may be the suffix or the street; a spaced fraction last is unsure
+        "55 A Street, 2, Delhi, Canada",
+        "Maple Road 29 1/2, 2, Delhi, Canada",
+        "0 Maple Road, 2, Delhi, Canada",
+        "93 Highway 4548, 2, Delhi, Canada",
+        "471 Maple Road, 123456, Delhi, Canada",
+    ] {
+        assert_eq!(ca::without_bare_number(query), None, "{query}");
+    }
+    let too_long = format!("471 {}, 2, Canada", "x".repeat(256));
+    assert!(ca::without_bare_number(&too_long).is_none());
+}
+
+#[test]
 fn glued_house_suffixes_and_canadian_street_directions_have_retry_forms() {
     assert_eq!(
         spaced_house_suffix("82A AV MERCIER, SALABERRY-DE-VALLEYFIELD, QC J6S 6L9, Canada"),
