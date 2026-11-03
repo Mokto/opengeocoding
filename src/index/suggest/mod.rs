@@ -560,7 +560,8 @@ impl Index {
         }
         if !out.iter().any(|s| s.kind == "address")
             && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
-            && let Some((kept, number)) = ca::without_bare_number(text)
+            && let Some((kept, number)) =
+                ca::without_bare_number(text).or_else(|| ca::without_subdivision_part(text))
         {
             let number = schema::number_key(&number);
             let recovered: Vec<_> = self

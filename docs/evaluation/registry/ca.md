@@ -43,6 +43,8 @@ SearchAddress and SuggestAddress try the literal house number first, preserving 
 
 A bare number written as the part after the street (`471 Upper Lakeville Road, 2, Upper Lakeville, Nova Scotia, Canada`, OSM's `addr:district` or a unit) makes libpostal read it into the road or as the house. When the query as written finds no house, it is retried without that part, with the civic number as written (a compound `20-24` or a fraction stays whole, before any unit reading), under the same Canadian-country, house-number and goodMatch requirements. The district or unit is not verified. Two bare parts, a bare part elsewhere, a spaced letter after the number and a street with a number at both ends (`93 Highway 4548`) are left as written.
 
+Statistics Canada's subdivision designators written as a part of their own after the subdivision's name, as the geographic form writes the census subdivision (`Annapolis, Subd. B`, `East River, Part 1`), name no place: when the query as written finds no good-match house, it is retried without them, the name before them kept, under the same Canadian-country, house-number and goodMatch requirements. A designator after the street, after a postcode or another designator is left as written.
+
 This returns the building, not a verified apartment or unit coordinate. A bare `CA` qualifier is ambiguous with California and does not enable recovery; the suggestion country filter alone is not sufficient either. SuggestAddress completes a spaced fractional civic number (`484 1/2 Sherbrook St`) as the indexed house of that whole number and fraction, never the plain number's house. Forward search can recover supported fractional building forms.
 
 ## Civic suffixes and street directions

@@ -1945,6 +1945,21 @@ impl Core {
                 return Ok(alt);
             }
         }
+        // a house found as written is no good match while the designator names no place
+        if !found.good_match
+            && let Some((kept, number)) = ca::without_subdivision_part(query)
+        {
+            let alt = self.resolve(&kept)?;
+            if alt.good_match
+                && same_house_number(&alt, &number)
+                && alt
+                    .address_details
+                    .as_option()
+                    .is_some_and(|d| d.country_code == "ca")
+            {
+                return Ok(alt);
+            }
+        }
         if found
             .address_details
             .as_option()

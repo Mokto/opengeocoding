@@ -1618,6 +1618,47 @@ fn a_bare_canadian_number_part_is_set_aside_keeping_the_civic_number_as_written(
 }
 
 #[test]
+fn a_canadian_subdivision_designator_part_is_set_aside() {
+    for (query, kept, number) in [
+        (
+            "8083 Shore RD W, Annapolis, Subd. B, NS B0S 1L0, Canada",
+            "8083 Shore RD W, Annapolis, NS B0S 1L0, Canada",
+            "8083",
+        ),
+        (
+            "12198 St Peters RD, East River, Part 1, PE C0A 1T0, Canada",
+            "12198 St Peters RD, East River, PE C0A 1T0, Canada",
+            "12198",
+        ),
+        (
+            "Shore RD W 8083, Annapolis, subd a, Canada",
+            "Shore RD W 8083, Annapolis, Canada",
+            "8083",
+        ),
+    ] {
+        assert_eq!(
+            ca::without_subdivision_part(query),
+            Some((kept.to_owned(), number.to_owned())),
+            "{query}"
+        );
+    }
+    for query in [
+        "8083 Shore RD W, Annapolis, NS B0S 1L0, Canada",
+        // a bare CA is also California; another country is not Canada
+        "8083 Shore RD W, Annapolis, Subd. B, NS B0S 1L0, CA",
+        "8083 Shore RD W, Annapolis, Subd. B, United States",
+        // the designator right after the street, or with no name before it
+        "8083 Shore RD W, Subd. B, Annapolis, Canada",
+        "8083 Shore RD W, Annapolis, Subd. B, Part 1, Canada",
+        "8083 Shore RD W, B0S 1L0, Part 1, Canada",
+        "8083 Shore RD W, Annapolis, Part 12345, Canada",
+        "Shore RD W, Annapolis, Subd. B, Canada",
+    ] {
+        assert_eq!(ca::without_subdivision_part(query), None, "{query}");
+    }
+}
+
+#[test]
 fn glued_house_suffixes_and_canadian_street_directions_have_retry_forms() {
     assert_eq!(
         spaced_house_suffix("82A AV MERCIER, SALABERRY-DE-VALLEYFIELD, QC J6S 6L9, Canada"),
