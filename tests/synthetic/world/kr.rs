@@ -1,6 +1,116 @@
 use super::*;
 use crate::*;
 
+pub const LISTINGS: &[(&str, f64, f64)] = &[
+    ("솔빛시 새봄면 새로12길 812", 140.0002, 35.),
+    ("새벽리 산8-2", 140.3001, 35.),
+    ("새로12길 13-34", 140.0009, 35.),
+    ("없는길 813", 140., 35.),
+    ("없는리 815", 140.3, 35.),
+    ("새벽리 814", 2.34, 48.86),
+    ("새로12길 816 3층", 140., 35.),
+    ("새로12길 817-", 140., 35.),
+    ("나래도 솔빛시 새벽리 818", 140.3001, 35.),
+];
+
+#[test]
+fn listed_native_addresses_are_complete_not_units_or_romanizations() {
+    use opengeocoding::index::country::kr::listed_lot;
+    for (q, street, number) in [
+        ("가상면 새벽리 산 8-2", "새벽리", "산8-2"),
+        ("새벽리 산8-2", "새벽리", "산8-2"),
+        ("새봄동 19", "새봄동", "19"),
+        ("새봄1가 19", "새봄1가", "19"),
+        ("새벽리 99999-99999", "새벽리", "99999-99999"),
+    ] {
+        assert_eq!(
+            listed_lot(q, |_| true),
+            Some((street, number.into())),
+            "{q}"
+        );
+    }
+    let boundary = format!("{}면 새벽리 1", "가".repeat(249));
+    assert_eq!(boundary.chars().count(), 256);
+    assert!(listed_lot(&boundary, |_| true).is_some());
+    assert!(listed_lot(&format!("가{boundary}"), |_| true).is_none());
+    assert!(listed_lot("새벽리 산8-2", |_| false).is_none());
+    assert!(listed_lot("나래도 새벽리 812", |name| name == "새벽리").is_none());
+    for q in [
+        "새벽리",
+        "새벽리 1-",
+        "새벽리 1-2-3",
+        "새벽리 0",
+        "새벽리 01",
+        "새벽리 1-0",
+        "새벽리 １２",
+        "새벽리 1-123456",
+        "새벽리 12,000",
+        "새벽리 123456",
+        "새벽리 12 3층",
+        "새벽리 12 (빌딩)",
+        "새로12길 산12",
+        "새로12길 812",
+        "1100로 12",
+        "새벽리 산 산8-2",
+        "12 새로12길",
+        "Saero-gil 12",
+        "South Korea, 새로12길 12",
+        "없는건물 새로12길 12",
+    ] {
+        assert!(listed_lot(q, |_| true).is_none(), "{q}");
+    }
+}
+
+pub fn check_listed_houses(poi: &Index) {
+    for (tail, number, point) in [
+        ("새벽리 산8-2", "산8-2", (140.3001, 35.)),
+        ("새봄면 새로12길 13-34", "13-34", (140., 35.)),
+    ] {
+        let q = format!("가람도 솔빛시 {tail}, South Korea");
+        let found = poi.suggest(&q, 5, None, None, false);
+        assert_eq!(found.len(), 1, "{q}");
+        assert_eq!(found[0].kind, "address");
+        assert!(
+            found[0].display_name.starts_with(&format!("{number}, ")),
+            "{q}"
+        );
+        assert!(metres((found[0].x, found[0].y), point) < 5., "{q}");
+        assert!(poi.suggest(&q, 5, Some("JP"), None, false).is_empty());
+    }
+    for tail in [
+        "새로12길 812",
+        "없는길 813",
+        "없는리 815",
+        "새벽리 814",
+        "새로12길 816",
+        "새로12길 817",
+        "새벽리 818",
+    ] {
+        let q = format!("가람도 솔빛시 새봄면 {tail}, South Korea");
+        assert!(
+            !poi.suggest(&q, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{q}"
+        );
+    }
+    let q = "가람도 솔빛시 새봄면 새로12길, South Korea";
+    let before = index().suggest(q, 5, None, None, false);
+    let after = poi.suggest(q, 5, None, None, false);
+    assert_eq!(before[0].kind, "street");
+    assert_eq!(after[0].kind, "street");
+    assert!(metres((before[0].x, before[0].y), (after[0].x, after[0].y)) < 0.1);
+    let lot = poi.suggest("가람도 솔빛시 새벽리, South Korea", 5, None, None, false);
+    assert_eq!(lot[0].kind, "street");
+    assert!(metres((lot[0].x, lot[0].y), (140.3001, 35.)) < 5.);
+    let reversed = poi.reverse_search(35., 140.3001, 250., 20);
+    assert!(
+        reversed
+            .iter()
+            .all(|(_, v, _)| v["address"]["house_number"] != "산8-2")
+    );
+}
+
 pub const PLACES: &[Place] = &[
     place!(
         "kr",
