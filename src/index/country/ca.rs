@@ -88,11 +88,7 @@ pub fn without_street_direction(query: &str) -> Option<(String, String, String)>
     let postcode = format!("{}{}", &postcode[1], &postcode[2]).to_uppercase();
     let words: Vec<&str> = head.split_whitespace().collect();
     let number = *words.first()?;
-    let direction = |w: &str| {
-        let w = w.trim_end_matches('.').to_lowercase();
-        let w = canon(&w).unwrap_or(w.as_str());
-        matches!(w, "n" | "s" | "e" | "w" | "o" | "ne" | "nw" | "se" | "sw")
-    };
+    let direction = |w: &str| direction(w).is_some();
     if !number.starts_with(|c: char| c.is_ascii_digit()) || words.len() < 4 {
         return None;
     }
@@ -112,4 +108,30 @@ pub fn without_street_direction(query: &str) -> Option<(String, String, String)>
         number.to_owned(),
         postcode,
     ))
+}
+
+/// A word's street direction, folded to one form (`Ouest`, `O` and `W` are all "w").
+fn direction(word: &str) -> Option<&'static str> {
+    let w = word.trim_end_matches('.').to_lowercase();
+    match canon(&w).unwrap_or(w.as_str()) {
+        "n" => Some("n"),
+        "s" => Some("s"),
+        "e" => Some("e"),
+        "w" | "o" => Some("w"),
+        "ne" => Some("ne"),
+        "nw" => Some("nw"),
+        "se" => Some("se"),
+        "sw" => Some("sw"),
+        _ => None,
+    }
+}
+
+/// Whether `road` has a street direction the query's street part does not: `6e Rue O` for
+/// `870 6e Rue Est`. A source that leaves the direction out is no such conflict.
+pub fn other_street_direction(query: &str, road: &str) -> bool {
+    let head = query.split(',').next().unwrap_or("");
+    let asked: Vec<_> = head.split_whitespace().filter_map(direction).collect();
+    road.split_whitespace()
+        .filter_map(direction)
+        .any(|d| !asked.contains(&d))
 }

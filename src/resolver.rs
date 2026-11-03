@@ -1522,7 +1522,9 @@ impl Core {
             if alt.good_match
                 && same_house_number(&alt, &number)
                 && alt.address_details.as_option().is_some_and(|d| {
-                    d.country_code == "ca" && d.postcode.replace(' ', "") == postcode
+                    d.country_code == "ca"
+                        && d.postcode.replace(' ', "") == postcode
+                        && !ca::other_street_direction(query, &d.road)
                 })
             {
                 return Ok(alt);

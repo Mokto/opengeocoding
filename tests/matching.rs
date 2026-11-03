@@ -1665,6 +1665,34 @@ fn glued_house_suffixes_and_canadian_street_directions_have_retry_forms() {
 }
 
 #[test]
+fn a_canadian_road_with_a_direction_the_query_lacks_conflicts() {
+    for (query, road) in [
+        ("870 6e Rue Est, Harbour, QC G1A 0A3", "6e Rue O"),
+        (
+            "31 Thatcher Dr E, Moose Jaw, SK S6J 1L8",
+            "Thatcher Drive West",
+        ),
+        ("162 Klondike Hwy, Whitehorse", "North Klondike Highway"),
+    ] {
+        assert!(ca::other_street_direction(query, road), "{query} / {road}");
+    }
+    for (query, road) in [
+        ("31 Thatcher Dr E, Moose Jaw, SK S6J 1L8", "Thatcher Drive"),
+        (
+            "1455 Boulevard de Maisonneuve Ouest, Montréal",
+            "boul. De Maisonneuve O",
+        ),
+        ("422A Avenue W S, Saskatoon, SK S7M 3G7", "Avenue W South"),
+        (
+            "716E Douglas Park Cres E, Regina, SK S4N 2S2",
+            "Douglas Park Crescent",
+        ),
+    ] {
+        assert!(!ca::other_street_direction(query, road), "{query} / {road}");
+    }
+}
+
+#[test]
 fn a_danish_floor_and_door_part_is_set_aside_without_touching_other_countries() {
     let unit = |q| dk::without_danish_unit(q);
     // the published DAR forms: the unit is its own part, the building keeps the rest
