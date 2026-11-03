@@ -161,9 +161,65 @@ pub const PLACES: &[Place] = &[
         "Gap",
         &[("en", "Gap")],
     ),
+    // two cities that are points only, each under its own government: a house of one nearer the
+    // other's point is filed under the other
+    place!(
+        "ca-nb-port-royal-city",
+        "county",
+        "",
+        "CA",
+        "CA-NB",
+        20_000,
+        (-65.0, 46.5),
+        "ca-nb",
+        "City of Port Royal",
+        &[("en", "City of Port Royal")],
+    ),
+    place!(
+        "ca-nb-pearl-city",
+        "county",
+        "",
+        "CA",
+        "CA-NB",
+        20_000,
+        (-64.94, 46.5),
+        "ca-nb",
+        "City of Pearl",
+        &[("en", "City of Pearl")],
+    ),
+    place!(
+        "ca-nb-port-royal",
+        "locality",
+        "city",
+        "CA",
+        "CA-NB",
+        20_000,
+        (-65.025, 46.5),
+        "ca-nb-port-royal-city",
+        "Port Royal",
+        &[("en", "Port Royal")],
+    ),
+    place!(
+        "ca-nb-pearl",
+        "locality",
+        "city",
+        "CA",
+        "CA-NB",
+        20_000,
+        (-64.95, 46.5),
+        "ca-nb-pearl-city",
+        "Pearl",
+        &[("en", "Pearl")],
+    ),
 ];
 
-pub const POINT_ONLY: &[&str] = &["ca-nb-tidemouth", "ca-nb-cove", "ca-nb-gap"];
+pub const POINT_ONLY: &[&str] = &[
+    "ca-nb-tidemouth",
+    "ca-nb-cove",
+    "ca-nb-gap",
+    "ca-nb-port-royal",
+    "ca-nb-pearl",
+];
 
 pub const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
     (
@@ -176,6 +232,16 @@ pub const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
         0.05,
     ),
     ("ca-nb-hillside", "county", true, true, -64.9, 46.0, 0.05),
+    (
+        "ca-nb-port-royal-city",
+        "county",
+        true,
+        true,
+        -65.0,
+        46.5,
+        0.03,
+    ),
+    ("ca-nb-pearl-city", "county", true, true, -64.94, 46.5, 0.03),
 ];
 
 pub const STREETS: &[Street] = &[
@@ -258,6 +324,28 @@ pub const STREETS: &[Street] = &[
         lon: -64.905,
         lat: 46.0,
         numbers: &["7"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Lady Lane",
+        postcode: "E1C 6T6",
+        city: "Port Royal",
+        cc: "CA",
+        lon: -64.975,
+        lat: 46.5,
+        numbers: &["51"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Pearl Street",
+        postcode: "E1C 6T5",
+        city: "Pearl",
+        cc: "CA",
+        lon: -64.945,
+        lat: 46.5,
+        numbers: &["3"],
     },
     // in the parish, between the local governments' polygons
     Street {
@@ -746,12 +834,36 @@ fn a_possessive_written_the_other_way_is_suggested_only_with_the_house_postcode(
 }
 
 #[test]
-fn a_new_brunswick_house_names_its_local_government_and_nearest_settlement() {
-    for (lon, number, key, settlement, county) in [
-        (-65.005, "113", "city", "Tidemouth", "City of Tidemouth"),
-        (-64.905, "7", "village", "Cove", "Hillside Rural Community"),
+fn a_canadian_house_names_the_local_government_holding_it_and_its_nearest_settlement() {
+    for (lat, lon, number, key, settlement, county) in [
+        (
+            46.5,
+            -64.975,
+            "51",
+            "city",
+            "Port Royal",
+            "City of Port Royal",
+        ),
+        (46.5, -64.945, "3", "city", "Pearl", "City of Pearl"),
+        (
+            46.0,
+            -65.005,
+            "113",
+            "city",
+            "Tidemouth",
+            "City of Tidemouth",
+        ),
+        (
+            46.0,
+            -64.905,
+            "7",
+            "village",
+            "Cove",
+            "Hillside Rural Community",
+        ),
         // no local government's polygon holds it: the parish and its parent stay
         (
+            46.0,
             -64.975,
             "5",
             "village",
@@ -759,7 +871,7 @@ fn a_new_brunswick_house_names_its_local_government_and_nearest_settlement() {
             "Hillside Rural Community",
         ),
     ] {
-        let found = index().reverse_search(46.0, lon, 2.0, 1);
+        let found = index().reverse_search(lat, lon, 2.0, 1);
         let (layer, hit, _) = &found[0];
         assert_eq!(*layer, "address", "{number}");
         let address = &hit["address"];

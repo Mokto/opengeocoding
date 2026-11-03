@@ -230,12 +230,15 @@ pub fn possessive_forms(query: &str) -> Vec<(String, String, String)> {
     forms
 }
 
-/// New Brunswick's localities with an area are its civil parishes, which hold every house; its
-/// towns and cities are points (Overture's `class`) under them, and a parish's parent is one of
-/// the local governments it spans, not always the house's (`Moncton Parish` under `Maple Hills
-/// Rural Community`, where Moncton's houses lie in `City of Moncton`). A reverse house result
-/// names instead the local government whose polygon holds the house and its settlement nearest
-/// the house (a town's or city's distance divided by `TOWN_REACH`) within 10 km.
+/// A Canadian house filed under a place that is not its town names instead the local government
+/// whose polygon holds it and that government's settlement nearest the house (a town's or city's
+/// distance divided by `TOWN_REACH`) within 10 km. Two such places: New Brunswick's localities
+/// with an area, its civil parishes, which hold every house while its towns and cities are points
+/// under them, and whose parent is one of the local governments they span, not always the
+/// house's (`Moncton Parish` under `Maple Hills Rural Community`, where Moncton's houses lie in
+/// `City of Moncton`); and a town under another government than the house's, which the builder
+/// gives a house where no locality's area holds it and that town's point is the nearest (Mount
+/// Pearl's, for houses of St. John's).
 pub(in crate::index) fn reverse_locality(
     index: &crate::index::Index,
     hit: &crate::index::Hit,
@@ -254,14 +257,10 @@ pub(in crate::index) fn reverse_locality(
         return;
     };
     let pl = |p: u32| &index.places[p as usize];
-    let Some(parish) = index.places.get(*place as usize) else {
+    let Some(locality) = index.places.get(*place as usize) else {
         return;
     };
-    if parish.cc.as_ref() != "ca"
-        || parish.subtype.as_ref() != "locality"
-        || !parish.class.is_empty()
-        || index.region_code(&index.chain(*place)) != Some("CA-NB")
-    {
+    if locality.cc.as_ref() != "ca" || locality.subtype.as_ref() != "locality" {
         return;
     }
     let Some(government) = index
@@ -271,6 +270,14 @@ pub(in crate::index) fn reverse_locality(
     else {
         return;
     };
+    let chain = index.chain(*place);
+    let parish = locality.class.is_empty() && index.region_code(&chain) == Some("CA-NB");
+    let elsewhere = chain
+        .iter()
+        .any(|&p| pl(p).subtype.as_ref() == "county" && p != government);
+    if !parish && !elsewhere {
+        return;
+    }
     let settlement = |p: u32| {
         matches!(pl(p).class.as_ref(), "city" | "town" | "village" | "hamlet")
             && pl(p).cc.as_ref() == "ca"
