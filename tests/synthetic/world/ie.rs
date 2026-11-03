@@ -125,11 +125,10 @@ pub fn cases() -> Vec<Case> {
             "18 Mallow Street, Swords, K67 Y2E3, Ireland",
             Want::At(house(&STREETS[1], "18"), 25.0, true),
         ),
-        Case {
-            query: "18 Mallow Street, Swords K67 Y2E3, Ireland",
-            want: Want::At(house(&STREETS[1], "18"), 25.0, true),
-            known_failure: "parser: a known Eircode fused with its town garbles the parse, and only an unknown one is dropped",
-        },
+        case(
+            "18 Mallow Street, Swords K67 Y2E3, Ireland",
+            Want::At(house(&STREETS[1], "18"), 25.0, true),
+        ),
     ]
 }
 
