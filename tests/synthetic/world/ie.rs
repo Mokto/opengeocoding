@@ -132,3 +132,32 @@ pub fn cases() -> Vec<Case> {
         },
     ]
 }
+
+/// An Eircode the data lacks, fused with its town, still lets the house be suggested; where no
+/// line names a street the data holds, the town is, whether its Eircode is known or not.
+#[test]
+fn a_registered_address_suggests_its_house_or_town_past_an_eircode() {
+    let at = |text: &str| index().suggest(text, 5, None, None, false);
+    let found = at("18 Mallow Street, Dublin D02 Y123, Ireland");
+    assert_eq!(found.first().map(|s| s.kind), Some("address"));
+    assert!(metres((found[0].x, found[0].y), house(&STREETS[0], "18")) < 5.0);
+    let dublin = place("ie-dublin");
+    for typed in [
+        "Office Suite 27, The Osprey Business Centre, Dublin D02 Y123, Ireland",
+        "Unit 1A, Cleaboy Business Park, Dublin D02 X285, Ireland",
+    ] {
+        let found = at(typed);
+        assert_eq!(found.first().map(|s| s.kind), Some("city"), "{typed}");
+        assert!(
+            metres((found[0].x, found[0].y), (dublin.lon, dublin.lat)) < 5.0,
+            "{typed}"
+        );
+    }
+    // a town an earlier part names rules out a namesake far from it: Swords lies 170 km from
+    // this world's Dublin, so "Dublin, Swords" names no place
+    assert!(at("Unit 4, Dublin, Swords, Ireland").is_empty());
+    // and so does an Eircode the data holds, Dublin's here
+    assert!(at("Unit 4, Business Park, Swords D02 X285, Ireland").is_empty());
+    let swords = at("Unit 4, Swords, Ireland");
+    assert_eq!(swords.first().map(|s| s.kind), Some("town"));
+}

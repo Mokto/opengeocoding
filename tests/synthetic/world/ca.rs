@@ -40,6 +40,18 @@ pub const PLACES: &[Place] = &[
         &[("en", "Delhi")],
     ),
     place!(
+        "ca-on-hamilton",
+        "locality",
+        "city",
+        "CA",
+        "CA-ON",
+        570_000,
+        (-79.87, 43.26),
+        "ca-on",
+        "Hamilton",
+        &[("en", "Hamilton")],
+    ),
+    place!(
         "ca-qc",
         "region",
         "",

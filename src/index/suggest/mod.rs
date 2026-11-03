@@ -30,6 +30,10 @@ const MAX_WORK_IN_TOWN: u64 = 400_000;
 /// that few documents share.
 const MAX_PLACE_WORK: u64 = 20_000;
 const MAX_TEXT: usize = 200;
+/// How far from a stated postcode the town a full address falls back to may lie.
+const STATED_POSTCODE_KM: f64 = 30.0;
+/// And from a town an earlier part of it names.
+const STATED_TOWN_KM: f64 = 50.0;
 /// Entries of each prefix cache: a place entry is at most 400 candidates of 16 bytes, so the
 /// caches stay under about 150 MB however much is typed.
 const MAX_CACHED: usize = 20_000;
@@ -377,6 +381,23 @@ impl Index {
         if text.chars().count() > MAX_TEXT || text.trim().is_empty() || limit == 0 {
             return vec![];
         }
+        let found = self.suggest_typed(text, limit, cc, focus, landmarks, chain);
+        // a rewrite's own constraints stand: what was typed falls back, not a retry of it
+        if !found.is_empty() || chain.len() > 1 {
+            return found;
+        }
+        self.suggest_stated(text, cc, focus, landmarks, limit, chain)
+    }
+
+    fn suggest_typed(
+        &self,
+        text: &str,
+        limit: usize,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        landmarks: bool,
+        chain: &mut Vec<(String, Option<String>)>,
+    ) -> Vec<Suggestion> {
         if let Some(found) = super::country::gl::suggest(self, text, cc, limit) {
             return found;
         }
@@ -666,6 +687,152 @@ impl Index {
             out.extend(places(Names::Small).map(|(id, _)| self.place_suggestion(id)));
         }
         kept(out, cc, limit)
+    }
+
+    /// "Orbis House, 25 Front Street, Hamilton HM 11, Bermuda": a registered address that
+    /// suggests nothing as typed, because the index lacks its postcode or none of its leading
+    /// lines (a building, a floor, a box, a street it does not hold). The text without that
+    /// postcode, else the place a later part names with every part after it as its qualifiers,
+    /// in the country the text ends with: a namesake elsewhere, or one the qualifiers contradict,
+    /// is never it.
+    fn suggest_stated(
+        &self,
+        text: &str,
+        cc: Option<&str>,
+        focus: Option<&Focus>,
+        landmarks: bool,
+        limit: usize,
+        chain: &mut Vec<(String, Option<String>)>,
+    ) -> Vec<Suggestion> {
+        let mut parts = Typed::new(text).parts;
+        let Some(country) = parts
+            .last()
+            .filter(|_| parts.len() >= 2)
+            .and_then(|p| self.country(p))
+        else {
+            return vec![];
+        };
+        if cc.is_some_and(|c| !c.eq_ignore_ascii_case(&country)) {
+            return vec![];
+        }
+        // a postcode the data holds only in another country contradicts the one stated ("75001,
+        // Paris, United States"); a first part with letters is the road, whose number it may be
+        let foreign = parts[..parts.len() - 1].iter().enumerate().any(|(i, p)| {
+            (i > 0 || !p.chars().any(char::is_alphabetic))
+                && self
+                    .find_postcode(p, None)
+                    .is_some_and(|(pc, _)| !self.postcode_exists(&pc, Some(&country)))
+        });
+        if foreign {
+            return vec![];
+        }
+        // "EH11" of a known "V92 EH11" is no unknown postcode
+        let fragment = |pc: &str| {
+            parts.iter().any(|part| {
+                let words: Vec<&str> = part.split(' ').collect();
+                words.windows(2).any(|pair| {
+                    pair.contains(&pc) && self.postcode_exists(&pair.join(" "), Some(&country))
+                })
+            })
+        };
+        if let Some((pc, rest)) = self
+            .unknown_postcode(text, Some(&country))
+            .filter(|(pc, _)| !fragment(pc))
+        {
+            let mut found = self.retry_suggest(&rest, limit, cc, focus, landmarks, chain);
+            // as in SearchAddress, a house whose own postcode contradicts the dropped one is not it
+            found.retain(|s| {
+                s.kind != "address"
+                    || self.own_postcode(s).is_some_and(|own| {
+                        own.is_empty() || crate::matching::postcodes_compatible(&pc, &own)
+                    })
+            });
+            if !found.is_empty() {
+                return found;
+            }
+            parts = Typed::new(&rest).parts;
+        }
+        let km = |(x, y): (f64, f64), id: u32| {
+            let pl = &self.places[id as usize];
+            ((pl.x as f64 - x) * y.to_radians().cos()).hypot(pl.y as f64 - y) * 111.195
+        };
+        // a postcode the data holds places the town too: Sainte-Luce of 97225 is Martinique's
+        let near = std::cell::OnceCell::new();
+        let near = || {
+            near.get_or_init(|| -> Vec<(f64, f64)> {
+                self.find_postcode(&parts[1..].join(", "), Some(&country))
+                    .map(|(pc, _)| self.postcodes(&pc, Some(&country)))
+                    .unwrap_or_default()
+                    .iter()
+                    .filter_map(|hit| match hit {
+                        Hit::Postcode { x, y, .. } => Some((*x, *y)),
+                        _ => None,
+                    })
+                    .collect()
+            })
+        };
+        // and so does a part left out that names a town of the country: of "Hannover, Mitte",
+        // Berlin's Mitte is not it
+        let named = |p: &str| -> Vec<(f64, f64)> {
+            self.name_candidates(&fold(p), false, false)
+                .iter()
+                .map(|&(id, fit, _)| (&self.places[id as usize], fit))
+                // a region's point says little of where its towns are
+                .filter(|(pl, fit)| {
+                    *fit == 0
+                        && pl.cc.eq_ignore_ascii_case(&country)
+                        && !matches!(
+                            &*pl.subtype,
+                            "country"
+                                | "dependency"
+                                | "macroregion"
+                                | "region"
+                                | "macrocounty"
+                                | "county"
+                        )
+                })
+                .map(|(pl, _)| (pl.x as f64, pl.y as f64))
+                .collect()
+        };
+        (1..parts.len() - 1)
+            .find_map(|i| {
+                let later = parts[i..].join(", ");
+                let later = self
+                    .find_postcode(&later, Some(&country))
+                    .map_or(later, |(_, rest)| rest);
+                let later = Typed::new(&later).parts;
+                // a part with a number left is a road, a box or a unit far more often than a town
+                if later.len() < 2 || later[0].chars().any(|c| c.is_ascii_digit()) {
+                    return None;
+                }
+                let mut found: Vec<u32> = self
+                    .suggest_places(&later, false, Some(&country), focus, Names::Strict, limit)
+                    .into_iter()
+                    .filter(|&(id, fit)| {
+                        fit == 0 && &*self.places[id as usize].subtype != "country"
+                    })
+                    .map(|(id, _)| id)
+                    .collect();
+                if found.is_empty() {
+                    return None;
+                }
+                let near = near();
+                found.retain(|&id| {
+                    near.is_empty() || near.iter().any(|&at| km(at, id) < STATED_POSTCODE_KM)
+                });
+                for part in &parts[..i] {
+                    let towns = named(part);
+                    found.retain(|&id| {
+                        towns.is_empty() || towns.iter().any(|&at| km(at, id) < STATED_TOWN_KM)
+                    });
+                }
+                let found: Vec<_> = found
+                    .into_iter()
+                    .map(|id| self.place_suggestion(id))
+                    .collect();
+                (!found.is_empty()).then(|| kept(found, cc, limit))
+            })
+            .unwrap_or_default()
     }
 
     /// "5A Salena road, Jojoima, Kailahun, Sierra Leone" (a district after the town) and "323

@@ -104,9 +104,17 @@ fn references_are_scoped_not_house_numbers_or_landmarks() {
             .len(),
         1
     );
-    for text in ["B-999, Fjordhaven, Greenland", "B-345, Unknown, Greenland"] {
-        assert!(index().suggest(text, 5, None, None, false).is_empty());
-    }
+    assert!(
+        index()
+            .suggest("B-345, Unknown, Greenland", 5, None, None, false)
+            .is_empty()
+    );
+    // a reference the town lacks is no building of it: the town stated is what is left
+    let town = index().suggest("B-999, Fjordhaven, Greenland", 5, None, None, false);
+    let found: Vec<_> = town.iter().map(|s| (s.kind, s.id.as_str())).collect();
+    assert_eq!(found.len(), 1);
+    assert_ne!(found[0].0, "building");
+    assert_eq!(town[0].display_name.split(',').next(), Some("Fjordhaven"));
     for text in [
         "B-345, Fjordhaven, Germany",
         "Fjordhaven, B-345",
