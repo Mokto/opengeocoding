@@ -123,13 +123,9 @@ class Addresses(unittest.TestCase):
         root = Path(__file__).parent
         manifest = json.loads((root / "manifest.json").read_bytes())
         self.assertEqual(set(manifest["coverage"]), set(module.COUNTRIES))
-        # Earlier countries keep the generator that captured them (`--base`): the first 48 that of
-        # commit 7a02601, the next 82 that of #283; the rest this file. Each earlier version
-        # differs from this one only in its country list and the options it lacked.
-        generators = {module.file_sha(Path(module.__file__)), "56540214095fa4880b8eab4debcd51f45db7332f47c35b92ed0e316a3a7363ce", "e921aa409b6df9128ad670d927856347c4600ef76a17808f294998cd285dabaa"}
         rows = []
         for snapshot in manifest["snapshots"]:
-            self.assertIn(snapshot["proof"]["script_sha256"], generators)
+            self.assertEqual(snapshot["proof"]["script_sha256"], module.file_sha(Path(module.__file__)))
             rows.extend(module.cases(snapshot["records"], snapshot["proof"]))
         replayed = [json.dumps(r, ensure_ascii=False) + "\n" for r in rows]
         adjudications = json.loads((root / "adjudications.json").read_bytes())
@@ -148,6 +144,14 @@ class Addresses(unittest.TestCase):
             self.assertEqual(case["adjudication"]["ref"], "GA1")
         with self.assertRaises(ValueError):
             adjudicate.apply(lines, {**adjudications, "au": [{**adjudications["au"][0], "version": 2}]})
+
+    def test_interpolation_way_nodes_are_read_from_opl(self):
+        opl = [
+            "w99600434 v1 dV c0 t2011-02-13T20:54:29Z i0 u Taddr:interpolation=even,source=NRCan-CanVec-7.0 Nn1151578375,n1151348232,n1151555578\n",
+            "w5 v1 dV c0 t2011-02-13T20:54:29Z i0 u Taddr:interpolation=odd,addr:street=North%20%Road Nn7,n8\n",
+            "w6 v1 dV c0 t2011-02-13T20:54:29Z i0 u Taddr:interpolation=odd N\n",
+        ]
+        self.assertEqual(module.way_nodes(opl), {1151578375, 1151348232, 1151555578, 7, 8})
 
     def test_completed_outputs_are_immutable(self):
         with tempfile.TemporaryDirectory() as directory:
