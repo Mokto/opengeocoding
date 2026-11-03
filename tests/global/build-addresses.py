@@ -203,6 +203,26 @@ def interior(geometry, neighbours, loose):
     return shapely.MultiPolygon([g for g in shapely.get_parts(geometry) if g.geom_type == "Polygon"])
 
 
+def interpolation_nodes(source):
+    """The nodes of `addr:interpolation` ways. They anchor an estimated run of numbers, and most
+    of Canada's mark block-face range limits at road-segment ends rather than houses."""
+    process = subprocess.Popen(["osmium", "tags-filter", str(source), "w/addr:interpolation", "--omit-referenced", "-f", "opl", "-o", "-"], stdout=subprocess.PIPE, text=True)
+    nodes = way_nodes(process.stdout)
+    if process.wait() != 0:
+        raise ValueError("osmium interpolation scan failed")
+    return nodes
+
+
+def way_nodes(opl):
+    """The node ids the OPL ways list (`N` field: `n1,n2`)."""
+    nodes = set()
+    for line in opl:
+        for field in line.split():
+            if field.startswith("N"):
+                nodes.update(int(n[1:]) for n in field[1:].split(",") if n)
+    return nodes
+
+
 def capture(args, country, feature, country_info, urls, neighbours=()):
     import shapely
     from shapely.geometry import mapping, shape
@@ -218,7 +238,7 @@ def capture(args, country, feature, country_info, urls, neighbours=()):
     source_url = urls.get(source.name)
     if source_url is None:
         raise ValueError("PBF has no recorded public source URL")
-    proof = {"source_url": source_url, "source_sha256": file_sha(source), "source_bytes": source.stat().st_size, "boundary_url": BOUNDARY_URL, "boundary_sha256": BOUNDARY_SHA, "country_mask_sha256": sha(encoded(feature)), "border_exclusion_degrees": 0.05, **({"border_exclusion_of": "other-countries", "buildings": True} if args.loose else {}), "shapely_version": shapely.__version__, "geos_version": shapely.geos_version_string, "country_info_sha256": file_sha(args.country_info), "seed": args.seed, "count": args.count, "script_sha256": file_sha(Path(__file__))}
+    proof = {"source_url": source_url, "source_sha256": file_sha(source), "source_bytes": source.stat().st_size, "boundary_url": BOUNDARY_URL, "boundary_sha256": BOUNDARY_SHA, "country_mask_sha256": sha(encoded(feature)), "border_exclusion_degrees": 0.05, **({"border_exclusion_of": "other-countries", "buildings": True} if args.loose else {}), "shapely_version": shapely.__version__, "geos_version": shapely.geos_version_string, "country_info_sha256": file_sha(args.country_info), "seed": args.seed, "count": args.count, "interpolation_nodes_excluded": True, "script_sha256": file_sha(Path(__file__))}
     path = args.work / (country + ".snapshot.json")
     if path.exists():
         saved = json.loads(path.read_bytes())
@@ -234,8 +254,9 @@ def capture(args, country, feature, country_info, urls, neighbours=()):
     if nodes.exists():
         nodes.unlink()
     print(country, "filtering", source.name, flush=True)
+    anchors = interpolation_nodes(source)
     if args.loose:
-        return scan_buildings(args, country, source, nodes, mask, proof, header, path, name, iso3)
+        return scan_buildings(args, country, source, nodes, mask, proof, header, path, name, iso3, anchors)
     subprocess.run(["osmium", "tags-filter", str(source), "n/addr:housenumber", "--omit-referenced", "-o", str(nodes)], check=True)
     process = subprocess.Popen(["osmium", "extract", "-s", "simple", "-p", str(polygon), str(nodes), "-f", "osm"], stdout=subprocess.PIPE)
     draw, scanned = Draw(args.seed + "\0" + country, args.count), 0
@@ -246,7 +267,7 @@ def capture(args, country, feature, country_info, urls, neighbours=()):
             scanned += 1
             tags = {x.get("k"): x.get("v", "") for x in element if x.tag == "tag"}
             r = record(element.attrib, tags, country, name, iso3)
-            if r is not None:
+            if r is not None and r["id"] not in anchors:
                 draw.add(r)
             element.clear()
             if scanned % 100000 == 0:
@@ -267,7 +288,7 @@ def capture(args, country, feature, country_info, urls, neighbours=()):
     return saved
 
 
-def scan_buildings(args, country, source, filtered, mask, proof, header, path, name, iso3):
+def scan_buildings(args, country, source, filtered, mask, proof, header, path, name, iso3, anchors):
     """Address nodes and ways (buildings, at their centre) whose point lies in `mask`."""
     import shapely
     from shapely.geometry import shape
@@ -291,7 +312,7 @@ def scan_buildings(args, country, source, filtered, mask, proof, header, path, n
             scanned += 1
             attributes = {"type": p.get("@type"), "id": str(p.get("@id")), "version": str(p.get("@version")), "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(int(p["@timestamp"]))) if "@timestamp" in p else "", "lat": repr(point.y), "lon": repr(point.x)}
             r = record(attributes, {k: v for k, v in p.items() if not k.startswith("@")}, country, name, iso3)
-            if r is not None:
+            if r is not None and not (r.get("type", "node") == "node" and r["id"] in anchors):
                 draw.add(r)
         if process.wait() != 0:
             raise ValueError("osmium export failed")

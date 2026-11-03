@@ -67,7 +67,7 @@ Per-country sampling, preparation commands, provenance, limitations and baseline
 
 ### Global source-consistency panel
 
-The [172-market address panel](global-addresses.md) adds 8,600 mapped address groups and 17,186 query variants to the default gold suite. Its `global_osm_*` cohorts preserve source attribution and shared OSM ancestry; these checks provide regression coverage, not independent national accuracy. Existing failures and unresolved source conflicts remain visible without `known_failure` exemptions. The combined suite has 36,920 cases; its absolute gate can fail on the panel's critical diagnostics while relative comparisons still catch regressions on shared cases. The evaluation image includes the corpus and ODbL notice, and `tests/global/**` changes trigger the staging/gold workflow.
+The [172-market address panel](global-addresses.md) adds 8,590 mapped address groups and 17,166 query variants to the default gold suite. Its `global_osm_*` cohorts preserve source attribution and shared OSM ancestry; these checks provide regression coverage, not independent national accuracy. Existing failures and unresolved source conflicts remain visible without `known_failure` exemptions. The combined suite has 36,920 cases; its absolute gate can fail on the panel's critical diagnostics while relative comparisons still catch regressions on shared cases. The evaluation image includes the corpus and ODbL notice, and `tests/global/**` changes trigger the staging/gold workflow.
 
 ### Town-level cases
 
