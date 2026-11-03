@@ -136,7 +136,11 @@ fn key(seed: &str, id: &str) -> String {
 
 fn queries(address: &str) -> Vec<(&'static str, String)> {
     let address = address.trim();
-    let mut found = vec![("", format!("{address}, South Korea"))];
+    let mut found = vec![
+        ("", format!("{address}, South Korea")),
+        ("_country_first", format!("South Korea, {address}")),
+        ("_country_first_native", format!("대한민국, {address}")),
+    ];
     if let Some((province, rest)) = address.split_once(' ') {
         let short = match province {
             "서울특별시" => "서울",
@@ -160,6 +164,14 @@ fn queries(address: &str) -> Vec<(&'static str, String)> {
         };
         found.push(("_short_province", format!("{short} {rest}, South Korea")));
         found.push(("_short_domestic", format!("{short} {rest}")));
+        found.push((
+            "_short_country_first",
+            format!("South Korea, {short} {rest}"),
+        ));
+        found.push((
+            "_short_country_first_native",
+            format!("대한민국, {short} {rest}"),
+        ));
     }
     found
 }
@@ -286,7 +298,7 @@ mod tests {
         co_located["LNMADR"] = json!("서울특별시 종로구 다른동 산8");
         write(&[a.clone(), b.clone(), co_located.clone()]);
         let first = sample(&path, "test").unwrap();
-        assert_eq!(first.len(), 12);
+        assert_eq!(first.len(), 28);
         assert_eq!(
             first
                 .iter()
@@ -299,13 +311,29 @@ mod tests {
             vec![
                 ("", "서울특별시 종로구 새길 12-3, South Korea".into()),
                 (
+                    "_country_first",
+                    "South Korea, 서울특별시 종로구 새길 12-3".into()
+                ),
+                (
+                    "_country_first_native",
+                    "대한민국, 서울특별시 종로구 새길 12-3".into()
+                ),
+                (
                     "_short_province",
                     "서울 종로구 새길 12-3, South Korea".into()
                 ),
                 ("_short_domestic", "서울 종로구 새길 12-3".into()),
+                (
+                    "_short_country_first",
+                    "South Korea, 서울 종로구 새길 12-3".into()
+                ),
+                (
+                    "_short_country_first_native",
+                    "대한민국, 서울 종로구 새길 12-3".into()
+                ),
             ]
         );
-        assert_eq!(queries("전남광주통합특별시 가상구 새길 1").len(), 1);
+        assert_eq!(queries("전남광주통합특별시 가상구 새길 1").len(), 3);
         write(&[co_located, b.clone(), a.clone()]);
         assert_eq!(first, sample(&path, "test").unwrap());
         let ids = BTreeSet::from(["B000000001".into()]);

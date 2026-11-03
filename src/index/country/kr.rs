@@ -6,6 +6,22 @@ pub(super) struct Address<'a> {
     pub road: &'a str,
     pub number: String,
     pub country: Option<&'a str>,
+    open: bool,
+    country_first: bool,
+}
+
+impl Address<'_> {
+    fn house_matches(
+        &self,
+        road: &str,
+        number: &str,
+        good_match: bool,
+        unique: impl FnOnce() -> bool,
+    ) -> bool {
+        (self.country_first && !good_match)
+            || ((road.is_empty() || fold(road) == fold(self.road))
+                && (number.is_empty() || unique()))
+    }
 }
 
 /// The address without the 읍, 면 or 동 after its 시, 군 or 구 (or Sejong), where its road name is
@@ -22,18 +38,35 @@ fn district<'a>(address: &Address<'a>) -> Option<Address<'a>> {
         road: address.road,
         number: address.number.clone(),
         country: address.country,
+        open: address.open,
+        country_first: address.country_first,
     })
 }
 
 pub(super) fn parse(q: &str, partial: bool) -> Option<Address<'_>> {
+    let open = !q.ends_with(|c: char| c.is_whitespace() || c == ',');
     let q = q.trim();
-    if !q.starts_with(|c| ('가'..='힣').contains(&c)) || q.chars().take(257).count() > 256 {
+    if q.chars().take(257).count() > 256 {
         return None;
     }
     let mut parts = q.split(',').map(str::trim);
-    let mut words: Vec<_> = parts.next()?.split_whitespace().collect();
-    let country = parts.next().filter(|p| !p.is_empty());
-    if parts.next().is_some() || words.len() < 2 {
+    let first = parts.next()?;
+    let second = parts.next();
+    if first.is_empty() || parts.next().is_some() {
+        return None;
+    }
+    let (native, country, native_last) = if first.starts_with(|c| ('가'..='힣').contains(&c))
+        && first.split_whitespace().nth(1).is_some()
+    {
+        (first, second.filter(|p| !p.is_empty()), second.is_none())
+    } else {
+        (second?, Some(first), true)
+    };
+    if !native.starts_with(|c| ('가'..='힣').contains(&c)) {
+        return None;
+    }
+    let mut words: Vec<_> = native.split_whitespace().collect();
+    if words.len() < 2 {
         return None;
     }
     let province = match words[0] {
@@ -124,6 +157,8 @@ pub(super) fn parse(q: &str, partial: bool) -> Option<Address<'_>> {
         road,
         number,
         country,
+        open: open && native_last,
+        country_first: native_last && country.is_some(),
     })
 }
 
@@ -296,6 +331,7 @@ impl Index {
         lon: f64,
         road: &str,
         number: &str,
+        good_match: bool,
     ) -> bool {
         let Some(address) = parse(q, false) else {
             return true;
@@ -315,9 +351,9 @@ impl Index {
                 return false;
             }
         }
-        if (!road.is_empty() && fold(road) != fold(address.road))
-            || (!number.is_empty() && !self.korean_search(q).is_some_and(|hits| hits.len() == 1))
-        {
+        if !address.house_matches(road, number, good_match, || {
+            self.korean_search(q).is_some_and(|hits| hits.len() == 1)
+        }) {
             return false;
         }
         self.areas
@@ -338,8 +374,7 @@ impl Index {
         if scope.is_empty() || cc.is_some_and(|c| !c.eq_ignore_ascii_case("kr")) {
             return Some(vec![]);
         }
-        let open =
-            address.country.is_none() && !text.ends_with(|c: char| c.is_whitespace() || c == ',');
+        let open = address.open;
         let number = (!address.number.is_empty()).then_some(address.number.as_str());
         let road_open = open && number.is_none();
         let road = fold(address.road);
@@ -379,6 +414,56 @@ impl Index {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn weak_country_first_fallbacks_keep_the_existing_confidence_contract() {
+        let first = parse("South Korea, 서울특별시 가상구 새로12길 999", false).unwrap();
+        let last = parse("서울특별시 가상구 새로12길 999, South Korea", false).unwrap();
+        for road in ["새로12길", "다른길"] {
+            assert!(first.house_matches(road, "999", false, || false));
+            assert!(!first.house_matches(road, "999", true, || false));
+            for good in [false, true] {
+                assert!(!last.house_matches(road, "999", good, || false));
+            }
+        }
+        assert!(first.house_matches("새로12길", "999", true, || true));
+    }
+
+    #[test]
+    fn country_first_keeps_the_native_hierarchy_and_number() {
+        for (query, country) in [
+            (
+                "South Korea, 서울특별시 가상구 새로12길 13-34",
+                "South Korea",
+            ),
+            ("대한민국, 서울특별시 가상구 새로12길 13-34", "대한민국"),
+            ("South Korea, 서울 가상구 새로12길 13-34", "South Korea"),
+        ] {
+            let parsed = parse(query, false).unwrap();
+            assert_eq!(parsed.areas, ["서울특별시", "가상구"]);
+            assert_eq!((parsed.road, parsed.number.as_str()), ("새로12길", "13-34"));
+            assert_eq!(parsed.country, Some(country));
+        }
+        for (query, open) in [
+            ("South Korea, 서울특별시 가상구 새로1", true),
+            ("South Korea, 서울특별시 가상구 새로1 ", false),
+            ("서울특별시 가상구 새로1, South Korea", false),
+            ("서울특별시 가상구 새로1", true),
+            ("서울특별시 가상구 새로1,", false),
+        ] {
+            assert_eq!(parse(query, true).unwrap().open, open, "{query}");
+        }
+        let lot = parse("대한민국, 경기도 가상시 초월읍 옛리 산 45-6", false).unwrap();
+        assert_eq!(lot.number, "산45-6");
+        for query in [
+            ", 서울특별시 가상구 새로12길 13-34",
+            "South Korea, 서울특별시 가상구 새로12길 13-34, Japan",
+            "South Korea, 10 Downing Street",
+            "South Korea, 서울특별시 가상구 새로12길 13-",
+        ] {
+            assert!(parse(query, false).is_none(), "{query}");
+        }
+    }
 
     #[test]
     fn short_provinces_keep_an_explicit_city_county_or_district() {
