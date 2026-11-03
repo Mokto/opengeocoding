@@ -301,11 +301,23 @@ impl Index {
         }
         // "route 66": a digit word that is part of the road
         tries.push((None, false, raw.clone()));
-        // "Muurlantie 340 A": OpenStreetMap keys some houses with the space
+        // "Muurlantie 340 A": OpenStreetMap keys some houses with the space, and Canada's
+        // sources a fraction ("484 1/2 Sherbrook St")
+        let fraction = |n: &str| {
+            let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+            n.split_once(' ').is_some_and(|(whole, part)| {
+                digits(whole)
+                    && part
+                        .split_once('/')
+                        .is_some_and(|(a, b)| digits(a) && digits(b))
+            })
+        };
         if raw.len() > 2 {
             for start in [0, raw.len() - 2] {
                 let number = raw[start..start + 2].join(" ");
-                if number.len() <= MAX_NUMBER && compact_house_suffix(&number).is_some() {
+                if number.len() <= MAX_NUMBER
+                    && (compact_house_suffix(&number).is_some() || fraction(&number))
+                {
                     let mut road = raw.clone();
                     road.drain(start..start + 2);
                     tries.push((Some(number), start > 0, road));

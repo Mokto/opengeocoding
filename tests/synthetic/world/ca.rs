@@ -193,14 +193,32 @@ fn canadian_unit_suggestions_identify_buildings_not_apartments_or_range_endpoint
             assert!(index.suggest(&query, 0, None, None, false).is_empty());
         }
     }
-    let known_failure = "index: completion does not join a spaced fractional civic number";
     for query in [
         "12 1/2 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
+        "Maple Scope Road 12 1/2, Delhi, ON N4B 1A1, Canada",
         "100-12 1/2 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
     ] {
+        let found = index.suggest(query, 5, Some("ca"), None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
         assert!(
-            index.suggest(query, 5, Some("ca"), None, false).is_empty(),
-            "fixed, remove its known_failure ({known_failure}): {query}"
+            metres(
+                (found[0].x, found[0].y),
+                house(street("Maple Scope Road"), "12 1/2")
+            ) < 2.,
+            "{query}"
+        );
+    }
+    // a fraction the street lacks is not its whole number's house
+    for query in [
+        "12 3/4 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
+        "24 1/2 Maple Scope Road, Delhi, ON N4B 1A1, Canada",
+    ] {
+        assert!(
+            !index
+                .suggest(query, 5, Some("ca"), None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
         );
     }
     let literal = index.suggest(
