@@ -32,8 +32,8 @@ fn states_canada(query: &str) -> bool {
     canadian
 }
 
-/// A Canadian address whose second comma part is only a number ("471 Upper Lakeville Road, 2, Upper Lakeville, Nova Scotia, Canada": OSM's
-/// `addr:district`, or a unit), as (the query without that part, the civic number). libpostal
+/// A Canadian address whose second comma part is only a number ("471 Upper Lakeville Road, 2,
+/// Upper Lakeville, Nova Scotia, Canada": OSM's `addr:district`, or a unit), as (the query without that part, the civic number). libpostal
 /// reads the number into the road or as the house. No Canadian place or postcode is a bare
 /// number, so the building answers; the unit or district stays unverified. The civic number is
 /// kept as written (`20-24`, `29 1/2`), so the retry is the literal one before any unit reading.
@@ -47,7 +47,18 @@ pub fn without_bare_number(query: &str) -> Option<(String, String)> {
     let (Some(1), None) = (bares.next(), bares.next()) else {
         return None;
     };
-    let words: Vec<&str> = parts[0].split_whitespace().collect();
+    let number = civic_number(parts[0])?;
+    let kept: Vec<&str> = (parts.iter().enumerate())
+        .filter(|(i, _)| *i != 1)
+        .map(|(_, p)| *p)
+        .collect();
+    Some((kept.join(", "), number))
+}
+
+/// The civic number of a Canadian street part, as written (`20-24`, `29 1/2`): first or last,
+/// None when it is unclear which word it is.
+fn civic_number(street: &str) -> Option<String> {
+    let words: Vec<&str> = street.split_whitespace().collect();
     let civic = |w: &str| {
         w.starts_with(|c: char| c.is_ascii_digit() && c != '0')
             && w.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
@@ -69,8 +80,39 @@ pub fn without_bare_number(query: &str) -> Option<(String, String)> {
         [_, .., n] if !first && last => n.to_owned(),
         _ => return None,
     };
+    Some(number)
+}
+
+/// A Canadian address with Statistics Canada's census-subdivision designator as a comma part of
+/// its own after the subdivision's name (`Annapolis, Subd. B`, `East River, Part 1`, as the
+/// National Address Register's subdivision names read), as (the query without it, the civic
+/// number). No place is named so, and libpostal reads it into the road or the town; the name
+/// before it stays to qualify the house.
+pub fn without_subdivision_part(query: &str) -> Option<(String, String)> {
+    static PART: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)^(?:subd\.?|subdivision|part)\s+[a-z0-9]{1,2}$").unwrap()
+    });
+    if query.chars().count() > 256 || !states_canada(query) {
+        return None;
+    }
+    let parts: Vec<&str> = query.split(',').map(str::trim).collect();
+    let designator = |i: usize| {
+        (2..parts.len() - 1).contains(&i)
+            && PART.is_match(parts[i])
+            && !PART.is_match(parts[i - 1])
+            // a name, not a postcode ("B0S 1L0")
+            && (parts[i - 1].split_whitespace())
+                .any(|w| w.chars().filter(|c| c.is_alphabetic()).count() >= 3)
+    };
+    let marked: Vec<usize> = (0..parts.len())
+        .filter(|&i| PART.is_match(parts[i]))
+        .collect();
+    if marked.is_empty() || !marked.iter().all(|&i| designator(i)) {
+        return None;
+    }
+    let number = civic_number(parts[0])?;
     let kept: Vec<&str> = (parts.iter().enumerate())
-        .filter(|(i, _)| *i != 1)
+        .filter(|&(i, _)| !designator(i))
         .map(|(_, p)| *p)
         .collect();
     Some((kept.join(", "), number))

@@ -291,6 +291,24 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
             "{query}: {got:?}"
         );
     }
+    for (query, number) in [
+        (
+            "12 Maple Scope Road, Delhi, Subd. B, ON N4B 1A1, Canada",
+            "12",
+        ),
+        (
+            "12a Maple Scope Road, Delhi, Part 1, ON N4B 1A1, Canada",
+            "12a",
+        ),
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres((at.lon as f64, at.lat as f64), house(road, number)) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
     let road = street("Thistle Bend Drive");
     for (query, number) in [
         ("31 Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada", "31"),
@@ -316,6 +334,11 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
         "716 Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada",
         // the source's street holds the opposite direction
         "870 6e Rue Est, Harbour ON, QC G1A 0A3, Canada",
+        // a subdivision designator leaves the house's number, town and postcode to match
+        "13 Maple Scope Road, Delhi, Subd. B, ON N4B 1A1, Canada",
+        "12b Maple Scope Road, Delhi, Subd. B, ON N4B 1A1, Canada",
+        "12 Maple Scope Road, Harbour ON, Subd. B, QC, Canada",
+        "12 Maple Scope Road, Delhi, Subd. B, ON M5T 0A8, Canada",
         // a suffix or number the street lacks: never its plain or other-suffixed neighbour
         "12b Maple Scope Road, 2, Delhi, Canada",
         "13 Maple Scope Road, 2, Delhi, Canada",
@@ -399,6 +422,44 @@ fn a_street_direction_the_source_leaves_out_is_suggested_only_with_the_house_pos
         "33 Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada",
         "716 Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada",
         "870 6e Rue Est, Harbour ON, QC G1A 0A3, Canada",
+    ] {
+        assert!(
+            !index
+                .suggest(query, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+}
+
+#[test]
+fn a_subdivision_designator_part_suggests_the_house_the_name_before_it_qualifies() {
+    let index = index();
+    let road = street("Maple Scope Road");
+    for (query, number) in [
+        (
+            "12 Maple Scope Road, Delhi, Subd. B, ON N4B 1A1, Canada",
+            "12",
+        ),
+        (
+            "12a Maple Scope Road, Delhi, Part 1, ON N4B 1A1, Canada",
+            "12a",
+        ),
+    ] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert!(
+            metres((found[0].x, found[0].y), house(road, number)) < 2.,
+            "{query}"
+        );
+    }
+    for query in [
+        "13 Maple Scope Road, Delhi, Subd. B, ON N4B 1A1, Canada",
+        "12b Maple Scope Road, Delhi, Subd. B, ON N4B 1A1, Canada",
+        "12 Maple Scope Road, Delhi, Subd. B, ON M5T 0A8, Canada",
+        "12 Maple Scope Road, Delhi, Subd. B, ON N4B 1A1, CA",
+        "12 Maple Scope Road, Delhi, Subd. B, ON N4B 1A1, Australia",
     ] {
         assert!(
             !index
