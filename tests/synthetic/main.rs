@@ -1452,6 +1452,7 @@ fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
 #[ignore = "needs the libpostal models; run with --ignored"]
 async fn resolve_follows_the_authored_facts() {
     let resolver = Resolver::open(dir()).unwrap();
+    world::lv::check_search(&resolver).await;
     world::gl::check_search(&resolver).await;
     world::kr::check_short_provinces(&resolver).await;
     world::pf::check_search(&resolver).await;

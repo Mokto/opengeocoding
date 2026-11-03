@@ -456,10 +456,16 @@ impl Index {
                 return found;
             }
         }
-        if cc.is_none_or(|c| c.eq_ignore_ascii_case("lv"))
-            && let Some(found) = self.lv_house(text)
-        {
-            return kept(vec![found], cc, limit);
+        if cc.is_none_or(|c| c.eq_ignore_ascii_case("lv")) {
+            if let Some(region) = lv::region_query(text) {
+                let found = self.retry_suggest(&region, limit, Some("lv"), focus, landmarks, chain);
+                if !found.is_empty() {
+                    return found;
+                }
+            }
+            if let Some(found) = self.lv_house(text) {
+                return kept(vec![found], cc, limit);
+            }
         }
         if cc.is_none_or(|c| c.eq_ignore_ascii_case("ee")) {
             if let Some(turned) = ee::county_first(text) {

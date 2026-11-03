@@ -26,16 +26,52 @@ fn postcode(part: &str) -> Option<String> {
         .then(|| format!("lv-{digits}"))
 }
 
-/// "Puķu iela 19", "Zolitūdes iela 71D": the street and a number without leading zero, with at
-/// most one letter.
-fn house(part: &str) -> Option<(String, String)> {
-    let (road, number) = part.rsplit_once(' ')?;
-    let digits = number.trim_end_matches(|c: char| c.is_alphabetic());
-    (digits.starts_with(|c: char| ('1'..='9').contains(&c))
+fn number(number: &str) -> bool {
+    let (base, building) = number
+        .split_once(" k-")
+        .map_or((number, None), |(base, building)| (base, Some(building)));
+    let digits = base.trim_end_matches(|c: char| c.is_alphabetic());
+    digits.starts_with(|c: char| ('1'..='9').contains(&c))
         && digits.bytes().all(|b| b.is_ascii_digit())
-        && number.chars().count() - digits.len() <= 1
-        && road.contains(char::is_alphabetic))
-    .then(|| (road.to_lowercase(), number.to_lowercase()))
+        && base.chars().count() - digits.len() <= 1
+        && building.is_none_or(|b| {
+            b.starts_with(|c: char| ('1'..='9').contains(&c))
+                && b.bytes().all(|b| b.is_ascii_digit())
+        })
+}
+
+fn house(part: &str) -> Option<(String, String)> {
+    let part = part.to_lowercase();
+    part.match_indices(' ').rev().find_map(|(at, _)| {
+        let (first, last) = (&part[..at], &part[at + 1..]);
+        [(first, last), (last, first)]
+            .into_iter()
+            .find(|(road, n)| road.contains(char::is_alphabetic) && number(n))
+            .map(|(road, n)| (road.to_owned(), n.to_owned()))
+    })
+}
+
+// ponytail: only a-ending municipality names; other Latvian declensions need source aliases.
+pub(crate) fn region_query(q: &str) -> Option<String> {
+    let parts: Vec<_> = q.split(',').map(str::trim).collect();
+    let [head, tail @ ..] = parts.as_slice() else {
+        return None;
+    };
+    match tail {
+        [] => {}
+        [country]
+            if country.eq_ignore_ascii_case("latvia")
+                || country.eq_ignore_ascii_case("latvija") => {}
+        _ => return None,
+    }
+    let head = head.to_lowercase();
+    let stem = head.strip_suffix(" municipality")?;
+    (stem.ends_with('a') && stem.chars().all(|c| c.is_alphabetic() || c == ' ')).then(|| {
+        std::iter::once(format!("{stem}s novads"))
+            .chain(tail.iter().map(|s| s.to_string()))
+            .collect::<Vec<_>>()
+            .join(", ")
+    })
 }
 
 /// A house's name, quoted as the register writes it (`"Riņņi"`, `„Riņņi"`) or bare without
@@ -83,7 +119,6 @@ pub(crate) fn aligned(q: &str) -> Option<Vec<(String, String)>> {
             (state.is_none() && civil.replace(p).is_none()).then_some(())?;
         } else if settlement.is_none()
             && civil.is_none()
-            && state.is_none()
             && code.is_none()
             && !place.contains(|c: char| c.is_ascii_digit())
         {
@@ -91,6 +126,14 @@ pub(crate) fn aligned(q: &str) -> Option<Vec<(String, String)>> {
         } else {
             return None;
         }
+    }
+    if places.is_empty()
+        && let Some(region) = region_query(head)
+    {
+        return Some(vec![
+            ("state".into(), region),
+            ("country".into(), country.unwrap_or_else(|| "latvia".into())),
+        ]);
     }
     let town = settlement.or(civil)?;
     let (road, number) = match house(head) {
