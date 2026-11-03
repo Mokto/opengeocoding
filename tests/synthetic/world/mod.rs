@@ -715,6 +715,7 @@ pub fn write_release(dir: &Path) {
                 && !POINT_ONLY.contains(&p.id)
                 && !au::POINT_ONLY.contains(&p.id)
                 && !dk::POINT_ONLY.contains(&p.id)
+                && !ca::POINT_ONLY.contains(&p.id)
         })
         .map(|p| {
             let r = if p.id == "li-vaduz" { 0.05 } else { 0.2 };
@@ -723,6 +724,7 @@ pub fn write_release(dir: &Path) {
         .chain(AREAS.iter().copied())
         .chain(au::AREAS.iter().copied())
         .chain(dk::AREAS.iter().copied())
+        .chain(ca::AREAS.iter().copied())
         .collect();
     write(
         dir,

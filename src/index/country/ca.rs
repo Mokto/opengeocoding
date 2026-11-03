@@ -229,3 +229,79 @@ pub fn possessive_forms(query: &str) -> Vec<(String, String, String)> {
     }
     forms
 }
+
+/// New Brunswick's localities with an area are its civil parishes, which hold every house; its
+/// towns and cities are points (Overture's `class`) under them, and a parish's parent is one of
+/// the local governments it spans, not always the house's (`Moncton Parish` under `Maple Hills
+/// Rural Community`, where Moncton's houses lie in `City of Moncton`). A reverse house result
+/// names instead the local government whose polygon holds the house and its settlement nearest
+/// the house (a town's or city's distance divided by `TOWN_REACH`) within 10 km.
+pub(in crate::index) fn reverse_locality(
+    index: &crate::index::Index,
+    hit: &crate::index::Hit,
+    address: &mut serde_json::Map<String, serde_json::Value>,
+    display: &mut Vec<String>,
+) {
+    use crate::index::nearby::TOWN_REACH;
+    let crate::index::Hit::Street {
+        place,
+        x,
+        y,
+        number: Some(_),
+        ..
+    } = hit
+    else {
+        return;
+    };
+    let pl = |p: u32| &index.places[p as usize];
+    let Some(parish) = index.places.get(*place as usize) else {
+        return;
+    };
+    if parish.cc.as_ref() != "ca"
+        || parish.subtype.as_ref() != "locality"
+        || !parish.class.is_empty()
+        || index.region_code(&index.chain(*place)) != Some("CA-NB")
+    {
+        return;
+    }
+    let Some(government) = index
+        .area_at(*y, *x)
+        .0
+        .filter(|&c| pl(c).subtype.as_ref() == "county" && pl(c).cc.as_ref() == "ca")
+    else {
+        return;
+    };
+    let settlement = |p: u32| {
+        matches!(pl(p).class.as_ref(), "city" | "town" | "village" | "hamlet")
+            && pl(p).cc.as_ref() == "ca"
+            && index.area_at(pl(p).y as f64, pl(p).x as f64).0 == Some(government)
+    };
+    let reach = |p: u32| {
+        let reach = match pl(p).class.as_ref() {
+            "city" | "town" => TOWN_REACH,
+            _ => 1.0,
+        };
+        ((pl(p).x as f64, pl(p).y as f64), reach)
+    };
+    let Some((town, _)) = index
+        .localities
+        .nearest_by_reach(*y, *x, 10_000.0, TOWN_REACH, reach, settlement)
+    else {
+        return;
+    };
+    let old: Vec<_> = ["city", "town", "village", "county"]
+        .iter()
+        .filter_map(|key| address.remove(*key))
+        .collect();
+    let mut at = 0;
+    display.retain(|name| {
+        at += 1;
+        at <= 2 || !old.iter().any(|value| value.as_str() == Some(name))
+    });
+    let (town, government) = (pl(town), pl(government));
+    let at = 2.min(display.len());
+    display.insert(at, town.name(true).to_string());
+    display.insert(at + 1, government.name(true).to_string());
+    address.insert(town.key().into(), town.name(true).into());
+    address.insert("county".into(), government.name(true).into());
+}
