@@ -77,7 +77,7 @@ mod co;
 mod cw;
 mod cz;
 mod de;
-mod dk;
+pub(super) mod dk;
 mod ee;
 mod eg;
 mod es;
@@ -708,6 +708,7 @@ pub fn write_release(dir: &Path) {
             p.subtype == "locality"
                 && !POINT_ONLY.contains(&p.id)
                 && !au::POINT_ONLY.contains(&p.id)
+                && !dk::POINT_ONLY.contains(&p.id)
         })
         .map(|p| {
             let r = if p.id == "li-vaduz" { 0.05 } else { 0.2 };
@@ -715,6 +716,7 @@ pub fn write_release(dir: &Path) {
         })
         .chain(AREAS.iter().copied())
         .chain(au::AREAS.iter().copied())
+        .chain(dk::AREAS.iter().copied())
         .collect();
     write(
         dir,

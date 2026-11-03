@@ -29,6 +29,8 @@ fn dir() -> &'static PathBuf {
         let out = root.join("index");
         let iceland = root.join("iceland.csv");
         let iceland_sha = world::is::write(&iceland);
+        let danish = root.join("dk-localities.json.gz");
+        world::dk::write_localities(&danish);
         let built = Command::new(env!("CARGO_BIN_EXE_build_index"))
             .arg(root.join("release"))
             .arg(&out)
@@ -42,6 +44,8 @@ fn dir() -> &'static PathBuf {
             .arg(&iceland)
             .arg("--iceland-addresses-sha256")
             .arg(&iceland_sha)
+            .arg("--denmark-localities")
+            .arg(&danish)
             .output()
             .unwrap();
         assert!(

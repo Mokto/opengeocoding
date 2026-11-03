@@ -887,6 +887,9 @@ impl Index {
                     a.insert("country".into(), country.into());
                     display.push(country.into());
                 }
+                if geographic && city.is_none() {
+                    dk::reverse_locality(self, hit, &mut a, &mut display);
+                }
                 if geographic
                     && city.is_none()
                     && !a.contains_key("suburb")

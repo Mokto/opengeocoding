@@ -18,10 +18,13 @@ fn builder_hash() -> String {
                 "src/index/reverse.rs",
                 "src/index/landmark.rs",
                 "src/index/country/au.rs",
+                "src/index/country/dk.rs",
                 "src/index/country/gl.rs",
                 "src/index/country/jp.rs",
                 "data/asiaq-buildings.tsv",
                 "data/asiaq-buildings.NOTICE",
+                "data/dk-localities.json.gz",
+                "data/dk-localities.NOTICE",
             ]
             .map(PathBuf::from),
         )

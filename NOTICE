@@ -52,6 +52,10 @@ names, contacts, industry codes and unit details are not indexed. The build Job
 records the attachment, checksum and source terms in its sealed source mirror,
 and credits the source in the index's ATTRIBUTION.txt.
 The country populations in README.md's coverage table come from GeoNames (CC-BY-4.0).
+Danish settlement polygons are derived from Klimadatastyrelsen's Byer layer in
+Bebyggelser_2024.zip, under CC BY 4.0. See data/dk-localities.NOTICE for the
+source, checksum, transformation and reproduction. The builder writes the credit
+to DENMARK-LOCALITIES-NOTICE.txt alongside the derived polygon index.
 
 libpostal and rustpostal are MIT-licensed. Their notices remain applicable.
 See https://github.com/openvenues/libpostal and https://github.com/kodemartin/rustpostal
