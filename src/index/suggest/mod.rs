@@ -594,6 +594,30 @@ impl Index {
                 out = recovered;
             }
         }
+        // "31 Thatcher Dr E" where the source writes "Thatcher Dr": the postcode left in the text
+        // has to be the house's, and the road found may not hold another direction
+        if !out.iter().any(|s| s.kind == "address")
+            && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
+            && let Some((undirected, number, _)) = ca::without_street_direction(text)
+        {
+            let number = schema::number_key(&number);
+            let recovered: Vec<_> = self
+                .retry_suggest(&undirected, limit, Some("ca"), focus, landmarks, chain)
+                .into_iter()
+                .filter(|s| {
+                    s.kind == "address"
+                        && s.country_code == "ca"
+                        && s.id.rsplit(':').next() == Some(number.as_str())
+                        && !ca::other_street_direction(
+                            text,
+                            s.display_name.split(", ").nth(1).unwrap_or(""),
+                        )
+                })
+                .collect();
+            if !recovered.is_empty() {
+                out = recovered;
+            }
+        }
         // "Via Praga 3, Possidente, Avigliano (PZ)": the houses name the municipality, not the
         // frazione
         if !out.iter().any(|s| s.kind == "address")

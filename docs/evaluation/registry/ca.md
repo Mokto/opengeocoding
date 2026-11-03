@@ -51,7 +51,7 @@ Overture's Canadian address rows write about 98,000 suffixed civic numbers as a 
 
 French street directions fold like English ones (`Ouest`/`O`, `Est`/`E`, `Nord`/`N`, `Sud`/`S`), so `1455 Boulevard de Maisonneuve Ouest` finds Overture's `boul. De Maisonneuve O`. The folding is shared by all text, so English and French direction words of any place name now match each other (`South Province` and `Province Sud`).
 
-Two SearchAddress retries run only when the query as written finds no house. A suffix glued to a number the parser reads as part of the road (`82A AV MERCIER`) is retried spaced, and answers only with that exact number. A street direction the source omits (`31 THATCHER DR E` for Overture's `Thatcher DR`) is retried without it, and answers only with a Canadian house of the same number whose postcode equals the one stated; without a postcode in the query there is no retry.
+Two SearchAddress retries run only when the query as written finds no house. A suffix glued to a number the parser reads as part of the road (`82A AV MERCIER`) is retried spaced, and answers only with that exact number. A street direction the source omits (`31 THATCHER DR E` for Overture's `Thatcher DR`) is retried without it, and answers only with a Canadian house of the same number whose postcode equals the one stated, on a road that holds no other direction (`870 6e Rue Est` never answers `6e Rue O`); without a postcode in the query there is no retry. SuggestAddress makes the same retry with the postcode left in the text, which a suggested house has to carry.
 
 Remaining failures include suffixed buildings the sources lack (several Whitehorse ones), `Robert's RD` against a query's `ROBERTS RD`, and duplicated house numbers on same-named streets of one city.
 

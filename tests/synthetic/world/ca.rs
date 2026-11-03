@@ -99,6 +99,18 @@ pub const STREETS: &[Street] = &[
         lat: 46.8,
         numbers: &["12"],
     },
+    // a street the source names without the direction an address writes ("Thistle Bend Dr E")
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Thistle Bend Drive",
+        postcode: "N4B 1A3",
+        city: "Delhi",
+        cc: "CA",
+        lon: -80.497,
+        lat: 42.856,
+        numbers: &["31", "716.0 E"],
+    },
     // Overture's Canadian rows: the direction abbreviated, a suffixed civic number as a float
     Street {
         class: "residential",
@@ -279,7 +291,31 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
             "{query}: {got:?}"
         );
     }
+    let road = street("Thistle Bend Drive");
+    for (query, number) in [
+        ("31 Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada", "31"),
+        ("31 North Thistle Bend Dr, Delhi, ON N4B 1A3, Canada", "31"),
+        (
+            "716E Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada",
+            "716.0 E",
+        ),
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres((at.lon as f64, at.lat as f64), house(road, number)) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
     for query in [
+        // the direction left out needs the house's own postcode, and its number and suffix
+        "31 Thistle Bend Dr E, Delhi, ON N4B 9Z9, Canada",
+        "31 Thistle Bend Dr E, Delhi, ON, Canada",
+        "33 Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada",
+        "716 Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada",
+        // the source's street holds the opposite direction
+        "870 6e Rue Est, Harbour ON, QC G1A 0A3, Canada",
         // a suffix or number the street lacks: never its plain or other-suffixed neighbour
         "12b Maple Scope Road, 2, Delhi, Canada",
         "13 Maple Scope Road, 2, Delhi, Canada",
@@ -326,6 +362,43 @@ fn a_bare_number_part_suggests_the_building_with_the_civic_number_as_written() {
         "12 Maple Scope Road, 2, Delhi, ON N4B 1A1, CA",
         "12 Maple Scope Road, 2, Delhi, ON M5T 0A8, Canada",
         "12 Maple Scope Road, 2, Delhi, ON N4B 1A1, Australia",
+    ] {
+        assert!(
+            !index
+                .suggest(query, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+}
+
+#[test]
+fn a_street_direction_the_source_leaves_out_is_suggested_only_with_the_house_postcode() {
+    let index = index();
+    let road = street("Thistle Bend Drive");
+    for (query, number) in [
+        ("31 Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada", "31"),
+        ("31 North Thistle Bend Dr, Delhi, ON N4B 1A3, Canada", "31"),
+        (
+            "716E Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada",
+            "716.0 E",
+        ),
+    ] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert!(
+            metres((found[0].x, found[0].y), house(road, number)) < 2.,
+            "{query}"
+        );
+        assert!(index.suggest(query, 5, Some("us"), None, false).is_empty());
+    }
+    for query in [
+        "31 Thistle Bend Dr E, Delhi, ON N4B 9Z9, Canada",
+        "31 Thistle Bend Dr E, Delhi, ON, Canada",
+        "33 Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada",
+        "716 Thistle Bend Dr E, Delhi, ON N4B 1A3, Canada",
+        "870 6e Rue Est, Harbour ON, QC G1A 0A3, Canada",
     ] {
         assert!(
             !index
