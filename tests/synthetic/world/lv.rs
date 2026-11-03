@@ -38,19 +38,107 @@ pub const PLACES: &[Place] = &[
         "Liepava",
         &[("lv", "Liepava")]
     ),
+    place!(
+        "lv-liepu",
+        "region",
+        "",
+        "LV",
+        "LV-002",
+        10_000,
+        (121.0, -45.0),
+        "lv",
+        "Liepu novads",
+        &[("lv", "Liepu novads")]
+    ),
+    place!(
+        "lv-ozolu",
+        "region",
+        "",
+        "LV",
+        "LV-003",
+        10_000,
+        (122.0, -45.0),
+        "lv",
+        "Ozolu novads",
+        &[("lv", "Ozolu novads")]
+    ),
+    place!(
+        "lv-liepu-parish",
+        "locality",
+        "village",
+        "LV",
+        "LV-002",
+        200,
+        (121.0, -45.0),
+        "lv-liepu",
+        "Liepu pagasts",
+        &[("lv", "Liepu pagasts")]
+    ),
+    place!(
+        "lv-ozolu-parish",
+        "locality",
+        "village",
+        "LV",
+        "LV-003",
+        200,
+        (122.0, -45.0),
+        "lv-ozolu",
+        "Ozolu pagasts",
+        &[("lv", "Ozolu pagasts")]
+    ),
 ];
 
-pub const STREETS: &[Street] = &[Street {
-    class: "residential",
-    length: 0.0,
-    name: "Birzu iela",
-    postcode: "LV-1234",
-    city: "Liepava",
-    cc: "LV",
-    lon: 120.0,
-    lat: -45.0,
-    numbers: &["12", "12 k-3", "12A", "12A k-37"],
-}];
+pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Birzu iela",
+        postcode: "LV-1234",
+        city: "Liepava",
+        cc: "LV",
+        lon: 120.0,
+        lat: -45.0,
+        numbers: &["12", "12 k-3", "12A", "12A k-37"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Liepu pag.",
+        postcode: "LV-1234",
+        city: "Liepu pagasts",
+        cc: "LV",
+        lon: 121.0,
+        lat: -45.0,
+        numbers: &["Silvas"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Ozolu pagasts",
+        postcode: "LV-1235",
+        city: "Ozolu pagasts",
+        cc: "LV",
+        lon: 122.0,
+        lat: -45.0,
+        numbers: &["Silvas"],
+    },
+];
+
+const QUERIES: &[(&str, &str)] = &[
+    (
+        "\"Silvas\", Liepu pag., Liepu nov., LV-1234, Latvia",
+        "Liepu pag.",
+    ),
+    ("Silvas, Liepu pagasts, Liepu novads, Latvia", "Liepu pag."),
+    (
+        "\"Silvas\", Ozolu pag., Ozolu nov., LV-1235, Latvia",
+        "Ozolu pagasts",
+    ),
+    (
+        "Silvas, Ozolu pagasts, Ozolu novads, Latvia",
+        "Ozolu pagasts",
+    ),
+];
 
 const HOUSES: &[(&str, &str)] = &[
     (
@@ -79,6 +167,11 @@ pub fn cases() -> Vec<Case> {
     HOUSES
         .iter()
         .map(|&(query, n)| case(query, at_house("Birzu iela", n)))
+        .chain(
+            QUERIES
+                .iter()
+                .map(|&(q, road)| case(q, at_house(road, "Silvas"))),
+        )
         .chain([
             case(
                 "Liepava Municipality, Latvia",
@@ -170,5 +263,39 @@ pub async fn check_search(resolver: &crate::Resolver) {
     ] {
         let got = resolver.resolve(query).await.unwrap();
         assert!(!got.good_match, "{query}: {got:?}");
+    }
+}
+
+#[test]
+fn parish_spellings_find_the_same_named_house() {
+    for &(query, road) in QUERIES {
+        let found = index().suggest(query, 5, Some("LV"), None, false);
+        let first = found
+            .first()
+            .unwrap_or_else(|| panic!("{query}: no suggestion"));
+        assert_eq!(first.kind, "address", "{query}");
+        assert!(
+            metres((first.x, first.y), house(street(road), "Silvas")) < 5.0,
+            "{query}"
+        );
+    }
+    for query in [
+        "Silvas, Liepu pagasts, Ozolu novads, Latvia",
+        "Silvas, Ozolu pagasts, Liepu novads, Latvia",
+        "Missing, Liepu pagasts, Liepu novads, Latvia",
+    ] {
+        let found = index().suggest(query, 5, Some("LV"), None, false);
+        assert!(found.iter().all(|s| s.kind != "address"), "{query}");
+    }
+}
+
+pub async fn check_conflicts(resolver: &crate::Resolver) {
+    for query in [
+        "Silvas, Liepu pagasts, Ozolu novads, Latvia",
+        "Silvas, Ozolu pagasts, Liepu novads, Latvia",
+        "Missing, Liepu pagasts, Liepu novads, Latvia",
+    ] {
+        let found = resolver.resolve(query).await.unwrap();
+        assert!(!found.good_match, "{query}: {found:?}");
     }
 }

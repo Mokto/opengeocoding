@@ -16,6 +16,21 @@ fn parish(part: &str) -> Option<String> {
     Some(format!("{stem} pagasts"))
 }
 
+pub(crate) fn same_road(road: &str, found: &str) -> bool {
+    let fold = crate::index::schema::fold;
+    fold(road) == fold(found) || parish_road(road).is_some_and(|alt| fold(&alt) == fold(found))
+}
+
+pub(crate) fn parish_road(road: &str) -> Option<String> {
+    let road = road.to_lowercase();
+    if let Some(stem) = road.strip_suffix(" pagasts") {
+        Some(format!("{stem} pag."))
+    } else {
+        road.strip_suffix(" pag.")
+            .map(|stem| format!("{stem} pagasts"))
+    }
+}
+
 /// "LV-4211" (or "LV4211"), as the index writes Latvian postcodes.
 fn postcode(part: &str) -> Option<String> {
     let digits = part

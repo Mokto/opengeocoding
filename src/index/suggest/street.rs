@@ -1481,7 +1481,7 @@ impl Index {
                 x,
                 y,
                 ..
-            } if name.split('\x1f').any(|n| fold(n) == fold(road))
+            } if name.split('\x1f').any(|n| lv::same_road(road, n))
                 && place != NONE
                 && within(place, x, y) =>
             {

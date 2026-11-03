@@ -298,8 +298,9 @@ impl Index {
                 // Latvian village's name is many villages' ("Sēļi" in Valmieras and Valka)
                 let within = |h: &Hit| {
                     matches!(h, Hit::Street { number: Some(_), place, name, city: postal, x, y, .. }
-                        if name.split('\x1f').any(|n| fold(n) == fold(road))
-                            && ((postal.is_some() && code != "lv")
+                        if name.split('\x1f').any(|n| {
+                            if code == "lv" { lv::same_road(road, n) } else { fold(n) == fold(road) }
+                        }) && ((postal.is_some() && code != "lv")
                                 || (*place != NONE && in_municipality(*place, *x, *y))))
                 };
                 // a Lithuanian village named with only its municipality, which can have two
@@ -307,8 +308,15 @@ impl Index {
                 let lone = code == "lt" && city.is_none() && get("postcode").is_none();
                 let found = hits.iter().any(within);
                 if !found || lone {
-                    let houses =
+                    let mut houses =
                         self.municipal_houses(road, house_number(number), municipality, code);
+                    if code == "lv"
+                        && houses.is_empty()
+                        && let Some(alt) = lv::parish_road(road)
+                    {
+                        houses =
+                            self.municipal_houses(&alt, house_number(number), municipality, code);
+                    }
                     match &houses[..] {
                         [one] => hits = vec![one.clone()],
                         // two villages of the municipality hold the house; or none does, and a

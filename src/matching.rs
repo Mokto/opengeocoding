@@ -774,6 +774,11 @@ pub(crate) fn road_expansions(road: &str, cc: &str) -> Vec<String> {
     if cc.eq_ignore_ascii_case("ee") {
         return ee::full_road(road).into_iter().collect();
     }
+    if cc.eq_ignore_ascii_case("lv") {
+        return crate::index::country::lv::parish_road(road)
+            .into_iter()
+            .collect();
+    }
     if cc.eq_ignore_ascii_case("co") {
         return co::bogota_road(road).into_iter().collect();
     }

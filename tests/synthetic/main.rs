@@ -1453,6 +1453,7 @@ fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
 async fn resolve_follows_the_authored_facts() {
     let resolver = Resolver::open(dir()).unwrap();
     world::lv::check_search(&resolver).await;
+    world::lv::check_conflicts(&resolver).await;
     world::gl::check_search(&resolver).await;
     world::kr::check_short_provinces(&resolver).await;
     world::pf::check_search(&resolver).await;
