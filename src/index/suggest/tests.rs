@@ -552,7 +552,6 @@ fn a_comma_can_separate_the_house_number_from_the_road() {
         "1, rue de rivoli",
         "99, rue de rivoli",
         "12, rue de rivoli, london",
-        "12, rue de rivoli, paris, united states",
         "12, rue de rivoli, paris, texas",
         "12,",
         "12345678901, rue de rivoli",
@@ -568,6 +567,16 @@ fn a_comma_can_separate_the_house_number_from_the_road() {
             .suggest("12, rue de rivoli", 5, Some("us"), None, false)
             .is_empty()
     );
+    // not the French house: the town and country stated, in that country
+    let stated = index.suggest(
+        "12, rue de rivoli, paris, united states",
+        5,
+        None,
+        None,
+        false,
+    );
+    let ids: Vec<_> = stated.iter().map(|s| s.id.as_str()).collect();
+    assert_eq!(ids, ["p5"]);
     assert!(
         index
             .suggest("12, rue de rivoli", 0, None, None, false)
@@ -726,17 +735,16 @@ fn a_house_without_its_own_postcode_still_answers_the_town() {
     );
     assert_eq!(other.len(), 1);
     assert_eq!(other[0].id, "h10:26");
-    assert!(
-        index
-            .suggest(
-                "13 rue de rivoli, paris, 75001, france",
-                5,
-                None,
-                None,
-                false
-            )
-            .is_empty()
+    // not house 13, whose own postcode the stated one contradicts: the stated town
+    let stated = index.suggest(
+        "13 rue de rivoli, paris, 75001, france",
+        5,
+        None,
+        None,
+        false,
     );
+    let ids: Vec<_> = stated.iter().map(|s| s.id.as_str()).collect();
+    assert_eq!(ids, ["p2"]);
     // "Luxembourg" is also a Belgian province, so the country is not set from the last part.
     // 9169 is still that country's postcode. House 6 does not carry it; the street's other
     // code must not hide the house.

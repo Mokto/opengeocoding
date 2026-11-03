@@ -70,6 +70,7 @@ mod at;
 mod au;
 mod aw;
 mod be;
+mod bm;
 mod br;
 pub mod ca;
 mod cl;
@@ -129,6 +130,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         at::PLACES,
         au::PLACES,
         be::PLACES,
+        bm::PLACES,
         br::PLACES,
         ca::PLACES,
         cl::PLACES,
@@ -343,6 +345,7 @@ pub static STREETS: LazyLock<Vec<Street>> = LazyLock::new(|| {
         at::STREETS,
         au::STREETS,
         be::STREETS,
+        bm::STREETS,
         br::STREETS,
         ca::STREETS,
         co::STREETS,
