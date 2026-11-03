@@ -40,6 +40,11 @@ thread_local! {
     static TRUNCATED_STREETS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+struct StreetRetries {
+    parts: Vec<Vec<String>>,
+    comma_number: bool,
+}
+
 impl Index {
     pub(super) fn suggest_number_comma(
         &self,
@@ -134,7 +139,16 @@ impl Index {
         focus: Option<&Focus>,
         want: usize,
     ) -> Vec<Suggestion> {
-        self.streets_from(typed, cc, focus, want, &mut vec![typed.parts.clone()])
+        self.streets_from(
+            typed,
+            cc,
+            focus,
+            want,
+            &mut StreetRetries {
+                parts: vec![typed.parts.clone()],
+                comma_number: false,
+            },
+        )
     }
 
     /// `suggest_streets` retried with rewritten parts: none once the rewrite gives back parts
@@ -148,15 +162,15 @@ impl Index {
         cc: Option<&str>,
         focus: Option<&Focus>,
         want: usize,
-        chain: &mut Vec<Vec<String>>,
+        chain: &mut StreetRetries,
     ) -> Vec<Suggestion> {
-        if chain.contains(&parts) || chain.len() > MAX_RETRIES {
-            loop_stopped("suggest_streets", chain.len());
+        if chain.parts.contains(&parts) || chain.parts.len() > MAX_RETRIES {
+            loop_stopped("suggest_streets", chain.parts.len());
             return vec![];
         }
-        chain.push(parts.clone());
+        chain.parts.push(parts.clone());
         let found = self.streets_from(&Typed { parts, open }, cc, focus, want, chain);
-        chain.pop();
+        chain.parts.pop();
         found
     }
 
@@ -166,7 +180,7 @@ impl Index {
         cc: Option<&str>,
         focus: Option<&Focus>,
         want: usize,
-        chain: &mut Vec<Vec<String>>,
+        chain: &mut StreetRetries,
     ) -> Vec<Suggestion> {
         let one_part = typed.parts.len() == 1;
         let country = (!one_part)
@@ -669,7 +683,13 @@ impl Index {
             && raw.iter().any(|w| has_digit(w))
             && let Some((pc, rest)) = &extracted
         {
-            let rest = Typed::new(rest).parts;
+            let mut postcodes = vec![pc.clone()];
+            let mut rest = rest.clone();
+            while let Some((pc, without)) = self.find_postcode(&rest, cc) {
+                postcodes.push(pc);
+                rest = without;
+            }
+            let rest = Typed::new(&rest).parts;
             let town = if rest
                 .iter()
                 .any(|p| country.is_none() || self.country(p) != country)
@@ -692,11 +712,16 @@ impl Index {
                     .chain(rest)
                     .collect();
                 // A postcode's place can contain that postcode and reconstruct an earlier input.
-                if !chain.contains(&parts) {
+                if !chain.parts.contains(&parts) {
                     let found: Vec<_> = self
                         .retry_streets(parts, typed.open, cc, focus, want, chain)
                         .into_iter()
-                        .filter(|s| s.kind == "address" && self.house_accepts_postcode(s, pc))
+                        .filter(|s| {
+                            s.kind == "address"
+                                && postcodes
+                                    .iter()
+                                    .all(|pc| self.house_accepts_postcode(s, pc))
+                        })
                         .collect();
                     if !found.is_empty() {
                         return found;
@@ -766,7 +791,7 @@ impl Index {
             });
             let parts = at
                 .map(|at| vec![words[..at].join(" "), words[at..].join(" ")])
-                .filter(|parts| !chain.contains(parts));
+                .filter(|parts| !chain.parts.contains(parts));
             if let Some(parts) = parts {
                 let found = self.retry_streets(parts, typed.open, cc, focus, want, chain);
                 if found.iter().any(|s| s.kind == "address") {
@@ -777,13 +802,16 @@ impl Index {
         // "Rua Pereira Charula, 12, 5340-278 Macedo de Cavaleiros": the number as its own part,
         // also after a road named by a number ("AVENIDA 2204, 1370, Vilhena - RO")
         if !out.iter().any(|s| s.kind == "address")
+            && !chain.comma_number
             && let [road, number, rest @ ..] = typed.parts.as_slice()
             && !road.split(' ').next().is_some_and(has_digit)
             && let Some(number) = comma_number(number)
         {
             let mut parts = vec![format!("{road} {number}")];
             parts.extend_from_slice(rest);
+            chain.comma_number = true;
             let found = self.retry_streets(parts, typed.open, cc, focus, want, chain);
+            chain.comma_number = false;
             if found.iter().any(|s| s.kind == "address") {
                 return found;
             }

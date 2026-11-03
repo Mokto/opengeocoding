@@ -53,14 +53,30 @@ pub const STREETS: &[Street] = &[
         lat: 14.591,
         numbers: &["4"],
     },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Calle Postal",
+        postcode: "Zona 14",
+        city: "Zona 13",
+        cc: "GT",
+        lon: -90.532,
+        lat: 14.592,
+        numbers: &["7"],
+    },
 ];
 
-/// Each rewrite of these leads back to the text typed (the postcode's own place is the part it was
-/// read from; the number's letter, joined to the road, splits off again as a postcode), which
-/// recursed until the stack overflowed.
 #[test]
-fn an_address_whose_rewrites_lead_back_to_it_ends() {
-    for typed in ["Zona 9, Zona 13", "Calzada Aguilar 2, 3A"] {
+fn address_rewrites_end_without_reconsuming_numbers_or_postcodes() {
+    for typed in [
+        "Zona 9, Zona 13",
+        "Calzada Aguilar 2, 3A",
+        "Avenida Hincapié 5, Zona 13, Zona 14, Guatemala",
+        "Avenida Hincapié 5, Zona 14, Zona 13, Guatemala",
+        "Missing Road, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, Guatemala",
+        "Missing Road 9, Zona 13, Zona 13, Zona 13, Zona 13, Zona 13, Zona 13, Zona 13, Zona 13, Zona 13, Zona 13",
+        "Missing Road, 1, 2, 3, 4, 5, Zona 13, Zona 13, Zona 13, Zona 13, Zona 13",
+    ] {
         let events = std::sync::Arc::new(std::sync::Mutex::new(vec![]));
         let captured = events.clone();
         let mut options = sentry::ClientOptions::new();
@@ -80,7 +96,9 @@ fn an_address_whose_rewrites_lead_back_to_it_ends() {
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             sentry::Hub::run(hub.into(), || {
-                tx.send(index().suggest(typed, 5, None, None, false))
+                let mut found = index().suggest(typed, 5, None, None, false);
+                found.extend(index().suggest_houses(typed, None, 5));
+                tx.send(found)
             })
         });
         let found = rx
@@ -88,5 +106,19 @@ fn an_address_whose_rewrites_lead_back_to_it_ends() {
             .unwrap_or_else(|_| panic!("{typed} did not end"));
         assert!(found.iter().all(|s| s.kind != "address"), "{typed}");
         assert!(events.lock().unwrap().is_empty(), "{typed}: {events:?}");
+    }
+    for query in [
+        "Avenida Hincapié, 5, Zona 13",
+        "Avenida Hincapié, 5, Zona 13, Guatemala",
+        "Avenida Hincapié 5, Zona 13, Zona 13, Guatemala",
+    ] {
+        let found = index().suggest_houses(query, Some("gt"), 5);
+        assert!(
+            found.iter().any(|s| {
+                s.kind == "address"
+                    && metres((s.x, s.y), house(street("Avenida Hincapié"), "5")) < 5.
+            }),
+            "{query}"
+        );
     }
 }
