@@ -1,5 +1,6 @@
 use super::*;
 use crate::*;
+use opengeocoding::index::schema;
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -223,6 +224,90 @@ fn canadian_unit_suggestions_identify_buildings_not_apartments_or_range_endpoint
         "1-12 Maple Scope Road, Delhi, ON N4B 1A1, Poland",
         "1-12 Maple Scope Road, Missingville, ON N4B 1A1, Canada",
         "1-12 Missing Road, Delhi, ON N4B 1A1, Canada",
+    ] {
+        assert!(
+            !index
+                .suggest(query, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+}
+
+/// A bare number written as a part of its own after the street (OSM's `addr:district`, or a unit)
+/// garbles libpostal's road; the building with the civic number as written answers.
+pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
+    let road = street("Maple Scope Road");
+    for (query, number) in [
+        ("12 Maple Scope Road, 2, Delhi, ON, Canada", "12"),
+        ("Maple Scope Road 12, 2, Delhi, Ontario, Canada", "12"),
+        ("12a Maple Scope Road, 4, Delhi, Canada", "12a"),
+        ("12 1/2 Maple Scope Road, 2, Delhi, Canada", "12 1/2"),
+        ("20-24 Maple Scope Road, 2, Delhi, Canada", "20-24"),
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let details = got.address_details.as_option().unwrap();
+        assert_eq!(details.country_code, "ca", "{query}");
+        assert_eq!(
+            schema::number_key(&details.house_number),
+            schema::number_key(number),
+            "{query}: {got:?}"
+        );
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres((at.lon as f64, at.lat as f64), house(road, number)) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
+    for query in [
+        // a suffix or number the street lacks: never its plain or other-suffixed neighbour
+        "12b Maple Scope Road, 2, Delhi, Canada",
+        "13 Maple Scope Road, 2, Delhi, Canada",
+        // a bare CA is also California
+        "12 Maple Scope Road, 2, Delhi, ON, CA",
+        // the stated postcode, province and town, or country, are another place's
+        "12 Maple Scope Road, 2, Delhi, ON M5T 0A8, Canada",
+        "12 Maple Scope Road, 2, Harbour ON, QC, Canada",
+        "12 Maple Scope Road, 2, Delhi, ON, Australia",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        let house = got
+            .address_details
+            .as_option()
+            .map_or("", |d| d.house_number.as_str());
+        assert!(!got.good_match && house.is_empty(), "{query}: {got:?}");
+    }
+}
+
+#[test]
+fn a_bare_number_part_suggests_the_building_with_the_civic_number_as_written() {
+    let index = index();
+    let road = street("Maple Scope Road");
+    for (query, number) in [
+        ("12 Maple Scope Road, 2, Delhi, ON N4B 1A1, Canada", "12"),
+        ("12a Maple Scope Road, 4, Delhi, ON N4B 1A1, Canada", "12a"),
+        (
+            "20-24 Maple Scope Road, 2, Delhi, ON N4B 1A1, Canada",
+            "20-24",
+        ),
+    ] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert_eq!(found[0].country_code, "ca");
+        assert!(
+            metres((found[0].x, found[0].y), house(road, number)) < 2.,
+            "{query}"
+        );
+        assert!(index.suggest(query, 5, Some("us"), None, false).is_empty());
+    }
+    for query in [
+        "12b Maple Scope Road, 2, Delhi, ON N4B 1A1, Canada",
+        "13 Maple Scope Road, 2, Delhi, ON N4B 1A1, Canada",
+        "12 Maple Scope Road, 2, Delhi, ON N4B 1A1, CA",
+        "12 Maple Scope Road, 2, Delhi, ON M5T 0A8, Canada",
+        "12 Maple Scope Road, 2, Delhi, ON N4B 1A1, Australia",
     ] {
         assert!(
             !index

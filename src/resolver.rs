@@ -1930,6 +1930,23 @@ impl Core {
             .address_details
             .as_option()
             .is_none_or(|d| d.house_number.is_empty())
+            && let Some((kept, number)) = ca::without_bare_number(query)
+        {
+            let alt = self.resolve(&kept)?;
+            if alt.good_match
+                && same_house_number(&alt, &number)
+                && alt
+                    .address_details
+                    .as_option()
+                    .is_some_and(|d| d.country_code == "ca")
+            {
+                return Ok(alt);
+            }
+        }
+        if found
+            .address_details
+            .as_option()
+            .is_none_or(|d| d.house_number.is_empty())
             && let Some((building, number)) = ca::canadian_building(query)
         {
             let recovered = self.resolve(building)?;
