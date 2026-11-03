@@ -1659,6 +1659,36 @@ fn a_canadian_subdivision_designator_part_is_set_aside() {
 }
 
 #[test]
+fn a_canadian_possessive_is_retried_written_the_other_way() {
+    let forms = |q| -> Vec<String> {
+        ca::possessive_forms(q)
+            .into_iter()
+            .map(|(form, number, postcode)| {
+                assert_eq!((number.as_str(), postcode.as_str()), ("57", "A1X6L1"));
+                form
+            })
+            .collect()
+    };
+    assert_eq!(
+        forms("57 ROBERTS RD S, CONCEPTION BAY SOUTH, NL A1X 6L1, Canada"),
+        ["57 ROBERT'S RD S, CONCEPTION BAY SOUTH, NL A1X 6L1, Canada"]
+    );
+    assert_eq!(
+        forms("57 Dick’s Sq, St. John's, NL A1X6L1"),
+        ["57 Dicks Sq, St. John's, NL A1X6L1"]
+    );
+    for query in [
+        // no postcode to confirm the house, no civic number first, nothing possessive-shaped
+        "57 ROBERTS RD S, CONCEPTION BAY SOUTH, NL, Canada",
+        "ROBERTS RD S 57, CONCEPTION BAY SOUTH, NL A1X 6L1",
+        "57 Main St, Paradise, NL A1L 3B8",
+        "57 Bus RD, Paradise, NL A1L 3B8",
+    ] {
+        assert!(ca::possessive_forms(query).is_empty(), "{query}");
+    }
+}
+
+#[test]
 fn glued_house_suffixes_and_canadian_street_directions_have_retry_forms() {
     assert_eq!(
         spaced_house_suffix("82A AV MERCIER, SALABERRY-DE-VALLEYFIELD, QC J6S 6L9, Canada"),
