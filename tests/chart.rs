@@ -22,6 +22,19 @@ fn chart_pins_this_builder() {
 }
 
 #[test]
+fn chart_reads_new_caledonian_addresses_not_only_landmarks() {
+    let (addresses, landmarks) = include_str!("../manifests/values.yaml")
+        .split_once("    osm:\n")
+        .unwrap()
+        .1
+        .split_once("    osmLandmarks:\n")
+        .unwrap();
+    let has_extract = |list: &str| list.lines().any(|line| line.trim() == "- new-caledonia");
+    assert!(has_extract(addresses));
+    assert!(!has_extract(landmarks));
+}
+
+#[test]
 fn docker_dependency_stubs_cover_shared_builder_inputs() {
     let patterns = include_str!("../Dockerfile")
         .split_once("case \"$f\" in")
