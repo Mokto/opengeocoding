@@ -16,6 +16,7 @@ mod poland;
 mod progress;
 mod sources;
 mod store;
+mod us_municipalities;
 
 use arrow_array::{
     Array, ArrayRef, RecordBatch, StringArray,
@@ -56,7 +57,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--asiaq-buildings TSV] [--denmark-localities JSON.GZ] [--iceland-addresses CSV --iceland-addresses-sha256 HASH] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--asiaq-buildings TSV] [--denmark-localities JSON.GZ] [--us-municipalities JSON.GZ] [--iceland-addresses CSV --iceland-addresses-sha256 HASH] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1] [--sources-mirror URL]
        build_index fetch --store URL --sources FILE --scratch DIR [--sources-mirror URL]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
@@ -2394,6 +2395,14 @@ fn build(args: &[String]) {
     let localities = denmark::write(Path::new(out), &places, denmark.last().map(String::as_str))
         .expect("Danish settlement boundaries");
     lap(&format!("Danish settlement polygons ({localities} linked)"));
+    let municipalities = opt("--us-municipalities");
+    let governments = us_municipalities::write(
+        Path::new(out),
+        places.iter().any(|p| p.country == *b"US"),
+        municipalities.last().map(String::as_str),
+    )
+    .expect("US Census government boundaries");
+    lap(&format!("US Census governments ({governments})"));
     let street_spill = StreetSpill::new(&Path::new(out).join(reverse::STREETS_SPILL));
     let segs = pass_segments(&dir.join("segment"), &assigner, &street_spill);
     street_spill.finish();

@@ -104,6 +104,7 @@ pub struct Index {
     /// Administrative polygons for `reverse_region`; absent from hand-built indexes.
     areas: Option<area::Areas>,
     danish_localities: Option<area::Areas>,
+    us_municipalities: Option<country::us::Municipalities>,
     polish_localities: Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
     /// Streets' lines, for a point with no house in range; absent like `reverse`.
     streets: Option<reverse::Streets>,
@@ -701,6 +702,18 @@ impl Index {
         } else {
             None
         };
+        let us_municipalities = if dir.join(country::us::MUNICIPALITIES_FILE).exists()
+            || dir.join(country::us::MUNICIPALITIES_LABELS).exists()
+        {
+            use tantivy::directory::Directory;
+            let file = mmap.open_read(Path::new(country::us::MUNICIPALITIES_FILE))?;
+            Some(country::us::Municipalities::new(
+                file.read_bytes()?,
+                &std::fs::read(dir.join(country::us::MUNICIPALITIES_LABELS))?,
+            )?)
+        } else {
+            None
+        };
         let streets = if dir.join(reverse::STREETS).exists() {
             use tantivy::directory::Directory;
             let file = mmap.open_read(Path::new(reverse::STREETS))?;
@@ -867,6 +880,7 @@ impl Index {
             reverse,
             areas,
             danish_localities,
+            us_municipalities,
             polish_localities,
             streets,
             places,

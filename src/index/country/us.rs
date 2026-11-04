@@ -1,7 +1,100 @@
 use crate::index::suggest::*;
 use crate::index::*;
 use regex::Regex;
-use std::sync::LazyLock;
+use std::{collections::HashSet, sync::LazyLock};
+
+pub const MUNICIPALITIES_FILE: &str = "us-municipalities.bin";
+pub const MUNICIPALITIES_LABELS: &str = "us-municipalities.json";
+
+pub(in crate::index) struct Municipalities {
+    areas: area::Areas,
+    labels: Vec<(String, String, String)>,
+}
+
+impl Municipalities {
+    pub(in crate::index) fn new(
+        bytes: tantivy::directory::OwnedBytes,
+        labels: &[u8],
+    ) -> anyhow::Result<Self> {
+        let areas = area::Areas::new(bytes)?;
+        let labels: Vec<(String, String, String)> = serde_json::from_slice(labels)?;
+        let mut ids = HashSet::new();
+        for (id, region, name) in &labels {
+            anyhow::ensure!(
+                ids.insert(id)
+                    && !id.is_empty()
+                    && region.len() == 5
+                    && region.starts_with("US-")
+                    && region[3..].bytes().all(|c| c.is_ascii_uppercase())
+                    && !name.trim().is_empty()
+                    && !name.chars().any(char::is_control),
+                "invalid US municipality label"
+            );
+        }
+        anyhow::ensure!(
+            areas.place_ids().all(|id| (id as usize) < labels.len()),
+            "US municipality polygon has no label"
+        );
+        Ok(Self { areas, labels })
+    }
+}
+
+pub(in crate::index) fn reverse_municipality(
+    index: &Index,
+    hit: &Hit,
+    address: &mut serde_json::Map<String, serde_json::Value>,
+) {
+    let Hit::Street {
+        x,
+        y,
+        number: Some(_),
+        ..
+    } = hit
+    else {
+        return;
+    };
+    if address.contains_key("municipality")
+        || address
+            .get("country_code")
+            .and_then(serde_json::Value::as_str)
+            != Some("us")
+    {
+        return;
+    }
+    let Some(municipalities) = &index.us_municipalities else {
+        return;
+    };
+    let mut containing: Vec<_> = municipalities
+        .areas
+        .containing(*y, *x)
+        .into_iter()
+        .map(|(_, id)| id)
+        .collect();
+    containing.sort_unstable();
+    containing.dedup();
+    let [id] = containing.as_slice() else {
+        return;
+    };
+    let (_, region, name) = &municipalities.labels[*id as usize];
+    if address
+        .get("ISO3166-2-lvl4")
+        .and_then(serde_json::Value::as_str)
+        != Some(region.as_str())
+    {
+        return;
+    }
+    // pack floors each axis; reject a Census edge anywhere in that source-point cell plus polygon rounding.
+    let steps = (1u64 << 28) as f64;
+    if municipalities.areas.boundary_intersects([
+        x - 0.5e-7,
+        y - 0.5e-7,
+        x + 360.0 / steps + 0.5e-7,
+        y + 180.0 / steps + 0.5e-7,
+    ]) {
+        return;
+    }
+    address.insert("municipality".into(), name.as_str().into());
+}
 
 /// `text` with each ZIP+4 ("37208-4501") as its ZIP, which is how the index holds it.
 pub(in crate::index) fn zip5(text: &str) -> std::borrow::Cow<'_, str> {
