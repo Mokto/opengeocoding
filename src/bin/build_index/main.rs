@@ -363,6 +363,8 @@ struct Place {
     population: u64,
     xy: Option<(f64, f64)>,
     anc: Box<[u32]>,
+    /// Overture gives a class (city, town, village, hamlet) to settlements only.
+    classed: bool,
 }
 
 /// What `places.tsv` takes of a place beyond `Place`, held only until it is written.
@@ -561,6 +563,7 @@ fn load_places(dir: &Path) -> (Vec<Place>, Vec<PlaceRow>, HashMap<Str, u32>) {
                         },
                         xy,
                         anc: Box::default(),
+                        classed: text(class, i).is_some_and(|c| !c.is_empty()),
                     };
                     let row = PlaceRow {
                         id: id.value(i).into(),
@@ -2336,6 +2339,12 @@ fn build(args: &[String]) {
     let polys = PolyFile::new(Path::new(out).join(".polygons"));
     let mut assigner = load_assigner(&dir.join("division_area"), &places, &idx, polys);
     reconcile_parents(&mut places, &mut rows, &idx, &assigner);
+    assigner.districts = places
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.subtype == "locality" && !p.classed)
+        .map(|(id, _)| id as u32)
+        .collect();
     assigner.suburbs = places
         .iter()
         .enumerate()

@@ -63,6 +63,50 @@ pub const PLACES: &[Place] = &[
         "Brno",
         &[("en", "Brno")],
     ),
+    // two municipalities sharing a border at 17.2°E, and a village of the eastern one beside it
+    place!(
+        "cz-dolni-lhota",
+        "localadmin",
+        "",
+        "CZ",
+        "",
+        900,
+        (17.0, 49.5),
+        "cz",
+        "Dolní Lhota",
+        &[("cs", "Dolní Lhota")],
+    ),
+    place!(
+        "cz-horni-lhota",
+        "localadmin",
+        "",
+        "CZ",
+        "",
+        700,
+        (17.4, 49.5),
+        "cz",
+        "Horní Lhota",
+        &[("cs", "Horní Lhota")],
+    ),
+    place!(
+        "cz-lhotka",
+        "locality",
+        "village",
+        "CZ",
+        "",
+        200,
+        (17.205, 49.5),
+        "cz-horni-lhota",
+        "Lhotka",
+        &[("cs", "Lhotka")],
+    ),
+];
+
+pub const POINT_ONLY: &[&str] = &["cz-lhotka"];
+
+pub const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
+    ("cz-dolni-lhota", "localadmin", true, true, 17.0, 49.5, 0.2),
+    ("cz-horni-lhota", "localadmin", true, true, 17.4, 49.5, 0.2),
 ];
 
 pub const STREETS: &[Street] = &[
@@ -78,6 +122,29 @@ pub const STREETS: &[Street] = &[
         lon: 15.48,
         lat: 49.29,
         numbers: &["1194", "1194/1", "1213", "1213/5", "č.ev. 1057"],
+    },
+    // a house of Dolní Lhota 700 m from Lhotka's point, and one of Lhotka
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Hraniční",
+        postcode: "750 01",
+        city: "Dolní Lhota",
+        cc: "CZ",
+        lon: 17.195,
+        lat: 49.5,
+        numbers: &["12"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Návesní",
+        postcode: "750 02",
+        city: "Lhotka",
+        cc: "CZ",
+        lon: 17.21,
+        lat: 49.5,
+        numbers: &["3"],
     },
 ];
 
@@ -127,4 +194,20 @@ fn czech_houses_are_suggested_by_either_number_or_its_mark() {
             .iter()
             .all(|s| s.kind != "address")
     );
+}
+
+#[test]
+fn a_house_is_named_by_its_own_municipality_not_the_next_ones_village() {
+    for (lat, lon, number, village, municipality) in [
+        (49.5, 17.195, "12", None, "Dolní Lhota"),
+        (49.5, 17.21, "3", Some("Lhotka"), "Horní Lhota"),
+    ] {
+        let found = index().reverse_search(lat, lon, 2.0, 1);
+        let (layer, hit, _) = &found[0];
+        assert_eq!(*layer, "address", "{number}");
+        let address = &hit["address"];
+        assert_eq!(address["house_number"], number);
+        assert_eq!(address["municipality"], municipality, "{number}: {address}");
+        assert_eq!(address["village"].as_str(), village, "{number}: {address}");
+    }
 }

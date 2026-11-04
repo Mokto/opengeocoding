@@ -516,6 +516,8 @@ pub struct Assigner {
     countries: Vec<[u8; 2]>,
     sovereigns: Vec<[u8; 2]>,
     pub suburbs: HashMap<u32, Box<[u32]>>,
+    /// Localities with no settlement class, which can be districts of several municipalities.
+    pub districts: std::collections::HashSet<u32>,
     /// `[min x, min y, max x, max y]`: nothing outside is placed, so nothing outside is indexed.
     pub bbox: Option<[f64; 4]>,
 }
@@ -546,6 +548,7 @@ impl Assigner {
             countries,
             sovereigns,
             suburbs: HashMap::new(),
+            districts: Default::default(),
             bbox: None,
         }
     }
@@ -689,14 +692,24 @@ impl Assigner {
             cc.is_none_or(|c| c == self.countries[p as usize] || c == self.sovereigns[p as usize])
         };
         let mut pick: [Option<(f64, u32)>; 6] = [None; 6];
+        let mut municipality: Option<&Poly> = None;
         for p in containing() {
             let k = p.kind as usize;
             let key = (p.area(), p.place);
             if allowed(p.place) && pick[k].is_none_or(|old| key < old) {
                 pick[k] = Some(key);
+                if k == 1 {
+                    municipality = Some(p);
+                }
             }
         }
-        if let Some((_, p)) = pick[0] {
+        // A municipality's polygon (localadmin) holding the point bounds its settlement: an
+        // unclassed locality polygon wider than it is a district of several (Ticino's circoli;
+        // a city split into boroughs keeps its class), and a town point outside it is a
+        // neighbouring municipality's (Swiss and Czech houses off a village)
+        if let Some((area, p)) = pick[0]
+            && (municipality.is_none_or(|m| area <= m.area()) || !self.districts.contains(&p))
+        {
             return Some(p);
         }
         // ponytail: degree-ordered neighbours inside a 5 km envelope; scale the tree by cos(lat)
@@ -708,6 +721,10 @@ impl Assigner {
             .towns
             .locate_in_envelope(envelope)
             .filter(|t| allowed(t.data))
+            .filter(|t| {
+                let [tx, ty] = *t.geom();
+                municipality.is_none_or(|m| m.contains(&self.data, tx, ty))
+            })
             .filter_map(|t| {
                 let [tx, ty] = *t.geom();
                 let distance = ((tx - x) * y.to_radians().cos()).hypot(ty - y);
@@ -910,5 +927,49 @@ mod tests {
         assert_eq!(a.place(3.01, 3.0), Some(4), "town point ~1 km away");
         assert_eq!(a.place(8.0, 8.0), Some(3), "only the county contains it");
         assert_eq!(a.place(50.0, 50.0), None);
+    }
+
+    #[test]
+    fn a_municipality_polygon_bounds_the_settlement() {
+        let f = file("municipality");
+        let poly = |place, kind, s: Vec<[f64; 2]>| {
+            Poly::new(place, kind, s.clone(), &[(0, s.len() as u32)], &f).unwrap()
+        };
+        // municipalities 1 (x 0..1) and 2 (x 1..2), a district locality 3 over both, a county 4
+        let mut a = Assigner::new(
+            vec![
+                poly(1, 1, square(0.0, 0.0, 1.0)),
+                poly(2, 1, square(1.0, 0.0, 1.0)),
+                poly(3, 0, square(10.0, 0.0, 2.0)),
+                poly(5, 1, square(10.0, 0.0, 1.0)),
+                poly(4, 2, square(-5.0, -5.0, 30.0)),
+            ],
+            f,
+            // a village of municipality 2 near its border, one of municipality 5
+            vec![([1.005, 0.5], 6), ([10.52, 0.5], 7)],
+            vec![(*b"CH", *b"CH"); 8],
+        );
+        assert_eq!(
+            a.place(1.01, 0.5),
+            Some(6),
+            "the village of its own municipality"
+        );
+        assert_eq!(
+            a.place(0.995, 0.5),
+            Some(1),
+            "not the next municipality's village"
+        );
+        assert_eq!(
+            a.place(10.5, 0.5),
+            Some(3),
+            "a classed city over boroughs stays"
+        );
+        a.districts.insert(3);
+        assert_eq!(
+            a.place(10.5, 0.5),
+            Some(7),
+            "an unclassed district wider than the municipality gives way"
+        );
+        assert_eq!(a.place(8.0, 8.0), Some(4));
     }
 }

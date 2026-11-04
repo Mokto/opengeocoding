@@ -301,6 +301,7 @@ mod tests {
             anc: anc.into(),
             population: 0,
             xy: None,
+            classed: true,
         };
         let mut places = vec![
             place("region", "West", "PL-04", &[]),

@@ -71,6 +71,8 @@ struct Seed {
     #[serde(default, rename = "ref")]
     reference: Option<String>,
     #[serde(default)]
+    reverse_offset_ref: Option<String>,
+    #[serde(default)]
     city: Option<String>,
     #[serde(default)]
     label: Option<String>,
@@ -737,7 +739,7 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
         let refs: BTreeSet<String> = seeds
             .iter()
             .filter(|s| s.source.as_deref() == Some(registry.source))
-            .filter_map(|s| s.reference.clone())
+            .flat_map(|s| s.reference.iter().chain(&s.reverse_offset_ref).cloned())
             .collect();
         if refs.is_empty() {
             continue;
@@ -1142,6 +1144,29 @@ pub async fn build(seeds_path: &Path, out: &Path, files: &HashMap<String, String
                 "review": { "status": "source-verified",
                             "note": "Expectation copied from the cited source by `evaluate build-gold`; human review pending." },
             });
+            if let Some(reference) = &seed.reverse_offset_ref {
+                let name = seed.source.as_deref().context("offset needs a source")?;
+                let registry = registry::get(name).context("offset needs a registry source")?;
+                let key = (name.to_string(), reference.clone());
+                let entry = local_entries.get(&key).context("offset source entry")?;
+                let (found, _) = looked_up.get(&key).context("offset source point")?;
+                ensure!(
+                    entry.radius_floor_km <= 0.01,
+                    "offset needs an exact source point"
+                );
+                let expected = registry::with_number_aliases(
+                    json!({
+                        "country": [registry.country], "level": "house", "max_level": "house",
+                        "point": found.point, "radius_km": 0.01,
+                        "region": seed.extra_regions, "components": entry.components,
+                        "places": entry.places, "good_match": null,
+                    }),
+                    &entry.number_aliases,
+                );
+                case["reverse_offset"] = json!({
+                    "source": source(name, reference), "expect": expected,
+                });
+            }
             if let Some(review) = &seed.review {
                 case["review"] = review.clone();
             }
@@ -1361,6 +1386,58 @@ mod tests {
         .unwrap();
         assert!(apply_labels(&mut cases, &seeds).is_err());
         std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[tokio::test]
+    async fn registry_offsets_are_regenerated_from_the_neighbours_source_record() {
+        let dir = std::env::temp_dir().join(format!("offset-gold-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("ruian.csv");
+        std::fs::write(&source, concat!(
+            "id,municipality,city,city_district,part,street,number_type,descriptive,orientation,letter,postcode,region,lat,lon\n",
+            "1,561711,West,,West,,č.ev.,30,,,37701,35,49.176614,15.137318\n",
+            "2,562734,East,,East,,č.ev.,5,,,37853,35,49.176434,15.137547\n"
+        )).unwrap();
+        let seeds = dir.join("test.seeds.jsonl");
+        let seed = json!({"kind":"address", "source":"ruian-csv", "ref":"1",
+            "reverse_offset_ref":"2", "queries":["West č.ev. 30, 37701 West, Czechia"]});
+        std::fs::write(&seeds, format!("{seed}\n")).unwrap();
+        let out = dir.join("out.jsonl");
+        let files = HashMap::from([("ruian".into(), source.to_string_lossy().into_owned())]);
+        build(&seeds, &out, &files).await.unwrap();
+        let cases = crate::model::load_jsonl::<Value>(&out).unwrap();
+        let case = &cases[0];
+        assert_eq!(case["source"]["ref"], "1");
+        assert_eq!(case["expect"]["components"]["house_number"], "30");
+        assert_eq!(case["reverse_offset"]["source"]["ref"], "2");
+        assert_eq!(
+            case["reverse_offset"]["expect"]["components"]["house_number"],
+            "5"
+        );
+        assert_eq!(
+            case["reverse_offset"]["expect"]["components"]["postcode"],
+            "37853"
+        );
+        assert_eq!(case["reverse_offset"]["expect"]["places"], json!(["East"]));
+        let typed = crate::model::load_corpus(&out).unwrap();
+        crate::model::validate_gold(&typed).unwrap();
+        for (field, value) in [
+            ("country", json!(["ch"])),
+            ("point", json!([48., 12.])),
+            ("radius_km", json!(0.3)),
+            ("places", json!([])),
+            ("components", json!({})),
+        ] {
+            let mut bad = case.clone();
+            bad["reverse_offset"]["expect"][field] = value;
+            let bad = serde_json::from_value(bad).unwrap();
+            assert!(crate::model::validate_gold(&[bad]).is_err(), "{field}");
+        }
+        let mut missing = seed;
+        missing["reverse_offset_ref"] = json!("3");
+        std::fs::write(&seeds, format!("{missing}\n")).unwrap();
+        assert!(build(&seeds, &out, &files).await.is_err());
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[tokio::test]

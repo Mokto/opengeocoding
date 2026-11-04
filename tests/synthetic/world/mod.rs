@@ -733,6 +733,7 @@ pub fn write_release(dir: &Path) {
                 && !au::POINT_ONLY.contains(&p.id)
                 && !dk::POINT_ONLY.contains(&p.id)
                 && !ca::POINT_ONLY.contains(&p.id)
+                && !cz::POINT_ONLY.contains(&p.id)
                 && !pl::REVERSE_POINT_ONLY.contains(&p.id)
                 && !pl::MEMBERSHIP_POINT_ONLY.contains(&p.id)
                 && !us::REVERSE_POINT_ONLY.contains(&p.id)
@@ -745,6 +746,7 @@ pub fn write_release(dir: &Path) {
         .chain(au::AREAS.iter().copied())
         .chain(dk::AREAS.iter().copied())
         .chain(ca::AREAS.iter().copied())
+        .chain(cz::AREAS.iter().copied())
         .chain(pl::REVERSE_AREAS.iter().copied())
         .chain(us::REVERSE_AREAS.iter().copied())
         .collect();
