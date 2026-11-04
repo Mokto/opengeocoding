@@ -249,6 +249,66 @@ impl Areas {
         found.iter().map(|(_, r)| (r.kind, r.place)).collect()
     }
 
+    pub fn place_ids(&self) -> impl Iterator<Item = u32> + '_ {
+        self.records.iter().map(|r| r.place)
+    }
+
+    pub fn boundary_intersects(&self, bounds: [f64; 4]) -> bool {
+        if !bounds.iter().all(|v| v.is_finite()) || bounds[0] > bounds[2] || bounds[1] > bounds[3] {
+            return true;
+        }
+        let [x0, y0, x1, y1] = bounds.map(|v| v * FIXED);
+        let envelope = rstar::AABB::from_corners([x0, y0], [x1, y1]);
+        self.tree
+            .locate_in_envelope_intersecting(envelope)
+            .any(|g| {
+                let r = &self.records[g.data as usize];
+                let pool = |i: usize| {
+                    let at = self.pool + (r.pool + i) * 4;
+                    (at + 4 <= self.bytes.len()).then(|| word(&self.bytes, at) as usize)
+                };
+                let vertex = |i: usize| {
+                    let at = self.vertices + (r.vertex + i) * 8;
+                    (at + 8 <= self.pool).then(|| {
+                        [word(&self.bytes, at), word(&self.bytes, at + 4)].map(|v| v as i32 as f64)
+                    })
+                };
+                let lo = slab(y0.floor() as i32, r.bbox[1], r.bbox[3], r.k);
+                let hi = slab(y1.ceil() as i32, r.bbox[1], r.bbox[3], r.k);
+                let (Some(from), Some(to)) = (pool(lo), pool(hi + 1)) else {
+                    return true;
+                };
+                if from > to || to > (self.bytes.len() - self.pool) / 4 {
+                    return true;
+                }
+                for j in from..to {
+                    let Some(edge) = pool(r.k as usize + 1 + j) else {
+                        return true;
+                    };
+                    let (Some(a), Some(b)) = (vertex(edge), vertex(edge + 1)) else {
+                        return true;
+                    };
+                    let (mut start, mut end) = (0.0f64, 1.0f64);
+                    for (axis, min, max) in [(0, x0, x1), (1, y0, y1)] {
+                        let delta = b[axis] - a[axis];
+                        if delta == 0.0 {
+                            if a[axis] < min || a[axis] > max {
+                                start = 2.0;
+                            }
+                        } else {
+                            let (t, u) = ((min - a[axis]) / delta, (max - a[axis]) / delta);
+                            start = start.max(t.min(u));
+                            end = end.min(t.max(u));
+                        }
+                    }
+                    if start <= end {
+                        return true;
+                    }
+                }
+                false
+            })
+    }
+
     /// Even-odd ray casting over the edges of the point's slab. A word out of the file's bounds
     /// (a damaged file) reads as no edge.
     fn holds(&self, r: &Record, x: f64, y: f64) -> bool {
@@ -320,6 +380,47 @@ mod tests {
                 .contains(&[5_000_000, 10_000])
         );
         assert_eq!(simplify(&square(0.0, 0.0, 0.0001), TOLERANCE), None);
+    }
+
+    #[test]
+    fn boundary_boxes_include_holes_touches_and_edges_crossing_multiple_slabs() {
+        let path = std::env::temp_dir().join(format!("area-boundaries-{}.bin", std::process::id()));
+        let mut outer: Vec<_> = (0..128).map(|i| [i * 100_000, 0]).collect();
+        outer.extend([[12_700_000, 20_000_000], [0, 20_000_000], [0, 0]]);
+        write(
+            &path,
+            vec![
+                Area {
+                    place: 0,
+                    kind: 0,
+                    rings: vec![outer, ring(square(0.5, 0.5, 0.2))],
+                },
+                Area {
+                    place: 1,
+                    kind: 0,
+                    rings: vec![vec![
+                        [50_000_000, 50_000_000],
+                        [60_000_000, 60_000_000],
+                        [50_000_000, 60_000_000],
+                        [50_000_000, 50_000_000],
+                    ]],
+                },
+            ],
+        )
+        .unwrap();
+        let areas = Areas::new(tantivy::directory::OwnedBytes::new(
+            fs::read(&path).unwrap(),
+        ))
+        .unwrap();
+        assert!(!areas.boundary_intersects([0.1, 0.1, 0.2, 0.2]));
+        assert!(areas.boundary_intersects([0.1, -0.0000001, 0.2, 0.0000001]));
+        assert!(areas.boundary_intersects([-0.0000001, 1.7, 0.0000001, 1.8]));
+        assert!(areas.boundary_intersects([0.0, 0.0, 0.0, 0.0]));
+        assert!(areas.boundary_intersects([0.49, 0.6, 0.51, 0.61]));
+        assert!(!areas.boundary_intersects([5.1, 5.8, 5.2, 5.9]));
+        assert!(areas.boundary_intersects([5.49, 5.49, 5.51, 5.51]));
+        assert!(areas.boundary_intersects([f64::NAN, 0.0, 1.0, 1.0]));
+        fs::remove_file(path).unwrap();
     }
 
     #[test]

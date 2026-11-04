@@ -31,7 +31,7 @@ COPY src src
 COPY benches benches
 RUN find src benches -name '*.rs' | while read -r f; do \
       case "$f" in \
-        src/lib.rs|src/index/area.rs|src/index/schema.rs|src/index/canon.rs|src/index/reverse.rs|src/index/landmark.rs|src/index/country/au.rs|src/index/country/dk.rs|src/index/country/gl.rs|src/index/country/jp.rs|src/index/country/kr.rs|src/index/country/nc.rs|src/index/country/pl.rs) body='' ;; \
+        src/lib.rs|src/index/area.rs|src/index/schema.rs|src/index/canon.rs|src/index/reverse.rs|src/index/landmark.rs|src/index/country/au.rs|src/index/country/dk.rs|src/index/country/gl.rs|src/index/country/jp.rs|src/index/country/kr.rs|src/index/country/nc.rs|src/index/country/pl.rs|src/index/country/us.rs) body='' ;; \
         src/main.rs|src/bin/*/main.rs|benches/*.rs) body='fn main() {}' ;; \
         src/bin/*/*) continue ;; \
         src/bin/*.rs) body='fn main() {}' ;; \
@@ -91,7 +91,7 @@ COPY --from=build /usr/local/lib/LICENSE.libpostal /usr/local/share/licenses/lib
 COPY --from=build /usr/local/bin/libpostal_data /usr/local/bin/libpostal_data
 COPY --from=compiled /source/target/release/opengeocoding /source/target/release/build_index /source/target/release/leader /usr/local/bin/
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.txt /usr/local/share/licenses/opengeocoding/
-COPY data/dk-localities.NOTICE data/pl-localities.NOTICE /usr/local/share/licenses/opengeocoding/
+COPY data/dk-localities.NOTICE data/pl-localities.NOTICE data/us-municipalities.NOTICE /usr/local/share/licenses/opengeocoding/
 COPY LICENSES /usr/local/share/licenses/opengeocoding/dependencies/
 COPY tests/registry/*.NOTICE /usr/local/share/licenses/opengeocoding/registry/
 RUN ldconfig

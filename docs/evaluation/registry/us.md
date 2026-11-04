@@ -48,3 +48,7 @@ One local run against a world index built from the October 2026 sources (the gat
 Each case's `places`, the names ReverseGeocode's answer must include one of, are every usable town column (`Post_City`, `Inc_Muni`, `Uninc_Comm`, `Census_Plc`).
 
 The [2026-11-03 reverse-locality investigation](../../notes/us-pl-reverse-locality.md) separates at-point/offset and source-group counts, traces geographic versus postal names and adds synthetic safety controls. Its Polish offline-source follow-up does not change US runtime, expectations or outcomes. USPS mailing cities still do not establish municipal/CDP/community membership.
+
+## Census government-boundary follow-up
+
+The [separate US implementation](../../notes/us-reverse-municipalities.md) fills a missing reverse-house `municipality` only from one containing Census BAS 2026 active-government polygon in the rendered state. It preserves existing locality labels and every selected-house field. This is dated statistical-government membership, not a postal-city conversion, a CDP assertion or a legal jurisdiction determination. No NAD expectations, labels, hold-out assignments or scoring rules change.

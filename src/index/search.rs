@@ -1,4 +1,4 @@
-use super::country::{au, ca};
+use super::country::{au, ca, us};
 use super::*;
 
 impl Index {
@@ -891,6 +891,7 @@ impl Index {
                     dk::reverse_locality(self, hit, &mut a, &mut display);
                     ca::reverse_locality(self, hit, &mut a, &mut display);
                     pl::reverse_locality(self, hit, &mut a, &mut display);
+                    us::reverse_municipality(self, hit, &mut a);
                 }
                 if geographic
                     && city.is_none()

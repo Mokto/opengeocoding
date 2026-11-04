@@ -1,0 +1,30 @@
+US Census government boundaries, BAS 2026
+
+Source: U.S. Census Bureau, TIGERweb Places and County Subdivisions,
+January 1, BAS 2026 vintage. Captured 2026-11-04.
+https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer
+Layer 8: County Subdivisions; layer 11: Incorporated Places.
+Only FUNCSTAT=A: active government providing primary general-purpose functions.
+https://www.census.gov/library/reference/code-lists/functional-status-codes.html
+State FIPS/postal abbreviations:
+https://www2.census.gov/geo/docs/reference/state.txt
+
+Public domain, a work of the United States government (17 USC 105).
+The Census Bureau requests source citation. No Census endorsement is implied.
+https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc_Ch1.pdf
+
+Modified: retained source-namespace/GEOID, state, NAME and full-resolution
+polygon rings, requested WGS84 output (outSR=4326), rounded coordinates to
+1e-7 degrees and delta-encoded each ring. No geometric simplification.
+The 35,703 captured active-government entities were checked for completeness
+and duplicate IDs. Omitted 1,072 invalid geometries and then 91 valid records
+outside the 50 states/DC. Retained 34,540 entities in 44,208 polygon parts.
+The pinned gzip SHA256 is
+fff1d0c08c837671318e57ec148719c2c98776f481fc40e9939cf087e8b78f75.
+
+Census boundaries are statistical representations, not legal land descriptions
+or a determination of jurisdictional authority or property ownership. Census
+provides no positional-accuracy warranty; output precision is not surveyed
+accuracy. The coordinate-encoding boundary guard does not bound source error.
+This source excludes statistical CDPs, nonfunctioning entities and government
+statuses other than A. It does not establish postal-city or community identity.

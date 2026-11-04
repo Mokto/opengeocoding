@@ -1,0 +1,442 @@
+{
+  "source": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer",
+  "vintage": "2026-01-01 (BAS 2026)",
+  "captured": "2026-11-04",
+  "status": "A",
+  "captured_entities": 35703,
+  "invalid_entities": 1072,
+  "valid_territory_entities_excluded": 91,
+  "entities": 34540,
+  "polygons": 44208,
+  "precision_degrees": 1e-07,
+  "simplified": false,
+  "tools": {
+    "duckdb": "2.0.0",
+    "python": "3.9.6",
+    "zlib": "1.2.12"
+  },
+  "json_sha256": "93ce0c9830cf31bcca867b4f0d531dd17db85c1405572bd51c1d45634e6fffca",
+  "gzip_sha256": "fff1d0c08c837671318e57ec148719c2c98776f481fc40e9939cf087e8b78f75",
+  "files": [
+    {
+      "file": "cousub-000000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=0&resultRecordCount=500&f=geojson",
+      "sha256": "202c5264c50938351206e6252774d6b7fcb215c8f8e38b600a655e0cc2456299"
+    },
+    {
+      "file": "cousub-000500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=500&resultRecordCount=500&f=geojson",
+      "sha256": "99204caa8f5ae3cb29e77ce405e581361a03ff39b9a700b0f695ce9b6bed3bb5"
+    },
+    {
+      "file": "cousub-001000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=1000&resultRecordCount=500&f=geojson",
+      "sha256": "7f03c427dfd27db4fa743bc8058adf668a738cad23a5ed358d7ba60498bf0aa8"
+    },
+    {
+      "file": "cousub-001500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=1500&resultRecordCount=500&f=geojson",
+      "sha256": "8a7662252355658d59041e80164bf892d57ccc5b5ceffc44275a87202ba92523"
+    },
+    {
+      "file": "cousub-002000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=2000&resultRecordCount=500&f=geojson",
+      "sha256": "2b5273136dc429711d96b693a5ee51435934e2b5f04ad5a38241d998f7265003"
+    },
+    {
+      "file": "cousub-002500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=2500&resultRecordCount=500&f=geojson",
+      "sha256": "c454452a42fe89f1fba55262b9c8b0a1f7fe4574312389814873f1ad55b40b18"
+    },
+    {
+      "file": "cousub-003000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=3000&resultRecordCount=500&f=geojson",
+      "sha256": "4aafc5477d79b3f4c1867945f70e6a190d04ae0db2480d300c9097389a9f00d0"
+    },
+    {
+      "file": "cousub-003500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=3500&resultRecordCount=500&f=geojson",
+      "sha256": "52fe4a2e0ad993ad49c41bc8097b8a2f794d17c1681ccd75a5e6b79188f013cc"
+    },
+    {
+      "file": "cousub-004000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=4000&resultRecordCount=500&f=geojson",
+      "sha256": "5088d1aadacb5e5ecc9100f642542337bd1d90357b6320472299a93e1a6b876f"
+    },
+    {
+      "file": "cousub-004500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=4500&resultRecordCount=500&f=geojson",
+      "sha256": "32a81e3b3fcfd1e9028cea3e9a1cb18e2e647dc4ed12e16b42f22b577a96431c"
+    },
+    {
+      "file": "cousub-005000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=5000&resultRecordCount=500&f=geojson",
+      "sha256": "8909ae915ba6928e38b166e684928b1f4d332c70e81f9906b61c8ff9a60b7c47"
+    },
+    {
+      "file": "cousub-005500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=5500&resultRecordCount=500&f=geojson",
+      "sha256": "ce05d7c3d0e77b384c2bbb6a57e3c85f8a7ac9da7e947b4ca5140ddbd7db68c0"
+    },
+    {
+      "file": "cousub-006000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=6000&resultRecordCount=500&f=geojson",
+      "sha256": "7296f4a2193bd2258c37a1e6369a8b954cc30d33513c7d8e37d54e8308b495c9"
+    },
+    {
+      "file": "cousub-006500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=6500&resultRecordCount=500&f=geojson",
+      "sha256": "ee58ff3c746d2c1424e422442ff47415a40a64e32348a09e250826645fcf078f"
+    },
+    {
+      "file": "cousub-007000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=7000&resultRecordCount=500&f=geojson",
+      "sha256": "983e3f6dd4cfd9b08aa96e49b295d3887388284608cda6802002c0fa4f1b8c35"
+    },
+    {
+      "file": "cousub-007500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=7500&resultRecordCount=500&f=geojson",
+      "sha256": "6ea878cc17cb53b30d15bb289b4d4aaadb44ed6dae472f24040589fe206c1040"
+    },
+    {
+      "file": "cousub-008000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=8000&resultRecordCount=500&f=geojson",
+      "sha256": "c877d115f78cf0ef3009a5c544b52773918c28bce1ac1a55daf38f12977d437f"
+    },
+    {
+      "file": "cousub-008500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=8500&resultRecordCount=500&f=geojson",
+      "sha256": "c6bbacda08deea3eff4f3a350b2b2f83de4caa5d5b95a027ebe4bc110bd7e5a9"
+    },
+    {
+      "file": "cousub-009000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=9000&resultRecordCount=500&f=geojson",
+      "sha256": "1a71c949ecf7fb2d3c7557dd7e2aef9da6c95e65619ee3754957f5ee9d8ac271"
+    },
+    {
+      "file": "cousub-009500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=9500&resultRecordCount=500&f=geojson",
+      "sha256": "3d899b075b45ac6faccc4cb5f7fd9ffaa5fdd4721dbb1cf3acc7b5ce925aa80e"
+    },
+    {
+      "file": "cousub-010000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=10000&resultRecordCount=500&f=geojson",
+      "sha256": "0c3049e663aafb445f8f7092a07125449ab1720f0aade0b9bad9f900a0f38c05"
+    },
+    {
+      "file": "cousub-010500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=10500&resultRecordCount=500&f=geojson",
+      "sha256": "9ddf0b0210d5b1367ff2c53cb733c252b2f92ed0bed26409edb7d938641fdcba"
+    },
+    {
+      "file": "cousub-011000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=11000&resultRecordCount=500&f=geojson",
+      "sha256": "e8b03145f13f215e05ac214053ee8e92affd7f1faed5e7487e9b1ad7898b966a"
+    },
+    {
+      "file": "cousub-011500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=11500&resultRecordCount=500&f=geojson",
+      "sha256": "84bf725118fee18370ba1db8964403e7841b42cee1da444022a9e8796f1c5db4"
+    },
+    {
+      "file": "cousub-012000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=12000&resultRecordCount=500&f=geojson",
+      "sha256": "ff735a95bf7588945f4b4bc3048405679837f7942cd3bef94499a3ba162a109f"
+    },
+    {
+      "file": "cousub-012500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=12500&resultRecordCount=500&f=geojson",
+      "sha256": "148892d023ceae943d756c65ede7f68689cef5b635f9d7603fe5bb9405b7b751"
+    },
+    {
+      "file": "cousub-013000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=13000&resultRecordCount=500&f=geojson",
+      "sha256": "26b061ff3903556e370db54ec0c8d81e63b036182a20ce6044745d2bd8d2a880"
+    },
+    {
+      "file": "cousub-013500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=13500&resultRecordCount=500&f=geojson",
+      "sha256": "940eaf49274127b91cc0279c3fe1fa0b84a87153df7e254aa7a06c0235cd3588"
+    },
+    {
+      "file": "cousub-014000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=14000&resultRecordCount=500&f=geojson",
+      "sha256": "46042a1ba15c96af9558e811d3254abc58162b17de30e9a34368530d557c16b4"
+    },
+    {
+      "file": "cousub-014500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=14500&resultRecordCount=500&f=geojson",
+      "sha256": "db4b83d9bb59322d844967b6e963bc88809ebff08f5edf00e06a1d196d764a6d"
+    },
+    {
+      "file": "cousub-015000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=15000&resultRecordCount=500&f=geojson",
+      "sha256": "bc42c5c17c41c41e852a3cc7354f1a6acac2beddd73fdfe3fb224a765443ad37"
+    },
+    {
+      "file": "cousub-015500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=15500&resultRecordCount=500&f=geojson",
+      "sha256": "fd72724569c00c541b4d8627e7880bceb7ab97634efe4527cff910b9dcadcddb"
+    },
+    {
+      "file": "cousub-016000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CCOUNTY%2CCOUSUBCC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=16000&resultRecordCount=500&f=geojson",
+      "sha256": "54245c8705e4bb2de7defb171bc8eedde27a41923fd5fe72552b88cc42b3466f"
+    },
+    {
+      "file": "incorporated-000000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=0&resultRecordCount=500&f=geojson",
+      "sha256": "a4f08499106505b9988614ec0809c47b65e23d11ba1eb558b7e29b3c667cef08"
+    },
+    {
+      "file": "incorporated-000500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=500&resultRecordCount=500&f=geojson",
+      "sha256": "92da64362a5d9df3e6968516ce6b5521f06e24a0020c9438589794a0277d95f8"
+    },
+    {
+      "file": "incorporated-001000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=1000&resultRecordCount=500&f=geojson",
+      "sha256": "11d403f2991a96895ee0dafebcc3776e6939f34294aac58145f71b2d05a0f3a9"
+    },
+    {
+      "file": "incorporated-001500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=1500&resultRecordCount=500&f=geojson",
+      "sha256": "8d3b8203e6f39fedde774581054da5db8bf09876f9e77a96144ead645c2b0c55"
+    },
+    {
+      "file": "incorporated-002000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=2000&resultRecordCount=500&f=geojson",
+      "sha256": "e7d40a390a136bd82d7303db176e22b55c8f6788b03c5ac7fac997e6a74fecc1"
+    },
+    {
+      "file": "incorporated-002500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=2500&resultRecordCount=500&f=geojson",
+      "sha256": "717bfdaf9c73674b2a4c39875a4c0315bb9062292640ec1bf88b4cc9f16dfb82"
+    },
+    {
+      "file": "incorporated-003000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=3000&resultRecordCount=500&f=geojson",
+      "sha256": "8ee5e7e299011622fd335b55e032dac07a467edcaf31886b9884a74fa3a467bd"
+    },
+    {
+      "file": "incorporated-003500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=3500&resultRecordCount=500&f=geojson",
+      "sha256": "f23db6146d52007517382aea34a06c36e9199b740bf82a7e78f3dd1287058ebb"
+    },
+    {
+      "file": "incorporated-004000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=4000&resultRecordCount=500&f=geojson",
+      "sha256": "c23e3cabf5b6332d4f9b45bb0bb378aa644e51749513e9b2c22d388ae6ea6777"
+    },
+    {
+      "file": "incorporated-004500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=4500&resultRecordCount=500&f=geojson",
+      "sha256": "5b81b710985664bf8d8a5a6f79d1e2fc0221cb3f929e13d2006b6fd2c8ff3daf"
+    },
+    {
+      "file": "incorporated-005000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=5000&resultRecordCount=500&f=geojson",
+      "sha256": "c731ef905c54a1a72a53c01cc0fd5c891100789e687e47d8f6e6c48f987cdd24"
+    },
+    {
+      "file": "incorporated-005500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=5500&resultRecordCount=500&f=geojson",
+      "sha256": "daba8012126fedfa2a9b8ec60cd8bf2dc168fa8b97953ea8856641905b0a9c49"
+    },
+    {
+      "file": "incorporated-006000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=6000&resultRecordCount=500&f=geojson",
+      "sha256": "dd8738b03c4ac4a35fb0f1d3e03cfb8a085b33576304967d61d61368665b31a9"
+    },
+    {
+      "file": "incorporated-006500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=6500&resultRecordCount=500&f=geojson",
+      "sha256": "c1461a8fe755570ba54e4c99913f7047ad63581c8f682ac7d2d69e086dc033c8"
+    },
+    {
+      "file": "incorporated-007000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=7000&resultRecordCount=500&f=geojson",
+      "sha256": "1edc8e76dfc268d7099aadb8b8a14e163cf34af2fb5c3ac2611cb40a6cfd3d04"
+    },
+    {
+      "file": "incorporated-007500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=7500&resultRecordCount=500&f=geojson",
+      "sha256": "bef0b7f7291045862950b69f8575e127e94c6b62ff0f0c917259fc9f639dfedd"
+    },
+    {
+      "file": "incorporated-008000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=8000&resultRecordCount=500&f=geojson",
+      "sha256": "3f702e9bc809a0f6e312ed6600e194f7d1fdfb8b782c6812f8d245b829f23b7d"
+    },
+    {
+      "file": "incorporated-008500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=8500&resultRecordCount=500&f=geojson",
+      "sha256": "fab9c5a71e5074c750f333af21fe9b767a32b19298c265c696e73f23330126ba"
+    },
+    {
+      "file": "incorporated-009000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=9000&resultRecordCount=500&f=geojson",
+      "sha256": "5c7a0d4ca2408c7ef51d8ed24cc1ef7ceae5da103401fa0b57e22e8fa87c058c"
+    },
+    {
+      "file": "incorporated-009500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=9500&resultRecordCount=500&f=geojson",
+      "sha256": "fa39094f9909d4bc36cec3861f930006322ca1b950d3996941d79c4c747cb18b"
+    },
+    {
+      "file": "incorporated-010000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=10000&resultRecordCount=500&f=geojson",
+      "sha256": "34dfba740627c2b500cd277f2c932ac901af7841b636f706d6b3f10279b3afc6"
+    },
+    {
+      "file": "incorporated-010500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=10500&resultRecordCount=500&f=geojson",
+      "sha256": "5edbea1c6db2acfd8bd03747154901f728b65e82a78920409b3630532bd2601d"
+    },
+    {
+      "file": "incorporated-011000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=11000&resultRecordCount=500&f=geojson",
+      "sha256": "5bf4444aa89783531f12fcd3ca75c867caf216f6e3af730e15e88267240cc953"
+    },
+    {
+      "file": "incorporated-011500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=11500&resultRecordCount=500&f=geojson",
+      "sha256": "d6ba2af3348a495dbbb48ee1e0335f3e9fbba7fa91dce5086108a2710ec2674e"
+    },
+    {
+      "file": "incorporated-012000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=12000&resultRecordCount=500&f=geojson",
+      "sha256": "7478b3eaa98c730583480cf9d25074a802e20fbc55e4153f69adf4eaf65d6edb"
+    },
+    {
+      "file": "incorporated-012500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=12500&resultRecordCount=500&f=geojson",
+      "sha256": "7d32aa173764fd063a733997322077f9919fe1c2a605150b1390e2e0c13e5bc3"
+    },
+    {
+      "file": "incorporated-013000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=13000&resultRecordCount=500&f=geojson",
+      "sha256": "ce55638974780c77cf651afffc195214f1399e138135bfb4923a4a1583dc754d"
+    },
+    {
+      "file": "incorporated-013500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=13500&resultRecordCount=500&f=geojson",
+      "sha256": "a09c783fece828b847693cda71963b25bb3307648521c64ec0f50af163ed8c59"
+    },
+    {
+      "file": "incorporated-014000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=14000&resultRecordCount=500&f=geojson",
+      "sha256": "e85b30665f32598c0f95a9580a53af7f4dbe7b9509023a408cf0b356546cb2f2"
+    },
+    {
+      "file": "incorporated-014500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=14500&resultRecordCount=500&f=geojson",
+      "sha256": "0f9511e515512822805da6b0a339effb53a738692ef9f58cb2486f070678bf88"
+    },
+    {
+      "file": "incorporated-015000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=15000&resultRecordCount=500&f=geojson",
+      "sha256": "46a4f59339a863e55844b0071f0d236d0f11f16ffcbca713fc8a791ec00d5c4c"
+    },
+    {
+      "file": "incorporated-015500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=15500&resultRecordCount=500&f=geojson",
+      "sha256": "3d53d9c66375a517e1bba6f5ef9c870c31cd301b452fde4457aca8343cf6cd3e"
+    },
+    {
+      "file": "incorporated-016000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=16000&resultRecordCount=500&f=geojson",
+      "sha256": "411706701a9a7d47e7cb787aaedf9683ce2ca44d48bc42c516f42a5684b4d499"
+    },
+    {
+      "file": "incorporated-016500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=16500&resultRecordCount=500&f=geojson",
+      "sha256": "b362eac5d3df51820ec254f64660d03d0cf0da807d2cb054040277ed8a87a306"
+    },
+    {
+      "file": "incorporated-017000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=17000&resultRecordCount=500&f=geojson",
+      "sha256": "3521cabe8206850edd0c317c9d14ef2ca85a817c7dafbf195bb214e40b600517"
+    },
+    {
+      "file": "incorporated-017500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=17500&resultRecordCount=500&f=geojson",
+      "sha256": "54b603af33af2659003f25860185f8313add276747e51851fea7edee136b7ab0"
+    },
+    {
+      "file": "incorporated-018000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=18000&resultRecordCount=500&f=geojson",
+      "sha256": "fc59cd2fc3ce98c3dc8f595f2705962e4c5dd78211501437aad4908b1a5f48b1"
+    },
+    {
+      "file": "incorporated-018500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=18500&resultRecordCount=100&f=geojson",
+      "sha256": "03fbe31e811bd2f3e96013bca971950da6488413a177746afc82d9f036cdbcfa"
+    },
+    {
+      "file": "incorporated-018600.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=18600&resultRecordCount=100&f=geojson",
+      "sha256": "e1ef478f30d2782a5ae7d38b40233de8cf235a7b3c44ea42fca1b3f8925cda0e"
+    },
+    {
+      "file": "incorporated-018700.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=18700&resultRecordCount=100&f=geojson",
+      "sha256": "59d6aa2a6770e3039d7898349cc8de8f08affd2e0bc5d82a5b8a2522cbd7c92e"
+    },
+    {
+      "file": "incorporated-018800.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=18800&resultRecordCount=100&f=geojson",
+      "sha256": "6a3b38b2bb30c7284dee11598f85f94aac6622d4f8c9bb3607819ebd9276740e"
+    },
+    {
+      "file": "incorporated-018900.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=18900&resultRecordCount=100&f=geojson",
+      "sha256": "9be1563c3a7afffd1b013f89769539c0e515c73bd405bf37b6c5654fbb6141de"
+    },
+    {
+      "file": "incorporated-019000.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=19000&resultRecordCount=100&f=geojson",
+      "sha256": "fed19b45dfe491bc97b0b142d58afacd7998ce03124292026990dff2dac1b0ff"
+    },
+    {
+      "file": "incorporated-019100.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=19100&resultRecordCount=100&f=geojson",
+      "sha256": "d4841b820fde86c404b8ea89dc38c3cab8cba7d1cb52fabb533680bdf3ff5caa"
+    },
+    {
+      "file": "incorporated-019200.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=19200&resultRecordCount=100&f=geojson",
+      "sha256": "5d4562ead2c1713a48f08d0071feeb1603c4e1f4971bddb6f75ea1cd077db050"
+    },
+    {
+      "file": "incorporated-019300.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=19300&resultRecordCount=100&f=geojson",
+      "sha256": "1f6c33f26bd07c6574176c79ee5fc0bc76e535906e2f81c1de02815b7f2436e1"
+    },
+    {
+      "file": "incorporated-019400.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=19400&resultRecordCount=100&f=geojson",
+      "sha256": "9ec1c808e33090a0d856dfd28626d4d15714ba56df8c31fef425d3ecdcaebaa4"
+    },
+    {
+      "file": "incorporated-019500.geojson",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11/query?where=FUNCSTAT%3D%27A%27&outFields=GEOID%2CNAME%2CBASENAME%2CFUNCSTAT%2CSTATE%2CLSADC%2CMTFCC%2CPLACE%2CPLACECC&outSR=4326&returnGeometry=true&orderByFields=OBJECTID&resultOffset=19500&resultRecordCount=100&f=geojson",
+      "sha256": "236bf615fb1c992be8c913cab9c7e29cf888d05a6bf27eea86bb4e3d826bf7ed"
+    },
+    {
+      "file": "state.txt",
+      "url": "https://www2.census.gov/geo/docs/reference/state.txt",
+      "sha256": "bea4e03f71a1fa0045ae732aabad11fa541e5932b071c2369bb0d325e8cba5a0"
+    },
+    {
+      "file": "cousub-metadata.json",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/8?f=pjson",
+      "sha256": "5183f91aad5a79eed27182f5ad60bc363977d669efa772b8f79acd064b182da0"
+    },
+    {
+      "file": "incorporated-metadata.json",
+      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/11?f=pjson",
+      "sha256": "9f93411e4d7e55976baf86826aaab4d9cfa6374227d91e5a54111b4ecd4417ac"
+    }
+  ]
+}

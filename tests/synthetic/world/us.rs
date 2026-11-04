@@ -1,6 +1,55 @@
 use super::*;
 use crate::*;
 
+pub fn write_municipalities(path: &std::path::Path) {
+    use std::io::Write;
+    let ring = |x0: f64, y0: f64, x1: f64, y1: f64| {
+        let mut previous = [0i32; 2];
+        [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]].map(|point| {
+            let point = point.map(|v| (v * 1e7).round() as i32);
+            let delta = [point[0] - previous[0], point[1] - previous[1]];
+            previous = point;
+            delta
+        })
+    };
+    let records = serde_json::json!([
+        [
+            "cousub/4900100001",
+            "US-UT",
+            "Elmwood township",
+            [
+                ring(-108.02, 35.98, -108.0, 36.02),
+                ring(-108.015, 36.004, -108.013, 36.008),
+                ring(-108.018, 36.004, -108.016, 36.008)
+            ]
+        ],
+        [
+            "place/0400001",
+            "US-AZ",
+            "Juniper city",
+            [ring(-108.0, 35.98, -107.96, 36.02)]
+        ],
+        [
+            "place/4900001",
+            "US-UT",
+            "Overlapping borough",
+            [ring(-108.011, 36.005, -108.009, 36.007)]
+        ],
+        [
+            "place/0400002",
+            "US-AZ",
+            "Contradictory city",
+            [ring(-108.018, 36.004, -108.016, 36.008)]
+        ]
+    ]);
+    let mut gzip = flate2::write::GzEncoder::new(
+        std::fs::File::create(path).unwrap(),
+        flate2::Compression::default(),
+    );
+    gzip.write_all(records.to_string().as_bytes()).unwrap();
+    gzip.finish().unwrap();
+}
+
 pub const REVERSE_PLACES: &[Place] = &[
     place!(
         "us-reverse-west-region",
@@ -74,6 +123,30 @@ pub const REVERSE_PLACES: &[Place] = &[
         "Brookmere",
         &[]
     ),
+    place!(
+        "us-existing-government",
+        "localadmin",
+        "",
+        "US",
+        "US-UT",
+        1000,
+        (-108.011, 36.016),
+        "us-reverse-west-region",
+        "Existing Municipality",
+        &[]
+    ),
+    place!(
+        "us-government-child",
+        "locality",
+        "village",
+        "US",
+        "US-UT",
+        1000,
+        (-108.011, 36.016),
+        "us-existing-government",
+        "Woods End",
+        &[]
+    ),
 ];
 
 pub const REVERSE_POINT_ONLY: &[&str] = &[
@@ -81,9 +154,29 @@ pub const REVERSE_POINT_ONLY: &[&str] = &[
     "us-reverse-east",
     "us-reverse-closer",
     "us-reverse-namesake",
+    "us-existing-government",
+    "us-government-child",
 ];
 
 pub const REVERSE_AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
+    (
+        "us-existing-government",
+        "localadmin",
+        true,
+        true,
+        -108.011,
+        36.016,
+        0.0008,
+    ),
+    (
+        "us-government-child",
+        "locality",
+        true,
+        true,
+        -108.011,
+        36.016,
+        0.0006,
+    ),
     (
         "us-reverse-west-region",
         "region",
@@ -123,6 +216,61 @@ pub const REVERSE_AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
 ];
 
 pub const REVERSE_STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Civic Hole",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.014,
+        lat: 36.006,
+        numbers: &["31B-33"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Civic Overlap",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.010,
+        lat: 36.006,
+        numbers: &["41A/43"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Civic Wrong State",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.017,
+        lat: 36.006,
+        numbers: &["51C-53"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Civic Encoding Edge",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.015,
+        lat: 36.006,
+        numbers: &["61D-63"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Civic Existing",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.011,
+        lat: 36.016,
+        numbers: &["71E-73"],
+    },
     Street {
         class: "residential",
         length: 0.0,
@@ -197,6 +345,95 @@ fn us_reverse_offset_crosses_the_boundary_without_renaming_either_house() {
         value["lat"].as_str().unwrap().parse().unwrap(),
     );
     assert!(crate::metres(at, east) < 0.2);
+}
+
+#[test]
+fn us_reverse_keeps_old_indexes_readable_and_preserves_every_existing_field() {
+    let dir = std::env::temp_dir().join(format!("us-legacy-index-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for entry in std::fs::read_dir(crate::dir()).unwrap() {
+        let entry = entry.unwrap();
+        let name = entry.file_name();
+        if entry.file_type().unwrap().is_file()
+            && name != "us-municipalities.bin"
+            && name != "us-municipalities.json"
+        {
+            std::fs::copy(entry.path(), dir.join(name)).unwrap();
+        }
+    }
+    let old = opengeocoding::index::Index::open(
+        &dir,
+        std::sync::Arc::new(opengeocoding::index::Parser::unloaded(0)),
+    )
+    .unwrap();
+    let point = house(crate::street("Civic West"), "17B-19");
+    let before = old.reverse_search(point.1, point.0, 2.0, 1);
+    let mut after = crate::index().reverse_search(point.1, point.0, 2.0, 1);
+    assert_eq!(
+        after[0].1["address"]
+            .as_object_mut()
+            .unwrap()
+            .remove("municipality"),
+        Some(serde_json::json!("Elmwood township"))
+    );
+    assert_eq!(before, after);
+    drop(old);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn us_reverse_uses_typed_government_polygons_without_replacing_localities() {
+    for (road, number, village, municipality, region) in [
+        (
+            "Civic West",
+            "17B-19",
+            "Brookmere",
+            Some("Elmwood township"),
+            "US-UT",
+        ),
+        (
+            "Civic East",
+            "23A-25",
+            "Pineward",
+            Some("Juniper city"),
+            "US-AZ",
+        ),
+        ("Civic Hole", "31B-33", "Brookmere", None, "US-UT"),
+        ("Civic Overlap", "41A/43", "Brookmere", None, "US-UT"),
+        ("Civic Wrong State", "51C-53", "Brookmere", None, "US-UT"),
+        ("Civic Encoding Edge", "61D-63", "Brookmere", None, "US-UT"),
+        (
+            "Civic Existing",
+            "71E-73",
+            "Woods End",
+            Some("Existing Municipality"),
+            "US-UT",
+        ),
+    ] {
+        let point = house(crate::street(road), number);
+        let found = crate::index().reverse_search(point.1, point.0, 2.0, 1);
+        assert_eq!(found.len(), 1, "{road}");
+        assert_eq!(found[0].0, "address");
+        let value = &found[0].1;
+        assert_eq!(
+            value["address"]["municipality"].as_str(),
+            municipality,
+            "{road}: {value}"
+        );
+        assert_eq!(value["address"]["village"], village, "{road}: {value}");
+        assert_eq!(value["address"]["country_code"], "us");
+        assert_eq!(value["address"]["ISO3166-2-lvl4"], region);
+        assert_eq!(value["address"]["house_number"], number.to_lowercase());
+        assert_eq!(value["address"]["road"], road);
+        assert_eq!(value["address"]["postcode"], "84001");
+        let at = (
+            value["lon"].as_str().unwrap().parse().unwrap(),
+            value["lat"].as_str().unwrap().parse().unwrap(),
+        );
+        assert!(crate::metres(at, point) < 0.2);
+        assert!(!value["display_name"].as_str().unwrap().contains("township"));
+    }
 }
 
 pub const PLACES: &[Place] = &[
