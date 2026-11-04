@@ -382,11 +382,87 @@ impl Index {
             return vec![];
         }
         let found = self.suggest_typed(text, limit, cc, focus, landmarks, chain);
+        if chain.len() == 1
+            && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
+            && !found.iter().any(|s| s.kind == "address")
+        {
+            let recovered = self.canadian_place_parts(text, limit, focus, landmarks, chain);
+            if !recovered.is_empty() {
+                return recovered;
+            }
+        }
         // a rewrite's own constraints stand: what was typed falls back, not a retry of it
         if !found.is_empty() || chain.len() > 1 {
             return found;
         }
         self.suggest_stated(text, cc, focus, landmarks, limit, chain)
+    }
+
+    /// `ca::without_place_parts`, for a Canadian text whose suggestions hold no address.
+    fn canadian_place_parts(
+        &self,
+        text: &str,
+        limit: usize,
+        focus: Option<&Focus>,
+        landmarks: bool,
+        chain: &mut Vec<(String, Option<String>)>,
+    ) -> Vec<Suggestion> {
+        // "18 Sydney WAY, Crossroads, PE C1B 4M4": the register's community is not the house's
+        // place; its stated postcode has to be the house's. Each part left out names a Canadian
+        // place or the house's own (a municipality whose name holds commas), and none another
+        // province than the house's.
+        if let Some((kept, dropped, beside, number, postcode)) = ca::without_place_parts(
+            &ca::without_subdivision_part(text).map_or(text.to_string(), |(t, _)| t),
+        ) {
+            let number = schema::number_key(&number);
+            let province = |part: &str| {
+                let key = name_key(part);
+                self.regions
+                    .iter()
+                    .find(|(code, p)| {
+                        code.starts_with("CA-")
+                            && (self.places[**p as usize].named(key)
+                                || part.eq_ignore_ascii_case(&code[3..]))
+                    })
+                    .map(|(code, _)| code.clone())
+            };
+            let recovered: Vec<_> = self
+                .retry_suggest(&kept, limit, Some("ca"), focus, landmarks, chain)
+                .into_iter()
+                .filter(|s| {
+                    if s.kind != "address"
+                        || s.country_code != "ca"
+                        || s.id.rsplit(':').next() != Some(number.as_str())
+                    {
+                        return false;
+                    }
+                    let Some(house) = self.suggested_house(s) else {
+                        return false;
+                    };
+                    let address = &house["address"];
+                    let own = fold(&s.display_name);
+                    let own: std::collections::HashSet<&str> = own.split(' ').collect();
+                    address["postcode"]
+                        .as_str()
+                        .is_some_and(|p| p.replace(' ', "").eq_ignore_ascii_case(&postcode))
+                        // beside the postcode, a province, or the house's own town: another
+                        // town there contradicts the postcode
+                        && beside.as_deref().is_none_or(|part| match province(part) {
+                            Some(code) => address["ISO3166-2-lvl4"].as_str() == Some(code.as_str()),
+                            None => fold(part).split(' ').all(|w| own.contains(w)),
+                        })
+                        && dropped.iter().all(|part| match province(part) {
+                            Some(code) => address["ISO3166-2-lvl4"].as_str() == Some(code.as_str()),
+                            None => {
+                                self.names_place(part, Some("ca"))
+                                    || fold(part).split(' ').all(|w| own.contains(w))
+                            }
+                        })
+                })
+                .collect();
+            return recovered;
+        }
+        vec![]
     }
 
     fn suggest_typed(
@@ -651,7 +727,7 @@ impl Index {
         if !out.iter().any(|s| s.kind == "address")
             && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
         {
-            for (form, number, _) in ca::possessive_forms(text) {
+            for (form, number, _) in ca::street_name_forms(text) {
                 let number = schema::number_key(&number);
                 let recovered: Vec<_> = self
                     .retry_suggest(&form, limit, Some("ca"), focus, landmarks, chain)
@@ -668,54 +744,15 @@ impl Index {
                 }
             }
         }
-        // "18 Sydney WAY, Crossroads, PE C1B 4M4": the register's community is not the house's
-        // place; its stated postcode has to be the house's. Each part left out names a Canadian
-        // place or the house's own (a municipality whose name holds commas), and none another
-        // province than the house's.
+        // "VOJ 1AO": a letter O for a zero of a Canadian postcode
         if !out.iter().any(|s| s.kind == "address")
             && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
-            && let Some((kept, dropped, number, postcode)) = ca::without_place_parts(
-                &ca::without_subdivision_part(text).map_or(text.to_string(), |(t, _)| t),
-            )
+            && let Some(fixed) = ca::postcode_zeros(text)
         {
-            let number = schema::number_key(&number);
-            let province = |part: &str| {
-                let key = name_key(part);
-                self.regions
-                    .iter()
-                    .find(|(code, p)| {
-                        code.starts_with("CA-")
-                            && (self.places[**p as usize].named(key)
-                                || part.eq_ignore_ascii_case(&code[3..]))
-                    })
-                    .map(|(code, _)| code.clone())
-            };
             let recovered: Vec<_> = self
-                .retry_suggest(&kept, limit, Some("ca"), focus, landmarks, chain)
+                .retry_suggest(&fixed, limit, Some("ca"), focus, landmarks, chain)
                 .into_iter()
-                .filter(|s| {
-                    if s.kind != "address"
-                        || s.country_code != "ca"
-                        || s.id.rsplit(':').next() != Some(number.as_str())
-                    {
-                        return false;
-                    }
-                    let Some(house) = self.suggested_house(s) else {
-                        return false;
-                    };
-                    let address = &house["address"];
-                    let own = fold(&s.display_name);
-                    let own: std::collections::HashSet<&str> = own.split(' ').collect();
-                    address["postcode"]
-                        .as_str()
-                        .is_some_and(|p| p.replace(' ', "").eq_ignore_ascii_case(&postcode))
-                        && dropped.iter().all(|part| {
-                            province(part).is_none_or(|code| {
-                                address["ISO3166-2-lvl4"].as_str() == Some(code.as_str())
-                            }) && (self.names_place(part, Some("ca"))
-                                || fold(part).split(' ').all(|w| own.contains(w)))
-                        })
-                })
+                .filter(|s| s.kind == "address" && s.country_code == "ca")
                 .collect();
             if !recovered.is_empty() {
                 out = recovered;

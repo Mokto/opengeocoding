@@ -1696,6 +1696,7 @@ fn canadian_place_parts_before_a_full_postcode_are_set_aside() {
         Some((
             own("18 Sydney WAY, C1B 4M4, Canada"),
             vec![own("Crossroads")],
+            Some(own("PE")),
             own("18"),
             own("C1B4M4")
         ))
@@ -1715,6 +1716,7 @@ fn canadian_place_parts_before_a_full_postcode_are_set_aside() {
             ]
             .map(own)
             .to_vec(),
+            Some(own("PE")),
             own("351"),
             own("C0A1N0")
         ))
@@ -1724,13 +1726,14 @@ fn canadian_place_parts_before_a_full_postcode_are_set_aside() {
         Some((
             own("Sydney WAY 18, c1b4m4, Canada"),
             vec![own("Crossroads")],
+            None,
             own("18"),
             own("C1B4M4")
         ))
     );
     for query in [
-        // nothing between, no full postcode, no civic number, not stated Canada
-        "18 Sydney WAY, PE C1B 4M4, Canada",
+        // nothing around the postcode, no full postcode, no civic number, not stated Canada
+        "18 Sydney WAY, C1B 4M4, Canada",
         "18 Sydney WAY, Crossroads, PE C1B, Canada",
         "Sydney WAY, Crossroads, PE C1B 4M4, Canada",
         "18 Sydney WAY, Crossroads, PE C1B 4M4, CA",
@@ -1738,6 +1741,60 @@ fn canadian_place_parts_before_a_full_postcode_are_set_aside() {
     ] {
         assert_eq!(ca::without_place_parts(query), None, "{query}");
     }
+}
+
+#[test]
+fn canadian_street_types_and_letter_o_postcodes_have_retry_forms() {
+    let forms: Vec<String> = ca::street_name_forms("35 CLARKES HILLVIEW ST, PARADISE, NL A1L 3B8")
+        .into_iter()
+        .map(|(form, number, postcode)| {
+            assert_eq!((number.as_str(), postcode.as_str()), ("35", "A1L3B8"));
+            form
+        })
+        .collect();
+    assert!(forms.contains(&"35 CLARKES HILLVIEW, PARADISE, NL A1L 3B8".to_owned()));
+    assert!(forms.contains(&"35 CLARKE'S HILLVIEW, PARADISE, NL A1L 3B8".to_owned()));
+    for query in [
+        // no postcode, a direction last, too short a name to drop its type
+        "35 CLARKES HILLVIEW ST, PARADISE, NL, Canada",
+        "35 HILLVIEW ST N, PARADISE, NL A1L 3B8",
+        "35 MAIN ST, PARADISE, NL A1L 3B8",
+    ] {
+        assert!(
+            ca::street_name_forms(query)
+                .iter()
+                .all(|(form, _, _)| !form.contains("HILLVIEW,") && !form.contains("MAIN,")),
+            "{query}"
+        );
+    }
+    assert_eq!(
+        ca::postcode_zeros("5128 Gitzyon Avenue, New Aiyansh, BC, VOJ 1AO, Canada").as_deref(),
+        Some("5128 Gitzyon Avenue, New Aiyansh, BC, V0J 1A0, Canada")
+    );
+    assert_eq!(
+        ca::postcode_zeros("7 Pine Ridge Rd, nob1ao, Canada").as_deref(),
+        Some("7 Pine Ridge Rd, n0b1a0, Canada")
+    );
+    for query in [
+        "7 Pine Ridge Rd, N0B 1A0, Canada",
+        "7 Pine Ridge Rd, NOB 1AO, CA",
+        "7 Pine Ridge Rd, NOB 1AO, United Kingdom",
+    ] {
+        assert_eq!(ca::postcode_zeros(query), None, "{query}");
+    }
+    let own = |s: &str| s.to_owned();
+    assert_eq!(
+        ca::without_place_parts(
+            "59, rue Sainte-Catherine Est, Montréal (Québec) H2X 1K5, Ville-Marie, Canada"
+        ),
+        Some((
+            own("59 rue Sainte-Catherine Est, H2X 1K5, Canada"),
+            vec![own("Ville-Marie")],
+            Some(own("Montréal (Québec)")),
+            own("59"),
+            own("H2X1K5")
+        ))
+    );
 }
 
 #[test]
