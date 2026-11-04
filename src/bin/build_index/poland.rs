@@ -55,6 +55,24 @@ fn source(b: &RecordBatch, i: usize) -> Option<(&str, &str, &str)> {
     Some((dataset, get("version")?, get("update_time")?))
 }
 
+fn province_matches(dataset: &str, first: &str, second: &str) -> bool {
+    let Some(region) = pl::source_region(dataset) else {
+        return false;
+    };
+    let province = fold(dataset.strip_prefix("pl/").unwrap());
+    let names = [fold(first), fold(second)];
+    names
+        .iter()
+        .filter(|name| name.as_str() == province)
+        .count()
+        == 1
+        && names.iter().all(|name| {
+            !name.is_empty()
+                && pl::source_region(&format!("pl/{}", name.replace(' ', "-")))
+                    .is_none_or(|code| code == region)
+        })
+}
+
 fn point_key(number: &str, x: f64, y: f64) -> Vec<u8> {
     let (a, b) = schema::pack(x, y, 0);
     let (x, y, _) = schema::unpack((u64::from(a) << 32) | u64::from(b));
@@ -129,10 +147,11 @@ pub fn write(dir: &Path, out: &Path, places: &[Place], streets: &[AddrShard]) ->
                     continue;
                 };
                 let o = levels.value_offsets();
-                // PRG-derived province exports use [powiat, województwo, miejscowość], not postal levels.
+                // Overture September/October encode PRG as [powiat, province, city]/[province, gmina, city].
                 if o[i + 1] - o[i] != 3
-                    || text(values, o[i] as usize + 1)
-                        .is_none_or(|name| fold(name) != fold(dataset.strip_prefix("pl/").unwrap()))
+                    || text(values, o[i] as usize)
+                        .zip(text(values, o[i] as usize + 1))
+                        .is_none_or(|(first, second)| !province_matches(dataset, first, second))
                 {
                     continue;
                 }
@@ -249,6 +268,28 @@ pub fn write(dir: &Path, out: &Path, places: &[Place], streets: &[AddrShard]) ->
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn province_supports_both_geographic_layouts_without_accepting_conflicts() {
+        let dataset = "pl/kujawsko-pomorskie";
+        assert!(province_matches(dataset, "County", "kujawsko-pomorskie"));
+        assert!(province_matches(
+            dataset,
+            "kujawsko-pomorskie",
+            "Municipality"
+        ));
+        assert!(province_matches("pl/lodzkie", "Łódzkie", "Municipality"));
+        assert!(!province_matches(dataset, "County", "Municipality"));
+        assert!(!province_matches(dataset, "County", "lubuskie"));
+        assert!(!province_matches(dataset, "kujawsko-pomorskie", "lubuskie"));
+        assert!(!province_matches(
+            dataset,
+            "kujawsko-pomorskie",
+            "kujawsko-pomorskie"
+        ));
+        assert!(!province_matches(dataset, "kujawsko-pomorskie", ""));
+        assert!(!province_matches("pl/unknown", "unknown", "Municipality"));
+    }
 
     #[test]
     fn membership_requires_an_unambiguous_descendant_and_preserves_existing_names() {

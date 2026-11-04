@@ -316,3 +316,38 @@ The rebase retains both the Canadian and Polish reverse-locality hooks and both 
 
 Formatting, all-target clippy, all ordinary tests (107 synthetic checks) and the separate model-backed synthetic test pass after rebasing. The model-backed RPC command against the shared full index again reproduces the two existing baseline failures. The full-index comparison above remains evidence for its recorded base `66e8e81`, not a newly measured comparison against `ebf889a`. No full gold run was repeated locally for this history-only update. Current-head CI gold quality and measured request speed still need verification.
 
+## Why the first CI pass had no effect, and the October-layout fix
+
+The rebased head `534bd93` passed [CI quality and measured speed](https://github.com/Mokto/opengeocoding/actions/runs/41769559591), but every RPC reported zero changed answers. That was a no-regression result, not evidence that the locality fix worked on the chart's input.
+
+The adapter incorrectly assumed that the province was always the second address level. All **8,628,514** Polish rows in the local copy of Overture **2026-10-21.0** have one supported OpenAddresses source and three levels, but those levels are **[province, gmina, miejscowość]**, rather than September's **[powiat, province, miejscowość]**. The province check rejected every October row. The unchanged builder reproduces this with **zero annotations** on October input.
+
+The corrected adapter requires exactly one of the first two nonempty levels to match the dataset's province, rejects another recognized conflicting province, and keeps the final geographic miejscowość field. It still requires the same supported whole-record provenance/licence/UUID, exact packed source point, complete number, unique descendant and compatible indexed regions. No postal substitution, source-version guess, source-identifier crosswalk, expectation change or held-out tuning was added.
+
+The recovery fixture now uses October ordering; it fails under the old adapter and passes with the fix. The existing-name fixture retains September ordering. A small builder test also covers both orders, diacritics, absent/duplicated province, contradictory provinces and unsupported datasets.
+
+### Controlled October experiment
+
+Old builder `06296ece2308263c` and corrected builder/chart **`3cc9d538e47c5d86`** were built against one owned APFS-frozen input set: October Overture and the same local OpenAddresses/OSM/landmark/Korean-shop/GeoNames inputs used by the documented local recipe. This matches the relevant October layout, not every chart source or CI capture. The 5,834 input files total 215,430,030,305 bytes; the relative-path SHA256 inventory is `4e0ff599e9980030dd99bb2087357a4044fd55f3043447efe93a7719912fb030`.
+
+The corrected builder writes **1,518,986 annotations** instead of zero. Their FST SHA256 is `6b14eeddd09190d464171b2158b31425c59c6255ed32fcecb34778018594bffb`; `poland-source.json` is `6415d390769b8b7776ddd49d9ff65f771ae3c7d785b69ea45203a3c50c7fb8e3`.
+
+Both indexes were evaluated with the **same consumer binary**, models, reference data and corpus. An unchanged baseline repeat has zero answer/class drift. Both the full two-index quality comparison and a separate annotation-only comparison pass without new failures, worse classes or abstain-to-miss transitions. The annotation-only control is a copy-on-write clone of the corrected index with only its FST replaced by the old builder's empty one; it isolates the new geographic evidence from unrelated packed-document tie ordering.
+
+| PRG mode/cohort | Passing query checks before → after | Passing source groups before → after |
+|---|---:|---:|
+| At-point, all | 738 → 908 / 927 | 431 → 546 / 560 |
+| Offset, all | 740 → 911 / 927 | 432 → 548 / 560 |
+| At-point, training | 566 → 692 / 707 | 333 → 420 / 430 |
+| Offset, training | 568 → 695 / 707 | 334 → 422 / 430 |
+| At-point, held-out aggregate | 172 → 216 / 220 | 98 → 126 / 130 |
+| Offset, held-out aggregate | 172 → 216 / 220 | 98 → 126 / 130 |
+
+These are correlated source-fidelity checks, not national accuracy estimates. One training check exposes an existing wrong house after its locality is corrected; its house/point/number does not change. Held-out reporting remains aggregate-only.
+
+Across the full suite, locality/house reverse passes increase **38,393 → 38,563 / 45,662** and offsets **36,294 → 36,465 / 39,416**: **+170 and +171**, confined to Poland. Forward search, suggestions, regions, other countries and the curated/OSM control pass counts are unchanged. All 128 house-number FSTs, `places.tsv`, `areas.bin`, and the AU/DK sidecars are byte-identical between builders. The isolated comparison preserves house identity, point, road, full number, postcode, country and regions for all **85,222** reverse records; 392 raw records change locality information.
+
+Formatting, all-target clippy, all ordinary tests (107 synthetic checks), the builder regression and the separately invoked model-backed synthetic test pass. The real-index RPC suite reproduces its two existing baseline failures. Full absolute gold still exits nonzero for existing failures; the relative quality checks pass.
+
+Local speed tables report broad slowdowns even for unchanged forward code using the same binary and index. Those contended, unmatched local timings do not establish request-speed performance. The new head's CI quality and measured speed must both be checked; `534bd93`'s earlier pass does not verify this fix.
+

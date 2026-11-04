@@ -417,8 +417,10 @@ pub fn levels(s: &Street) -> Vec<&str> {
     };
     if s.name == "PRG Postal Only" {
         vec!["Test County", province]
-    } else {
+    } else if s.name == "PRG Existing" {
         vec!["Test County", province, s.city]
+    } else {
+        vec![province, "Test Municipality", s.city]
     }
 }
 

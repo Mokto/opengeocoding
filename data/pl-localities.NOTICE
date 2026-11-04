@@ -16,6 +16,10 @@ The source definitions at OpenAddresses commit
 ID to lokalnyId, and NUMBER to numerPorzadkowy, separately from kodPocztowy.
 https://github.com/openaddresses/openaddresses/tree/76ac33513648f1c050f2d09c2bfdc0376f2514f6/sources/pl
 The processed datasets/versions/update times used are in poland-source.json.
+The September/October 2026 Overture releases encode these geographic levels as
+[powiat, province, miejscowosc] / [province, gmina, miejscowosc], respectively.
+Exactly one of the first two levels must identify the dataset's province;
+missing or contradictory province evidence is rejected in either layout.
 
 Modified: geographic locality names are matched to uniquely named indexed
 localities below the inherited parent, in the source province. Membership is
