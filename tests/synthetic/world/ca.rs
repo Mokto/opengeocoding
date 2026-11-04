@@ -886,3 +886,39 @@ fn a_canadian_house_names_the_local_government_holding_it_and_its_nearest_settle
         assert_eq!(address["ISO3166-2-lvl4"], "CA-NB");
     }
 }
+
+#[test]
+fn a_place_the_house_is_not_filed_under_is_passed_over_for_its_full_postcode() {
+    let index = index();
+    let road = street("Maple Scope Road");
+    for query in [
+        "12 Maple Scope Road, Hamilton, ON N4B 1A1, Canada",
+        "12 Maple Scope Road, Harbour ON, Hamilton, ON N4B 1A1, Canada",
+    ] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert!(
+            metres((found[0].x, found[0].y), house(road, "12")) < 2.,
+            "{query}"
+        );
+    }
+    for query in [
+        // another postcode, a number or suffix the street lacks, a bare CA, another country
+        "12 Maple Scope Road, Hamilton, ON N4B 1A2, Canada",
+        "13 Maple Scope Road, Hamilton, ON N4B 1A1, Canada",
+        "12b Maple Scope Road, Hamilton, ON N4B 1A1, Canada",
+        "12 Maple Scope Road, Hamilton, ON N4B 1A1, CA",
+        "12 Maple Scope Road, Hamilton, ON N4B 1A1, Australia",
+        // a place no data names, or another province
+        "12 Maple Scope Road, Missingville, ON N4B 1A1, Canada",
+        "12 Maple Scope Road, Hamilton, Quebec, N4B 1A1, Canada",
+    ] {
+        assert!(
+            !index
+                .suggest(query, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+}
