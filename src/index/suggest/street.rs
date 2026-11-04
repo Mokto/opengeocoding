@@ -1103,6 +1103,21 @@ impl Index {
         // town misspelt or named by a later word ("main st, lodnon"): the end of "rue de rivoli"
         // or "united states" is not a town
         let short = open && parts.len() == 1 && parts[0].chars().count() < 3;
+        // "…, ON, Canada": a region's code before its country is that region, not the places
+        // with the word inside a name (Niagara-on-the-Lake)
+        if codes
+            && cc.is_some()
+            && let [code, rest @ ..] = parts
+            && !rest.is_empty()
+            && rest
+                .iter()
+                .all(|p| !self.countries_named(&fold(p), false).is_empty())
+        {
+            let regions = self.regions_coded(&fold(code), cc);
+            if !regions.is_empty() {
+                return regions;
+            }
+        }
         let places = |names| -> Vec<u32> {
             self.suggest_places(parts, open, cc, focus, names, 8)
                 .into_iter()

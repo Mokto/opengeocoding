@@ -573,7 +573,7 @@ impl Parser {
             }
             match parts[..] {
                 _ if aligned.is_some() => {}
-                [head, tail] if state_part(tail) => {
+                [head, tail] if state_part(tail) || country::ca::province_and_postcode(tail) => {
                     aligned = street_aligned(
                         &libpostal(head.trim())?,
                         head,

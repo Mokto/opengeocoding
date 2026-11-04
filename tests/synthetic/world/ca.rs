@@ -237,6 +237,30 @@ pub const PLACES: &[Place] = &[
         "Harbourview",
         &[("en", "Harbourview")],
     ),
+    place!(
+        "ca-pe",
+        "region",
+        "",
+        "CA",
+        "CA-PE",
+        170_000,
+        (-63.2, 46.4),
+        "ca",
+        "Prince Edward Island",
+        &[("en", "Prince Edward Island")],
+    ),
+    place!(
+        "ca-pe-mermaid",
+        "locality",
+        "village",
+        "CA",
+        "CA-PE",
+        400,
+        (-63.04, 46.25),
+        "ca-pe",
+        "Mermaid",
+        &[("en", "Mermaid")],
+    ),
 ];
 
 pub const POINT_ONLY: &[&str] = &[
@@ -396,6 +420,18 @@ pub const STREETS: &[Street] = &[
         lon: -64.945,
         lat: 46.5,
         numbers: &["3"],
+    },
+    // libpostal runs "PE C1B 4M4" into this road when no town comes before it
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Sydney WAY",
+        postcode: "C1B 4M4",
+        city: "Mermaid",
+        cc: "CA",
+        lon: -63.038,
+        lat: 46.251,
+        numbers: &["18"],
     },
     // in the parish, between the local governments' polygons
     Street {
@@ -591,6 +627,33 @@ fn canadian_unit_suggestions_identify_buildings_not_apartments_or_range_endpoint
 /// written the other way than the source's is found only with the house's postcode, and a postcode
 /// written spaced confirms a house whose source writes it compact.
 pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
+    // a province's code and postcode with no town: libpostal ran them into the road
+    for query in [
+        "18 Sydney WAY, PE C1B 4M4, Canada",
+        "18 Sydney WAY, Prince Edward Island C1B 4M4, Canada",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres(
+                (at.lon as f64, at.lat as f64),
+                house(street("Sydney WAY"), "18")
+            ) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
+    for query in [
+        "19 Sydney WAY, PE C1B 4M4, Canada",
+        "18 Sydney WAY, ON N4B 1A1, Canada",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        let house = got
+            .address_details
+            .as_option()
+            .map_or("", |d| d.house_number.as_str());
+        assert!(!got.good_match && house.is_empty(), "{query}: {got:?}");
+    }
     let query = "422A AVENUE W S, DELHI, ON N4B 1A6, Canada";
     let got = resolver.resolve(query).await.unwrap();
     assert!(got.good_match, "{query}: {got:?}");
@@ -978,6 +1041,36 @@ fn a_place_the_house_is_not_filed_under_is_passed_over_for_its_full_postcode() {
         // a place no data names, or another province
         "12 Maple Scope Road, Missingville, ON N4B 1A1, Canada",
         "12 Maple Scope Road, Hamilton, Quebec, N4B 1A1, Canada",
+    ] {
+        assert!(
+            !index
+                .suggest(query, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+}
+
+#[test]
+fn a_province_code_before_the_country_scopes_to_the_province() {
+    let index = index();
+    let road = street("Maple Scope Road");
+    // "on" is also a word of a town's name (Harbour ON)
+    for query in [
+        "12 Maple Scope Road, ON N4B 1A1, Canada",
+        "12 Maple Scope Road, ON, Canada",
+    ] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert!(
+            metres((found[0].x, found[0].y), house(road, "12")) < 2.,
+            "{query}"
+        );
+    }
+    for query in [
+        "12 Maple Scope Road, QC, Canada",
+        "13 Maple Scope Road, ON N4B 1A1, Canada",
     ] {
         assert!(
             !index

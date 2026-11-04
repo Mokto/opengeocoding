@@ -3,6 +3,18 @@ use crate::matching::*;
 use regex::Regex;
 use std::sync::LazyLock;
 
+/// A province's code and a full postcode, a comma part of their own ("PE C1B 4M4"), which
+/// libpostal runs into the road when no town comes before it.
+pub fn province_and_postcode(part: &str) -> bool {
+    static PART: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"(?i)^(?:AB|BC|MB|NB|NL|NS|NT|NU|ON|PE|QC|SK|YT)\s+[A-Z][0-9][A-Z]\s?[0-9][A-Z][0-9]$",
+        )
+        .unwrap()
+    });
+    PART.is_match(part.trim())
+}
+
 /// A Canadian unit/civic query as (building query, civic number), after literal house lookup fails.
 pub fn canadian_building(query: &str) -> Option<(&str, &str)> {
     static UNIT: LazyLock<Regex> = LazyLock::new(|| {
