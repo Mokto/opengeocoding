@@ -668,7 +668,9 @@ impl Index {
             {
                 continue;
             }
-            if plated && !found.iter().any(|s| s.kind == "address") {
+            // a number read where it finds no house ("9.78 129" as house 9.78 on a "… 129"
+            // street) gives way to a later reading that finds one
+            if (plated || number_word.is_some()) && !found.iter().any(|s| s.kind == "address") {
                 if streets.is_empty() {
                     streets = found;
                 }
