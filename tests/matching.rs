@@ -1689,6 +1689,58 @@ fn a_canadian_possessive_is_retried_written_the_other_way() {
 }
 
 #[test]
+fn canadian_place_parts_before_a_full_postcode_are_set_aside() {
+    let own = |s: &str| s.to_owned();
+    assert_eq!(
+        ca::without_place_parts("18 Sydney WAY, Crossroads, PE C1B 4M4, Canada"),
+        Some((
+            own("18 Sydney WAY, C1B 4M4, Canada"),
+            vec![own("Crossroads")],
+            own("18"),
+            own("C1B4M4")
+        ))
+    );
+    assert_eq!(
+        ca::without_place_parts(
+            "351 Gulf Shore PKY W, Stanley Bridge, Hope River, Bayview, Cavendish and North \
+             Rustico, PE C0A 1N0, Canada"
+        ),
+        Some((
+            own("351 Gulf Shore PKY W, C0A 1N0, Canada"),
+            [
+                "Stanley Bridge",
+                "Hope River",
+                "Bayview",
+                "Cavendish and North Rustico"
+            ]
+            .map(own)
+            .to_vec(),
+            own("351"),
+            own("C0A1N0")
+        ))
+    );
+    assert_eq!(
+        ca::without_place_parts("Sydney WAY 18, Crossroads, c1b4m4, Canada"),
+        Some((
+            own("Sydney WAY 18, c1b4m4, Canada"),
+            vec![own("Crossroads")],
+            own("18"),
+            own("C1B4M4")
+        ))
+    );
+    for query in [
+        // nothing between, no full postcode, no civic number, not stated Canada
+        "18 Sydney WAY, PE C1B 4M4, Canada",
+        "18 Sydney WAY, Crossroads, PE C1B, Canada",
+        "Sydney WAY, Crossroads, PE C1B 4M4, Canada",
+        "18 Sydney WAY, Crossroads, PE C1B 4M4, CA",
+        "18 Sydney WAY, Crossroads, PE C1B 4M4",
+    ] {
+        assert_eq!(ca::without_place_parts(query), None, "{query}");
+    }
+}
+
+#[test]
 fn glued_house_suffixes_and_canadian_street_directions_have_retry_forms() {
     assert_eq!(
         spaced_house_suffix("82A AV MERCIER, SALABERRY-DE-VALLEYFIELD, QC J6S 6L9, Canada"),

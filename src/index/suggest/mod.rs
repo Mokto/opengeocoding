@@ -668,6 +668,59 @@ impl Index {
                 }
             }
         }
+        // "18 Sydney WAY, Crossroads, PE C1B 4M4": the register's community is not the house's
+        // place; its stated postcode has to be the house's. Each part left out names a Canadian
+        // place or the house's own (a municipality whose name holds commas), and none another
+        // province than the house's.
+        if !out.iter().any(|s| s.kind == "address")
+            && cc.is_none_or(|c| c.eq_ignore_ascii_case("ca"))
+            && let Some((kept, dropped, number, postcode)) = ca::without_place_parts(
+                &ca::without_subdivision_part(text).map_or(text.to_string(), |(t, _)| t),
+            )
+        {
+            let number = schema::number_key(&number);
+            let province = |part: &str| {
+                let key = name_key(part);
+                self.regions
+                    .iter()
+                    .find(|(code, p)| {
+                        code.starts_with("CA-")
+                            && (self.places[**p as usize].named(key)
+                                || part.eq_ignore_ascii_case(&code[3..]))
+                    })
+                    .map(|(code, _)| code.clone())
+            };
+            let recovered: Vec<_> = self
+                .retry_suggest(&kept, limit, Some("ca"), focus, landmarks, chain)
+                .into_iter()
+                .filter(|s| {
+                    if s.kind != "address"
+                        || s.country_code != "ca"
+                        || s.id.rsplit(':').next() != Some(number.as_str())
+                    {
+                        return false;
+                    }
+                    let Some(house) = self.suggested_house(s) else {
+                        return false;
+                    };
+                    let address = &house["address"];
+                    let own = fold(&s.display_name);
+                    let own: std::collections::HashSet<&str> = own.split(' ').collect();
+                    address["postcode"]
+                        .as_str()
+                        .is_some_and(|p| p.replace(' ', "").eq_ignore_ascii_case(&postcode))
+                        && dropped.iter().all(|part| {
+                            province(part).is_none_or(|code| {
+                                address["ISO3166-2-lvl4"].as_str() == Some(code.as_str())
+                            }) && (self.names_place(part, Some("ca"))
+                                || fold(part).split(' ').all(|w| own.contains(w)))
+                        })
+                })
+                .collect();
+            if !recovered.is_empty() {
+                out = recovered;
+            }
+        }
         // "Via Praga 3, Possidente, Avigliano (PZ)": the houses name the municipality, not the
         // frazione
         if !out.iter().any(|s| s.kind == "address")

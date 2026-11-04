@@ -118,6 +118,37 @@ pub fn without_subdivision_part(query: &str) -> Option<(String, String)> {
     Some((kept.join(", "), number))
 }
 
+/// A Canadian address with parts between its street and its full postcode (`18 Sydney WAY,
+/// Crossroads, PE C1B 4M4, Canada`), as (the street, postcode and what follows it, the parts
+/// left out, the civic number, the compact postcode). The register's community is often not the
+/// place the index files the house under (`Mermaid`), and a municipality's name can hold commas
+/// (`Stanley Bridge, Hope River, Bayview, Cavendish and North Rustico`); the postcode, which
+/// places a block face, stays to confirm the house. The province beside the postcode goes too:
+/// the postcode's own place can be another than the house's, and the postcode names the
+/// province.
+pub fn without_place_parts(query: &str) -> Option<(String, Vec<String>, String, String)> {
+    static POSTCODE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b([A-Za-z][0-9][A-Za-z]) ?([0-9][A-Za-z][0-9])\b").unwrap());
+    if query.chars().count() > 256 || !states_canada(query) {
+        return None;
+    }
+    let parts: Vec<&str> = query.split(',').map(str::trim).collect();
+    let at = parts.iter().position(|p| POSTCODE.is_match(p))?;
+    if at < 2 {
+        return None;
+    }
+    let number = civic_number(parts[0])?;
+    let postcode = POSTCODE.captures(parts[at])?;
+    let written = postcode.get(0)?.as_str();
+    let postcode = format!("{}{}", &postcode[1], &postcode[2]).to_uppercase();
+    let kept: Vec<&str> = [parts[0], written]
+        .into_iter()
+        .chain(parts[at + 1..].iter().copied())
+        .collect();
+    let dropped = parts[1..at].iter().map(|p| p.to_string()).collect();
+    Some((kept.join(", "), dropped, number, postcode))
+}
+
 /// A Canadian address with its street's direction left out ("31 Thatcher Dr E" as "31 Thatcher
 /// Dr", "162 North Klondike Hwy" as "162 Klondike Hwy"), with its house number and compact
 /// postcode: some sources name the street without it. Only the postcode, which in Canada places a
