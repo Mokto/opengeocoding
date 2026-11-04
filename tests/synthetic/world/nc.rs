@@ -157,16 +157,10 @@ fn nc_house_postcodes_keep_the_territory_namespace() {
         Some("98860"),
         Some(" 98880 "),
     ] {
-        assert!(
-            permits_house_postcode(*b"NC", None, postcode),
-            "{postcode:?}"
-        );
+        assert!(permits_house_postcode(*b"NC", None, postcode));
     }
     for postcode in ["30500", "75001", "9888O", "988800", "98880;75001"] {
-        assert!(
-            !permits_house_postcode(*b"NC", None, Some(postcode)),
-            "{postcode}"
-        );
+        assert!(!permits_house_postcode(*b"NC", None, Some(postcode)));
     }
     assert!(permits_house_postcode(*b"FR", Some(*b"FR"), Some("30500")));
     assert!(!permits_house_postcode(*b"FR", Some(*b"NC"), Some("30500")));

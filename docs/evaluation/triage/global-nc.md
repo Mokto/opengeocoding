@@ -46,9 +46,10 @@ independently verifying its address.
 ## Controlled comparison
 
 Both sides used the same consumer binary and libpostal models. Two full baseline
-runs had zero answer drift. The postcode guard alone changed no answers across
-the 46,407-case local gold suite; the address-input experiment then used exactly
-the same pinned source files with only NC's input role changed.
+runs had zero answer drift. On the initial main baseline, the postcode guard alone
+changed no answers across the 46,407-case local gold suite. After rebasing, the full
+comparison against main was repeated on the same pinned source set; only NC's
+address-input role and the import guard differ.
 
 | NC panel operation | Passing queries, before → after | Locations passing both orders, before → after |
 | --- | ---: | ---: |
@@ -73,10 +74,12 @@ speed separately.
 
 ## Evidence and remaining limitations
 
-The reproduced baseline is main `bce81e3`, builder `24e45dcd8295f18b`, on the
-standard local Overture `2026-09-23.1` source set. A repeat and an independently
-rebuilt control had zero NC answer drift. The stale issue #501 nightly is not the
-before side of this comparison.
+The final baseline is main `f324410`, builder `3cc9d538e47c5d86`; the candidate
+builder is `53ebdb7afad97a81`, on the standard local Overture `2026-09-23.1` source
+set. The initial source investigation and guard-only isolation used main
+`bce81e3`, builder `24e45dcd8295f18b`. Both repeated baselines had zero answer
+drift, and the final comparison retains the same NC counts. The stale issue #501
+nightly is not the before side of this comparison.
 
 The pinned NC index-input extract is Geofabrik replication 4940, 2026-10-15,
 SHA256 `c47cdc3f0af03b28de2b320784d50f31849281c0e9d1dfb92bacdcfbab21b064`.
