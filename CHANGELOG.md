@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.7.0](https://github.com/Mokto/opengeocoding/compare/v1.6.2...v1.7.0) (2026-11-04)
+
+
+### Features
+
+* index native Korean land-lot addresses from listed places ([#513](https://github.com/Mokto/opengeocoding/issues/513)) ([66e8e81](https://github.com/Mokto/opengeocoding/commit/66e8e81710d09b73691985495ba7014cf1a1ddb6))
+* suggest the stated town for registered-office addresses the index can't fully place ([#511](https://github.com/Mokto/opengeocoding/issues/511)) ([48e62d0](https://github.com/Mokto/opengeocoding/commit/48e62d0dfdeb95ad5b708ff94951d4a421d50c91))
+
+
+### Bug Fixes
+
+* find Canadian houses whose possessive street name is written the other way ([#518](https://github.com/Mokto/opengeocoding/issues/518)) ([9fe4c84](https://github.com/Mokto/opengeocoding/commit/9fe4c84e8087df722087fec53071e1e98512068d))
+* find Canadian houses written with a census-subdivision designator part ([#517](https://github.com/Mokto/opengeocoding/issues/517)) ([68d5604](https://github.com/Mokto/opengeocoding/commit/68d5604615334723d0b4276d07b5fc2b9d26bd44))
+* find Latvian municipalities by English name and houses with compound building numbers ([#523](https://github.com/Mokto/opengeocoding/issues/523)) ([ebf889a](https://github.com/Mokto/opengeocoding/commit/ebf889a237d975c726b9f64e87911811b5f7d646))
+* let a spaced postcode confirm a suggested house whose source writes it compact ([#520](https://github.com/Mokto/opengeocoding/issues/520)) ([2de90dd](https://github.com/Mokto/opengeocoding/commit/2de90ddfe3341f2907da1ab33c83a77ca58d5674))
+* name Canadian reverse houses by the local government holding them and its nearest settlement ([#524](https://github.com/Mokto/opengeocoding/issues/524)) ([8630057](https://github.com/Mokto/opengeocoding/commit/8630057cfacf75bb1291cb1ef39966efa0938c1b))
+* require station names and separate location diagnostics ([#486](https://github.com/Mokto/opengeocoding/issues/486)) ([195e07b](https://github.com/Mokto/opengeocoding/commit/195e07be5b033897b7cacc454de5ab2953f4aafe))
+* stop consuming repeated address fields in suggestion retries ([#514](https://github.com/Mokto/opengeocoding/issues/514)) ([b3c3b74](https://github.com/Mokto/opengeocoding/commit/b3c3b746fc8e4bcd0c98ad7f11bcbbdd6bc1c730))
+* suggest Canadian houses whose source leaves out the street direction, and never take the opposite one ([#515](https://github.com/Mokto/opengeocoding/issues/515)) ([9f5030e](https://github.com/Mokto/opengeocoding/commit/9f5030e00ce4b2ae0c99f0887d5284d9334e44fc))
+* suggest houses with a spaced fractional civic number ([#516](https://github.com/Mokto/opengeocoding/issues/516)) ([62cd2e5](https://github.com/Mokto/opengeocoding/commit/62cd2e53af1670bab3d78924ec32d435b33351ab))
+
 ## [1.6.2](https://github.com/Mokto/opengeocoding/compare/v1.6.1...v1.6.2) (2026-11-03)
 
 
