@@ -13,7 +13,7 @@ pub(super) const NEAR_LOCALITY_M: f64 = 50_000.0;
 // ponytail: one factor for every town and city, whatever its size; 2 fixed more town points of
 // the gold suite but named a town at more villages' own. Locality polygons, where the data has
 // them, would answer by containment instead.
-const TOWN_REACH: f64 = 1.5;
+pub(super) const TOWN_REACH: f64 = 1.5;
 
 /// Calls `cell` with the offsets of the cells `r` cells from the centre, around a square ring.
 pub(super) fn ring(r: i64, mut cell: impl FnMut(i64, i64)) {

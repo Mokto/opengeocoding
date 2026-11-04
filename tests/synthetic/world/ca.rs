@@ -75,6 +75,173 @@ pub const PLACES: &[Place] = &[
         "Harbour ON",
         &[("en", "Harbour ON")],
     ),
+    // New Brunswick: a civil parish's area holds every house; its city and hamlets are points
+    // under it, and its parent is a local government other than the city's
+    place!(
+        "ca-nb",
+        "region",
+        "",
+        "CA",
+        "CA-NB",
+        800_000,
+        (-66.0, 46.5),
+        "ca",
+        "New Brunswick",
+        &[("en", "New Brunswick")],
+    ),
+    place!(
+        "ca-nb-tidemouth-city",
+        "county",
+        "",
+        "CA",
+        "CA-NB",
+        80_000,
+        (-65.05, 46.0),
+        "ca-nb",
+        "City of Tidemouth",
+        &[("en", "City of Tidemouth")],
+    ),
+    place!(
+        "ca-nb-hillside",
+        "county",
+        "",
+        "CA",
+        "CA-NB",
+        5_000,
+        (-64.9, 46.0),
+        "ca-nb",
+        "Hillside Rural Community",
+        &[("en", "Hillside Rural Community")],
+    ),
+    place!(
+        "ca-nb-tidemouth-parish",
+        "locality",
+        "",
+        "CA",
+        "CA-NB",
+        0,
+        (-65.0, 46.0),
+        "ca-nb-hillside",
+        "Tidemouth District",
+        &[("en", "Tidemouth District")],
+    ),
+    place!(
+        "ca-nb-tidemouth",
+        "locality",
+        "city",
+        "CA",
+        "CA-NB",
+        80_000,
+        (-65.06, 46.0),
+        "ca-nb-tidemouth-parish",
+        "Tidemouth",
+        &[("en", "Tidemouth")],
+    ),
+    place!(
+        "ca-nb-cove",
+        "locality",
+        "hamlet",
+        "CA",
+        "CA-NB",
+        300,
+        (-64.9, 46.0),
+        "ca-nb-tidemouth-parish",
+        "Cove",
+        &[("en", "Cove")],
+    ),
+    place!(
+        "ca-nb-gap",
+        "locality",
+        "hamlet",
+        "CA",
+        "CA-NB",
+        100,
+        (-64.99, 46.0),
+        "ca-nb-tidemouth-parish",
+        "Gap",
+        &[("en", "Gap")],
+    ),
+    // two cities that are points only, each under its own government: a house of one nearer the
+    // other's point is filed under the other
+    place!(
+        "ca-nb-port-royal-city",
+        "county",
+        "",
+        "CA",
+        "CA-NB",
+        20_000,
+        (-65.0, 46.5),
+        "ca-nb",
+        "City of Port Royal",
+        &[("en", "City of Port Royal")],
+    ),
+    place!(
+        "ca-nb-pearl-city",
+        "county",
+        "",
+        "CA",
+        "CA-NB",
+        20_000,
+        (-64.94, 46.5),
+        "ca-nb",
+        "City of Pearl",
+        &[("en", "City of Pearl")],
+    ),
+    place!(
+        "ca-nb-port-royal",
+        "locality",
+        "city",
+        "CA",
+        "CA-NB",
+        20_000,
+        (-65.025, 46.5),
+        "ca-nb-port-royal-city",
+        "Port Royal",
+        &[("en", "Port Royal")],
+    ),
+    place!(
+        "ca-nb-pearl",
+        "locality",
+        "city",
+        "CA",
+        "CA-NB",
+        20_000,
+        (-64.95, 46.5),
+        "ca-nb-pearl-city",
+        "Pearl",
+        &[("en", "Pearl")],
+    ),
+];
+
+pub const POINT_ONLY: &[&str] = &[
+    "ca-nb-tidemouth",
+    "ca-nb-cove",
+    "ca-nb-gap",
+    "ca-nb-port-royal",
+    "ca-nb-pearl",
+];
+
+pub const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
+    (
+        "ca-nb-tidemouth-city",
+        "county",
+        true,
+        true,
+        -65.05,
+        46.0,
+        0.05,
+    ),
+    ("ca-nb-hillside", "county", true, true, -64.9, 46.0, 0.05),
+    (
+        "ca-nb-port-royal-city",
+        "county",
+        true,
+        true,
+        -65.0,
+        46.5,
+        0.03,
+    ),
+    ("ca-nb-pearl-city", "county", true, true, -64.94, 46.5, 0.03),
 ];
 
 pub const STREETS: &[Street] = &[
@@ -134,6 +301,63 @@ pub const STREETS: &[Street] = &[
         lon: -80.484,
         lat: 42.854,
         numbers: &["422.0 A"],
+    },
+    // in the city's local government, nearer the hamlet across its edge than the city
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Harbour Road",
+        postcode: "E1C 6T8",
+        city: "Tidemouth",
+        cc: "CA",
+        lon: -65.005,
+        lat: 46.0,
+        numbers: &["113"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Cove Road",
+        postcode: "E1C 6T9",
+        city: "Cove",
+        cc: "CA",
+        lon: -64.905,
+        lat: 46.0,
+        numbers: &["7"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Lady Lane",
+        postcode: "E1C 6T6",
+        city: "Port Royal",
+        cc: "CA",
+        lon: -64.975,
+        lat: 46.5,
+        numbers: &["51"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Pearl Street",
+        postcode: "E1C 6T5",
+        city: "Pearl",
+        cc: "CA",
+        lon: -64.945,
+        lat: 46.5,
+        numbers: &["3"],
+    },
+    // in the parish, between the local governments' polygons
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Between Lane",
+        postcode: "E1C 6T7",
+        city: "Tidemouth",
+        cc: "CA",
+        lon: -64.975,
+        lat: 46.0,
+        numbers: &["5"],
     },
     // a possessive the source keeps and Canada Post's mailing form drops, and the other way
     Street {
@@ -606,5 +830,59 @@ fn a_possessive_written_the_other_way_is_suggested_only_with_the_house_postcode(
                 .any(|s| s.kind == "address"),
             "{query}"
         );
+    }
+}
+
+#[test]
+fn a_canadian_house_names_the_local_government_holding_it_and_its_nearest_settlement() {
+    for (lat, lon, number, key, settlement, county) in [
+        (
+            46.5,
+            -64.975,
+            "51",
+            "city",
+            "Port Royal",
+            "City of Port Royal",
+        ),
+        (46.5, -64.945, "3", "city", "Pearl", "City of Pearl"),
+        (
+            46.0,
+            -65.005,
+            "113",
+            "city",
+            "Tidemouth",
+            "City of Tidemouth",
+        ),
+        (
+            46.0,
+            -64.905,
+            "7",
+            "village",
+            "Cove",
+            "Hillside Rural Community",
+        ),
+        // no local government's polygon holds it: the parish and its parent stay
+        (
+            46.0,
+            -64.975,
+            "5",
+            "village",
+            "Tidemouth District",
+            "Hillside Rural Community",
+        ),
+    ] {
+        let found = index().reverse_search(lat, lon, 2.0, 1);
+        let (layer, hit, _) = &found[0];
+        assert_eq!(*layer, "address", "{number}");
+        let address = &hit["address"];
+        assert_eq!(address["house_number"], number);
+        assert_eq!(address[key], settlement, "{number}: {address}");
+        assert_eq!(address["county"], county, "{number}: {address}");
+        let named = ["city", "town", "village"]
+            .iter()
+            .filter(|k| address.get(**k).is_some())
+            .count();
+        assert_eq!(named, 1, "{number}: {address}");
+        assert_eq!(address["ISO3166-2-lvl4"], "CA-NB");
     }
 }
