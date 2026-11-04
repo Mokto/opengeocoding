@@ -199,14 +199,18 @@ mod tests {
                 .flat_map(HashMap::values)
                 .map(Vec::len)
                 .sum::<usize>(),
-            289082
+            23037
         );
         assert_eq!(
             metadata["source_sha256"],
-            "06634a6fc9e4cd626642b179441524c3728df5e7ad5a71ebd5e492f8850996b0"
+            "678f6141c79a8610710c062f09310989d9399b9ca59bd79e86ddebb2a74bcbea"
         );
-        assert_eq!(metadata["raw_counts"]["active_rows"], 674252);
-        assert_eq!(metadata["prepared_rows"], 289082);
+        assert_eq!(
+            metadata["catalogue"],
+            "https://www.data.go.kr/data/15096257/fileData.do"
+        );
+        assert_eq!(metadata["raw_counts"]["active_rows"], 45754);
+        assert_eq!(metadata["prepared_rows"], 23037);
     }
 
     #[test]

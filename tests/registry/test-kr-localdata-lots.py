@@ -62,6 +62,23 @@ class LocaldataLots(unittest.TestCase):
                     self.assertNotIn("새동 1\t", content)
                     self.assertIn("새동 2\t", content)
 
+    def test_institution_category_does_not_select_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "capture.csv"
+            with source.open("w", encoding="cp949", newline="") as stream:
+                writer = csv.writer(stream)
+                writer.writerow(["영업상태코드", "지번주소", "좌표정보(X)", "좌표정보(Y)", "위생업태명"])
+                for i, category in enumerate(["학교", "병원", "산업체"], 1):
+                    writer.writerow(["01", f"경기도 가상시 새동 {i}", str(200000+i), "500000", category])
+            outputs = [SimpleNamespace(stdout="127.000783539 38.002746025"), SimpleNamespace(stdout="127.0 37.0\n127.0001 37.0\n127.0002 37.0\n")]
+            out = root / "prepared.tsv.gz"
+            with patch.object(localdata.subprocess, "run", side_effect=outputs), contextlib.redirect_stdout(io.StringIO()):
+                localdata.prepare(source, hashlib.sha256(source.read_bytes()).hexdigest(), out, "2026-11-04")
+            with localdata.gzip.open(out, "rt") as stream:
+                rows = list(csv.DictReader(stream, delimiter="\t"))
+            self.assertEqual({row["lot_address"] for row in rows}, {f"경기도 가상시 새동 {i}" for i in range(1, 4)})
+
     def test_duplicates_and_annotations_cannot_weight_an_address(self):
         key = "경기도 가상시 새동 1"
         rows = [(key, 127, 37, True)] * 20 + [(key, 127, 37, False)]
