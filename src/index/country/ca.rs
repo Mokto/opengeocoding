@@ -303,9 +303,16 @@ pub(in crate::index) fn reverse_locality(
     };
     let chain = index.chain(*place);
     let parish = locality.class.is_empty() && index.region_code(&chain) == Some("CA-NB");
-    let elsewhere = chain
-        .iter()
-        .any(|&p| pl(p).subtype.as_ref() == "county" && p != government);
+    let counties: Vec<u32> = (chain.iter().copied())
+        .filter(|&p| pl(p).subtype.as_ref() == "county")
+        .collect();
+    // a town under no county whose own point lies outside the government holding the house
+    // (Torbay's, for houses of St. John's); one under that government (North Rustico, beside
+    // its resort municipality) is the house's
+    let outside = counties.is_empty()
+        && !locality.class.is_empty()
+        && index.area_at(locality.y as f64, locality.x as f64).0 != Some(government);
+    let elsewhere = outside || counties.iter().any(|&p| p != government);
     if !parish && !elsewhere {
         return;
     }
