@@ -25,7 +25,7 @@ use arrow_array::{
 use geo::{Assigner, KINDS, Poly, PolyFile, wkb_line, wkb_point, wkb_polygons};
 use hashbrown::HashTable;
 use opengeocoding::index::{
-    country::{au, kr},
+    country::{au, kr, nc},
     reverse::{self, StreetSpill, street_edges},
     schema::{
         self, Bucket, Num, NumberSpill, TOWN_CITY, fold, fold_into, held_slot, pack, pc_norm,
@@ -1476,7 +1476,9 @@ impl<'s, 'a> Sink<'s, 'a> {
         if c == [0; 2] || !x.is_finite() || !y.is_finite() {
             return;
         }
+        let place_country = place.map(|p| self.shared.countries[p as usize]);
         let pc = nonempty(postcode);
+        let house_postcode = nc::permits_house_postcode(c, place_country, pc);
         if let Some(pc) = pc {
             self.pcn.clear();
             self.pcn.extend(
@@ -1484,15 +1486,17 @@ impl<'s, 'a> Sink<'s, 'a> {
                     .filter(|c| c.is_alphanumeric())
                     .flat_map(char::to_uppercase),
             );
-            let m = self.pcs.entry(c).or_default();
-            match m.get_mut(self.pcn.as_str()) {
-                Some(e) => e.add(pc, quantize(x), quantize(y), 1),
-                None => m.entry(self.pcn.as_str().into()).or_default().add(
-                    pc,
-                    quantize(x),
-                    quantize(y),
-                    1,
-                ),
+            if house_postcode {
+                let m = self.pcs.entry(c).or_default();
+                match m.get_mut(self.pcn.as_str()) {
+                    Some(e) => e.add(pc, quantize(x), quantize(y), 1),
+                    None => m.entry(self.pcn.as_str().into()).or_default().add(
+                        pc,
+                        quantize(x),
+                        quantize(y),
+                        1,
+                    ),
+                }
             }
         }
         // Village addresses without streets ("Libá 156", OSM addr:place) number within the
@@ -1572,6 +1576,7 @@ impl<'s, 'a> Sink<'s, 'a> {
         if self.weighs {
             (e.sx, e.sy, e.n) = (e.sx + quantize(x), e.sy + quantize(y), e.n + 1);
         }
+        let number = number.filter(|_| house_postcode);
         for n in number
             .into_iter()
             .flat_map(|n| n.split(';'))

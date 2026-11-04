@@ -103,6 +103,7 @@ pub(super) mod lv;
 mod mk;
 mod mx;
 mod my;
+pub mod nc;
 mod nl;
 mod no;
 mod nz;
@@ -165,6 +166,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         mk::PLACES,
         mx::PLACES,
         my::PLACES,
+        nc::PLACES,
         nl::PLACES,
         no::PLACES,
         nz::PLACES,
@@ -320,6 +322,7 @@ pub fn cases() -> Vec<crate::Case> {
         lv::cases(),
         mk::cases(),
         mx::cases(),
+        nc::cases(),
         nl::cases(),
         no::cases(),
         pf::cases(),
@@ -380,6 +383,7 @@ pub static STREETS: LazyLock<Vec<Street>> = LazyLock::new(|| {
         mk::STREETS,
         mx::STREETS,
         my::STREETS,
+        nc::STREETS,
         nl::STREETS,
         no::STREETS,
         nz::STREETS,
@@ -1171,7 +1175,12 @@ pub fn write_osm(dir: &Path) {
         node_messages.push(n);
         id
     };
-    for f in FEATURES.iter().chain(uy::FEATURES).chain(au::FEATURES) {
+    for f in FEATURES
+        .iter()
+        .chain(uy::FEATURES)
+        .chain(au::FEATURES)
+        .chain(nc::FEATURES)
+    {
         let t = tags(f);
         let r = match f.shape {
             Shape::Node => {
