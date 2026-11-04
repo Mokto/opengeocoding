@@ -132,6 +132,16 @@ impl Address {
                 ),
             ));
         }
+        // the mailing form without its town, which libpostal and SuggestAddress misread
+        if matches!(self.category, "plain" | "quebec") {
+            queries.push((
+                "province",
+                format!(
+                    "{} {}, {} {}, Canada",
+                    self.number, self.street, self.province, self.postcode
+                ),
+            ));
+        }
         if !self.geographic_street.is_empty() && !self.geographic_city.is_empty() {
             let query = self.query(&self.number, &self.geographic_street, &self.geographic_city);
             if query.to_lowercase() != base.to_lowercase() {
@@ -371,6 +381,14 @@ mod tests {
         data["addresses"][0]["location"]["BG_LATITUDE"] = json!("");
         write(&data);
         assert!(sample(&path, "test").is_err());
+        data = fixture();
+        data["addresses"][0]["address"]["APT_NO_LABEL"] = json!("");
+        data["addresses"][0]["address"]["CIVIC_NO_SUFFIX"] = json!("");
+        write(&data);
+        let plain = sample(&path, "test").unwrap();
+        assert_eq!(plain[0]["cohort"], "ca_plain");
+        assert_eq!(plain[1]["queries"][0], "12 Example AVE, ON K1A 0B1, Canada");
+        assert_eq!(plain[1]["tags"][4], "province");
         data = fixture();
         data["addresses"][0]["address"]["MAIL_PROV_ABVN"] = json!("QC");
         write(&data);
