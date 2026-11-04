@@ -1,0 +1,11 @@
+Source: Ministry of the Interior and Safety (행정안전부), LOCALDATA 식품 일반음식점 licensing register.
+Catalogue: https://www.data.go.kr/data/15045016/fileData.do
+Download information: https://file.localdata.go.kr/file/general_restaurants/info
+Captured 2026-11-04; latest extract-update date in the capture: 2026-11-03.
+Original CSV SHA256: 06634a6fc9e4cd626642b179441524c3728df5e7ad5a71ebd5e492f8850996b0
+Publisher permits reuse without restriction; policy: https://www.data.go.kr/ugs/selectPortalPolicyView.do
+No endorsement by the publisher is implied.
+
+Changes: strict CP949 decoding; active-status records only; bare native single-lot address extraction; EPSG:5174 to longitude/latitude EPSG:4326 conversion with PROJ; duplicate removal; whole-source shared-point and raw coordinate-spread quarantine. The builder admits only geometry-corroborated lots whose folded name/number pair was absent from its earlier Korean inputs. No benchmark or held-out answers select source rows.
+
+These are registered business parcel/address reference points, not verified entrances or complete residential coverage. Lot-derived houses are excluded from house reverse-geocoding postings. Multi-parcel, floor/unit annotations and ambiguous or unsupported source records are not admitted by this supplement. Existing house coordinates and postcodes take precedence.

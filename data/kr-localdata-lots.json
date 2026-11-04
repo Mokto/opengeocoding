@@ -1,0 +1,24 @@
+{
+  "dataset": "행정안전부 식품 일반음식점 LOCALDATA",
+  "catalogue": "https://www.data.go.kr/data/15045016/fileData.do",
+  "source_sha256": "06634a6fc9e4cd626642b179441524c3728df5e7ad5a71ebd5e492f8850996b0",
+  "capture_date": "2026-11-04",
+  "encoding": "CP949",
+  "source_crs": "EPSG:5174",
+  "prepared_crs": "EPSG:4326 (GIS longitude, latitude)",
+  "policy": "Active status 01; positive native bare single-lot addresses only; whole-source shared-coordinate and pre-envelope coordinate-spread quarantine. No service, benchmark or expected-answer filtering. Builder must corroborate every administrative qualifier against its geometry-assigned place.",
+  "raw_counts": {
+    "raw_rows": 2309440,
+    "closed_rows": 1635188,
+    "active_rows": 674252,
+    "unparsed_lot_rows": 9353,
+    "missing_coordinate_rows": 19351
+  },
+  "source_key_point_style_rows": 469619,
+  "quarantined_keys": 66,
+  "prepared_rows": 289082,
+  "prepared_unique_addresses": 289053,
+  "tsv_sha256": "4ab1ceaf8c852a21073d58e1d90e768f06e4db73f6d06f5633dd2f3bd8fdd145",
+  "gzip_sha256": "1a359fb8c4007a65c1e7978d383dfbc592ae81d5278045d194de8f827446914f",
+  "limitations": "Parcel/address reference points, not verified entrances or complete residential coverage."
+}

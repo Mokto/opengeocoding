@@ -741,6 +741,7 @@ pub fn write_release(dir: &Path) {
                 && !pl::REVERSE_POINT_ONLY.contains(&p.id)
                 && !pl::MEMBERSHIP_POINT_ONLY.contains(&p.id)
                 && !us::REVERSE_POINT_ONLY.contains(&p.id)
+                && !kr::POINT_ONLY.contains(&p.id)
         })
         .map(|p| {
             let r = if p.id == "li-vaduz" { 0.05 } else { 0.2 };
@@ -753,6 +754,7 @@ pub fn write_release(dir: &Path) {
         .chain(cz::AREAS.iter().copied())
         .chain(pl::REVERSE_AREAS.iter().copied())
         .chain(us::REVERSE_AREAS.iter().copied())
+        .chain(kr::AREAS.iter().copied())
         .collect();
     write(
         dir,
