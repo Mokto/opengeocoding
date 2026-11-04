@@ -132,33 +132,55 @@ pub fn without_subdivision_part(query: &str) -> Option<(String, String)> {
 
 /// A Canadian address with parts between its street and its full postcode (`18 Sydney WAY,
 /// Crossroads, PE C1B 4M4, Canada`), as (the street, postcode and what follows it, the parts
-/// left out, the civic number, the compact postcode). The register's community is often not the
+/// left out, the text beside the postcode, the civic number, the compact postcode). The register's community is often not the
 /// place the index files the house under (`Mermaid`), and a municipality's name can hold commas
 /// (`Stanley Bridge, Hope River, Bayview, Cavendish and North Rustico`); the postcode, which
-/// places a block face, stays to confirm the house. The province beside the postcode goes too:
-/// the postcode's own place can be another than the house's, and the postcode names the
-/// province.
-pub fn without_place_parts(query: &str) -> Option<(String, Vec<String>, String, String)> {
+/// places a block face, stays to confirm the house. The town or province beside the postcode
+/// goes too (the postcode's own place can be another than the house's), and places after it
+/// (`Montréal (Québec) H2X 1K5, Ville-Marie, Canada`); Québec's civic number written as a part of
+/// its own (`59, rue Sainte-Catherine Est`) is joined to its street.
+#[allow(clippy::type_complexity)]
+pub fn without_place_parts(
+    query: &str,
+) -> Option<(String, Vec<String>, Option<String>, String, String)> {
     static POSTCODE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\b([A-Za-z][0-9][A-Za-z]) ?([0-9][A-Za-z][0-9])\b").unwrap());
     if query.chars().count() > 256 || !states_canada(query) {
         return None;
     }
-    let parts: Vec<&str> = query.split(',').map(str::trim).collect();
+    let mut parts: Vec<String> = query.split(',').map(|p| p.trim().to_string()).collect();
+    // Québec's "639, rue de Bretagne": the civic number as a part of its own
+    if parts.len() > 2 && !parts[0].is_empty() && parts[0].bytes().all(|b| b.is_ascii_digit()) {
+        let street = parts.remove(1);
+        parts[0] = format!("{} {street}", parts[0]);
+    }
     let at = parts.iter().position(|p| POSTCODE.is_match(p))?;
-    if at < 2 {
+    let country = |p: &str| !expected_country(&parsed_country(p)).is_empty();
+    let after: Vec<&String> = parts[at + 1..].iter().filter(|p| !country(p)).collect();
+    let beside = POSTCODE.replace(&parts[at], "").trim().to_string();
+    if at < 2 && after.is_empty() && (at == 0 || beside.is_empty()) {
         return None;
     }
-    let number = civic_number(parts[0])?;
-    let postcode = POSTCODE.captures(parts[at])?;
-    let written = postcode.get(0)?.as_str();
+    let number = civic_number(&parts[0])?;
+    let postcode = POSTCODE.captures(&parts[at])?;
+    let written = postcode.get(0)?.as_str().to_string();
     let postcode = format!("{}{}", &postcode[1], &postcode[2]).to_uppercase();
-    let kept: Vec<&str> = [parts[0], written]
+    let kept: Vec<&str> = [parts[0].as_str(), written.as_str()]
         .into_iter()
-        .chain(parts[at + 1..].iter().copied())
+        .chain(
+            parts[at + 1..]
+                .iter()
+                .filter(|p| country(p))
+                .map(String::as_str),
+        )
         .collect();
-    let dropped = parts[1..at].iter().map(|p| p.to_string()).collect();
-    Some((kept.join(", "), dropped, number, postcode))
+    let dropped = parts[1..at]
+        .iter()
+        .cloned()
+        .chain(after.into_iter().cloned())
+        .collect();
+    let beside = (!beside.is_empty()).then_some(beside);
+    Some((kept.join(", "), dropped, beside, number, postcode))
 }
 
 /// A Canadian address with its street's direction left out ("31 Thatcher Dr E" as "31 Thatcher
@@ -271,6 +293,64 @@ pub fn possessive_forms(query: &str) -> Vec<(String, String, String)> {
         }
     }
     forms
+}
+
+/// `possessive_forms`, then the street part without a street type the source leaves out (`35
+/// CLARKES HILLVIEW ST` for `Clarke's Hillview`) and that form's possessive forms. Only the
+/// stated postcode may confirm the house found.
+pub fn street_name_forms(query: &str) -> Vec<(String, String, String)> {
+    static POSTCODE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b([A-Za-z][0-9][A-Za-z]) ?([0-9][A-Za-z][0-9])\b").unwrap());
+    let mut forms = possessive_forms(query);
+    let Some((head, tail)) = query.split_once(',') else {
+        return forms;
+    };
+    let Some(postcode) = POSTCODE.captures(tail) else {
+        return forms;
+    };
+    let postcode = format!("{}{}", &postcode[1], &postcode[2]).to_uppercase();
+    let words: Vec<&str> = head.split_whitespace().collect();
+    let (Some(&number), Some(&last)) = (words.first(), words.last()) else {
+        return forms;
+    };
+    let kind = last.trim_end_matches('.').to_lowercase();
+    if number.starts_with(|c: char| c.is_ascii_digit())
+        && words.len() >= 4
+        && (canon(&kind).is_some() || crate::index::canon::is_canonical(&kind))
+        && direction(last).is_none()
+        && kind.chars().all(char::is_alphabetic)
+    {
+        let typeless = format!("{},{tail}", words[..words.len() - 1].join(" "));
+        forms.push((typeless.clone(), number.to_owned(), postcode));
+        forms.extend(possessive_forms(&typeless));
+    }
+    forms
+}
+
+/// A Canadian postcode written with the letter O for a zero (`VOJ 1AO`), as the query with it
+/// corrected. No Canadian postcode has a letter where a digit goes.
+pub fn postcode_zeros(query: &str) -> Option<String> {
+    static POSTCODE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)\b([A-Z])([0-9O])([A-Z]) ?([0-9O])([A-Z])([0-9O])\b").unwrap()
+    });
+    if query.chars().count() > 256 || !states_canada(query) {
+        return None;
+    }
+    let zero = |m: &str| if m.eq_ignore_ascii_case("o") { "0" } else { m }.to_string();
+    let fixed = POSTCODE.replace_all(query, |c: &regex::Captures| {
+        let space = if c[0].contains(' ') { " " } else { "" };
+        format!(
+            "{}{}{}{space}{}{}{}",
+            &c[1],
+            zero(&c[2]),
+            &c[3],
+            zero(&c[4]),
+            &c[5],
+            zero(&c[6])
+        )
+    });
+    let changed = fixed != query;
+    changed.then(|| fixed.into_owned())
 }
 
 /// A Canadian house filed under a place that is not its town names instead the local government

@@ -445,6 +445,30 @@ pub const STREETS: &[Street] = &[
         lat: 46.0,
         numbers: &["5"],
     },
+    // a possessive name the source writes without a street type ("CLARKES HILLVIEW ST")
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Clarke's Hillview",
+        postcode: "N4B 1A7",
+        city: "Delhi",
+        cc: "CA",
+        lon: -80.481,
+        lat: 42.857,
+        numbers: &["35"],
+    },
+    // a postcode with zeros, which some write as the letter O
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Pine Ridge Road",
+        postcode: "N0B 1A0",
+        city: "Delhi",
+        cc: "CA",
+        lon: -80.478,
+        lat: 42.858,
+        numbers: &["7"],
+    },
     // a possessive the source keeps and Canada Post's mailing form drops, and the other way
     Street {
         class: "residential",
@@ -627,6 +651,38 @@ fn canadian_unit_suggestions_identify_buildings_not_apartments_or_range_endpoint
 /// written the other way than the source's is found only with the house's postcode, and a postcode
 /// written spaced confirms a house whose source writes it compact.
 pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
+    for (query, road, number) in [
+        (
+            "35 CLARKES HILLVIEW ST, DELHI, ON N4B 1A7, Canada",
+            "Clarke's Hillview",
+            "35",
+        ),
+        (
+            "7 Pine Ridge Road, Delhi, ON NOB 1AO, Canada",
+            "Pine Ridge Road",
+            "7",
+        ),
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(got.good_match, "{query}: {got:?}");
+        let at = got.geo_coordinates.as_option().unwrap();
+        assert!(
+            metres((at.lon as f64, at.lat as f64), house(street(road), number)) < 5.0,
+            "{query}: {got:?}"
+        );
+    }
+    for query in [
+        "37 CLARKES HILLVIEW ST, DELHI, ON N4B 1A7, Canada",
+        "35 CLARKES HILLVIEW ST, DELHI, ON N4B 1A1, Canada",
+        "8 Pine Ridge Road, Delhi, ON NOB 1AO, Canada",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        let house = got
+            .address_details
+            .as_option()
+            .map_or("", |d| d.house_number.as_str());
+        assert!(!got.good_match && house.is_empty(), "{query}: {got:?}");
+    }
     // a province's code and postcode with no town: libpostal ran them into the road
     for query in [
         "18 Sydney WAY, PE C1B 4M4, Canada",
@@ -1071,6 +1127,53 @@ fn a_province_code_before_the_country_scopes_to_the_province() {
     for query in [
         "12 Maple Scope Road, QC, Canada",
         "13 Maple Scope Road, ON N4B 1A1, Canada",
+    ] {
+        assert!(
+            !index
+                .suggest(query, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{query}"
+        );
+    }
+}
+
+#[test]
+fn street_type_letter_o_and_quebec_forms_still_suggest_the_house() {
+    let index = index();
+    for (query, road, number) in [
+        (
+            "35 CLARKES HILLVIEW ST, DELHI, ON N4B 1A7, Canada",
+            "Clarke's Hillview",
+            "35",
+        ),
+        (
+            "7 Pine Ridge Road, Delhi, ON NOB 1AO, Canada",
+            "Pine Ridge Road",
+            "7",
+        ),
+        // Québec's civic number as a part of its own, a town beside the postcode and a place
+        // after it
+        (
+            "12, Maple Scope Road, Delhi (Ontario) N4B 1A1, Harbour ON, Canada",
+            "Maple Scope Road",
+            "12",
+        ),
+    ] {
+        let found = index.suggest(query, 5, None, None, false);
+        assert_eq!(found.first().map(|s| s.kind), Some("address"), "{query}");
+        assert!(
+            metres((found[0].x, found[0].y), house(street(road), number)) < 2.,
+            "{query}"
+        );
+    }
+    for query in [
+        "37 CLARKES HILLVIEW ST, DELHI, ON N4B 1A7, Canada",
+        "35 CLARKES HILLVIEW ST, DELHI, ON N4B 1A1, Canada",
+        "8 Pine Ridge Road, Delhi, ON NOB 1AO, Canada",
+        "7 Pine Ridge Road, Delhi, ON NOB 1AO, Australia",
+        "12, Maple Scope Road, Delhi (Ontario) N4B 1A1, Missingville, Canada",
+        "12, Maple Scope Road, Hamilton (Québec) N4B 1A1, Canada",
     ] {
         assert!(
             !index

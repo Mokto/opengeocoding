@@ -1530,7 +1530,13 @@ impl Core {
                 return Ok(alt);
             }
         }
-        for (form, number, postcode) in ca::possessive_forms(query) {
+        if let Some(fixed) = ca::postcode_zeros(query) {
+            let alt = self.resolve_written(&fixed)?;
+            if alt.good_match {
+                return Ok(alt);
+            }
+        }
+        for (form, number, postcode) in ca::street_name_forms(query) {
             let alt = self.resolve_written(&form)?;
             if alt.good_match
                 && same_house_number(&alt, &number)
