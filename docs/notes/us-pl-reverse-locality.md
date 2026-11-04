@@ -310,3 +310,9 @@ This is deliberately not recovery for sibling/uncrosswalked localities, changed 
 
 CI quality and **measured** request speed remain required after publishing. Local warm/cold timings, including apparent large improvements with unchanged forward code, are confounded and support no speed claim. The offline source scan adds a build phase; it is not a request-latency measurement.
 
+### Rebase onto main `ebf889a`
+
+The rebase retains both the Canadian and Polish reverse-locality hooks and both countries' synthetic area/point-only fixtures. No Polish membership rule changes. The builder hash remains `06296ece2308263c`; no new index format or rebuild is needed for the rebase itself.
+
+Formatting, all-target clippy, all ordinary tests (107 synthetic checks) and the separate model-backed synthetic test pass after rebasing. The model-backed RPC command against the shared full index again reproduces the two existing baseline failures. The full-index comparison above remains evidence for its recorded base `66e8e81`, not a newly measured comparison against `ebf889a`. No full gold run was repeated locally for this history-only update. Current-head CI gold quality and measured request speed still need verification.
+
