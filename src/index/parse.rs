@@ -573,13 +573,21 @@ impl Parser {
             }
             match parts[..] {
                 _ if aligned.is_some() => {}
-                [head, tail] if state_part(tail) => {
-                    aligned = street_aligned(
-                        &libpostal(head.trim())?,
-                        head,
-                        &libpostal(tail.trim())?,
-                        &inner,
-                    );
+                [head, tail] if state_part(tail) || country::ca::province_and_postcode(tail) => {
+                    let (street, place) = (libpostal(head.trim())?, libpostal(tail.trim())?);
+                    aligned = street_aligned(&street, head, &place, &inner);
+                    // "3260 1RE RUE, QC J3Y 8Y5": a Canadian province and postcode name no town
+                    // (libpostal reads this one as a house, and "rue" as the town)
+                    if aligned.is_none()
+                        && head_aligns(&street)
+                        && let Some((province, postcode)) = tail.trim().split_once(' ')
+                        && country::ca::province_and_postcode(tail)
+                    {
+                        let mut a = street;
+                        a.push(("state".into(), province.to_lowercase()));
+                        a.push(("postcode".into(), postcode.trim().to_lowercase()));
+                        aligned = Some(a);
+                    }
                     // "Riverside, CT": a lone town and its state code that libpostal fused into
                     // one road ("riverside ct")
                     if aligned.is_none()
