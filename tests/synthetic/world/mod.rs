@@ -171,6 +171,8 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         pk::PLACES,
         pf::PLACES,
         pl::PLACES,
+        pl::REVERSE_PLACES,
+        pl::MEMBERSHIP_PLACES,
         pr::PLACES,
         ps::PLACES,
         pt::PLACES,
@@ -180,6 +182,7 @@ pub static PLACES: LazyLock<Vec<Place>> = LazyLock::new(|| {
         th::PLACES,
         tw::PLACES,
         us::PLACES,
+        us::REVERSE_PLACES,
         uy::PLACES,
         vn::PLACES,
         wf::PLACES,
@@ -383,6 +386,8 @@ pub static STREETS: LazyLock<Vec<Street>> = LazyLock::new(|| {
         pk::STREETS,
         pf::STREETS,
         pl::STREETS,
+        pl::REVERSE_STREETS,
+        pl::MEMBERSHIP_STREETS,
         ps::STREETS,
         pt::STREETS,
         rs::STREETS,
@@ -390,6 +395,7 @@ pub static STREETS: LazyLock<Vec<Street>> = LazyLock::new(|| {
         th::STREETS,
         tw::STREETS,
         us::STREETS,
+        us::REVERSE_STREETS,
         uy::STREETS,
         vn::STREETS,
         xk::STREETS,
@@ -720,6 +726,9 @@ pub fn write_release(dir: &Path) {
                 && !au::POINT_ONLY.contains(&p.id)
                 && !dk::POINT_ONLY.contains(&p.id)
                 && !ca::POINT_ONLY.contains(&p.id)
+                && !pl::REVERSE_POINT_ONLY.contains(&p.id)
+                && !pl::MEMBERSHIP_POINT_ONLY.contains(&p.id)
+                && !us::REVERSE_POINT_ONLY.contains(&p.id)
         })
         .map(|p| {
             let r = if p.id == "li-vaduz" { 0.05 } else { 0.2 };
@@ -729,6 +738,8 @@ pub fn write_release(dir: &Path) {
         .chain(au::AREAS.iter().copied())
         .chain(dk::AREAS.iter().copied())
         .chain(ca::AREAS.iter().copied())
+        .chain(pl::REVERSE_AREAS.iter().copied())
+        .chain(us::REVERSE_AREAS.iter().copied())
         .collect();
     write(
         dir,
@@ -811,7 +822,7 @@ pub fn write_release(dir: &Path) {
         ));
         for (s, _) in &rows {
             let town = (s.name == TOWN_CITY_ROAD.0).then_some(TOWN_CITY_ROAD.1);
-            for level in town.into_iter().chain([s.city]) {
+            for level in town.into_iter().chain(pl::levels(s)) {
                 b.values()
                     .field_builder::<StringBuilder>(0)
                     .unwrap()
@@ -829,14 +840,22 @@ pub fn write_release(dir: &Path) {
                 Field::new("dataset", DataType::Utf8, false),
                 Field::new("version", DataType::Utf8, false),
                 Field::new("property", DataType::Utf8, false),
+                Field::new("license", DataType::Utf8, false),
+                Field::new("record_id", DataType::Utf8, false),
+                Field::new("update_time", DataType::Utf8, false),
             ]),
-            (0..4)
+            (0..7)
                 .map(|_| Box::new(StringBuilder::new()) as _)
                 .collect(),
         ));
-        for (s, _) in &rows {
-            for &(provider, dataset, version) in jp::sources(s) {
-                for (i, value) in [provider, dataset, version, ""].into_iter().enumerate() {
+        for (row, (s, _)) in rows.iter().enumerate() {
+            let id = format!("00000000-0000-0000-0000-{row:012x}");
+            for fields in jp::sources(s)
+                .iter()
+                .map(|&(p, d, v)| [p, d, v, "", "", "", ""])
+                .chain(pl::source(s, &id))
+            {
+                for (i, value) in fields.into_iter().enumerate() {
                     b.values()
                         .field_builder::<StringBuilder>(i)
                         .unwrap()
@@ -872,7 +891,10 @@ pub fn write_release(dir: &Path) {
                 ),
             ),
             ("postcode", strings(rows.iter().map(|(s, _)| s.postcode))),
-            ("postal_city", strings(rows.iter().map(|(s, _)| s.city))),
+            (
+                "postal_city",
+                strings(rows.iter().map(|(s, _)| pl::postal_name(s))),
+            ),
             ("address_levels", levels),
             (
                 "geometry",

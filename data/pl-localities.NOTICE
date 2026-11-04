@@ -1,0 +1,30 @@
+Polish geographic locality annotations
+
+Contains data from Główny Urząd Geodezji i Kartografii (GUGiK),
+Państwowy Rejestr Granic (PRG), supplied through the sixteen Polish provincial
+OpenAddresses datasets in the installer's pinned Overture address release.
+https://www.geoportal.gov.pl/pl/dane/panstwowy-rejestr-granic-prg/
+https://www.geoportal.gov.pl/en/about-geoportal/terms-and-conditions/
+
+The supplied rows identify LicenseRef-Public-Domain-PL-Geodesy-Law. The official
+Geoportal terms permit reuse and publication with attribution (Article 3).
+This notice retains that attribution; it does not assert CC BY or worldwide
+public-domain status. Existing Overture/OpenAddresses attribution also applies.
+
+The source definitions at OpenAddresses commit
+76ac33513648f1c050f2d09c2bfdc0376f2514f6 map CITY to PRG's miejscowosc,
+ID to lokalnyId, and NUMBER to numerPorzadkowy, separately from kodPocztowy.
+https://github.com/openaddresses/openaddresses/tree/76ac33513648f1c050f2d09c2bfdc0376f2514f6/sources/pl
+The processed datasets/versions/update times used are in poland-source.json.
+The September/October 2026 Overture releases encode these geographic levels as
+[powiat, province, miejscowosc] / [province, gmina, miejscowosc], respectively.
+Exactly one of the first two levels must identify the dataset's province;
+missing or contradictory province evidence is rejected in either layout.
+
+Modified: geographic locality names are matched to uniquely named indexed
+localities below the inherited parent, in the source province. Membership is
+attached only to a final selected house with the identical packed source point
+and complete number. Conflicting names, ambiguous descendants, unsupported
+provenance, changed/averaged points and incompatible regions are omitted.
+No SIMC/TERYT crosswalk, postal-to-geographic equivalence or nearest-place
+membership is inferred. Evaluation samples are not an index input.

@@ -1,6 +1,204 @@
 use super::*;
 use crate::*;
 
+pub const REVERSE_PLACES: &[Place] = &[
+    place!(
+        "us-reverse-west-region",
+        "region",
+        "",
+        "US",
+        "US-UT",
+        100000,
+        (-108.020000, 36.000000),
+        "us",
+        "Test West",
+        &[]
+    ),
+    place!(
+        "us-reverse-east-region",
+        "region",
+        "",
+        "US",
+        "US-AZ",
+        100000,
+        (-107.980000, 36.000000),
+        "us",
+        "Test East",
+        &[]
+    ),
+    place!(
+        "us-reverse-west",
+        "locality",
+        "village",
+        "US",
+        "US-UT",
+        1000,
+        (-108.010000, 36.000000),
+        "us-reverse-west-region",
+        "Brookmere",
+        &[]
+    ),
+    place!(
+        "us-reverse-east",
+        "locality",
+        "village",
+        "US",
+        "US-UT",
+        1000,
+        (-107.990000, 36.000000),
+        "us-reverse-east-region",
+        "Pineward",
+        &[]
+    ),
+    place!(
+        "us-reverse-closer",
+        "locality",
+        "hamlet",
+        "US",
+        "US-UT",
+        10,
+        (-108.000200, 36.000000),
+        "us-reverse-west-region",
+        "Falsebrook",
+        &[]
+    ),
+    place!(
+        "us-reverse-namesake",
+        "locality",
+        "village",
+        "US",
+        "US-AZ",
+        1000000,
+        (-107.970000, 36.000000),
+        "us-reverse-east-region",
+        "Brookmere",
+        &[]
+    ),
+];
+
+pub const REVERSE_POINT_ONLY: &[&str] = &[
+    "us-reverse-west",
+    "us-reverse-east",
+    "us-reverse-closer",
+    "us-reverse-namesake",
+];
+
+pub const REVERSE_AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
+    (
+        "us-reverse-west-region",
+        "region",
+        true,
+        true,
+        -108.020000,
+        36.0,
+        0.02,
+    ),
+    (
+        "us-reverse-east-region",
+        "region",
+        true,
+        true,
+        -107.980000,
+        36.0,
+        0.02,
+    ),
+    (
+        "us-reverse-west",
+        "locality",
+        true,
+        true,
+        -108.010000,
+        36.0,
+        0.01,
+    ),
+    (
+        "us-reverse-east",
+        "locality",
+        true,
+        true,
+        -107.990000,
+        36.0,
+        0.01,
+    ),
+];
+
+pub const REVERSE_STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Civic West",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.000100,
+        lat: 36.0,
+        numbers: &["17B-19"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Civic East",
+        postcode: "84001",
+        city: "Brookmere",
+        cc: "US",
+        lon: -107.999900,
+        lat: 36.0,
+        numbers: &["23A-25"],
+    },
+];
+
+#[test]
+fn us_reverse_house_locality_is_not_the_nearest_or_postal_name() {
+    let west = house(crate::street("Civic West"), "17B-19");
+    let nearest = crate::index().reverse(west.1, west.0);
+    assert_eq!(nearest["address"]["village"], "Falsebrook");
+    let found = crate::index().reverse_search(west.1, west.0, 2.0, 1);
+    assert_eq!(found.len(), 1);
+    let (layer, value, _) = &found[0];
+    assert_eq!(*layer, "address");
+    assert_eq!(value["address"]["village"], "Brookmere");
+    assert_eq!(value["address"]["postal_town"], "Dispatch");
+    assert_eq!(value["address"]["country_code"], "us");
+    assert_eq!(value["address"]["ISO3166-2-lvl4"], "US-UT");
+    assert_eq!(value["address"]["house_number"], "17b-19");
+    assert_eq!(value["address"]["road"], "Civic West");
+    assert_eq!(value["address"]["postcode"], "84001");
+    let at = (
+        value["lon"].as_str().unwrap().parse().unwrap(),
+        value["lat"].as_str().unwrap().parse().unwrap(),
+    );
+    assert!(crate::metres(at, west) < 0.2);
+    assert!(
+        !value["display_name"]
+            .as_str()
+            .unwrap()
+            .contains("Falsebrook")
+    );
+}
+
+#[test]
+fn us_reverse_offset_crosses_the_boundary_without_renaming_either_house() {
+    let west = house(crate::street("Civic West"), "17B-19");
+    let east = house(crate::street("Civic East"), "23A-25");
+    let offset = west.0 + 25.0 / (111_195.0 * west.1.to_radians().cos());
+    let found = crate::index().reverse_search(west.1, offset, 100.0, 1);
+    let at_east = crate::index().reverse_search(east.1, east.0, 2.0, 1);
+    assert_eq!(found[0].1, at_east[0].1);
+    let value = &found[0].1;
+    assert_eq!(value["address"]["village"], "Pineward");
+    assert_eq!(value["address"]["postal_town"], "Brookmere");
+    assert_eq!(value["address"]["ISO3166-2-lvl4"], "US-AZ");
+    assert_eq!(value["address"]["country_code"], "us");
+    assert_eq!(value["address"]["house_number"], "23a-25");
+    assert_eq!(value["address"]["road"], "Civic East");
+    assert_eq!(value["address"]["postcode"], "84001");
+    let at = (
+        value["lon"].as_str().unwrap().parse().unwrap(),
+        value["lat"].as_str().unwrap().parse().unwrap(),
+    );
+    assert!(crate::metres(at, east) < 0.2);
+}
+
 pub const PLACES: &[Place] = &[
     place!(
         "us-tx-alderhaven",

@@ -890,6 +890,7 @@ impl Index {
                 if geographic && city.is_none() {
                     dk::reverse_locality(self, hit, &mut a, &mut display);
                     ca::reverse_locality(self, hit, &mut a, &mut display);
+                    pl::reverse_locality(self, hit, &mut a, &mut display);
                 }
                 if geographic
                     && city.is_none()

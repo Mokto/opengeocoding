@@ -12,6 +12,7 @@ mod iceland;
 mod job;
 mod landmarks;
 mod mem;
+mod poland;
 mod progress;
 mod sources;
 mod store;
@@ -2578,6 +2579,9 @@ fn build(args: &[String]) {
         .unwrap();
     drop(assigner);
     lap(&format!("house suburbs ({suburbs})"));
+    let localities = poland::write(&dir.join("address"), Path::new(out), &places, &streets)
+        .expect("Polish source locality membership");
+    lap(&format!("Polish house localities ({localities})"));
 
     progress::phase("Build search index");
     let headroom = headroom();
