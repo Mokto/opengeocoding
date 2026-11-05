@@ -104,7 +104,8 @@ pub struct Index {
     /// Administrative polygons for `reverse_region`; absent from hand-built indexes.
     areas: Option<area::Areas>,
     danish_localities: Option<area::Areas>,
-    us_municipalities: Option<country::us::Municipalities>,
+    us_municipalities: Option<country::us::Boundaries>,
+    us_cdps: Option<country::us::Boundaries>,
     polish_localities: Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
     /// Streets' lines, for a point with no house in range; absent like `reverse`.
     streets: Option<reverse::Streets>,
@@ -707,9 +708,23 @@ impl Index {
         {
             use tantivy::directory::Directory;
             let file = mmap.open_read(Path::new(country::us::MUNICIPALITIES_FILE))?;
-            Some(country::us::Municipalities::new(
+            Some(country::us::Boundaries::new(
                 file.read_bytes()?,
                 &std::fs::read(dir.join(country::us::MUNICIPALITIES_LABELS))?,
+                false,
+            )?)
+        } else {
+            None
+        };
+        let us_cdps = if dir.join(country::us::CDPS_FILE).exists()
+            || dir.join(country::us::CDPS_LABELS).exists()
+        {
+            use tantivy::directory::Directory;
+            let file = mmap.open_read(Path::new(country::us::CDPS_FILE))?;
+            Some(country::us::Boundaries::new(
+                file.read_bytes()?,
+                &std::fs::read(dir.join(country::us::CDPS_LABELS))?,
+                true,
             )?)
         } else {
             None
@@ -881,6 +896,7 @@ impl Index {
             areas,
             danish_localities,
             us_municipalities,
+            us_cdps,
             polish_localities,
             streets,
             places,

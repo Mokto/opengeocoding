@@ -18,6 +18,7 @@ def sql_string(value):
 
 def prepare(cache, out, manifest_path):
     manifest = json.loads(manifest_path.read_text())
+    cdp = manifest.get('kind') == 'cdp'
     cache.mkdir(parents=True, exist_ok=True)
     for item in manifest['files']:
         name = item['file']
@@ -43,14 +44,17 @@ def prepare(cache, out, manifest_path):
         raise ValueError('Unexpected geometry captures in cache')
     db = cache / 'municipalities.duckdb'
     rows = cache / 'valid-government-polygons.jsonl'
+    name = 'BASENAME' if cdp else 'NAME'
+    status = 'S' if cdp else 'A'
+    feature = "AND count(*) FILTER (WHERE MTFCC='G4210')=count(*)" if cdp else ''
     query = f"""
 LOAD spatial;
 SET threads=4;
 CREATE OR REPLACE TABLE governments AS
-SELECT filename LIKE '%/cousub-%' AS subdivision, GEOID AS geoid, STATE AS state, NAME AS name, geometry, FUNCSTAT
+SELECT filename LIKE '%/cousub-%' AS subdivision, GEOID AS geoid, STATE AS state, {name} AS name, geometry, FUNCSTAT, MTFCC
 FROM read_json_auto({sql_string(cache / '*.geojson')}, maximum_object_size=134217728, filename=true);
 SELECT CASE WHEN count(*)={manifest['captured_entities']} AND count(*)=count(DISTINCT (subdivision,geoid))
- AND count(*) FILTER (WHERE FUNCSTAT='A')=count(*) THEN 1 ELSE error('Incomplete/duplicate/nonactive capture') END FROM governments;
+ AND count(*) FILTER (WHERE FUNCSTAT='{status}')=count(*) {feature} THEN 1 ELSE error('Incomplete/duplicate/unexpected-type capture') END FROM governments;
 CREATE OR REPLACE TABLE states AS SELECT STATE AS fips, STUSAB AS code FROM read_csv({sql_string(cache / 'state.txt')}, delim='|', header=true, all_varchar=true);
 COPY (SELECT subdivision,geoid,concat('US-',s.code) AS region,name,ST_AsGeoJSON(g.geometry)::JSON AS geometry
  FROM governments g JOIN states s ON s.fips=g.state
@@ -65,7 +69,7 @@ COPY (SELECT subdivision,geoid,concat('US-',s.code) AS region,name,ST_AsGeoJSON(
         check.write('id\twkt\n')
         for line in rows.open():
             row = json.loads(line)
-            identity = ('cousub' if row['subdivision'] else 'place') + '/' + row['geoid']
+            identity = ('cdp' if cdp else 'cousub' if row['subdivision'] else 'place') + '/' + row['geoid']
             if identity in identities:
                 raise ValueError('Duplicate source government')
             identities.add(identity)
