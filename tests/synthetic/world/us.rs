@@ -56,6 +56,18 @@ pub fn write_municipalities(path: &std::path::Path) {
             [ring(-108.0015, 35.992, -108.0005, 35.994)]
         ],
         [
+            "place/4900005",
+            "US-UT",
+            "Seaward city",
+            [ring(-108.039, 36.008, -108.037, 36.010)]
+        ],
+        [
+            "place/4900006",
+            "US-UT",
+            "Harborview city",
+            [ring(-108.045, 36.020, -108.044, 36.021)]
+        ],
+        [
             "place/0400002",
             "US-AZ",
             "Contradictory city",
@@ -534,6 +546,28 @@ pub const REVERSE_STREETS: &[Street] = &[
     Street {
         class: "residential",
         length: 0.0,
+        name: "Civic Unnamed",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -107.972,
+        lat: 36.0,
+        numbers: &["27C-29"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Civic Rival",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.0375,
+        lat: 36.0095,
+        numbers: &["29D-31"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
         name: "Civic East",
         postcode: "84001",
         city: "Brookmere",
@@ -649,7 +683,6 @@ fn us_reverse_uses_typed_government_polygons_without_replacing_localities() {
             "US-AZ",
         ),
         ("Civic Hole", "31B-33", "Brookmere", None, "US-UT"),
-        ("Civic Overlap", "41A/43", "Brookmere", None, "US-UT"),
         ("Civic Wrong State", "51C-53", "Brookmere", None, "US-UT"),
         ("Civic Encoding Edge", "61D-63", "Brookmere", None, "US-UT"),
         (
@@ -683,6 +716,46 @@ fn us_reverse_uses_typed_government_polygons_without_replacing_localities() {
         assert!(crate::metres(at, point) < 0.2);
         assert!(!value["display_name"].as_str().unwrap().contains("township"));
     }
+}
+
+#[test]
+fn us_reverse_names_the_incorporated_place_holding_the_house() {
+    let reverse = |road, number| {
+        let point = house(crate::street(road), number);
+        let found = crate::index().reverse_search(point.1, point.0, 2.0, 1);
+        assert_eq!(found[0].1["address"]["road"], road);
+        found[0].1.clone()
+    };
+    // Brookmere is a settlement outside the borough that holds the house, which a township
+    // also holds: the borough is both its locality and its municipality.
+    let overlap = reverse("Civic Overlap", "41A/43");
+    assert_eq!(overlap["address"]["town"], "Overlapping");
+    assert_eq!(overlap["address"]["municipality"], "Overlapping borough");
+    assert!(overlap["address"].get("village").is_none());
+    // The state is also named Brookmere.
+    let display = overlap["display_name"].as_str().unwrap();
+    assert_eq!(display.matches("Brookmere").count(), 1, "{display}");
+    // Pineward lies inside Juniper city: it stays, with the city after it.
+    let inside = reverse("Civic East", "23A-25");
+    assert_eq!(inside["address"]["village"], "Pineward");
+    assert_eq!(inside["address"]["city"], "Juniper");
+    let display = inside["display_name"].as_str().unwrap();
+    assert!(display.find("Pineward").unwrap() < display.find("Juniper").unwrap());
+    // The settlement nearest this house is Harborview, in another state: the city replaces it.
+    let unnamed = reverse("Civic Unnamed", "27C-29");
+    assert_eq!(unnamed["address"]["city"], "Juniper");
+    assert!(
+        !unnamed["display_name"]
+            .as_str()
+            .unwrap()
+            .contains("Harborview")
+    );
+    // Harborview is also an incorporated city, so Overture and Census disagree about which place
+    // holds the house: the existing name stays and nothing is added.
+    let rival = reverse("Civic Rival", "29D-31");
+    assert_eq!(rival["address"]["town"], "Harborview", "{rival}");
+    assert_eq!(rival["address"]["municipality"], "Seaward city");
+    assert!(rival["address"].get("city").is_none());
 }
 
 #[test]

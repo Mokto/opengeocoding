@@ -12,7 +12,7 @@ The pin takes every `FUNCSTAT=S`, `MTFCC=G4210` place from the **2026 TIGER/Line
 
 ## Behavior
 
-Only a **US reverse-house** result without a higher-priority explicit source city is eligible. The lookup uses the selected house's stored point, never the reverse query point. Exactly one distinct CDP must contain it, and the source state must agree with the rendered ISO state. Multiple parts of one source entity deduplicate. Overlaps, holes, state conflicts and numerically uncertain boundaries abstain. A containing incorporated-place government from the separate Census sidecar also prevents correction; county subdivisions may legitimately contain CDPs.
+Only a **US reverse-house** result without a higher-priority explicit source city is eligible. The lookup uses the selected house's stored point, never the reverse query point. Exactly one distinct CDP must contain it, and the source state must agree with the rendered ISO state. Multiple parts of one source entity deduplicate. Overlaps, holes, state conflicts and numerically uncertain boundaries abstain. A containing incorporated-place government from the separate Census sidecar also prevents correction (that place names the locality instead; see the [government note](us-reverse-municipalities.md)); county subdivisions may legitimately contain CDPs.
 
 The numerical guard covers the house FST's asymmetric coordinate-encoding cell and half a polygon rounding unit. It is not a claimed Census positional-accuracy bound. Published coordinate precision is not source accuracy or legal boundary authority.
 

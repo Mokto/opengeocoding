@@ -14,7 +14,7 @@ The compressed input is approximately 55 MiB. `tests/registry/prepare-us-municip
 
 The builder writes full-resolution `us-municipalities.bin` using the existing slabbed polygon/RTree format, plus `us-municipalities.json`, an independent source-ID/state/name table. These IDs are **not Overture place IDs**; no name-based entity crosswalk is invented. The index includes the source manifest and notice.
 
-Only a US **house** result without an existing `municipality` is eligible. Exactly one distinct government must contain the **selected house's stored point**, and its source state must equal the rendered ISO state. Different overlapping governments abstain, including coextensive records; population, bounding-box area and postal names never resolve them. Multiple polygon parts of the same government do not create a conflict.
+Only a US **house** result without an existing `municipality` is eligible. Exactly one distinct government must contain the **selected house's stored point**, and its source state must equal the rendered ISO state. An incorporated place outranks the township or New England town around it (Westfield city inside Westfield Washington township, Indiana); otherwise different overlapping governments abstain, including coextensive records. Population, bounding-box area and postal names never resolve them. Multiple polygon parts of the same government do not create a conflict.
 
 The added value is the source's `NAME`. Existing city/town/village labels, display, house identity, coordinates, complete number, road, postcode, country and regions are not replaced. Forward search, suggestions and region resolution are unchanged. Old indexes lacking both optional US files still open; partial or malformed sidecars fail loading.
 
@@ -73,11 +73,24 @@ The two sources agree on all but a few entities. Among the 50 states and DC, 16,
 On one frozen source snapshot (October Overture), main's builder `fa7e87e136675d09` and the candidate were each built in full, and an isolated control served the candidate index with the old sidecars. Over the full 46,511-case gold suite, the scores are unchanged in every RPC, with no newly passing or failing case. The strict baseline repeat has no drift. Control against candidate, every reverse answer, country, region and pass class is unchanged; 259 reverse place lists change, 58 of them held out (aggregate only). Among the 201 training records:
 
 - 178 records (61 locations) gain a `municipality` from a government that TIGERweb had invalid: Atlanta, Sioux Falls, Wichita, Austin, Phoenix, Klamath Falls, Tumwater, Dardenne Prairie and others.
-- 19 records (7 locations) lose a township `municipality`. In Indiana and Illinois, a city now valid in TIGER/Line (Westfield, Goshen) lies inside an active township too, and two containing governments abstain, as they always have.
+- 19 records (7 locations) lose a township `municipality`. In Indiana and Illinois, a city now valid in TIGER/Line (Westfield, Goshen) lies inside an active township too, and two containing governments abstain. The locality change below names the city instead.
 - 4 records (1 location) are named Spring Hill instead of Brookridge: the house is inside the Spring Hill CDP, which TIGERweb had invalid.
 
-The new municipalities are typed names ("Klamath Falls city"), so they do not satisfy the registry's plain `Klamath Falls`, and the wrong locality (Altamont) stays. That is why the score does not move. Correcting the locality from a containing incorporated place is a separate change. Separately built indexes also differ in which of two tied streets a few street-level reverse answers name, in the same places with or without this change.
+The new municipalities are typed names ("Klamath Falls city"), so they do not satisfy the registry's plain `Klamath Falls`, and the wrong locality (Altamont) stays. That is why the score does not move on its own. Separately built indexes also differ in which of two tied streets a few street-level reverse answers name, in the same places with or without this change.
 
-The government sidecar grows to approximately 199 MiB and the CDP one to 57 MiB. Formatting, clippy, `cargo test` and the model-backed synthetic test pass; the two known RPC failures reproduce.
+The government sidecar grows to approximately 199 MiB and the CDP one to 57 MiB.
+
+### Locality from the incorporated place
+
+When exactly one incorporated place (`place/`, a city, town, village or borough) holds the selected house, it names the house's locality, without its kind ("Klamath Falls"). The rules, in `reverse_locality`:
+
+- An existing city/town/village of the same name, or one of whose Overture names is that name, stays as it is.
+- An existing locality whose own point lies inside the same place (a neighbourhood, a CDP that predates an annexation, Dardenne inside Dardenne Prairie) stays, and the place is added after it under the key of its kind, when that key is free.
+- An existing locality that is itself the name of another incorporated place in the state stays and nothing is added: Overture's boundary and the Census one disagree about which place holds the house (Cooper City and Davie, Florida, along Stirling Road).
+- Otherwise the existing locality, chosen for being near, is replaced (Altamont by Klamath Falls, Black Eagle by Great Falls, the Town of Osceola by Dresser).
+- Places of other kinds ("city and borough", consolidated and metropolitan governments) are left alone, and the CDP rules apply only where no incorporated place holds the house.
+
+On the same frozen snapshot, against main's index, the full gold suite gains **+3 at-point and +7 offset checks**, all US (2,314 → 2,324 of 2,734), with nothing newly failing or worse; the strict baseline repeat has no drift. Every reverse answer, country and region is unchanged, apart from the tied-street build noise above. Held-out cases changed only in aggregate (41 pass to pass, 1 wrong-place to wrong-place). Training changes: 10 checks pass (Klamath Falls, Great Falls, Dresser, Dardenne Prairie offset), 2 move from wrong place to wrong house (Dardenne Prairie, whose house was already the wrong one), and 133 passing records change names, mostly a `municipality` city where the township abstained, plus replaced nearby settlements (Neheb by Oviedo, University of Virginia by Charlottesville) and places added where Overture named none (Mobile). A first version without the other-incorporated-place rule replaced Cooper City by Davie at a Wikidata point 48 m inside Davie by Census boundaries, failing that case; the rule keeps it.
+ Formatting, clippy, `cargo test` and the model-backed synthetic test pass; the two known RPC failures reproduce.
 
 Census boundaries are statistical representations, not legal land descriptions or a determination of jurisdictional authority, property ownership or survey accuracy. Positional accuracy depends on source material and is not bounded by the returned coordinate precision. January 2026 boundaries can differ from later annexations. Invalid geometries, ambiguous overlaps, missing governments and non-A statuses are omissions. CDPs and unincorporated communities are not municipalities; postal-only expectations and missing settlement membership remain unresolved.
