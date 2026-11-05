@@ -228,13 +228,23 @@ jobs:
           upsert() {
             [ -n "$PR" ] || return 0
             local id
+            python3 - "$2" "$GITHUB_SERVER_URL/$REPO/actions/runs/$GITHUB_RUN_ID#artifacts" \
+              > "$RUNNER_TEMP/comment.json" <<'PY' || { echo "::warning::Could not prepare the $1 comment"; return 0; }
+          import json, sys
+          from pathlib import Path
+          body = Path(sys.argv[1]).read_text(encoding="utf-8")
+          if len(body) > 55000:
+              notice = f"\n\nComment truncated. [Download the full report]({sys.argv[2]}).\n"
+              body = body[:55000].replace("\n", notice, 1)
+          json.dump({"body": body}, sys.stdout)
+          PY
             id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
               -q ".[] | select(.body | startswith(\"<!-- $1 -->\")) | .id") || { echo "::warning::Could not read the pull request comments"; return 0; }
             id=${id%%$'\n'*}
             if [ -n "$id" ]; then
-              gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$2" > /dev/null || echo "::warning::Could not update the $1 comment"
+              gh api -X PATCH "repos/$REPO/issues/comments/$id" --input "$RUNNER_TEMP/comment.json" > /dev/null || echo "::warning::Could not update the $1 comment"
             else
-              gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@"$2" > /dev/null || echo "::warning::Could not post the $1 comment"
+              gh api -X POST "repos/$REPO/issues/$PR/comments" --input "$RUNNER_TEMP/comment.json" > /dev/null || echo "::warning::Could not post the $1 comment"
             fi
           }
           drop() {
