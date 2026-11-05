@@ -55,4 +55,4 @@ The [CDP locality correction](../../notes/us-reverse-cdps.md) uses uniquely cont
 
 ## Census government-boundary follow-up
 
-The [separate US implementation](../../notes/us-reverse-municipalities.md) fills a missing reverse-house `municipality` only from one containing Census BAS 2026 active-government polygon in the rendered state. It preserves existing locality labels and every selected-house field. This is dated statistical-government membership, not a postal-city conversion, a CDP assertion or a legal jurisdiction determination. No NAD expectations, labels, hold-out assignments or scoring rules change.
+The [separate US implementation](../../notes/us-reverse-municipalities.md) fills a missing reverse-house `municipality` only from one containing Census 2026 TIGER/Line active-government polygon in the rendered state. It preserves existing locality labels and every selected-house field. This is dated statistical-government membership, not a postal-city conversion, a CDP assertion or a legal jurisdiction determination. No NAD expectations, labels, hold-out assignments or scoring rules change.

@@ -1,26 +1,28 @@
-US Census government boundaries, BAS 2026
+US Census government boundaries, TIGER/Line 2026
 
-Source: U.S. Census Bureau, TIGERweb Places and County Subdivisions,
-January 1, BAS 2026 vintage. Captured 2026-11-04.
-https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer
-Layer 8: County Subdivisions; layer 11: Incorporated Places.
-Only FUNCSTAT=A: active government providing primary general-purpose functions.
+Source: U.S. Census Bureau, 2026 TIGER/Line Shapefiles, state-based Place and
+County Subdivision files for the 50 states and DC. All legal boundaries and
+names are as of January 1, 2026 (Boundary and Annexation Survey); released
+2026-10-14. Downloaded 2026-11-05.
+https://www2.census.gov/geo/tiger/TIGER2026/PLACE/
+https://www2.census.gov/geo/tiger/TIGER2026/COUSUB/
+https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc_Ch3.pdf
+Only FUNCSTAT=A: active government providing primary general-purpose functions
+(incorporated places MTFCC=G4110, county subdivisions MTFCC=G4040).
 https://www.census.gov/library/reference/code-lists/functional-status-codes.html
 State FIPS/postal abbreviations:
 https://www2.census.gov/geo/docs/reference/state.txt
 
 Public domain, a work of the United States government (17 USC 105).
 The Census Bureau requests source citation. No Census endorsement is implied.
-https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2026/TGRSHP2026_TechDoc_Ch1.pdf
 
-Modified: retained source-namespace/GEOID, state, NAME and full-resolution
-polygon rings, requested WGS84 output (outSR=4326), rounded coordinates to
-1e-7 degrees and delta-encoded each ring. No geometric simplification.
-The 35,703 captured active-government entities were checked for completeness
-and duplicate IDs. Omitted 1,072 invalid geometries and then 91 valid records
-outside the 50 states/DC. Retained 34,540 entities in 44,208 polygon parts.
-The pinned gzip SHA256 is
-fff1d0c08c837671318e57ec148719c2c98776f481fc40e9939cf087e8b78f75.
+Modified: retained source-namespace/GEOID, state, NAMELSAD and full-resolution
+polygon rings, rounded coordinates to 1e-7 degrees and delta-encoded each ring.
+No geometric simplification. NAD83 coordinates are used without datum
+transformation. All 35,611 selected entities were checked for completeness,
+duplicate IDs and geometric validity (none invalid). Retained 35,611 entities in
+50,051 polygon parts. The pinned gzip SHA256 is
+706a593d0bdedb7a26c11078523bf95aa6a3681ebcda0ef090517d04b111cbce.
 
 Census boundaries are statistical representations, not legal land descriptions
 or a determination of jurisdictional authority or property ownership. Census

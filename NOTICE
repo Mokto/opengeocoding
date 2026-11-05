@@ -59,12 +59,12 @@ to DENMARK-LOCALITIES-NOTICE.txt alongside the derived polygon index.
 Polish geographic locality annotations retain GUGiK/PRG attribution for the
 OpenAddresses-derived input in the pinned Overture release. See
 data/pl-localities.NOTICE and the index's POLAND-LOCALITIES-NOTICE.txt.
-US government polygons are derived from U.S. Census Bureau TIGERweb BAS 2026
-(January 1 vintage), a public-domain work of the federal government. See
+US government polygons are derived from U.S. Census Bureau 2026 TIGER/Line
+Shapefiles (January 1, 2026 boundaries), a public-domain work of the federal government. See
 data/us-municipalities.NOTICE and data/us-municipalities.sources.json; the builder
 writes US-MUNICIPALITIES-NOTICE.txt and us-municipalities-source.json into the index.
 US unincorporated community boundaries use Census-designated places from the same
-public-domain BAS 2026 source. See data/us-cdps.NOTICE and data/us-cdps.sources.json;
+public-domain 2026 TIGER/Line source. See data/us-cdps.NOTICE and data/us-cdps.sources.json;
 the builder writes US-CDPS-NOTICE.txt and us-cdps-source.json into the index.
 
 libpostal and rustpostal are MIT-licensed. Their notices remain applicable.

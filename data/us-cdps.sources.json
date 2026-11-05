@@ -1,170 +1,289 @@
 {
-  "source": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12",
+  "source": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/",
   "kind": "cdp",
-  "vintage": "2026-01-01 (BAS 2026)",
-  "captured": "2026-11-04",
+  "layers": {
+    "place": "FUNCSTAT=S, MTFCC=G4210, NAME"
+  },
   "status": "S",
   "feature": "G4210",
-  "name_field": "BASENAME",
-  "captured_entities": 12902,
+  "name_field": "NAME",
+  "vintage": "2026-01-01 (TIGER/Line 2026, released 2026-10-14)",
+  "captured": "2026-11-05",
+  "scope": "50 states and DC",
   "precision_degrees": 1e-07,
   "simplified": false,
+  "datum": "NAD83 (EPSG:4269), used without datum transformation",
   "tools": {
     "duckdb": "2.0.0",
     "python": "3.9.6",
     "zlib": "1.2.12"
   },
+  "captured_entities": 12557,
+  "invalid_entities": 0,
+  "entities": 12557,
+  "polygons": 13459,
+  "json_sha256": "332f2f995d95ddf089c18ccb11982c3332c614fbcc468763284d30f1b97e33b5",
+  "gzip_sha256": "18ac277bb72584219986b125577267aec651e92e88c69e9d241566f26f8adc31",
   "files": [
-    {
-      "file": "cdp-000000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=0&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "89d844559cff30a5c25e2a8085f17fe6d304e16a03b6ff63a6b7f85a19c039ea"
-    },
-    {
-      "file": "cdp-000500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "615244bb284e9bdaeeff68f54a0ad07ff954d78cd14d3b4ac0c24118a30aac6f"
-    },
-    {
-      "file": "cdp-001000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=1000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "8d56559ae2f1d561e983a8f3f36cce47a27fd73806259fffdde95188fe9684c4"
-    },
-    {
-      "file": "cdp-001500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=1500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "ad99158020fa86daf96dac457f847b98323094d10993b99c99cea24b54976250"
-    },
-    {
-      "file": "cdp-002000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=2000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "88ec0f87adeb6aa2715dd6b8b3639dc193ddb4e493f61a0cbc4bba160db22819"
-    },
-    {
-      "file": "cdp-002500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=2500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "aefdd846c42942a6184e3d58272c4b64081e8c883ec67c0ddf1fe816aac3815c"
-    },
-    {
-      "file": "cdp-003000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=3000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "28a6d8fbcf2f87e0f57b1257be26d76d57ebd6870d9675660a04159a3bd7b5c3"
-    },
-    {
-      "file": "cdp-003500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=3500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "138a09deb454a8ddfb4e26b464e54dd8acfcca6c064b3771a7650410d83ddfb1"
-    },
-    {
-      "file": "cdp-004000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=4000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "b6620a84cd2c7b719374e977c22468d6f80623175334d40d204709ac02fb5826"
-    },
-    {
-      "file": "cdp-004500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=4500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "6589317a965754df09d6a187936d65f5e685db4d72524ac3594c4b7db2bf1d2d"
-    },
-    {
-      "file": "cdp-005000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=5000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "8783072f7ab5750eb5a4549c56d70235903456ac390dff7b92ba952f724e4797"
-    },
-    {
-      "file": "cdp-005500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=5500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "a46eb7b403e20a369a0516f94e857407d1bbfa8e2f9dedacea1e36e939aab18f"
-    },
-    {
-      "file": "cdp-006000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=6000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "1d6e2e8489c7e07fb9f1d4f0d419709ae9846e6fba862d6238c692d86a72a71f"
-    },
-    {
-      "file": "cdp-006500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=6500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "2a3403d4a457ad08b3cfa87593484eff9faa96e65ab9e7bef1874c5464551f70"
-    },
-    {
-      "file": "cdp-007000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=7000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "45cd2226ec509a0ff26977906e18818369ecde9d0a37e17076f8c7e030f69a54"
-    },
-    {
-      "file": "cdp-007500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=7500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "44d4478af7b5b09d32491d537fb05bd7ca4dc07555cd79f597a12297dcb2f4b2"
-    },
-    {
-      "file": "cdp-008000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=8000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "75ea894ec5407cb3cca4f469351db6e108b81eade0c2e55d8dd9c262f6dcd911"
-    },
-    {
-      "file": "cdp-008500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=8500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "7efa63fd8e48fa7adbbcb87d0fd164d04c4abd01ede84b961975cc235e3349b6"
-    },
-    {
-      "file": "cdp-009000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=9000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "40422b24679bb0d5115c2107ce69e95796d7ecaad46df299cd3c8916277acfd2"
-    },
-    {
-      "file": "cdp-009500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=9500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "47596cf6fd59452dcb2a73a8aaf492b75b6a60a77e06516f4f65a83c03b065e7"
-    },
-    {
-      "file": "cdp-010000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=10000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "21ccaff0e42f380076c424ae399339bac34a448836cf30cb319ccd91a5dbd514"
-    },
-    {
-      "file": "cdp-010500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=10500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "3d1f2a9e4d7c1091ed126d5e3b7c305be7060b34546b05ad00f99802b81b88e7"
-    },
-    {
-      "file": "cdp-011000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=11000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "43179b8d92f8eb67485489b300fbe01ccf60cf5a70351ff2a7768596a34564fe"
-    },
-    {
-      "file": "cdp-011500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=11500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "6c3845cc0c68e913afdf4f4ba96dc2e7f4ff5215c0416d10b92c683cea77dbed"
-    },
-    {
-      "file": "cdp-012000.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=12000&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "a1dd35e7fd0348f2734425437a6ca59015029d364258a70ec46fdf3ba6cb2365"
-    },
-    {
-      "file": "cdp-012500.geojson",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&outFields=%2A&outSR=4326&resultOffset=12500&resultRecordCount=500&orderByFields=GEOID&returnGeometry=true&f=geojson",
-      "sha256": "919bae9ea6a944fa5b3836fc2aed17f74cdb86055ceb5079c10d58b59290d411"
-    },
-    {
-      "file": "count.json",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12/query?where=1%3D1&returnCountOnly=true&f=json",
-      "sha256": "9ef48fcd08d90874fbaec415355efc4b583cdb0b520a8a26658d34540f309b4b"
-    },
-    {
-      "file": "metadata.json",
-      "url": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12?f=pjson",
-      "sha256": "940064e13f299bbb784cd243b7a4c731a3a91016f3d79290c4d78500ab8e783a"
-    },
     {
       "file": "state.txt",
       "url": "https://www2.census.gov/geo/docs/reference/state.txt",
       "sha256": "bea4e03f71a1fa0045ae732aabad11fa541e5932b071c2369bb0d325e8cba5a0"
+    },
+    {
+      "file": "tl_2026_01_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_01_place.zip",
+      "sha256": "b47351eb605640dc81ab7fa569be9a0d9e0500fc51d58f26230586805c8f6219"
+    },
+    {
+      "file": "tl_2026_02_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_02_place.zip",
+      "sha256": "141091e71bf8e593b7d4be6f2815e36a133a94b83b6c2c6ebc69ba131515349c"
+    },
+    {
+      "file": "tl_2026_04_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_04_place.zip",
+      "sha256": "ef72502cf1c4cb3537c89fa855b124ee2432f35f0d07b1ad2b2138118e5e175c"
+    },
+    {
+      "file": "tl_2026_05_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_05_place.zip",
+      "sha256": "8a5af8be4f644ee1c72aa702bf538338b5ad4f1c02d0291522f7e40c3dfaba92"
+    },
+    {
+      "file": "tl_2026_06_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_06_place.zip",
+      "sha256": "4f1475be8db892b1d4894011846c5c857fe445bf876e470003170cd333d68032"
+    },
+    {
+      "file": "tl_2026_08_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_08_place.zip",
+      "sha256": "92cecb137f658528c3b33010e853c46415d9ead682a087de71cfe656fab16db5"
+    },
+    {
+      "file": "tl_2026_09_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_09_place.zip",
+      "sha256": "83308c4da971082ea3a90a1abd73c1bd682024c4d908668dac97785ea7a90265"
+    },
+    {
+      "file": "tl_2026_10_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_10_place.zip",
+      "sha256": "edd5dce77c578d799e251ca445943bd3e07c2e142f776cfaa1438c12d4186473"
+    },
+    {
+      "file": "tl_2026_11_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_11_place.zip",
+      "sha256": "0e1651467acd633ff76ad46c151002f8420d44731f7d8cd6e58e1a1efb426fc0"
+    },
+    {
+      "file": "tl_2026_12_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_12_place.zip",
+      "sha256": "38a86feeb17300f9991d5c89b5fb1d61c42823cc4bacb1f7f0738605a22ed8ec"
+    },
+    {
+      "file": "tl_2026_13_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_13_place.zip",
+      "sha256": "1325e424664f8c0f517c0aa155e3806ca299785ccca4e1badc9fe4f3f4173e09"
+    },
+    {
+      "file": "tl_2026_15_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_15_place.zip",
+      "sha256": "7cc09a4b1ddae08fed3a3df1e487290bf3f3c40d8142314aa5d669c4f46d7a36"
+    },
+    {
+      "file": "tl_2026_16_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_16_place.zip",
+      "sha256": "2fb1bf85f3ce90f38f1b1141c57a3743524a0098f8a876fd3c1f63657d0150e8"
+    },
+    {
+      "file": "tl_2026_17_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_17_place.zip",
+      "sha256": "ef964f31bcc58bf0f2772951348308baba7a3a1c0283bba8119e7d95319214db"
+    },
+    {
+      "file": "tl_2026_18_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_18_place.zip",
+      "sha256": "459568c61726b0fbeba8dba7435eff0a9ae20d33f196320754e4615257b8e015"
+    },
+    {
+      "file": "tl_2026_19_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_19_place.zip",
+      "sha256": "c9747376eac46a86c5c77d61f04812cac37c391d38a8c4fa57852cd5ffe77a33"
+    },
+    {
+      "file": "tl_2026_20_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_20_place.zip",
+      "sha256": "e154312852b91faf8f51c886123ca3c02322a2716a07d44a09414bb757dcfd56"
+    },
+    {
+      "file": "tl_2026_21_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_21_place.zip",
+      "sha256": "52e6b6876f49991d366936715a9251f7128734ed189376620f2543d41a87dbfd"
+    },
+    {
+      "file": "tl_2026_22_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_22_place.zip",
+      "sha256": "35e71b1c69c5a4fc089b1af7e6affc93790b31aacca1c81316b9ba0d5229943e"
+    },
+    {
+      "file": "tl_2026_23_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_23_place.zip",
+      "sha256": "ae29f3fb7451c04b26e5da4b94139316e9434d3b25060a0773216fdc25ccf2ea"
+    },
+    {
+      "file": "tl_2026_24_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_24_place.zip",
+      "sha256": "55fe4f40bfed7141fe9a683354918e26813833abf4d9602cf9c938b852c55c30"
+    },
+    {
+      "file": "tl_2026_25_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_25_place.zip",
+      "sha256": "875091e775ef79569299b69a448e57d9f8fe606ac5d49285722b34648b073b7c"
+    },
+    {
+      "file": "tl_2026_26_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_26_place.zip",
+      "sha256": "189fa800e0e3104129cddc03faa7d48b2dd2e6ddb54c4bb8ebe92cbe1683d57a"
+    },
+    {
+      "file": "tl_2026_27_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_27_place.zip",
+      "sha256": "3a95ade81d565fe326f512790cdd32d4db44de0f0e6d7729043a067a1659580f"
+    },
+    {
+      "file": "tl_2026_28_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_28_place.zip",
+      "sha256": "46c2945ff4ac58db2583f019e57574a96e76ced9fe0d02e81c165a632025de57"
+    },
+    {
+      "file": "tl_2026_29_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_29_place.zip",
+      "sha256": "be9b13d02046854c1e7900243191f0bc123a88a0be965c4f4b60008ad5b642e6"
+    },
+    {
+      "file": "tl_2026_30_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_30_place.zip",
+      "sha256": "bb6c08a43ff30bdbc8675242798284b8640ec99bd51a8f901f556dffd314bf02"
+    },
+    {
+      "file": "tl_2026_31_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_31_place.zip",
+      "sha256": "6b89138f3f29f86ec4681b2ed4afa196b47679611eea34d671a5cc24f5f01f8c"
+    },
+    {
+      "file": "tl_2026_32_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_32_place.zip",
+      "sha256": "f8ee4d236bb335cc41daf0156ea7684825d084f3cf769ec70fb5ffa00770f624"
+    },
+    {
+      "file": "tl_2026_33_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_33_place.zip",
+      "sha256": "b9377887de9ffa78f875eaf46cd3fc2fb194d48a2fbc53ab1f7a442bfb7d66ad"
+    },
+    {
+      "file": "tl_2026_34_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_34_place.zip",
+      "sha256": "03457086b4e4d957d2a445a56164dc256308845a6e0d4f84181238881b7e42ed"
+    },
+    {
+      "file": "tl_2026_35_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_35_place.zip",
+      "sha256": "5a2421f00a8fc9cfad6cddc94281e5e2e007417a53c3b12793aac089327a80b0"
+    },
+    {
+      "file": "tl_2026_36_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_36_place.zip",
+      "sha256": "4a78264f9d15d6b827ed48f18242074d35836873d63a0c05f18af85c28f8a564"
+    },
+    {
+      "file": "tl_2026_37_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_37_place.zip",
+      "sha256": "d309e8969e5535c3c66245fdd2ba194af9210128e4ab6e0716ec238bfb180328"
+    },
+    {
+      "file": "tl_2026_38_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_38_place.zip",
+      "sha256": "4d08d73a1da6e1fec6135d67510a128a58ed2076585c3ec5e2eb5074a493a36e"
+    },
+    {
+      "file": "tl_2026_39_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_39_place.zip",
+      "sha256": "5572b5fd06552c0e293ce019b66d5389b25278d59cd2dff4193f36bbaed17dfe"
+    },
+    {
+      "file": "tl_2026_40_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_40_place.zip",
+      "sha256": "f54da470cce075bf68cbfefc0022de16e7e3d7acc4fde8a3af0fb0ce65bf1b6f"
+    },
+    {
+      "file": "tl_2026_41_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_41_place.zip",
+      "sha256": "48ae57d6e8f6760d24438ef66fbf06b6f1955fde884c8d89beb24db9818ce659"
+    },
+    {
+      "file": "tl_2026_42_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_42_place.zip",
+      "sha256": "08216e494fd68baf6e3147598d8874681ba06138a15a29ce87c9afd596b3d633"
+    },
+    {
+      "file": "tl_2026_44_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_44_place.zip",
+      "sha256": "00770983a913c0858b356da42897dbf3a32c4d4db086b53a18fe451e2e3b2c42"
+    },
+    {
+      "file": "tl_2026_45_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_45_place.zip",
+      "sha256": "6311fd1255b1658f6f06de096840c6f121530d8922c63eadc035f55a49b6a579"
+    },
+    {
+      "file": "tl_2026_46_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_46_place.zip",
+      "sha256": "39ee4b6df689e48df8a164332b9f06a25f363a90e8232c02b4118dad319c2605"
+    },
+    {
+      "file": "tl_2026_47_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_47_place.zip",
+      "sha256": "c35ab60215badbb0e10e1ad2c5893e87497e20b98ea75c5a8473936513c4e3a0"
+    },
+    {
+      "file": "tl_2026_48_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_48_place.zip",
+      "sha256": "d6bbad505fd9b6b2e2c35512d05bf30858dfdfdf3dabf037537e28f0fbbc5269"
+    },
+    {
+      "file": "tl_2026_49_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_49_place.zip",
+      "sha256": "bbd0eaede1fef9db90a4e16157d5b5ea32fe6bcedf1ba5888195fecb004d6846"
+    },
+    {
+      "file": "tl_2026_50_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_50_place.zip",
+      "sha256": "1b4623df82165686ac97610b4ac4d92070a7fe554cf69ded71ec5b731f9154f4"
+    },
+    {
+      "file": "tl_2026_51_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_51_place.zip",
+      "sha256": "ef4b56daff25a287e57583c4c24e934a25ba7e3430f25defbe21c13754883a40"
+    },
+    {
+      "file": "tl_2026_53_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_53_place.zip",
+      "sha256": "fe3dc6033e2bfcd8b023be7fb12c7859eb88d1ad6794e9be430f29f3a6b83462"
+    },
+    {
+      "file": "tl_2026_54_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_54_place.zip",
+      "sha256": "6b8f78aaefb47b1bf0cb64abdaebb99be62c99b7c55a6a29ef79c02e2505d5d8"
+    },
+    {
+      "file": "tl_2026_55_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_55_place.zip",
+      "sha256": "f4cce0f2cb8e3351b699f868f2c7943fc700f6c791147c29974ed0a50ae3e9ee"
+    },
+    {
+      "file": "tl_2026_56_place.zip",
+      "url": "https://www2.census.gov/geo/tiger/TIGER2026/PLACE/tl_2026_56_place.zip",
+      "sha256": "edbd018d9e55d21fc158dcf022e26e55efd0a9c5db48ac386b05f8fa67f7eac4"
     }
-  ],
-  "entities": 12508,
-  "polygons": 13138,
-  "json_sha256": "9af1b02d52b21e7e1df95a7ed0f650cf22da63a3c7d511d08d67afcc48238386",
-  "gzip_sha256": "c2cf4ada515e0beb2f8324bae6d18598f431a00e292392fb4e092b64d0d284f5",
-  "invalid_entities": 38,
-  "valid_territory_entities_excluded": 356
+  ]
 }

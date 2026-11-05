@@ -6,9 +6,9 @@ Follow-up to the [government-boundary lookup](us-reverse-municipalities.md). Cen
 
 The [Census Bureau definition](https://www.census.gov/programs-surveys/bas/information/cdp.html) describes CDPs as closely settled, named unincorporated communities. Their statistical boundaries have no legal status. CDPs cannot overlap incorporated places or other CDPs, but may cross county boundaries. A CDP's extent can differ from local understanding or present settlement patterns.
 
-The pin captures the complete TIGERweb January 1, BAS 2026 CDP layer: **12,902 unique source entities**, all `FUNCSTAT=S`, `MTFCC=G4210`. Invalid geometries are excluded without repair (38 entities); 356 valid territory entities are excluded. The remaining **12,508 communities / 13,138 polygon parts** retain full source geometry rounded to 1e-7 degrees, without simplification. `BASENAME` supplies the community name; the technical `CDP` designation is not part of that name. Source IDs use a separate `cdp/<GEOID>` namespace.
+The pin takes every `FUNCSTAT=S`, `MTFCC=G4210` place from the **2026 TIGER/Line** state Place shapefiles of the 50 states and DC (January 1, 2026; released 2026-10-14): **12,557 communities / 13,459 polygon parts**, all valid, kept at full source geometry rounded to 1e-7 degrees, without simplification. `NAME` supplies the community name; the technical `CDP` designation is not part of that name. Source IDs use a separate `cdp/<GEOID>` namespace.
 
-[data/us-cdps.sources.json](../../data/us-cdps.sources.json) pins all 29 captured pages/metadata/state-crosswalk files and the prepared JSON/gzip hashes. The approximately 16 MiB gzip is federal public-domain data with [attribution and limitations](../../data/us-cdps.NOTICE). There is no lookup-time network access or write.
+[data/us-cdps.sources.json](../../data/us-cdps.sources.json) pins the 51 Place shapefiles, the state crosswalk and the prepared JSON/gzip hashes; the government preparation script reproduces it. The approximately 16 MiB gzip is federal public-domain data with [attribution and limitations](../../data/us-cdps.NOTICE). There is no lookup-time network access or write.
 
 ## Behavior
 
@@ -31,11 +31,11 @@ Use the same Python/zlib and DuckDB versions recorded in the manifest. The exist
 ```sh
 python3 tests/registry/prepare-us-municipalities.py \
   --manifest data/us-cdps.sources.json \
-  --cache ~/geodata/us-census-bas2026-cdps \
+  --cache ~/geodata/us-census-tiger2026 \
   --out data/us-cdps.json.gz
 ```
 
-A refresh must update the whole capture, manifest, prepared data, notice and builder hash together, never select evaluation locations. The helper's default government-data path still prepares the government pin, not CDPs.
+Both pins share one cache of shapefiles. A refresh must update the whole capture, manifest, prepared data, notice and builder hash together, never select evaluation locations. The helper's default government-data path still prepares the government pin, not CDPs.
 
 Authored synthetic checks cover correction, a CDP added below a kept town (`village`) or village (`hamlet`), holes, overlaps, state mismatch, numerical boundary cells, incorporated-place conflicts, governing-town names, native-name variants, already-correct names, a locality/admin-name collision, missing/partial sidecars and an offset query on the other side of a boundary from the selected house. The no-CDP index control compares every field except the explicitly changed locality/display. Removing the runtime hook makes the two positive tests fail.
 
