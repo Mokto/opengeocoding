@@ -63,6 +63,43 @@ pub fn listed_lot(
     ))
 }
 
+/// A registered road address ("서울특별시 가상구 새로12길 13-34") as its road and building number, when
+/// `known_area` holds every written area. Units and notes are not stripped here.
+pub fn listed_road(
+    freeform: &str,
+    mut known_area: impl FnMut(&str) -> bool,
+) -> Option<(&str, String)> {
+    let freeform = freeform.trim();
+    if freeform.chars().take(257).count() > 256 {
+        return None;
+    }
+    let mut words: Vec<_> = freeform.split_whitespace().collect();
+    let number = words.pop()?;
+    let parts: Vec<_> = number.split('-').collect();
+    let street = words.pop()?;
+    let native = |s: &str| {
+        s.chars()
+            .all(|c| ('가'..='힣').contains(&c) || c.is_ascii_digit())
+    };
+    if parts.len() > 2
+        || parts.iter().any(|p| {
+            p.is_empty()
+                || p.len() > 5
+                || !p.bytes().all(|b| b.is_ascii_digit())
+                || p.starts_with('0')
+        })
+        || !native(street)
+        || !street.ends_with(['로', '길'])
+        || words.is_empty()
+        || words.iter().any(|w| {
+            !native(w) || !w.ends_with(['시', '군', '구', '읍', '면', '도']) || !known_area(w)
+        })
+    {
+        return None;
+    }
+    Some((street, number.to_string()))
+}
+
 pub(super) struct Address<'a> {
     pub areas: Vec<&'a str>,
     pub road: &'a str,
@@ -206,7 +243,9 @@ pub(super) fn parse(q: &str, partial: bool) -> Option<Address<'_>> {
         return None;
     }
     // ponytail: shorthand needs a city/county/district; province-only forms need namesake disambiguation first.
+    // Sejong has no city/county/district tier and no namesake.
     if province != words[0]
+        && province != "세종특별자치시"
         && words
             .get(1)
             .is_none_or(|w| !w.ends_with(['시', '군', '구']))
@@ -578,11 +617,18 @@ mod tests {
             "광주 새로12길 13",
             "제주 제주시 1",
             "경기 가상면 새로12길 13",
-            "세종 새로12길 13",
             "가람 가상시 새로12길 13",
         ] {
             assert!(parse(query, false).is_none(), "{query}");
             assert!(parse(query, true).is_none(), "{query}");
+        }
+        for (query, areas) in [
+            ("세종 새로12길 13", &["세종특별자치시"][..]),
+            ("세종 가상면 새로12길 13", &["세종특별자치시", "가상면"][..]),
+        ] {
+            let parsed = parse(query, false).unwrap();
+            assert_eq!(parsed.areas, areas, "{query}");
+            assert_eq!((parsed.road, parsed.number.as_str()), ("새로12길", "13"));
         }
     }
 

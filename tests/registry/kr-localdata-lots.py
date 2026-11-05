@@ -13,6 +13,7 @@ from pathlib import Path
 
 NUMBER=r'[1-9][0-9]{0,4}(?:-[1-9][0-9]{0,4})?'
 LOT=re.compile(r'^([가-힣0-9 ]+(?:동|리|가))\s+(산\s*)?('+NUMBER+r')(?:번지)?(?=[\s,(]|$)')
+ROAD=re.compile(r'^([가-힣0-9 ]+?(?:로|길)) ('+NUMBER+r')(?=$|\s*[,(])')
 ALIASES={'강원도':'강원특별자치도','전라북도':'전북특별자치도'}
 
 
@@ -27,6 +28,19 @@ def address(raw):
     key=m[1]+' '+('산' if m[2] else '')+m[3]
     if len(key)>256:return None
     return key,not value[m.end():].strip()
+
+
+def road(raw):
+    # A building's road address; a unit after the comma or a note in parentheses does not move it.
+    value=' '.join((raw or '').split())
+    first,sep,rest=value.partition(' ')
+    value=ALIASES.get(first,first)+sep+rest
+    m=ROAD.match(value)
+    if not m:return None
+    words=m[1].split()
+    if len(words)<2 or not words[0].endswith(('도','광역시','특별시','특별자치시')) or any(not w.endswith(tuple('시군구읍면도')) for w in words[1:-1]):return None
+    key=m[1]+' '+m[2]
+    return key if len(key)<=256 else None
 
 
 def distance(a,b):
@@ -65,37 +79,39 @@ def point(raw_x,raw_y):
 
 
 def facilities(rows,counts):
-    points=[]
-    for raw,raw_x,raw_y in rows:
+    lots,roads=[],[]
+    for raw,raw_road,raw_x,raw_y in rows:
         counts['rows']+=1
-        parsed=address(raw or '')
-        if not parsed:counts['unparsed_lot_rows']+=1;continue
+        parsed,road_key=address(raw or ''),road(raw_road)
+        counts['unparsed_lot_rows']+=not parsed
+        counts['unparsed_road_rows']+=not road_key
         coordinate=point(raw_x,raw_y)
         if coordinate is None:counts['missing_coordinate_rows']+=1;continue
-        points.append((*parsed[:1],*coordinate,parsed[1]))
-    return points
+        if parsed:lots.append((parsed[0],*coordinate,parsed[1]))
+        if road_key:roads.append((road_key,*coordinate,True))
+    return lots,roads
 
 
 def shelters(source):
     counts=defaultdict(int)
     with source.open(encoding='cp949',newline='') as stream:
         reader=csv.DictReader(stream)
-        if not {'운영상태','소재지전체주소','경도(EPSG4326)','위도(EPSG4326)'}.issubset(reader.fieldnames or []):raise ValueError('Missing shelter columns')
+        if not {'운영상태','소재지전체주소','도로명전체주소','경도(EPSG4326)','위도(EPSG4326)'}.issubset(reader.fieldnames or []):raise ValueError('Missing shelter columns')
         rows=[]
         for row in reader:
             if None in row:raise ValueError('Malformed shelter CSV row')
             if row['운영상태'] not in ('사용중','사용중지','일시중지'):raise ValueError('Unknown shelter status')
             counts['raw_rows']+=1
-            if row['운영상태']=='사용중':rows.append((row['소재지전체주소'],row['경도(EPSG4326)'],row['위도(EPSG4326)']))
+            if row['운영상태']=='사용중':rows.append((row['소재지전체주소'],row['도로명전체주소'],row['경도(EPSG4326)'],row['위도(EPSG4326)']))
     return facilities(rows,counts),counts
 
 
 def protection_zones(source):
     counts=defaultdict(int)
     records=json.loads(source.read_text())['records']
-    if any(not {'LNMADR','LONGITUDE','LATITUDE'}.issubset(r) for r in records):raise ValueError('Missing protection-zone fields')
+    if any(not {'LNMADR','RDNMADR','LONGITUDE','LATITUDE'}.issubset(r) for r in records):raise ValueError('Missing protection-zone fields')
     counts['raw_rows']=len(records)
-    return facilities(((r['LNMADR'],r['LONGITUDE'],r['LATITUDE']) for r in records),counts),counts
+    return facilities(((r['LNMADR'],r['RDNMADR'],r['LONGITUDE'],r['LATITUDE']) for r in records),counts),counts
 
 
 EXTRA={'shelters':shelters,'protection_zones':protection_zones}
@@ -107,10 +123,10 @@ def prepare(source,expected,out,captured,extra=(),extra_captured=None):
     checked(source,expected)
     for kind,path,sha in extra:checked(path,sha)
     if extra:date.fromisoformat(extra_captured)
-    rows=set();counts=defaultdict(int);invalid_keys=set()
+    lots,roads=set(),set();counts=defaultdict(int);invalid_keys=set()
     with source.open(encoding='cp949',newline='') as stream:
         reader=csv.DictReader(stream)
-        required={'영업상태코드','지번주소','좌표정보(X)','좌표정보(Y)'}
+        required={'영업상태코드','지번주소','도로명주소','좌표정보(X)','좌표정보(Y)'}
         if not required.issubset(reader.fieldnames or []):raise ValueError('Missing LOCALDATA columns')
         for row in reader:
             counts['raw_rows']+=1
@@ -119,19 +135,17 @@ def prepare(source,expected,out,captured,extra=(),extra_captured=None):
             if status not in ('01','03'):raise ValueError('Unknown LOCALDATA status')
             if status!='01':counts['closed_rows']+=1;continue
             counts['active_rows']+=1
-            parsed=address(row['지번주소'])
-            if not parsed:counts['unparsed_lot_rows']+=1;continue
-            key,bare=parsed
-            raw_x,raw_y=row['좌표정보(X)'],row['좌표정보(Y)']
-            try:x,y=float(raw_x),float(raw_y)
-            except ValueError:
-                if raw_x.strip() or raw_y.strip():invalid_keys.add(key);counts['invalid_coordinate_rows']+=1
-                else:counts['missing_coordinate_rows']+=1
-                continue
-            if not math.isfinite(x) or not math.isfinite(y) or not x or not y:
-                invalid_keys.add(key);counts['invalid_coordinate_rows']+=1;continue
-            rows.add((key,x,y,bare))
-    rows=sorted(rows)
+            parsed,road_key=address(row['지번주소']),road(row['도로명주소'])
+            counts['unparsed_lot_rows']+=not parsed
+            counts['unparsed_road_rows']+=not road_key
+            if not parsed and not road_key:continue
+            coordinate=point(row['좌표정보(X)'],row['좌표정보(Y)'])
+            if coordinate is None:counts['missing_coordinate_rows']+=1;continue
+            if math.isnan(coordinate[0]):
+                invalid_keys.update(k for k in (parsed and parsed[0],road_key) if k);counts['invalid_coordinate_rows']+=1;continue
+            if parsed:lots.add((parsed[0],*coordinate,parsed[1]))
+            if road_key:roads.add((road_key,*coordinate,True))
+    rows=sorted(lots)+sorted(roads)
     control=subprocess.run(['cs2cs','+init=epsg:5174','+to','+init=epsg:4326','-f','%.9f'],input='200000 500000\n',text=True,capture_output=True,check=True)
     a,b=map(float,control.stdout.split()[:2])
     if abs(a-127.000783539)>1e-7 or abs(b-38.002746025)>1e-7:raise ValueError('Unexpected PROJ datum/axis interpretation')
@@ -143,21 +157,24 @@ def prepare(source,expected,out,captured,extra=(),extra_captured=None):
         except ValueError:a=b=math.nan
         points.append((key,a,b,bare))
     points.extend((key,math.nan,math.nan,False) for key in invalid_keys)
-    kept,quarantined=screen(points)
-    sources=[]
-    if extra:
-        frames=[(kind,path,sha,*EXTRA[kind](path)) for kind,path,sha in extra]
-        # Screening every source together lets cross-source spread and shared points quarantine a key. A lot the meal register emits keeps its points,
-        # matched on lot name and number as the builder pairs them: registers spell one parcel's province or township differently.
-        combined,quarantined=screen(points+[row for *_,rows,counts in frames for row in rows])
-        pair=lambda key:tuple(key.split()[-2:])
-        meal={pair(key) for key,x,y in kept}
-        kept=sorted(kept+[row for row in combined if pair(row[0]) not in meal])
-        sources=[{'dataset':EXTRA_SOURCES[kind][0],'catalogue':EXTRA_SOURCES[kind][1],'source_sha256':sha,'capture_date':extra_captured,'crs':'EPSG:4326 (source longitude, latitude)','raw_counts':dict(counts)} for kind,path,sha,rows,counts in frames]
+    is_road=lambda row:bool(ROAD.match(row[0]))
+    frames=[(kind,path,sha,*EXTRA[kind](path)) for kind,path,sha in extra]
+    kept,quarantined=[],0
+    for pick,index in ((lambda row:not is_road(row),0),(is_road,1)):
+        # Screening every source together lets cross-source spread and shared points quarantine a key. An address the meal register emits keeps
+        # its points, matched on street and number as the builder pairs them: registers spell one place's province or township differently.
+        meal,bad=screen([row for row in points if pick(row)])
+        if frames:
+            combined,bad=screen([row for row in points if pick(row)]+[row for *_,found,counts in frames for row in found[index]])
+            pair=lambda key:tuple(key.split()[-2:])
+            pairs={pair(key) for key,x,y in meal}
+            meal=meal+[row for row in combined if pair(row[0]) not in pairs]
+        kept+=meal;quarantined+=bad
+    sources=[{'dataset':EXTRA_SOURCES[kind][0],'catalogue':EXTRA_SOURCES[kind][1],'source_sha256':sha,'capture_date':extra_captured,'crs':'EPSG:4326 (source longitude, latitude)','raw_counts':dict(counts)} for kind,path,sha,found,counts in frames]
     kept=sorted({(key,f'{x:.9f}',f'{y:.9f}') for key,x,y in kept})
-    content='lot_address\tlon\tlat\n'+''.join(f'{key}\t{x}\t{y}\n' for key,x,y in kept)
+    content='address\tlon\tlat\n'+''.join(f'{key}\t{x}\t{y}\n' for key,x,y in kept)
     with out.open('wb') as stream,gzip.GzipFile(filename='',mode='wb',fileobj=stream,mtime=0,compresslevel=9) as zipped:zipped.write(content.encode())
-    metadata={'dataset':'행정안전부 식품 집단급식소 LOCALDATA','catalogue':'https://www.data.go.kr/data/15096257/fileData.do','source_sha256':expected,'capture_date':captured,'encoding':'CP949','source_crs':'EPSG:5174','prepared_crs':'EPSG:4326 (GIS longitude, latitude)','policy':'Collective meals: active status 01. Additional registers: shelters in use, every protection-zone target facility; their keys are screened together and never replace a collective-meal address key. All sources: positive native bare single-lot addresses only; whole-source shared-coordinate and pre-envelope coordinate-spread quarantine. No service, benchmark or expected-answer filtering. Builder must corroborate every administrative qualifier against the geometry-assigned place/ancestors or one uniquely named indexed child within 5 km, preserving the original point and containing administration.','raw_counts':dict(counts),'source_key_point_style_rows':len(rows),'quarantined_keys':quarantined,'prepared_rows':len(kept),'prepared_unique_addresses':len({key for key,x,y in kept}),'tsv_sha256':hashlib.sha256(content.encode()).hexdigest(),'gzip_sha256':hashlib.sha256(out.read_bytes()).hexdigest(),'additional_sources':sources,'limitations':'Parcel/address reference points, not verified entrances or complete residential coverage.'}
+    metadata={'dataset':'행정안전부 식품 집단급식소 LOCALDATA','catalogue':'https://www.data.go.kr/data/15096257/fileData.do','source_sha256':expected,'capture_date':captured,'encoding':'CP949','source_crs':'EPSG:5174','prepared_crs':'EPSG:4326 (GIS longitude, latitude)','policy':'Collective meals: active status 01. Additional registers: shelters in use, every protection-zone target facility; their keys are screened together and never replace a collective-meal address key. All sources: positive native bare single-lot addresses, and road addresses whose unit or note follows a comma or parenthesis; lots and roads are screened separately; whole-source shared-coordinate and pre-envelope coordinate-spread quarantine. No service, benchmark or expected-answer filtering. Builder must corroborate every administrative qualifier against the geometry-assigned place/ancestors or one uniquely named indexed child within 5 km, preserving the original point and containing administration.','raw_counts':dict(counts),'source_key_point_style_rows':len(rows),'quarantined_keys':quarantined,'prepared_rows':len(kept),'prepared_road_rows':sum(bool(ROAD.match(key)) for key,x,y in kept),'prepared_unique_addresses':len({key for key,x,y in kept}),'tsv_sha256':hashlib.sha256(content.encode()).hexdigest(),'gzip_sha256':hashlib.sha256(out.read_bytes()).hexdigest(),'additional_sources':sources,'limitations':'Parcel/address reference points, not verified entrances or complete residential coverage.'}
     out.with_suffix('').with_suffix('.json').write_text(json.dumps(metadata,ensure_ascii=False,indent=2)+'\n')
     print(json.dumps(metadata,ensure_ascii=False,indent=2),flush=True)
 

@@ -35,7 +35,7 @@ pub const LICENSING: &[(&str, &str, f64)] = &[
 ];
 
 pub fn write_licensing(path: &Path) {
-    let mut data = "lot_address\tlon\tlat\n".to_string();
+    let mut data = "address\tlon\tlat\n".to_string();
     for &(address, _, lon) in LICENSING {
         data.push_str(&format!("{address}\t{lon}\t35\n"));
     }
@@ -421,6 +421,106 @@ fn licensing_lots_are_additive_geographically_corroborated_and_not_reverse_house
     }
     drop((before, after));
     std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn licensing_roads_join_their_mapped_road_without_moving_earlier_houses() {
+    let root = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+        .join(format!("kr-licensing-roads-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let release = root.join("release");
+    world::write_release(&release);
+    world::write_poi_addresses(&release);
+    let source = root.join("roads.tsv");
+    std::fs::write(
+        &source,
+        "address\tlon\tlat\n\
+         가람도 솔빛시 새봄면 새로12길 901\t140.0004\t35\n\
+         가람도 다른시 새로12길 902\t140.0004\t35\n\
+         가람도 솔빛시 새봄면 새로12길 13-34\t140.0007\t35\n",
+    )
+    .unwrap();
+    let build = |name: &str, input: &str| {
+        let out = root.join(name);
+        let built = std::process::Command::new(env!("CARGO_BIN_EXE_build_index"))
+            .arg(&release)
+            .arg(&out)
+            .arg("--korea-lots")
+            .arg(input)
+            .output()
+            .unwrap();
+        assert!(
+            built.status.success(),
+            "{}",
+            String::from_utf8_lossy(&built.stderr)
+        );
+        out
+    };
+    let before = Index::open(&build("base", ""), Arc::new(Parser::unloaded(0))).unwrap();
+    let head = build("head", source.to_str().unwrap());
+    let after = Index::open(&head, Arc::new(Parser::unloaded(0))).unwrap();
+    let house = |index: &Index, q: &str| {
+        index
+            .search(q)
+            .first()
+            .map(|hit| index.render(hit, true))
+            .filter(|v| v["address"]["house_number"].is_string())
+    };
+    let q = "가람도 솔빛시 새봄면 새로12길 901, South Korea";
+    assert!(house(&before, q).is_none());
+    let found = house(&after, q).expect(q);
+    assert_eq!(found["address"]["house_number"], "901");
+    assert_eq!(found["address"]["road"], "새로12길");
+    let point = |v: &serde_json::Value| {
+        (
+            v["lon"].as_str().unwrap().parse().unwrap(),
+            v["lat"].as_str().unwrap().parse().unwrap(),
+        )
+    };
+    assert!(metres(point(&found), (140.0004, 35.)) < 1.);
+    assert!(house(&after, "가람도 다른시 새로12길 902, South Korea").is_none());
+    let q = "가람도 솔빛시 새봄면 새로12길 13-34, South Korea";
+    assert_eq!(
+        point(&house(&before, q).expect(q)),
+        point(&house(&after, q).expect(q))
+    );
+    let metadata: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(head.join("korea-lots-source.json")).unwrap())
+            .unwrap();
+    assert_eq!(metadata["road_rows"], 1);
+    assert_eq!(metadata["geographically_corroborated_rows"], 1);
+    drop((before, after));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn listed_roads_are_native_roads_with_a_building_number() {
+    use opengeocoding::index::country::kr::listed_road;
+    for (q, street, number) in [
+        ("경기도 평택시 포승읍 2함대길 20", "2함대길", "20"),
+        ("서울특별시 가상구 새로12길 13-34", "새로12길", "13-34"),
+    ] {
+        assert_eq!(
+            listed_road(q, |_| true),
+            Some((street, number.into())),
+            "{q}"
+        );
+    }
+    for q in [
+        "새로12길 13",
+        "서울특별시 가상구 새동 12",
+        "서울특별시 가상구 새로 0",
+        "서울특별시 가상구 새로 산12",
+        "서울특별시 가상구 Saero 12",
+        "서울특별시 가상구 새로 12 3층",
+    ] {
+        assert!(listed_road(q, |_| true).is_none(), "{q}");
+    }
+    assert!(
+        listed_road("서울특별시 가상구 새로 12", |area| area
+            != "가상구")
+        .is_none()
+    );
 }
 
 #[test]
