@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.7.1](https://github.com/Mokto/opengeocoding/compare/v1.7.0...v1.7.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* constrain settlement assignment to municipality boundaries ([#534](https://github.com/Mokto/opengeocoding/issues/534)) ([6b72b4b](https://github.com/Mokto/opengeocoding/commit/6b72b4bc9b6f79b91daeac5e1667906aa091339f))
+* fill missing US reverse-house municipalities from Census boundaries ([#532](https://github.com/Mokto/opengeocoding/issues/532)) ([ddac9f8](https://github.com/Mokto/opengeocoding/commit/ddac9f880c9139d5eefc10ce1858f43e20dd6812))
+* find Canadian houses whose source leaves out the street type, with a letter O in the postcode, or written in Québec's comma forms ([#528](https://github.com/Mokto/opengeocoding/issues/528)) ([de598cf](https://github.com/Mokto/opengeocoding/commit/de598cf6504589c534d0922bb955f1b010a7d930))
+* find Canadian houses written as street, province code and postcode, then country ([#527](https://github.com/Mokto/opengeocoding/issues/527)) ([175c5d4](https://github.com/Mokto/opengeocoding/commit/175c5d4844e4604104f0602d251e43eb45d78d4a))
+* keep source-confirmed Polish settlement on reverse house results ([#522](https://github.com/Mokto/opengeocoding/issues/522)) ([f324410](https://github.com/Mokto/opengeocoding/commit/f3244108f85cd7d9a6981b21cc48b95199bafe18))
+* name a Canadian reverse house filed under a town of no county outside its government by its own ([#529](https://github.com/Mokto/opengeocoding/issues/529)) ([b0ce02a](https://github.com/Mokto/opengeocoding/commit/b0ce02a4ecbc4e9cef3f4ec3b9fb7b137bf9ae98))
+* name US unincorporated communities from Census CDP boundaries ([#537](https://github.com/Mokto/opengeocoding/issues/537)) ([52b7102](https://github.com/Mokto/opengeocoding/commit/52b71029fc7c2209ec1960593ad6572c95e9f75c))
+* read Indonesian village, district and regency addresses in searches ([#538](https://github.com/Mokto/opengeocoding/issues/538)) ([f76195a](https://github.com/Mokto/opengeocoding/commit/f76195adcd569fd593e86d57c57e12b5e5f81d32))
+* read New Caledonian addresses and keep foreign-postcode rows out of house points ([#530](https://github.com/Mokto/opengeocoding/issues/530)) ([2db3ed6](https://github.com/Mokto/opengeocoding/commit/2db3ed6fda6673970e0246894e8ca361306c9f0a))
+* suggest Canadian houses whose register community is not the place the index files them under ([#525](https://github.com/Mokto/opengeocoding/issues/525)) ([bce81e3](https://github.com/Mokto/opengeocoding/commit/bce81e3dc06df1feba3174711be1701c7523d4a9))
+* truncate gold PR comments without changing report artifacts ([#535](https://github.com/Mokto/opengeocoding/issues/535)) ([02325c7](https://github.com/Mokto/opengeocoding/commit/02325c7251ecf63cf13b9efcd2655863a251ac50))
+* try the other house-number reading before suggesting only a street ([#533](https://github.com/Mokto/opengeocoding/issues/533)) ([1dee2df](https://github.com/Mokto/opengeocoding/commit/1dee2dfb6411d2b2cfea4e04dd28037c0e3b5aa8))
+
 ## [1.7.0](https://github.com/Mokto/opengeocoding/compare/v1.6.2...v1.7.0) (2026-11-04)
 
 
