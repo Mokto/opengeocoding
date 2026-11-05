@@ -101,6 +101,11 @@ The GLEIF town-level corpus tests/gold.gleif.jsonl takes its queries from GLEIF'
 LEI Golden Copy (CC0-1.0, https://www.gleif.org/en/meta/lei-data-terms-of-use) and
 its expected points and regions from Wikidata (CC0-1.0); see tests/gleif/NOTICE.
 
+The Indonesian village corpus tests/gold.id-villages.jsonl takes its villages,
+names and expected points from Wikidata (CC0-1.0) and its tolerances from village
+areas in OCHA's Indonesia COD-AB, compiled from Badan Pusat Statistik (CC BY 3.0
+IGO); see tests/id-villages/NOTICE.
+
 The global address source-consistency gold corpus in tests/global/ is derived from
 OpenStreetMap under ODbL-1.0, with attribution and additional source terms in
 tests/global/NOTICE. That notice accompanies the corpus in the evaluation image.

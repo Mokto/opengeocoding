@@ -828,6 +828,9 @@ impl Index {
         if let Some(repaired) = country::vn::aligned(self, q, &parsed)? {
             parsed = repaired;
         }
+        if let Some(repaired) = country::id::aligned(self, q, &parsed)? {
+            parsed = repaired;
+        }
         if let Some(repaired) = self.country_as_road(q, &parsed)? {
             parsed = repaired;
         }

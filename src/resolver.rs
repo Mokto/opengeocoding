@@ -1,4 +1,4 @@
-use crate::index::country::{au, ca, de, dk, ee, gr, hk_mo, ie, is, jp, ps, pt, si, tw};
+use crate::index::country::{au, ca, de, dk, ee, gr, hk_mo, id, ie, is, jp, ps, pt, si, tw};
 use crate::{
     index::{
         Index, Parser,
@@ -605,6 +605,7 @@ impl Core {
                 })
             })
         };
+        let id_scope = id::stated_scope(&self.index, address);
         let mut viable: Vec<_> = judged
             .iter()
             .enumerate()
@@ -644,6 +645,9 @@ impl Core {
                         || postcode_agrees(postcode, details))
                     && (postcode_matches(postcode, details) || house_road_city(address, details))
                     && !au::municipal_conflict(&self.index, &candidates[*i], address, postcode)
+                    && id_scope.as_ref().is_none_or(|scope| {
+                        !id::outside(&self.index, scope, &hits[*i], &candidates[*i])
+                    })
                     && !ee::municipality_conflict(address, details)
                     && !si::municipality_conflict(address, details)
                     && (part(address, "city").is_empty()
@@ -918,6 +922,9 @@ impl Core {
                 })
                 .unwrap_or_default());
         }
+        if let Some(regency) = self.id_regency(query, &found)? {
+            return Ok(regency);
+        }
         let ignored = self.stated_country_ignored(query, &found);
         if (found.display_name.is_empty() || ignored)
             && let Some(degraded) = self.degraded(query)?
@@ -941,6 +948,45 @@ impl Core {
             return Ok(mended);
         }
         self.named_settlement(query, found)
+    }
+
+    /// See [`id::regency`].
+    fn id_regency(&self, query: &str, found: &FullAddress) -> Result<Option<FullAddress>> {
+        let Some(parsed) = self.parse(query)? else {
+            return Ok(None);
+        };
+        let Some(scope) = id::stated_scope(&self.index, &parsed) else {
+            return Ok(None);
+        };
+        let regions: Vec<&str> = found
+            .address_details
+            .as_option()
+            .map(|d| d.region_codes.iter().map(|r| r.code.as_str()).collect())
+            .unwrap_or_default();
+        let named = found
+            .address_details
+            .as_option()
+            .is_some_and(|d| !d.road.is_empty())
+            || found
+                .display_name
+                .split(',')
+                .next()
+                .is_some_and(|name| id::named_in_query(query, name));
+        if named
+            && found
+                .geo_coordinates
+                .as_option()
+                .is_some_and(|g| !id::elsewhere(&self.index, &scope, g.lat, g.lon, &regions))
+        {
+            return Ok(None);
+        }
+        let Some(hit) = id::regency(&self.index, &scope) else {
+            return Ok(None);
+        };
+        let mut regency = format_response(&self.index.render(&hit, true))?;
+        regency.good_match = false;
+        METRICS.tiers.with_label_values(&["id_regency"]).inc();
+        Ok(Some(regency))
     }
 
     fn numbered_place(&self, query: &str) -> Result<Option<FullAddress>> {
