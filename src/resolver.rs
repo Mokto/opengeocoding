@@ -958,11 +958,6 @@ impl Core {
         let Some(scope) = id::stated_scope(&self.index, &parsed) else {
             return Ok(None);
         };
-        let regions: Vec<&str> = found
-            .address_details
-            .as_option()
-            .map(|d| d.region_codes.iter().map(|r| r.code.as_str()).collect())
-            .unwrap_or_default();
         let named = found
             .address_details
             .as_option()
@@ -973,10 +968,8 @@ impl Core {
                 .next()
                 .is_some_and(|name| id::named_in_query(query, name));
         if named
-            && found
-                .geo_coordinates
-                .as_option()
-                .is_some_and(|g| !id::elsewhere(&self.index, &scope, g.lat, g.lon, &regions))
+            && found.geo_coordinates.as_option().is_some()
+            && !id::elsewhere(&self.index, &scope, found)
         {
             return Ok(None);
         }
@@ -987,6 +980,15 @@ impl Core {
         regency.good_match = false;
         METRICS.tiers.with_label_values(&["id_regency"]).inc();
         Ok(Some(regency))
+    }
+
+    /// Whether an Indonesian answer lies outside the regency the query states.
+    fn outside_stated_regency(&self, query: &str, answer: &FullAddress) -> Result<bool> {
+        let Some(parsed) = self.parse(query)? else {
+            return Ok(false);
+        };
+        Ok(id::stated_scope(&self.index, &parsed)
+            .is_some_and(|scope| id::elsewhere(&self.index, &scope, answer)))
     }
 
     fn numbered_place(&self, query: &str) -> Result<Option<FullAddress>> {
@@ -1313,6 +1315,9 @@ impl Core {
             return Ok(found);
         };
         let mut settled = format_response(&self.index.render(&hit, true))?;
+        if self.outside_stated_regency(query, &settled)? {
+            return Ok(found);
+        }
         settled.good_match = found.good_match;
         METRICS.tiers.with_label_values(&["named_settlement"]).inc();
         Ok(settled)

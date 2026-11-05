@@ -161,6 +161,49 @@ pub const PLACES: &[Place] = &[
         "Guntur",
         &[],
     ),
+    place!(
+        "id-blora",
+        "county",
+        "",
+        "ID",
+        "ID-JT",
+        900_000,
+        (165.0, -59.0),
+        "id-jt",
+        "Blora",
+        &[],
+    ),
+    place!(
+        "id-gubeng-kec",
+        "localadmin",
+        "",
+        "ID",
+        "ID-JT",
+        120_000,
+        (165.25, -60.15),
+        "id-grobogan",
+        "Gubeng",
+        &[],
+    ),
+    // a village of Gubeng district as the data files it, but in Blora's polygon
+    place!(
+        "id-gubeng",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        4_000,
+        (165.0, -59.05),
+        "id-gubeng-kec",
+        "Gubeng",
+        &[],
+    ),
+];
+
+/// Grobogan's and Blora's regency polygons.
+pub const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
+    ("id-grobogan", "county", true, true, 165.0, -60.0, 0.3),
+    ("id-blora", "county", true, true, 165.0, -59.0, 0.3),
 ];
 
 pub const STREETS: &[Street] = &[
@@ -210,6 +253,11 @@ pub fn cases() -> Vec<Case> {
         case(
             "Desa Tidakada, Kec. Tegowanu, Kab. Grobogan, Jawa Tengah, Indonesia",
             town("id-grobogan", false),
+        ),
+        // the district, not its namesake village the data files under it but places in Blora
+        case(
+            "Gubeng, Grobogan, Jawa Tengah, Indonesia",
+            town("id-gubeng-kec", true),
         ),
         // the province shortened, the country left out
         case(
