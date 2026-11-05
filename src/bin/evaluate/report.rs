@@ -800,7 +800,7 @@ fn locate_section(out: &mut String, results: &[&Record], cohort: &dyn Fn(&Record
     }
     let _ = write!(
         out,
-        "\n## ReverseGeocode and ResolveRegion\n\nBoth are asked about each case's single expected place, including same-point address alternatives. ReverseGeocode: the nearest result is in the expected country (and region, where the case has one), names the place (a locality's English Wikidata label, or one of the source's names for a house's town) and, at a house's point, is that house (number, within the case's radius, postcode); `offset` asks 25 m away and wants a house within the radius. ResolveRegion: one of the regions found is an expected one.\n\n| Check | Cohort | {} |\n|---|---|{}\n",
+        "\n## ReverseGeocode and ResolveRegion\n\nBoth are asked about each case's single expected place, including same-point address alternatives. ReverseGeocode: the nearest result is in the expected country (and region, where the case has one), names the place (a locality's English Wikidata label, or one of the source's names for a house's town) and, at a house's point, is that house (number, within the case's radius, postcode); `offset` asks 25 m away and wants a house within the radius, or the exact neighbouring house specified by a separate source-backed offset expectation. ResolveRegion: one of the regions found is an expected one.\n\n| Check | Cohort | {} |\n|---|---|{}\n",
         LOCATE_CLASSES.join(" | "),
         "---:|".repeat(LOCATE_CLASSES.len())
     );
@@ -1687,7 +1687,7 @@ pub fn diff(
                 "the nearest result is in the expected country, and region where the case has one, names the place (a locality's English Wikidata label, or one of the source's names for a house's town) and, at a house's point, is that house: its number, within the case's radius, and its postcode where both have one"
             }
             "ReverseGeocode offset" => {
-                "the nearest result 25 m from a house's point is in the expected country, region and place, and is a house within the case's radius of it"
+                "the nearest result 25 m from a house's point is in the expected country, region and place, and is a house within the case's radius of it; a source-backed offset expectation instead checks its specified neighbour's number, place, postcode where returned and point tolerance"
             }
             _ => "one of the regions found is an expected one",
         };

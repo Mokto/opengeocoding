@@ -444,9 +444,18 @@ fn rescore(cases: &[Case], results: &mut [Record], confidence: bool) {
             changed += 1;
             eprintln!("rescored {}: suggestions re-ranked", record.id);
         }
-        let locate_before = (record.reverse.clone(), record.region.clone());
+        let locate_before = (
+            record.reverse.clone(),
+            record.reverse_offset.clone(),
+            record.region.clone(),
+        );
         run::rescore_locate(case, record);
-        if (record.reverse.clone(), record.region.clone()) != locate_before {
+        if (
+            record.reverse.clone(),
+            record.reverse_offset.clone(),
+            record.region.clone(),
+        ) != locate_before
+        {
             changed += 1;
             eprintln!(
                 "rescored {}: reverse or region answers re-scored",

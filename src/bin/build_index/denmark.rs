@@ -146,6 +146,7 @@ mod tests {
             population: 20_000,
             xy: Some(xy),
             anc: Box::default(),
+            classed: true,
         };
         assert_eq!(
             write(

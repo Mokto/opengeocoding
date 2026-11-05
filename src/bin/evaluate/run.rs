@@ -228,6 +228,23 @@ pub fn place_name(case: &Case) -> Option<&str> {
     case.suggest.as_ref().map(|s| s.text.as_str())
 }
 
+fn reverse_case(case: &Case, found: &Located, offset: bool) -> &'static str {
+    if offset && let Some(expected) = &case.reverse_offset {
+        let class = reverse_class(&expected.expect, None, found, false);
+        return match class {
+            "pass" if found.places.is_none() => "wrong_place",
+            "pass" if found.answer.is_none() => "no_house",
+            _ => class,
+        };
+    }
+    reverse_class(
+        case.expect.as_ref().unwrap(),
+        place_name(case),
+        found,
+        offset,
+    )
+}
+
 /// Re-scores saved reverse and region answers against the current corpus.
 pub fn rescore_locate(case: &Case, record: &mut Record) {
     let Some(full) = case.expect.as_ref() else {
@@ -241,7 +258,7 @@ pub fn rescore_locate(case: &Case, record: &mut Record) {
         (&mut record.reverse_offset, true),
     ] {
         if let Some(found) = found {
-            found.class = reverse_class(full, place_name(case), found, offset).into();
+            found.class = reverse_case(case, found, offset).into();
         }
     }
     if let Some(found) = &mut record.region {
@@ -376,11 +393,7 @@ impl Checker {
     /// ReverseGeocode at the case's single expected point (a house where the case is one,
     /// else the nearest locality): its time, and what it answered where the case checks that.
     async fn reverse(&self, case: &Case, repeat: usize) -> (Option<f64>, Option<Located>) {
-        let Some((full, expect)) = case
-            .expect
-            .as_ref()
-            .and_then(|full| Some((full, expected_place(full)?)))
-        else {
+        let Some(expect) = case.expect.as_ref().and_then(expected_place) else {
             return (None, None);
         };
         let [lat, lon] = expect.point.unwrap_or_default();
@@ -400,7 +413,7 @@ impl Checker {
             fastest = Some(fastest.map_or(took, |f| f.min(took)));
         }
         let ms = fastest.map(|f| (f.as_secs_f64() * 1e6).round() / 1e3);
-        found.class = reverse_class(full, place_name(case), &found, false).into();
+        found.class = reverse_case(case, &found, false).into();
         (ms, reverse_applies(expect).then_some(found))
     }
 
@@ -417,7 +430,7 @@ impl Checker {
                 ..unanswered()
             },
         };
-        found.class = reverse_class(full, place_name(case), &found, true).into();
+        found.class = reverse_case(case, &found, true).into();
         Some(found)
     }
 
@@ -1324,6 +1337,76 @@ mod tests {
         assert_eq!(classes(&record), ["wrong_house", "pass", "pass"]);
         server.abort();
         assert_eq!(checker.budget.used(), 3);
+    }
+
+    #[test]
+    fn a_source_backed_offset_checks_its_own_house_without_changing_forward_checks() {
+        let expect = |number, postcode, town| {
+            json!({
+                "level":"house", "country":["ch"], "region":["CH-AG"],
+                "point":[47.386013,8.244002], "radius_km":0.01,
+                "components":{"house_number":number,"postcode":postcode}, "places":[town],
+            })
+        };
+        let case: Case = serde_json::from_value(json!({
+            "id":"border", "query":"41b Border Road", "cohort":"test", "location":"swisstopo:1",
+            "expect":expect("41b","5605","Dottikon"),
+            "reverse_offset":{"source":{"name":"swisstopo-csv","ref":"2"},
+                "expect":expect("15b.1","5607","Hägglingen")},
+        }))
+        .unwrap();
+        let answer = |number, postcode, town| {
+            reversed(&json!({"results":[{
+                "layer":"address", "address":{
+                    "geoCoordinates":{"lat":47.386013,"lon":8.244002},
+                    "addressDetails":{"countryCode":"ch", "regionCodes":[{"code":"CH-AG"}],
+                        "houseNumber":number,"postcode":postcode,"town":town}
+                }
+            }]}))
+        };
+        let origin = answer("41b", "5605", "Dottikon");
+        let neighbour = answer("15b.1", "5607", "Hägglingen");
+        assert_eq!(reverse_case(&case, &origin, false), "pass");
+        assert_eq!(reverse_case(&case, &neighbour, false), "wrong_place");
+        assert_eq!(reverse_case(&case, &neighbour, true), "pass");
+        assert_eq!(reverse_case(&case, &origin, true), "wrong_place");
+        assert_eq!(
+            reverse_case(&case, &answer("15b.1", "5607", "Dottikon"), true),
+            "wrong_place"
+        );
+        assert_eq!(
+            reverse_case(&case, &answer("41b", "5607", "Hägglingen"), true),
+            "wrong_house"
+        );
+        assert_eq!(
+            reverse_case(&case, &answer("15b.1", "5605", "Hägglingen"), true),
+            "wrong_postcode"
+        );
+        let mut distant = neighbour.clone();
+        distant.answer.as_mut().unwrap().point = [48., 8.];
+        assert_eq!(reverse_case(&case, &distant, true), "wrong_house");
+        let mut abroad = neighbour.clone();
+        abroad.country = "de".into();
+        assert_eq!(reverse_case(&case, &abroad, true), "wrong_country");
+        let mut incomplete = neighbour.clone();
+        incomplete.places = None;
+        assert_eq!(reverse_case(&case, &incomplete, true), "wrong_place");
+        incomplete = neighbour.clone();
+        incomplete.answer = None;
+        assert_eq!(reverse_case(&case, &incomplete, true), "no_house");
+        let mut record = Record {
+            reverse: Some(origin),
+            reverse_offset: Some(neighbour),
+            ..Default::default()
+        };
+        rescore_locate(&case, &mut record);
+        assert_eq!(record.reverse.unwrap().class, "pass");
+        assert_eq!(record.reverse_offset.unwrap().class, "pass");
+        let response = json!({"goodMatch":true,
+            "geoCoordinates":{"lat":47.386013,"lon":8.244002},
+            "addressDetails":{"countryCode":"ch", "regionCodes":[{"code":"CH-AG"}],
+                "houseNumber":"15b.1", "postcode":"5607"}});
+        assert_ne!(score(case.expect.as_ref(), &response, true).class, "pass");
     }
 
     #[tokio::test]

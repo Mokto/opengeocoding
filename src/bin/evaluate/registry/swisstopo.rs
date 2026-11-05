@@ -54,7 +54,11 @@ pub fn reframed_point(response: &Value) -> Result<[f64; 2]> {
     Ok(point)
 }
 
-fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result<()> {
+fn for_each(
+    path: &Path,
+    residential_only: bool,
+    mut visit: impl FnMut(Address) -> Result<()>,
+) -> Result<()> {
     let mut reader = BufReader::new(File::open(path)?);
     let mut line = String::new();
     ensure!(
@@ -97,7 +101,7 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
         let field = |name: &str| fields[columns[name]].trim();
         if field("ADR_STATUS") != "real"
             || field("ADR_OFFICIAL") != "true"
-            || field("BDG_CATEGORY") != "residential"
+            || residential_only && field("BDG_CATEGORY") != "residential"
         {
             continue;
         }
@@ -144,7 +148,7 @@ fn for_each(path: &Path, mut visit: impl FnMut(Address) -> Result<()>) -> Result
 
 pub fn lookup(path: &Path, ids: &BTreeSet<String>) -> Result<BTreeMap<String, Address>> {
     let mut found = BTreeMap::new();
-    for_each(path, |a| {
+    for_each(path, false, |a| {
         if ids.contains(&a.id) {
             ensure!(
                 !found.contains_key(&a.id),
@@ -223,7 +227,7 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
         .and_then(|s| s.to_str())
         .context("swisstopo file name")?;
     let mut pools: BTreeMap<String, BTreeMap<String, Address>> = BTreeMap::new();
-    for_each(path, |a| {
+    for_each(path, true, |a| {
         // ponytail: diversity is limited to 500 candidates per canton; increase the pool if it cannot supply 20 streets.
         let pool = pools.entry(a.canton.clone()).or_default();
         let hash = key(seed, &a.id);
@@ -256,7 +260,11 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
                 "official".into(),
                 "residential".into(),
             ];
-            let base = json!({"kind":"address", "source":"swisstopo-csv", "ref":a.id, "cohort":"ch_house", "queries":[a.query()], "label":a.query(), "tags":tags, "extra_regions":[format!("CH-{canton}")]});
+            let mut base = json!({"kind":"address", "source":"swisstopo-csv", "ref":a.id, "cohort":"ch_house", "queries":[a.query()], "label":a.query(), "tags":tags, "extra_regions":[format!("CH-{canton}")]});
+            // The 25 m offset crosses from Dottikon to Hägglingen, by Talackerstrasse 15b.1.
+            if a.id == "101742758" {
+                base["reverse_offset_ref"] = json!("102870001");
+            }
             lines.push(base.clone());
             if i % 2 == 0 && selected.len() > 1 {
                 let other = selected[(i + 1) % selected.len()];
@@ -363,6 +371,14 @@ mod tests {
         ];
         let write =
             |rows: &[&str]| std::fs::write(&path, format!("{header}{}", rows.concat())).unwrap();
+        write(&[
+            "6;Talackerstrasse;15b.1;non_residential;5607 Hägglingen;4068;Hägglingen;AG;real;true;2660812.505;1248665.399\n",
+        ]);
+        assert!(sample(&path, "test").is_err());
+        assert_eq!(
+            lookup(&path, &BTreeSet::from(["6".into()])).unwrap()["6"].municipality_name,
+            "Hägglingen"
+        );
         write(&rows);
         let first = sample(&path, "test").unwrap();
         let mut reversed = rows;

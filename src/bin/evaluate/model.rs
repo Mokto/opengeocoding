@@ -129,6 +129,14 @@ pub struct Case {
     pub include_landmarks: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub suggest_address: Option<SuggestAddressExpect>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reverse_offset: Option<ReverseOffset>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ReverseOffset {
+    pub source: Value,
+    pub expect: Expect,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -371,6 +379,44 @@ pub fn validate_gold(cases: &[Case]) -> Result<()> {
             case.holdout == holdout(&case.location),
             "{at}: hold-out flag"
         );
+        if let Some(offset) = &case.reverse_offset {
+            let origin = case.expect.as_ref().context("offset needs an origin")?;
+            let point = crate::score::offset_point(origin, &case.location)
+                .context("offset needs an unambiguous house")?;
+            let wanted = crate::score::expected_place(&offset.expect)
+                .context("offset needs an unambiguous expected house")?;
+            let registry = registry.context("offset needs a registry source")?;
+            ensure!(
+                offset.source["name"] == registry.source
+                    && offset.source["license"] == registry.license
+                    && offset.source["ref"].as_str().is_some_and(|r| !r.is_empty())
+                    && offset.source["url"].as_str().is_some_and(|u| !u.is_empty())
+                    && wanted.country == origin.alternatives()[0].country
+                    && wanted.level == "house"
+                    && wanted
+                        .radius_km
+                        .is_some_and(|r| r.is_finite() && r > 0. && r <= 0.15)
+                    && wanted.point.is_some_and(|p| {
+                        p[0].is_finite()
+                            && p[1].is_finite()
+                            && (-90. ..=90.).contains(&p[0])
+                            && (-180. ..=180.).contains(&p[1])
+                            && crate::score::haversine(point, p) <= 0.15
+                    })
+                    && !wanted.places.is_empty()
+                    && wanted.places.iter().all(|p| !p.trim().is_empty())
+                    && wanted.region.iter().all(|r| {
+                        r.get(..2)
+                            .is_some_and(|cc| wanted.country.contains(&cc.to_lowercase()))
+                    })
+                    && offset.expect.alternatives().iter().all(|e| {
+                        e.components
+                            .get("house_number")
+                            .is_some_and(|n| !n.is_empty())
+                    }),
+                "{at}: source-backed reverse offset"
+            );
+        }
         let Some(expect) = &case.expect else {
             ensure!(
                 !case.must_pass && case.known_failure.is_none() && case.suggest_address.is_none(),

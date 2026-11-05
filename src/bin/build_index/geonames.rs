@@ -399,6 +399,7 @@ pub fn add_places(
             population: r.population.min(9_000),
             xy: Some((r.x, r.y)),
             anc,
+            classed: true,
         });
     }
     tsv.flush().unwrap();
@@ -581,6 +582,7 @@ mod tests {
                     population: 4100,
                     xy: Some(xy),
                     anc: Box::default(),
+                    classed: true,
                 })
                 .collect();
             let original = "locality\tvillage\tIN\tIN-16\t0\t4100\t74.9\t18.1\tNaN\tNaN\tNaN\tNaN\t\tOldname\t\tQ1\n";
@@ -622,6 +624,7 @@ mod tests {
                     population: 0,
                     xy: Some(xy),
                     anc: Box::default(),
+                    classed: true,
                 })
                 .collect();
             let tsv: String = positions.iter().map(|&(x,y)| {
@@ -671,6 +674,7 @@ mod tests {
                 population: 0,
                 xy: Some((74.9, 18.1)),
                 anc: Box::default(),
+                classed: true,
             }];
             std::fs::write(
                 root.join("places.tsv"),
@@ -708,6 +712,7 @@ mod tests {
             population: 0,
             xy: Some((x, 18.1)),
             anc: Box::default(),
+            classed: true,
         };
         let row = |p: &Place| {
             format!(

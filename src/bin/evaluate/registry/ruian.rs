@@ -215,7 +215,11 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
             } else {
                 a.number()
             };
-            let base = json!({"kind":"address", "source":"ruian-csv", "ref":a.id, "cohort":format!("cz_{category}"), "queries":[a.query(&number)], "label":a.query(&number), "tags":["registry-sample", "cz", "ruian", release, format!("region:{region}"), format!("municipality:{}", a.municipality), category]});
+            let mut base = json!({"kind":"address", "source":"ruian-csv", "ref":a.id, "cohort":format!("cz_{category}"), "queries":[a.query(&number)], "label":a.query(&number), "tags":["registry-sample", "cz", "ruian", release, format!("region:{region}"), format!("municipality:{}", a.municipality), category]});
+            // The 25 m offset crosses from Mutyněves/Blažejov to Nová Olešná č.ev. 5.
+            if a.id == "2139103" {
+                base["reverse_offset_ref"] = json!("2232677");
+            }
             lines.push(base.clone());
             if !a.orientation.is_empty() {
                 for (form, number) in [
