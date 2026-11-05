@@ -107,6 +107,36 @@ pub fn add(
     let mut mixed = 0;
     let mut mapped = 0;
     let mut administration = 0;
+    let corroborates = |p: u32, address: &str| {
+        kr::listed_lot(address, |area| {
+            std::iter::once(&p)
+                .chain(places[p as usize].anc.iter())
+                .any(|id| {
+                    places[*id as usize]
+                        .names
+                        .split(super::NAME_SEP)
+                        .any(|name| name == area)
+                })
+        })
+        .is_some()
+    };
+    let mut by_name: HashMap<&str, Vec<usize>> = HashMap::new();
+    for (id, place) in places.iter().enumerate().filter(|(_, p)| {
+        p.country == *b"KR"
+            && matches!(
+                p.subtype,
+                "locality" | "other" | "macrohood" | "neighborhood" | "microhood"
+            )
+    }) {
+        for name in place.names.split(super::NAME_SEP) {
+            let ids = by_name.entry(name).or_default();
+            if ids.last() != Some(&id) {
+                ids.push(id);
+            }
+        }
+    }
+    let mut located = Vec::new();
+    let mut strict_pairs = HashSet::new();
     for row in rows {
         if !shared.assigner.within(row.x, row.y) {
             continue;
@@ -117,27 +147,48 @@ pub fn add(
         if shared.countries[p as usize] != *b"KR" {
             continue;
         }
-        if shared
-            .assigner
-            .admin(row.x, row.y)
-            .is_none_or(|admin| admin != p && !places[p as usize].anc.contains(&admin))
-        {
+        let admin = shared.assigner.admin(row.x, row.y);
+        if admin.is_none_or(|admin| admin != p && !places[p as usize].anc.contains(&admin)) {
             // A locality polygon can cross its parent's administrative boundary.
             administration += 1;
             continue;
         }
-        let Some((street, number)) = kr::listed_lot(&row.address, |area| {
-            std::iter::once(&p)
-                .chain(places[p as usize].anc.iter())
-                .any(|id| {
-                    places[*id as usize]
-                        .names
-                        .split(super::NAME_SEP)
-                        .any(|name| name == area)
+        let direct = corroborates(p, &row.address);
+        if direct {
+            let (street, number) = kr::listed_lot(&row.address, |_| true).unwrap();
+            strict_pairs.insert((fold(street), number));
+        }
+        located.push((row, p, admin.unwrap(), direct));
+    }
+    located.sort_by_key(|(_, _, _, direct)| !*direct);
+    let mut descendant = 0;
+    for (row, p, admin, direct) in located {
+        let (street, number) = kr::listed_lot(&row.address, |_| true).unwrap();
+        if !direct {
+            if strict_pairs.contains(&(fold(street), number.clone())) {
+                continue;
+            }
+            // ponytail: the 5 km child-centre check is not boundary membership; use locality polygons when available.
+            let matches = by_name
+                .get(street)
+                .into_iter()
+                .flatten()
+                .filter(|&&id| {
+                    let child = &places[id];
+                    child.anc.contains(&p)
+                        && child.anc.contains(&admin)
+                        && corroborates(id as u32, &row.address)
+                        && child.xy.is_some_and(|(x, y)| {
+                            ((row.x - x) * row.y.to_radians().cos()).hypot(row.y - y)
+                                <= 5000. / 111_195.
+                        })
                 })
-        }) else {
-            continue;
-        };
+                .take(2)
+                .count();
+            if matches != 1 {
+                continue;
+            }
+        }
         let mut cell = String::new();
         let folded = fold(street);
         let key = super::with_cell(&folded, row.x, row.y, &mut cell);
@@ -168,6 +219,7 @@ pub fn add(
         );
         writeln!(audit, "{}\t{:.9}\t{:.9}", row.address, row.x, row.y)?;
         added += 1;
+        descendant += usize::from(!direct);
     }
     audit.flush()?;
     metadata["remaining_after_existing_pairs"] = remaining.into();
@@ -175,6 +227,7 @@ pub fn add(
     metadata["mapped_roads_rejected"] = mapped.into();
     metadata["administration_guard_rejected"] = administration.into();
     metadata["geographically_corroborated_rows"] = added.into();
+    metadata["descendant_corroborated_rows"] = descendant.into();
     std::fs::write(
         out.join("korea-lots-source.json"),
         serde_json::to_vec_pretty(&metadata)?,

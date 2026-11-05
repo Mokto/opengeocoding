@@ -2741,6 +2741,9 @@ fn build(args: &[String]) {
         );
         for n in names {
             d.add_text(f.name, n);
+            if let Some(exact) = kr::exact_street_name(cc, n) {
+                d.add_text(f.cnames, exact);
+            }
         }
         for alias in aliases {
             d.add_text(f.iceland_alias, fold(alias));

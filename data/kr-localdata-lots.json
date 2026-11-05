@@ -6,7 +6,7 @@
   "encoding": "CP949",
   "source_crs": "EPSG:5174",
   "prepared_crs": "EPSG:4326 (GIS longitude, latitude)",
-  "policy": "Active status 01; positive native bare single-lot addresses only; whole-source shared-coordinate and pre-envelope coordinate-spread quarantine. No service, benchmark or expected-answer filtering. Builder must corroborate every administrative qualifier against its geometry-assigned place.",
+  "policy": "Active status 01; positive native bare single-lot addresses only; whole-source shared-coordinate and pre-envelope coordinate-spread quarantine. No service, benchmark or expected-answer filtering. Builder must corroborate every administrative qualifier against the geometry-assigned place/ancestors or one uniquely named indexed child within 5 km, preserving the original point and containing administration.",
   "raw_counts": {
     "raw_rows": 83410,
     "closed_rows": 37656,

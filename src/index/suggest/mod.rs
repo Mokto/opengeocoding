@@ -1140,7 +1140,7 @@ impl Index {
         terms
     }
 
-    fn docs_with(&self, field: Field, term_text: &str) -> u64 {
+    pub(in crate::index) fn docs_with(&self, field: Field, term_text: &str) -> u64 {
         self.searcher
             .doc_freq(&Term::from_field_text(field, term_text))
             .unwrap_or(0)

@@ -31,6 +31,7 @@ pub const LICENSING: &[(&str, &str, f64)] = &[
         140.3504,
     ),
     ("가람도 솔빛시 해오름리 830", "830", 140.3505),
+    ("가람도 솔빛시 새아침리 별마을동 832", "832", 140.3502),
 ];
 
 pub fn write_licensing(path: &Path) {
@@ -100,6 +101,83 @@ fn licensing_lots_are_additive_geographically_corroborated_and_not_reverse_house
     .unwrap();
     writer.write(&road).unwrap();
     writer.close().unwrap();
+    let road_names: Vec<_> = (0..1001).map(|i| format!("별마을동곁길{i}")).collect();
+    let road_labels: Vec<_> = road_names.iter().map(|n| (n.as_str(), &[][..])).collect();
+    let crowded = RecordBatch::try_from_iter([
+        ("class", strings(std::iter::repeat_n("residential", 1001))),
+        ("subtype", strings(std::iter::repeat_n("road", 1001))),
+        ("names", names(&road_labels)),
+        ("bbox", bbox(&vec![[140.3501, 140.3508, 35., 35.]; 1001])),
+        (
+            "geometry",
+            binary(
+                (0..1001)
+                    .map(|_| line(&[(140.3501, 35.), (140.3508, 35.)]))
+                    .collect(),
+            ),
+        ),
+    ])
+    .unwrap();
+    let mut writer = ArrowWriter::try_new(
+        File::create(release.join("segment/licensing-name-crowd.parquet")).unwrap(),
+        crowded.schema(),
+        None,
+    )
+    .unwrap();
+    writer.write(&crowded).unwrap();
+    writer.close().unwrap();
+    let divisions = ParquetRecordBatchReaderBuilder::try_new(
+        File::open(release.join("division/part-0.parquet")).unwrap(),
+    )
+    .unwrap()
+    .build()
+    .unwrap()
+    .next()
+    .unwrap()
+    .unwrap();
+    let ids = divisions
+        .column_by_name("id")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    let template = (0..divisions.num_rows())
+        .find(|&i| ids.value(i) == "kr-garam-saeachim")
+        .unwrap();
+    let schema = divisions.schema();
+    let mut writer = ArrowWriter::try_new(
+        File::create(release.join("division/licensing-name-crowd.parquet")).unwrap(),
+        schema.clone(),
+        None,
+    )
+    .unwrap();
+    for i in 0..11 {
+        let id = format!("kr-garam-name-crowd-{i}");
+        let name = "새아침리";
+        let mut columns = divisions.slice(template, 1).columns().to_vec();
+        for (field, data) in [
+            ("id", strings([id.as_str()])),
+            ("subtype", strings(["neighborhood"])),
+            ("names", names(&[(name, &[])])),
+            ("geometry", binary(vec![point(140.3507, 35.)])),
+            ("bbox", bbox(&[[140.35069, 140.35071, 34.99999, 35.00001]])),
+            (
+                "population",
+                Arc::new(Int32Array::from(vec![1_000_000])) as ArrayRef,
+            ),
+            ("parent_division_id", strings(["kr-garam-other-county"])),
+            (
+                "hierarchies",
+                hierarchies(&[vec!["kr", "kr-garam", "kr-garam-other-county", id.as_str()]]),
+            ),
+        ] {
+            columns[schema.index_of(field).unwrap()] = data;
+        }
+        writer
+            .write(&RecordBatch::try_new(schema.clone(), columns).unwrap())
+            .unwrap();
+    }
+    writer.close().unwrap();
     let input = File::open(release.join("address/part-0.parquet")).unwrap();
     let batch = ParquetRecordBatchReaderBuilder::try_new(input)
         .unwrap()
@@ -147,6 +225,11 @@ fn licensing_lots_are_additive_geographically_corroborated_and_not_reverse_house
         ("가람도 솔빛시 없는리 828", 140.3502, 35.),
         ("가람도 솔빛시 길벗리 829", 140.3502, 35.),
         ("가람도 솔빛시 새아침리 831", 140.3507, 35.),
+        ("가람도 솔빛시 새벽리 별마을동 833", 140.3502, 35.),
+        ("가람도 솔빛시 외딴동 834", 140.3502, 35.),
+        ("가람도 솔빛시 먼별동 835", 140.3502, 35.),
+        ("가람도 솔빛시 두별동 836", 140.3502, 35.),
+        ("가람도 솔빛시 별마을동 해오름리 830", 140.3518, 35.),
     ] {
         writeln!(file, "{address}\t{x}\t{y}").unwrap();
     }
@@ -180,7 +263,8 @@ fn licensing_lots_are_additive_geographically_corroborated_and_not_reverse_house
                 .any(|s| s.kind == "address")
         );
         let got = after.suggest(&q, 5, None, None, false);
-        assert_eq!((got.len(), got[0].kind), (1, "address"), "{q}");
+        assert_eq!(got.len(), 1, "{q}");
+        assert_eq!(got[0].kind, "address", "{q}");
         assert!(metres((got[0].x, got[0].y), (lon, 35.)) < 0.2);
         assert!(after.suggest(&q, 5, Some("JP"), None, false).is_empty());
         let reverse = after.reverse_search(35., lon, 100., 20);
@@ -190,6 +274,11 @@ fn licensing_lots_are_additive_geographically_corroborated_and_not_reverse_house
                 .all(|(_, v, _)| v["address"]["house_number"] != number)
         );
     }
+    let short = "가람도 솔빛시 별마을동 832, South Korea";
+    let hits = after.search(short);
+    assert_eq!(hits.len(), 1, "{short}");
+    let rendered = after.render(&hits[0], true);
+    assert_eq!(rendered["address"]["house_number"], "832", "{short}");
     for q in [
         "가람도 솔빛시 새벽리 899",
         "가람도 솔빛시 새아침리 823",
@@ -200,6 +289,10 @@ fn licensing_lots_are_additive_geographically_corroborated_and_not_reverse_house
         "가람도 솔빛시 새아침리 822-2",
         "가람도 솔빛시 길벗리 829",
         "가람도 솔빛시 새아침리 831",
+        "가람도 솔빛시 새벽리 별마을동 833",
+        "가람도 솔빛시 외딴동 834",
+        "가람도 솔빛시 먼별동 835",
+        "가람도 솔빛시 두별동 836",
     ] {
         assert!(
             !after
@@ -312,7 +405,8 @@ fn licensing_lots_are_additive_geographically_corroborated_and_not_reverse_house
     let metadata: serde_json::Value =
         serde_json::from_slice(&std::fs::read(head.join("korea-lots-source.json")).unwrap())
             .unwrap();
-    assert_eq!(metadata["geographically_corroborated_rows"], 4);
+    assert_eq!(metadata["geographically_corroborated_rows"], 5);
+    assert_eq!(metadata["descendant_corroborated_rows"], 1);
     assert_eq!(metadata["mixed_streets_rejected"], 1);
     assert_eq!(metadata["mapped_roads_rejected"], 1);
     assert_eq!(metadata["administration_guard_rejected"], 1);
@@ -539,6 +633,66 @@ pub const PLACES: &[Place] = &[
             ("ko-old", "해오름리"),
             ("ko-alt", "길벗리")
         ]
+    ),
+    place!(
+        "kr-garam-saeachim-byeol",
+        "neighborhood",
+        "",
+        "KR",
+        "KR-41",
+        0,
+        (140.3502, 35.0),
+        "kr-garam-saeachim",
+        "별마을동",
+        &[("ko", "해오름리")]
+    ),
+    place!(
+        "kr-garam-saebyeok-alone",
+        "neighborhood",
+        "",
+        "KR",
+        "KR-41",
+        0,
+        (140.3502, 35.0),
+        "kr-garam-saebyeok",
+        "외딴동",
+        &[]
+    ),
+    place!(
+        "kr-garam-saeachim-far",
+        "neighborhood",
+        "",
+        "KR",
+        "KR-41",
+        0,
+        (140.42, 35.0),
+        "kr-garam-saeachim",
+        "먼별동",
+        &[]
+    ),
+    place!(
+        "kr-garam-saeachim-twin-a",
+        "neighborhood",
+        "",
+        "KR",
+        "KR-41",
+        0,
+        (140.35025, 35.0),
+        "kr-garam-saeachim",
+        "두별동",
+        &[]
+    ),
+    place!(
+        "kr-garam-saeachim-twin-b",
+        "neighborhood",
+        "",
+        "KR",
+        "KR-41",
+        0,
+        (140.35035, 35.0),
+        "kr-garam-saeachim",
+        "두별동",
+        &[]
     ),
     place!(
         "kr-garam-saebyeok",
