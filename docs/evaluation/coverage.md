@@ -14,6 +14,8 @@ The 1.0.1 builder's index (`e745019960b65d36`, Overture 2026-10-21.0 with the ch
 
 The 1.4.0 builder's index (`0d6237d777e33303`, also 1.5.0's builder; the same sources plus Ryhti's Swedish-only addresses and DENUE establishments registered before 2025, 30 October 2026) is in [house-number-coverage-1.4.0.tsv](house-number-coverage-1.4.0.tsv). Mexico rose from 16.5 to 17.8 million houses, Taiwan from 5.5 to 5.7 million and Finland from 2.22 to 2.24 million; the largest gaps are unchanged.
 
+The 1.7.0 builder's index (`24e45dcd8295f18b`, the 1.4.0 sources plus Uruguay's lettered doors, Iceland's address register, Asiaq's Greenland building references and GeoNames' full populated-places list, 4 November 2026) is in [house-number-coverage-1.7.0.tsv](house-number-coverage-1.7.0.tsv). Uruguay rose from 1.18 to 1.20 million houses and Iceland from 101,145 to 114,603. Japan fell from 38.6 to 22.0 million, because numbered blocks are now served as areas rather than counted as residences. The largest gaps are unchanged.
+
 | Country | Population | Houses | Per 1,000 people | Streets with a number | Estimated gap |
 |---|---:|---:|---:|---:|---:|
 | India | 1,464 M | 85,596 | 0 | 13% | 439.1 M |
