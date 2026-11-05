@@ -252,7 +252,7 @@ mod tests {
                 .flat_map(HashMap::values)
                 .map(Vec::len)
                 .sum::<usize>(),
-            23037
+            33318
         );
         assert_eq!(
             metadata["source_sha256"],
@@ -263,7 +263,20 @@ mod tests {
             "https://www.data.go.kr/data/15096257/fileData.do"
         );
         assert_eq!(metadata["raw_counts"]["active_rows"], 45754);
-        assert_eq!(metadata["prepared_rows"], 23037);
+        assert_eq!(metadata["prepared_rows"], 33318);
+        let extra: Vec<_> = metadata["additional_sources"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["source_sha256"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            extra,
+            [
+                "242a3354d48fe34c0dcefb8bdb9f9feb3e9d7b65fcfdce96b7b3510b60ce0095",
+                "d6bb5fa02c7dabafa86d6c98e8782efe026503474186a09c7ab0af0ad44239e2"
+            ]
+        );
     }
 
     #[test]

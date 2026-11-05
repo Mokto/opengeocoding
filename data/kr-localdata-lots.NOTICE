@@ -3,9 +3,19 @@ Catalogue: https://www.data.go.kr/data/15096257/fileData.do
 Download information: https://file.localdata.go.kr/file/group_meal_facilities/info
 Captured 2026-11-04; latest extract-update date in the capture: 2026-11-03.
 Original CSV SHA256: 678f6141c79a8610710c062f09310989d9399b9ca59bd79e86ddebb2a74bcbea
-Publisher permits reuse without restriction; policy: https://www.data.go.kr/ugs/selectPortalPolicyView.do
-No endorsement by the publisher is implied.
 
-Changes: strict CP949 decoding; active-status records only; bare native single-lot address extraction; EPSG:5174 to longitude/latitude EPSG:4326 conversion with PROJ; duplicate removal; whole-source shared-point and raw coordinate-spread quarantine. The builder admits only geometry-corroborated lots whose folded name/number pair was absent from its earlier Korean inputs. Every institution category is eligible, including hospitals, schools, nurseries and factories. No benchmark or held-out answers select source rows.
+Source: Ministry of the Interior and Safety (행정안전부), 민방위대피시설 (civil-defence shelter) standard data.
+Catalogue: https://www.data.go.kr/data/15021098/standard.do
+Download information: https://file.localdata.go.kr/file/civil_defense_shelter_info/info
+Captured 2026-11-05. Original CSV SHA256: 242a3354d48fe34c0dcefb8bdb9f9feb3e9d7b65fcfdce96b7b3510b60ce0095
 
-These are registered institution parcel/address reference points, not verified entrances or complete residential coverage. Lot-derived houses are excluded from house reverse-geocoding postings. Multi-parcel, floor/unit annotations and ambiguous or unsupported source records are not admitted by this supplement. Existing house coordinates and postcodes take precedence.
+Source: 전국어린이보호구역 대상시설 (children's protection-zone target facility) standard data, Public Data Portal.
+Catalogue: https://www.data.go.kr/data/15012891/standard.do
+Captured 2026-11-05 through the portal's standard-data JSON export. Captured JSON SHA256: d6bb5fa02c7dabafa86d6c98e8782efe026503474186a09c7ab0af0ad44239e2
+
+Each catalogue states its scope of use as unrestricted (이용허락범위 제한 없음); policy: https://www.data.go.kr/ugs/selectPortalPolicyView.do
+No endorsement by any publisher is implied.
+
+Changes: strict CP949 decoding of the CSV files; active-status meal facilities and shelters in use only, every protection-zone facility category; bare native single-lot address extraction; meal-register EPSG:5174 to longitude/latitude EPSG:4326 conversion with PROJ, the other registers' own EPSG:4326 longitude/latitude unchanged; duplicate removal; shared-point and coordinate-spread quarantine across all three registers; an address the meal register supplies keeps its meal-register points. The builder admits only geometry-corroborated lots whose folded name/number pair was absent from its earlier Korean inputs. Every institution or facility category is eligible. No benchmark or held-out answers select source rows.
+
+These are registered facility parcel/address reference points, not verified entrances or complete residential coverage. Protection-zone points locate the target facility, not the zone. Lot-derived houses are excluded from house reverse-geocoding postings. Multi-parcel, floor/unit annotations and ambiguous or unsupported source records are not admitted by this supplement. Existing house coordinates and postcodes take precedence.

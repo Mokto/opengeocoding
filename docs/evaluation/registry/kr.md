@@ -205,9 +205,29 @@ Regenerate from an archived publisher capture with Python 3 and PROJ's `cs2cs` i
 ```sh
 python3 tests/registry/kr-localdata-lots.py group-meals.csv \
   --sha256 678f6141c79a8610710c062f09310989d9399b9ca59bd79e86ddebb2a74bcbea \
-  --captured 2026-11-04 --out data/kr-localdata-lots.tsv.gz
+  --captured 2026-11-04 \
+  --shelters shelters.csv 242a3354d48fe34c0dcefb8bdb9f9feb3e9d7b65fcfdce96b7b3510b60ce0095 \
+  --protection-zones protection-zones.json d6bb5fa02c7dabafa86d6c98e8782efe026503474186a09c7ab0af0ad44239e2 \
+  --extra-captured 2026-11-05 --out data/kr-localdata-lots.tsv.gz
 python3 tests/registry/test-kr-localdata-lots.py
 ```
+
+### Shelter and protection-zone registers
+
+Two further national registers, each catalogued with unrestricted reuse (이용허락범위 제한 없음), extend the same input; [the notice](../../../data/kr-localdata-lots.NOTICE) attributes all three.
+
+- [Civil-defence shelters](https://www.data.go.kr/data/15021098/standard.do), from the ordinary LOCALDATA download: 18,846 records, of which the 17,242 in use are eligible. The catalogue names EPSG:5174, but the CSV carries explicit `경도(EPSG4326)`/`위도(EPSG4326)` columns, which are used unchanged.
+- [Children's protection-zone target facilities](https://www.data.go.kr/data/15012891/standard.do), all 14,642 records in all ten facility categories (kindergartens, schools, nurseries, academies and others), from the portal's standard-data JSON export in two pages within its 50,000-row limit. Its points locate the facility, not the road zone.
+
+Both pass through the same bare single-lot parser. Their rows are screened together with the whole meal frame, annotated meal rows included, so a shared point or a spread of more than 250 m across any of the three registers quarantines the key. An address the meal register supplies keeps exactly its meal-register points. On keys present in two registers, facility points agree with the meal register at a median of 30 m (protection zones, 4,754 keys) and 85 m (shelters, 384 keys), which confirms the coordinate systems but is not independent accuracy. Without the two extra arguments the generator reproduces the meal-only file byte for byte. The combined input has 33,474 address/point rows: the 23,037 meal rows unchanged plus 10,437 rows from the new registers, with 364 keys quarantined.
+
+Protection-zone facilities are mostly schools and kindergartens, and the school gold corpus comes from a separate school directory. Their coordinates may share upstream sources, so school-gold gains from this register can partly reflect that rather than independent positional agreement.
+
+A first version gave the meal register precedence only on the whole written address. The meal register already writes the new merged province name `전남광주통합특별시` where the newer registers keep `전라남도`, and one register omits a 면, so 12 existing meal-register house points moved by averaging with a second register's point. Precedence now uses the lot name and number, the pair the builder already suppresses nationally for earlier inputs; this conservatively also drops homonymous lots elsewhere.
+
+On the same full sources, models, evaluator and 47,098-case gold corpus, the builder of main `6afed2e` (`b4ab14eec29e1524`) built both sides, the candidate through `--korea-lots` with this input. Admitted rows rise from 8,210 to **11,177** (8,464 through the indexed-child path), adding 2,913 primary keys and 12 street documents; far keys stay at 1,581. Every existing house number, coordinate and postcode slot is retained; two houses carry renumbered street IDs, and three lot streets created by the meal register gained houses, which moved their centroids by up to about 550 m and raised their importance from 1 to 2. Search and Suggest each gain **68** passes with no lost pass or worse failure class, all Korean lot queries keeping the exact requested number: Korean Search **41.2% → 43.6%**, Suggest **41.8% → 44.2%**. Search gains span 12 school locations (six training, six held-out, the latter in aggregate only), and the original 414 school queries rise **170 → 182**. Other countries, reverse and region answers do not change, and the 1,000-address unscored comparison has zero response drift.
+
+Of the 11,177 admitted source address/points, 11,176 pass house-level exact-number Search within 250 m and all pass top-five exact Suggest. The exception, `인천광역시 부평구 부개동 494-3`, lies about 300 m from the Incheon/Gyeonggi border; the index's simplified province polygon places its point in Gyeonggi, so the existing stated-province guard returns the locality instead. The guard is not relaxed for it.
 
 The generator checks its input checksum and a GIS-XY datum control before transforming the whole source frame. No company names, contacts, industry data, benchmark IDs or held-out answers enter the prepared file. Refreshes are data updates: review the publisher terms, raw and derived checksums, counts, notice and builder hash together. Source files contain no service-derived expectations. The runtime does not require Python or PROJ and never downloads this source.
 
