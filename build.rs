@@ -36,6 +36,9 @@ fn builder_hash() -> String {
                 "data/us-cdps.json.gz",
                 "data/us-cdps.sources.json",
                 "data/us-cdps.NOTICE",
+                "data/kr-localdata-lots.tsv.gz",
+                "data/kr-localdata-lots.json",
+                "data/kr-localdata-lots.NOTICE",
             ]
             .map(PathBuf::from),
         )

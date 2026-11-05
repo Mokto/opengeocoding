@@ -1,6 +1,64 @@
 use super::*;
 use crate::*;
 
+pub const POINT_ONLY: &[&str] = &["kr-garam-saeachim"];
+pub const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
+    (
+        "kr-garam-saeachim",
+        "locality",
+        true,
+        true,
+        140.35,
+        35.,
+        0.01,
+    ),
+    (
+        "kr-garam-other-county",
+        "county",
+        true,
+        true,
+        140.3507,
+        35.,
+        0.00003,
+    ),
+];
+pub const LICENSING: &[(&str, &str, f64)] = &[
+    ("가람도 솔빛시 새아침리 821", "821", 140.3502),
+    ("가람도 솔빛시 새아침리 산822-2", "산822-2", 140.3503),
+    (
+        "가람도 솔빛시 새아침리 99999-99999",
+        "99999-99999",
+        140.3504,
+    ),
+    ("가람도 솔빛시 해오름리 830", "830", 140.3505),
+    ("가람도 솔빛시 새아침리 별마을동 832", "832", 140.3502),
+];
+
+pub fn write_licensing(path: &Path) {
+    let mut data = "lot_address\tlon\tlat\n".to_string();
+    for &(address, _, lon) in LICENSING {
+        data.push_str(&format!("{address}\t{lon}\t35\n"));
+    }
+    std::fs::write(path, data).unwrap();
+}
+
+pub async fn check_licensing_search(resolver: &Resolver) {
+    for &(address, number, lon) in LICENSING {
+        for query in [
+            format!("{address}, South Korea"),
+            format!("대한민국, {}", address.replacen("가람도", "경기", 1)),
+        ] {
+            let got = resolver.resolve(&query).await.unwrap();
+            assert!(got.good_match, "{query}: {got:?}");
+            let details = got.address_details.as_option().unwrap();
+            assert_eq!(details.country_code, "kr");
+            assert_eq!(details.house_number, number);
+            let p = got.geo_coordinates.as_option().unwrap();
+            assert!(metres((p.lon as f64, p.lat as f64), (lon, 35.)) < 5.);
+        }
+    }
+}
+
 pub const LISTINGS: &[(&str, f64, f64)] = &[
     ("솔빛시 새봄면 새로12길 812", 140.0002, 35.),
     ("새벽리 산8-2", 140.3001, 35.),
@@ -11,7 +69,359 @@ pub const LISTINGS: &[(&str, f64, f64)] = &[
     ("새로12길 816 3층", 140., 35.),
     ("새로12길 817-", 140., 35.),
     ("나래도 솔빛시 새벽리 818", 140.3001, 35.),
+    ("새아침리 산8-2", 140.3501, 35.),
 ];
+
+#[test]
+fn licensing_lots_are_additive_geographically_corroborated_and_not_reverse_houses() {
+    use std::io::Write;
+    use tantivy_fst::Streamer;
+    let root = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+        .join(format!("kr-licensing-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let release = root.join("release");
+    world::write_release(&release);
+    world::write_poi_addresses(&release);
+    let road = RecordBatch::try_from_iter([
+        ("class", strings(["residential"])),
+        ("subtype", strings(["road"])),
+        ("names", names(&[("길벗리", &[])])),
+        ("bbox", bbox(&[[140.3501, 140.3508, 35., 35.]])),
+        (
+            "geometry",
+            binary(vec![line(&[(140.3501, 35.), (140.3508, 35.)])]),
+        ),
+    ])
+    .unwrap();
+    let mut writer = ArrowWriter::try_new(
+        File::create(release.join("segment/licensing-road.parquet")).unwrap(),
+        road.schema(),
+        None,
+    )
+    .unwrap();
+    writer.write(&road).unwrap();
+    writer.close().unwrap();
+    let road_names: Vec<_> = (0..1001).map(|i| format!("별마을동곁길{i}")).collect();
+    let road_labels: Vec<_> = road_names.iter().map(|n| (n.as_str(), &[][..])).collect();
+    let crowded = RecordBatch::try_from_iter([
+        ("class", strings(std::iter::repeat_n("residential", 1001))),
+        ("subtype", strings(std::iter::repeat_n("road", 1001))),
+        ("names", names(&road_labels)),
+        ("bbox", bbox(&vec![[140.3501, 140.3508, 35., 35.]; 1001])),
+        (
+            "geometry",
+            binary(
+                (0..1001)
+                    .map(|_| line(&[(140.3501, 35.), (140.3508, 35.)]))
+                    .collect(),
+            ),
+        ),
+    ])
+    .unwrap();
+    let mut writer = ArrowWriter::try_new(
+        File::create(release.join("segment/licensing-name-crowd.parquet")).unwrap(),
+        crowded.schema(),
+        None,
+    )
+    .unwrap();
+    writer.write(&crowded).unwrap();
+    writer.close().unwrap();
+    let divisions = ParquetRecordBatchReaderBuilder::try_new(
+        File::open(release.join("division/part-0.parquet")).unwrap(),
+    )
+    .unwrap()
+    .build()
+    .unwrap()
+    .next()
+    .unwrap()
+    .unwrap();
+    let ids = divisions
+        .column_by_name("id")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    let template = (0..divisions.num_rows())
+        .find(|&i| ids.value(i) == "kr-garam-saeachim")
+        .unwrap();
+    let schema = divisions.schema();
+    let mut writer = ArrowWriter::try_new(
+        File::create(release.join("division/licensing-name-crowd.parquet")).unwrap(),
+        schema.clone(),
+        None,
+    )
+    .unwrap();
+    for i in 0..11 {
+        let id = format!("kr-garam-name-crowd-{i}");
+        let name = "새아침리";
+        let mut columns = divisions.slice(template, 1).columns().to_vec();
+        for (field, data) in [
+            ("id", strings([id.as_str()])),
+            ("subtype", strings(["neighborhood"])),
+            ("names", names(&[(name, &[])])),
+            ("geometry", binary(vec![point(140.3507, 35.)])),
+            ("bbox", bbox(&[[140.35069, 140.35071, 34.99999, 35.00001]])),
+            (
+                "population",
+                Arc::new(Int32Array::from(vec![1_000_000])) as ArrayRef,
+            ),
+            ("parent_division_id", strings(["kr-garam-other-county"])),
+            (
+                "hierarchies",
+                hierarchies(&[vec!["kr", "kr-garam", "kr-garam-other-county", id.as_str()]]),
+            ),
+        ] {
+            columns[schema.index_of(field).unwrap()] = data;
+        }
+        writer
+            .write(&RecordBatch::try_new(schema.clone(), columns).unwrap())
+            .unwrap();
+    }
+    writer.close().unwrap();
+    let input = File::open(release.join("address/part-0.parquet")).unwrap();
+    let batch = ParquetRecordBatchReaderBuilder::try_new(input)
+        .unwrap()
+        .build()
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap();
+    let schema = batch.schema();
+    let mut columns = batch.slice(0, 1).columns().to_vec();
+    for (name, data) in [
+        ("country", strings(["KR"])),
+        ("street", strings(["새벽리"])),
+        ("number", strings(["825"])),
+        ("unit", strings([""])),
+        ("postcode", strings(["12349"])),
+        ("postal_city", strings(["새벽리"])),
+        ("geometry", binary(vec![point(140.30005, 35.)])),
+    ] {
+        columns[schema.index_of(name).unwrap()] = data;
+    }
+    let row = RecordBatch::try_new(schema.clone(), columns).unwrap();
+    let mut writer = ArrowWriter::try_new(
+        File::create(release.join("address/licensing-primary.parquet")).unwrap(),
+        schema,
+        None,
+    )
+    .unwrap();
+    writer.write(&row).unwrap();
+    writer.close().unwrap();
+    let source = root.join("lots.tsv");
+    write_licensing(&source);
+    let mut file = std::fs::OpenOptions::new()
+        .append(true)
+        .open(&source)
+        .unwrap();
+    for (address, x, y) in [
+        ("가람도 솔빛시 새아침리 산8-2", 140.3518, 35.),
+        ("가람도 솔빛시 새벽리 825", 140.3015, 35.),
+        ("가람도 솔빛시 새벽리 899", 140.3001, 35.),
+        ("나래도 솔빛시 새아침리 823", 140.3502, 35.),
+        ("가람도 없는시 새아침리 824", 140.3502, 35.),
+        ("가람도 솔빛시 새아침리 826", 2.34, 48.86),
+        ("가람도 솔빛시 새아침리 827", 142., 35.),
+        ("가람도 솔빛시 없는리 828", 140.3502, 35.),
+        ("가람도 솔빛시 길벗리 829", 140.3502, 35.),
+        ("가람도 솔빛시 새아침리 831", 140.3507, 35.),
+        ("가람도 솔빛시 새벽리 별마을동 833", 140.3502, 35.),
+        ("가람도 솔빛시 외딴동 834", 140.3502, 35.),
+        ("가람도 솔빛시 먼별동 835", 140.3502, 35.),
+        ("가람도 솔빛시 두별동 836", 140.3502, 35.),
+        ("가람도 솔빛시 별마을동 해오름리 830", 140.3518, 35.),
+    ] {
+        writeln!(file, "{address}\t{x}\t{y}").unwrap();
+    }
+    drop(file);
+    let build = |name: &str, input: &str| {
+        let out = root.join(name);
+        let built = std::process::Command::new(env!("CARGO_BIN_EXE_build_index"))
+            .arg(&release)
+            .arg(&out)
+            .arg("--korea-lots")
+            .arg(input)
+            .output()
+            .unwrap();
+        assert!(
+            built.status.success(),
+            "{}",
+            String::from_utf8_lossy(&built.stderr)
+        );
+        out
+    };
+    let base = build("base", "");
+    let head = build("head", source.to_str().unwrap());
+    let before = Index::open(&base, Arc::new(Parser::unloaded(0))).unwrap();
+    let after = Index::open(&head, Arc::new(Parser::unloaded(0))).unwrap();
+    for &(address, number, lon) in LICENSING {
+        let q = format!("{address}, South Korea");
+        assert!(
+            !before
+                .suggest(&q, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address")
+        );
+        let got = after.suggest(&q, 5, None, None, false);
+        assert_eq!(got.len(), 1, "{q}");
+        assert_eq!(got[0].kind, "address", "{q}");
+        assert!(metres((got[0].x, got[0].y), (lon, 35.)) < 0.2);
+        assert!(after.suggest(&q, 5, Some("JP"), None, false).is_empty());
+        let reverse = after.reverse_search(35., lon, 100., 20);
+        assert!(
+            reverse
+                .iter()
+                .all(|(_, v, _)| v["address"]["house_number"] != number)
+        );
+    }
+    let short = "가람도 솔빛시 별마을동 832, South Korea";
+    let hits = after.search(short);
+    assert_eq!(hits.len(), 1, "{short}");
+    let rendered = after.render(&hits[0], true);
+    assert_eq!(rendered["address"]["house_number"], "832", "{short}");
+    for q in [
+        "가람도 솔빛시 새벽리 899",
+        "가람도 솔빛시 새아침리 823",
+        "가람도 없는시 새아침리 824",
+        "가람도 솔빛시 새아침리 826",
+        "가람도 솔빛시 새아침리 827",
+        "가람도 솔빛시 없는리 828",
+        "가람도 솔빛시 새아침리 822-2",
+        "가람도 솔빛시 길벗리 829",
+        "가람도 솔빛시 새아침리 831",
+        "가람도 솔빛시 새벽리 별마을동 833",
+        "가람도 솔빛시 외딴동 834",
+        "가람도 솔빛시 먼별동 835",
+        "가람도 솔빛시 두별동 836",
+    ] {
+        assert!(
+            !after
+                .suggest(q, 5, None, None, false)
+                .iter()
+                .any(|s| s.kind == "address"),
+            "{q}"
+        );
+    }
+    for q in [
+        "가람도 솔빛시 새아침리 산8-2",
+        "가람도 솔빛시 새벽리 825",
+        "가람도 솔빛시 새봄면 새로12길 13-34",
+        "가람도 솔빛시 새아침리",
+    ] {
+        let old = before.suggest(q, 5, None, None, false);
+        let new = after.suggest(q, 5, None, None, false);
+        assert_eq!(old[0].kind, new[0].kind);
+        assert!(
+            metres((old[0].x, old[0].y), (new[0].x, new[0].y)) < 0.1,
+            "{q}"
+        );
+        assert_eq!(old[0].display_name, new[0].display_name, "{q}");
+    }
+    let shards: usize = std::fs::read_to_string(base.join("numbers.shards"))
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    for shard in 0..shards {
+        for prefix in ["numbers", "numbers-far"] {
+            let file = format!("{prefix}-{shard:02}.fst");
+            let a = tantivy_fst::Map::from_bytes(std::fs::read(base.join(&file)).unwrap()).unwrap();
+            let b = tantivy_fst::Map::from_bytes(std::fs::read(head.join(&file)).unwrap()).unwrap();
+            let mut stream = a.stream();
+            while let Some((key, value)) = stream.next() {
+                assert_eq!(b.get(key), Some(value), "existing {file} house changed");
+            }
+        }
+    }
+    let postings = |dir: &Path, file: &str, width: usize| {
+        use tantivy::schema::Value as _;
+        let mut numbered = std::collections::HashSet::new();
+        for shard in 0..shards {
+            for prefix in ["numbers", "numbers-far"] {
+                let map = tantivy_fst::Map::from_bytes(
+                    std::fs::read(dir.join(format!("{prefix}-{shard:02}.fst"))).unwrap(),
+                )
+                .unwrap();
+                let mut stream = map.stream();
+                while let Some((key, _)) = stream.next() {
+                    numbered.insert(u32::from_be_bytes(key[..4].try_into().unwrap()) as u64);
+                }
+            }
+        }
+        let (_, fields) = opengeocoding::index::schema::schema();
+        let index = tantivy::Index::open_in_dir(dir).unwrap();
+        let searcher = index.reader().unwrap().searcher();
+        let ids: Vec<_> = searcher
+            .segment_readers()
+            .iter()
+            .map(|r| r.fast_fields().u64("id").unwrap())
+            .collect();
+        let data = std::fs::read(dir.join(file)).unwrap();
+        assert_eq!(data.len() % width, 0);
+        // Only numbered street IDs stay fixed; segment-only IDs and document addresses can shift.
+        let mut records: Vec<_> = data
+            .chunks_exact(width)
+            .map(|record| {
+                let split = width - 4;
+                let packed = u32::from_be_bytes(record[split..].try_into().unwrap());
+                let (segment, doc) = opengeocoding::index::reverse::unpack_doc(packed);
+                let sid = ids[segment as usize].first(doc).unwrap();
+                let reader = &searcher.segment_readers()[segment as usize];
+                let fast = reader.fast_fields();
+                let d: tantivy::TantivyDocument = searcher
+                    .doc(tantivy::DocAddress::new(segment, doc))
+                    .unwrap();
+                let strings = |field| {
+                    d.get_all(field)
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect::<Vec<_>>()
+                };
+                let identity = format!(
+                    "{:?}",
+                    (
+                        numbered.contains(&sid).then_some(sid),
+                        fast.u64("place").unwrap().first(doc),
+                        fast.u64("importance").unwrap().first(doc),
+                        fast.f64("x").unwrap().first(doc).map(f64::to_bits),
+                        fast.f64("y").unwrap().first(doc).map(f64::to_bits),
+                        strings(fields.name),
+                        strings(fields.pcode),
+                        strings(fields.postal_town),
+                    )
+                );
+                (record[..split].to_vec(), identity)
+            })
+            .collect();
+        records.sort_unstable();
+        records
+    };
+    for (file, width) in [("reverse.bin", 10), ("streets.bin", 12)] {
+        assert_eq!(
+            postings(&base, file, width),
+            postings(&head, file, width),
+            "{file}"
+        );
+    }
+    let metadata: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(head.join("korea-lots-source.json")).unwrap())
+            .unwrap();
+    assert_eq!(metadata["geographically_corroborated_rows"], 5);
+    assert_eq!(metadata["descendant_corroborated_rows"], 1);
+    assert_eq!(metadata["mixed_streets_rejected"], 1);
+    assert_eq!(metadata["mapped_roads_rejected"], 1);
+    assert_eq!(metadata["administration_guard_rejected"], 1);
+    let audit = std::fs::read_to_string(head.join("korea-lots-admitted.tsv")).unwrap();
+    assert_eq!(audit.lines().count(), LICENSING.len() + 1);
+    for &(address, _, lon) in LICENSING {
+        assert!(
+            audit
+                .lines()
+                .any(|line| line == format!("{address}\t{lon:.9}\t35.000000000"))
+        );
+    }
+    drop((before, after));
+    std::fs::remove_dir_all(root).unwrap();
+}
 
 #[test]
 fn listed_native_addresses_are_complete_not_units_or_romanizations() {
@@ -195,6 +605,94 @@ pub const PLACES: &[Place] = &[
         "kr-narae-solbit",
         "새봄면",
         &[("en", "Saebom")]
+    ),
+    place!(
+        "kr-garam-other-county",
+        "county",
+        "",
+        "KR",
+        "KR-41",
+        300,
+        (140.3507, 35.0),
+        "kr-garam",
+        "다른시",
+        &[("en", "Other County")]
+    ),
+    place!(
+        "kr-garam-saeachim",
+        "locality",
+        "village",
+        "KR",
+        "KR-41",
+        300,
+        (140.35, 35.0),
+        "kr-garam-solbit",
+        "새아침리",
+        &[
+            ("en", "Saeachim"),
+            ("ko-old", "해오름리"),
+            ("ko-alt", "길벗리")
+        ]
+    ),
+    place!(
+        "kr-garam-saeachim-byeol",
+        "neighborhood",
+        "",
+        "KR",
+        "KR-41",
+        0,
+        (140.3502, 35.0),
+        "kr-garam-saeachim",
+        "별마을동",
+        &[("ko", "해오름리")]
+    ),
+    place!(
+        "kr-garam-saebyeok-alone",
+        "neighborhood",
+        "",
+        "KR",
+        "KR-41",
+        0,
+        (140.3502, 35.0),
+        "kr-garam-saebyeok",
+        "외딴동",
+        &[]
+    ),
+    place!(
+        "kr-garam-saeachim-far",
+        "neighborhood",
+        "",
+        "KR",
+        "KR-41",
+        0,
+        (140.42, 35.0),
+        "kr-garam-saeachim",
+        "먼별동",
+        &[]
+    ),
+    place!(
+        "kr-garam-saeachim-twin-a",
+        "neighborhood",
+        "",
+        "KR",
+        "KR-41",
+        0,
+        (140.35025, 35.0),
+        "kr-garam-saeachim",
+        "두별동",
+        &[]
+    ),
+    place!(
+        "kr-garam-saeachim-twin-b",
+        "neighborhood",
+        "",
+        "KR",
+        "KR-41",
+        0,
+        (140.35035, 35.0),
+        "kr-garam-saeachim",
+        "두별동",
+        &[]
     ),
     place!(
         "kr-garam-saebyeok",

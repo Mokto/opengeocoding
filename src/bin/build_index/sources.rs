@@ -520,7 +520,7 @@ pub fn korea_shops(zip: &Path, shared: &Shared) -> usize {
     entries.par_iter().for_each(|entry| {
         let _counted = Counted(&done, 1);
         let mut sink = Sink::new(shared).ranked(super::LAST_RANK);
-        sink.street_priority = 1;
+        sink.street_priority = 2;
         let r = entry
             .open(zip)
             .unwrap_or_else(|e| panic!("{}: {e}", zip.display()));

@@ -10,6 +10,7 @@ mod geo;
 mod geonames;
 mod iceland;
 mod job;
+mod korea_lots;
 mod landmarks;
 mod mem;
 mod poland;
@@ -57,7 +58,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--asiaq-buildings TSV] [--denmark-localities JSON.GZ] [--us-municipalities JSON.GZ] [--us-cdps JSON.GZ] [--iceland-addresses CSV --iceland-addresses-sha256 HASH] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--korea-lots TSV[.GZ]] [--asiaq-buildings TSV] [--denmark-localities JSON.GZ] [--us-municipalities JSON.GZ] [--us-cdps JSON.GZ] [--iceland-addresses CSV --iceland-addresses-sha256 HASH] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1] [--sources-mirror URL]
        build_index fetch --store URL --sources FILE --scratch DIR [--sources-mirror URL]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
@@ -1078,7 +1079,7 @@ impl Street {
 
     /// `other`'s name, lists and point; its postal towns are spilled apart.
     fn add(&mut self, text: &mut Arena, other: &AddrAgg) {
-        if prefer(&other.name, text.get(self.name)) {
+        if (other.priority > 0 || self.priority == 0) && prefer(&other.name, text.get(self.name)) {
             self.name = text.push(&other.name);
         }
         let mut pcs = self.pcs().to_vec();
@@ -1304,6 +1305,8 @@ struct Shared<'a> {
     rows: AtomicU64,
     /// Overture's address rows with a street, per country of the containing place.
     covered: Mutex<HashMap<[u8; 2], u64>>,
+    // ponytail: global folded pairs preserve old houses across places; place-aware alias identity would admit more homonyms.
+    korea_lots: Mutex<korea_lots::Pending>,
     /// Address rows without a country and with no place, per country of their region.
     placeless: Mutex<HashMap<[u8; 2], u64>>,
 }
@@ -1328,6 +1331,7 @@ impl<'a> Shared<'a> {
             pairs: Pairs::default(),
             rows: AtomicU64::new(0),
             covered: Mutex::default(),
+            korea_lots: Mutex::default(),
             placeless: Mutex::default(),
         }
     }
@@ -1385,7 +1389,7 @@ struct Sink<'s, 'a> {
     rank: u8,
     /// Whether the houses move their street's point and add to its weight.
     weighs: bool,
-    /// Street precedence, also used for stable IDs: 2 primary, 1 shop register, 0 POIs.
+    /// Street precedence and stable IDs: 3 primary, 2 shops, 1 POIs, 0 licensing lots.
     street_priority: u8,
     /// Whether these rows are land-lot addresses (see `AddrAgg::lot`).
     lot: bool,
@@ -1418,7 +1422,7 @@ impl<'s, 'a> Sink<'s, 'a> {
             pcn: String::new(),
             rank: 0,
             weighs: true,
-            street_priority: 2,
+            street_priority: 3,
             lot: false,
             covered: HashMap::new(),
             placeless: HashMap::new(),
@@ -1593,6 +1597,16 @@ impl<'s, 'a> Sink<'s, 'a> {
             };
             self.lower.clear();
             self.lower.push_str(&schema::number_key(n));
+            if c == *b"KR"
+                && let Some(numbers) = self
+                    .shared
+                    .korea_lots
+                    .lock()
+                    .unwrap()
+                    .get_mut(self.key.as_str())
+            {
+                numbers.remove(self.lower.as_str());
+            }
             // slot = 1-based position in this task's list for the street; remapped on flush
             let slot = pc_id
                 .and_then(|id| e.pcs.iter().position(|&p| p == id))
@@ -2080,7 +2094,7 @@ fn pass_places(dir: &Path, shared: &Shared, segs: &[SegShard], places: &[Place])
                     };
                     fold_into(street, &mut key);
                     if lot || find_seg(segs, p, with_cell(&key, x, y, &mut cell_key)).is_some() {
-                        sink.street_priority = if c == *b"KR" { 0 } else { 2 };
+                        sink.street_priority = if c == *b"KR" { 1 } else { 3 };
                         sink.weighs = lot;
                         sink.lot = lot;
                         sink.add(Some(c), x, y, Some(street), Some(&number), None, &[]);
@@ -2430,6 +2444,13 @@ fn build(args: &[String]) {
     let towns = TownSpill::new(Path::new(out).join(".towns-spill"));
     let area_spill = NumberSpill::new(Path::new(out).join(".jp-areas-spill"), NUMBER_SHARDS);
     let shared = Shared::new(&assigner, &places, &spill, &area_spill, &towns);
+    let lots = opt("--korea-lots");
+    let source = lots
+        .last()
+        .map(String::as_str)
+        .or_else(|| (!places.iter().any(|p| p.country == *b"KR")).then_some(""));
+    let (pending, lot_metadata) = korea_lots::read(source).expect("Korean licensing lots");
+    *shared.korea_lots.lock().unwrap() = pending;
     progress::phase("Parse addresses");
     pass_addresses(&dir.join("address"), &shared);
     lap(&format!(
@@ -2493,6 +2514,9 @@ fn build(args: &[String]) {
             shared.rows.swap(0, Relaxed)
         ));
     }
+    let lots = korea_lots::add(&shared, &places, &segs, Path::new(out), lot_metadata)
+        .expect("Korean licensing lots");
+    lap(&format!("Korean licensing lots ({lots} corroborated rows)"));
     if let Some(reading) = landmarks {
         let mut found = reading.join().unwrap();
         found.append(&mut osm_landmarks);
@@ -2717,6 +2741,9 @@ fn build(args: &[String]) {
         );
         for n in names {
             d.add_text(f.name, n);
+            if let Some(exact) = kr::exact_street_name(cc, n) {
+                d.add_text(f.cnames, exact);
+            }
         }
         for alias in aliases {
             d.add_text(f.iceland_alias, fold(alias));
@@ -2819,14 +2846,14 @@ fn build(args: &[String]) {
                 lots.lock().unwrap().insert(sid);
             }
             let g = seg.map(|(gs, gp)| segs[gs].segs[gp as usize]);
-            let n = u64::from(if st.priority == 2 || g.is_none() {
+            let n = u64::from(if st.priority == 3 || g.is_none() {
                 st.n
             } else {
                 0
             }) + g.map_or(0, |g| u64::from(g.n));
             // Supplementary business points must not move a mapped road or change its importance.
             let point = match g {
-                Some(g) if st.n == 0 || st.priority < 2 => {
+                Some(g) if st.n == 0 || st.priority < 3 => {
                     (mean(g.sx, g.n.into()), mean(g.sy, g.n.into()))
                 }
                 _ => (mean(st.sx, st.n.into()), mean(st.sy, st.n.into())),
@@ -3048,6 +3075,7 @@ mod tests {
         let h = hash(&key);
         let agg = |name: &str, pcs: Vec<u32>, cities: Vec<u32>| AddrAgg {
             name: name.into(),
+            priority: 3,
             pcs,
             cities,
             n: 1,
@@ -3131,10 +3159,12 @@ mod tests {
     #[test]
     fn supplementary_streets_keep_primary_centroids_and_ids() {
         for order in [
-            &[0, 1, 2][..],
+            &[0, 1, 2, 3][..],
+            &[3, 2, 1, 0],
+            &[1, 3, 0, 2],
+            &[0, 3, 2, 1],
+            &[0, 1, 2],
             &[2, 1, 0],
-            &[1, 2, 0],
-            &[0, 2, 1],
             &[0, 1],
             &[1, 0],
         ] {
@@ -3157,14 +3187,48 @@ mod tests {
             assert_eq!((merged.sx, merged.sy, merged.n), (10, 20, 1));
             assert_eq!(merged.priority, best);
         }
+        let mut text = Arena::default();
+        let mut old = Street {
+            name: text.push("하리"),
+            priority: 1,
+            sx: 10,
+            sy: 20,
+            n: 1,
+            ..Default::default()
+        };
+        assert!(prefer("가리", "하리"));
+        old.add(
+            &mut text,
+            &AddrAgg {
+                name: "가리".into(),
+                priority: 0,
+                sx: 999,
+                sy: 999,
+                n: 1,
+                ..Default::default()
+            },
+        );
+        assert_eq!(text.get(old.name), "하리");
+        assert_eq!((old.sx, old.sy, old.n), (10, 20, 1));
+        old.priority = 0;
+        old.add(
+            &mut text,
+            &AddrAgg {
+                name: "가리".into(),
+                priority: 0,
+                ..Default::default()
+            },
+        );
+        assert_eq!(text.get(old.name), "가리");
         let strings = Interner::new().table();
         let build = |floor: u8| {
             let mut shard = AddrShard::default();
             for (cc, priority, name) in [
-                (*b"NG", 2, "road"),
-                (*b"US", 2, "road"),
-                (*b"KR", 1, "shop road"),
-                (*b"KR", 0, "a new POI road"),
+                (*b"NG", 3, "road"),
+                (*b"US", 3, "road"),
+                (*b"KR", 2, "shop road"),
+                (*b"KR", 1, "a new POI road"),
+                (*b"KR", 0, "a new licensing lot"),
             ] {
                 if priority < floor {
                     continue;
@@ -3178,12 +3242,17 @@ mod tests {
             }
             canonical_streets(vec![Mutex::new(shard)], &strings).streets
         };
-        for (base, head) in [(build(2), build(1)), (build(1), build(0))] {
+        for (base, head) in [
+            (build(3), build(2)),
+            (build(2), build(1)),
+            (build(1), build(0)),
+        ] {
             for i in 0..base[0].streets.len() as u32 {
                 assert_eq!(base[0].key(i), head[0].key(i));
             }
         }
         assert_eq!(build(0)[0].key(3).2, "a new POI road");
+        assert_eq!(build(0)[0].key(4).2, "a new licensing lot");
     }
 
     #[test]

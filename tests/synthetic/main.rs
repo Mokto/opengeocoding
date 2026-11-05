@@ -29,6 +29,8 @@ fn dir() -> &'static PathBuf {
         let out = root.join("index");
         let iceland = root.join("iceland.csv");
         let iceland_sha = world::is::write(&iceland);
+        let licensing = root.join("korea-lots.tsv");
+        world::kr::write_licensing(&licensing);
         let danish = root.join("dk-localities.json.gz");
         world::dk::write_localities(&danish);
         let municipalities = root.join("us-municipalities.json.gz");
@@ -54,6 +56,8 @@ fn dir() -> &'static PathBuf {
             .arg(&municipalities)
             .arg("--us-cdps")
             .arg(&cdps)
+            .arg("--korea-lots")
+            .arg(&licensing)
             .output()
             .unwrap();
         assert!(
@@ -1463,6 +1467,7 @@ async fn resolve_follows_the_authored_facts() {
     world::lv::check_search(&resolver).await;
     world::gl::check_search(&resolver).await;
     world::kr::check_short_provinces(&resolver).await;
+    world::kr::check_licensing_search(&resolver).await;
     world::pf::check_search(&resolver).await;
     world::nc::check_search(&resolver).await;
     world::ca::check_search(&resolver).await;

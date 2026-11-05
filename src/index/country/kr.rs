@@ -1,6 +1,14 @@
 use crate::index::suggest::*;
 use crate::index::*;
 
+pub fn exact_street_name(cc: &str, name: &str) -> Option<String> {
+    // NUL keeps whole names distinct from the analyzer's CJK bigram terms.
+    (cc.eq_ignore_ascii_case("kr")
+        && name.chars().take(257).count() <= 256
+        && name.chars().any(|c| ('가'..='힣').contains(&c)))
+    .then(|| format!("KR|\0{}", fold(name)))
+}
+
 // ponytail: road POIs need cross-place duplicate precedence before they can preserve existing house postcodes.
 pub fn listed_lot(
     freeform: &str,
@@ -245,9 +253,12 @@ impl Index {
         let mut scope = vec![];
         for (i, area) in address.areas.iter().enumerate() {
             let key = name_key(area);
-            let (found, _) = self.places_exact(area, Some("kr"), None, &|p| {
-                p.named(key) && (i > 0 || p.subtype.as_ref() == "region")
-            });
+            let (found, _) = self.places_exact(
+                area,
+                Some("kr"),
+                i.checked_sub(1).map(|j| address.areas[j]),
+                &|p| p.named(key) && (i > 0 || p.subtype.as_ref() == "region"),
+            );
             if i == 0 && found.is_empty() {
                 return None;
             }
@@ -290,7 +301,12 @@ impl Index {
     }
 
     fn korean_houses(&self, address: &Address<'_>, scope: &[u32]) -> Option<Vec<Hit>> {
-        let mut cl = self.musts(self.f.names, address.road);
+        let exact = exact_street_name("kr", address.road)?;
+        let mut cl = if self.docs_with(self.f.cnames, &exact) > 0 {
+            vec![must(term(self.f.cnames, &exact))]
+        } else {
+            self.musts(self.f.names, address.road)
+        };
         if cl.is_empty() {
             return Some(vec![]);
         }
@@ -468,6 +484,17 @@ impl Index {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn complete_street_keys_do_not_collide_with_words_or_other_countries() {
+        let exact = exact_street_name("kr", "목동").unwrap();
+        assert_ne!(exact, schema::country_word("KR", "목동"));
+        assert_ne!(Some(exact.clone()), exact_street_name("kr", "목동로"));
+        assert_eq!(Some(exact), exact_street_name("KR", "목동"));
+        assert_eq!(None, exact_street_name("jp", "목동"));
+        assert_eq!(None, exact_street_name("kr", "Mok-dong"));
+        assert_eq!(None, exact_street_name("kr", &"동".repeat(257)));
+    }
 
     #[test]
     fn weak_country_first_fallbacks_keep_the_existing_confidence_contract() {
