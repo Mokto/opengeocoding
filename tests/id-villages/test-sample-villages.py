@@ -44,6 +44,17 @@ class Villages(unittest.TestCase):
                          ["ID3315032001", "Pepe", -7.02, 110.65, 3.14159]])
         self.assertEqual(villages.bps_villages(book), {"ID3315032001": ("Pepe", -7.02, 110.65, 3.14159)})
 
+    def test_written_as_addresses_write_them(self):
+        v = {"kind": "Desa", "name": "Pepe", "kec": "Tegowanu", "kab": "Kabupaten Grobogan", "prov": "Jawa Tengah", "code": "3315032001"}
+        self.assertEqual(villages.queries(v, True), [
+            "Desa Pepe, Kec. Tegowanu, Kab. Grobogan, Jawa Tengah, Indonesia",
+            "Pepe, Tegowanu, Grobogan, Jawa Tengah, Indonesia",
+            "Pepe, Grobogan, Indonesia",
+            "Desa Pepe, Kec. Tegowanu, Kab. Grobogan, Jateng",
+        ])
+        v = dict(v, kind="Kelurahan", kab="Kota Jambi", prov="Jambi", code="1571011001")
+        self.assertEqual(villages.queries(v, False)[-1], "Kelurahan Pepe, Kec. Tegowanu, Kota Jambi, Jambi")
+
     def test_one_chain_and_the_kind_from_the_type(self):
         chains = {V + "K1": {("Tegowanu", "Grobogan", "Jawa Tengah")}, V + "K2": {("A", "B", "C"), ("A", "D", "C")}}
         found = villages.read_villages({

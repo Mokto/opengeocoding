@@ -10,11 +10,12 @@ twice that village's circle-equivalent radius (plus 1 km) of BPS's centre; the c
 that radius doubled, at least 2 km and at most 25 km. BPS only vets the cases; expectations come
 later from `evaluate build-gold`, which reads each item from Wikidata again.
 
-Each village is written three ways: with the usual labels ("Desa Pepe, Kec. Tegowanu, Kab.
+Each village is written four ways: with the usual labels ("Desa Pepe, Kec. Tegowanu, Kab.
 Grobogan, Jawa Tengah, Indonesia"), without them ("Pepe, Tegowanu, Grobogan, Jawa Tengah,
-Indonesia") and as village and regency ("Pepe, Grobogan, Indonesia"), the last only when no other
-eligible-or-not Wikidata village of the regency has the name. Villages are picked in seeded-hash
-order."""
+Indonesia"), as village and regency ("Pepe, Grobogan, Indonesia"), the last only when no other
+eligible-or-not Wikidata village of the regency has the name, and with the labels but the
+province shortened as addresses shorten it and no country ("Desa Pepe, Kec. Tegowanu, Kab.
+Grobogan, Jateng"). Villages are picked in seeded-hash order."""
 import argparse
 import hashlib
 import json
@@ -45,6 +46,18 @@ DISTRICTS = """SELECT ?kec ?kecLabel ?kabLabel ?provLabel WHERE {
   ?kab rdfs:label ?kabLabel FILTER(LANG(?kabLabel) = "id")
   ?prov rdfs:label ?provLabel FILTER(LANG(?provLabel) = "id")
 }"""
+# Provinces as addresses shorten them; the others are written out.
+SHORT = {
+    "Aceh": "NAD", "Sumatera Utara": "Sumut", "Sumatera Barat": "Sumbar", "Sumatera Selatan": "Sumsel",
+    "Kepulauan Bangka Belitung": "Babel", "Kepulauan Riau": "Kepri", "Jakarta": "DKI Jakarta",
+    "Daerah Khusus Ibukota Jakarta": "DKI Jakarta", "Jawa Barat": "Jabar", "Jawa Tengah": "Jateng",
+    "Jawa Timur": "Jatim", "Daerah Istimewa Yogyakarta": "DIY", "Kalimantan Barat": "Kalbar",
+    "Kalimantan Tengah": "Kalteng", "Kalimantan Selatan": "Kalsel", "Kalimantan Timur": "Kaltim",
+    "Kalimantan Utara": "Kaltara", "Sulawesi Utara": "Sulut", "Sulawesi Tengah": "Sulteng",
+    "Sulawesi Selatan": "Sulsel", "Sulawesi Tenggara": "Sultra", "Sulawesi Barat": "Sulbar",
+    "Nusa Tenggara Barat": "NTB", "Nusa Tenggara Timur": "NTT", "Maluku Utara": "Malut",
+    "Papua Barat": "Pabar",
+}
 # The word an address puts before the village's name, by its Wikidata type; "Desa" otherwise.
 KINDS = {"Q965568": "Kelurahan", "Q4285979": "Gampong", "Q882149": "Nagari"}
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
@@ -120,6 +133,18 @@ def regency(label, code):
     """Kemendagri numbers a province's cities (kota) from 71."""
     name = re.sub(r"^(Kabupaten|Kota)\s+", "", label)
     return ("Kota " + name, "Kota " + name) if code[2:4] >= "71" else ("Kab. " + name, name)
+
+
+def queries(v, unique_in_regency):
+    labelled_kab, plain_kab = regency(v["kab"], v["code"])
+    out = [
+        f"{v['kind']} {v['name']}, Kec. {v['kec']}, {labelled_kab}, {v['prov']}, Indonesia",
+        f"{v['name']}, {v['kec']}, {plain_kab}, {v['prov']}, Indonesia",
+    ]
+    if unique_in_regency:
+        out.append(f"{v['name']}, {plain_kab}, Indonesia")
+    out.append(f"{v['kind']} {v['name']}, Kec. {v['kec']}, {labelled_kab}, {SHORT.get(v['prov'], v['prov'])}")
+    return out
 
 
 def read_villages(items, districts):
@@ -216,14 +241,8 @@ def main():
     chosen = sorted(eligible, key=key)[: args.count]
     with open(args.out, "w") as f:
         for v in sorted(chosen, key=lambda v: v["code"]):
-            labelled_kab, plain_kab = regency(v["kab"], v["code"])
-            queries = [
-                f"{v['kind']} {v['name']}, Kec. {v['kec']}, {labelled_kab}, {v['prov']}, Indonesia",
-                f"{v['name']}, {v['kec']}, {plain_kab}, {v['prov']}, Indonesia",
-            ]
-            if len(by_regency[(v["code"][:4], fold(v["name"]))]) == 1:
-                queries.append(f"{v['name']}, {plain_kab}, Indonesia")
-            seed = {"kind": "place", "cohort": "village", "qid": v["qid"], "queries": queries,
+            unique = len(by_regency[(v["code"][:4], fold(v["name"]))]) == 1
+            seed = {"kind": "place", "cohort": "village", "qid": v["qid"], "queries": queries(v, unique),
                     "radius_km": v["radius_km"], "tags": ["id-villages"]}
             f.write(json.dumps(seed, ensure_ascii=False) + "\n")
 
