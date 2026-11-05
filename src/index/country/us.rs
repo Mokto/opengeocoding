@@ -149,40 +149,56 @@ pub(in crate::index) fn reverse_locality(
         .iter()
         .filter_map(|key| address.get(*key).and_then(serde_json::Value::as_str))
         .collect();
-    if index.us_municipalities.as_ref().is_some_and(|governments| {
-        governments
-            .areas
-            .containing(*y, *x)
-            .into_iter()
-            .any(|(_, id)| {
-                let (source, state, government) = &governments.labels[id as usize];
-                state == region
-                    && (source.starts_with("place/")
-                        || current.iter().any(|old| {
-                            fold(old) == fold(government)
-                                || municipality(government)
-                                    .is_some_and(|base| fold(old) == fold(base))
-                        }))
-            })
-    }) {
-        return;
-    }
     if current.iter().any(|old| fold(old) == fold(name)) {
         return;
     }
-    if let Hit::Street { place, .. } = hit
-        && *place != NONE
+    let governments: Vec<_> = index
+        .us_municipalities
+        .iter()
+        .flat_map(|g| {
+            g.areas
+                .containing(*y, *x)
+                .into_iter()
+                .map(|(_, id)| &g.labels[id as usize])
+        })
+        .filter(|(_, state, _)| state == region)
+        .collect();
+    if governments
+        .iter()
+        .any(|(source, _, _)| source.starts_with("place/"))
     {
-        let chain = index.chain(*place);
-        let chain = index.house_chain(&chain, *x, *y).unwrap_or(chain);
-        if chain.iter().any(|id| {
-            let place = &index.places[*id as usize];
-            place.subtype.as_ref() == "locality"
-                && current.contains(&place.name(true))
-                && place.all_names().any(|other| fold(other) == fold(name))
-        }) {
-            return;
+        return;
+    }
+    let governing = governments.iter().any(|(_, _, government)| {
+        current.iter().any(|old| {
+            fold(old) == fold(government)
+                || municipality(government).is_some_and(|base| fold(old) == fold(base))
+        })
+    });
+    let same_place = match hit {
+        Hit::Street { place, .. } if *place != NONE => {
+            let chain = index.chain(*place);
+            let chain = index.house_chain(&chain, *x, *y).unwrap_or(chain);
+            chain.iter().any(|id| {
+                let place = &index.places[*id as usize];
+                place.subtype.as_ref() == "locality"
+                    && current.contains(&place.name(true))
+                    && place.all_names().any(|other| fold(other) == fold(name))
+            })
         }
+        _ => false,
+    };
+    // A town that governs the community, or the community under another of its names, stays:
+    // the community is named below it.
+    if governing || same_place {
+        if let Some(key) = ["village", "hamlet"]
+            .into_iter()
+            .find(|key| !address.contains_key(*key))
+        {
+            display.insert(2.min(display.len()), name.into());
+            address.insert(key.into(), name.into());
+        }
+        return;
     }
     let old: Vec<_> = ["city", "town", "village"]
         .iter()

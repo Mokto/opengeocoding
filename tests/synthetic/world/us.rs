@@ -26,6 +26,12 @@ pub fn write_municipalities(path: &std::path::Path) {
             ]
         ],
         [
+            "cousub/4900100003",
+            "US-UT",
+            "Harborview town",
+            [ring(-108.039, 36.008, -108.031, 36.016)]
+        ],
+        [
             "cousub/4900100002",
             "US-UT",
             "Brookmere town",
@@ -67,6 +73,12 @@ pub fn write_municipalities(path: &std::path::Path) {
 pub fn write_cdps(path: &std::path::Path) {
     use std::io::Write;
     let records = serde_json::json!([
+        [
+            "cdp/4900109",
+            "US-UT",
+            "Quayside",
+            [ring(-108.037, 36.010, -108.033, 36.014)]
+        ],
         [
             "cdp/4900107",
             "US-UT",
@@ -135,6 +147,18 @@ pub fn write_cdps(path: &std::path::Path) {
 }
 
 pub const REVERSE_PLACES: &[Place] = &[
+    place!(
+        "us-cdp-town",
+        "locality",
+        "town",
+        "US",
+        "US-UT",
+        12000,
+        (-108.035, 36.012),
+        "us-reverse-west-region",
+        "Harborview",
+        &[]
+    ),
     place!(
         "us-reverse-west-region",
         "region",
@@ -244,6 +268,15 @@ pub const REVERSE_POINT_ONLY: &[&str] = &[
 
 pub const REVERSE_AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
     (
+        "us-cdp-town",
+        "locality",
+        true,
+        true,
+        -108.035,
+        36.012,
+        0.004,
+    ),
+    (
         "us-existing-government",
         "localadmin",
         true,
@@ -300,6 +333,17 @@ pub const REVERSE_AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
 ];
 
 pub const REVERSE_STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Cdp Town Village",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.035,
+        lat: 36.012,
+        numbers: &["191S-193"],
+    },
     Street {
         class: "residential",
         length: 0.0,
@@ -657,8 +701,6 @@ fn us_cdps_correct_only_geographic_locality_and_keep_legacy_indexes_readable() {
     let old = opengeocoding::index::Index::open(&dir, parser()).unwrap();
     for (road, number, expected) in [
         ("Cdp Inside", "81F-83", Some("Meadowford")),
-        ("Cdp Alias", "171Q-173", None),
-        ("Cdp Government Name", "181R-183", None),
         ("Cdp Hole", "91G-93", None),
         ("Cdp Overlap", "101H/103", None),
         ("Cdp Wrong State", "111J-113", None),
@@ -702,6 +744,29 @@ fn us_cdps_correct_only_geographic_locality_and_keep_legacy_indexes_readable() {
             }
             after[0].1["display_name"] = before[0].1["display_name"].clone();
         }
+        assert_eq!(before, after, "{road}");
+    }
+    for (road, number, community) in [
+        ("Cdp Alias", "171Q-173", "Meadow Alias"),
+        ("Cdp Government Name", "181R-183", "Statistical Newvale"),
+        ("Cdp Town Village", "191S-193", "Quayside"),
+    ] {
+        let point = house(crate::street(road), number);
+        let before = old.reverse_search(point.1, point.0, 2.0, 1);
+        let mut after = crate::index().reverse_search(point.1, point.0, 2.0, 1);
+        let old_address = &before[0].1["address"];
+        let (kept, key) = match old_address["village"].as_str() {
+            Some(village) => (village, "hamlet"),
+            None => (old_address["town"].as_str().unwrap(), "village"),
+        };
+        let display = after[0].1["display_name"].as_str().unwrap().to_owned();
+        let names: Vec<_> = display.split(", ").collect();
+        let at = |n| names.iter().position(|v| *v == n).unwrap();
+        assert!(at(community) < at(kept), "{road}: {display}");
+        assert!(old_address.get(key).is_none());
+        let address = after[0].1["address"].as_object_mut().unwrap();
+        assert_eq!(address.remove(key), Some(community.into()), "{road}");
+        after[0].1["display_name"] = before[0].1["display_name"].clone();
         assert_eq!(before, after, "{road}");
     }
     drop(old);

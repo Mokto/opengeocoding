@@ -51,7 +51,7 @@ The [2026-11-03 reverse-locality investigation](../../notes/us-pl-reverse-locali
 
 ## Census community-boundary follow-up
 
-The [CDP locality correction](../../notes/us-reverse-cdps.md) uses uniquely containing Census-designated-place polygons to name unincorporated communities, while preserving actual governing-town names and existing native-name variants. CDPs never supply `municipality`. The selected house and government fields remain unchanged. Its source capture is complete and independent of case selection; expectations, scoring and hold-out assignments are unchanged.
+The [CDP locality correction](../../notes/us-reverse-cdps.md) uses uniquely containing Census-designated-place polygons to name unincorporated communities, while preserving actual governing-town names and existing native-name variants, below which the community is then named. CDPs never supply `municipality`. The selected house and government fields remain unchanged. Its source capture is complete and independent of case selection; expectations, scoring and hold-out assignments are unchanged.
 
 ## Census government-boundary follow-up
 

@@ -16,7 +16,7 @@ Only a **US reverse-house** result without a higher-priority explicit source cit
 
 The numerical guard covers the house FST's asymmetric coordinate-encoding cell and half a polygon rounding unit. It is not a claimed Census positional-accuracy bound. Published coordinate precision is not source accuracy or legal boundary authority.
 
-An already matching geographic locality is retained. So is a name that identifies an actual containing, typed Census government, including its unqualified name. The existing locality's own indexed native name variants can also show that its canonical name already represents the CDP; those names are preserved. These checks **only suppress replacement**: names never establish governmental type, introduce aliases into other fields, or create a source-ID crosswalk.
+An already matching geographic locality is retained. So is a name that identifies an actual containing, typed Census government, including its unqualified name. The existing locality's own indexed native name variants can also show that its canonical name already represents the CDP; those names are preserved. These checks keep the existing name rather than replace it: names never establish governmental type, introduce aliases into other fields, or create a source-ID crosswalk. The CDP is then added below the kept name, as `village`, or `hamlet` when `village` is taken (a hamlet or village inside a New England, New York or New Jersey town, such as Vineyard Haven in Tisbury or Budd Lake in Mount Olive Township). Nothing is added when both keys are taken.
 
 Otherwise the CDP replaces the primary `city`/`town`/`village` name and that name's display component. With no supplied settlement-size class or population, it uses the existing unclassified-locality fallback field, `village`; this is **not an assertion of legal village incorporation**. Administrative labels that happen to share the old locality's spelling remain in the display.
 
@@ -37,9 +37,13 @@ python3 tests/registry/prepare-us-municipalities.py \
 
 A refresh must update the whole capture, manifest, prepared data, notice and builder hash together, never select evaluation locations. The helper's default government-data path still prepares the government pin, not CDPs.
 
-Authored synthetic checks cover correction, holes, overlaps, state mismatch, numerical boundary cells, incorporated-place conflicts, governing-town names, native-name variants, already-correct names, a locality/admin-name collision, missing/partial sidecars and an offset query on the other side of a boundary from the selected house. The no-CDP index control compares every field except the explicitly changed locality/display. Removing the runtime hook makes the two positive tests fail.
+Authored synthetic checks cover correction, a CDP added below a kept town (`village`) or village (`hamlet`), holes, overlaps, state mismatch, numerical boundary cells, incorporated-place conflicts, governing-town names, native-name variants, already-correct names, a locality/admin-name collision, missing/partial sidecars and an offset query on the other side of a boundary from the selected house. The no-CDP index control compares every field except the explicitly changed locality/display. Removing the runtime hook makes the two positive tests fail.
 
 ## Controlled local validation
+
+### Follow-up: naming the community below a kept town
+
+The first version dropped the CDP whenever the existing name was kept, so a house in Harmony (Glocester, Rhode Island) or Budd Lake (Mount Olive Township, New Jersey) still had only the town. Adding the CDP below the kept name, on the same local index and consumer models for both binaries (46,511 cases; strict baseline repeat passes), gives **+16 at-point / +13 offset** checks, all US, with no newly failing or worse cases. Across 85,430 reverse records the selected house, its point, number, road, postcode, country and regions are unchanged, no existing name is removed, and 87 records gain exactly one community name. The index files are unchanged; only the builder hash moves because `country/us.rs` is a builder input. CI measures quality and request speed on the full index.
 
 An unconditional replacement prototype was rejected: it gained 58 checks but introduced 20 failures by discarding valid governing-town names and native canonical-name variants. It was not published. The narrower preservation rules above have authored negative checks, rather than case-name exceptions or weakened expectations.
 
