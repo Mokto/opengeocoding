@@ -2,7 +2,8 @@ use super::*;
 use crate::{Case, at_house, case, town};
 
 /// Two villages called Pepe: a small one in Grobogan regency (Tegowanu district, Central Java)
-/// and a larger one in Sleman (Yogyakarta).
+/// and a larger one in Sleman (Yogyakarta). Two called Guntur: a kelurahan of South Jakarta and a
+/// larger village in Grobogan.
 pub const PLACES: &[Place] = &[
     place!(
         "id",
@@ -100,19 +101,92 @@ pub const PLACES: &[Place] = &[
         "Pepe",
         &[],
     ),
+    place!(
+        "id-guntur-grobogan",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        9_000,
+        (165.2, -60.05),
+        "id-grobogan",
+        "Guntur",
+        &[],
+    ),
+    place!(
+        "id-jk",
+        "region",
+        "",
+        "ID",
+        "ID-JK",
+        10_000_000,
+        (167.0, -60.0),
+        "id",
+        "Daerah Khusus Ibukota Jakarta",
+        &[("en", "Special Capital Region of Jakarta")],
+    ),
+    place!(
+        "id-jaksel",
+        "county",
+        "",
+        "ID",
+        "ID-JK",
+        2_200_000,
+        (167.0, -60.0),
+        "id-jk",
+        "Jakarta Selatan",
+        &[("en", "South Jakarta")],
+    ),
+    place!(
+        "id-setiabudi",
+        "localadmin",
+        "",
+        "ID",
+        "ID-JK",
+        130_000,
+        (167.02, -60.0),
+        "id-jaksel",
+        "Setiabudi",
+        &[],
+    ),
+    place!(
+        "id-guntur",
+        "locality",
+        "village",
+        "ID",
+        "ID-JK",
+        2_000,
+        (167.03, -60.01),
+        "id-setiabudi",
+        "Guntur",
+        &[],
+    ),
 ];
 
-pub const STREETS: &[Street] = &[Street {
-    class: "residential",
-    length: 0.0,
-    name: "Jalan Merdeka",
-    postcode: "",
-    city: "Pepe",
-    cc: "ID",
-    lon: 165.12,
-    lat: -60.02,
-    numbers: &["5"],
-}];
+pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Jalan Merdeka",
+        postcode: "",
+        city: "Pepe",
+        cc: "ID",
+        lon: 165.12,
+        lat: -60.02,
+        numbers: &["5"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Jl. Sudirman",
+        postcode: "",
+        city: "Guntur",
+        cc: "ID",
+        lon: 167.03,
+        lat: -60.01,
+        numbers: &["7"],
+    },
+];
 
 pub fn cases() -> Vec<Case> {
     vec![
@@ -136,6 +210,33 @@ pub fn cases() -> Vec<Case> {
         case(
             "Desa Tidakada, Kec. Tegowanu, Kab. Grobogan, Jawa Tengah, Indonesia",
             town("id-grobogan", false),
+        ),
+        // the province shortened, the country left out
+        case(
+            "Desa Pepe, Kec. Tegowanu, Kab. Grobogan, Jateng",
+            town("id-pepe", true),
+        ),
+        case(
+            "Pepe, Tegowanu, Grobogan, Jawa Tengah",
+            town("id-pepe", true),
+        ),
+        case(
+            "Kel. Guntur, Kec. Setiabudi, Kota Adm. Jakarta Selatan, DKI Jakarta, Indonesia",
+            town("id-guntur", true),
+        ),
+        case(
+            "Guntur, Setiabudi, Kota Jkt Selatan, DKI Jakarta",
+            town("id-guntur", true),
+        ),
+        case("Guntur, Setiabudi, Jaksel", town("id-guntur", true)),
+        // "Jl." and "Jalan" are one street type
+        case(
+            "Jalan Sudirman No. 7, Guntur, Setiabudi, Jaksel",
+            at_house("Jl. Sudirman", "7"),
+        ),
+        case(
+            "Jl. Merdeka No. 5, Desa Pepe, Kec. Tegowanu, Kab. Grobogan, Jateng",
+            at_house("Jalan Merdeka", "5"),
         ),
     ]
 }

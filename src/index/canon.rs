@@ -171,6 +171,10 @@ pub const VARIANTS: &[(&str, &str)] = &[
     // Polish
     ("ulica", "ul"),
     ("osiedle", "os"),
+    // Indonesian, Malay
+    ("jalan", "jl"),
+    ("jln", "jl"),
+    ("gang", "gg"),
     // Russian, Ukrainian
     ("улица", "ул"),
     ("проспект", "пр"),

@@ -5,9 +5,10 @@
 
 use crate::{
     index::{Hit, Index, NONE, Parsed, Place, name_key, parse::field},
-    matching::{ParsedAddress, normalize_place, part},
+    matching::{ParsedAddress, normalize_place, part, region_words},
 };
 use serde_json::Value;
+use std::borrow::Cow;
 
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
 enum Level {
@@ -60,6 +61,121 @@ fn street_like(part: &str) -> bool {
         )
 }
 
+/// Provinces and Jakarta's cities as addresses shorten them, by the index's names.
+fn abbreviation(name: &str) -> Option<&'static str> {
+    Some(match normalize_place(name).as_str() {
+        "nad" | "nanggroe aceh darussalam" => "Aceh",
+        "sumut" => "Sumatera Utara",
+        "sumbar" => "Sumatera Barat",
+        "sumsel" => "Sumatera Selatan",
+        "babel" => "Kepulauan Bangka Belitung",
+        "kepri" => "Kepulauan Riau",
+        "jabar" => "Jawa Barat",
+        "jateng" => "Jawa Tengah",
+        "jatim" => "Jawa Timur",
+        "dki" | "dki jakarta" => "Daerah Khusus Ibukota Jakarta",
+        "diy" | "di yogyakarta" | "d i yogyakarta" => "Daerah Istimewa Yogyakarta",
+        "kalbar" => "Kalimantan Barat",
+        "kalteng" => "Kalimantan Tengah",
+        "kalsel" => "Kalimantan Selatan",
+        "kaltim" => "Kalimantan Timur",
+        "kaltara" => "Kalimantan Utara",
+        "sulut" => "Sulawesi Utara",
+        "sulteng" => "Sulawesi Tengah",
+        "sulsel" => "Sulawesi Selatan",
+        "sultra" => "Sulawesi Tenggara",
+        "sulbar" => "Sulawesi Barat",
+        "ntb" => "Nusa Tenggara Barat",
+        "ntt" => "Nusa Tenggara Timur",
+        "malut" => "Maluku Utara",
+        "pabar" => "Papua Barat",
+        "jakpus" => "Jakarta Pusat",
+        "jakut" => "Jakarta Utara",
+        "jakbar" => "Jakarta Barat",
+        "jaksel" => "Jakarta Selatan",
+        "jaktim" => "Jakarta Timur",
+        _ => return None,
+    })
+}
+
+/// An area part with its short forms written out: "Jatim", "Kota Adm. Jakarta Utara" ("Kota
+/// Jakarta Utara"), "Kota Jkt Utara", "Kab. Kep. Selayar". Its label stays.
+fn expand(part: &str) -> Cow<'_, str> {
+    let (label, name) = match prefixed(part) {
+        Some((_, name)) => (&part[..part.len() - name.len()], name),
+        None => ("", part),
+    };
+    if let Some(full) = abbreviation(name) {
+        return format!("{label}{full}").into();
+    }
+    let mut words: Vec<&str> = name.split(' ').collect();
+    let administrative = !label.is_empty()
+        && words.len() > 1
+        && matches!(normalize_place(words[0]).as_str(), "adm" | "administrasi");
+    if administrative {
+        words.remove(0);
+    }
+    let mut changed = administrative;
+    for word in &mut words {
+        let full = match normalize_place(word).as_str() {
+            "jkt" => "Jakarta",
+            "kep" => "Kepulauan",
+            _ => continue,
+        };
+        *word = full;
+        changed = true;
+    }
+    if changed {
+        format!("{label}{}", words.join(" ")).into()
+    } else {
+        part.into()
+    }
+}
+
+/// Whether a part names a province of Indonesia, or one of Jakarta's cities by its short form:
+/// an address that ends with one is Indonesian without saying so. Only a whole name counts, not
+/// the words of one ("Highlands, NJ" is not Highland Papua).
+fn indonesian(index: &Index, part: &str) -> bool {
+    let part = expand(part);
+    let name = prefixed(&part).map_or(&*part, |(_, name)| name);
+    let words = region_words(name);
+    abbreviation(part.as_ref()).is_some()
+        || [
+            "jakarta pusat",
+            "jakarta utara",
+            "jakarta barat",
+            "jakarta selatan",
+            "jakarta timur",
+        ]
+        .contains(&normalize_place(name).as_str())
+        || index.region_spelt(name, "id").is_some_and(|p| {
+            index.places[p as usize]
+                .all_names()
+                .any(|n| region_words(n) == words)
+        })
+}
+
+/// libpostal's reading with the short forms written out and the implied country added, for
+/// when [`aligned`] does not apply.
+fn spelt_out(whole: &[(String, String)], implied: bool) -> Option<Parsed> {
+    let mut parsed = whole.to_vec();
+    let mut changed = implied;
+    for (_, value) in &mut parsed {
+        if let Some(full) = abbreviation(value) {
+            *value = full.to_lowercase();
+            changed = true;
+        }
+    }
+    if implied {
+        parsed.push(("country".into(), "indonesia".into()));
+    }
+    changed.then(|| parsed.into())
+}
+
+fn postal(text: &str) -> bool {
+    text.len() == 5 && text.bytes().all(|b| b.is_ascii_digit())
+}
+
 pub(crate) fn aligned(
     index: &Index,
     query: &str,
@@ -71,14 +187,14 @@ pub(crate) fn aligned(
         .filter(|p| !p.is_empty())
         .collect();
     let countries: Vec<_> = parts.iter().filter_map(|p| index.country(p)).collect();
-    if countries.is_empty() || countries.iter().any(|cc| cc != "id") {
+    if countries.iter().any(|cc| cc != "id") {
         return Ok(None);
     }
     parts.retain(|p| index.country(p).is_none());
     let mut postcode = None;
     if let Some(last) = parts.last_mut() {
         let (head, tail) = last.rsplit_once(' ').unwrap_or(("", last));
-        if tail.len() == 5 && tail.bytes().all(|b| b.is_ascii_digit()) {
+        if postal(tail) {
             postcode = Some(tail);
             *last = head.trim();
             if last.is_empty() {
@@ -87,10 +203,18 @@ pub(crate) fn aligned(
         }
     }
 
+    let implied = countries.is_empty();
+    if implied && !parts.last().is_some_and(|last| indonesian(index, last)) {
+        return Ok(None);
+    }
+    let fallback = || Ok(spelt_out(whole, implied));
+
+    let expanded: Vec<Cow<str>> = parts.iter().map(|p| expand(p)).collect();
     let mut levels: Vec<(Level, &str)> = Vec::new();
     let mut labelled = false;
     let mut street = parts.len();
-    for (at, part) in parts.iter().enumerate().rev() {
+    for (at, part) in expanded.iter().enumerate().rev() {
+        let part = part.as_ref();
         let below = levels.last().map(|(l, _)| *l);
         // a village can be called "Kota Baru"; out of order, the word is part of the name
         let label = prefixed(part).filter(|(level, _)| below.is_none_or(|b| *level < b));
@@ -136,12 +260,12 @@ pub(crate) fn aligned(
         .into_iter()
         .find(|text| index.places_exact(text, Some("id"), None, &counties).1)
     }) else {
-        return Ok(None);
+        return fallback();
     };
     // One area alone ("Kec. Seulimeum, Indonesia", as the resolver's fallbacks ask for each part)
     // is left to libpostal, as before.
     if areas < 2 {
-        return Ok(None);
+        return fallback();
     }
 
     let rest: Vec<&str> = parts[..street]
@@ -186,7 +310,7 @@ pub(crate) fn aligned(
         ("state_district", district.and(Some(scope))),
         (
             "postcode",
-            postcode.or(Some(field(whole, "postcode")).filter(|p| !p.is_empty())),
+            postcode.or(Some(field(whole, "postcode")).filter(|p| postal(p))),
         ),
     ] {
         if let Some(name) = name {
