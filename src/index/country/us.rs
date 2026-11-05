@@ -5,16 +5,19 @@ use std::{collections::HashSet, sync::LazyLock};
 
 pub const MUNICIPALITIES_FILE: &str = "us-municipalities.bin";
 pub const MUNICIPALITIES_LABELS: &str = "us-municipalities.json";
+pub const CDPS_FILE: &str = "us-cdps.bin";
+pub const CDPS_LABELS: &str = "us-cdps.json";
 
-pub(in crate::index) struct Municipalities {
+pub(in crate::index) struct Boundaries {
     areas: area::Areas,
     labels: Vec<(String, String, String)>,
 }
 
-impl Municipalities {
+impl Boundaries {
     pub(in crate::index) fn new(
         bytes: tantivy::directory::OwnedBytes,
         labels: &[u8],
+        cdp: bool,
     ) -> anyhow::Result<Self> {
         let areas = area::Areas::new(bytes)?;
         let labels: Vec<(String, String, String)> = serde_json::from_slice(labels)?;
@@ -23,19 +26,53 @@ impl Municipalities {
             anyhow::ensure!(
                 ids.insert(id)
                     && !id.is_empty()
+                    && if cdp {
+                        id.strip_prefix("cdp/").is_some_and(|code| {
+                            code.len() == 7 && code.bytes().all(|c| c.is_ascii_digit())
+                        })
+                    } else {
+                        !id.starts_with("cdp/")
+                    }
                     && region.len() == 5
                     && region.starts_with("US-")
                     && region[3..].bytes().all(|c| c.is_ascii_uppercase())
                     && !name.trim().is_empty()
                     && !name.chars().any(char::is_control),
-                "invalid US municipality label"
+                "invalid US boundary label"
             );
         }
         anyhow::ensure!(
             areas.place_ids().all(|id| (id as usize) < labels.len()),
-            "US municipality polygon has no label"
+            "US boundary polygon has no label"
         );
         Ok(Self { areas, labels })
+    }
+
+    fn containing_name(&self, x: f64, y: f64, region: &str) -> Option<&str> {
+        let mut containing: Vec<_> = self
+            .areas
+            .containing(y, x)
+            .into_iter()
+            .map(|(_, id)| id)
+            .collect();
+        containing.sort_unstable();
+        containing.dedup();
+        let [id] = containing.as_slice() else {
+            return None;
+        };
+        let (_, state, name) = &self.labels[*id as usize];
+        if state != region {
+            return None;
+        }
+        // pack floors each axis; reject a Census edge anywhere in that source-point cell plus polygon rounding.
+        let steps = (1u64 << 28) as f64;
+        (!self.areas.boundary_intersects([
+            x - 0.5e-7,
+            y - 0.5e-7,
+            x + 360.0 / steps + 0.5e-7,
+            y + 180.0 / steps + 0.5e-7,
+        ]))
+        .then_some(name)
     }
 }
 
@@ -61,39 +98,109 @@ pub(in crate::index) fn reverse_municipality(
     {
         return;
     }
-    let Some(municipalities) = &index.us_municipalities else {
+    let Some(boundaries) = &index.us_municipalities else {
         return;
     };
-    let mut containing: Vec<_> = municipalities
-        .areas
-        .containing(*y, *x)
-        .into_iter()
-        .map(|(_, id)| id)
-        .collect();
-    containing.sort_unstable();
-    containing.dedup();
-    let [id] = containing.as_slice() else {
-        return;
-    };
-    let (_, region, name) = &municipalities.labels[*id as usize];
-    if address
+    let Some(name) = address
         .get("ISO3166-2-lvl4")
         .and_then(serde_json::Value::as_str)
-        != Some(region.as_str())
+        .and_then(|region| boundaries.containing_name(*x, *y, region))
+    else {
+        return;
+    };
+    address.insert("municipality".into(), name.into());
+}
+
+pub(in crate::index) fn reverse_locality(
+    index: &Index,
+    hit: &Hit,
+    address: &mut serde_json::Map<String, serde_json::Value>,
+    display: &mut Vec<String>,
+) {
+    let Hit::Street {
+        x,
+        y,
+        number: Some(_),
+        ..
+    } = hit
+    else {
+        return;
+    };
+    if address
+        .get("country_code")
+        .and_then(serde_json::Value::as_str)
+        != Some("us")
     {
         return;
     }
-    // pack floors each axis; reject a Census edge anywhere in that source-point cell plus polygon rounding.
-    let steps = (1u64 << 28) as f64;
-    if municipalities.areas.boundary_intersects([
-        x - 0.5e-7,
-        y - 0.5e-7,
-        x + 360.0 / steps + 0.5e-7,
-        y + 180.0 / steps + 0.5e-7,
-    ]) {
+    let Some(boundaries) = &index.us_cdps else {
+        return;
+    };
+    let Some(region) = address
+        .get("ISO3166-2-lvl4")
+        .and_then(serde_json::Value::as_str)
+    else {
+        return;
+    };
+    let Some(name) = boundaries.containing_name(*x, *y, region) else {
+        return;
+    };
+    let current: Vec<_> = ["city", "town", "village"]
+        .iter()
+        .filter_map(|key| address.get(*key).and_then(serde_json::Value::as_str))
+        .collect();
+    if index.us_municipalities.as_ref().is_some_and(|governments| {
+        governments
+            .areas
+            .containing(*y, *x)
+            .into_iter()
+            .any(|(_, id)| {
+                let (source, state, government) = &governments.labels[id as usize];
+                state == region
+                    && (source.starts_with("place/")
+                        || current.iter().any(|old| {
+                            fold(old) == fold(government)
+                                || municipality(government)
+                                    .is_some_and(|base| fold(old) == fold(base))
+                        }))
+            })
+    }) {
         return;
     }
-    address.insert("municipality".into(), name.as_str().into());
+    if current.iter().any(|old| fold(old) == fold(name)) {
+        return;
+    }
+    if let Hit::Street { place, .. } = hit
+        && *place != NONE
+    {
+        let chain = index.chain(*place);
+        let chain = index.house_chain(&chain, *x, *y).unwrap_or(chain);
+        if chain.iter().any(|id| {
+            let place = &index.places[*id as usize];
+            place.subtype.as_ref() == "locality"
+                && current.contains(&place.name(true))
+                && place.all_names().any(|other| fold(other) == fold(name))
+        }) {
+            return;
+        }
+    }
+    let old: Vec<_> = ["city", "town", "village"]
+        .iter()
+        .filter_map(|key| address.remove(*key))
+        .collect();
+    for value in old {
+        if let Some(at) = display
+            .iter()
+            .enumerate()
+            .skip(2)
+            .find_map(|(at, name)| (value.as_str() == Some(name)).then_some(at))
+        {
+            display.remove(at);
+        }
+    }
+    display.insert(2.min(display.len()), name.into());
+    // The unclassified-locality fallback is village; CDPs confer no municipal status.
+    address.insert("village".into(), name.into());
 }
 
 /// `text` with each ZIP+4 ("37208-4501") as its ZIP, which is how the index holds it.

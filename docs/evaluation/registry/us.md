@@ -49,6 +49,10 @@ Each case's `places`, the names ReverseGeocode's answer must include one of, are
 
 The [2026-11-03 reverse-locality investigation](../../notes/us-pl-reverse-locality.md) separates at-point/offset and source-group counts, traces geographic versus postal names and adds synthetic safety controls. Its Polish offline-source follow-up does not change US runtime, expectations or outcomes. USPS mailing cities still do not establish municipal/CDP/community membership.
 
+## Census community-boundary follow-up
+
+The [CDP locality correction](../../notes/us-reverse-cdps.md) uses uniquely containing Census-designated-place polygons to name unincorporated communities, while preserving actual governing-town names and existing native-name variants. CDPs never supply `municipality`. The selected house and government fields remain unchanged. Its source capture is complete and independent of case selection; expectations, scoring and hold-out assignments are unchanged.
+
 ## Census government-boundary follow-up
 
 The [separate US implementation](../../notes/us-reverse-municipalities.md) fills a missing reverse-house `municipality` only from one containing Census BAS 2026 active-government polygon in the rendered state. It preserves existing locality labels and every selected-house field. This is dated statistical-government membership, not a postal-city conversion, a CDP assertion or a legal jurisdiction determination. No NAD expectations, labels, hold-out assignments or scoring rules change.

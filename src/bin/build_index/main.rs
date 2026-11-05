@@ -57,7 +57,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--asiaq-buildings TSV] [--denmark-localities JSON.GZ] [--us-municipalities JSON.GZ] [--iceland-addresses CSV --iceland-addresses-sha256 HASH] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--asiaq-buildings TSV] [--denmark-localities JSON.GZ] [--us-municipalities JSON.GZ] [--us-cdps JSON.GZ] [--iceland-addresses CSV --iceland-addresses-sha256 HASH] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1] [--sources-mirror URL]
        build_index fetch --store URL --sources FILE --scratch DIR [--sources-mirror URL]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
@@ -2409,9 +2409,19 @@ fn build(args: &[String]) {
         Path::new(out),
         places.iter().any(|p| p.country == *b"US"),
         municipalities.last().map(String::as_str),
+        false,
     )
     .expect("US Census government boundaries");
     lap(&format!("US Census governments ({governments})"));
+    let cdps = opt("--us-cdps");
+    let communities = us_municipalities::write(
+        Path::new(out),
+        places.iter().any(|p| p.country == *b"US"),
+        cdps.last().map(String::as_str),
+        true,
+    )
+    .expect("US Census community boundaries");
+    lap(&format!("US Census CDPs ({communities})"));
     let street_spill = StreetSpill::new(&Path::new(out).join(reverse::STREETS_SPILL));
     let segs = pass_segments(&dir.join("segment"), &assigner, &street_spill);
     street_spill.finish();

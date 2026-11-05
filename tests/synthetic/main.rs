@@ -33,6 +33,8 @@ fn dir() -> &'static PathBuf {
         world::dk::write_localities(&danish);
         let municipalities = root.join("us-municipalities.json.gz");
         world::us::write_municipalities(&municipalities);
+        let cdps = root.join("us-cdps.json.gz");
+        world::us::write_cdps(&cdps);
         let built = Command::new(env!("CARGO_BIN_EXE_build_index"))
             .arg(root.join("release"))
             .arg(&out)
@@ -50,6 +52,8 @@ fn dir() -> &'static PathBuf {
             .arg(&danish)
             .arg("--us-municipalities")
             .arg(&municipalities)
+            .arg("--us-cdps")
+            .arg(&cdps)
             .output()
             .unwrap();
         assert!(
