@@ -40,6 +40,12 @@ pub fn gold_id_villages() -> PathBuf {
     root().join("tests/gold.id-villages.jsonl")
 }
 
+/// Indonesian districts written after their regency and province, generated from
+/// `tests/gold.id-districts.seeds.jsonl` (`tests/id-villages/sample-districts.py`).
+pub fn gold_id_districts() -> PathBuf {
+    root().join("tests/gold.id-districts.jsonl")
+}
+
 /// Place strings as people profiles and job postings write them ("City, Region, Country", lower
 /// case, "Hong Kong S.A.R."), generated from `tests/gold.people.seeds.jsonl`.
 pub fn gold_people() -> PathBuf {
@@ -74,6 +80,7 @@ pub fn suite() -> Vec<PathBuf> {
     files.push(gold_gleif());
     files.push(gold_people());
     files.push(gold_id_villages());
+    files.push(gold_id_districts());
     files.push(root().join("tests/gold.suggest.jsonl"));
     files
 }

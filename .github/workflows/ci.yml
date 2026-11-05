@@ -48,6 +48,7 @@ jobs:
       - run: python3 tests/towns/test-sample-towns.py
       - run: python3 tests/gleif/test-sample-gleif.py
       - run: python3 tests/id-villages/test-sample-villages.py
+      - run: python3 tests/id-villages/test-sample-districts.py
       - run: python3 .github/scripts/test-gold-nightly-issue.py
       - run: python3 .github/scripts/test-gold-comments.py
       - run: cargo fmt --check
