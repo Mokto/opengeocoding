@@ -2,7 +2,7 @@
 
 [Evaluation guide](../README.md) · [Source notice](../../../tests/registry/kr.NOTICE)
 
-**South Korea, school-sampled** (`kr.seeds.jsonl`, `kr.jsonl`): 207 schools and 2,794 queries: the original 414 paired road-name/land-lot queries, 776 shortened-province variants and 1,604 country-first variants, drawn directly from the official [national school-location dataset](https://www.data.go.kr/data/15021148/standard.do), provided by 한국교육시설안전원 through data.go.kr. This is a targeted sample from a public school directory, including privately operated schools, **not a sample of the national address register or an estimate of residential-address accuracy**. The national [entrance-coordinate register](https://www.data.go.kr/data/15050410/fileData.do) requires an application, identity verification and approval; this corpus does not use it or a commercial geocoder.
+**South Korea, school-sampled** (`kr.seeds.jsonl`, `kr.jsonl`): 207 schools and 1,216 queries: each school's road-name and land-lot address typed in full, country first and with a shortened province (see [Forms per school](#forms-per-school)), drawn directly from the official [national school-location dataset](https://www.data.go.kr/data/15021148/standard.do), provided by 한국교육시설안전원 through data.go.kr. This is a targeted sample from a public school directory, including privately operated schools, **not a sample of the national address register or an estimate of residential-address accuracy**. The national [entrance-coordinate register](https://www.data.go.kr/data/15050410/fileData.do) requires an application, identity verification and approval; this corpus does not use it or a commercial geocoder.
 
 The snapshot captured on 2026-10-17 contains 12,004 operating schools, all with reference date 2026-10-01 and coordinates. It has 16 education-authority codes, including the combined 전남광주통합특별시 authority. Eleven rows are outside the paired-address frame: one has no land-lot address and ten have a placeholder land-lot number of zero. `sample-kr` uses the remaining 11,993 rows, keeping the smallest 200 seeded SHA-256 hashes of school IDs per authority and numbering class, then up to five distinct streets in each pool. Mountain (`산`) land-lots take precedence over hyphenated road numbers; all others are plain. The draw selects 47 mountain-lot, 80 non-mountain hyphenated-road and 80 plain cases, covers every authority in the snapshot and repeats neither a complete road nor a complete land-lot address. This balances authorities and numbering classes, not population, municipality coverage or address counts; schools and their often larger campuses are a biased frame. Forty-four school locations are held out by the shared location-hash rule.
 
@@ -175,6 +175,20 @@ The +158 Search and +466 proximity-scored Suggest passes have no lost passes or 
 In the training subset, independently checking the exact typed number, KR country and source radius in the top five finds 90 full-province and 79 short-province suggestions for each country label. The additional 24 training suggestion passes are number-prefix completions, not exact-address recoveries. The directory and its coordinates still do not establish entrance identity or national/residential accuracy. Held-out cases remain outside case-specific tuning.
 
 Formatting, strict all-target clippy, ordinary Rust tests, separately run model-backed synthetic tests, registry exporter checks and corpus validation pass locally. Parser, Suggest and weak-fallback regression checks were demonstrated failing before their fixes. The release-binary real-index RPC tests reproduce both documented failures on base and head: grpcurl times out and the oversized-query log assertion fails. Local timings are not a speed sign-off; full-index CI quality and measured speed remain required.
+
+## Forms per school
+
+The shortened-province and country-first sections below added 14 queries per school, the most per location of any country (11 per location, against under 2 for most registry corpora), which let one school weigh as much as fourteen places in pass counts and gate diffs. Each address now keeps three forms, six per school:
+
+| Cohort | Road-name | Land-lot |
+|---|---|---|
+| Full, country last | `kr_road` | `kr_lot` |
+| Country first | `kr_road_country_first` (`South Korea, …`) | `kr_lot_country_first_native` (`대한민국, …`) |
+| Short province, no country | `kr_road_short_domestic` | `kr_lot_short_domestic` |
+
+The forms were dropped by kind for every school, not by result, so passes and failures went out together. The kept cases' IDs, queries, expectations, hold-out assignment and labels are unchanged; regeneration changes only their `retrieved` date. On the #545 index the dropped forms passed and failed almost exactly like the kept ones (English and native country first failed for the same 102 lot and 37 road schools). The dropped combinations stay covered by the synthetic world: short provinces with the country last, and either country name first with a full or short province.
+
+Counts in the sections below are from before this change.
 
 ## Coverage audit and POI lot supplement
 
