@@ -61,7 +61,7 @@ impl Index {
                 .get(place as usize)
                 .is_some_and(|p| matches!(&*p.cc, "cz" | "sk"))
             {
-                self.each_house(self.fast(a, "id") as u32, |key, _, _, _| {
+                self.each_house(self.fast(a, "id") as u32, false, |key, _, _, _| {
                     if let Ok(key) = std::str::from_utf8(key)
                         && key.ends_with(&suffix)
                     {
