@@ -153,9 +153,57 @@ pub const PLACES: &[Place] = &[
         "Posthaven",
         &[("en", "Posthaven")]
     ),
+    // a parish whose villages are points inside it
+    place!(
+        "gb-eskside",
+        "locality",
+        "village",
+        "GB",
+        "GB-ENG",
+        2_000,
+        (33.0, 14.0),
+        "gb-mailshire",
+        "Eskside cum Moorby",
+        &[("en", "Eskside cum Moorby")]
+    ),
+    place!(
+        "gb-sleights",
+        "locality",
+        "village",
+        "GB",
+        "GB-ENG",
+        1_000,
+        (33.05, 14.0),
+        "gb-eskside",
+        "Sleights",
+        &[("en", "Sleights")]
+    ),
+    place!(
+        "gb-ruswarp",
+        "locality",
+        "village",
+        "GB",
+        "GB-ENG",
+        1_000,
+        (33.15, 14.0),
+        "gb-eskside",
+        "Ruswarp",
+        &[("en", "Ruswarp")]
+    ),
 ];
 
 pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Coach Road",
+        postcode: "",
+        city: "",
+        cc: "GB",
+        lon: 33.055,
+        lat: 14.0,
+        numbers: &["75A"],
+    },
     Street {
         class: "residential",
         length: 0.0,
@@ -216,7 +264,19 @@ pub const STREETS: &[Street] = &[
 ];
 
 pub fn cases() -> Vec<Case> {
-    vec![case("Orchard, United Kingdom", town("gb-orchard", true))]
+    let coach = house(&STREETS[0], "75A");
+    vec![
+        case("Orchard, United Kingdom", town("gb-orchard", true)),
+        // a village that is only a point in its parish, and its post town after it
+        case(
+            "75A Coach Road, Sleights, United Kingdom",
+            Want::At(coach, 25.0, true),
+        ),
+        case(
+            "75A Coach Road, Sleights, Ruswarp, United Kingdom",
+            Want::At(coach, 25.0, true),
+        ),
+    ]
 }
 
 /// AA1 1AA is filed under Beacon, whose part Quayside is not in its places' chain.
@@ -256,4 +316,25 @@ fn a_postcode_is_answered_with_an_area_near_it() {
     assert!(name.as_str().unwrap().starts_with("ZZ1 1ZZ, "), "{name}");
     assert!(!exact);
     assert_eq!(found("ZZ1 2ZZ, Oakmere"), None);
+}
+
+/// Sleights is a point inside the parish its houses are filed under.
+#[test]
+fn a_house_is_found_near_a_village_that_is_only_a_point() {
+    let index = index();
+    let found = index
+        .gb_house_by_village("75A", "Coach Road", "Sleights")
+        .expect("house near Sleights");
+    assert_eq!(found["address"]["house_number"], "75a", "{found}");
+    // Ruswarp is 10 km away
+    assert!(
+        index
+            .gb_house_by_village("75A", "Coach Road", "Ruswarp")
+            .is_none()
+    );
+    assert!(
+        index
+            .gb_house_by_village("76", "Coach Road", "Sleights")
+            .is_none()
+    );
 }

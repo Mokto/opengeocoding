@@ -1161,6 +1161,22 @@ pub fn spaced_house_suffix(query: &str) -> Option<(String, String)> {
     ))
 }
 
+/// "308 - 310 Fernhill Road, …" or "Fernhill Road 308 - 310, …" as "308-310", and that number:
+/// the parser reads a spaced range as one number "308 310", which no house has.
+pub fn joined_house_range(query: &str) -> Option<(String, String)> {
+    static SPACED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|\s)([0-9]{1,5})(?:\s+[-–]\s*|\s*[-–]\s+)([0-9]{1,5})(?:,|\s|$)").unwrap()
+    });
+    let street = query.split(',').next()?;
+    let c = SPACED.captures(street)?;
+    let number = format!("{}-{}", &c[1], &c[2]);
+    let (from, to) = (c.get(1)?.start(), c.get(2)?.end());
+    Some((
+        format!("{}{number}{}", &query[..from], &query[to..]),
+        number,
+    ))
+}
+
 /// `query` without the whitespace-separated words equal to `word` (case and dots aside).
 pub fn without_word(query: &str, word: &str) -> String {
     let key = word.trim_matches('.').to_lowercase();
