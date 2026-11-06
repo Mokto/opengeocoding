@@ -708,6 +708,7 @@ impl Parser {
             number_from_house(q, &mut parsed);
             numbered_ruta(&mut parsed);
             country::pf::align(q, &mut parsed);
+            country::nc::align(q, &mut parsed);
             town_country_from_house(q, &mut parsed);
             if estonian {
                 ee::typed_road(&mut parsed, typed);

@@ -26,6 +26,18 @@ pub const PLACES: &[Place] = &[
         "Rocail",
         &[]
     ),
+    place!(
+        "nc-dumbea",
+        "locality",
+        "town",
+        "NC",
+        "",
+        20_000,
+        (160.6, -30.03),
+        "nc",
+        "Dumbéa",
+        &[]
+    ),
 ];
 
 const ROUTE: Street = Street {
@@ -40,8 +52,26 @@ const ROUTE: Street = Street {
     numbers: &["271", "813245", "61bis"],
 };
 
+const PROLONGEE: Street = Street {
+    name: "Route du Phare Prolongée",
+    postcode: "98835",
+    city: "Dumbéa",
+    lon: 160.6,
+    numbers: &["447", "365", "520", "12", "447bis", "365ter"],
+    ..ROUTE
+};
+
+const PROVINCIALE: Street = Street {
+    name: "Route Provinciale 4",
+    lon: 160.602,
+    numbers: &["58bis"],
+    ..PROLONGEE
+};
+
 pub const STREETS: &[Street] = &[
     ROUTE,
+    PROLONGEE,
+    PROVINCIALE,
     Street {
         name: "Route Territoriale 8",
         lon: 160.03,
@@ -143,6 +173,14 @@ pub fn cases() -> Vec<Case> {
             "61 bis Route Territoriale 7, Rocail, 98880, New Caledonia",
             at_house(ROUTE.name, "61bis"),
         ),
+        case(
+            "Route Territoriale 7 61 bis, Rocail, 98880, New Caledonia",
+            at_house(ROUTE.name, "61bis"),
+        ),
+        case(
+            "Route Provinciale 4 58 bis, Dumbéa, 98835, New Caledonia",
+            at_house(PROVINCIALE.name, "58bis"),
+        ),
     ]
 }
 
@@ -226,7 +264,53 @@ fn nc_foreign_postcodes_keep_metadata_but_do_not_supply_houses() {
 }
 
 pub async fn check_search(resolver: &Resolver) {
+    for (query, number) in [
+        (
+            "Route du Phare Prolongée 447 bis, Dumbéa, 98835, New Caledonia",
+            "447bis",
+        ),
+        (
+            "447 bis Route du Phare Prolongée, Dumbéa, 98835, New Caledonia",
+            "447bis",
+        ),
+        (
+            "Route du Phare Prolongée 447, Dumbéa, 98835, New Caledonia",
+            "447",
+        ),
+        (
+            "Route du Phare Prolongée 365 ter, Dumbéa, 98835, New Caledonia",
+            "365ter",
+        ),
+        ("Route du Phare Prolongée 447 bis, Dumbéa, 98835", "447bis"),
+        (
+            "Route du Phare Prolongée 447 bis, Dumbéa, 98835, France",
+            "447bis",
+        ),
+    ] {
+        let found = resolver.resolve(query).await.unwrap();
+        assert!(found.good_match, "{query}: {found:?}");
+        let d = found.address_details.as_option().unwrap();
+        assert_eq!(
+            d.house_number.replace(' ', ""),
+            number,
+            "{query}: {found:?}"
+        );
+        assert_eq!(d.road, PROLONGEE.name, "{query}: {found:?}");
+        let at = found.geo_coordinates.as_option().unwrap();
+        assert!(
+            crate::metres((at.lon as f64, at.lat as f64), house(&PROLONGEE, number)) < 5.,
+            "{query}: {found:?}"
+        );
+    }
+    let parsed = resolver
+        .parse("Route Provinciale 4 bis, Dumbéa, 98835, New Caledonia")
+        .await
+        .unwrap();
+    assert!(!parsed.contains_key("house_number"), "{parsed:?}");
     for query in [
+        "Route du Phare Prolongée 520 bis, Dumbéa, 98835, New Caledonia",
+        "520 bis Route du Phare Prolongée, Dumbéa, 98835, New Caledonia",
+        "Route du Phare Prolongée 447 bis, Paris, 75001, France",
         "999 Route Territoriale 7, Rocail, 98880, New Caledonia",
         "271 Route Territoriale 9, Rocail, 98880, New Caledonia",
         "813 Route Territoriale 7, Rocail, 98880, New Caledonia",
@@ -244,17 +328,25 @@ pub async fn check_search(resolver: &Resolver) {
             "{query}: {found:?}"
         );
     }
-    let found = resolver
-        .resolve("271 Route Territoriale 7, Rocail, 98881, New Caledonia")
-        .await
-        .unwrap();
-    assert!(!found.good_match, "{found:?}");
-    if let Some(d) = found
-        .address_details
-        .as_option()
-        .filter(|d| !d.house_number.is_empty())
-    {
-        assert_eq!(d.postcode, "98880", "{found:?}");
+    for (query, postcode) in [
+        (
+            "271 Route Territoriale 7, Rocail, 98881, New Caledonia",
+            "98880",
+        ),
+        (
+            "Route du Phare Prolongée 447 bis, Dumbéa, 98881, New Caledonia",
+            "98835",
+        ),
+    ] {
+        let found = resolver.resolve(query).await.unwrap();
+        assert!(!found.good_match, "{query}: {found:?}");
+        if let Some(d) = found
+            .address_details
+            .as_option()
+            .filter(|d| !d.house_number.is_empty())
+        {
+            assert_eq!(d.postcode, postcode, "{query}: {found:?}");
+        }
     }
     let found = resolver
         .resolve("271 Route Territoriale 7, Rocail, 98880, France")
