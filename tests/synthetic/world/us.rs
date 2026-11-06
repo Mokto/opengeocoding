@@ -649,6 +649,40 @@ pub const REVERSE_STREETS: &[Street] = &[
 ];
 
 #[test]
+fn us_reverse_keeps_the_complete_scan_sorted_prefix_for_every_result_size() {
+    use opengeocoding::index::schema::{pack, unpack};
+
+    let street = crate::street("Ranking Lane");
+    for number in ["1", "8", "16"] {
+        let (lon, lat) = house(street, number);
+        for radius in [25.0, 150.0, 300.0] {
+            let mut expected: Vec<_> = street
+                .numbers
+                .iter()
+                .filter_map(|&number| {
+                    let (x, y) = house(street, number);
+                    let (hi, lo) = pack(x, y, 0);
+                    let (x, y, _) = unpack((hi as u64) << 32 | lo as u64);
+                    let distance = crate::metres((lon, lat), (x, y));
+                    (distance <= radius).then_some((number, distance))
+                })
+                .collect();
+            expected.sort_by(|a, b| a.1.total_cmp(&b.1).then(a.0.cmp(b.0)));
+            for size in 1..=10 {
+                let found = crate::index().reverse_search(lat, lon, radius, size);
+                assert_eq!(found.len(), size.min(expected.len()));
+                for ((layer, answer, distance), &(number, wanted)) in found.iter().zip(&expected) {
+                    assert_eq!(*layer, "address");
+                    assert_eq!(answer["address"]["road"], street.name);
+                    assert_eq!(answer["address"]["house_number"], number);
+                    assert_eq!(*distance, wanted);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn us_reverse_finds_a_house_at_its_second_copy_on_the_street() {
     let reverse = |lon: f64, lat: f64, radius: f64| {
         let found = crate::index().reverse_search(lat, lon, radius, 1);
@@ -1236,6 +1270,19 @@ pub const PLACES: &[Place] = &[
 ];
 
 pub const STREETS: &[Street] = &[
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Ranking Lane",
+        postcode: "75498",
+        city: "Paris",
+        cc: "US",
+        lon: -95.58,
+        lat: 33.66,
+        numbers: &[
+            "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+        ],
+    },
     Street {
         class: "residential",
         length: 0.0,
