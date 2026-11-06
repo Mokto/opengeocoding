@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.1](https://github.com/Mokto/opengeocoding/compare/v1.8.0...v1.8.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* keep New Caledonian street-first bis and ter numbers whole ([#548](https://github.com/Mokto/opengeocoding/issues/548)) ([90585ab](https://github.com/Mokto/opengeocoding/commit/90585abdf32d283765f54425cbcb281013d6f6ad))
+* name a district's city as the answer's city (Mitte is in Berlin) ([#551](https://github.com/Mokto/opengeocoding/issues/551)) ([7ec1451](https://github.com/Mokto/opengeocoding/commit/7ec1451b596f6162d259cfc74caf1c398a56dd5e))
+
 ## [1.8.0](https://github.com/Mokto/opengeocoding/compare/v1.7.1...v1.8.0) (2026-11-06)
 
 
