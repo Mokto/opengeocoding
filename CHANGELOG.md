@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.8.0](https://github.com/Mokto/opengeocoding/compare/v1.7.1...v1.8.0) (2026-11-06)
+
+
+### Features
+
+* add Korean shelter and protection-zone lot addresses ([#542](https://github.com/Mokto/opengeocoding/issues/542)) ([fd81b7b](https://github.com/Mokto/opengeocoding/commit/fd81b7b1f58f8c5f91557c2d2aac02c9791fc280))
+* import corroborated Korean licensing lot addresses ([#531](https://github.com/Mokto/opengeocoding/issues/531)) ([6afed2e](https://github.com/Mokto/opengeocoding/commit/6afed2e6048a8e32e874e61d649bb22e470873be))
+* read Korean register road addresses and Sejong shorthand ([#545](https://github.com/Mokto/opengeocoding/issues/545)) ([60d3be2](https://github.com/Mokto/opengeocoding/commit/60d3be2f82fc172178c5226fd1c5e749919af27c))
+
+
+### Bug Fixes
+
+* indonesian district searches jumping to a same-named village in another regency ([#544](https://github.com/Mokto/opengeocoding/issues/544)) ([8af6538](https://github.com/Mokto/opengeocoding/commit/8af6538a8d18fe1f18fa4aee3c62b202187302c7))
+* name the US community below a kept town on reverse houses ([#539](https://github.com/Mokto/opengeocoding/issues/539)) ([5362267](https://github.com/Mokto/opengeocoding/commit/53622678a58d91303d59f0aa293043c55daa0d2f))
+* name US reverse-house localities from TIGER/Line 2026 incorporated places ([#543](https://github.com/Mokto/opengeocoding/issues/543)) ([9439113](https://github.com/Mokto/opengeocoding/commit/9439113cb37ea7c0f5ae2ce274747efb561f9955))
+* read Indonesian short forms and addresses without the country ([#541](https://github.com/Mokto/opengeocoding/issues/541)) ([2abe48a](https://github.com/Mokto/opengeocoding/commit/2abe48a3a97b6714dde93fbc5b47d19b2c03ff69))
+
 ## [1.7.1](https://github.com/Mokto/opengeocoding/compare/v1.7.0...v1.7.1) (2026-11-05)
 
 
