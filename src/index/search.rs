@@ -1067,6 +1067,44 @@ impl Index {
         })
     }
 
+    /// The city whose district an answer names as its locality: Overture files a house in Berlin
+    /// under Mitte, in Düsseldorf under Stadtbezirk 9 and in New York under Manhattan, a locality
+    /// of no settlement class directly below the city (or the region or county that is the city).
+    /// Matching keeps the district as the town; only the answer is named after the city. The
+    /// district is the one of that name near the answer whose city the answer's region names.
+    pub(crate) fn district_city(
+        &self,
+        locality: &str,
+        regions: &[&str],
+        cc: &str,
+        (lon, lat): (f64, f64),
+    ) -> Option<&str> {
+        let key = name_key(locality);
+        let regions: Vec<u64> = regions
+            .iter()
+            .filter(|r| !r.is_empty())
+            .map(|r| name_key(r))
+            .collect();
+        let district = |p: &Place| p.subtype.as_ref() == "locality" && p.class.is_empty();
+        self.places(locality, Some(cc), None, &district)
+            .into_iter()
+            .find_map(|hit| {
+                let Hit::Place(id) = hit else { return None };
+                let pl = &self.places[id as usize];
+                let km = ((pl.x as f64 - lon) * lat.to_radians().cos()).hypot(pl.y as f64 - lat)
+                    * 111.195;
+                if !pl.named(key) || km > 30. {
+                    return None;
+                }
+                let city = &self.places[*self.chain(id).get(1)? as usize];
+                ((city.settlement_twin
+                    || (city.subtype.as_ref() == "locality"
+                        && matches!(&*city.class, "megacity" | "city" | "town")))
+                    && regions.iter().any(|&r| city.named(r)))
+                .then(|| city.name(true))
+            })
+    }
+
     pub(crate) fn house_admin_locality_named(&self, hit: &Hit, name: &str) -> bool {
         let Hit::Street {
             place,

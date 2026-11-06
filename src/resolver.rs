@@ -245,6 +245,7 @@ impl Resolver {
                 {
                     found = FullAddress::default();
                 }
+                name_district_city(&core.index, &mut found);
                 Ok(found)
             })
         })
@@ -3506,6 +3507,47 @@ fn part_answer(
     let (explained, total) = chosen.explained(query, address);
     let whole = total > 0 && explained == total;
     accept(chosen.found, address, postcode, "part", whole)
+}
+
+/// Names the city of a district the answer has as its locality; see `Index::district_city`.
+fn name_district_city(index: &Index, found: &mut FullAddress) {
+    let Some(g) = found.geo_coordinates.as_option() else {
+        return;
+    };
+    let (lon, lat) = (g.lon as f64, g.lat as f64);
+    let Some(d) = found.address_details.as_option() else {
+        return;
+    };
+    let Some((slot, locality)) = [&d.city, &d.town, &d.village]
+        .into_iter()
+        .enumerate()
+        .find(|(_, s)| !s.is_empty())
+    else {
+        return;
+    };
+    let regions = [&*d.county, &d.state, &d.state_district, &d.city];
+    let Some(city) = index
+        .district_city(
+            locality,
+            &regions,
+            &d.country_code.to_lowercase(),
+            (lon, lat),
+        )
+        .filter(|city| *city != locality)
+        .map(str::to_owned)
+    else {
+        return;
+    };
+    let d = found.address_details.get_or_insert_default();
+    let locality = std::mem::take(match slot {
+        0 => &mut d.city,
+        1 => &mut d.town,
+        _ => &mut d.village,
+    });
+    if d.city_district.is_empty() {
+        d.city_district = locality;
+    }
+    d.city = city;
 }
 
 fn locality(details: Option<&AddressDetails>) -> bool {

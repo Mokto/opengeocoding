@@ -62,6 +62,8 @@ pub const WIKIDATA: &[(&str, &str)] = &[
     ("fr-mq", "Q17054"),
     ("pr", "Q1183"),
     ("it-milano", "Q18288155"),
+    ("de-be", "Q64"),
+    ("de-berlin", "Q64"),
 ];
 
 mod ad;
