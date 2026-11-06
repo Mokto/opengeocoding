@@ -34,6 +34,21 @@ pub(super) fn letter_forms(number: &str) -> Vec<String> {
     forms
 }
 
+/// A range of two numbers keyed as its source spaces it: "5-6" is OSM's "5 - 6" too.
+fn range_forms(number: &str) -> Vec<String> {
+    let Some((a, b)) = number.split_once('-').map(|(a, b)| (a.trim(), b.trim())) else {
+        return vec![];
+    };
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|c| c.is_ascii_digit());
+    if !digits(a) || !digits(b) {
+        return vec![];
+    }
+    [format!("{a}-{b}"), format!("{a} - {b}")]
+        .into_iter()
+        .filter(|f| f != number)
+        .collect()
+}
+
 /// Whether written number key `n` names stored key `stored`: equal, or with its Cyrillic letter
 /// in Latin, the form [`letter_forms`] finds it under ("10a" for a written "10а").
 pub fn same_number(n: &str, stored: &str) -> bool {
@@ -84,7 +99,8 @@ impl Index {
                 }
                 let sid = self.fast(a, "id") as u32;
                 for n in numbers {
-                    let forms = letter_forms(n);
+                    let mut forms = letter_forms(n);
+                    forms.extend(range_forms(n));
                     for form in std::iter::once(n.as_str()).chain(forms.iter().map(String::as_str))
                     {
                         key.clear();
@@ -137,6 +153,7 @@ impl Index {
         }
         letter_forms(n)
             .into_iter()
+            .chain(range_forms(n))
             .find_map(|alt| get(&alt).map(|v| (alt, v)))
     }
 
@@ -209,6 +226,13 @@ impl Index {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_range_is_spaced_or_not() {
+        assert_eq!(range_forms("5-6"), ["5 - 6"]);
+        assert_eq!(range_forms("308 - 310"), ["308-310"]);
+        assert!(range_forms("12-a").is_empty() && range_forms("12").is_empty());
+    }
 
     #[test]
     fn a_letter_addition_is_glued_spaced_or_after_a_slash() {

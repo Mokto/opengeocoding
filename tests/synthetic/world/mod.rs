@@ -561,8 +561,10 @@ fn chain(p: &Place) -> Vec<&'static str> {
 }
 
 /// Localities without a square of their own: a point only, or the area `AREAS` gives them.
-const POINT_ONLY: [&str; 12] = [
+const POINT_ONLY: [&str; 14] = [
     "au-ardmore",
+    "gb-sleights",
+    "gb-ruswarp",
     "gb-harbor-city",
     "at-randweiler",
     "de-koeln-feldheim",

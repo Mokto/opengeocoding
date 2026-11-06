@@ -1,4 +1,4 @@
-use crate::index::country::{au, ca, de, dk, ee, gr, hk_mo, id, ie, is, jp, ps, pt, si, tw};
+use crate::index::country::{au, ca, de, dk, ee, gb, gr, hk_mo, id, ie, is, jp, ps, pt, si, tw};
 use crate::{
     index::{
         Index, Parser,
@@ -1549,12 +1549,62 @@ impl Core {
                 return Ok(alt);
             }
         }
+        let gb_place = |part: &str| self.index.names_place(part, Some("gb"));
+        for (without, town) in gb::without_post_town(query, gb_place) {
+            // a stated region or county stays a constraint
+            if self.index.region_named(town, "gb").is_some() {
+                continue;
+            }
+            let alt = self.resolve_written(&without)?;
+            if alt.good_match
+                && has_house(&alt)
+                && alt
+                    .address_details
+                    .as_option()
+                    .is_some_and(|d| d.country_code == "gb")
+                && let Some(g) = alt.geo_coordinates.as_option()
+                && self.index.place_near(town, Some("gb"), g.lat, g.lon, 30.)
+            {
+                METRICS.tiers.with_label_values(&["post_town"]).inc();
+                return Ok(alt);
+            }
+        }
+        if found.address_details.as_option().is_none_or(|d| {
+            d.road.is_empty() && (d.country_code == "gb" || found.display_name.is_empty())
+        }) && let Some(address) = self.parse(query)?
+            && matches!(expected_country(&address).as_str(), "gb" | "")
+            && part(&address, "postcode").is_empty()
+            && let [number, road, city] =
+                ["house_number", "road", "city"].map(|key| part(&address, key))
+            && !number.is_empty()
+            && !road.is_empty()
+            // the parser joins a village and its post town into one city
+            && let Some(house) = [city, gb::village(query)]
+                .into_iter()
+                .filter(|town| !town.is_empty())
+                .find_map(|town| self.index.gb_house_by_village(number, road, town))
+            && let house = format_response(&house)?
+            && state_consistent(&address, house.address_details.as_option())
+        {
+            return Ok(accept(house, &address, "", "gb_village", true));
+        }
         // Some Australian sources hold "unit/number" houses; elsewhere the building's house
         // answers a unit the index lacks.
         if let Some(building) = au::without_australian_unit(query) {
             let building = self.resolve_written(&building)?;
             if has_house(&building) {
                 return Ok(building);
+            }
+        }
+        if let Some((joined, number)) = joined_house_range(query) {
+            let alt = self.resolve_written(&joined)?;
+            if alt.good_match
+                && alt
+                    .address_details
+                    .as_option()
+                    .is_some_and(|d| d.house_number.split(whitespace).collect::<String>() == number)
+            {
+                return Ok(alt);
             }
         }
         if let Some((spaced, number)) = spaced_house_suffix(query) {

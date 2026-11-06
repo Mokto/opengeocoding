@@ -2363,3 +2363,33 @@ fn dk_or_de(town: &str) -> Option<String> {
         .map(str::to_owned)
         .or_else(|| opengeocoding::index::country::de::town_without_qualifier(town))
 }
+
+#[test]
+fn spaced_house_ranges_are_joined() {
+    for (query, joined, number) in [
+        (
+            "308 - 310 Fernhill Road, Farnborough",
+            "308-310 Fernhill Road, Farnborough",
+            "308-310",
+        ),
+        (
+            "Bank Street 5 - 6, Coleford, GL16 8BA",
+            "Bank Street 5-6, Coleford, GL16 8BA",
+            "5-6",
+        ),
+        ("2 -4 Invercauld Road", "2-4 Invercauld Road", "2-4"),
+    ] {
+        assert_eq!(
+            joined_house_range(query),
+            Some((joined.into(), number.into())),
+            "{query}"
+        );
+    }
+    for query in [
+        "308-310 Fernhill Road",
+        "Fernhill Road, 1012 - 34 Town",
+        "A1 - 2 Road",
+    ] {
+        assert_eq!(joined_house_range(query), None, "{query}");
+    }
+}

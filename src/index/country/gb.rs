@@ -19,7 +19,105 @@ fn postcode_and_area(q: &str) -> Option<(&str, &str)> {
         .then_some((pc, area))
 }
 
+/// "25 Aldis Road, Acle, Norwich, United Kingdom": Royal Mail writes a village or district
+/// before its post town, which can be a town 20 km away, and the parser reads both as one town
+/// that names nothing. Each British place (`gb_place`) among the parts after the first, last
+/// first, as (the query without it, the part). The first stays: dropping the village would let
+/// a namesake street in the post town answer. A county can end the query ("Norfolk" is also a
+/// country).
+pub fn without_post_town(query: &str, gb_place: impl Fn(&str) -> bool) -> Vec<(String, &str)> {
+    let parts: Vec<&str> = query.split(',').map(str::trim).collect();
+    let last = parts[parts.len() - 1];
+    let country = crate::matching::country_named(last);
+    if query.chars().count() > 256
+        || !parts[0].contains(|c: char| c.is_ascii_digit())
+        || !matches!(country.as_str(), "gb" | "") && !gb_place(last)
+    {
+        return vec![];
+    }
+    let end = parts.len() - usize::from(country == "gb");
+    let towns: Vec<usize> = (1..end).filter(|&i| place_like(parts[i])).collect();
+    towns
+        .iter()
+        .skip(1)
+        .rev()
+        .take(2)
+        .filter(|&&at| gb_place(parts[at]))
+        .map(|&at| {
+            let kept: Vec<&str> = (parts.iter().enumerate())
+                .filter(|&(i, _)| i != at)
+                .map(|(_, p)| *p)
+                .collect();
+            (kept.join(", "), parts[at])
+        })
+        .collect()
+}
+
+fn place_like(part: &str) -> bool {
+    !part.is_empty() && !part.contains(|c: char| c.is_ascii_digit())
+}
+
+/// The village of "25 Aldis Road, Acle, Norwich": the first part after the street that has no
+/// number and names no country.
+pub fn village(query: &str) -> &str {
+    query
+        .split(',')
+        .skip(1)
+        .map(str::trim)
+        .find(|p| place_like(p) && crate::matching::country_named(p).is_empty())
+        .unwrap_or("")
+}
+
 impl Index {
+    /// "3 Lee Terrace, Shotton Colliery": many British villages are only points in the data,
+    /// inside a parish of another name that their streets are filed under (Sleights in
+    /// Eskdaleside cum Ugglebarnby), so a street lookup scoped to the village finds nothing. The
+    /// one house of that number on a street of that name within 2 km of a British place named
+    /// `town`; none when two such houses are.
+    pub fn gb_house_by_village(&self, number: &str, road: &str, town: &str) -> Option<Value> {
+        const NEAR_KM: f64 = 2.;
+        let key = name_key(town);
+        let local = |p: &Place| {
+            p.named(key)
+                && !matches!(
+                    &*p.subtype,
+                    "country" | "dependency" | "region" | "macroregion" | "county" | "macrocounty"
+                )
+        };
+        let numbers = [schema::number_key(number)];
+        let mut found: Vec<Value> = vec![];
+        for hit in self
+            .places(town, Some("gb"), None, &local)
+            .into_iter()
+            .take(5)
+        {
+            let Hit::Place(id) = hit else { continue };
+            let p = &self.places[id as usize];
+            let (lat, lon) = (p.y as f64, p.x as f64);
+            let houses =
+                self.houses_numbered(&numbers, "", road, true, Some("gb"), (lat, lon), |n| {
+                    crate::matching::roads_agree(road, n)
+                });
+            for house in houses {
+                let at = |k: &str| house[k].as_str().and_then(|v| v.parse::<f64>().ok());
+                let (Some(y), Some(x)) = (at("lat"), at("lon")) else {
+                    continue;
+                };
+                if ((x - lon) * lat.to_radians().cos()).hypot(y - lat) * 111.2 < NEAR_KM
+                    && !found
+                        .iter()
+                        .any(|f| f["lat"] == house["lat"] && f["lon"] == house["lon"])
+                {
+                    found.push(house);
+                }
+            }
+        }
+        match <[Value; 1]>::try_from(found) {
+            Ok([house]) => Some(house),
+            Err(_) => None,
+        }
+    }
+
     /// A British postcode written with the area it is in: one its own places name, or a place
     /// of that name near it. Local authorities like Chichester or Uttlesford are only points in
     /// the data, not areas a postcode is filed under, so "near" is within about the radius of
@@ -108,7 +206,38 @@ impl Index {
 
 #[cfg(test)]
 mod tests {
-    use super::postcode_and_area;
+    use super::{postcode_and_area, village, without_post_town};
+
+    #[test]
+    fn post_town_dropped() {
+        let gb = |p: &str| !matches!(p, "Paris" | "Belgium");
+        assert_eq!(
+            without_post_town("25 Aldis Road, Acle, Norwich, United Kingdom", gb),
+            vec![("25 Aldis Road, Acle, United Kingdom".into(), "Norwich")]
+        );
+        assert_eq!(
+            without_post_town("2 The Green, Hethersett, Norwich, Norfolk", gb),
+            vec![
+                ("2 The Green, Hethersett, Norwich".into(), "Norfolk"),
+                ("2 The Green, Hethersett, Norfolk".into(), "Norwich"),
+            ]
+        );
+        assert_eq!(
+            without_post_town("2 The Green, Hethersett, Norwich, NR9 3AA", gb),
+            vec![("2 The Green, Hethersett, NR9 3AA".into(), "Norwich")]
+        );
+        assert!(without_post_town("1 Rue X, Marais, Paris", gb).is_empty());
+        assert!(without_post_town("25 Aldis Road, Acle, United Kingdom", gb).is_empty());
+        assert!(without_post_town("Aldis Road, Acle, Norwich", gb).is_empty());
+        assert!(without_post_town("25 Rue Haute, Uccle, Bruxelles, Belgium", gb).is_empty());
+    }
+
+    #[test]
+    fn village_is_the_first_place_part() {
+        assert_eq!(village("25 Aldis Road, Acle, Norwich"), "Acle");
+        assert_eq!(village("Flat 2, 10 High Street, Acle, Norwich"), "Acle");
+        assert_eq!(village("25 Aldis Road, NR13 3RJ, United Kingdom"), "");
+    }
 
     #[test]
     fn postcode_then_area() {
