@@ -13,6 +13,9 @@ use opengeocoding::{metrics::METRICS, regions::Regions, resolver::Resolver, serv
 use std::{borrow::Cow, sync::Arc, time::Duration};
 use tokio::sync::watch;
 
+#[global_allocator]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 // axum::serve leaves Nagle on, which stalls each small reply behind the client's delayed ACK.
 async fn rpc_listener(
     port: u16,
