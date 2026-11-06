@@ -56,3 +56,7 @@ The [CDP locality correction](../../notes/us-reverse-cdps.md) uses uniquely cont
 ## Census government-boundary follow-up
 
 The [separate US implementation](../../notes/us-reverse-municipalities.md) fills a missing reverse-house `municipality` only from one containing Census 2026 TIGER/Line active-government polygon in the rendered state. An incorporated place holding the house also names its locality, replacing a nearby settlement outside it; every selected-house field is preserved. This is dated statistical-government membership, not a postal-city conversion, a CDP assertion or a legal jurisdiction determination. No NAD expectations, labels, hold-out assignments or scoring rules change.
+
+## Wrong-house follow-up
+
+The [wrong-house investigation](../../notes/us-reverse-wrong-house.md) classifies the training cases where ReverseGeocode selects another house. These are numbers that NAD itself places at one point, unit points the index averages, missing houses and source conflicts. It fixes one mechanism, which is shared by every country: a number's second copy far along its street was invisible to ReverseGeocode. No expectations, labels, hold-out assignments or scoring rules change.

@@ -576,7 +576,124 @@ pub const REVERSE_STREETS: &[Street] = &[
         lat: 36.0,
         numbers: &["23A-25"],
     },
+    // One register's two houses 12 of one street, about 540 m apart: the builder keeps the
+    // eastern one as the street's far copy of the number, with no other house of the street
+    // near it. Copy Neighbour Lane's house stands 20 m north of that copy.
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Hollow Copy Road",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.038,
+        lat: 35.982,
+        numbers: &["12", "14"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Hollow Copy Road",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.032,
+        lat: 35.982,
+        numbers: &["12"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Copy Neighbour Lane",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.032,
+        lat: 35.98218,
+        numbers: &["7"],
+    },
+    // The same, with another street's house 0.3 m from the far copy of 5.
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Shadow Copy Road",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.038,
+        lat: 35.984,
+        numbers: &["5"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Shadow Copy Road",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.032,
+        lat: 35.984,
+        numbers: &["5"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Shadow Copy Court",
+        postcode: "84001",
+        city: "Dispatch",
+        cc: "US",
+        lon: -108.032,
+        lat: 35.9840027,
+        numbers: &["5A"],
+    },
 ];
+
+#[test]
+fn us_reverse_finds_a_house_at_its_second_copy_on_the_street() {
+    let reverse = |lon: f64, lat: f64, radius: f64| {
+        let found = crate::index().reverse_search(lat, lon, radius, 1);
+        assert_eq!(found.len(), 1, "{lon} {lat}");
+        let (layer, value, _) = &found[0];
+        assert_eq!(*layer, "address");
+        let at = (
+            value["lon"].as_str().unwrap().parse().unwrap(),
+            value["lat"].as_str().unwrap().parse().unwrap(),
+        );
+        (
+            value["address"]["house_number"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+            value["address"]["road"].as_str().unwrap().to_string(),
+            value["address"]["postcode"].as_str().unwrap().to_string(),
+            value["address"]["ISO3166-2-lvl4"]
+                .as_str()
+                .unwrap()
+                .to_string(),
+            at,
+        )
+    };
+    let (west, east, neighbour) = ((-108.038, 35.982), (-108.032, 35.982), (-108.032, 35.98218));
+    for radius in [2.0, 100.0] {
+        let (number, road, postcode, region, at) = reverse(east.0, east.1, radius);
+        assert_eq!(
+            (&*number, &*road, &*postcode, &*region),
+            ("12", "Hollow Copy Road", "84001", "US-UT")
+        );
+        assert!(crate::metres(at, east) < 0.2, "{at:?}");
+    }
+    // The first copy stays where it was.
+    let (number, road, _, _, at) = reverse(west.0, west.1, 2.0);
+    assert_eq!((&*number, &*road), ("12", "Hollow Copy Road"));
+    assert!(crate::metres(at, west) < 0.2, "{at:?}");
+    // 15 m north of the copy, the neighbour 5 m away is the nearer house.
+    let (number, road, _, _, at) = reverse(east.0, 35.982135, 100.0);
+    assert_eq!((&*number, &*road), ("7", "Copy Neighbour Lane"));
+    assert!(crate::metres(at, neighbour) < 0.2, "{at:?}");
+    // At a far copy, a stored house within a metre answers.
+    let (number, road, _, _, _) = reverse(-108.032, 35.984, 100.0);
+    assert_eq!((&*number, &*road), ("5a", "Shadow Copy Court"));
+}
 
 #[test]
 fn us_reverse_house_locality_is_not_the_nearest_or_postal_name() {

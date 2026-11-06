@@ -581,18 +581,19 @@ fn shard(
         }
         let x = x & ((1 << RANK_SHIFT) - 1);
         fst.insert(&key, ((x as u64) << 32) | y as u64).unwrap();
-        if let Some((fx, fy)) = far {
-            let fx = fx & ((1 << RANK_SHIFT) - 1);
-            far_fst
-                .insert(&key, ((fx as u64) << 32) | fy as u64)
-                .unwrap();
-        }
         n += 1;
         if sid != run_sid {
             super::reverse::street_postings(&mut run, run_sid, &mut posts);
             run_sid = sid;
         }
         run.push(super::reverse::key(x, y));
+        if let Some((fx, fy)) = far {
+            let fx = fx & ((1 << RANK_SHIFT) - 1);
+            far_fst
+                .insert(&key, ((fx as u64) << 32) | fy as u64)
+                .unwrap();
+            run.push(super::reverse::key(fx, fy));
+        }
     };
     while i < a.len() || j < b.len() {
         // A house goes to the long list when its postcode had no slot, which depends on arrival

@@ -8,6 +8,13 @@ const FAR_REGION_M: f64 = 150_000.0;
 
 pub(super) const NEAR_LOCALITY_M: f64 = 50_000.0;
 
+/// How far behind the stored houses a street's second copy of a number (`schema::far_file`)
+/// ranks: one on another house's point is mostly that house under another key (č.ev. 30's bare
+/// 30, 85a's bare 85, a range's first number).
+// ponytail: a flat slack, so a far copy also yields to another house up to 1 m farther away;
+// looking for a stored house at the copy's own point would be exact.
+const FAR_COPY_SLACK_M: f64 = 1.0;
+
 /// The index has only a point for most settlements, and a town spreads further around its point
 /// than a village: at a town's centre a hamlet's point can be nearer than the town's own.
 // ponytail: one factor for every town and city, whatever its size; 2 fixed more town points of
@@ -39,7 +46,8 @@ impl Index {
         let cos = lat.to_radians().cos().max(0.01);
         let cell_m = reverse::CELL_LAT_M.min(reverse::CELL_LON_M * cos);
         let meters = |x: f64, y: f64| ((x - lon) * cos).hypot(y - lat) * 111_195.0;
-        // (distance, street id, street document, number, x, y, postcode slot)
+        // (distance, plus the slack for a far copy, street id, street document, number, x, y,
+        // postcode slot)
         let mut found: Vec<(f64, u32, DocAddress, String, f64, f64, u8)> = vec![];
         let (mut seen, mut docs) = (std::collections::HashSet::new(), vec![]);
         for r in 0..=(radius_m / cell_m).ceil() as i64 {
@@ -52,13 +60,15 @@ impl Index {
                 let (segment, doc) = reverse::unpack_doc(packed);
                 let a = DocAddress::new(segment, doc);
                 let sid = self.fast(a, "id") as u32;
-                self.each_house(sid, |number, x, y, own| {
-                    let m = meters(x, y);
-                    if m <= radius_m {
-                        let number = String::from_utf8_lossy(number).into_owned();
-                        found.push((m, sid, a, number, x, y, own));
-                    }
-                });
+                for (far, slack) in [(false, 0.0), (true, FAR_COPY_SLACK_M)] {
+                    self.each_house(sid, far, |number, x, y, own| {
+                        let m = meters(x, y);
+                        if m <= radius_m {
+                            let number = String::from_utf8_lossy(number).into_owned();
+                            found.push((m + slack, sid, a, number, x, y, own));
+                        }
+                    });
+                }
             }
             // Ties go by street id, not document address, which differs between two builds.
             found.sort_by(|p, q| {
@@ -73,10 +83,10 @@ impl Index {
         }
         found
             .into_iter()
-            .filter_map(|(m, _, a, number, x, y, own)| {
+            .filter_map(|(_, _, a, number, x, y, own)| {
                 Some((
                     self.render_reverse(&self.house_hit(a, number, x, y, own)?),
-                    m,
+                    meters(x, y),
                 ))
             })
             .collect()
@@ -144,7 +154,7 @@ impl Index {
                 let a = DocAddress::new(segment, doc);
                 let sid = self.fast(a, "id") as u32;
                 let mut own = (f64::MAX, 0);
-                self.each_house(sid, |_, hx, hy, slot| {
+                self.each_house(sid, false, |_, hx, hy, slot| {
                     let d = ((hx - x) * cos).hypot(hy - y);
                     if d < own.0 {
                         own = (d, slot);

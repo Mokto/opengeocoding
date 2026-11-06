@@ -32,6 +32,17 @@ pub fn inspect(dir: &Path, cases: &[Case]) -> Result<Vec<Value>> {
             )?)?))
         })
         .collect::<Result<Vec<_>>>()?;
+    let far = (0..shards)
+        .map(|s| {
+            let name = schema::far_file(s);
+            if !dir.join(&name).exists() {
+                return Ok(None);
+            }
+            Ok(Some(tantivy_fst::Map::from(tantivy_fst::raw::Fst::new(
+                read(&name)?,
+            )?)))
+        })
+        .collect::<Result<Vec<_>>>()?;
     let index = tantivy::Index::open_in_dir(dir)?;
     let searcher = index.reader()?.searcher();
     let fields = index.schema();
@@ -104,18 +115,24 @@ pub fn inspect(dir: &Path, cases: &[Case]) -> Result<Vec<Value>> {
                     .collect::<Vec<_>>()
                     .join("\u{1f}")
             };
-            let mut range = numbers[sid as usize % shards].range().ge(sid.to_be_bytes());
-            if let Some(next) = sid.checked_add(1) {
-                range = range.lt(next.to_be_bytes());
-            }
-            let mut stream = range.into_stream();
             let mut keys = vec![];
             let mut nearby = false;
-            while let Some((key, value)) = stream.next() {
-                let (x, y, slot) = schema::unpack(value);
-                let metres = ((x - lon) * cos).hypot(y - lat) * 111_195.;
-                nearby |= metres <= radius;
-                keys.push(json!({"number": std::str::from_utf8(&key[4..])?, "point": [y, x], "distance_m": metres, "postcode_slot": slot}));
+            for (map, is_far) in [
+                (Some(&numbers[sid as usize % shards]), false),
+                (far[sid as usize % shards].as_ref(), true),
+            ] {
+                let Some(map) = map else { continue };
+                let mut range = map.range().ge(sid.to_be_bytes());
+                if let Some(next) = sid.checked_add(1) {
+                    range = range.lt(next.to_be_bytes());
+                }
+                let mut stream = range.into_stream();
+                while let Some((key, value)) = stream.next() {
+                    let (x, y, slot) = schema::unpack(value);
+                    let metres = ((x - lon) * cos).hypot(y - lat) * 111_195.;
+                    nearby |= metres <= radius;
+                    keys.push(json!({"number": std::str::from_utf8(&key[4..])?, "point": [y, x], "distance_m": metres, "postcode_slot": slot, "far": is_far}));
+                }
             }
             if distance.is_some() || nearby {
                 found.push(json!({"segment": segment_ord, "doc": doc_id, "sid": sid, "place": place, "name": text(name), "postcodes": text(pcode), "line_distance_m": distance, "houses": keys}));
@@ -162,6 +179,13 @@ mod tests {
             (x as u64) << 32 | y as u64,
         )?;
         std::fs::write(dir.join("numbers-00.fst"), fst.into_inner()?)?;
+        let mut far = tantivy_fst::MapBuilder::memory();
+        let (x, y) = schema::pack(30.0001, 10., 0);
+        far.insert(
+            [11u32.to_be_bytes().as_slice(), b"123"].concat(),
+            (x as u64) << 32 | y as u64,
+        )?;
+        std::fs::write(dir.join(schema::far_file(0)), far.into_inner()?)?;
         std::fs::write(dir.join("numbers.shards"), "1")?;
         reverse::write_spill(&dir.join(reverse::SPILL), 0, posts);
         let spill = reverse::StreetSpill::new(&dir.join(reverse::STREETS_SPILL));
@@ -183,6 +207,8 @@ mod tests {
         assert_eq!(target["houses"][0]["number"], "123");
         assert_eq!(target["houses"][1]["number"], "999");
         assert!(target["houses"][1]["distance_m"].as_f64().unwrap() > 1000.);
+        assert_eq!(target["houses"][2]["number"], "123");
+        assert_eq!(target["houses"][2]["far"], true);
         let mut dateline = case;
         dateline.expect.as_mut().unwrap().point = Some([0., 179.999]);
         assert!(

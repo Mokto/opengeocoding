@@ -206,12 +206,24 @@ impl Index {
         Some(self.render(&self.house_hit(a, number.into(), x, y, own)?, true))
     }
 
-    /// Calls `each` with every house of street `sid`: its number, position and postcode slot.
-    pub(super) fn each_house(&self, sid: u32, mut each: impl FnMut(&[u8], f64, f64, u8)) {
+    /// Calls `each` with every house of street `sid`: its number, position and postcode slot;
+    /// with `far`, each number's second copy far along the street instead (`schema::far_file`).
+    pub(super) fn each_house(
+        &self,
+        sid: u32,
+        far: bool,
+        mut each: impl FnMut(&[u8], f64, f64, u8),
+    ) {
         use tantivy_fst::{IntoStreamer, Streamer};
-        let mut range = self.numbers[sid as usize % self.numbers.len()]
-            .range()
-            .ge(sid.to_be_bytes());
+        let shard = sid as usize % self.numbers.len();
+        let Some(map) = (if far {
+            self.far[shard].as_ref()
+        } else {
+            Some(&self.numbers[shard])
+        }) else {
+            return;
+        };
+        let mut range = map.range().ge(sid.to_be_bytes());
         if let Some(next) = sid.checked_add(1) {
             range = range.lt(next.to_be_bytes());
         }
