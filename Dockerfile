@@ -105,7 +105,7 @@ ENTRYPOINT ["/usr/local/bin/opengeocoding"]
 FROM runtime AS eval
 COPY --from=evaluate-compiled /source/target/release/evaluate /usr/local/bin/
 # The evaluator reads the suite from its build directory so the image and `evaluate run` agree.
-COPY tests/gold.jsonl tests/gold.landmarks.jsonl tests/gold.towns.jsonl tests/gold.gleif.jsonl tests/gold.people.jsonl tests/gold.id-villages.jsonl tests/gold.suggest.jsonl /source/tests/
+COPY tests/gold.jsonl tests/gold.landmarks.jsonl tests/gold.towns.jsonl tests/gold.gleif.jsonl tests/gold.people.jsonl tests/gold.id-villages.jsonl tests/gold.id-districts.jsonl tests/gold.suggest.jsonl /source/tests/
 COPY tests/registry /source/tests/registry
 COPY tests/global/global-addresses.jsonl /source/tests/global/
 COPY tests/global/NOTICE /usr/local/share/licenses/opengeocoding/global/NOTICE

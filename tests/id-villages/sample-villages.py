@@ -69,8 +69,9 @@ def fold(text):
     return " ".join(re.sub(r"[^a-z0-9]+", " ", text).split())
 
 
-def bps_villages(xlsx):
-    """adm4_pcode -> (name, lat, lon, area_sqkm) from the COD-AB workbook's idn_admin4 sheet."""
+def bps_villages(xlsx, level=4):
+    """adm4_pcode -> (name, lat, lon, area_sqkm) from the COD-AB workbook's idn_admin4 sheet, or
+    the districts' from idn_admin3 with `level` 3."""
     with zipfile.ZipFile(xlsx) as z:
         strings = [
             "".join(t.text or "" for t in si.iter(f"{{{NS['m']}}}t"))
@@ -79,7 +80,7 @@ def bps_villages(xlsx):
         book = ET.fromstring(z.read("xl/workbook.xml"))
         rels = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
         target = {r.get("Id"): r.get("Target") for r in rels}
-        sheet = next(s for s in book.find("m:sheets", NS) if s.get("name") == "idn_admin4")
+        sheet = next(s for s in book.find("m:sheets", NS) if s.get("name") == f"idn_admin{level}")
         path = "xl/" + target[sheet.get(REL)].lstrip("/").removeprefix("xl/")
         rows = ET.fromstring(z.read(path)).find("m:sheetData", NS)
 
@@ -100,8 +101,8 @@ def bps_villages(xlsx):
         out = {}
         for row in it:
             c = cells(row)
-            out[c[col("adm4_pcode")]] = (
-                c[col("adm4_name")],
+            out[c[col(f"adm{level}_pcode")]] = (
+                c[col(f"adm{level}_name")],
                 float(c[col("center_lat")]),
                 float(c[col("center_lon")]),
                 float(c[col("area_sqkm")]),

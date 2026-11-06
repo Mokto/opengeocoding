@@ -105,6 +105,19 @@ On the local world index (builder `542240026746364e`), SearchAddress passes 173 
 
 Limitations: the corpus checks villages, not streets or houses (the index has about 68,000 Indonesian house numbers). Wikidata's points are vetted against BPS's 2020 centres, not surveyed. Where the index's only village of a name lies outside BPS's polygon (Kapuk in Ogan Ilir, Mekarsari in Lebak), the answer is a near miss on every form of the query; these are source disagreements, not resolver errors. A district answered for a village the index lacks (`Nisam` for Paloh Mambu) is scored as a near miss, since the index files districts as localities.
 
+### Indonesian districts
+
+`tests/gold.id-districts.jsonl` checks Indonesian districts (kecamatan, distrik in Papua) written after their regency or city and province, without and with the labels: `Gubeng, Kota Surabaya, Jawa Timur, Indonesia` and `Kec. Gubeng, Kota Surabaya, Jawa Timur, Indonesia`. It has 600 queries for 300 districts, each expecting the district (level `locality`) within twice the radius of a circle of the district's area (2 to 25 km) and goodMatch true.
+
+`tests/id-villages/sample-districts.py` picks them as `sample-villages.py` picks villages: Wikidata items with a seven-digit Kemendagri code (P1588), coordinates and one regency and province above them, eligible only when OCHA's COD-AB copy of the BPS district table has a district of that code and name, the Wikidata point lies within twice its circle-equivalent radius plus 1 km of BPS's centre, and no other district of the regency has the name. In November 2026, 5,866 of 6,499 Wikidata districts were eligible; 363 had another name in BPS, 195 lay too far from BPS's centre and 74 had a code BPS lacks. `tests/id-villages/districts.manifest.json` records the workbook's and each SPARQL response's hash.
+
+```sh
+python3 tests/id-villages/sample-districts.py --codab SOURCE/idn_admin_boundaries.xlsx
+target/release/evaluate build-gold --seeds tests/gold.id-districts.seeds.jsonl --out tests/gold.id-districts.jsonl
+```
+
+On the local world index (builder `fa7e87e136675d09`), SearchAddress passes 401 of the 600 on `main` at `5362267` and 407 once a district answer is no longer swapped for a namesake settlement outside the stated regency (four far misses fixed: Sawang, Singajaya, Cibiuk, Bojongsari). The index holds 2,154 Overture localadmin places in Indonesia, about a third of BPS's districts; a district without one is answered by a locality of its name, when there is one.
+
 ### GLEIF addresses at town level
 
 `tests/gold.people.jsonl` holds place strings as people profiles and job postings write them, lower-cased and with "metropolitan", "area", "region" and "greater" removed by the caller: "Hong Kong S.A.R.", "Alexandria, Al Iskandariyah, Egypt", "Aalborg, North Jutland, Denmark", " san francisco bay ". It is generated from `tests/gold.people.seeds.jsonl` by `evaluate build-gold --seeds tests/gold.people.seeds.jsonl --out tests/gold.people.jsonl`, with every point and region from Wikidata. Most expect the town or region with goodMatch false, since only the fallback on a query's parts finds them; "Srinagar, Jammu and Kashmir, Pakistan" expects Azad Jammu and Kashmir (PK-JK), the stated country's region of that name (tag `policy_stated_country`).

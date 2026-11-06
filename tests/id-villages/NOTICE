@@ -1,15 +1,17 @@
-Indonesian village corpus
+Indonesian village and district corpora
 
-The villages, their names, their district, regency and province names and the
-expected points and ISO 3166-2 codes in tests/gold.id-villages.seeds.jsonl and
-tests/gold.id-villages.jsonl come from Wikidata (CC0 1.0,
-https://www.wikidata.org/), as recorded per case.
+The villages and districts, their names, their district, regency and province
+names and the expected points and ISO 3166-2 codes in
+tests/gold.id-villages.seeds.jsonl, tests/gold.id-villages.jsonl,
+tests/gold.id-districts.seeds.jsonl and tests/gold.id-districts.jsonl come from
+Wikidata (CC0 1.0, https://www.wikidata.org/), as recorded per case.
 
-Villages were vetted against, and each case's tolerance derived from the village
-areas of, the Indonesia Subnational Administrative Boundaries (COD-AB) published
+Villages and districts were vetted against, and each case's tolerance derived
+from the village and district areas of, the Indonesia Subnational Administrative Boundaries (COD-AB) published
 by OCHA on the Humanitarian Data Exchange
 (https://data.humdata.org/dataset/cod-ab-idn), compiled from Badan Pusat
 Statistik (BPS - Statistics Indonesia), licensed under the Creative Commons
 Attribution 3.0 IGO licence (https://creativecommons.org/licenses/by/3.0/igo/).
 No boundary or name from it is redistributed here. The file used and its SHA-256
-are recorded in tests/id-villages/manifest.json.
+are recorded in tests/id-villages/manifest.json and
+tests/id-villages/districts.manifest.json.

@@ -6,6 +6,7 @@
 use crate::{
     index::{Hit, Index, NONE, Parsed, Place, name_key, parse::field},
     matching::{ParsedAddress, normalize_place, part, region_words},
+    proto::opengeocoding::FullAddress,
 };
 use serde_json::Value;
 use std::borrow::Cow;
@@ -380,15 +381,18 @@ pub(crate) fn outside(index: &Index, scope: &Scope, hit: &Hit, candidate: &Value
             .any(|&p| in_scope(&index.places[p as usize], scope))
 }
 
-/// Whether a point lies outside the stated regency: in another regency's polygon, or, where
+/// Whether an answer lies outside the stated regency: in another regency's polygon, or, where
 /// no regency polygon holds it, in a province no regency of that name is in.
-pub(crate) fn elsewhere(
-    index: &Index,
-    scope: &Scope,
-    lat: f32,
-    lon: f32,
-    regions: &[&str],
-) -> bool {
+pub(crate) fn elsewhere(index: &Index, scope: &Scope, answer: &FullAddress) -> bool {
+    let Some(at) = answer.geo_coordinates.as_option() else {
+        return false;
+    };
+    let (lat, lon) = (at.lat, at.lon);
+    let regions: Vec<&str> = answer
+        .address_details
+        .as_option()
+        .map(|d| d.region_codes.iter().map(|r| r.code.as_str()).collect())
+        .unwrap_or_default();
     let county = index
         .area_at(lat as f64, lon as f64)
         .0

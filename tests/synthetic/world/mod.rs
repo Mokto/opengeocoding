@@ -755,6 +755,7 @@ pub fn write_release(dir: &Path) {
         .chain(pl::REVERSE_AREAS.iter().copied())
         .chain(us::REVERSE_AREAS.iter().copied())
         .chain(kr::AREAS.iter().copied())
+        .chain(id::AREAS.iter().copied())
         .collect();
     write(
         dir,
