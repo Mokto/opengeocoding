@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Case, Want, at_house, case, street, town};
+use crate::{Case, Want, at_house, case, named, street, town};
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -37,6 +37,44 @@ pub const PLACES: &[Place] = &[
         "de-nw",
         "Köln",
         &[("en", "Cologne"), ("de", "Köln"), ("es", "Colonia")],
+    ),
+    // Berlin is a region and, with the same item, a city; its districts are localities of no
+    // class in the region, beside the city's own point
+    place!(
+        "de-be",
+        "region",
+        "",
+        "DE",
+        "DE-BE",
+        3_800_000,
+        (13.4, 52.52),
+        "de",
+        "Berlin",
+        &[("en", "Berlin")],
+    ),
+    place!(
+        "de-berlin",
+        "locality",
+        "city",
+        "DE",
+        "DE-BE",
+        3_800_000,
+        (13.405, 52.52),
+        "de-be",
+        "Berlin",
+        &[("en", "Berlin")],
+    ),
+    place!(
+        "de-berlin-mitte",
+        "locality",
+        "",
+        "DE",
+        "DE-BE",
+        380_000,
+        (13.389, 52.517),
+        "de-be",
+        "Mitte",
+        &[("en", "Mitte")],
     ),
     // a village Overture has as a point inside Cologne's polygon, with none of its own
     place!(
@@ -177,6 +215,8 @@ pub fn cases() -> Vec<Case> {
             at_house("Hohe Straße", "2"),
         ),
         case("Cologne, Germany", town("de-koeln", true)),
+        // a district of Berlin is answered as itself, named as in Berlin
+        named("Mitte, Berlin, Germany", "de", "Berlin", &["DE-BE"], true),
         case("Köln, Germany", town("de-koeln", true)),
         Case {
             query: "Koeln",
