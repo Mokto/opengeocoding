@@ -8,6 +8,17 @@ use std::{
 
 pub type Pending = HashMap<String, HashMap<String, Vec<Row>>>;
 
+/// A lot ("새벽리 812") or a road address ("새로12길 13") as its street and number, and whether it
+/// is a lot.
+fn listed(
+    address: &str,
+    known_area: impl FnMut(&str) -> bool + Clone,
+) -> Option<(&str, String, bool)> {
+    kr::listed_lot(address, known_area.clone())
+        .map(|(s, n)| (s, n, true))
+        .or_else(|| kr::listed_road(address, known_area).map(|(s, n)| (s, n, false)))
+}
+
 pub struct Row {
     address: String,
     x: f64,
@@ -29,8 +40,8 @@ pub fn read(source: Option<&str>) -> Result<(Pending, serde_json::Value)> {
     };
     let mut lines = BufReader::new(input).lines();
     ensure!(
-        lines.next().transpose()?.as_deref() == Some("lot_address\tlon\tlat"),
-        "Korean lot input needs lot_address, lon, lat TSV columns"
+        lines.next().transpose()?.as_deref() == Some("address\tlon\tlat"),
+        "Korean lot input needs address, lon, lat TSV columns"
     );
     let mut pending = Pending::new();
     let mut seen = HashSet::new();
@@ -52,7 +63,7 @@ pub fn read(source: Option<&str>) -> Result<(Pending, serde_json::Value)> {
             "invalid Korean lot coordinate on line {}",
             i + 2
         );
-        let (street, number) = kr::listed_lot(address, |_| true)
+        let (street, number, _) = listed(address, |_| true)
             .with_context(|| format!("invalid Korean lot address on line {}", i + 2))?;
         ensure!(
             seen.insert((address.to_string(), x.to_bits(), y.to_bits())),
@@ -99,16 +110,20 @@ pub fn add(
     });
     let remaining = rows.len();
     let mut audit = BufWriter::new(std::fs::File::create(out.join("korea-lots-admitted.tsv"))?);
-    writeln!(audit, "lot_address\tlon\tlat")?;
+    writeln!(audit, "address\tlon\tlat")?;
     let mut sink = Sink::new(shared).ranked(LAST_RANK);
     sink.street_priority = 0;
     sink.lot = true;
+    // Road houses belong on their mapped roads, reverse postings included.
+    let mut roads = Sink::new(shared).ranked(LAST_RANK);
+    roads.street_priority = 0;
+    let mut road_rows = 0;
     let mut added = 0;
     let mut mixed = 0;
     let mut mapped = 0;
     let mut administration = 0;
     let corroborates = |p: u32, address: &str| {
-        kr::listed_lot(address, |area| {
+        listed(address, |area: &str| {
             std::iter::once(&p)
                 .chain(places[p as usize].anc.iter())
                 .any(|id| {
@@ -155,7 +170,7 @@ pub fn add(
         }
         let direct = corroborates(p, &row.address);
         if direct {
-            let (street, number) = kr::listed_lot(&row.address, |_| true).unwrap();
+            let (street, number, _) = listed(&row.address, |_| true).unwrap();
             strict_pairs.insert((fold(street), number));
         }
         located.push((row, p, admin.unwrap(), direct));
@@ -163,7 +178,25 @@ pub fn add(
     located.sort_by_key(|(_, _, _, direct)| !*direct);
     let mut descendant = 0;
     for (row, p, admin, direct) in located {
-        let (street, number) = kr::listed_lot(&row.address, |_| true).unwrap();
+        let (street, number, lot) = listed(&row.address, |_| true).unwrap();
+        if !direct && !lot {
+            continue;
+        }
+        if !lot {
+            roads.add(
+                Some(*b"KR"),
+                row.x,
+                row.y,
+                Some(street),
+                Some(&number),
+                None,
+                &[],
+            );
+            writeln!(audit, "{}\t{:.9}\t{:.9}", row.address, row.x, row.y)?;
+            added += 1;
+            road_rows += 1;
+            continue;
+        }
         if !direct {
             if strict_pairs.contains(&(fold(street), number.clone())) {
                 continue;
@@ -222,6 +255,7 @@ pub fn add(
         descendant += usize::from(!direct);
     }
     audit.flush()?;
+    metadata["road_rows"] = road_rows.into();
     metadata["remaining_after_existing_pairs"] = remaining.into();
     metadata["mixed_streets_rejected"] = mixed.into();
     metadata["mapped_roads_rejected"] = mapped.into();
@@ -252,7 +286,7 @@ mod tests {
                 .flat_map(HashMap::values)
                 .map(Vec::len)
                 .sum::<usize>(),
-            33318
+            88193
         );
         assert_eq!(
             metadata["source_sha256"],
@@ -263,7 +297,7 @@ mod tests {
             "https://www.data.go.kr/data/15096257/fileData.do"
         );
         assert_eq!(metadata["raw_counts"]["active_rows"], 45754);
-        assert_eq!(metadata["prepared_rows"], 33318);
+        assert_eq!(metadata["prepared_rows"], 88193);
         let extra: Vec<_> = metadata["additional_sources"]
             .as_array()
             .unwrap()
@@ -291,7 +325,7 @@ mod tests {
             "새동 1\t127\t35\textra",
             "새동 1\t127\t35\n새동 1\t127\t35",
         ] {
-            std::fs::write(&file, format!("lot_address\tlon\tlat\n{row}\n")).unwrap();
+            std::fs::write(&file, format!("address\tlon\tlat\n{row}\n")).unwrap();
             assert!(read(file.to_str()).is_err(), "{row}");
         }
         std::fs::remove_file(file).unwrap();

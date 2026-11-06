@@ -6,20 +6,22 @@
   "encoding": "CP949",
   "source_crs": "EPSG:5174",
   "prepared_crs": "EPSG:4326 (GIS longitude, latitude)",
-  "policy": "Collective meals: active status 01. Additional registers: shelters in use, every protection-zone target facility; their keys are screened together and never replace a collective-meal address key. All sources: positive native bare single-lot addresses only; whole-source shared-coordinate and pre-envelope coordinate-spread quarantine. No service, benchmark or expected-answer filtering. Builder must corroborate every administrative qualifier against the geometry-assigned place/ancestors or one uniquely named indexed child within 5 km, preserving the original point and containing administration.",
+  "policy": "Collective meals: active status 01. Additional registers: shelters in use, every protection-zone target facility; their keys are screened together and never replace a collective-meal address key. All sources: positive native bare single-lot addresses, and road addresses whose unit or note follows a comma or parenthesis; lots and roads are screened separately; whole-source shared-coordinate and pre-envelope coordinate-spread quarantine. No service, benchmark or expected-answer filtering. Builder must corroborate every administrative qualifier against the geometry-assigned place/ancestors or one uniquely named indexed child within 5 km, preserving the original point and containing administration.",
   "raw_counts": {
     "raw_rows": 83410,
     "closed_rows": 37656,
     "active_rows": 45754,
     "unparsed_lot_rows": 1357,
-    "missing_coordinate_rows": 2240
+    "unparsed_road_rows": 601,
+    "missing_coordinate_rows": 2472
   },
-  "source_key_point_style_rows": 40312,
-  "quarantined_keys": 364,
-  "prepared_rows": 33318,
-  "prepared_unique_addresses": 33120,
-  "tsv_sha256": "5071b33a3fbf954f81e6f7a3d411d7e5c741fa6deccf52a3f95c078829fe358e",
-  "gzip_sha256": "43a6521b5ef14bdf97fb351b07ee81151a8e69f345f61fcbe7d6034219396aca",
+  "source_key_point_style_rows": 80857,
+  "quarantined_keys": 626,
+  "prepared_rows": 88193,
+  "prepared_road_rows": 54875,
+  "prepared_unique_addresses": 87706,
+  "tsv_sha256": "d65c357d1efef02b198e17afeb0042b1ff49bdd8bc52991a2e4fc4d2e95e1c13",
+  "gzip_sha256": "e2f45ca7e3a8217f022641828e81a72657016479d61d81809a98553da32bbb7a",
   "additional_sources": [
     {
       "dataset": "행정안전부 민방위대피시설",
@@ -31,6 +33,7 @@
         "raw_rows": 18846,
         "rows": 17242,
         "unparsed_lot_rows": 1107,
+        "unparsed_road_rows": 931,
         "missing_coordinate_rows": 8
       }
     },
@@ -43,7 +46,8 @@
       "raw_counts": {
         "raw_rows": 14642,
         "rows": 14642,
-        "unparsed_lot_rows": 2467
+        "unparsed_lot_rows": 2467,
+        "unparsed_road_rows": 1219
       }
     }
   ],
