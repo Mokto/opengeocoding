@@ -48,6 +48,7 @@ impl Index {
         let meters = |x: f64, y: f64| ((x - lon) * cos).hypot(y - lat) * 111_195.0;
         // (distance, plus the slack for a far copy, street id, street document, number, x, y,
         // postcode slot)
+        // ponytail: insertion costs O(size); RPCs cap size at 10. Use a heap for larger result sets.
         let mut found: Vec<(f64, u32, DocAddress, String, f64, f64, u8)> = vec![];
         let (mut seen, mut docs) = (std::collections::HashSet::new(), vec![]);
         for r in 0..=(radius_m / cell_m).ceil() as i64 {
@@ -64,18 +65,24 @@ impl Index {
                     self.each_house(sid, far, |number, x, y, own| {
                         let m = meters(x, y);
                         if m <= radius_m {
-                            let number = String::from_utf8_lossy(number).into_owned();
-                            found.push((m + slack, sid, a, number, x, y, own));
+                            let number = String::from_utf8_lossy(number);
+                            // Street ids survive rebuilds; equal keys keep the stable sort's scan order.
+                            let rank = found.partition_point(|p| {
+                                p.0.total_cmp(&(m + slack))
+                                    .then_with(|| (p.1, p.3.as_str()).cmp(&(sid, number.as_ref())))
+                                    .is_le()
+                            });
+                            if rank < size {
+                                found.insert(
+                                    rank,
+                                    (m + slack, sid, a, number.into_owned(), x, y, own),
+                                );
+                                found.truncate(size);
+                            }
                         }
                     });
                 }
             }
-            // Ties go by street id, not document address, which differs between two builds.
-            found.sort_by(|p, q| {
-                p.0.total_cmp(&q.0)
-                    .then_with(|| (p.1, &p.3).cmp(&(q.1, &q.3)))
-            });
-            found.truncate(size);
             // everything within `r` cells' width of the point has been read
             if found.len() == size && found[size - 1].0 <= r as f64 * cell_m {
                 break;
