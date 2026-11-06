@@ -108,9 +108,9 @@ Three training houses already passing search have OSM/registry offsets of roughl
 25 m offset check establishes nearby-house proximity, not that house's identity.
 Do not move higher-priority source coordinates to satisfy the panel.
 
-Untyped `Néméara`, a compound `Lot 302A Farino` house identifier, and trailing
-`bis` query orders expose parser/representation limitations. This change does not
-invent aliases, split those identifiers or add generic lookup fallbacks.
+Untyped `Néméara` and a compound `Lot 302A Farino` house identifier expose
+parser/representation limitations. This change does not invent aliases, split those
+identifiers or add generic lookup fallbacks.
 The deliberate shared country-repair behavior also remains unchanged; enabling
 more addresses does not make `goodMatch` an independently calibrated accuracy
 measure.
@@ -122,3 +122,44 @@ import eligibility, and explicit conflicting geography. Removing the
 house-eligibility guard makes the foreign-postcode test fail. The attempted
 country-key normalization and its extra confidence test were reverted together;
 no corpus expectations or labels were changed.
+
+## Street-first `bis` numbers
+
+After the address-input change, CI listed `global-osm-nc-931579233-1` and
+`global-osm-nc-4467243976-1` (`Route de Koé Prolongée 447 bis` and `365 bis`, street
+first) as worse failure classes: too_coarse became near_miss. Reproduced on main
+`8af6538` with an index of the standard local sources plus NC's OSM addresses, as the
+chart reads them: both answered the `98835` postcode, 7.5 and 6.9 km away, while
+their number-first forms passed at the house.
+
+libpostal reads `route de koé prolongée 447 bis` as one road in this context (it
+depends on the town: Dumbéa triggers it, a made-up town does not), so the query
+held no house number, the road matched nothing and the resolver fell back to the
+postcode. With `ter` it reads house `447` and a road
+`ter`, so a missing `ter` house silently became the base number. The postcode
+representative's move only changed how far that fallback landed; it was not the
+defect, and it is not moved back.
+
+Both houses exist in the pinned NC input: OSM nodes 931579233 (`447 bis`) and
+4467243976 (`365 bis`), with `447` and `365` as separate nodes. BAN's
+OpenAddresses rows hold no `447 bis` or `365 bis`: its `447` lies about 11 m from
+the OSM `447 bis` node and 30 m from the OSM `447`, and it has a `364bis` about 53 m
+from the OSM `365 bis`. These are source disagreements; neither is rewritten.
+
+For an address in NC (stated country, or a `988` postcode with France or no
+country), `country::nc::align` reads a first part ending in a number and `bis`,
+`ter` or `quater` as the road and that whole number, as libpostal reads the
+number-first order. A number after a numbered-route type (`Route Provinciale 4
+bis`) stays the route's. Other countries' parses are unchanged: Uruguay's
+street-first `106 BIS` shows the same libpostal merge but is not covered here. Where the
+suffixed house is missing, the answer is the street, not the base number. The rule
+lives in `nc.rs`, which the builder hash covers, so the hash changed although the
+builder's code did not.
+
+Both sides used the same sources, models and consumer; two baseline runs had zero
+drift. The full local gold comparison changed only these two cases, both to pass
+(SearchAddress 39,807 → 39,809), with no newly failing check, worse class, or
+change to suggestions, reverse or regions. `tests/synthetic/world/nc.rs` covers both
+orders, base versus `bis`, `ter`, a numbered route, a missing suffixed house, and
+conflicting postcode and country; without the rule its street-first `bis` case
+falls back to the postcode and its `ter` case answers the base house.
