@@ -351,3 +351,13 @@ Formatting, all-target clippy, all ordinary tests (107 synthetic checks), the bu
 
 Local speed tables report broad slowdowns even for unchanged forward code using the same binary and index. Those contended, unmatched local timings do not establish request-speed performance. The new head's CI quality and measured speed must both be checked; `534bd93`'s earlier pass does not verify this fix.
 
+
+## The reverse p99 failure after merge
+
+The merged head's [CI speed run](https://github.com/Mokto/opengeocoding/actions/runs/41794741396) failed on one statistic: ReverseGeocode p99 went from 2.3 to 3.0 ms (+27%, limit +15%), and the single slowest request from 5.9 to 7.7 ms. Total, p50 and p90 did not move (-0%, -3%, +0%), and SearchAddress and SuggestAddress passed.
+
+The change could only slow requests through `pl::reverse_locality`: one FST lookup and two short place chains for a Polish house. The builder adds `pl-localities.fst` and changes no other index file. Of the 1,990 timed reverse cases, 55 are Polish houses; in the local runs below, the slowest of them took at most 0.31 ms, against a p99 of 0.43 to 0.70 ms.
+
+To measure the hook's own cost, main at `9439113` (builder `93e96546ad3b0149`) was built into one index and served by two binaries that differ only in that call, in the order A B B A A B B A, each run timing the same 2,000-case speed sample as CI, fastest of 3. The Polish cases took 0.018 ms *less* per case with the hook (median of paired differences), and the other cases 0.008 ms less: no measurable cost. The same binary's p99 varied by up to 37% between those local runs, so they show only that the call is cheap, not anything about request speed.
+
+Across the 65 most recent pull requests with a CI speed report, the ReverseGeocode p99 change ranged from -26% to +27%. Seven moved by 15% or more in the faster direction, without any change meant to speed up reverse lookups, and this pull request was the only one to move 15% or more slower. At about 20 requests of 2 ms, p99 swings that far between two runs of comparable code. The failure was most likely that noise, not a regression, and no code change follows from it.
