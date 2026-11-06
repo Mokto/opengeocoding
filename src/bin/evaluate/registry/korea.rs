@@ -134,12 +134,18 @@ fn key(seed: &str, id: &str) -> String {
     sha256_hex(format!("{seed}\0{id}").as_bytes())
 }
 
-fn queries(address: &str) -> Vec<(&'static str, String)> {
+/// Each school's address in three forms: the full one, country first and a short province.
+/// Road addresses lead with the English country, lot addresses with the native one; the other
+/// combinations share these parse paths and are covered by the synthetic world.
+fn queries(address: &str, lot: bool) -> Vec<(&'static str, String)> {
     let address = address.trim();
     let mut found = vec![
         ("", format!("{address}, South Korea")),
-        ("_country_first", format!("South Korea, {address}")),
-        ("_country_first_native", format!("대한민국, {address}")),
+        if lot {
+            ("_country_first_native", format!("대한민국, {address}"))
+        } else {
+            ("_country_first", format!("South Korea, {address}"))
+        },
     ];
     if let Some((province, rest)) = address.split_once(' ') {
         let short = match province {
@@ -162,16 +168,7 @@ fn queries(address: &str) -> Vec<(&'static str, String)> {
             "제주특별자치도" => "제주",
             _ => return found,
         };
-        found.push(("_short_province", format!("{short} {rest}, South Korea")));
         found.push(("_short_domestic", format!("{short} {rest}")));
-        found.push((
-            "_short_country_first",
-            format!("South Korea, {short} {rest}"),
-        ));
-        found.push((
-            "_short_country_first_native",
-            format!("대한민국, {short} {rest}"),
-        ));
     }
     found
 }
@@ -221,7 +218,7 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
         );
         for a in selected {
             for (form, address) in [("road", &a.road), ("lot", &a.lot)] {
-                for (suffix, query) in queries(address) {
+                for (suffix, query) in queries(address, form == "lot") {
                     lines.push(json!({"kind":"address", "source":"korean-schools", "ref":a.id, "cohort":format!("kr_{form}{suffix}"), "radius_km":0.25, "queries":[query], "label":a.road, "tags":["registry-sample", "school-sample", "kr", release, category, form, format!("education-authority:{authority}")]}));
                 }
             }
@@ -298,7 +295,7 @@ mod tests {
         co_located["LNMADR"] = json!("서울특별시 종로구 다른동 산8");
         write(&[a.clone(), b.clone(), co_located.clone()]);
         let first = sample(&path, "test").unwrap();
-        assert_eq!(first.len(), 28);
+        assert_eq!(first.len(), 12);
         assert_eq!(
             first
                 .iter()
@@ -307,33 +304,24 @@ mod tests {
             4
         );
         assert_eq!(
-            queries("서울특별시 종로구 새길 12-3"),
+            queries("서울특별시 종로구 새길 12-3", false),
             vec![
                 ("", "서울특별시 종로구 새길 12-3, South Korea".into()),
                 (
                     "_country_first",
                     "South Korea, 서울특별시 종로구 새길 12-3".into()
                 ),
-                (
-                    "_country_first_native",
-                    "대한민국, 서울특별시 종로구 새길 12-3".into()
-                ),
-                (
-                    "_short_province",
-                    "서울 종로구 새길 12-3, South Korea".into()
-                ),
                 ("_short_domestic", "서울 종로구 새길 12-3".into()),
-                (
-                    "_short_country_first",
-                    "South Korea, 서울 종로구 새길 12-3".into()
-                ),
-                (
-                    "_short_country_first_native",
-                    "대한민국, 서울 종로구 새길 12-3".into()
-                ),
             ]
         );
-        assert_eq!(queries("전남광주통합특별시 가상구 새길 1").len(), 3);
+        assert_eq!(
+            queries("서울특별시 종로구 옛동 45", true)[1],
+            (
+                "_country_first_native",
+                "대한민국, 서울특별시 종로구 옛동 45".into()
+            )
+        );
+        assert_eq!(queries("전남광주통합특별시 가상구 새길 1", false).len(), 2);
         write(&[co_located, b.clone(), a.clone()]);
         assert_eq!(first, sample(&path, "test").unwrap());
         let ids = BTreeSet::from(["B000000001".into()]);
