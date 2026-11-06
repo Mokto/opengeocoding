@@ -1,13 +1,14 @@
-U.S. Census Bureau — TIGERweb Census Designated Places, BAS 2026
+U.S. Census Bureau — TIGER/Line 2026 Census Designated Places
 
-Source: https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/12
-Vintage: January 1, BAS 2026. Captured November 4, 2026.
+Source: 2026 TIGER/Line Shapefiles, state-based Place files for the 50 states and DC.
+https://www2.census.gov/geo/tiger/TIGER2026/PLACE/
+Vintage: January 1, 2026; released 2026-10-14. Downloaded November 5, 2026.
 
-Census-designated places (CDPs) are named, closely settled unincorporated communities represented for statistical purposes. They have no legally defined boundary or active municipal government. The source's FUNCSTAT=S and MTFCC=G4210 identify this category; BASENAME supplies the community name. This input does not supply municipalities or postal cities.
+Census-designated places (CDPs) are named, closely settled unincorporated communities represented for statistical purposes. They have no legally defined boundary or active municipal government. The source's FUNCSTAT=S and MTFCC=G4210 identify this category; NAME supplies the community name. This input does not supply municipalities or postal cities.
 
 Definition and limitations: https://www.census.gov/programs-surveys/bas/information/cdp.html
 Federal data terms: https://www.census.gov/about/policies/quality/guidelines/section5.html
 
 These federal government data are public domain. Please cite the U.S. Census Bureau. Their inclusion does not imply Census Bureau endorsement.
 
-The complete 12,902-entity capture is pinned by SHA256 in us-cdps.sources.json. Invalid geometries and territories are excluded, leaving 12,508 entities and 13,138 full-resolution polygon parts, rounded to 1e-7 degrees without simplification. Invalid geometries are not repaired. Coordinate precision is not source positional accuracy. Dated statistical boundaries may differ from present settlement patterns or local understanding and are not legal land descriptions or survey boundaries.
+Every source file is pinned by SHA256 in us-cdps.sources.json. All 12,557 selected entities have valid geometry and are retained as 13,459 full-resolution polygon parts, rounded to 1e-7 degrees without simplification; NAD83 coordinates are used without datum transformation. Coordinate precision is not source positional accuracy. Dated statistical boundaries may differ from present settlement patterns or local understanding and are not legal land descriptions or survey boundaries.

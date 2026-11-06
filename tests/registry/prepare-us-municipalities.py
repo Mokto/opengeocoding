@@ -23,9 +23,9 @@ def prepare(cache, out, manifest_path):
     for item in manifest['files']:
         name = item['file']
         if not name or Path(name).name != name:
-            raise ValueError('Invalid capture filename')
+            raise ValueError('Invalid source filename')
         url = urllib.parse.urlsplit(item['url'])
-        if url.scheme != 'https' or url.hostname not in ['tigerweb.geo.census.gov', 'www2.census.gov'] or url.username or url.password:
+        if url.scheme != 'https' or url.hostname != 'www2.census.gov' or url.username or url.password:
             raise ValueError('Invalid Census source URL')
         path = cache / name
         if not path.exists():
@@ -39,22 +39,32 @@ def prepare(cache, out, manifest_path):
             temporary.replace(path)
         if sha(path.read_bytes()) != item['sha256']:
             raise ValueError(f'{name}: cached source hash mismatch')
-    expected = {item['file'] for item in manifest['files'] if item['file'].endswith('.geojson')}
-    if {p.name for p in cache.glob('*.geojson')} != expected:
-        raise ValueError('Unexpected geometry captures in cache')
-    db = cache / 'municipalities.duckdb'
-    rows = cache / 'valid-government-polygons.jsonl'
-    name = 'BASENAME' if cdp else 'NAME'
-    status = 'S' if cdp else 'A'
-    feature = "AND count(*) FILTER (WHERE MTFCC='G4210')=count(*)" if cdp else ''
+    layers = ['place'] if cdp else ['place', 'cousub']
+    shapefiles = sorted(item['file'] for item in manifest['files'] if item['file'].endswith('.zip'))
+    if any(f.rsplit('_', 1)[-1][:-4] not in layers for f in shapefiles):
+        raise ValueError('Unexpected shapefile in manifest')
+    db = cache / ('cdps.duckdb' if cdp else 'municipalities.duckdb')
+    rows = cache / ('valid-cdp-polygons.jsonl' if cdp else 'valid-government-polygons.jsonl')
+    # A state file holds that state's entities only; checked so a renamed file cannot add another state.
+    reads = '\nUNION ALL BY NAME\n'.join(
+        f"SELECT {f.rsplit('_', 1)[-1][:-4] == 'cousub'} AS subdivision, {sql_string(f.split('_')[2])} AS file_state, * "
+        f"FROM ST_Read({sql_string('/vsizip/' + str(cache / f) + '/' + f[:-4] + '.shp')})"
+        for f in shapefiles
+    )
+    selected = ("FUNCSTAT='S' AND MTFCC='G4210'" if cdp else
+                "FUNCSTAT='A' AND (subdivision AND MTFCC='G4040' OR NOT subdivision AND MTFCC='G4110')")
+    name = 'NAME' if cdp else 'NAMELSAD'
     query = f"""
 LOAD spatial;
 SET threads=4;
+CREATE OR REPLACE TABLE source AS {reads};
 CREATE OR REPLACE TABLE governments AS
-SELECT filename LIKE '%/cousub-%' AS subdivision, GEOID AS geoid, STATE AS state, {name} AS name, geometry, FUNCSTAT, MTFCC
-FROM read_json_auto({sql_string(cache / '*.geojson')}, maximum_object_size=134217728, filename=true);
+SELECT subdivision, GEOID AS geoid, STATEFP AS state, {name} AS name, geom AS geometry FROM source WHERE {selected};
+SELECT CASE WHEN count(*) FILTER (WHERE STATEFP<>file_state)=0 THEN 1 ELSE error('Entity outside its state file') END FROM source;
 SELECT CASE WHEN count(*)={manifest['captured_entities']} AND count(*)=count(DISTINCT (subdivision,geoid))
- AND count(*) FILTER (WHERE FUNCSTAT='{status}')=count(*) {feature} THEN 1 ELSE error('Incomplete/duplicate/unexpected-type capture') END FROM governments;
+ AND count(*) FILTER (WHERE name IS NULL OR trim(name)='')=0
+ AND count(*) FILTER (WHERE NOT ST_IsValid(geometry))={manifest['invalid_entities']}
+ THEN 1 ELSE error('Incomplete/duplicate/unnamed/unexpected-validity source') END FROM governments;
 CREATE OR REPLACE TABLE states AS SELECT STATE AS fips, STUSAB AS code FROM read_csv({sql_string(cache / 'state.txt')}, delim='|', header=true, all_varchar=true);
 COPY (SELECT subdivision,geoid,concat('US-',s.code) AS region,name,ST_AsGeoJSON(g.geometry)::JSON AS geometry
  FROM governments g JOIN states s ON s.fips=g.state
@@ -64,7 +74,7 @@ COPY (SELECT subdivision,geoid,concat('US-',s.code) AS region,name,ST_AsGeoJSON(
     subprocess.run(['duckdb', str(db)], input=query, text=True, check=True)
     records = []
     identities = set()
-    quantized = cache / 'quantized.tsv'
+    quantized = cache / ('quantized-cdps.tsv' if cdp else 'quantized.tsv')
     with quantized.open('w') as check:
         check.write('id\twkt\n')
         for line in rows.open():
@@ -99,15 +109,15 @@ FROM read_csv({sql_string(quantized)}, delim='\t', header=true, max_line_size=33
     subprocess.run(['duckdb', str(db)], input=query, text=True, check=True)
     encoded = json.dumps(records, separators=(',', ':'), ensure_ascii=False).encode()
     compressed = gzip.compress(encoded, compresslevel=9, mtime=0)
+    print(len(identities), 'entities;', len(records), 'polygons;', sha(encoded), sha(compressed), flush=True)
     if len(identities) != manifest['entities'] or len(records) != manifest['polygons'] or sha(encoded) != manifest['json_sha256']:
-        raise ValueError('Prepared government data differs from the pin')
+        raise ValueError('Prepared boundary data differs from the pin')
     if sha(compressed) != manifest['gzip_sha256']:
         raise ValueError('Gzip differs from the pin; check Python/zlib versions')
     out.parent.mkdir(parents=True, exist_ok=True)
     temporary = out.with_name(out.name + '.tmp')
     temporary.write_bytes(compressed)
     temporary.replace(out)
-    print(len(identities), 'governments;', len(records), 'polygons;', sha(compressed), flush=True)
 
 
 if __name__ == '__main__':

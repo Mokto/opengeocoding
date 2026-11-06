@@ -11,6 +11,8 @@ pub const CDPS_LABELS: &str = "us-cdps.json";
 pub(in crate::index) struct Boundaries {
     areas: area::Areas,
     labels: Vec<(String, String, String)>,
+    /// State and folded name of each incorporated place.
+    places: HashSet<(String, String)>,
 }
 
 impl Boundaries {
@@ -45,10 +47,21 @@ impl Boundaries {
             areas.place_ids().all(|id| (id as usize) < labels.len()),
             "US boundary polygon has no label"
         );
-        Ok(Self { areas, labels })
+        let places = labels
+            .iter()
+            .filter(|(id, _, _)| id.starts_with("place/"))
+            .filter_map(|(_, region, name)| Some((region.clone(), fold(incorporated(name)?.0))))
+            .collect();
+        Ok(Self {
+            areas,
+            labels,
+            places,
+        })
     }
 
-    fn containing_name(&self, x: f64, y: f64, region: &str) -> Option<&str> {
+    /// The one entity holding the point; an incorporated place outranks the township or town
+    /// around it.
+    fn containing(&self, x: f64, y: f64, region: &str) -> Option<&(String, String, String)> {
         let mut containing: Vec<_> = self
             .areas
             .containing(y, x)
@@ -57,11 +70,15 @@ impl Boundaries {
             .collect();
         containing.sort_unstable();
         containing.dedup();
+        let place = |id: &u32| self.labels[*id as usize].0.starts_with("place/");
+        if containing.iter().any(place) {
+            containing.retain(place);
+        }
         let [id] = containing.as_slice() else {
             return None;
         };
-        let (_, state, name) = &self.labels[*id as usize];
-        if state != region {
+        let label = &self.labels[*id as usize];
+        if label.1 != region {
             return None;
         }
         // pack floors each axis; reject a Census edge anywhere in that source-point cell plus polygon rounding.
@@ -72,7 +89,12 @@ impl Boundaries {
             x + 360.0 / steps + 0.5e-7,
             y + 180.0 / steps + 0.5e-7,
         ]))
-        .then_some(name)
+        .then_some(label)
+    }
+
+    fn containing_name(&self, x: f64, y: f64, region: &str) -> Option<&str> {
+        self.containing(x, y, region)
+            .map(|(_, _, name)| name.as_str())
     }
 }
 
@@ -133,13 +155,22 @@ pub(in crate::index) fn reverse_locality(
     {
         return;
     }
-    let Some(boundaries) = &index.us_cdps else {
-        return;
-    };
     let Some(region) = address
         .get("ISO3166-2-lvl4")
         .and_then(serde_json::Value::as_str)
     else {
+        return;
+    };
+    if let Some(governments) = &index.us_municipalities
+        && let Some(government) = governments.containing(*x, *y, region)
+        && government.0.starts_with("place/")
+    {
+        if incorporated(&government.2).is_some() {
+            place_locality(index, hit, address, display, governments, government);
+        }
+        return;
+    }
+    let Some(boundaries) = &index.us_cdps else {
         return;
     };
     let Some(name) = boundaries.containing_name(*x, *y, region) else {
@@ -217,6 +248,111 @@ pub(in crate::index) fn reverse_locality(
     display.insert(2.min(display.len()), name.into());
     // The unclassified-locality fallback is village; CDPs confer no municipal status.
     address.insert("village".into(), name.into());
+}
+
+/// An incorporated place's name without its kind ("Klamath Falls city"), and the address key
+/// for it; places of other kinds ("Nashville-Davidson metropolitan government") are left alone.
+fn incorporated(government: &str) -> Option<(&str, &'static str)> {
+    let (name, kind) = government.rsplit_once(' ')?;
+    if name.ends_with(" and") {
+        return None;
+    }
+    let key = match kind {
+        "city" => "city",
+        "town" | "borough" => "town",
+        "village" => "village",
+        _ => return None,
+    };
+    (!name.is_empty()).then_some((name, key))
+}
+
+/// Names the incorporated place that holds the selected house. A settlement inside that place
+/// (a neighbourhood, a borough of New York) stays, with the place named after it; one outside
+/// it, picked for being near, is replaced.
+fn place_locality(
+    index: &Index,
+    hit: &Hit,
+    address: &mut serde_json::Map<String, serde_json::Value>,
+    display: &mut Vec<String>,
+    governments: &Boundaries,
+    government: &(String, String, String),
+) {
+    let (Hit::Street { x, y, place, .. }, Some((name, key))) = (hit, incorporated(&government.2))
+    else {
+        return;
+    };
+    let current: Vec<String> = ["city", "town", "village"]
+        .iter()
+        .filter_map(|key| address.get(*key).and_then(serde_json::Value::as_str))
+        .map(str::to_owned)
+        .collect();
+    if current.iter().any(|old| fold(old) == fold(name)) {
+        return;
+    }
+    let localities: Vec<_> = if *place == NONE {
+        vec![]
+    } else {
+        let chain = index.chain(*place);
+        index
+            .house_chain(&chain, *x, *y)
+            .unwrap_or(chain)
+            .iter()
+            .map(|id| &index.places[*id as usize])
+            .filter(|p| {
+                p.subtype.as_ref() == "locality" && current.iter().any(|c| c == p.name(true))
+            })
+            .collect()
+    };
+    // Overture placing the house in another incorporated place is a second boundary source
+    // disagreeing with this one, not a nearby settlement.
+    if current.len() != localities.len()
+        || current.iter().any(|old| {
+            governments
+                .places
+                .contains(&(government.1.clone(), fold(old)))
+        })
+    {
+        return;
+    }
+    if localities
+        .iter()
+        .any(|p| p.all_names().any(|other| fold(other) == fold(name)))
+    {
+        return;
+    }
+    if !localities.is_empty()
+        && localities.iter().all(|p| {
+            governments
+                .containing(p.x as f64, p.y as f64, &government.1)
+                .is_some_and(|holder| std::ptr::eq(holder, government))
+        })
+    {
+        if !address.contains_key(key) {
+            let after = display
+                .iter()
+                .enumerate()
+                .skip(2)
+                .filter(|(_, d)| current.contains(d))
+                .map(|(at, _)| at + 1)
+                .max()
+                .unwrap_or(2);
+            display.insert(after.min(display.len()), name.into());
+            address.insert(key.into(), name.into());
+        }
+        return;
+    }
+    for value in current {
+        for key in ["city", "town", "village"] {
+            if address.get(key).and_then(serde_json::Value::as_str) == Some(&value) {
+                address.remove(key);
+            }
+        }
+        if let Some(at) = display.iter().skip(2).position(|d| *d == value) {
+            display.remove(at + 2);
+        }
+    }
+    display.insert(2.min(display.len()), name.into());
+    address.insert(key.into(), name.into());
 }
 
 /// `text` with each ZIP+4 ("37208-4501") as its ZIP, which is how the index holds it.
