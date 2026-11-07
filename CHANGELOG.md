@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.8.2](https://github.com/Mokto/opengeocoding/compare/v1.8.1...v1.8.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* find British houses written with a village and post town, a village that is only a point, or a spaced number range ([#549](https://github.com/Mokto/opengeocoding/issues/549)) ([42cd1ad](https://github.com/Mokto/opengeocoding/commit/42cd1adc307de04c77817c0d1cf531f317d8b503))
+* let reverse geocoding answer a street's far copy of a house number ([#550](https://github.com/Mokto/opengeocoding/issues/550)) ([3cf43f8](https://github.com/Mokto/opengeocoding/commit/3cf43f8adc0d4523cede64b309592771c0542aa1))
+
+
+### Performance Improvements
+
+* keep only the top reverse house results while scanning ([#554](https://github.com/Mokto/opengeocoding/issues/554)) ([da5b321](https://github.com/Mokto/opengeocoding/commit/da5b321fba5b724272c839e04799dbc8e190461d))
+* serve requests with the mimalloc allocator ([#555](https://github.com/Mokto/opengeocoding/issues/555)) ([b2ee537](https://github.com/Mokto/opengeocoding/commit/b2ee537ff882ceb97d8af1690419a147478fecab))
+
 ## [1.8.1](https://github.com/Mokto/opengeocoding/compare/v1.8.0...v1.8.1) (2026-11-06)
 
 
