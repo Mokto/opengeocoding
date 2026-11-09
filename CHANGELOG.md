@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.1](https://github.com/Mokto/opengeocoding/compare/v1.10.0...v1.10.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **deps:** update non-major dependencies ([#556](https://github.com/Mokto/opengeocoding/issues/556)) ([0df0980](https://github.com/Mokto/opengeocoding/commit/0df0980835475207ce64e295653969be415805b9))
+* **deps:** update rust crate kube to v5 ([#557](https://github.com/Mokto/opengeocoding/issues/557)) ([f84eac0](https://github.com/Mokto/opengeocoding/commit/f84eac003c65af2caa7058000f183259963ceedf))
+
 ## [1.10.0](https://github.com/Mokto/opengeocoding/compare/v1.9.0...v1.10.0) (2026-11-09)
 
 
