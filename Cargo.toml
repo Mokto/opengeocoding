@@ -32,7 +32,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tantivy = "0.27"
 tantivy-fst = "0.5"
 levenshtein_automata = "0.2"
-rstar = "0.13"
+rstar = "0.14"
 rayon = "1"
 hashbrown = { version = "0.17", default-features = false }
 arrow-array = "60"
