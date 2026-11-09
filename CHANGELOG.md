@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/Mokto/opengeocoding/compare/v1.8.2...v1.9.0) (2026-11-09)
+
+
+### Features
+
+* **chart:** make the serving Deployment's rolling update configurable ([#558](https://github.com/Mokto/opengeocoding/issues/558)) ([788d0a4](https://github.com/Mokto/opengeocoding/commit/788d0a4bd4e0d581b40fb1fef4f3318255f3448e))
+
 ## [1.8.2](https://github.com/Mokto/opengeocoding/compare/v1.8.1...v1.8.2) (2026-11-06)
 
 
