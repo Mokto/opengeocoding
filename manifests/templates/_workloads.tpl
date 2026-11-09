@@ -160,6 +160,31 @@ spec:
       securityContext:
         {{- include "og.podSecurity" . | nindent 8 }}
       initContainers:
+        {{- with .Values.serving.cache.hostPath }}
+        # A hostPath is created root-owned, and the service runs as 1000. Only one directory per
+        # index is kept: the others are removed (a pod still serving one keeps its open files).
+        - name: prepare-cache
+          image: {{ include "og.image" $ }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command:
+            - sh
+            - -euc
+            - |
+              mkdir -p /cache/indexes/{{ $id }} /cache/models/libpostal/{{ $.Values.index.modelsVersion }}
+              chown -R 1000:1000 /cache
+              find /cache/indexes -mindepth 1 -maxdepth 1 ! -name {{ $id | quote }} -exec rm -rf {} +
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+              add: [CHOWN, DAC_OVERRIDE, FOWNER]
+          volumeMounts:
+            - name: index
+              mountPath: /cache
+        {{- end }}
         - name: pull-index
           image: {{ include "og.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -189,8 +214,16 @@ spec:
           volumeMounts:
             - name: index
               mountPath: /index
+              {{- if .Values.serving.cache.hostPath }}
+              subPath: indexes/{{ $id }}
+              {{- end }}
             - name: data
+              {{- if .Values.serving.cache.hostPath }}
+              mountPath: /data/libpostal
+              subPath: models/libpostal/{{ .Values.index.modelsVersion }}
+              {{- else }}
               mountPath: /data
+              {{- end }}
       containers:
         - name: opengeocoding
           image: {{ include "og.image" . }}
@@ -242,16 +275,36 @@ spec:
             - name: index
               mountPath: /index
               readOnly: true
+              {{- if .Values.serving.cache.hostPath }}
+              subPath: indexes/{{ $id }}
+              {{- end }}
             - name: data
-              mountPath: /data
               readOnly: true
+              {{- if .Values.serving.cache.hostPath }}
+              mountPath: /data/libpostal
+              subPath: models/libpostal/{{ .Values.index.modelsVersion }}
+              {{- else }}
+              mountPath: /data
+              {{- end }}
       volumes:
+        {{- if .Values.serving.cache.hostPath }}
+        {{- /* One directory under two names: the mounts differ only in their subPath. */}}
+        - name: index
+          hostPath:
+            path: {{ .Values.serving.cache.hostPath | quote }}
+            type: DirectoryOrCreate
+        - name: data
+          hostPath:
+            path: {{ .Values.serving.cache.hostPath | quote }}
+            type: DirectoryOrCreate
+        {{- else }}
         - name: index
           emptyDir:
             sizeLimit: {{ .Values.serving.indexVolumeSize }}
         - name: data
           emptyDir:
             sizeLimit: 4Gi
+        {{- end }}
       {{- with .Values.serving.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

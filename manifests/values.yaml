@@ -343,6 +343,14 @@ serving:
       memory: 16Gi
   # emptyDir for the pulled index (12 GB for the world) and models (2 GB).
   indexVolumeSize: 20Gi
+  cache:
+    # An absolute path on the node, kept across pods: a replacement pod finds the index and
+    # models already there, checks their hashes (seconds) and downloads only what is missing,
+    # instead of the whole index. Empty: the pulled files live in an emptyDir (indexVolumeSize)
+    # that goes with the pod. The disk then holds one index per node, another is added while a
+    # rollout runs and the old one is removed by the next pod. A hostPath is not size-limited and
+    # the init container that prepares it runs as root (it chowns the path to the service's uid).
+    hostPath: ""
   # The Deployment's rolling update. The default starts a new pod before an old one goes, so a
   # rollout never lowers capacity. With few nodes and one pod per node (required pod
   # anti-affinity), the extra pod cannot be scheduled: use maxSurge 0 and maxUnavailable 1, which
