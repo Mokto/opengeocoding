@@ -189,7 +189,7 @@ impl Leader {
             )
             .await?;
         let status = applied.status.unwrap_or_default();
-        let want = applied.spec.and_then(|s| s.replicas);
+        let want = applied.spec.replicas;
         self.say(format!(
             "serving index {index}: {} of {} pods updated, {} ready",
             status.updated_replicas.unwrap_or(0),
