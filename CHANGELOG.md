@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/Mokto/opengeocoding/compare/v1.9.0...v1.10.0) (2026-11-09)
+
+
+### Features
+
+* **chart:** keep the serving index and models on the node across pods ([#560](https://github.com/Mokto/opengeocoding/issues/560)) ([e34d104](https://github.com/Mokto/opengeocoding/commit/e34d104132fc63bbf1d116cc5d6423283216d99f))
+
 ## [1.9.0](https://github.com/Mokto/opengeocoding/compare/v1.8.2...v1.9.0) (2026-11-09)
 
 
