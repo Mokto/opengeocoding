@@ -343,6 +343,13 @@ serving:
       memory: 16Gi
   # emptyDir for the pulled index (12 GB for the world) and models (2 GB).
   indexVolumeSize: 20Gi
+  # The Deployment's rolling update. The default starts a new pod before an old one goes, so a
+  # rollout never lowers capacity. With few nodes and one pod per node (required pod
+  # anti-affinity), the extra pod cannot be scheduled: use maxSurge 0 and maxUnavailable 1, which
+  # stops one pod first and runs one fewer while its replacement pulls the index.
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
   # The leader creates the Deployment once the index exists; its pods then pull 12 GB.
   progressDeadlineSeconds: 3600
   env: []

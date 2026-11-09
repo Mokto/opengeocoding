@@ -135,8 +135,7 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+      {{- toYaml .Values.serving.rollingUpdate | nindent 6 }}
   selector:
     matchLabels:
       app.kubernetes.io/instance: {{ .Release.Name }}
