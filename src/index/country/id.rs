@@ -177,6 +177,19 @@ fn postal(text: &str) -> bool {
     text.len() == 5 && text.bytes().all(|b| b.is_ascii_digit())
 }
 
+fn joined(name: &str) -> String {
+    if !name.is_ascii() {
+        return normalize_place(name).replace(' ', "");
+    }
+    let joined: String = name
+        .bytes()
+        .filter(|&b| b.is_ascii_alphanumeric() || b == b'/')
+        .map(|b| char::from(b.to_ascii_lowercase()))
+        .collect();
+    debug_assert_eq!(joined, normalize_place(name).replace(' ', ""));
+    joined
+}
+
 pub(in crate::index) fn qualifier(place: &Place, query: &str, open: bool) -> bool {
     qualified(place, query, open, false)
 }
@@ -200,12 +213,13 @@ fn qualified(place: &Place, query: &str, open: bool, head: bool) -> bool {
     let wanted = normalize_place(label.map_or(&expanded, |(_, name)| name));
     let compact = wanted.replace(' ', "");
     let matches = |name: &str| {
-        let normalized = normalize_place(name);
-        let name = normalized.replace(' ', "");
-        name == compact
-            || (open && compact.len() >= if head { 2 } else { 3 } && name.starts_with(&compact))
+        let compact_name = joined(name);
+        compact_name == compact
+            || (open
+                && compact.len() >= if head { 2 } else { 3 }
+                && compact_name.starts_with(&compact))
             || (head
-                && normalized
+                && normalize_place(name)
                     .strip_prefix(&wanted)
                     .is_some_and(|s| s.starts_with(' ')))
     };
