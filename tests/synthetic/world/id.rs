@@ -62,7 +62,7 @@ pub const PLACES: &[Place] = &[
         50_000,
         (165.1, -60.0),
         "id-grobogan",
-        "Tegowanu",
+        "Tego Wanu",
         &[],
     ),
     place!(
@@ -222,6 +222,30 @@ pub const PLACES: &[Place] = &[
         &[],
     ),
     place!(
+        "id-melati-timur",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        2_000,
+        (165.14, -60.03),
+        "id-tegowanu",
+        "Melati Timur",
+        &[],
+    ),
+    place!(
+        "id-mekar-harum",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        2_000,
+        (165.15, -60.04),
+        "id-grobogan",
+        "Kecamatan Mekar Harum",
+        &[],
+    ),
+    place!(
         "id-taman",
         "locality",
         "neighbourhood",
@@ -269,6 +293,17 @@ pub const STREETS: &[Street] = &[
     Street {
         class: "residential",
         length: 0.0,
+        name: "Jalan Mekar Harum",
+        postcode: "",
+        city: "Pepe",
+        cc: "ID",
+        lon: 165.16,
+        lat: -60.04,
+        numbers: &["2"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
         name: "Jl. Sudirman",
         postcode: "",
         city: "Guntur",
@@ -292,6 +327,23 @@ pub fn check_suggest(index: &opengeocoding::index::Index) {
             "id-pepe",
         ),
         ("Pepe, Grobogan, Jawa Tengah, Indonesia", None, "id-pepe"),
+        ("Pepe, Tegowanu, Grobogan, Jateng", None, "id-pepe"),
+        ("Kab. Grobogan", Some("id"), "id-grobogan"),
+        ("Kab. Grobog", Some("id"), "id-grobogan"),
+        ("Prov. Jawa Tengah", Some("id"), "id-jt"),
+        ("Prov. Jawa Ten", Some("id"), "id-jt"),
+        ("Mekar Harum, Grobogan, Jateng", None, "id-mekar-harum"),
+        (
+            "Desa Melati, Kec. Tegowanu, Kab. Grobogan, Jateng",
+            None,
+            "id-melati-timur",
+        ),
+        (
+            "Kec. Mekar Harum, Kab. Grobogan, Jateng",
+            None,
+            "id-mekar-harum",
+        ),
+        ("Kec. Mekar Har", Some("id"), "id-mekar-harum"),
         ("Pepe, Grobogan ", Some("id"), "id-pepe"),
         ("Pepe, Grobog", Some("id"), "id-pepe"),
         (
@@ -321,6 +373,34 @@ pub fn check_suggest(index: &opengeocoding::index::Index) {
                 .is_some_and(|s| crate::metres((s.x, s.y), (wanted.lon, wanted.lat)) < 5.0),
             "{query}: {:?}",
             found.iter().map(|s| &s.display_name).collect::<Vec<_>>()
+        );
+    }
+    for (query, wrong) in [
+        ("Kota Grobogan", "id-grobogan"),
+        ("Kab. Grobog ", "id-grobogan"),
+        ("Prov. Jawa Ten ", "id-jt"),
+        ("Desa Mekar Harum, Grobogan, Jateng", "id-mekar-harum"),
+        ("Kec. Kota Baru, Grobogan, Jateng", "id-kota-baru"),
+        ("Desa Baru, Grobogan, Jateng", "id-kota-baru"),
+        ("Kec. Mekar Harum, Sleman, Yogyakarta", "id-mekar-harum"),
+        ("Kec. Mekar Harum, Grobogan, France", "id-mekar-harum"),
+    ] {
+        let wrong = crate::place(wrong);
+        assert!(
+            index
+                .suggest(query, 5, Some("id"), None, false)
+                .iter()
+                .all(|s| {
+                    (matches!(wrong.subtype, "county" | "region")
+                        && s.kind
+                            != if wrong.subtype == "county" {
+                                "county"
+                            } else {
+                                "region"
+                            })
+                        || crate::metres((s.x, s.y), (wrong.lon, wrong.lat)) > 5.0
+                }),
+            "{query}"
         );
     }
     let taman = crate::place("id-taman");

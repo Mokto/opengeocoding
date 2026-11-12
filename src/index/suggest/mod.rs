@@ -402,7 +402,7 @@ impl Index {
         };
         if found.len() < limit
             && cc.is_none_or(|c| c.eq_ignore_ascii_case("id"))
-            && let Some((written, kinds)) = id::suggest_text(self, text, cc)
+            && let Some(written) = id::suggest_text(self, text, cc)
         {
             let mut expanded = self.retry_suggest(
                 &written,
@@ -412,7 +412,7 @@ impl Index {
                 landmarks,
                 chain,
             );
-            expanded.retain(|s| kinds.contains(&s.kind));
+            expanded.retain(|s| id::suggested(self, text, s));
             expanded.extend(found);
             found = kept(expanded, cc, limit);
         }

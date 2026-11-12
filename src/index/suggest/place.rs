@@ -503,7 +503,9 @@ impl Index {
                 for id in ids.into_iter().filter(|&id| acceptable(id)) {
                     let pl = &self.places[id as usize];
                     let starts = |n: &str| fold(n).starts_with(&text);
-                    let fit = if pl.named(want_name) {
+                    let fit = if pl.named(want_name)
+                        || (pl.cc.eq_ignore_ascii_case("id") && id::qualifier(pl, &text, false))
+                    {
                         0
                     } else if starts(&pl.primary) || starts(pl.name(true)) {
                         1
