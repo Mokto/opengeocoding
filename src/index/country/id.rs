@@ -206,8 +206,11 @@ pub(crate) fn locality_name(stated: &str, name: &str) -> bool {
 }
 
 pub(in crate::index) fn named(place: &Place, query: &str) -> bool {
-    prefixed(&place.primary).is_some_and(|(level, _)| level_matches(place, level))
-        && locality_name(query, &place.primary)
+    prefixed(&place.primary)
+        .filter(|(level, _)| {
+            matches!(level, Level::Village | Level::District) && level_matches(place, *level)
+        })
+        .is_some_and(|(_, name)| joined(name) == joined(query))
 }
 
 pub(in crate::index) fn qualifier(place: &Place, query: &str, open: bool) -> bool {

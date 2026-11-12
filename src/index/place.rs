@@ -402,11 +402,10 @@ impl Index {
             .iter()
             .map(|&(_, id)| &self.places[id as usize])
             .position(|p| {
-                named(p)
-                    && matches!(
-                        &*p.subtype,
-                        "region" | "macroregion" | "county" | "macrocounty"
-                    )
+                matches!(
+                    &*p.subtype,
+                    "region" | "macroregion" | "county" | "macrocounty"
+                ) && named(p)
             })
             .map(|k| ids[k].1)
             .filter(|_| !area_named);
