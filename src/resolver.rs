@@ -1308,7 +1308,8 @@ impl Core {
         };
         let rendered = self.index.render(&hit, true);
         let mut settled = format_response(&rendered)?;
-        if let Some(parsed) = self.parse(query)?
+        if d.country_code == "id"
+            && let Some(parsed) = self.parse(query)?
             && let Some(scope) = id::stated_scope(&self.index, &parsed)
             && (id::outside(&self.index, &scope, &hit, &rendered)
                 || id::elsewhere(&self.index, &scope, &settled))

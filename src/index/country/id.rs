@@ -218,6 +218,12 @@ pub(crate) fn suggest_text(
     text: &str,
     cc: Option<&str>,
 ) -> Option<(String, &'static [&'static str])> {
+    let (level, name) = prefixed(text.split(',').next()?.trim())?;
+    let kinds: &[&str] = match level {
+        Level::Village => &["city", "town", "village"],
+        Level::District => &["municipality"],
+        _ => return None,
+    };
     let parts: Vec<&str> = text
         .split(',')
         .map(str::trim)
@@ -234,12 +240,6 @@ pub(crate) fn suggest_text(
     {
         return None;
     }
-    let (level, name) = prefixed(parts.first()?)?;
-    let kinds: &[&str] = match level {
-        Level::Village => &["city", "town", "village"],
-        Level::District => &["municipality"],
-        _ => return None,
-    };
     let mut rewritten = std::iter::once(name)
         .chain(parts[1..].iter().copied())
         .collect::<Vec<_>>()
