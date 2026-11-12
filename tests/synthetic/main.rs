@@ -465,6 +465,7 @@ fn a_house_number_keyed_with_its_label_is_suggested_before_or_after_the_road() {
 
 #[test]
 fn suggestions_find_houses_postcodes_and_names_in_other_languages() {
+    world::id::check_suggest(index());
     let at = |text: &str, cc| index().suggest(text, 5, cc, None, false);
     let rivoli = at("Rue de Rivoli 2", None);
     assert_eq!((rivoli.len(), rivoli[0].kind), (1, "address"));

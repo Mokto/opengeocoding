@@ -186,6 +186,8 @@ impl Index {
                                     .subdivision_codes
                                     .get(&a)
                                     .is_some_and(|c| c.ends_with(&code))))
+                        || (pl.cc.eq_ignore_ascii_case("id")
+                            && id::qualifier(&self.places[a as usize], q, open))
                         || (pl.cc.eq_ignore_ascii_case("it")
                             && it::uncoded_province(q).is_some_and(|name| {
                                 self.places[a as usize].named(super::name_key(name))

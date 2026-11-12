@@ -177,6 +177,79 @@ fn postal(text: &str) -> bool {
     text.len() == 5 && text.bytes().all(|b| b.is_ascii_digit())
 }
 
+pub(in crate::index) fn qualifier(place: &Place, query: &str, open: bool) -> bool {
+    if let Some((level, _)) = prefixed(query)
+        && !match level {
+            Level::Village => place.subtype.as_ref() == "locality",
+            Level::District => matches!(place.subtype.as_ref(), "localadmin" | "locality"),
+            Level::Regency => place.subtype.as_ref() == "county",
+            Level::Province => place.subtype.as_ref() == "region",
+        }
+    {
+        return false;
+    }
+    let expanded = expand(query);
+    let label = prefixed(&expanded);
+    if label.is_none() && expanded == query {
+        return false;
+    }
+    let kind = |s: &str| match normalize_place(s).split(' ').next() {
+        Some("kota" | "kotamadya" | "kodya") => Some(true),
+        Some("kabupaten" | "kab") => Some(false),
+        _ => None,
+    };
+    if let (Some(stated), Some(known)) = (kind(&expanded), kind(&place.primary))
+        && stated != known
+    {
+        return false;
+    }
+    let wanted = normalize_place(label.map_or(&expanded, |(_, name)| name));
+    if place.named(name_key(&wanted)) {
+        return true;
+    }
+    place.all_names().flat_map(|n| n.split(';')).any(|name| {
+        let name = normalize_place(prefixed(name).map_or(name, |(_, name)| name));
+        name == wanted || (open && wanted.len() >= 3 && name.starts_with(&wanted))
+    })
+}
+
+pub(crate) fn suggest_text(
+    index: &Index,
+    text: &str,
+    cc: Option<&str>,
+) -> Option<(String, &'static [&'static str])> {
+    let parts: Vec<&str> = text
+        .split(',')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    if cc.is_none() && parts.len() < 2 {
+        return None;
+    }
+    let countries: Vec<_> = parts.iter().filter_map(|p| index.country(p)).collect();
+    if countries.iter().any(|c| c != "id")
+        || (cc.is_none()
+            && countries.is_empty()
+            && !parts.last().is_some_and(|p| indonesian(index, p)))
+    {
+        return None;
+    }
+    let (level, name) = prefixed(parts.first()?)?;
+    let kinds: &[&str] = match level {
+        Level::Village => &["city", "town", "village"],
+        Level::District => &["municipality"],
+        _ => return None,
+    };
+    let mut rewritten = std::iter::once(name)
+        .chain(parts[1..].iter().copied())
+        .collect::<Vec<_>>()
+        .join(", ");
+    if text.ends_with(|c: char| c == ',' || c.is_whitespace()) {
+        rewritten.push(' ');
+    }
+    Some((rewritten, kinds))
+}
+
 pub(crate) fn aligned(
     index: &Index,
     query: &str,

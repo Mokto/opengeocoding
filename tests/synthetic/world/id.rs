@@ -185,6 +185,42 @@ pub const PLACES: &[Place] = &[
         "Gubeng",
         &[],
     ),
+    place!(
+        "id-sawang-kec",
+        "localadmin",
+        "",
+        "ID",
+        "ID-JT",
+        60_000,
+        (165.2, -60.1),
+        "id-grobogan",
+        "Sawang",
+        &[],
+    ),
+    place!(
+        "id-sawang",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        4_000,
+        (165.0, -58.0),
+        "id-jt",
+        "Sawang",
+        &[],
+    ),
+    place!(
+        "id-kota-baru",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        2_000,
+        (165.13, -60.02),
+        "id-tegowanu",
+        "Kota Baru",
+        &[],
+    ),
     // a village of Gubeng district as the data files it, but in Blora's polygon
     place!(
         "id-gubeng",
@@ -231,6 +267,72 @@ pub const STREETS: &[Street] = &[
     },
 ];
 
+pub fn check_suggest(index: &opengeocoding::index::Index) {
+    for (query, cc, place) in [
+        (
+            "Desa Pepe, Kec. Tegowanu, Kab. Grobogan, Jawa Tengah, Indonesia",
+            None,
+            "id-pepe",
+        ),
+        (
+            "Desa Pepe, Kec. Tegowanu, Kab. Grobogan, Jateng",
+            None,
+            "id-pepe",
+        ),
+        ("Desa Pe", Some("ID"), "id-pepe-sleman"),
+        ("Desa Pepe ", Some("id"), "id-pepe-sleman"),
+        (
+            "Desa Kota Baru, Kec. Tegowanu, Kab. Grobogan, Jateng",
+            None,
+            "id-kota-baru",
+        ),
+        (
+            "Kel. Guntur, Kec. Setiabudi, Kota Adm. Jakarta Selatan, DKI Jakarta, Indonesia",
+            None,
+            "id-guntur",
+        ),
+        ("Guntur, Setiabudi, Jaksel", None, "id-guntur"),
+    ] {
+        let found = index.suggest(query, 5, cc, None, false);
+        let wanted = crate::place(place);
+        assert!(
+            found
+                .first()
+                .is_some_and(|s| crate::metres((s.x, s.y), (wanted.lon, wanted.lat)) < 5.0),
+            "{query}: {:?}",
+            found.iter().map(|s| &s.display_name).collect::<Vec<_>>()
+        );
+    }
+    let district = crate::place("id-sawang-kec");
+    assert!(
+        index
+            .suggest("Desa Sawang, Kab. Grobogan, Jateng", 5, None, None, false)
+            .iter()
+            .all(|s| crate::metres((s.x, s.y), (district.lon, district.lat)) > 5.0)
+    );
+    let pepe = crate::place("id-pepe");
+    for (query, cc) in [
+        ("Desa Pepe, Kec. Setiabudi, Kab. Grobogan, Jateng", None),
+        ("Desa Pepe, Kec. Tegowanu, Kab. Sleman, Jateng", None),
+        (
+            "Desa Pepe, Kec. Tegowanu, Kab. Grobogan, Jateng, France",
+            None,
+        ),
+        (
+            "Desa Pepe, Kec. Tegowanu, Kab. Grobogan, Jateng",
+            Some("fr"),
+        ),
+    ] {
+        assert!(
+            index
+                .suggest(query, 5, cc, None, false)
+                .iter()
+                .all(|s| crate::metres((s.x, s.y), (pepe.lon, pepe.lat)) > 5.0),
+            "{query}"
+        );
+    }
+}
+
 pub fn cases() -> Vec<Case> {
     vec![
         case("Pepe, Grobogan, Indonesia", town("id-pepe", true)),
@@ -258,6 +360,10 @@ pub fn cases() -> Vec<Case> {
         case(
             "Gubeng, Grobogan, Jawa Tengah, Indonesia",
             town("id-gubeng-kec", true),
+        ),
+        case(
+            "Sawang, Grobogan, Jawa Tengah, Indonesia",
+            town("id-sawang-kec", true),
         ),
         // the province shortened, the country left out
         case(
