@@ -4,7 +4,7 @@
 //! so the village was lost.
 
 use crate::{
-    index::{Hit, Index, NONE, Parsed, Place, name_key, parse::field},
+    index::{Hit, Index, NONE, Parsed, Place, Suggestion, name_key, parse::field},
     matching::{ParsedAddress, normalize_place, part, region_words},
     proto::opengeocoding::FullAddress,
 };
@@ -178,22 +178,42 @@ fn postal(text: &str) -> bool {
 }
 
 pub(in crate::index) fn qualifier(place: &Place, query: &str, open: bool) -> bool {
+    qualified(place, query, open, false)
+}
+
+fn qualified(place: &Place, query: &str, open: bool, head: bool) -> bool {
     let matches_level = |level| match level {
         Level::Village => place.subtype.as_ref() == "locality",
         Level::District => matches!(place.subtype.as_ref(), "localadmin" | "locality"),
         Level::Regency => place.subtype.as_ref() == "county",
         Level::Province => place.subtype.as_ref() == "region",
     };
-    if prefixed(query).is_some_and(|(level, _)| !matches_level(level)) {
+    if let Some((level, _)) = prefixed(query)
+        && (!matches_level(level)
+            || prefixed(&place.primary)
+                .is_some_and(|(known, _)| matches_level(known) && known != level))
+    {
         return false;
     }
     let expanded = expand(query);
     let label = prefixed(&expanded);
+    let wanted = normalize_place(label.map_or(&expanded, |(_, name)| name));
+    let compact = wanted.replace(' ', "");
+    let matches = |name: &str| {
+        let normalized = normalize_place(name);
+        let name = normalized.replace(' ', "");
+        name == compact
+            || (open && compact.len() >= if head { 2 } else { 3 } && name.starts_with(&compact))
+            || (head
+                && normalized
+                    .strip_prefix(&wanted)
+                    .is_some_and(|s| s.starts_with(' ')))
+    };
     if label.is_none()
         && expanded == query
         && !prefixed(&place.primary).is_some_and(|(level, _)| matches_level(level))
     {
-        return false;
+        return matches(&place.primary);
     }
     let kind = |s: &str| match normalize_place(s).split(' ').next() {
         Some("kota" | "kotamadya" | "kodya") => Some(true),
@@ -205,27 +225,18 @@ pub(in crate::index) fn qualifier(place: &Place, query: &str, open: bool) -> boo
     {
         return false;
     }
-    let wanted = normalize_place(label.map_or(&expanded, |(_, name)| name));
-    if place.named(name_key(&wanted)) {
-        return true;
-    }
-    place.all_names().flat_map(|n| n.split(';')).any(|name| {
-        let name = normalize_place(prefixed(name).map_or(name, |(_, name)| name));
-        name == wanted || (open && wanted.len() >= 3 && name.starts_with(&wanted))
-    })
+    place.named(name_key(&wanted))
+        || place.all_names().flat_map(|n| n.split(';')).any(|name| {
+            matches(
+                prefixed(name)
+                    .filter(|(level, _)| matches_level(*level))
+                    .map_or(name, |(_, name)| name),
+            )
+        })
 }
 
-pub(crate) fn suggest_text(
-    index: &Index,
-    text: &str,
-    cc: Option<&str>,
-) -> Option<(String, &'static [&'static str])> {
-    let (level, name) = prefixed(text.split(',').next()?.trim())?;
-    let kinds: &[&str] = match level {
-        Level::Village => &["city", "town", "village"],
-        Level::District => &["municipality"],
-        _ => return None,
-    };
+pub(crate) fn suggest_text(index: &Index, text: &str, cc: Option<&str>) -> Option<String> {
+    let (_, name) = prefixed(text.split(',').next()?.trim())?;
     let parts: Vec<&str> = text
         .split(',')
         .map(str::trim)
@@ -249,7 +260,40 @@ pub(crate) fn suggest_text(
     if text.ends_with(|c: char| c == ',' || c.is_whitespace()) {
         rewritten.push(' ');
     }
-    Some((rewritten, kinds))
+    Some(rewritten)
+}
+
+pub(crate) fn suggested(index: &Index, text: &str, suggestion: &Suggestion) -> bool {
+    let head = text.split(',').next().unwrap_or_default().trim();
+    let Some((level, _)) = prefixed(head) else {
+        return false;
+    };
+    let Some(place) = suggestion
+        .id
+        .strip_prefix('p')
+        .and_then(|p| p.parse::<usize>().ok())
+        .and_then(|p| index.places.get(p))
+    else {
+        return false;
+    };
+    let allowed = match level {
+        Level::Village => matches!(suggestion.kind, "city" | "town" | "village"),
+        Level::District => {
+            place.subtype.as_ref() == "localadmin"
+                || place
+                    .all_names()
+                    .any(|n| prefixed(n).is_some_and(|(level, _)| level == Level::District))
+        }
+        Level::Regency => place.subtype.as_ref() == "county",
+        Level::Province => place.subtype.as_ref() == "region",
+    };
+    allowed
+        && qualified(
+            place,
+            head,
+            !text.contains(',') && !text.ends_with(char::is_whitespace),
+            true,
+        )
 }
 
 pub(crate) fn aligned(
