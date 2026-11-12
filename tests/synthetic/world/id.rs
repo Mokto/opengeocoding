@@ -449,8 +449,59 @@ pub fn check_suggest(index: &opengeocoding::index::Index) {
     }
 }
 
+#[test]
+fn locality_labels_match_only_whole_indonesian_names() {
+    use opengeocoding::{
+        matching::{ParsedAddress, city_agrees},
+        proto::opengeocoding::AddressDetails,
+    };
+
+    for (stated, name, cc, expected) in [
+        ("Mekar Harum", "Kecamatan Mekar Harum", "id", true),
+        ("Mekar Harum", "Desa Mekar Harum", "id", true),
+        ("Lubuk Linggau", "Kecamatan Lubuklinggau", "id", true),
+        ("Kota Baru", "Kecamatan Kota Baru", "id", true),
+        ("Baru", "Kota Baru", "id", false),
+        ("Baru", "Kecamatan Kota Baru", "id", false),
+        ("Mekar", "Kecamatan Mekarsari", "id", false),
+        ("Mekar Harum", "Kecamatan Mekar Harum", "fr", false),
+    ] {
+        let parsed: ParsedAddress = [("city".into(), stated.into())].into();
+        let details = AddressDetails {
+            country_code: cc.into(),
+            village: name.into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            city_agrees(&parsed, Some(&details)),
+            expected,
+            "{stated}, {name}, {cc}"
+        );
+    }
+}
+
 pub fn cases() -> Vec<Case> {
     vec![
+        case(
+            "Mekar Harum, Grobogan, Jawa Tengah, Indonesia",
+            town("id-mekar-harum", true),
+        ),
+        case(
+            "Mekar Harum, Grobogan, Indonesia",
+            town("id-mekar-harum", true),
+        ),
+        case(
+            "Kec. Mekar Harum, Kab. Grobogan, Jateng",
+            town("id-mekar-harum", true),
+        ),
+        case(
+            "Kec. Mekar Harum, Kab. Sleman, Yogyakarta, Indonesia",
+            town("id-sleman", false),
+        ),
+        case(
+            "Kota Baru, Grobogan, Jawa Tengah, Indonesia",
+            town("id-kota-baru", true),
+        ),
         case("Pepe, Grobogan, Indonesia", town("id-pepe", true)),
         case(
             "Pepe, Tegowanu, Grobogan, Jawa Tengah, Indonesia",
