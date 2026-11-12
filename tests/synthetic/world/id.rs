@@ -50,7 +50,7 @@ pub const PLACES: &[Place] = &[
         1_400_000,
         (165.0, -60.0),
         "id-jt",
-        "Grobogan",
+        "Kabupaten Grobogan",
         &[],
     ),
     place!(
@@ -221,6 +221,18 @@ pub const PLACES: &[Place] = &[
         "Kota Baru",
         &[],
     ),
+    place!(
+        "id-taman",
+        "locality",
+        "neighbourhood",
+        "ID",
+        "ID-JT",
+        2_000,
+        (165.14, -60.02),
+        "id-kota-baru",
+        "Taman",
+        &[],
+    ),
     // a village of Gubeng district as the data files it, but in Blora's polygon
     place!(
         "id-gubeng",
@@ -279,6 +291,14 @@ pub fn check_suggest(index: &opengeocoding::index::Index) {
             None,
             "id-pepe",
         ),
+        ("Pepe, Grobogan, Jawa Tengah, Indonesia", None, "id-pepe"),
+        ("Pepe, Grobogan ", Some("id"), "id-pepe"),
+        ("Pepe, Grobog", Some("id"), "id-pepe"),
+        (
+            "Taman, Kota Baru, Grobogan, Jawa Tengah, Indonesia",
+            None,
+            "id-taman",
+        ),
         ("Desa Pe", Some("ID"), "id-pepe-sleman"),
         ("Desa Pepe ", Some("id"), "id-pepe-sleman"),
         (
@@ -303,6 +323,19 @@ pub fn check_suggest(index: &opengeocoding::index::Index) {
             found.iter().map(|s| &s.display_name).collect::<Vec<_>>()
         );
     }
+    let taman = crate::place("id-taman");
+    assert!(
+        index
+            .suggest(
+                "Taman, Baru, Grobogan, Jawa Tengah, Indonesia",
+                5,
+                None,
+                None,
+                false
+            )
+            .iter()
+            .all(|s| crate::metres((s.x, s.y), (taman.lon, taman.lat)) > 5.0)
+    );
     let district = crate::place("id-sawang-kec");
     assert!(
         index
@@ -312,6 +345,9 @@ pub fn check_suggest(index: &opengeocoding::index::Index) {
     );
     let pepe = crate::place("id-pepe");
     for (query, cc) in [
+        ("Pepe, Kota Grobogan, Jawa Tengah, Indonesia", None),
+        ("Pepe, Grobog ", Some("id")),
+        ("Pepe, Bogor, Jawa Tengah, Indonesia", None),
         ("Desa Pepe, Kec. Setiabudi, Kab. Grobogan, Jateng", None),
         ("Desa Pepe, Kec. Tegowanu, Kab. Sleman, Jateng", None),
         (

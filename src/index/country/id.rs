@@ -178,19 +178,21 @@ fn postal(text: &str) -> bool {
 }
 
 pub(in crate::index) fn qualifier(place: &Place, query: &str, open: bool) -> bool {
-    if let Some((level, _)) = prefixed(query)
-        && !match level {
-            Level::Village => place.subtype.as_ref() == "locality",
-            Level::District => matches!(place.subtype.as_ref(), "localadmin" | "locality"),
-            Level::Regency => place.subtype.as_ref() == "county",
-            Level::Province => place.subtype.as_ref() == "region",
-        }
-    {
+    let matches_level = |level| match level {
+        Level::Village => place.subtype.as_ref() == "locality",
+        Level::District => matches!(place.subtype.as_ref(), "localadmin" | "locality"),
+        Level::Regency => place.subtype.as_ref() == "county",
+        Level::Province => place.subtype.as_ref() == "region",
+    };
+    if prefixed(query).is_some_and(|(level, _)| !matches_level(level)) {
         return false;
     }
     let expanded = expand(query);
     let label = prefixed(&expanded);
-    if label.is_none() && expanded == query {
+    if label.is_none()
+        && expanded == query
+        && !prefixed(&place.primary).is_some_and(|(level, _)| matches_level(level))
+    {
         return false;
     }
     let kind = |s: &str| match normalize_place(s).split(' ').next() {
