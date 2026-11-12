@@ -190,17 +190,32 @@ fn joined(name: &str) -> String {
     joined
 }
 
+fn level_matches(place: &Place, level: Level) -> bool {
+    match level {
+        Level::Village => place.subtype.as_ref() == "locality",
+        Level::District => matches!(place.subtype.as_ref(), "localadmin" | "locality"),
+        Level::Regency => place.subtype.as_ref() == "county",
+        Level::Province => place.subtype.as_ref() == "region",
+    }
+}
+
+pub(crate) fn locality_name(stated: &str, name: &str) -> bool {
+    prefixed(name)
+        .filter(|(level, _)| matches!(level, Level::Village | Level::District))
+        .is_some_and(|(_, name)| joined(name) == joined(stated))
+}
+
+pub(in crate::index) fn named(place: &Place, query: &str) -> bool {
+    prefixed(&place.primary).is_some_and(|(level, _)| level_matches(place, level))
+        && locality_name(query, &place.primary)
+}
+
 pub(in crate::index) fn qualifier(place: &Place, query: &str, open: bool) -> bool {
     qualified(place, query, open, false)
 }
 
 fn qualified(place: &Place, query: &str, open: bool, head: bool) -> bool {
-    let matches_level = |level| match level {
-        Level::Village => place.subtype.as_ref() == "locality",
-        Level::District => matches!(place.subtype.as_ref(), "localadmin" | "locality"),
-        Level::Regency => place.subtype.as_ref() == "county",
-        Level::Province => place.subtype.as_ref() == "region",
-    };
+    let matches_level = |level| level_matches(place, level);
     if let Some((level, _)) = prefixed(query)
         && (!matches_level(level)
             || prefixed(&place.primary)

@@ -393,13 +393,16 @@ impl Index {
                 long.is_empty() || names_hold(self.places[*id as usize].all_names(), &long)
             })
             .collect();
+        let named = |p: &Place| {
+            p.named(want) || (p.cc.eq_ignore_ascii_case("id") && country::id::named(p, text))
+        };
         // The most important exact match among administrative areas, and the population of the
         // largest exact-named settlement: only that settlement may outrank the area.
         let area = ids
             .iter()
             .map(|&(_, id)| &self.places[id as usize])
             .position(|p| {
-                p.named(want)
+                named(p)
                     && matches!(
                         &*p.subtype,
                         "region" | "macroregion" | "county" | "macrocounty"
@@ -410,7 +413,7 @@ impl Index {
         let largest = ids
             .iter()
             .map(|&(_, id)| &self.places[id as usize])
-            .filter(|p| p.subtype.as_ref() == "locality" && p.named(want))
+            .filter(|p| p.subtype.as_ref() == "locality" && named(p))
             .map(|p| p.population)
             .max()
             .unwrap_or(0);
@@ -418,7 +421,7 @@ impl Index {
             .into_iter()
             .map(|(rank, id)| {
                 let pl = &self.places[id as usize];
-                let exact = pl.named(want);
+                let exact = named(pl);
                 let chain = self.chain(id);
                 let inside = within.iter().any(|&w| {
                     chain

@@ -1,4 +1,4 @@
-use crate::index::country::{co, ee, eh, es, mx, pt};
+use crate::index::country::{co, ee, eh, es, id, mx, pt};
 use crate::{
     index::{
         canon::{canon, is_canonical},
@@ -639,7 +639,7 @@ pub fn city_agrees(address: &ParsedAddress, details: Option<&AddressDetails>) ->
                 .flatten(),
         )
         .filter(|s| !s.is_empty())
-        .any(|s| agrees(s))
+        .any(|s| agrees(s) || (d.country_code == "id" && id::locality_name(expected, s)))
 }
 
 /// The stated postcode is the candidate's and the stated town names a place above the
