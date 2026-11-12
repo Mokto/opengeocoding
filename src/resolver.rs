@@ -983,15 +983,6 @@ impl Core {
         Ok(Some(regency))
     }
 
-    /// Whether an Indonesian answer lies outside the regency the query states.
-    fn outside_stated_regency(&self, query: &str, answer: &FullAddress) -> Result<bool> {
-        let Some(parsed) = self.parse(query)? else {
-            return Ok(false);
-        };
-        Ok(id::stated_scope(&self.index, &parsed)
-            .is_some_and(|scope| id::elsewhere(&self.index, &scope, answer)))
-    }
-
     fn numbered_place(&self, query: &str) -> Result<Option<FullAddress>> {
         if query
             .split(',')
@@ -1315,8 +1306,14 @@ impl Core {
         let Some(hit) = self.index.settlement_in(first, &code.code) else {
             return Ok(found);
         };
-        let mut settled = format_response(&self.index.render(&hit, true))?;
-        if self.outside_stated_regency(query, &settled)? {
+        let rendered = self.index.render(&hit, true);
+        let mut settled = format_response(&rendered)?;
+        if d.country_code == "id"
+            && let Some(parsed) = self.parse(query)?
+            && let Some(scope) = id::stated_scope(&self.index, &parsed)
+            && (id::outside(&self.index, &scope, &hit, &rendered)
+                || id::elsewhere(&self.index, &scope, &settled))
+        {
             return Ok(found);
         }
         settled.good_match = found.good_match;

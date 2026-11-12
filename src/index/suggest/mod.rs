@@ -6,7 +6,7 @@ mod place;
 mod postcode;
 mod street;
 
-use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, it, jp, lt, pl, ps, pt, th, tw};
+use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, id, it, jp, lt, pl, ps, pt, th, tw};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 pub(super) use place::place_names;
@@ -392,10 +392,31 @@ impl Index {
             }
         }
         // a rewrite's own constraints stand: what was typed falls back, not a retry of it
-        if !found.is_empty() || chain.len() > 1 {
+        if chain.len() > 1 {
             return found;
         }
-        self.suggest_stated(text, cc, focus, landmarks, limit, chain)
+        let mut found = if found.is_empty() {
+            self.suggest_stated(text, cc, focus, landmarks, limit, chain)
+        } else {
+            found
+        };
+        if found.len() < limit
+            && cc.is_none_or(|c| c.eq_ignore_ascii_case("id"))
+            && let Some((written, kinds)) = id::suggest_text(self, text, cc)
+        {
+            let mut expanded = self.retry_suggest(
+                &written,
+                limit - found.len(),
+                Some("id"),
+                focus,
+                landmarks,
+                chain,
+            );
+            expanded.retain(|s| kinds.contains(&s.kind));
+            expanded.extend(found);
+            found = kept(expanded, cc, limit);
+        }
+        found
     }
 
     /// `ca::without_place_parts`, for a Canadian text whose suggestions hold no address.
