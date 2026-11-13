@@ -83,6 +83,15 @@ docker build --target runtime -t opengeocoding .
 - Preserve amd64 and arm64 support. CI unit checks do not download models or establish model-backed accuracy.
 - Performance claims require comparable measurements and accuracy checks; synthetic CPU timings are not request-latency guarantees.
 
+## Local workstation resource limits
+
+For builds, tests and evaluations on local developer machines only, run heavy jobs sequentially: parallel runs have made a workstation unresponsive.
+
+- Set `CARGO_BUILD_JOBS=1`, `RAYON_NUM_THREADS=2`, `TOKIO_WORKER_THREADS=2` and `RUST_TEST_THREADS=1` per command; pass `--workers 1` to `evaluate run`.
+- Use `nice -n 19` for heavy commands; on macOS, also use `taskpolicy -b`.
+- Before an index build, check `pgrep -fl build_index` and wait if one is running. If a local wrapper overwrites thread settings, apply the limits in the child builder command after the wrapper's defaults.
+- Keep these limits in local command invocations. Do not apply them to CI or production jobs, bake them into container images, or change application defaults or global shell configuration.
+
 ## Local test index
 
 A world index built by this repository's builder is kept in `~/opengeocoding-index/out`, with `builder.hash.txt` holding the `build_index hash` it was built with and `build.sh` the exact build. Look there before building anything: if `build_index hash` equals `builder.hash.txt`, use `INDEX_DIR=~/opengeocoding-index/out` as it is. Rebuild (`~/opengeocoding-index/build.sh`, about 6 minutes and 20 GB of memory) only when the hash differs, and update `builder.hash.txt`. The service and `tests/suggest.rs` need no libpostal models beyond what the service itself loads.
