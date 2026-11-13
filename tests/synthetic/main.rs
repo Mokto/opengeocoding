@@ -37,6 +37,8 @@ fn dir() -> &'static PathBuf {
         world::us::write_municipalities(&municipalities);
         let cdps = root.join("us-cdps.json.gz");
         world::us::write_cdps(&cdps);
+        let hierarchy = root.join("id-hierarchy.json.gz");
+        world::id::write_hierarchy(&hierarchy);
         let built = Command::new(env!("CARGO_BIN_EXE_build_index"))
             .arg(root.join("release"))
             .arg(&out)
@@ -50,6 +52,8 @@ fn dir() -> &'static PathBuf {
             .arg(&iceland)
             .arg("--iceland-addresses-sha256")
             .arg(&iceland_sha)
+            .arg("--indonesia-hierarchy")
+            .arg(&hierarchy)
             .arg("--denmark-localities")
             .arg(&danish)
             .arg("--us-municipalities")
@@ -67,6 +71,11 @@ fn dir() -> &'static PathBuf {
         );
         out
     })
+}
+
+#[test]
+fn indonesian_hierarchy_preserves_points_and_hides_names_only_parents() {
+    world::id::check_hierarchy(index(), dir());
 }
 
 fn index() -> &'static Index {

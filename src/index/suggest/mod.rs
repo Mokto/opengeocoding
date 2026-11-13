@@ -1228,8 +1228,8 @@ impl Index {
             "b" => super::country::gl::retrieve(self, rest),
             "p" => {
                 let id: u32 = rest.parse().ok()?;
-                self.places.get(id as usize)?;
-                Some(self.place_suggestion(id))
+                let place = self.places.get(id as usize)?;
+                (!super::country::id::hierarchy_only(place)).then(|| self.place_suggestion(id))
             }
             "l" => {
                 let id: u32 = rest.parse().ok()?;

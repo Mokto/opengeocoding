@@ -67,6 +67,7 @@ impl Place {
             "region" | "macroregion" => "state",
             "county" if self.city_like => "city",
             "county" => "county",
+            "localadmin" if country::id::hierarchy_only(self) => "district",
             "localadmin" => "municipality",
             "locality" => match &*self.class {
                 "megacity" | "city" => "city",

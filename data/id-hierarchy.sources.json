@@ -1,0 +1,19 @@
+{
+  "repository": "https://github.com/cahyadsn/wilayah",
+  "commit": "c2eff0881e3c75b8822f8c84ea9d23affc11aadb",
+  "url": "https://raw.githubusercontent.com/cahyadsn/wilayah/c2eff0881e3c75b8822f8c84ea9d23affc11aadb/db/wilayah.sql",
+  "source_sha256": "c4c3396d9380d4edee072af1d9dff83573b574d7cd00a6562cf82e200e954031",
+  "gzip_sha256": "162207b92490aafb5cb4b0e95f4ab3f6f5a73918b7068c970c9608c221c6c506",
+  "license": "MIT",
+  "decree": "Kepmendagri No. 300.2.2-2138 Tahun 2025",
+  "fields": [
+    "administrative_code",
+    "name"
+  ],
+  "counts": {
+    "1": 38,
+    "2": 514,
+    "3": 7285,
+    "4": 83762
+  }
+}

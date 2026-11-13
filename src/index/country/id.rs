@@ -190,6 +190,51 @@ fn joined(name: &str) -> String {
     joined
 }
 
+pub const HIERARCHY_CLASS: &str = "id_hierarchy";
+
+pub(in crate::index) fn hierarchy_only(place: &Place) -> bool {
+    &*place.cc == "id" && &*place.class == HIERARCHY_CLASS
+}
+
+pub fn hierarchy_key(name: &str, level: u8) -> String {
+    let expanded = expand(name);
+    let label = prefixed(&expanded);
+    if level == 2
+        && let Some((Level::Regency, stem)) = label
+    {
+        let kind = if normalize_place(&expanded).starts_with("kab") {
+            "kabupaten"
+        } else {
+            "kota"
+        };
+        return format!("{kind}:{}", joined(stem));
+    }
+    let wanted = match level {
+        1 => Level::Province,
+        3 => Level::District,
+        4 => Level::Village,
+        _ => return joined(&expanded),
+    };
+    joined(
+        label
+            .filter(|(level, _)| *level == wanted)
+            .map_or(&expanded, |(_, stem)| stem),
+    )
+}
+
+pub fn hierarchy_county_key(name: &str) -> String {
+    let expanded = expand(name);
+    joined(
+        prefixed(&expanded)
+            .filter(|(level, _)| *level == Level::Regency)
+            .map_or(&expanded, |(_, stem)| stem),
+    )
+}
+
+pub fn hierarchy_district(name: &str) -> bool {
+    prefixed(name).is_some_and(|(level, _)| level == Level::District)
+}
+
 fn level_matches(place: &Place, level: Level) -> bool {
     match level {
         Level::Village => place.subtype.as_ref() == "locality",

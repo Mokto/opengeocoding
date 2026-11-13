@@ -6,6 +6,42 @@ use crate::{Case, at_house, case, town};
 /// larger village in Grobogan.
 pub const PLACES: &[Place] = &[
     place!(
+        "id-rimba-town",
+        "locality",
+        "town",
+        "ID",
+        "ID-JT",
+        3500,
+        (165.27, -60.16),
+        "id-grobogan",
+        "Rimba",
+        &[("id", "Kecamatan Rimba")],
+    ),
+    place!(
+        "id-kenanga",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        700,
+        (165.25, -60.18),
+        "id-grobogan",
+        "Kenanga",
+        &[],
+    ),
+    place!(
+        "id-bening",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        600,
+        (165.26, -60.19),
+        "id-grobogan",
+        "Bening",
+        &[],
+    ),
+    place!(
         "id",
         "country",
         "",
@@ -314,8 +350,107 @@ pub const STREETS: &[Street] = &[
     },
 ];
 
+pub fn write_hierarchy(path: &std::path::Path) {
+    use std::io::Write;
+    let rows = serde_json::json!([
+        ["33", "Jawa Tengah"],
+        ["33.15", "Kabupaten Grobogan"],
+        ["33.15.90", "Rimba"],
+        ["33.15.90.2001", "Kenanga"],
+        ["33.15.01", "Tegowanu"],
+        ["33.15.01.2001", "Bening"]
+    ]);
+    let mut out = flate2::write::GzEncoder::new(
+        std::fs::File::create(path).unwrap(),
+        flate2::Compression::default(),
+    );
+    out.write_all(&serde_json::to_vec(&rows).unwrap()).unwrap();
+    out.finish().unwrap();
+}
+
+pub fn check_hierarchy(index: &opengeocoding::index::Index, directory: &std::path::Path) {
+    let text = std::fs::read_to_string(directory.join("places.tsv")).unwrap();
+    let rows: Vec<Vec<_>> = text
+        .lines()
+        .map(|line| line.split('\t').collect())
+        .collect();
+    let district = rows
+        .iter()
+        .position(|r| {
+            r[1] == opengeocoding::index::country::id::HIERARCHY_CLASS && r[13] == "Rimba"
+        })
+        .unwrap();
+    assert!(rows[district][6].parse::<f64>().unwrap().is_nan());
+    assert!(rows[district][7].parse::<f64>().unwrap().is_nan());
+    let village = rows.iter().position(|r| r[13] == "Kenanga").unwrap();
+    assert_eq!(rows[village][12].parse::<usize>().unwrap(), district);
+    let rendered = index.render(&opengeocoding::index::Hit::Place(village as u32), true);
+    assert_eq!(rendered["address"]["district"], "Rimba");
+    assert!(rendered["address"].get("municipality").is_none());
+    let parsed = [("city".into(), "Rimba".into())].into();
+    let details = opengeocoding::proto::opengeocoding::AddressDetails {
+        country_code: "id".into(),
+        village: "Kenanga".into(),
+        district: "Rimba".into(),
+        ..Default::default()
+    };
+    assert!(!opengeocoding::matching::city_agrees(
+        &parsed,
+        Some(&details)
+    ));
+    let found = index.suggest(
+        "Kenanga, Rimba, Grobogan, Jawa Tengah, Indonesia",
+        5,
+        None,
+        None,
+        false,
+    );
+    let suggestion = found.first().unwrap();
+    let prefix = suggestion.retrieval_id.split_once('/').unwrap().0;
+    assert!(
+        index
+            .retrieve_suggestion(&format!("{prefix}/p{district}"))
+            .is_none()
+    );
+    for query in ["Rimba", "Kec. Rimba", "Kecamatan Rimba"] {
+        assert!(
+            index
+                .suggest(query, 10, Some("id"), None, false)
+                .iter()
+                .all(|s| s.id != format!("p{district}") && s.x.is_finite() && s.y.is_finite())
+        );
+        assert!(index.search(query).iter().all(
+            |hit| !matches!(hit, opengeocoding::index::Hit::Place(p) if *p as usize == district)
+        ));
+    }
+    assert!(
+        text.lines()
+            .filter(|line| line.split('\t').nth(13) == Some("Kenanga"))
+            .all(|line| {
+                let r: Vec<_> = line.split('\t').collect();
+                (r[6].parse::<f64>().unwrap() - 165.25).abs() < 1e-8
+                    && (r[7].parse::<f64>().unwrap() + 60.18).abs() < 1e-8
+            })
+    );
+}
+
 pub fn check_suggest(index: &opengeocoding::index::Index) {
     for (query, cc, place) in [
+        (
+            "Kenanga, Rimba, Grobogan, Jawa Tengah, Indonesia",
+            None,
+            "id-kenanga",
+        ),
+        (
+            "Desa Kenanga, Kec. Rimba, Kab. Grobogan, Jateng",
+            None,
+            "id-kenanga",
+        ),
+        (
+            "Bening, Tegowanu, Grobogan, Jawa Tengah, Indonesia",
+            None,
+            "id-bening",
+        ),
         (
             "Desa Pepe, Kec. Tegowanu, Kab. Grobogan, Jawa Tengah, Indonesia",
             None,
@@ -376,6 +511,22 @@ pub fn check_suggest(index: &opengeocoding::index::Index) {
         );
     }
     for (query, wrong) in [
+        (
+            "Kenanga, Tegowanu, Grobogan, Jawa Tengah, Indonesia",
+            "id-kenanga",
+        ),
+        (
+            "Kenanga, Rimba, Sleman, Yogyakarta, Indonesia",
+            "id-kenanga",
+        ),
+        (
+            "Kenanga, Rimba, Grobogan, Jawa Tengah, France",
+            "id-kenanga",
+        ),
+        (
+            "Kenanga, Rimba, Kota Grobogan, Jawa Tengah, Indonesia",
+            "id-kenanga",
+        ),
         ("Kota Grobogan", "id-grobogan"),
         ("Kab. Grobog ", "id-grobogan"),
         ("Prov. Jawa Ten ", "id-jt"),
@@ -482,6 +633,18 @@ fn locality_labels_match_only_whole_indonesian_names() {
 
 pub fn cases() -> Vec<Case> {
     vec![
+        case(
+            "Kenanga, Rimba, Grobogan, Jawa Tengah, Indonesia",
+            town("id-kenanga", true),
+        ),
+        case(
+            "Desa Kenanga, Kec. Rimba, Kab. Grobogan, Jateng",
+            town("id-kenanga", true),
+        ),
+        case(
+            "Bening, Tegowanu, Grobogan, Jawa Tengah, Indonesia",
+            town("id-bening", true),
+        ),
         case(
             "Mekar Harum, Grobogan, Jawa Tengah, Indonesia",
             town("id-mekar-harum", true),

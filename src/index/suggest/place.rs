@@ -20,6 +20,9 @@ const OTHER_NAME_COUNTRY: u64 = 2_000_000;
 /// hamlets, many regions) a guess by kind. Countries are all alike, and an area is not more
 /// likely than the city it is named for (Tokyo, New York).
 pub(in crate::index) fn weight(p: &Place) -> u64 {
+    if super::super::country::id::hierarchy_only(p) {
+        return 0;
+    }
     let pop = p.population as u64;
     match &*p.subtype {
         "country" | "dependency" => 50_000_000,
