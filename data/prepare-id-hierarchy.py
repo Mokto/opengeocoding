@@ -12,6 +12,7 @@ COMMIT = "c2eff0881e3c75b8822f8c84ea9d23affc11aadb"
 URL = f"https://raw.githubusercontent.com/cahyadsn/wilayah/{COMMIT}/db/wilayah.sql"
 SHA256 = "c4c3396d9380d4edee072af1d9dff83573b574d7cd00a6562cf82e200e954031"
 COUNTS = {1: 38, 2: 514, 3: 7285, 4: 83762}
+RECORD = re.compile(r"^\('([0-9]{2}(?:\.[0-9]{2}){0,2}(?:\.[0-9]{4})?)','((?:\\.|''|[^'\\])*)'\)[,;]$")
 
 
 def prepare(source, output, manifest):
@@ -22,12 +23,11 @@ def prepare(source, output, manifest):
             raw = response.read(4 * 1024 * 1024 + 1)
     if hashlib.sha256(raw).hexdigest() != SHA256:
         raise ValueError("expected the pinned names/code SQL file")
-    pattern = re.compile(r"^\('([0-9]{2}(?:\.[0-9]{2}){0,2}(?:\.[0-9]{4})?)','((?:\\.|''|[^'])*)'\)[,;]$")
     records = {}
     for line in raw.decode("utf-8").splitlines():
         if not line.startswith("('"):
             continue
-        match = pattern.fullmatch(line)
+        match = RECORD.fullmatch(line)
         if not match:
             raise ValueError(f"invalid source record: {line!r}")
         code, name = match.groups()

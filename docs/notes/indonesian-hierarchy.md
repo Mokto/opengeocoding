@@ -18,6 +18,7 @@ The complete source is pinned by commit and SHA-256 in
 [`prepare-id-hierarchy.py`](../../data/prepare-id-hierarchy.py). Regenerate with:
 
 ```sh
+python3 data/test_prepare_id_hierarchy.py
 python3 data/prepare-id-hierarchy.py --source /path/to/pinned/wilayah.sql
 ```
 
