@@ -23,7 +23,12 @@ pub struct Row {
 /// number, house numbers.
 pub fn count(dir: &Path) -> Result<HashMap<String, Row>> {
     let index = tantivy::Index::open_in_dir(dir).with_context(|| dir.display().to_string())?;
-    let searcher = index.reader()?.searcher();
+    // A reload callback can outlive the reader and recreate lock files during cleanup.
+    let searcher = index
+        .reader_builder()
+        .reload_policy(tantivy::ReloadPolicy::Manual)
+        .try_into()?
+        .searcher();
     let country = index.schema().get_field("country")?;
     let mut codes: Vec<String> = vec![String::new()];
     let mut by_code: HashMap<String, u16> = HashMap::from([(String::new(), 0)]);
