@@ -282,6 +282,186 @@ pub const PLACES: &[Place] = &[
         &[],
     ),
     place!(
+        "id-serojawangi",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        250,
+        (165.17, -60.02),
+        "id-tegowanu",
+        "Serojawangi",
+        &[]
+    ),
+    place!(
+        "id-serojawangi-other",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        500,
+        (165.19, -60.03),
+        "id-mekar-harum",
+        "Serojawangi",
+        &[]
+    ),
+    place!(
+        "id-pesisirjalan",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        200,
+        (165.17, -60.04),
+        "id-tegowanu",
+        "Pesisirjalan",
+        &[]
+    ),
+    place!(
+        "id-pesisir-jalan-other",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        400,
+        (165.0, -59.1),
+        "id-blora",
+        "Pesisir Jalan",
+        &[]
+    ),
+    place!(
+        "id-rimbakuning-1",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        1000,
+        (165.25, -60.13),
+        "id-tegowanu",
+        "Rimbakuning",
+        &[]
+    ),
+    place!(
+        "id-rimbakuning-2",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        500,
+        (165.26, -60.14),
+        "id-tegowanu",
+        "Rimbakuning",
+        &[]
+    ),
+    place!(
+        "id-rimbakuning-3",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        4000,
+        (165.23, -60.15),
+        "id-mekar-harum",
+        "Rimbakuning",
+        &[]
+    ),
+    place!(
+        "id-rimbakuning-4",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        4000,
+        (165.231, -60.15),
+        "id-mekar-harum",
+        "Rimbakuning",
+        &[]
+    ),
+    place!(
+        "id-rimbakuning-5",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        4000,
+        (165.232, -60.15),
+        "id-mekar-harum",
+        "Rimbakuning",
+        &[]
+    ),
+    place!(
+        "id-rimbakuning-6",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        4000,
+        (165.233, -60.15),
+        "id-mekar-harum",
+        "Rimbakuning",
+        &[]
+    ),
+    place!(
+        "id-rimbakuning-7",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        4000,
+        (165.234, -60.15),
+        "id-mekar-harum",
+        "Rimbakuning",
+        &[]
+    ),
+    place!(
+        "id-rimbakuning-8",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        4000,
+        (165.235, -60.15),
+        "id-mekar-harum",
+        "Rimbakuning",
+        &[]
+    ),
+    place!(
+        "id-rimbakuning-9",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        4000,
+        (165.236, -60.15),
+        "id-mekar-harum",
+        "Rimbakuning",
+        &[]
+    ),
+    place!(
+        "id-rimbakuning-10",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        4000,
+        (165.237, -60.15),
+        "id-mekar-harum",
+        "Rimbakuning",
+        &[]
+    ),
+    place!(
+        "id-rimbakuning-11",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        4000,
+        (165.238, -60.15),
+        "id-mekar-harum",
+        "Rimbakuning",
+        &[]
+    ),
+    place!(
         "id-taman",
         "locality",
         "neighbourhood",
@@ -329,7 +509,7 @@ pub const STREETS: &[Street] = &[
     Street {
         class: "residential",
         length: 0.0,
-        name: "Jalan Mekar Harum",
+        name: "Kec. Mekar Harum Road",
         postcode: "",
         city: "Pepe",
         cc: "ID",
@@ -435,7 +615,35 @@ pub fn check_hierarchy(index: &opengeocoding::index::Index, directory: &std::pat
 }
 
 pub fn check_suggest(index: &opengeocoding::index::Index) {
+    let district = crate::place("id-mekar-harum");
+    let found = index.suggest("Kec. Mekar Harum, Grobogan, Jateng", 1, None, None, false);
+    assert!(
+        found
+            .first()
+            .is_some_and(|s| crate::metres((s.x, s.y), (district.lon, district.lat)) < 5.0)
+    );
     for (query, cc, place) in [
+        (
+            "Seroja Wangi, Tego Wanu, Grobogan, Jawa Tengah, Indonesia",
+            None,
+            "id-serojawangi",
+        ),
+        (
+            "Desa Seroja Wangi, Kec. Tego Wanu, Kab. Grobogan, Jateng",
+            None,
+            "id-serojawangi",
+        ),
+        (
+            "Pesisir Jalan, Tego Wanu, Grobogan, Jawa Tengah, Indonesia",
+            None,
+            "id-pesisirjalan",
+        ),
+        (
+            "Desa Pesisir Jalan, Kec. Tego Wanu, Kab. Grobogan, Jateng",
+            None,
+            "id-pesisirjalan",
+        ),
+        ("Seroja Wangi", Some("id"), "id-serojawangi-other"),
         (
             "Kenanga, Rimba, Grobogan, Jawa Tengah, Indonesia",
             None,
@@ -511,6 +719,26 @@ pub fn check_suggest(index: &opengeocoding::index::Index) {
         );
     }
     for (query, wrong) in [
+        (
+            "Seroja Wangi, Setiabudi, Grobogan, Jawa Tengah, Indonesia",
+            "id-serojawangi",
+        ),
+        (
+            "Desa Seroja Wangi, Kec. Tego Wanu, Kab. Sleman, Yogyakarta, Indonesia",
+            "id-serojawangi",
+        ),
+        (
+            "Seroja Wangi, Tego Wanu, Grobogan, Jawa Tengah, France",
+            "id-serojawangi",
+        ),
+        (
+            "Seroja Wan, Tego Wanu, Grobogan, Jawa Tengah, Indonesia",
+            "id-serojawangi",
+        ),
+        (
+            "Seroja Wangi, Tego Wanu, Kota Grobogan, Jawa Tengah, Indonesia",
+            "id-serojawangi",
+        ),
         (
             "Kenanga, Tegowanu, Grobogan, Jawa Tengah, Indonesia",
             "id-kenanga",
@@ -633,6 +861,42 @@ fn locality_labels_match_only_whole_indonesian_names() {
 
 pub fn cases() -> Vec<Case> {
     vec![
+        case(
+            "Seroja Wangi, Tego Wanu, Grobogan, Jawa Tengah, Indonesia",
+            town("id-serojawangi", true),
+        ),
+        case(
+            "Desa Seroja Wangi, Kec. Tego Wanu, Kab. Grobogan, Jateng",
+            town("id-serojawangi", true),
+        ),
+        case(
+            "Pesisir Jalan, Tego Wanu, Grobogan, Jawa Tengah, Indonesia",
+            town("id-pesisirjalan", true),
+        ),
+        case(
+            "Desa Pesisir Jalan, Kec. Tego Wanu, Kab. Grobogan, Jateng",
+            town("id-pesisirjalan", true),
+        ),
+        case(
+            "Desa Rimba Kuning, Kec. Tego Wanu, Kab. Grobogan, Jateng",
+            town("id-tegowanu", false),
+        ),
+        case(
+            "Pesisir Jalan, Kab. Grobogan, Indonesia",
+            town("id-pesisirjalan", true),
+        ),
+        case(
+            "Kec. Pesisir Jalan, Kab. Grobogan, Indonesia",
+            town("id-grobogan", false),
+        ),
+        case(
+            "Seroja Wangi, Grobogan, Jawa Tengah, Indonesia",
+            town("id-grobogan", false),
+        ),
+        case(
+            "Desa Seroja Wangi, Kec. Setiabudi, Kab. Grobogan, Jateng",
+            town("id-grobogan", false),
+        ),
         case(
             "Kenanga, Rimba, Grobogan, Jawa Tengah, Indonesia",
             town("id-kenanga", true),
