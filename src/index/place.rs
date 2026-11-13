@@ -832,8 +832,10 @@ impl Index {
         })
     }
 
+    #[cold]
     pub(crate) fn country_first_label(&self, query: &str) -> Option<String> {
-        if query.chars().take(257).count() > 256
+        if !query.contains('-')
+            || query.chars().take(257).count() > 256
             || !query
                 .chars()
                 .all(|c| c.is_alphabetic() || c.is_whitespace() || c == '-')

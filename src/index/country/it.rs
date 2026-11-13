@@ -61,6 +61,7 @@ pub(crate) fn frazione_parts(query: &str) -> Option<(String, String, String)> {
     ))
 }
 
+#[cold]
 pub(crate) fn without_municipal_prefix(query: &str) -> Option<&str> {
     let rest = query.get("comune di ".len()..)?;
     (query[.."comune di ".len()].eq_ignore_ascii_case("comune di ")
