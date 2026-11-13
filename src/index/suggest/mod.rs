@@ -395,28 +395,11 @@ impl Index {
         if chain.len() > 1 {
             return found;
         }
-        let mut found = if found.is_empty() {
+        if found.is_empty() {
             self.suggest_stated(text, cc, focus, landmarks, limit, chain)
         } else {
             found
-        };
-        if found.len() < limit
-            && cc.is_none_or(|c| c.eq_ignore_ascii_case("id"))
-            && let Some(written) = id::suggest_text(self, text, cc)
-        {
-            let mut expanded = self.retry_suggest(
-                &written,
-                limit - found.len(),
-                Some("id"),
-                focus,
-                landmarks,
-                chain,
-            );
-            expanded.retain(|s| id::suggested(self, text, s));
-            expanded.extend(found);
-            found = kept(expanded, cc, limit);
         }
-        found
     }
 
     /// `ca::without_place_parts`, for a Canadian text whose suggestions hold no address.
@@ -649,6 +632,26 @@ impl Index {
             .into_iter()
             .map(|(id, _)| self.place_suggestion(id))
             .collect();
+        if chain.len() == 1 && cc.is_none_or(|c| c.eq_ignore_ascii_case("id")) {
+            for written in id::suggest_texts(self, text, cc) {
+                if out.len() >= limit {
+                    break;
+                }
+                let expanded = self.retry_suggest(
+                    &written,
+                    limit - out.len(),
+                    Some("id"),
+                    focus,
+                    landmarks,
+                    chain,
+                );
+                out.extend(
+                    expanded
+                        .into_iter()
+                        .filter(|s| id::suggested(self, text, s)),
+                );
+            }
+        }
         if landmarks && out.len() < limit {
             out.extend(self.suggest_landmarks(&typed, cc, limit - out.len()));
         }

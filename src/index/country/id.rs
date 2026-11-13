@@ -4,7 +4,7 @@
 //! so the village was lost.
 
 use crate::{
-    index::{Hit, Index, NONE, Parsed, Place, Suggestion, name_key, parse::field},
+    index::{Hit, Index, Kind, NONE, Parsed, Place, Suggestion, fold, name_key, parse::field},
     matching::{ParsedAddress, normalize_place, part, region_words},
     proto::opengeocoding::FullAddress,
 };
@@ -244,6 +244,12 @@ fn level_matches(place: &Place, level: Level) -> bool {
     }
 }
 
+fn lookup_text(text: &str) -> Option<String> {
+    (text.split_whitespace().count() > 1)
+        .then(|| joined(text))
+        .filter(|text| !text.is_empty())
+}
+
 pub(crate) fn locality_name(stated: &str, name: &str) -> bool {
     prefixed(name)
         .filter(|(level, _)| matches!(level, Level::Village | Level::District))
@@ -312,15 +318,17 @@ fn qualified(place: &Place, query: &str, open: bool, head: bool) -> bool {
         })
 }
 
-pub(crate) fn suggest_text(index: &Index, text: &str, cc: Option<&str>) -> Option<String> {
-    let (_, name) = prefixed(text.split(',').next()?.trim())?;
+pub(crate) fn suggest_texts(index: &Index, text: &str, cc: Option<&str>) -> Vec<String> {
+    let head = text.split(',').next().unwrap_or_default().trim();
+    let label = prefixed(head);
+    let name = label.map_or(head, |(_, name)| name);
     let parts: Vec<&str> = text
         .split(',')
         .map(str::trim)
         .filter(|p| !p.is_empty())
         .collect();
     if cc.is_none() && parts.len() < 2 {
-        return None;
+        return vec![];
     }
     let countries: Vec<_> = parts.iter().filter_map(|p| index.country(p)).collect();
     if countries.iter().any(|c| c != "id")
@@ -328,23 +336,28 @@ pub(crate) fn suggest_text(index: &Index, text: &str, cc: Option<&str>) -> Optio
             && countries.is_empty()
             && !parts.last().is_some_and(|p| indonesian(index, p)))
     {
-        return None;
+        return vec![];
     }
-    let mut rewritten = std::iter::once(name)
-        .chain(parts[1..].iter().copied())
-        .collect::<Vec<_>>()
-        .join(", ");
-    if text.ends_with(|c: char| c == ',' || c.is_whitespace()) {
-        rewritten.push(' ');
-    }
-    Some(rewritten)
+    label
+        .map(|_| name.to_owned())
+        .into_iter()
+        .chain(lookup_text(name))
+        .map(|name| {
+            let mut rewritten = std::iter::once(name.as_str())
+                .chain(parts[1..].iter().copied())
+                .collect::<Vec<_>>()
+                .join(", ");
+            if text.ends_with(|c: char| c == ',' || c.is_whitespace()) {
+                rewritten.push(' ');
+            }
+            rewritten
+        })
+        .collect()
 }
 
 pub(crate) fn suggested(index: &Index, text: &str, suggestion: &Suggestion) -> bool {
     let head = text.split(',').next().unwrap_or_default().trim();
-    let Some((level, _)) = prefixed(head) else {
-        return false;
-    };
+    let level = prefixed(head).map(|(level, _)| level);
     let Some(place) = suggestion
         .id
         .strip_prefix('p')
@@ -354,15 +367,16 @@ pub(crate) fn suggested(index: &Index, text: &str, suggestion: &Suggestion) -> b
         return false;
     };
     let allowed = match level {
-        Level::Village => matches!(suggestion.kind, "city" | "town" | "village"),
-        Level::District => {
+        None => matches!(place.subtype.as_ref(), "locality" | "localadmin"),
+        Some(Level::Village) => matches!(suggestion.kind, "city" | "town" | "village"),
+        Some(Level::District) => {
             place.subtype.as_ref() == "localadmin"
                 || place
                     .all_names()
                     .any(|n| prefixed(n).is_some_and(|(level, _)| level == Level::District))
         }
-        Level::Regency => place.subtype.as_ref() == "county",
-        Level::Province => place.subtype.as_ref() == "region",
+        Some(Level::Regency) => place.subtype.as_ref() == "county",
+        Some(Level::Province) => place.subtype.as_ref() == "region",
     };
     allowed
         && qualified(
@@ -486,10 +500,83 @@ pub(crate) fn aligned(
     // `state_district` is not read when there is a `state`.
     let scope = scope.as_str();
     let town = named(Level::Village).or(named(Level::District).filter(|d| *d != scope));
+    let canonical = town
+        .filter(|name| {
+            named(Level::Village).is_some()
+            || !expanded.iter().any(|part| {
+                matches!(prefixed(part), Some((Level::District, labelled)) if labelled == *name)
+            })
+        })
+        .and_then(|name| {
+            let compact = lookup_text(name)?;
+            let local = |p: &Place| p.subtype.as_ref() == "locality";
+            let inside = |hit: &Hit| {
+                let Hit::Place(place) = hit else { return false };
+                let chain = index.chain(*place);
+                chain.iter().skip(1).any(|&a| {
+                    let ancestor = &index.places[a as usize];
+                    ancestor.subtype.as_ref() == "county" && qualifier(ancestor, scope, false)
+                }) && named(Level::District).is_none_or(|district| {
+                    named(Level::Village).is_none()
+                        || chain.iter().skip(1).any(|&a| {
+                            let ancestor = &index.places[a as usize];
+                            ancestor.subtype.as_ref() == "localadmin"
+                                && qualifier(ancestor, district, false)
+                        })
+                })
+            };
+            if index
+                .places_exact(name, Some("id"), Some(scope), &local)
+                .0
+                .iter()
+                .any(inside)
+            {
+                return None;
+            }
+            let token = fold(&compact);
+            let count = index.docs_with(index.f.names, &token);
+            // ponytail: skip lists over 400 postings; an exact-name collector can lift this ceiling.
+            if token.contains(' ') || !(1..=400).contains(&count) {
+                return None;
+            }
+            let hits: Vec<Hit> = index
+                .top_of(
+                    Kind::Searched,
+                    Some("id"),
+                    index.musts(index.f.names, &compact),
+                    count as usize,
+                )
+                .into_iter()
+                .filter_map(|a| {
+                    let id = index.fast(a, "id") as u32;
+                    local(&index.places[id as usize]).then_some(Hit::Place(id))
+                })
+                .collect();
+            let mut matching = hits.iter().filter(|hit| inside(hit));
+            let Hit::Place(place) = matching.next()? else {
+                return None;
+            };
+            let primary = index.places[*place as usize].primary.as_ref();
+            if matching.next().is_some() || joined(primary) != joined(name) {
+                return None;
+            }
+            let district = named(Level::Village)
+                .and(named(Level::District))
+                .and_then(|district| {
+                    index.chain(*place).into_iter().skip(1).find_map(|a| {
+                        let ancestor = &index.places[a as usize];
+                        (ancestor.subtype.as_ref() == "localadmin"
+                            && qualifier(ancestor, district, false))
+                        .then_some(ancestor.primary.as_ref())
+                    })
+                });
+            Some((primary, district))
+        });
+    let town = canonical.map(|(town, _)| town).or(town);
     // Village names repeat within a regency too (Mekarsari): the stated district, when the
     // index files a village of that name under it, ranks that one first. The regency then
     // stays as the bound the resolver holds answers to.
-    let district = named(Level::District).filter(|district| {
+    let district = canonical.and_then(|(_, district)| district).or_else(|| named(Level::District).filter(|district| {
         let key = name_key(district);
         named(Level::Village).is_some_and(|village| {
             index
@@ -500,7 +587,7 @@ pub(crate) fn aligned(
                     matches!(hit, Hit::Place(p) if index.chain(*p).iter().any(|&q| index.places[q as usize].named(key)))
                 })
         })
-    });
+    }));
     for (key, name) in [
         ("city", town),
         ("state", Some(district.unwrap_or(scope))),
@@ -631,9 +718,10 @@ pub(crate) fn regency(index: &Index, scope: &Scope) -> Option<Hit> {
 /// for its market town Pasar Muara Sipongi). "Oba" is not "Oba Tengah".
 pub(crate) fn named_in_query(query: &str, name: &str) -> bool {
     let name = normalize_place(name);
+    let compact = joined(&name);
     let name: Vec<&str> = name.split(' ').collect();
     query.split(',').map(str::trim).any(|part| {
         let part = normalize_place(prefixed(part).map_or(part, |(_, rest)| rest));
-        !part.is_empty() && part.split(' ').all(|w| name.contains(&w))
+        !part.is_empty() && (joined(&part) == compact || part.split(' ').all(|w| name.contains(&w)))
     })
 }
