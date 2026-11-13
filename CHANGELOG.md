@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.11.0](https://github.com/Mokto/opengeocoding/compare/v1.10.1...v1.11.0) (2026-11-13)
+
+
+### Features
+
+* add Indonesian district ancestry from a pinned names-only hierarchy ([#568](https://github.com/Mokto/opengeocoding/issues/568)) ([7ba2241](https://github.com/Mokto/opengeocoding/commit/7ba2241073c0b64a8a57e7813954a0843676b5c8))
+
+
+### Bug Fixes
+
+* complete more Indonesian suggestions with admin labels and joined or spaced names ([#566](https://github.com/Mokto/opengeocoding/issues/566)) ([64015fe](https://github.com/Mokto/opengeocoding/commit/64015fe9e6b1f708eb727751ec1a62935d29c228))
+* find Indonesian villages and districts written with spaced or joined names ([#501](https://github.com/Mokto/opengeocoding/issues/501)) ([#571](https://github.com/Mokto/opengeocoding/issues/571)) ([c9057fb](https://github.com/Mokto/opengeocoding/commit/c9057fb84c19533c07aaa78601bc8c27b522c528))
+* keep indexed Indonesian places suggested after adding their regency ([#565](https://github.com/Mokto/opengeocoding/issues/565)) ([5848463](https://github.com/Mokto/opengeocoding/commit/584846389d7a31bbe174e33f5596f7016ffd0641))
+* keep Indonesian districts in their stated regency and complete area-labelled suggestions ([#563](https://github.com/Mokto/opengeocoding/issues/563)) ([ef5c70c](https://github.com/Mokto/opengeocoding/commit/ef5c70ceab6711416de1e4ea5fe725a71bc3076f))
+* match bare Indonesian place names to indexed Kecamatan and Desa labels ([#567](https://github.com/Mokto/opengeocoding/issues/567)) ([58c30c6](https://github.com/Mokto/opengeocoding/commit/58c30c6225165a3cf6175abc13826b7f3b48c506))
+* resolve country-first hyphen labels and Italian "Comune di" queries ([#570](https://github.com/Mokto/opengeocoding/issues/570)) ([951e9d1](https://github.com/Mokto/opengeocoding/commit/951e9d17ad304b05563c36c6908999e142c24802))
+
 ## [1.10.1](https://github.com/Mokto/opengeocoding/compare/v1.10.0...v1.10.1) (2026-11-09)
 
 
