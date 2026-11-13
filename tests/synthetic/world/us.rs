@@ -1456,6 +1456,8 @@ pub const STREETS: &[Street] = &[
 
 pub fn cases() -> Vec<Case> {
     vec![
+        case("United States-Texas-Paris", town("us-tx-paris", true)),
+        case("United States-Georgia-Paris", Want::Abstain),
         case(
             "102 Laurel Mtn Road, Ashford, United States",
             Want::At(house(street("Laurel Mtn Road"), "1"), 300.0, false),

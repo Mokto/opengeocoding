@@ -176,6 +176,9 @@ pub fn cases() -> Vec<Case> {
             false,
         ),
         case("Paris, France", town("fr-paris", true)),
+        case("France-Paris", town("fr-paris", true)),
+        case("France-Ile-de-France-Paris", town("fr-paris", true)),
+        case("France-Ile-de-France-Missingville", Want::Abstain),
         case("Missing Road, Paris, France", town("fr-paris", false)),
         case("Île-de-France, Haut-Rhin", town("fr-haut-rhin", true)),
         case(
