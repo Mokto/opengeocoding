@@ -562,15 +562,23 @@ impl Assigner {
         self.place_in(x, y, None)
     }
 
+    pub fn county(&self, x: f64, y: f64, cc: [u8; 2]) -> Option<u32> {
+        self.administration(x, y, cc, 2)
+    }
+
     pub fn region(&self, x: f64, y: f64, cc: [u8; 2]) -> Option<u32> {
-        let mut regions = self.levels.at(&self.polys, x, y).filter_map(|p| {
-            (p.kind == 3
+        self.administration(x, y, cc, 3)
+    }
+
+    fn administration(&self, x: f64, y: f64, cc: [u8; 2], kind: u8) -> Option<u32> {
+        let mut areas = self.levels.at(&self.polys, x, y).filter_map(|p| {
+            (p.kind == kind
                 && self.countries[p.place as usize] == canonical_country(cc)
                 && p.contains(&self.data, x, y))
             .then_some(p.place)
         });
-        let first = regions.next()?;
-        regions.all(|p| p == first).then_some(first)
+        let first = areas.next()?;
+        areas.all(|p| p == first).then_some(first)
     }
 
     /// The most specific administration above a locality whose polygon holds the point.

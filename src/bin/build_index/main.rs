@@ -9,6 +9,7 @@ mod fetch;
 mod geo;
 mod geonames;
 mod iceland;
+mod indonesia;
 mod job;
 mod korea_lots;
 mod landmarks;
@@ -58,7 +59,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--korea-lots TSV[.GZ]] [--asiaq-buildings TSV] [--denmark-localities JSON.GZ] [--us-municipalities JSON.GZ] [--us-cdps JSON.GZ] [--iceland-addresses CSV --iceland-addresses-sha256 HASH] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--korea-lots TSV[.GZ]] [--asiaq-buildings TSV] [--denmark-localities JSON.GZ] [--us-municipalities JSON.GZ] [--us-cdps JSON.GZ] [--iceland-addresses CSV --iceland-addresses-sha256 HASH] [--indonesia-hierarchy JSON.GZ] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1] [--sources-mirror URL]
        build_index fetch --store URL --sources FILE --scratch DIR [--sources-mirror URL]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
@@ -2414,6 +2415,17 @@ fn build(args: &[String]) {
             "geonames places ({added} added, {small} of them below cities500's bar)"
         ));
     }
+    let hierarchy = opt("--indonesia-hierarchy");
+    let (linked, parents) = indonesia::write(
+        &mut places,
+        &assigner,
+        Path::new(out),
+        hierarchy.last().map(String::as_str),
+    )
+    .expect("Indonesian administrative hierarchy");
+    lap(&format!(
+        "Indonesian hierarchy ({linked} villages linked, {parents} names-only districts)"
+    ));
     let denmark = opt("--denmark-localities");
     let localities = denmark::write(Path::new(out), &places, denmark.last().map(String::as_str))
         .expect("Danish settlement boundaries");
