@@ -141,6 +141,12 @@ pub const STREETS: &[Street] = &[
 
 pub fn cases() -> Vec<Case> {
     vec![
+        case("Comune di Rho", town("it-rho", false)),
+        case("Comune di Rho, Italy", town("it-rho", false)),
+        case(
+            "Italy-Friuli-Venezia Giulia-Cordovado",
+            town("it-cordovado", true),
+        ),
         case(
             "VIA BOLZANO 17, Rho (MI), Italy",
             at_house("Via Bolzano", "17"),

@@ -1,4 +1,6 @@
-use crate::index::country::{au, ca, de, dk, ee, gb, gr, hk_mo, id, ie, is, jp, ps, pt, si, tw};
+use crate::index::country::{
+    au, ca, de, dk, ee, gb, gr, hk_mo, id, ie, is, it, jp, ps, pt, si, tw,
+};
 use crate::{
     index::{
         Index, Parser,
@@ -2161,6 +2163,30 @@ impl Core {
             let retried = self.resolve_once(written)?;
             if !retried.display_name.is_empty() {
                 return Ok(retried);
+            }
+        }
+        if let Some(retry) = self.index.country_first_label(query) {
+            let recovered = self.resolve(&retry)?;
+            let parts: Vec<_> = retry.split(',').map(str::trim).collect();
+            let compact = |name: &str| normalize_place(name).replace(' ', "");
+            if recovered.address_details.as_option().is_some_and(|d| {
+                d.country_code == country_named(parts.last().unwrap())
+                    && [&d.city, &d.town, &d.village, &d.municipality, &d.suburb]
+                        .iter()
+                        .any(|name| !name.is_empty() && compact(name) == compact(parts[0]))
+            }) {
+                return Ok(recovered);
+            }
+        }
+        if let Some(retry) = it::without_municipal_prefix(query) {
+            let mut recovered = self.resolve_once(retry)?;
+            if recovered
+                .address_details
+                .as_option()
+                .is_some_and(|d| d.country_code == "it" && locality(Some(d)))
+            {
+                recovered.good_match = false;
+                return Ok(recovered);
             }
         }
         // the parser's slips that the query itself can mend: no comma before the country, and

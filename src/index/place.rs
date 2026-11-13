@@ -832,6 +832,41 @@ impl Index {
         })
     }
 
+    pub(crate) fn country_first_label(&self, query: &str) -> Option<String> {
+        if query.chars().take(257).count() > 256
+            || !query
+                .chars()
+                .all(|c| c.is_alphabetic() || c.is_whitespace() || c == '-')
+        {
+            return None;
+        }
+        let (country, rest, cc) = query.match_indices('-').rev().find_map(|(at, _)| {
+            let (country, rest) = (&query[..at], query[at + 1..].trim());
+            let cc = crate::matching::country_named(country);
+            (!cc.is_empty() && country.chars().filter(|c| c.is_alphabetic()).count() >= 4)
+                .then_some((country.trim(), rest, cc))
+        })?;
+        if rest.is_empty()
+            || rest.split('-').any(|part| part.trim().is_empty())
+            || rest
+                .split('-')
+                .filter(|part| part.chars().filter(|c| c.is_alphabetic()).count() >= 4)
+                .map(crate::matching::country_named)
+                .any(|other| !other.is_empty() && other != cc)
+        {
+            return None;
+        }
+        for (at, _) in rest.match_indices('-').rev() {
+            let (region, town) = (&rest[..at], rest[at + 1..].trim());
+            if let Some(id) = self.region_spelt(region, &cc)
+                && self.places[id as usize].named(name_key(region))
+            {
+                return Some(format!("{town}, {region}, {country}"));
+            }
+        }
+        Some(format!("{rest}, {country}"))
+    }
+
     /// A country/subdivision/name slug. Some(empty) keeps a conflicting code or name from
     /// falling through to a less constrained interpretation.
     pub fn place_slug(&self, query: &str) -> Option<Vec<Hit>> {

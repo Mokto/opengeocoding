@@ -61,6 +61,14 @@ pub(crate) fn frazione_parts(query: &str) -> Option<(String, String, String)> {
     ))
 }
 
+pub(crate) fn without_municipal_prefix(query: &str) -> Option<&str> {
+    let rest = query.get("comune di ".len()..)?;
+    (query[.."comune di ".len()].eq_ignore_ascii_case("comune di ")
+        && rest.starts_with(char::is_alphabetic)
+        && !rest.chars().any(|c| c.is_ascii_digit()))
+    .then_some(rest)
+}
+
 /// The province a two-letter sigla ("PN") names where the index has no ISO 3166-2 code for it:
 /// Aosta's is the region's, and Friuli-Venezia Giulia's former provinces and Sassari have none.
 pub(crate) fn uncoded_province(sigla: &str) -> Option<&'static str> {
@@ -84,6 +92,26 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    #[test]
+    fn municipal_prefixes_leave_the_stated_geography_intact() {
+        assert_eq!(
+            without_municipal_prefix("Comune di Valleverde, Italy"),
+            Some("Valleverde, Italy")
+        );
+        assert_eq!(
+            without_municipal_prefix("comune di Valleverde, Switzerland"),
+            Some("Valleverde, Switzerland")
+        );
+        for query in [
+            "comune di ",
+            "Comune di 123",
+            "Via Comune di Valleverde 2",
+            "東京都千代田区",
+        ] {
+            assert_eq!(without_municipal_prefix(query), None, "{query}");
+        }
     }
 
     #[test]
