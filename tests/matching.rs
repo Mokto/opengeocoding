@@ -2433,3 +2433,55 @@ fn spaced_house_ranges_are_joined() {
         assert_eq!(joined_house_range(query), None, "{query}");
     }
 }
+
+#[test]
+fn a_bare_unit_letter_after_the_street_type_is_dropped() {
+    assert_eq!(
+        without_stray_unit("9123 KIEFER BLVD A SACRAMENTO California 958265155 US"),
+        Some((
+            "9123 KIEFER BLVD SACRAMENTO California 958265155 US".into(),
+            "9123".into(),
+            "95826".into()
+        ))
+    );
+    for none in [
+        "9123 KIEFER BLVD SACRAMENTO California 95826 US",
+        "9123 KIEFER BLVD A SACRAMENTO California",
+        "Kiefer Blvd A Sacramento CA 95826",
+    ] {
+        assert_eq!(without_stray_unit(none), None, "{none}");
+    }
+}
+
+#[test]
+fn a_wrong_street_type_is_dropped_only_with_number_and_zip() {
+    assert_eq!(
+        without_street_type("1276 North Clybourn Street Chicago Illinois 60610 United States"),
+        Some((
+            vec![(
+                "1276 North Clybourn Chicago Illinois 60610 United States".into(),
+                vec!["clybourn".into()]
+            )],
+            "1276".into(),
+            "60610".into()
+        ))
+    );
+    assert_eq!(
+        without_street_type("1276 North Clybourn Street, Chicago, IL 60610-1234")
+            .map(|(v, _, z)| (v, z)),
+        Some((
+            vec![(
+                "1276 North Clybourn, Chicago, IL 60610-1234".into(),
+                vec!["clybourn".into()]
+            )],
+            "60610".into()
+        ))
+    );
+    for none in [
+        "1276 North Clybourn Street Chicago Illinois",
+        "Clybourn Street Chicago IL 60610",
+        "1276 North Clybourn Chicago IL 60610",
+    ] {
+        assert_eq!(without_street_type(none), None, "{none}");
+    }
+}
