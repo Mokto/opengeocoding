@@ -1798,6 +1798,46 @@ fn canadian_street_types_and_letter_o_postcodes_have_retry_forms() {
 }
 
 #[test]
+fn stripped_or_spaced_postcodes_are_restored() {
+    for (query, restored, digits) in [
+        (
+            "270 Atlantic Ave Boston  2110 Estados Unidos",
+            "270 Atlantic Ave Boston  02110 Estados Unidos",
+            "02110",
+        ),
+        (
+            "Carrer Granada Barcelona 8005 ES",
+            "Carrer Granada Barcelona 08005 ES",
+            "08005",
+        ),
+        (
+            "15, Rue Grimaldi Nice  06 000 FR",
+            "15, Rue Grimaldi Nice  06000 FR",
+            "06000",
+        ),
+        (
+            "River St Hoboken NJ 7030",
+            "River St Hoboken NJ 07030",
+            "07030",
+        ),
+    ] {
+        assert_eq!(
+            restored_postcode(query),
+            Some((restored.into(), digits.into())),
+            "{query}"
+        );
+    }
+    for query in [
+        "2110 Main St Boston",
+        "Main St 12 Boston",
+        "10 Main St 02110",
+        "1234, Copenhagen",
+    ] {
+        assert_eq!(restored_postcode(query), None, "{query}");
+    }
+}
+
+#[test]
 fn glued_house_suffixes_and_canadian_street_directions_have_retry_forms() {
     assert_eq!(
         spaced_house_suffix("82A AV MERCIER, SALABERRY-DE-VALLEYFIELD, QC J6S 6L9, Canada"),
