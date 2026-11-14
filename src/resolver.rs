@@ -1637,6 +1637,23 @@ impl Core {
                 return Ok(alt);
             }
         }
+        if let Some((restored, digits)) = restored_postcode(query) {
+            let alt = self.resolve_written(&restored)?;
+            let restored_code = alt
+                .address_details
+                .as_option()
+                .is_some_and(|d| d.postcode == digits);
+            // the answer echoes the restored postcode even when it is wrong, so it only
+            // replaces an answer when it is a verified house
+            let better = if found.geo_coordinates.as_option().is_some() {
+                alt.good_match && has_house(&alt)
+            } else {
+                alt.geo_coordinates.as_option().is_some()
+            };
+            if restored_code && better {
+                return Ok(alt);
+            }
+        }
         for (form, number, postcode) in ca::street_name_forms(query) {
             let alt = self.resolve_written(&form)?;
             if alt.good_match

@@ -1161,6 +1161,30 @@ pub fn spaced_house_suffix(query: &str) -> Option<(String, String)> {
     ))
 }
 
+/// A postcode a spreadsheet stripped the leading zero from ("Boston  2110") or wrote spaced
+/// ("Nice 06 000") as the query with its five digits and those digits. The token that opens the
+/// query is a house number, never one.
+pub fn restored_postcode(query: &str) -> Option<(String, String)> {
+    static CODE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[\s,])([0-9]{4}|[0-9]{2} [0-9]{3})(?:[\s,]|$)").unwrap()
+    });
+    if query.chars().count() > 256 {
+        return None;
+    }
+    let code = CODE.captures_iter(query).filter_map(|c| c.get(1)).last()?;
+    if query[..code.start()].trim().is_empty() {
+        return None;
+    }
+    let digits = match code.as_str().replace(' ', "") {
+        d if d.len() == 4 => format!("0{d}"),
+        d => d,
+    };
+    Some((
+        format!("{}{digits}{}", &query[..code.start()], &query[code.end()..]),
+        digits,
+    ))
+}
+
 /// "308 - 310 Fernhill Road, …" or "Fernhill Road 308 - 310, …" as "308-310", and that number:
 /// the parser reads a spaced range as one number "308 310", which no house has.
 pub fn joined_house_range(query: &str) -> Option<(String, String)> {
