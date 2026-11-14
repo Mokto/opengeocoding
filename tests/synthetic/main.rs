@@ -39,6 +39,8 @@ fn dir() -> &'static PathBuf {
         world::us::write_cdps(&cdps);
         let hierarchy = root.join("id-hierarchy.json.gz");
         world::id::write_hierarchy(&hierarchy);
+        let geosadak = root.join("geosadak.parquet");
+        let geosadak_sha = world::r#in::write_geosadak(&geosadak);
         let admin_points = root.join("id-admin-points.json.gz");
         world::id::write_admin_points(&admin_points);
         let built = Command::new(env!("CARGO_BIN_EXE_build_index"))
@@ -48,6 +50,10 @@ fn dir() -> &'static PathBuf {
             .arg(root.join("osm"))
             .arg("--geonames-places")
             .arg(root.join("cities.txt"))
+            .arg("--geosadak-habitations")
+            .arg(&geosadak)
+            .arg("--geosadak-habitations-sha256")
+            .arg(&geosadak_sha)
             .arg("--asiaq-buildings")
             .arg(root.join("buildings.tsv"))
             .arg("--iceland-addresses")

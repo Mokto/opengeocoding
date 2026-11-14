@@ -96,7 +96,7 @@ pub(super) mod hk;
 pub mod id;
 mod ie;
 mod il;
-mod r#in;
+pub mod r#in;
 pub(super) mod is;
 mod it;
 mod jp;
@@ -224,6 +224,7 @@ const AREAS: &[(&str, &str, bool, bool, f64, f64, f64)] = &[
     ("li", "country", true, true, 79.5, 0.0, 0.5),
     ("at-e", "region", true, true, 80.5, 0.0, 0.5),
     ("co-bogota-dc", "county", true, true, -60.0, 30.3, 0.6),
+    ("in-kl", "region", true, true, 76.3, 10.0, 0.4),
     ("in-kl-thrissur", "county", true, true, 76.21, 10.52, 0.3),
     ("cl-ap", "region", true, true, -69.7, -18.5, 0.5),
     ("cl-ta", "region", true, true, -69.7, -19.8, 0.5),

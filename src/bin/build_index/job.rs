@@ -123,6 +123,14 @@ pub fn job(args: Vec<String>) -> Result<()> {
             sources.iceland_addresses.as_ref().unwrap().sha256.clone(),
         ]);
     }
+    if let Some(path) = &got.geosadak_habitations {
+        build.extend([
+            "--geosadak-habitations".into(),
+            path.to_string_lossy().into_owned(),
+            "--geosadak-habitations-sha256".into(),
+            crate::geosadak::SHA256.into(),
+        ]);
+    }
     if let Some(b) = sources.bbox() {
         build.extend([
             "--bbox".into(),
@@ -191,12 +199,16 @@ const VERIFY_SAMPLE: usize = 200;
 const VERIFY_MIN_PERCENT: usize = 80;
 
 /// Evenly spaced place names from `places.tsv`, skipping names too short to search for and the
-/// GeoNames places a search finds only as "<name>, <country>" (`SMALL_GEONAMES`).
+/// supplemental places a search finds only as "<name>, <country>".
 fn sample_names(places: &str) -> Vec<&str> {
-    use opengeocoding::index::schema::SMALL_GEONAMES;
+    use opengeocoding::index::schema::SMALL_PLACES;
     let names: Vec<&str> = places
         .lines()
-        .filter(|l| l.split('\t').nth(1) != Some(SMALL_GEONAMES))
+        .filter(|l| {
+            !l.split('\t')
+                .nth(1)
+                .is_some_and(|class| SMALL_PLACES.contains(&class))
+        })
         .filter_map(|l| l.split('\t').nth(13))
         .filter(|n| n.len() > 3)
         .collect();
@@ -264,6 +276,9 @@ fn attribution(sources: &Sources, out: &Path, korea_shops: Option<&Path>) -> Res
         text += "GeoNames postal codes: CC BY 4.0, https://www.geonames.org/\n";
     }
     text += "GeoNames populated places: CC BY 4.0, https://www.geonames.org/\n";
+    if sources.geosadak_habitations && out.join("geosadak-source.json").is_file() {
+        text += crate::geosadak::NOTICE;
+    }
     if let Some(source) = &sources.iceland_addresses {
         text += &format!(
             "Byggir á upplýsingum frá HMS, Staðfangaskrá (https://hms.is/stadfangaskra), Icelandic public information reuse terms: official nominative/dative locator aliases and numberless address points, geographically joined to indexed streets; capture SHA-256 {}, {}\n",

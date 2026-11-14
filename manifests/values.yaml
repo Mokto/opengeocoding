@@ -38,7 +38,7 @@ index:
   # test` fails when the code and this disagree. Changing it, or anything under sources or
   # modelsVersion, names a new index: the leader builds it while the running pods keep
   # serving the old one.
-  builderHash: "a022095d09a666c8"
+  builderHash: "8dd085321030b0a7"
   modelsVersion: v1
   sources:
     overtureRelease: "2026-10-21.0"
@@ -70,6 +70,7 @@ index:
     # The doors with a letter ("109 BIS", "283A") of IDE Uruguay's address base, which
     # OpenAddresses' Uruguay layers publish without it; fetched under `snapshot`.
     dgu: true
+    geosadakHabitations: true
     # GeoNames postal-code exports; earlier entries win for a postcode several define.
     geonamesPostal:
       - GB_full.csv

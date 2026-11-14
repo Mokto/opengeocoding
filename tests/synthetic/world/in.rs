@@ -236,6 +236,112 @@ pub const STREETS: &[Street] = &[
     },
 ];
 
+pub fn write_geosadak(path: &Path) -> String {
+    let rows = [
+        (1, "Neelapara", 76.31, 10.01, 100),
+        (2, "Neelapara", 76.311, 10.011, 100),
+        (3, "Delhi", 76.32, 10.02, 100),
+        (4, "Samanagar", 76.32, 10.02, 100),
+        (5, "Samanagar", 80.1, 13.1, 100),
+        (6, "Duplicate East", 76.32, 10.02, 100),
+        (6, "Duplicate West", 76.33, 10.03, 100),
+        (7, "Badpoint", -1.79769e308, -1.79769e308, 100),
+        (8, "Swappedpoint", 10.0, 76.0, 100),
+        (9, "Empty Pop", 76.32, 10.02, 0),
+        (10, "Foreign", 8.0, 55.0, 100),
+        (11, "Outside Region", 75.0, 8.5, 100),
+        (12, "123", 76.32, 10.02, 100),
+        (13, "", 76.32, 10.02, 100),
+        (14, "Nallur Road Colony", 76.32, 10.02, 100),
+    ];
+    let points: Vec<Vec<u8>> = rows
+        .iter()
+        .map(|&(_, _, x, y, _)| {
+            let mut point = vec![1];
+            point.extend(1u32.to_le_bytes());
+            point.extend(f64::to_le_bytes(x));
+            point.extend(f64::to_le_bytes(y));
+            point
+        })
+        .collect();
+    let columns: Vec<(&str, ArrayRef)> = vec![
+        (
+            "HAB_ID",
+            Arc::new(Int32Array::from_iter_values(rows.iter().map(|r| r.0))),
+        ),
+        (
+            "HAB_NAME",
+            Arc::new(StringArray::from_iter_values(rows.iter().map(|r| r.1))),
+        ),
+        (
+            "TOT_POPULA",
+            Arc::new(Int32Array::from_iter_values(rows.iter().map(|r| r.4))),
+        ),
+        (
+            "geometry",
+            Arc::new(arrow_array::BinaryArray::from_iter_values(
+                points.iter().map(Vec::as_slice),
+            )),
+        ),
+    ];
+    let batch = RecordBatch::try_from_iter(columns).unwrap();
+    let mut writer =
+        ArrowWriter::try_new(File::create(path).unwrap(), batch.schema(), None).unwrap();
+    writer.write(&batch).unwrap();
+    writer.close().unwrap();
+    ring::digest::digest(&ring::digest::SHA256, &std::fs::read(path).unwrap())
+        .as_ref()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+#[test]
+fn geosadak_only_fills_unambiguous_gaps_and_never_names_reverse_points() {
+    let index = crate::index();
+    let suggestions = index.suggest("Neelapa", 5, Some("IN"), None, false);
+    assert_eq!(suggestions.len(), 1);
+    assert!((suggestions[0].x - 76.31).abs() < 0.00001);
+    assert!((suggestions[0].y - 10.01).abs() < 0.00001);
+    assert!(index.locality_named("Neelapara", "in", false).is_none());
+    assert!(index.locality_named("Neelapara", "in", true).is_some());
+    assert!(
+        index
+            .suggest("Neelapa", 5, Some("FR"), None, false)
+            .is_empty()
+    );
+    let reverse = index.reverse(10.01, 76.31).to_string();
+    assert!(!reverse.contains("Neelapara") && !reverse.contains("Nallur Road Colony"));
+    let rows = std::fs::read_to_string(crate::dir().join("places.tsv")).unwrap();
+    let added: Vec<_> = rows
+        .lines()
+        .filter(|line| line.split('\t').nth(1) == Some("pmgsy_habitation"))
+        .collect();
+    assert_eq!(added.len(), 2, "{added:?}");
+    assert!(
+        added
+            .iter()
+            .all(|line| line.split('\t').nth(3) == Some("IN-KL"))
+    );
+    for name in [
+        "Samanagar",
+        "Duplicate East",
+        "Duplicate West",
+        "Badpoint",
+        "Swappedpoint",
+        "Empty Pop",
+        "Outside Region",
+    ] {
+        assert!(
+            !added
+                .iter()
+                .any(|line| line.split('\t').nth(13) == Some(name)),
+            "{name}"
+        );
+    }
+    assert!(crate::dir().join("GEOSADAK-NOTICE.txt").is_file());
+}
+
 pub fn cases() -> Vec<Case> {
     vec![
         case("Delhi", town("in-dl-delhi", true)),

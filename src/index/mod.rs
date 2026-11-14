@@ -787,7 +787,8 @@ impl Index {
                 .iter()
                 .enumerate()
                 .filter(|(_, p)| {
-                    p.subtype.as_ref() == "locality" && &*p.class != schema::SMALL_GEONAMES
+                    p.subtype.as_ref() == "locality"
+                        && !schema::SMALL_PLACES.contains(&p.class.as_ref())
                 })
                 .map(|(i, p)| (i as u32, p.x as f64, p.y as f64)),
         );
@@ -858,7 +859,8 @@ impl Index {
             .map(|r| {
                 Columns::open(r, f.country, &mut country_codes, &|id| {
                     places.get(id as usize).is_some_and(|p| {
-                        &*p.class == schema::SMALL_GEONAMES || country::id::administrative_point(p)
+                        schema::SMALL_PLACES.contains(&p.class.as_ref())
+                            || country::id::administrative_point(p)
                     })
                 })
             })
