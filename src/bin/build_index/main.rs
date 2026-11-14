@@ -59,7 +59,7 @@ use tantivy::doc;
 #[global_allocator]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--korea-lots TSV[.GZ]] [--asiaq-buildings TSV] [--denmark-localities JSON.GZ] [--us-municipalities JSON.GZ] [--us-cdps JSON.GZ] [--iceland-addresses CSV --iceland-addresses-sha256 HASH] [--indonesia-hierarchy JSON.GZ] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
+const USAGE: &str = "usage: build_index <overture-release-dir> <out-dir> [--openaddresses DIR [--openaddresses-any-licence]] [--osm DIR] [--osm-landmarks DIR] [--korea-shops ZIP] [--korea-lots TSV[.GZ]] [--asiaq-buildings TSV] [--denmark-localities JSON.GZ] [--us-municipalities JSON.GZ] [--us-cdps JSON.GZ] [--iceland-addresses CSV --iceland-addresses-sha256 HASH] [--indonesia-hierarchy JSON.GZ] [--indonesia-admin-points JSON.GZ] [--geonames-postal FILE]... [--geonames-places FILE [--geonames-admin1 FILE] [--geonames-small FILE]] [--bbox MINLON,MINLAT,MAXLON,MAXLAT]
        build_index job --store URL --index ID --builder-hash HASH --sources FILE --scratch DIR --models DIR [--models-version v1] [--sources-mirror URL]
        build_index fetch --store URL --sources FILE --scratch DIR [--sources-mirror URL]
        build_index pull --store URL --index ID --to DIR [--models DIR] [--models-version v1]
@@ -2416,11 +2416,13 @@ fn build(args: &[String]) {
         ));
     }
     let hierarchy = opt("--indonesia-hierarchy");
+    let district_points = opt("--indonesia-admin-points");
     let (linked, parents) = indonesia::write(
         &mut places,
         &assigner,
         Path::new(out),
         hierarchy.last().map(String::as_str),
+        district_points.last().map(String::as_str),
     )
     .expect("Indonesian administrative hierarchy");
     lap(&format!(
@@ -2686,10 +2688,14 @@ fn build(args: &[String]) {
                 .collect(),
         );
     };
-    let small: Vec<bool> =
+    let small: Vec<u8> =
         std::io::BufReader::new(File::open(Path::new(out).join("places.tsv")).unwrap())
             .lines()
-            .map(|line| line.unwrap().split('\t').nth(1) == Some(schema::SMALL_GEONAMES))
+            .map(|line| match line.unwrap().split('\t').nth(1) {
+                Some(opengeocoding::index::country::id::ADMIN_POINT_CLASS) => 2,
+                Some(schema::SMALL_GEONAMES) => 1,
+                _ => 0,
+            })
             .collect();
     places
         .par_iter()
@@ -2698,22 +2704,31 @@ fn build(args: &[String]) {
         .for_each(|(i, p)| {
             let names = p.names.replace(NAME_SEP, " ");
             let cnames = schema::country_words(country_str(&p.country), &names);
-            let (name_field, country_field) = if small[i] {
+            let (name_field, country_field) = if small[i] == 1 {
                 (f.small_names, f.small_cnames)
             } else {
                 (f.names, f.cnames)
             };
             let mut d = doc!(
                 f.kind => "p",
-                name_field => names,
                 f.country => country_str(&p.country),
                 f.ids => i.to_string(),
                 f.name => p.names.split(NAME_SEP).next().unwrap_or(""),
                 f.id => i as u64,
                 f.importance => p.population + place_weight(p.subtype),
             );
-            for w in cnames {
-                d.add_text(country_field, w);
+            if small[i] == 2 {
+                for word in schema::fold(&names).split_whitespace() {
+                    d.add_text(
+                        f.small_cnames,
+                        opengeocoding::index::country::id::point_word(word),
+                    );
+                }
+            } else {
+                d.add_text(name_field, names);
+                for w in cnames {
+                    d.add_text(country_field, w);
+                }
             }
             if let Some((x, y)) = p.xy {
                 d.add_f64(f.x, x);

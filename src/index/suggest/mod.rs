@@ -158,6 +158,7 @@ enum Names {
     /// Only the names one edit from the text, for when the others leave room.
     Typo,
     Small,
+    IndonesianDistrict,
 }
 
 pub struct Suggestion {
@@ -342,7 +343,39 @@ impl Index {
         landmarks: bool,
     ) -> Vec<Suggestion> {
         let mut chain = vec![(text.trim_start().to_string(), cc.map(str::to_lowercase))];
-        self.suggest_from(text, limit, cc, focus, landmarks, &mut chain)
+        let mut out = self.suggest_from(text, limit, cc, focus, landmarks, &mut chain);
+        let mut extra = vec![];
+        if out.len() < limit
+            && text.chars().count() <= MAX_TEXT
+            && cc.is_none_or(|c| c.eq_ignore_ascii_case("id"))
+        {
+            for form in std::iter::once(text.to_string()).chain(id::suggest_texts(self, text, cc)) {
+                let typed = Typed::new(&form);
+                extra.extend(
+                    self.suggest_places(
+                        &typed.parts,
+                        typed.open,
+                        cc,
+                        focus,
+                        Names::IndonesianDistrict,
+                        limit,
+                    )
+                    .into_iter()
+                    .map(|(id, _)| self.place_suggestion(id))
+                    .filter(|s| id::suggested(self, text, s)),
+                );
+            }
+        }
+        let extra = kept(extra, cc, limit.saturating_sub(out.len()));
+        if extra.is_empty() {
+            return out;
+        }
+        let at = out
+            .iter()
+            .position(|s| !s.category.is_empty())
+            .unwrap_or(out.len());
+        out.splice(at..at, extra);
+        kept(out, cc, limit)
     }
 
     /// `suggest` retried with rewritten text: none once the rewrite gives back a text (and

@@ -191,9 +191,19 @@ fn joined(name: &str) -> String {
 }
 
 pub const HIERARCHY_CLASS: &str = "id_hierarchy";
+pub const ADMIN_POINT_CLASS: &str = "id_geonames_admin";
+
+pub(in crate::index) fn administrative_point(place: &Place) -> bool {
+    &*place.cc == "id" && &*place.class == ADMIN_POINT_CLASS && &*place.subtype == "localadmin"
+}
 
 pub(in crate::index) fn hierarchy_only(place: &Place) -> bool {
     &*place.cc == "id" && &*place.class == HIERARCHY_CLASS
+}
+
+pub fn point_word(word: &str) -> String {
+    // The namespace must not be a two-letter country code used by ordinary place lookups.
+    format!("id_admin|{word}")
 }
 
 pub fn hierarchy_key(name: &str, level: u8) -> String {

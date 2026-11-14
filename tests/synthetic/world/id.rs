@@ -462,6 +462,18 @@ pub const PLACES: &[Place] = &[
         &[]
     ),
     place!(
+        "id-cendana",
+        "locality",
+        "village",
+        "ID",
+        "ID-JT",
+        500,
+        (165.28, -60.22),
+        "id-grobogan",
+        "Cendana",
+        &[]
+    ),
+    place!(
         "id-taman",
         "locality",
         "neighbourhood",
@@ -538,7 +550,13 @@ pub fn write_hierarchy(path: &std::path::Path) {
         ["33.15.90", "Rimba"],
         ["33.15.90.2001", "Kenanga"],
         ["33.15.01", "Tegowanu"],
-        ["33.15.01.2001", "Bening"]
+        ["33.15.01.2001", "Bening"],
+        ["33.15.91", "Sejuk"],
+        ["33.15.92", "Gaya"],
+        ["33.15.92.2001", "Cendana"],
+        ["33.15.93", "Sejuk Rimba"],
+        ["33.15.94", "Sejuk Rimba"],
+        ["33.15.95", "Mekar Harum"]
     ]);
     let mut out = flate2::write::GzEncoder::new(
         std::fs::File::create(path).unwrap(),
@@ -546,6 +564,114 @@ pub fn write_hierarchy(path: &std::path::Path) {
     );
     out.write_all(&serde_json::to_vec(&rows).unwrap()).unwrap();
     out.finish().unwrap();
+}
+
+const ADMIN_POINTS: &[(u64, &str, f64, f64, &str, &str)] = &[
+    (123, "33.15.91", 165.27, -60.18, "Kecamatan Sejuk", "Sejuk"),
+    (124, "33.15.92", 165.27, -60.22, "Kecamatan Gaya", "Gaya"),
+    (
+        126,
+        "33.15.93",
+        165.28,
+        -60.24,
+        "Sejuk Rimba",
+        "Sejuk Rimba",
+    ),
+    (
+        127,
+        "33.15.94",
+        165.29,
+        -60.24,
+        "Sejuk Rimba",
+        "Sejuk Rimba",
+    ),
+    (
+        128,
+        "33.15.95",
+        165.29,
+        -60.26,
+        "Kecamatan Mekar Harum",
+        "Mekar Harum",
+    ),
+    (
+        125,
+        "33.15.01",
+        165.29,
+        -60.2,
+        "Kecamatan Tegowanu",
+        "Tegowanu",
+    ),
+];
+
+pub fn write_admin_points(path: &std::path::Path) {
+    use std::io::Write;
+    let mut out = flate2::write::GzEncoder::new(
+        std::fs::File::create(path).unwrap(),
+        flate2::Compression::default(),
+    );
+    out.write_all(&serde_json::to_vec(ADMIN_POINTS).unwrap())
+        .unwrap();
+    out.finish().unwrap();
+}
+
+pub fn check_admin_points(index: &opengeocoding::index::Index, directory: &std::path::Path) {
+    let text = std::fs::read_to_string(directory.join("places.tsv")).unwrap();
+    let rows: Vec<Vec<_>> = text.lines().map(|l| l.split('\t').collect()).collect();
+    for &(_, _, x, y, _, name) in &ADMIN_POINTS[..2] {
+        let id = rows
+            .iter()
+            .position(|r| {
+                r[13] == name && r[1] == opengeocoding::index::country::id::ADMIN_POINT_CLASS
+            })
+            .unwrap();
+        let rendered = index.render(&opengeocoding::index::Hit::Place(id as u32), true);
+        assert_eq!(rendered["address"]["district"], name);
+        assert!(rendered["address"].get("municipality").is_none());
+        assert!(
+            index.search(name).iter().all(
+                |hit| !matches!(hit, opengeocoding::index::Hit::Place(p) if *p as usize == id)
+            )
+        );
+        let found = index.suggest(
+            &format!("Kec. {name}, Grobogan, Jawa Tengah, Indonesia"),
+            5,
+            Some("id"),
+            None,
+            false,
+        );
+        let suggestion = found.iter().find(|s| s.id == format!("p{id}")).unwrap();
+        assert_eq!(suggestion.kind, "district");
+        assert!((suggestion.x - x).abs() < 1e-5 && (suggestion.y - y).abs() < 1e-5);
+        let selected = index.retrieve_suggestion(&suggestion.retrieval_id).unwrap();
+        assert_eq!(selected.kind, "district");
+    }
+    let original = rows.iter().find(|r| r[13] == "Tego Wanu").unwrap();
+    assert_eq!(original[6].parse::<f64>().unwrap(), 165.1);
+    assert_eq!(original[7].parse::<f64>().unwrap(), -60.0);
+}
+
+pub async fn check_admin_search(resolver: &opengeocoding::resolver::Resolver) {
+    for name in ["Sejuk", "Gaya"] {
+        for query in [
+            format!("Kec. {name}, Kab. Grobogan, Jateng"),
+            format!("{name}, Grobogan, Jawa Tengah, Indonesia"),
+        ] {
+            let got = resolver.resolve(&query).await.unwrap();
+            let details = got.address_details.as_option().unwrap();
+            assert_eq!(details.country_code, "id", "{query}: {got:?}");
+            assert_eq!(details.county, "Kabupaten Grobogan", "{query}: {got:?}");
+            assert!(
+                details.district.is_empty() && details.municipality.is_empty(),
+                "{query}: {got:?}"
+            );
+            assert!(!got.good_match, "{query}: {got:?}");
+            let at = got.geo_coordinates.as_option().unwrap();
+            assert!(
+                crate::metres((at.lon as f64, at.lat as f64), (165.0, -60.0)) < 5.0,
+                "{query}: {got:?}"
+            );
+        }
+    }
 }
 
 pub fn check_hierarchy(index: &opengeocoding::index::Index, directory: &std::path::Path) {

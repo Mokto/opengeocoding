@@ -857,9 +857,9 @@ impl Index {
             .iter()
             .map(|r| {
                 Columns::open(r, f.country, &mut country_codes, &|id| {
-                    places
-                        .get(id as usize)
-                        .is_some_and(|p| &*p.class == schema::SMALL_GEONAMES)
+                    places.get(id as usize).is_some_and(|p| {
+                        &*p.class == schema::SMALL_GEONAMES || country::id::administrative_point(p)
+                    })
                 })
             })
             .collect::<Result<_>>()?;

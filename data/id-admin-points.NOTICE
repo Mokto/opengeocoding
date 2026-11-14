@@ -1,0 +1,28 @@
+Indonesian district point supplement
+===================================
+
+Contains information from GeoNames (https://www.geonames.org/), licensed
+under Creative Commons Attribution 4.0 International (CC BY 4.0).
+Full license: LICENSES/CC-BY-4.0.txt and
+https://creativecommons.org/licenses/by/4.0/legalcode .
+
+Source: https://download.geonames.org/export/dump/allCountries.zip
+Cached snapshot: 2026-10-27. The content hash, counts, transformations and
+crosswalk abstentions are recorded in id-admin-points.sources.json.
+GeoNames provides the data as is, without warranty of accuracy, timeliness
+or completeness. GeoNames administrative points do not establish surveyed
+seats, populated settlements, current boundaries or district containment.
+
+Modification: prepare-id-admin-points.py selects Indonesian ADM3 records
+with unique, bidirectional name/province matches to the pinned Indonesian
+names-and-codes hierarchy. Supplied GeoNames county codes must agree through
+their own name crosswalk. GeoNames, Kemendagri and BPS codes are not treated
+as interchangeable. ADM4 is audited but is not imported as settlement data.
+The builder additionally requires unique containing county geometry, rejects
+ambiguous existing district mappings and preserves established coordinates.
+No coordinates are inferred from settlements or generated from centroids.
+
+Names/code crosswalk: cahyadsn/wilayah, copyright Cahya DSN, MIT.
+The full upstream MIT notice, pinned revision and provenance are retained in
+id-hierarchy.NOTICE and id-hierarchy.sources.json alongside this supplement.
+Both sources retain their own licenses. No endorsement is implied.

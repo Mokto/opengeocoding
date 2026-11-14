@@ -56,6 +56,11 @@ Indonesian administrative names and code parentage are derived from cahyadsn/wil
 under MIT, without coordinates or polygons. See data/id-hierarchy.NOTICE and
 data/id-hierarchy.sources.json; the builder writes INDONESIA-HIERARCHY-NOTICE.txt
 and id-hierarchy-source.json into the index.
+Indonesian district points are separately derived from a pinned GeoNames ADM3
+snapshot under CC BY 4.0, crosswalked to that hierarchy and checked against county
+polygons. See data/id-admin-points.NOTICE and data/id-admin-points.sources.json;
+the index retains INDONESIA-ADMIN-POINTS-NOTICE.txt and id-admin-point-source.json.
+These administrative points are not populated settlements or district boundaries.
 Danish settlement polygons are derived from Klimadatastyrelsen's Byer layer in
 Bebyggelser_2024.zip, under CC BY 4.0. See data/dk-localities.NOTICE for the
 source, checksum, transformation and reproduction. The builder writes the credit

@@ -39,6 +39,8 @@ fn dir() -> &'static PathBuf {
         world::us::write_cdps(&cdps);
         let hierarchy = root.join("id-hierarchy.json.gz");
         world::id::write_hierarchy(&hierarchy);
+        let admin_points = root.join("id-admin-points.json.gz");
+        world::id::write_admin_points(&admin_points);
         let built = Command::new(env!("CARGO_BIN_EXE_build_index"))
             .arg(root.join("release"))
             .arg(&out)
@@ -54,6 +56,8 @@ fn dir() -> &'static PathBuf {
             .arg(&iceland_sha)
             .arg("--indonesia-hierarchy")
             .arg(&hierarchy)
+            .arg("--indonesia-admin-points")
+            .arg(&admin_points)
             .arg("--denmark-localities")
             .arg(&danish)
             .arg("--us-municipalities")
@@ -76,6 +80,7 @@ fn dir() -> &'static PathBuf {
 #[test]
 fn indonesian_hierarchy_preserves_points_and_hides_names_only_parents() {
     world::id::check_hierarchy(index(), dir());
+    world::id::check_admin_points(index(), dir());
 }
 
 fn index() -> &'static Index {
@@ -1481,6 +1486,7 @@ async fn resolve_follows_the_authored_facts() {
     world::pf::check_search(&resolver).await;
     world::nc::check_search(&resolver).await;
     world::ca::check_search(&resolver).await;
+    world::id::check_admin_search(&resolver).await;
     // a Japanese town, district or road and its number, in either order
     for (road, number, query) in [
         ("朝日町伊勢宮", "472-2", "朝日町伊勢宮 472-2, 松江市, Japan"),
