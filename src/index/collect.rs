@@ -14,13 +14,12 @@ pub(super) struct Columns {
     /// term has millions of postings that tantivy's skip list walks one block at a time in every
     /// lookup it intersects; this costs 2 bytes per document instead.
     pub(super) countries: Box<[u16]>,
-    /// The documents of places the builder added from GeoNames below `cities500`'s bar.
+    /// Supplementary places excluded from ordinary name lookup.
     pub(super) small: tantivy::BitSet,
 }
 
 impl Columns {
-    /// `small` tells, by place id, the places the builder added from GeoNames below
-    /// `cities500`'s bar.
+    /// `small` tells, by place id, which places ordinary name lookup excludes.
     pub(super) fn open(
         reader: &tantivy::SegmentReader,
         country: Field,
@@ -296,8 +295,7 @@ pub(super) enum Kind {
     Place,
     Street,
     Postcode,
-    /// Places but those the builder added from GeoNames below `cities500`'s bar: what a search
-    /// looks up. Suggestions read every place.
+    /// Places excluding supplementary points. Suggestions also read the supplements.
     Searched,
     /// Only those, for `Index::small_place_named`.
     Small,

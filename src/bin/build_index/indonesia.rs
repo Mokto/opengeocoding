@@ -1,3 +1,6 @@
+#[path = "indonesia_points.rs"]
+mod points;
+
 use super::*;
 use anyhow::{Result, ensure};
 use opengeocoding::index::country::id;
@@ -169,6 +172,7 @@ fn enrich(
     path: &Path,
     units: &[Unit],
     assigner: &Assigner,
+    points: &[points::Point],
 ) -> Result<(usize, usize)> {
     let mut mapped = vec![None; units.len()];
     let mut districts = HashSet::new();
@@ -331,6 +335,7 @@ fn enrich(
         drop(out);
         std::fs::rename(updated, path)?;
     }
+    points::add(places, path, units, &mapped, &districts, assigner, points)?;
     Ok((changes.len(), added.len()))
 }
 
@@ -339,13 +344,26 @@ pub fn write(
     assigner: &Assigner,
     out: &Path,
     source: Option<&str>,
+    point_source: Option<&str>,
 ) -> Result<(usize, usize)> {
     let input = source.map(std::fs::read).transpose()?;
     let input = input
         .as_deref()
         .unwrap_or(include_bytes!("../../../data/id-hierarchy.json.gz"));
     let result = if source.is_some() || places.iter().any(|p| p.country == *b"ID") {
-        enrich(places, &out.join("places.tsv"), &decode(input)?, assigner)?
+        let units = decode(input)?;
+        let point_input = point_source.map(std::fs::read).transpose()?;
+        let point_input = point_input.as_deref().unwrap_or(if source.is_none() {
+            include_bytes!("../../../data/id-admin-points.json.gz")
+        } else {
+            &[]
+        });
+        let points = if point_input.is_empty() {
+            vec![]
+        } else {
+            points::decode(point_input, &units)?
+        };
+        enrich(places, &out.join("places.tsv"), &units, assigner, &points)?
     } else {
         (0, 0)
     };
@@ -361,6 +379,16 @@ pub fn write(
         out.join("INDONESIA-HIERARCHY-NOTICE.txt"),
         include_str!("../../../data/id-hierarchy.NOTICE"),
     )?;
+    let point_manifest = match point_source {
+        Some(path) => serde_json::json!({"input":"override", "sha256":opengeocoding::eval::sha256_hex(&std::fs::read(path)?)}).to_string(),
+        None if source.is_some() => serde_json::json!({"input":"disabled with hierarchy override"}).to_string(),
+        None => include_str!("../../../data/id-admin-points.sources.json").to_string(),
+    };
+    std::fs::write(out.join("id-admin-point-source.json"), point_manifest)?;
+    std::fs::write(
+        out.join("INDONESIA-ADMIN-POINTS-NOTICE.txt"),
+        include_str!("../../../data/id-admin-points.NOTICE"),
+    )?;
     Ok(result)
 }
 
@@ -374,7 +402,7 @@ mod tests {
         out.finish().unwrap()
     }
 
-    fn units(district: &str, village: &str) -> Vec<Unit> {
+    pub(super) fn units(district: &str, village: &str) -> Vec<Unit> {
         decode(&encoded(serde_json::json!([
             ["33", "Jawa Tengah"],
             ["33.15", "Kabupaten Grobogan"],
@@ -384,7 +412,7 @@ mod tests {
         .unwrap()
     }
 
-    fn places() -> Vec<Place> {
+    pub(super) fn places() -> Vec<Place> {
         [
             ("country", "Indonesia", vec![]),
             ("region", "Jawa Tengah", vec![0]),
@@ -457,7 +485,7 @@ mod tests {
             vec![],
             places.iter().map(|p| (p.country, p.country)).collect(),
         );
-        let (linked, parents) = enrich(places, &path, units, &assigner).unwrap();
+        let (linked, parents) = enrich(places, &path, units, &assigner, &[]).unwrap();
         let result = std::fs::read_to_string(path).unwrap();
         std::fs::remove_dir_all(root).unwrap();
         (linked, parents, result)

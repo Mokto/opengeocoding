@@ -91,7 +91,7 @@ COPY --from=build /usr/local/lib/LICENSE.libpostal /usr/local/share/licenses/lib
 COPY --from=build /usr/local/bin/libpostal_data /usr/local/bin/libpostal_data
 COPY --from=compiled /source/target/release/opengeocoding /source/target/release/build_index /source/target/release/leader /usr/local/bin/
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.txt /usr/local/share/licenses/opengeocoding/
-COPY data/dk-localities.NOTICE data/pl-localities.NOTICE data/us-municipalities.NOTICE data/us-cdps.NOTICE data/kr-localdata-lots.NOTICE data/id-hierarchy.NOTICE /usr/local/share/licenses/opengeocoding/
+COPY data/dk-localities.NOTICE data/pl-localities.NOTICE data/us-municipalities.NOTICE data/us-cdps.NOTICE data/kr-localdata-lots.NOTICE data/id-hierarchy.NOTICE data/id-admin-points.NOTICE /usr/local/share/licenses/opengeocoding/
 COPY LICENSES /usr/local/share/licenses/opengeocoding/dependencies/
 COPY tests/registry/*.NOTICE /usr/local/share/licenses/opengeocoding/registry/
 RUN ldconfig
