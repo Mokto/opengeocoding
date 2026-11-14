@@ -1241,6 +1241,12 @@ impl Index {
                 }
             }
         }
+        // "deansgate" is indexed as "deansgt": a whole word the index holds in its short form
+        let folded = fold(last);
+        if folded != *last && !folded.contains(' ') && !terms.contains(&folded) {
+            docs += self.docs_with(field, &folded);
+            terms.push(folded);
+        }
         match terms.as_slice() {
             [] => return None,
             [one] => cl.push(must(term(field, one))),

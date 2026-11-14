@@ -284,6 +284,18 @@ fn small_place_words_are_separate_from_ordinary_lookup_words() {
 }
 
 #[test]
+fn a_street_typed_whole_is_found_when_the_index_holds_it_in_its_short_form() {
+    let found = index().suggest("Birkenstrasse", 5, Some("DE"), None, false);
+    assert!(
+        found
+            .iter()
+            .any(|s| s.kind == "street" && s.display_name.starts_with("Birkenstrasse")),
+        "{:?}",
+        found.iter().map(|s| &s.display_name).collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn a_small_geonames_place_fills_only_a_gap_no_namesake_shares_and_names_no_point() {
     let found = |text: &str| index().suggest(text, 5, Some("AT"), None, false);
     let hamlet = found("Kleinweiler");
