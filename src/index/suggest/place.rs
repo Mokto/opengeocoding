@@ -23,6 +23,9 @@ pub(in crate::index) fn weight(p: &Place) -> u64 {
     if super::super::country::id::hierarchy_only(p) {
         return 0;
     }
+    if super::super::country::id::administrative_point(p) {
+        return 100;
+    }
     let pop = p.population as u64;
     match &*p.subtype {
         "country" | "dependency" => 50_000_000,
@@ -423,7 +426,14 @@ impl Index {
             let acceptable = |id: u32| {
                 let pl = &self.places[id as usize];
                 pl.subtype.as_ref() != "microhood"
-                    && (pl.class.as_ref() == schema::SMALL_GEONAMES) == (names == Names::Small)
+                    && match names {
+                        Names::IndonesianDistrict => id::administrative_point(pl),
+                        Names::Small => pl.class.as_ref() == schema::SMALL_GEONAMES,
+                        _ => {
+                            pl.class.as_ref() != schema::SMALL_GEONAMES
+                                && !id::administrative_point(pl)
+                        }
+                    }
                     && cc.is_none_or(|c| pl.cc.eq_ignore_ascii_case(c))
                     && (quals.is_empty() || self.qualifies(id, &quals, open))
             };
@@ -434,8 +444,10 @@ impl Index {
                 vec![text.clone()]
             };
             let mut candidates: Vec<(u32, u8, u64)> = vec![];
-            for form in &forms {
-                candidates.extend(self.name_candidates(form, head_open, typo).iter());
+            if names != Names::IndonesianDistrict {
+                for form in &forms {
+                    candidates.extend(self.name_candidates(form, head_open, typo).iter());
+                }
             }
             // "koeln" is read as "köln" only when no place is named as typed
             let umlaut = umlaut_form(&text).filter(|_| !typo);
@@ -472,23 +484,28 @@ impl Index {
             // first, for the places a prefix adds ("paris" -> "parish") are many.
             if ranked.len() < want && !typo {
                 let want_name = name_key(&text);
-                let field = if names == Names::Small {
-                    self.f.small_names
+                let field = match names {
+                    Names::IndonesianDistrict => self.f.small_cnames,
+                    Names::Small => self.f.small_names,
+                    _ => self.f.names,
+                };
+                let terms = if names == Names::IndonesianDistrict {
+                    head.iter().map(|w| id::point_word(w)).collect::<Vec<_>>()
                 } else {
-                    self.f.names
+                    head.to_vec()
                 };
                 let mut ids: Vec<u32> = vec![];
                 for as_prefix in [false, true] {
                     if as_prefix && !head_open {
                         break;
                     }
-                    let Some((cl, rarest)) = self.typed_words(field, head, as_prefix) else {
+                    let Some((cl, rarest)) = self.typed_words(field, &terms, as_prefix) else {
                         continue;
                     };
                     if as_prefix && rarest > MAX_PLACE_WORK {
                         continue;
                     }
-                    let kind = if names == Names::Small {
+                    let kind = if matches!(names, Names::Small | Names::IndonesianDistrict) {
                         Kind::Small
                     } else {
                         Kind::Searched
