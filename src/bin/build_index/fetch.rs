@@ -51,6 +51,8 @@ pub struct Sources {
     /// Read the doors with a letter of IDE Uruguay's address base (see `dgu`).
     #[serde(default, skip_serializing_if = "is_false")]
     pub dgu: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub us_ranges: Option<UsRanges>,
     /// Retired switches (`openaddresses.enabled` and `anyLicence`, `geonamesPlaces`): every source
     /// is always read, and OpenAddresses layers always pass the licence check. Accepted and
     /// ignored so a source list that still has them parses.
@@ -88,6 +90,16 @@ pub struct Denue {
     pub before: String,
 }
 
+/// The Census TIGER/Line address features (`ADDRFEAT`) of one vintage: the house-number ranges
+/// of every US street, public domain. A vintage never changes, so the store keeps it as fetched.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct UsRanges {
+    /// "YYYY": the directory `TIGER<year>/ADDRFEAT`. A county whose file that year is broken is
+    /// taken from the year before.
+    pub year: String,
+}
+
 /// Local paths of the fetched sources, for `build_index`.
 pub struct Fetched {
     pub overture: PathBuf,
@@ -109,6 +121,8 @@ pub struct Fetched {
     pub denue: Option<PathBuf>,
     /// An OpenAddresses-style directory of Uruguay's doors with a letter (see `dgu`).
     pub dgu: Option<PathBuf>,
+    /// The directory of TIGER/Line `*_addrfeat.zip` county files (see `us_ranges`).
+    pub us_ranges: Option<PathBuf>,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -178,6 +192,13 @@ impl Sources {
                     }),
                 "denue.before must be YYYY or YYYY-MM, got {:?}",
                 d.before
+            );
+        }
+        if let Some(r) = &self.us_ranges {
+            ensure!(
+                r.year.len() == 4 && r.year.bytes().all(|b| b.is_ascii_digit()),
+                "usRanges.year must be YYYY, got {:?}",
+                r.year
             );
         }
         for id in self.osm.iter().chain(&self.osm_landmarks) {
@@ -625,6 +646,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
     let ryhti_dir = scratch.join("ryhti");
     let denue_dir = scratch.join("denue");
     let dgu_dir = scratch.join("dgu");
+    let us_ranges_dir = scratch.join("us-ranges");
     let (
         openaddresses,
         (osm, osm_landmarks),
@@ -636,6 +658,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         ryhti,
         denue,
         dgu,
+        us_ranges,
     ) = tokio::try_join!(
         overture_then_openaddresses,
         osm_files,
@@ -647,6 +670,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         ryhti(store, src, &ryhti_dir),
         denue(store, src, &denue_dir),
         dgu(store, src, &dgu_dir),
+        us_ranges(store, src, &us_ranges_dir),
     )?;
 
     Ok(Fetched {
@@ -663,6 +687,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         ryhti,
         denue,
         dgu,
+        us_ranges,
     })
 }
 
@@ -704,6 +729,86 @@ async fn geosadak_habitations(store: &Store, src: &Sources, dir: &Path) -> Resul
         "GeoSadak mirrored capture SHA-256 mismatch"
     );
     Ok(Some(path))
+}
+
+const TIGER: &str = "https://www2.census.gov/geo/tiger";
+
+/// The county files `tl_<year>_<fips>_addrfeat.zip` a TIGER directory listing names, sorted.
+fn addrfeat_names(listing: &str, year: &str) -> Vec<String> {
+    let prefix = format!("tl_{year}_");
+    let names: BTreeSet<String> = listing
+        .split(&prefix)
+        .skip(1)
+        .filter_map(|rest| {
+            let (fips, tail) = rest.split_at_checked(5)?;
+            (fips.bytes().all(|b| b.is_ascii_digit()) && tail.starts_with("_addrfeat.zip"))
+                .then(|| format!("{prefix}{fips}_addrfeat.zip"))
+        })
+        .collect();
+    names.into_iter().collect()
+}
+
+/// The Census server answers HTTP 200 with an HTML page for a few files (Monmouth County NJ and
+/// Rowan County NC in TIGER2024), so a download counts only if it starts like a zip.
+fn is_zip(path: &Path) -> bool {
+    use std::io::Read;
+    let mut magic = [0u8; 4];
+    std::fs::File::open(path)
+        .and_then(|mut f| f.read_exact(&mut magic))
+        .is_ok()
+        && magic == *b"PK\x03\x04"
+}
+
+async fn us_ranges(store: &Store, src: &Sources, dir: &Path) -> Result<Option<PathBuf>> {
+    let Some(source) = &src.us_ranges else {
+        return Ok(None);
+    };
+    // A regional build elsewhere has no use for 650 MB of US street ranges.
+    if src
+        .bbox()
+        .is_some_and(|b| !intersects(b, -180.0, 17.0, -64.0, 72.0))
+    {
+        return Ok(None);
+    }
+    let (c, year) = (client()?, source.year.clone());
+    let prior = (year.parse::<u32>()? - 1).to_string();
+    mirror(
+        store,
+        &format!("sources/us-ranges/{year}"),
+        dir,
+        8,
+        || async {
+            let url = format!("{TIGER}/TIGER{year}/ADDRFEAT/");
+            let listing = c.get(&url).send().await?.error_for_status()?.text().await?;
+            let names = addrfeat_names(&listing, &year);
+            // 3,227 in TIGER2024; far fewer means the listing changed shape
+            ensure!(
+                names.len() > 3000,
+                "{url} lists only {} county files",
+                names.len()
+            );
+            Ok(names.into_iter().map(|n| (n.clone(), n)).collect())
+        },
+        {
+            let (c, year) = (c.clone(), year.clone());
+            move |name: String, path: PathBuf| {
+                let (c, year, prior) = (c.clone(), year.clone(), prior.clone());
+                Box::pin(async move {
+                    for y in [&year, &prior] {
+                        let file = name.replace(&year, y);
+                        let url = format!("{TIGER}/TIGER{y}/ADDRFEAT/{file}");
+                        if http_get(&c, &url, &path).await? && is_zip(&path) {
+                            return Ok(true);
+                        }
+                        let _ = std::fs::remove_file(&path);
+                    }
+                    bail!("{name} is not a zip in TIGER{year} or TIGER{prior}")
+                })
+            }
+        },
+    )
+    .await?;
+    Ok(Some(dir.to_path_buf()))
 }
 
 async fn iceland_addresses(store: &Store, src: &Sources, dir: &Path) -> Result<Option<PathBuf>> {
@@ -1937,6 +2042,36 @@ mod tests {
                 ("us_wi_la_crosse-county".to_string(), 900000),
             ]
         );
+    }
+
+    #[test]
+    fn us_ranges_names_come_from_the_listing_and_only_real_zips_count() {
+        let listing = r#"<a href="tl_2024_01001_addrfeat.zip">x</a> <a href="tl_2024_01001_addrfeat.zip">again</a>
+            <a href="tl_2024_78030_addrfeat.zip">y</a> <a href="tl_2024_01001_addrfeat.zip.sha">no</a>
+            <a href="tl_2024_us_county.zip">no</a> <a href="tl_2023_01003_addrfeat.zip">no</a>
+            <a href="tl_2024_0100_addrfeat.zip">no</a>"#;
+        assert_eq!(
+            addrfeat_names(listing, "2024"),
+            ["tl_2024_01001_addrfeat.zip", "tl_2024_78030_addrfeat.zip"]
+        );
+        let dir = std::env::temp_dir().join(format!("us-ranges-zip-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (html, zip) = (dir.join("html"), dir.join("zip"));
+        std::fs::write(&html, "<!DOCTYPE html><html>").unwrap();
+        std::fs::write(&zip, b"PK\x03\x04rest").unwrap();
+        assert!(is_zip(&zip) && !is_zip(&html) && !is_zip(&dir.join("missing")));
+        std::fs::remove_dir_all(dir).unwrap();
+        let year = |y: &str| {
+            serde_json::from_str::<Sources>(&format!(
+                r#"{{"overtureRelease":"r","snapshot":"a","usRanges":{{"year":"{y}"}}}}"#
+            ))
+            .unwrap()
+            .validate()
+        };
+        year("2024").unwrap();
+        for bad in ["24", "2024-1", "../x", "abcd"] {
+            assert!(year(bad).is_err(), "{bad}");
+        }
     }
 
     #[test]
