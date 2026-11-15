@@ -41,6 +41,8 @@ pub struct Sources {
     pub korea_shops: Option<KoreaShops>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub iceland_addresses: Option<IcelandAddresses>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub geosadak_habitations: bool,
     /// Read the addresses Syke's Ryhti register names only in Swedish (see `ryhti`).
     #[serde(default, skip_serializing_if = "is_false")]
     pub ryhti: bool,
@@ -100,6 +102,7 @@ pub struct Fetched {
     /// The directory holding Korea's shop register, `shops.zip`, and its `source.json`.
     pub korea_shops: Option<PathBuf>,
     pub iceland_addresses: Option<PathBuf>,
+    pub geosadak_habitations: Option<PathBuf>,
     /// An OpenAddresses-style directory of Ryhti's Swedish-only addresses (see `ryhti`).
     pub ryhti: Option<PathBuf>,
     /// An OpenAddresses-style directory of DENUE's establishments (see `denue`).
@@ -617,6 +620,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         anyhow::Ok((places, small))
     };
     let iceland_dir = scratch.join("iceland-addresses");
+    let geosadak_dir = scratch.join("geosadak");
     let korea_dir = scratch.join("korea-shops");
     let ryhti_dir = scratch.join("ryhti");
     let denue_dir = scratch.join("denue");
@@ -628,6 +632,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         (geonames_places, geonames_small),
         korea_shops,
         iceland_addresses,
+        geosadak_habitations,
         ryhti,
         denue,
         dgu,
@@ -638,6 +643,7 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         geonames_places,
         korea_shops(store, src, &korea_dir),
         iceland_addresses(store, src, &iceland_dir),
+        geosadak_habitations(store, src, &geosadak_dir),
         ryhti(store, src, &ryhti_dir),
         denue(store, src, &denue_dir),
         dgu(store, src, &dgu_dir),
@@ -653,10 +659,51 @@ pub async fn fetch(store: &Store, src: &Sources, scratch: &Path) -> Result<Fetch
         geonames_small,
         korea_shops,
         iceland_addresses,
+        geosadak_habitations,
         ryhti,
         denue,
         dgu,
     })
+}
+
+async fn geosadak_habitations(store: &Store, src: &Sources, dir: &Path) -> Result<Option<PathBuf>> {
+    use crate::geosadak::{SHA256, URL};
+    if !src.geosadak_habitations
+        || src
+            .bbox()
+            .is_some_and(|b| !intersects(b, 68.0, 6.0, 98.0, 38.0))
+    {
+        return Ok(None);
+    }
+    let client = client()?;
+    mirror(
+        store,
+        &format!("sources/geosadak/{SHA256}"),
+        dir,
+        1,
+        || async { Ok(vec![("habitations.parquet".to_owned(), URL.to_owned())]) },
+        move |url: String, path: PathBuf| {
+            let client = client.clone();
+            Box::pin(async move {
+                ensure!(
+                    http_get(&client, &url, &path).await?,
+                    "GeoSadak capture not found"
+                );
+                ensure!(
+                    store::sha256(&path)? == SHA256,
+                    "GeoSadak capture SHA-256 mismatch"
+                );
+                Ok(true)
+            })
+        },
+    )
+    .await?;
+    let path = dir.join("habitations.parquet");
+    ensure!(
+        store::sha256(&path)? == SHA256,
+        "GeoSadak mirrored capture SHA-256 mismatch"
+    );
+    Ok(Some(path))
 }
 
 async fn iceland_addresses(store: &Store, src: &Sources, dir: &Path) -> Result<Option<PathBuf>> {
@@ -2257,6 +2304,45 @@ mod tests {
         assert_eq!(south.iter().filter(|b| **b == b'\n').count(), 1);
         csv.extend(b"-57.61,-30.26,01,55100,1,GENERAL ARTIGAS,111,BIS,N/A,9,15,N/A,BELLA UNION,366,ARTIGAS\r\n");
         assert!(dgu_features(&csv, None, &mut vec![]).is_err());
+    }
+
+    #[tokio::test]
+    async fn geosadak_capture_is_optional_and_rejects_a_corrupt_sealed_mirror() {
+        let base =
+            std::env::temp_dir().join(format!("geosadak-source-test-{}", std::process::id()));
+        let store = Store::open(&format!("file://{}", base.join("bucket").display())).unwrap();
+        let mut src: Sources =
+            serde_json::from_str(r#"{"overtureRelease":"r","snapshot":"s"}"#).unwrap();
+        assert!(
+            geosadak_habitations(&store, &src, &base.join("disabled"))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        src.geosadak_habitations = true;
+        src.bbox = vec![9.0, 50.0, 10.0, 51.0];
+        assert!(
+            geosadak_habitations(&store, &src, &base.join("outside"))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        src.bbox.clear();
+        let seed = base.join("seed");
+        std::fs::create_dir_all(&seed).unwrap();
+        std::fs::write(seed.join("habitations.parquet"), "not the pinned capture").unwrap();
+        store
+            .publish(
+                &seed,
+                &format!("sources/geosadak/{}", crate::geosadak::SHA256),
+            )
+            .await
+            .unwrap();
+        let error = geosadak_habitations(&store, &src, &base.join("bad"))
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("SHA-256 mismatch"), "{error}");
+        std::fs::remove_dir_all(base).unwrap();
     }
 
     #[tokio::test]

@@ -167,6 +167,7 @@ pub const TOWN_CITY: &str = "town_city";
 /// people, a capital or a division's seat). Suggestions find it; a search only when the query is
 /// its name and country and nothing else answers it; reverse lookups never name it.
 pub const SMALL_GEONAMES: &str = "geonames_small";
+pub const SMALL_PLACES: [&str; 2] = [SMALL_GEONAMES, "pmgsy_habitation"];
 
 /// GeoNames' other names and corroborated type-qualified primary names, read only at the last
 /// step of a "<town>, <country>" search. Keys are country code + folded name; corroboration

@@ -36,7 +36,7 @@ pub(in crate::index) fn weight(p: &Place) -> u64 {
         // however populous: it fills a gap and must not crowd out Overture's places
         "locality" if &*p.class == "geonames" => 100,
         // and one below cities500's bar after every other locality of its name
-        "locality" if &*p.class == schema::SMALL_GEONAMES => 50,
+        "locality" if schema::SMALL_PLACES.contains(&p.class.as_ref()) => 50,
         "locality" => pop.max(match &*p.class {
             "megacity" => 10_000_000,
             "city" => 50_000,
@@ -428,9 +428,9 @@ impl Index {
                 pl.subtype.as_ref() != "microhood"
                     && match names {
                         Names::IndonesianDistrict => id::administrative_point(pl),
-                        Names::Small => pl.class.as_ref() == schema::SMALL_GEONAMES,
+                        Names::Small => schema::SMALL_PLACES.contains(&pl.class.as_ref()),
                         _ => {
-                            pl.class.as_ref() != schema::SMALL_GEONAMES
+                            !schema::SMALL_PLACES.contains(&pl.class.as_ref())
                                 && !id::administrative_point(pl)
                         }
                     }

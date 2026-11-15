@@ -1,0 +1,13 @@
+Ministry of Rural Development, 2022. PMGSY Rural Connectivity Datasets (PRCD22), https://geosadak-pmgsy.nic.in/opendata/. Published under India's Government Open Data License: https://data.gov.in/government-open-data-license-india.
+
+Publisher: https://pmgsygeosadak.dord.gov.in/OpenData
+Terms: https://pmgsygeosadak.dord.gov.in/MsFiles/TnC.html
+
+Public mirror: https://github.com/ramSeraph/indian_admin_boundaries/releases/tag/habitations
+The mirror labels its habitation snapshot 20 October 2024. This is not a current official export or an assertion of survey date or positional accuracy.
+Parquet capture: https://github.com/ramSeraph/indian_admin_boundaries/releases/download/habitations/PMGSY_Habitations.parquet
+SHA-256: f1daf758403f9499a0a9818ddd1ac8eff621fa4fa5f089dc70daadc2d02c02b9
+
+Changes: reject invalid/nonpositive-population points and every repeated habitation ID; omit names already present in the Indian place index and geographically ambiguous source names; retain one point per nearby name cluster, only inside an indexed Indian region. No coordinate repair, derived address or independent evaluation expectation is supplied. Source administrative IDs are not Census or ISO identifiers and are not used to assign regions.
+
+Habitations can be hamlets, colonies or junction-named clusters, not official towns. They supply low-priority place-name completion and corroborated forward fallbacks, never house numbers, street assignment or reverse-locality anchors. The source's coordinates and population are not independently verified. Neither the Ministry nor the mirror maintainer endorses this index or service. The Government Open Data License and the additional geospatial provisions in the publisher's terms remain applicable; the mirror's generic CC0 labels are not adopted.

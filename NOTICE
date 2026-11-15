@@ -36,6 +36,11 @@ through the datasets' codes, from:
   (https://www.anagrafenazionale.interno.it/note-legali/).
 Current boundaries and complete historical intervals are not imported.
 
+Optional Indian habitation points come from the Ministry of Rural Development,
+PMGSY Rural Connectivity Datasets (PRCD22), under Government Open Data License–India.
+The snapshot, mirror, changes and publisher terms are in data/in-geosadak.NOTICE;
+the builder retains that notice with the index. These are not house-number addresses.
+
 Indexes built by build_index are not part of this repository; the build Job writes
 ATTRIBUTION.txt for their sources. House numbers include modified, filtered addresses
 from the Overture Maps Foundation's places theme, under CDLA-Permissive-2.0,

@@ -28,6 +28,7 @@ fn builder_hash() -> String {
                 "src/index/country/us.rs",
                 "data/asiaq-buildings.tsv",
                 "data/asiaq-buildings.NOTICE",
+                "data/in-geosadak.NOTICE",
                 "data/dk-localities.json.gz",
                 "data/dk-localities.NOTICE",
                 "data/pl-localities.NOTICE",
