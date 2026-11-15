@@ -144,18 +144,27 @@ impl Index {
 
     /// The place's name and what it lies in, as an address line: "Paris, Ile-de-France, France".
     pub(in crate::index) fn label(&self, id: u32) -> Arc<str> {
-        remember(&self.suggest.labels, id, || {
-            let mut keys: Vec<&str> = vec![];
-            let mut parts: Vec<&str> = vec![];
-            for p in self.chain(id) {
-                let pl = &self.places[p as usize];
-                if !keys.contains(&pl.key()) {
-                    keys.push(pl.key());
-                    parts.push(pl.name(true));
-                }
-            }
-            parts.join(", ").into()
+        remember(&self.suggest.labels, id, || self.chain_label(id, true))
+    }
+
+    /// `label` in the places' own names ("Lisboa", "Москва"), as a house's address is written.
+    pub(in crate::index) fn local_label(&self, id: u32) -> Arc<str> {
+        remember(&self.suggest.local_labels, id, || {
+            self.chain_label(id, false)
         })
+    }
+
+    fn chain_label(&self, id: u32, en: bool) -> Arc<str> {
+        let mut keys: Vec<&str> = vec![];
+        let mut parts: Vec<&str> = vec![];
+        for p in self.chain(id) {
+            let pl = &self.places[p as usize];
+            if !keys.contains(&pl.key()) {
+                keys.push(pl.key());
+                parts.push(pl.name(en));
+            }
+        }
+        parts.join(", ").into()
     }
 
     /// Whether `place` lies in what each qualifier names: a country, a region or province by name
@@ -499,7 +508,8 @@ impl Index {
                     if as_prefix && !head_open {
                         break;
                     }
-                    let Some((cl, rarest)) = self.typed_words(field, &terms, as_prefix) else {
+                    let Some((cl, rarest)) = self.typed_words(field, &terms, as_prefix, None)
+                    else {
                         continue;
                     };
                     if as_prefix && rarest > MAX_PLACE_WORK {

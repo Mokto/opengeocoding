@@ -6,7 +6,7 @@ mod place;
 mod postcode;
 mod street;
 
-use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, id, it, jp, lt, pl, ps, pt, th, tw};
+use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, id, it, jp, lt, pl, ps, pt, ru, th, tw};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 pub(super) use place::place_names;
@@ -26,6 +26,9 @@ const POOL: usize = 400;
 /// so it is held to less than one in a town.
 const MAX_WORK: u64 = 20_000;
 const MAX_WORK_IN_TOWN: u64 = 400_000;
+const MAX_WORK_NUMBERED: u64 = 200_000;
+/// Streets of one name a house number is looked for on, most important first.
+const WIDE_POOL: usize = 2_000;
 /// The same for the long tail of places the name index does not hold: found by an exact word
 /// that few documents share.
 const MAX_PLACE_WORK: u64 = 20_000;
@@ -125,6 +128,8 @@ pub(super) struct Caches {
     /// Folded name and folded English name, by place.
     folded: Mutex<HashMap<u32, Arc<[String; 2]>>>,
     labels: Mutex<HashMap<u32, Arc<str>>>,
+    /// The same in the places' own names, for a house.
+    local_labels: Mutex<HashMap<u32, Arc<str>>>,
     /// Every folded country name and its code, sorted.
     country_names: std::sync::OnceLock<Vec<(String, String)>>,
     egyptian_counties: std::sync::OnceLock<Vec<u32>>,
@@ -554,6 +559,16 @@ impl Index {
                 && spaced != text
             {
                 return self.retry_suggest(&spaced, limit, cc, focus, landmarks, chain);
+            }
+        }
+        if cc.is_none_or(|c| c.eq_ignore_ascii_case("ru"))
+            && let Some(written) = ru::written(text)
+        {
+            let found = self.retry_suggest(&written, limit, cc, focus, landmarks, chain);
+            // Cyrillic is also Ukrainian and Bulgarian: without a country, only an address the
+            // rewrite finds replaces the answer to the text as typed.
+            if cc.is_some() || found.iter().any(|s| s.kind == "address") {
+                return found;
             }
         }
         if cc.is_none_or(|c| c.eq_ignore_ascii_case("lt"))
@@ -1206,7 +1221,28 @@ impl Index {
     /// Clauses requiring every word of `words`, the last one only as far as typed when `open`,
     /// and the number of documents the rarest word is in, which bounds the search's work.
     /// `None` when no term can match.
-    fn typed_words(&self, field: Field, words: &[String], open: bool) -> Option<(Clauses, u64)> {
+    fn typed_words(
+        &self,
+        field: Field,
+        words: &[String],
+        open: bool,
+        country: Option<&str>,
+    ) -> Option<(Clauses, u64)> {
+        // what a lookup in one country walks: the words behind its code
+        let in_country = country.filter(|_| self.country_words).map(|cc| {
+            (
+                match field {
+                    f if f == self.f.names => self.f.cnames,
+                    f if f == self.f.city => self.f.ccity,
+                    f => f,
+                },
+                country::ps::country_place(cc).to_uppercase(),
+            )
+        });
+        let df = |w: &str| match &in_country {
+            Some((f, cc)) if *f != field => self.docs_with(*f, &schema::country_word(cc, w)),
+            _ => self.docs_with(field, w),
+        };
         // one letter of a word expands to a third of the dictionary: wait for the next
         let (words, open) = match words.split_last() {
             Some((last, whole)) if open && last.chars().count() < 2 && !whole.is_empty() => {
@@ -1216,27 +1252,26 @@ impl Index {
         };
         let (last, whole) = words.split_last()?;
         let mut cl: Vec<_> = whole.iter().map(|w| must(term(field, w))).collect();
-        let mut rarest = whole
-            .iter()
-            .map(|w| self.docs_with(field, w))
-            .min()
-            .unwrap_or(u64::MAX);
+        let mut rarest = whole.iter().map(|w| df(w)).min().unwrap_or(u64::MAX);
         if !open {
             cl.push(must(term(field, last)));
-            return Some((cl, rarest.min(self.docs_with(field, last))));
+            return Some((cl, rarest.min(df(last))));
         }
         let found = self.prefix_terms(field, last);
         // Every document of the other words is checked against every term: when they are many,
         // only the commonest terms are worth it.
         let cap = (TERM_WORK / rarest.max(1)).clamp(MIN_TERMS, PREFIX_TERMS as u64) as usize;
         let found = &found[..found.len().min(cap)];
-        let mut docs: u64 = found.iter().map(|t| t.1 as u64).sum();
+        let mut docs: u64 = match in_country {
+            Some(_) => found.iter().map(|t| df(&t.0)).sum(),
+            None => found.iter().map(|t| t.1 as u64).sum(),
+        };
         let mut terms: Vec<String> = found.iter().map(|t| t.0.clone()).collect();
         // "aven" is the start of "avenue", which the index holds as "av"
         if last.len() >= 2 {
             for (full, short) in canon::VARIANTS {
                 if full.starts_with(last.as_str()) && !terms.iter().any(|t| t == short) {
-                    docs += self.docs_with(field, short);
+                    docs += df(short);
                     terms.push(short.to_string());
                 }
             }
@@ -1244,7 +1279,7 @@ impl Index {
         // "deansgate" is indexed as "deansgt": a whole word the index holds in its short form
         let folded = fold(last);
         if folded != *last && !folded.contains(' ') && !terms.contains(&folded) {
-            docs += self.docs_with(field, &folded);
+            docs += df(&folded);
             terms.push(folded);
         }
         match terms.as_slice() {

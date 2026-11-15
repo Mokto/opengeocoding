@@ -84,7 +84,8 @@ impl Index {
         );
         if qualifiers.is_empty()
             && open
-            && let Some((cl, _)) = self.typed_words(self.f.pcode, std::slice::from_ref(&pc), true)
+            && let Some((cl, _)) =
+                self.typed_words(self.f.pcode, std::slice::from_ref(&pc), true, None)
         {
             for a in self.top_of(Kind::Postcode, cc, cl, pool) {
                 if !docs.contains(&a) {
