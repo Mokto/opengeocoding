@@ -604,6 +604,11 @@ impl Ord for Candidate {
 
 /// Seed lines for `tests/registry/us.seeds.jsonl`: one per location plus its degraded variants.
 pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
+    // "SEED*8" draws eight times as many locations from the same pools
+    let (seed, scale) = seed
+        .rsplit_once('*')
+        .and_then(|(s, k)| Some((s, k.parse::<usize>().ok()?)))
+        .unwrap_or((seed, 1));
     let release = path
         .file_stem()
         .and_then(|s| s.to_str())
@@ -704,6 +709,7 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
     let mut taken_zips: HashMap<String, usize> = HashMap::new();
     let mut dropped = 0;
     for (kind, bucket, target) in TARGETS {
+        let target = target * scale;
         // States in an order drawn from the seed, so the ones that get a remainder vary by seed.
         let mut states: Vec<_> = ordered
             .iter()

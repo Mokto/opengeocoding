@@ -49,6 +49,16 @@ Each case's `places`, the names ReverseGeocode's answer must include one of, are
 
 The [2026-11-03 reverse-locality investigation](../../notes/us-pl-reverse-locality.md) separates at-point/offset and source-group counts, traces geographic versus postal names and adds synthetic safety controls. Its Polish offline-source follow-up does not change US runtime, expectations or outcomes. USPS mailing cities still do not establish municipal/CDP/community membership.
 
+## Messy-input cohorts
+
+`us-messy.seeds.jsonl` and `us-messy.jsonl` (236 cases, 231 locations) hold US addresses written the way real inputs are, from the same NAD release. Expected answers still come from NAD by `build-gold`; the sampler draws more of the same pools (`--seed "us-2026-11-messy*8"` is eight times the usual locations from the same ranking) and `tests/registry/us-messy.py` turns them into seeds:
+
+- `us_no_house` (36): houses of that draw (3,595 trusted and broad locations) that the index of 2026-10-21 did not hold at their number, found by asking SearchAddress for the clean address; 99% of the draw was found, so the index is only about 1% short on NAD. The cohort fails on that index by construction and is a recall target (street fallbacks, address ranges), not a rate.
+- `us_messy_unit` (100): a house with a bare unit letter after its street ("283 Hobbs Lane C, Clinton Corners, NY 12514"). The letter is not in the register, so the expectation of a confident answer is left open.
+- `us_messy_type` (100): the street with another street type ("740 Duncan Court" for Duncan Drive), expectation open. Types are drawn evenly from the nine most common.
+
+Each is drawn by hash from the locations the index held, not by failure. The edits copy shapes found in MESSY STREETS inputs, so they are not a hold-out: they test the fixes made after reading those inputs. On the production index of 2026-10-21 (SearchAddress `pass` only): `us_messy_unit` 4 of 100 and `us_messy_type` 0 of 100 before; 77 and 92 with the stray-unit and street-type retries; of `us_no_house`, 14 are placed (`interpolated`) with the US address ranges.
+
 ## Census community-boundary follow-up
 
 The [CDP locality correction](../../notes/us-reverse-cdps.md) uses uniquely containing Census-designated-place polygons to name unincorporated communities, while preserving actual governing-town names and existing native-name variants, below which the community is then named. CDPs never supply `municipality`. The selected house and government fields remain unchanged. Its source capture is complete and independent of case selection; expectations, scoring and hold-out assignments are unchanged.
