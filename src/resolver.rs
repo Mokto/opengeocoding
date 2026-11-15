@@ -1,5 +1,5 @@
 use crate::index::country::{
-    au, ca, de, dk, ee, gb, gr, hk_mo, id, ie, is, it, jp, ps, pt, si, tw,
+    au, ca, de, dk, ee, gb, gr, hk_mo, id, ie, r#in, is, it, jp, ps, pt, si, tw,
 };
 use crate::{
     index::{
@@ -198,6 +198,14 @@ impl Resolver {
                 // only the query as written: `resolve` also answers the forms it rewrites it to
                 let found = core.resolve(&query)?;
                 let mut found = core.named_locality(&query, found)?;
+                if let Some(hit) = r#in::habitation(&core.index, &query, &found) {
+                    found = format_response(&core.index.render(&hit, true))?;
+                    found.good_match = true;
+                    METRICS
+                        .tiers
+                        .with_label_values(&["indian_habitation"])
+                        .inc();
+                }
                 if found.geo_coordinates.as_option().is_some_and(|g| {
                     let number = found
                         .address_details

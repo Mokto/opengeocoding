@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Case, case, named, town};
+use crate::{Case, Want, case, named, town};
 
 pub const PLACES: &[Place] = &[
     place!(
@@ -342,8 +342,46 @@ fn geosadak_only_fills_unambiguous_gaps_and_never_names_reverse_points() {
     assert!(crate::dir().join("GEOSADAK-NOTICE.txt").is_file());
 }
 
+pub async fn check_safeguards(resolver: &opengeocoding::resolver::Resolver) {
+    for query in [
+        "Neelapara",
+        "Neelapara, France",
+        "Neelapara, Kerala, France",
+        "Neelapara, Tamil Nadu, India",
+        "Neelapara, IN-TN, India",
+        "Neelapara, Unknown State, India",
+        "Neelapara, , India",
+        "12 Neelapara, Kerala, India",
+        "Neelapara, Kerala, India, France",
+        "Samanagar, India",
+        "Duplicate East, India",
+    ] {
+        let found = resolver.resolve(query).await.unwrap();
+        assert!(
+            !found.geo_coordinates.as_option().is_some_and(|point| {
+                [(76.31, 10.01), (76.32, 10.02)]
+                    .into_iter()
+                    .any(|expected| {
+                        crate::metres((point.lon as f64, point.lat as f64), expected) < 5.0
+                    })
+            }),
+            "{query}: {found:?}"
+        );
+    }
+}
+
 pub fn cases() -> Vec<Case> {
     vec![
+        case("Neelapara, India", Want::At((76.31, 10.01), 1.0, true)),
+        case(
+            "Neelapara, Kerala, India",
+            Want::At((76.31, 10.01), 1.0, true),
+        ),
+        case("neelapara, IN-KL, IN", Want::At((76.31, 10.01), 1.0, true)),
+        case(
+            "Nallur Road Colony, Kerala, India",
+            Want::At((76.32, 10.02), 1.0, true),
+        ),
         case("Delhi", town("in-dl-delhi", true)),
         case("Delhi, India", town("in-dl-delhi", true)),
         // the town, not the metropolitan area it is in
