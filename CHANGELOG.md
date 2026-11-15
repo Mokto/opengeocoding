@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.12.0](https://github.com/Mokto/opengeocoding/compare/v1.11.0...v1.12.0) (2026-11-15)
+
+
+### Features
+
+* add Indonesian district points to autocomplete from pinned GeoNames ADM3 ([#501](https://github.com/Mokto/opengeocoding/issues/501)) ([#572](https://github.com/Mokto/opengeocoding/issues/572)) ([6f8e237](https://github.com/Mokto/opengeocoding/commit/6f8e237f65a125e1004782388090b31d8c167c4f))
+
+
+### Bug Fixes
+
+* restore postcodes that lost their leading zero or were written spaced ([#575](https://github.com/Mokto/opengeocoding/issues/575)) ([4f831e6](https://github.com/Mokto/opengeocoding/commit/4f831e6530cc4f113695a071c58b5f0d6540b20f))
+* suggest a street typed whole when the index holds its last word in short form ([#576](https://github.com/Mokto/opengeocoding/issues/576)) ([e7150d9](https://github.com/Mokto/opengeocoding/commit/e7150d9fc0b7c063e5a604ea370ef8ba22b1509c))
+
 ## [1.11.0](https://github.com/Mokto/opengeocoding/compare/v1.10.1...v1.11.0) (2026-11-13)
 
 
