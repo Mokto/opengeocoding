@@ -564,7 +564,12 @@ impl Index {
         if cc.is_none_or(|c| c.eq_ignore_ascii_case("ru"))
             && let Some(written) = ru::written(text)
         {
-            return self.retry_suggest(&written, limit, cc, focus, landmarks, chain);
+            let found = self.retry_suggest(&written, limit, cc, focus, landmarks, chain);
+            // Cyrillic is also Ukrainian and Bulgarian: without a country, only an address the
+            // rewrite finds replaces the answer to the text as typed.
+            if cc.is_some() || found.iter().any(|s| s.kind == "address") {
+                return found;
+            }
         }
         if cc.is_none_or(|c| c.eq_ignore_ascii_case("lt"))
             && let Some(written) = lt::suggest_text(text)

@@ -261,24 +261,3 @@ mod tests {
         }
     }
 }
-
-/// "48-50" on a Danish street where the register numbers 48 and 50 apart: the two houses at its
-/// ends. Elsewhere a hyphen is a plate or lot number ("46-50", "40-1"), not two houses.
-pub fn range_ends(number: &str) -> Option<[&str; 2]> {
-    let (a, b) = number.split_once('-')?;
-    let (a, b) = (a.trim(), b.trim());
-    let digits = |s: &str| !s.is_empty() && s.bytes().all(|c| c.is_ascii_digit());
-    (digits(a) && digits(b) && a.parse::<u32>().ok()? < b.parse::<u32>().ok()?).then_some([a, b])
-}
-
-#[cfg(test)]
-mod range_tests {
-    #[test]
-    fn a_range_is_its_two_ends() {
-        assert_eq!(super::range_ends("48-50"), Some(["48", "50"]));
-        assert_eq!(super::range_ends("48 - 50"), Some(["48", "50"]));
-        assert_eq!(super::range_ends("40-1"), None);
-        assert_eq!(super::range_ends("7-a"), None);
-        assert_eq!(super::range_ends("48"), None);
-    }
-}

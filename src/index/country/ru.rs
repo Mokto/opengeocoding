@@ -124,10 +124,6 @@ mod tests {
         assert_eq!(written("улица Ленина 49, 303140, Russia"), None);
         assert_eq!(written("Львівська вулиця 18, 80316, Ukraine"), None);
         assert_eq!(written("Красная площадь, 303140, Russia"), None);
-        assert_eq!(
-            written("12 Main Street, д. 4"),
-            written("12 Main Street, д. 4")
-        );
         assert!(
             house_with_mark("3 лита") && house_with_mark("8/1 с1") && house_with_mark("7-9 к5")
         );
