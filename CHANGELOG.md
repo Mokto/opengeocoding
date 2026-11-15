@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.13.0](https://github.com/Mokto/opengeocoding/compare/v1.12.0...v1.13.0) (2026-11-15)
+
+
+### Features
+
+* add PMGSY/GeoSadak habitations to Indian autocomplete and forward search ([#580](https://github.com/Mokto/opengeocoding/issues/580)) ([d99b7a4](https://github.com/Mokto/opengeocoding/commit/d99b7a4ed0f1b831940f0cf0c0e79a0daff36348))
+* show postcode and town in house suggestions, find more numbered streets ([#582](https://github.com/Mokto/opengeocoding/issues/582)) ([491a1ba](https://github.com/Mokto/opengeocoding/commit/491a1ba07c197bb1cc043896b1ac1ac35ab218a0))
+
 ## [1.12.0](https://github.com/Mokto/opengeocoding/compare/v1.11.0...v1.12.0) (2026-11-15)
 
 
