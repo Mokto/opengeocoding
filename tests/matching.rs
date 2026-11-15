@@ -2444,6 +2444,14 @@ fn a_bare_unit_letter_after_the_street_type_is_dropped() {
             "95826".into()
         ))
     );
+    assert_eq!(
+        without_stray_unit("283 Hobbs Lane C, Clinton Corners, NY 12514"),
+        Some((
+            "283 Hobbs Lane, Clinton Corners, NY 12514".into(),
+            "283".into(),
+            "12514".into()
+        ))
+    );
     for none in [
         "9123 KIEFER BLVD SACRAMENTO California 95826 US",
         "9123 KIEFER BLVD A SACRAMENTO California",

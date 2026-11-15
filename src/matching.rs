@@ -1304,14 +1304,19 @@ pub fn without_stray_unit(query: &str) -> Option<(String, String, String)> {
     if !number.bytes().all(|b| b.is_ascii_digit()) || number.len() > 6 {
         return None;
     }
-    let at = (3..words.len().saturating_sub(1)).find(|&i| {
-        words[i].len() == 1
-            && words[i].bytes().all(|b| b.is_ascii_alphabetic())
-            && street_type(words[i - 1])
-    })?;
-    let kept: Vec<&str> = (words.iter().enumerate())
+    let letter = |w: &str| {
+        let w = w.strip_suffix(',').unwrap_or(w);
+        w.len() == 1 && w.bytes().all(|b| b.is_ascii_alphabetic())
+    };
+    let at = (3..words.len().saturating_sub(1))
+        .find(|&i| letter(words[i]) && street_type(words[i - 1]))?;
+    let comma = words[at].ends_with(',');
+    let kept: Vec<String> = (words.iter().enumerate())
         .filter(|(i, _)| *i != at)
-        .map(|(_, w)| *w)
+        .map(|(i, w)| match (comma && i + 1 == at, w.ends_with(',')) {
+            (true, false) => format!("{w},"),
+            _ => (*w).to_owned(),
+        })
         .collect();
     Some((kept.join(" "), number.to_owned(), zip))
 }
