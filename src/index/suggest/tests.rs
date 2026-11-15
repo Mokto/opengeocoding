@@ -760,3 +760,14 @@ fn a_house_without_its_own_postcode_still_answers_the_town() {
     }
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn a_postcode_held_without_its_separator_is_written_with_it() {
+    use super::street::spaced_postcode as spaced;
+    assert_eq!(spaced("G1R2H1".into(), Some("CA")), "G1R 2H1");
+    assert_eq!(spaced("1017CT".into(), Some("nl")), "1017 CT");
+    assert_eq!(spaced("1067001".into(), Some("PT")), "1067-001");
+    assert_eq!(spaced("64001350".into(), Some("br")), "64001-350");
+    assert_eq!(spaced("H3G 1J5".into(), Some("CA")), "H3G 1J5");
+    assert_eq!(spaced("1471".into(), Some("DK")), "1471");
+}

@@ -32,6 +32,7 @@ pub mod pf;
 pub mod pl;
 pub mod ps;
 pub mod pt;
+pub mod ru;
 pub mod si;
 pub mod th;
 pub mod tw;

@@ -296,6 +296,18 @@ fn a_street_typed_whole_is_found_when_the_index_holds_it_in_its_short_form() {
 }
 
 #[test]
+fn a_house_suggestion_names_its_postcode_after_the_street() {
+    let found = index().suggest("Birkenstrasse 24", 5, Some("DE"), None, false);
+    let house = found.iter().find(|s| s.kind == "address").expect("a house");
+    assert!(
+        house.display_name.starts_with("24, Birkenstrasse, ")
+            && house.display_name.contains("50667"),
+        "{}",
+        house.display_name
+    );
+}
+
+#[test]
 fn a_small_geonames_place_fills_only_a_gap_no_namesake_shares_and_names_no_point() {
     let found = |text: &str| index().suggest(text, 5, Some("AT"), None, false);
     let hamlet = found("Kleinweiler");
