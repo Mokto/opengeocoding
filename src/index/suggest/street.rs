@@ -1449,18 +1449,14 @@ impl Index {
                     key.extend_from_slice(combined.as_bytes());
                     numbers.extend(shard.get(&key).map(|v| (combined, v)));
                 }
-                // "48-50" where the register numbers 48 and 50 apart: the house at either end
                 if numbers.is_empty()
-                    && let Some((a, b)) = n.split_once('-')
+                    && cc.is_some_and(|c| c.eq_ignore_ascii_case("dk"))
+                    && let Some(ends) = dk::range_ends(n)
                 {
-                    let digits = |s: &str| !s.is_empty() && s.bytes().all(|c| c.is_ascii_digit());
-                    let (a, b) = (a.trim(), b.trim());
-                    if digits(a) && digits(b) {
-                        for end in [a, b] {
-                            let mut key = sid.to_be_bytes().to_vec();
-                            key.extend_from_slice(end.as_bytes());
-                            numbers.extend(shard.get(&key).map(|v| (end.to_string(), v)));
-                        }
+                    for end in ends {
+                        let mut key = sid.to_be_bytes().to_vec();
+                        key.extend_from_slice(end.as_bytes());
+                        numbers.extend(shard.get(&key).map(|v| (end.to_string(), v)));
                     }
                 }
                 if number_open {

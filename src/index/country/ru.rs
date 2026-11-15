@@ -61,8 +61,11 @@ pub fn written(text: &str) -> Option<String> {
     }
     let mut joined = words.join(" ").replace(" , ", ", ");
     // "Варварка, 10": the number goes with its road
+    // not "Ленина 49, 303140, Russia": its number is in the road and the next is a postcode
     if let Some((road, rest)) = joined.split_once(", ")
+        && !road.contains(|c: char| c.is_ascii_digit())
         && rest.starts_with(|c: char| c.is_ascii_digit())
+        && rest.split([',', ' ']).next().is_some_and(|n| n.len() <= 4)
     {
         let (number, tail) = match rest.split_once(", ") {
             Some((n, t)) => (n.to_owned(), Some(t.to_owned())),
@@ -118,6 +121,9 @@ mod tests {
             assert_eq!(written(typed).as_deref(), Some(written_as), "{typed}");
         }
         assert_eq!(written("Красная площадь"), None);
+        assert_eq!(written("улица Ленина 49, 303140, Russia"), None);
+        assert_eq!(written("Львівська вулиця 18, 80316, Ukraine"), None);
+        assert_eq!(written("Красная площадь, 303140, Russia"), None);
         assert_eq!(
             written("12 Main Street, д. 4"),
             written("12 Main Street, д. 4")
