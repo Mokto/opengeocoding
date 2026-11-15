@@ -17,6 +17,7 @@ fn builder_hash() -> String {
                 "src/index/canon.rs",
                 "src/index/reverse.rs",
                 "src/index/landmark.rs",
+                "src/index/ranges.rs",
                 "src/index/country/au.rs",
                 "src/index/country/dk.rs",
                 "src/index/country/gl.rs",

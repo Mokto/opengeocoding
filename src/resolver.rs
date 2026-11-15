@@ -1733,7 +1733,78 @@ impl Core {
                 false,
             ));
         }
-        Ok(found)
+        Ok(self.range_house(query, &found)?.unwrap_or(found))
+    }
+
+    /// A US house the index lacks, placed along its street's address range (see
+    /// `index::ranges`) when the query gives a number and a street under the ZIP code it states
+    /// or the answer has. Approximate, so never a good match.
+    fn range_house(&self, query: &str, found: &FullAddress) -> Result<Option<FullAddress>> {
+        let Some(answered) = found.address_details.as_option() else {
+            return Ok(None);
+        };
+        if answered.country_code != "us" || !answered.house_number.is_empty() {
+            return Ok(None);
+        }
+        let Some(address) = self.parse(query)? else {
+            return Ok(None);
+        };
+        let number = part(&address, "house_number").trim();
+        let digits = number.bytes().take_while(u8::is_ascii_digit).count();
+        if digits == 0 || digits > 6 || !number[digits..].bytes().all(|b| b.is_ascii_alphabetic()) {
+            return Ok(None);
+        }
+        let zip = |text: &str| -> Option<String> {
+            let z = text.get(..5)?;
+            z.bytes().all(|b| b.is_ascii_digit()).then(|| z.to_owned())
+        };
+        let Some(zip) = zip(part(&address, "postcode")).or_else(|| zip(&answered.postcode)) else {
+            return Ok(None);
+        };
+        let road = part(&address, "road");
+        let Some(point) = [road, answered.road.as_str()]
+            .into_iter()
+            .filter(|r| !r.is_empty())
+            .find_map(|r| {
+                self.index
+                    .us_range_point(&zip, r, number[..digits].parse().ok()?)
+            })
+        else {
+            return Ok(None);
+        };
+        METRICS
+            .tiers
+            .with_label_values(&["range_interpolated"])
+            .inc();
+        let mut house = found.clone();
+        house.good_match = false;
+        house.interpolated = true;
+        house.display_name = if answered.road.is_empty() {
+            format!("{number}, {road}, {}", found.display_name)
+        } else {
+            format!("{number}, {}", found.display_name)
+        };
+        let details = house.address_details.get_or_insert_default();
+        details.house_number = number.into();
+        if details.road.is_empty() {
+            details.road = road.into();
+        }
+        const BOX: f64 = 0.002;
+        house.geo_coordinates = GeoCoordinates {
+            lat: point.0 as f32,
+            lon: point.1 as f32,
+            bounding_box: Some(BoundingBox {
+                min_lat: (point.0 - BOX) as f32,
+                max_lat: (point.0 + BOX) as f32,
+                min_lon: (point.1 - BOX) as f32,
+                max_lon: (point.1 + BOX) as f32,
+                ..Default::default()
+            })
+            .into(),
+            ..Default::default()
+        }
+        .into();
+        Ok(Some(house))
     }
 
     /// A house the parse missed ("D-112 Shastri Nagar, 342003, India" reads as one road, "Plot

@@ -106,6 +106,9 @@ message FullAddress {
   GeoCoordinates geo_coordinates = 2;
   AddressDetails address_details = 3;
   bool good_match = 4;
+  // The point is interpolated along the address range its street publishes (US only), not a
+  // surveyed building: expect it within a few hundred metres. Never set with good_match.
+  bool interpolated = 5;
 }
 
 message Region {
