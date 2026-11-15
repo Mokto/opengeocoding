@@ -1222,11 +1222,14 @@ fn street_type(word: &str) -> bool {
     TYPES.contains(&w.to_lowercase().as_str())
 }
 
+/// The query variants, each with the words naming its street, then the house number and ZIP.
+pub type StreetTypeRetries = (Vec<(String, Vec<String>)>, String, String);
+
 /// A US query whose street type may be wrong ("1276 North Clybourn Street" for the Avenue): the
 /// query without each of its first two street-type words and the words that name the street
 /// before it (directions aside), with its house number and five-digit ZIP. The number and ZIP
 /// confirm the street found, and its name must still hold those words.
-pub fn without_street_type(query: &str) -> Option<(Vec<(String, Vec<String>)>, String, String)> {
+pub fn without_street_type(query: &str) -> Option<StreetTypeRetries> {
     static ZIP: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"(?:^|[\s,])([0-9]{5})(?:-?[0-9]{4})?(?:[\s,]|$)").unwrap());
     const DIRECTIONS: &[&str] = &[
