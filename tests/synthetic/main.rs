@@ -1522,10 +1522,10 @@ fn an_address_range_places_a_number_on_its_block_and_side() {
     assert!(index().us_range_point("75499", street, 51).is_none());
 }
 
-#[tokio::test]
-#[ignore = "needs the libpostal models; run with --ignored"]
-async fn an_address_range_answers_a_number_the_index_lacks_but_never_a_good_match() {
-    let resolver = Resolver::open(dir()).unwrap();
+/// The native parser is loaded once per process, so this runs inside the one resolving test.
+async fn an_address_range_answers_a_number_the_index_lacks_but_never_a_good_match(
+    resolver: &Resolver,
+) {
     let (lon0, lat0) = world::us::RANGE_START;
     let got = resolver
         .resolve("51 Ranking Lane, Paris, TX 75498")
@@ -1560,6 +1560,7 @@ async fn an_address_range_answers_a_number_the_index_lacks_but_never_a_good_matc
 #[ignore = "needs the libpostal models; run with --ignored"]
 async fn resolve_follows_the_authored_facts() {
     let resolver = Resolver::open(dir()).unwrap();
+    an_address_range_answers_a_number_the_index_lacks_but_never_a_good_match(&resolver).await;
     world::lv::check_search(&resolver).await;
     world::gl::check_search(&resolver).await;
     world::kr::check_short_provinces(&resolver).await;
