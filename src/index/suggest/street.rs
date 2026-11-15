@@ -444,6 +444,13 @@ impl Index {
                 while split > 1 && road_words.len() - split < 3 && found.len() < want {
                     split -= 1;
                     let town = [road_words[split..].join(" ")];
+                    // "55 Norfolk Street": the street's type is not a town ("Street" is one)
+                    if canon::VARIANTS.iter().any(|(full, short)| {
+                        (town[0] == *full || town[0] == *short)
+                            && !matches!(*full, "saint" | "sankt" | "sint" | "sainte")
+                    }) {
+                        continue;
+                    }
                     let ids = self.scope(&town, road_open, cc, focus, false);
                     if ids.is_empty() {
                         continue;
@@ -854,7 +861,14 @@ impl Index {
             chain.comma_number = true;
             let found = self.retry_streets(parts, typed.open, cc, focus, want, chain);
             chain.comma_number = false;
-            if found.iter().any(|s| s.kind == "address") {
+            // the street, when no house of that number exists in the data: where "Rua X, 27" is
+            // the house form (elsewhere the part after the comma may be a floor)
+            if found.iter().any(|s| s.kind == "address")
+                || out.is_empty()
+                    && cc.is_some_and(|c| {
+                        c.eq_ignore_ascii_case("pt") || c.eq_ignore_ascii_case("br")
+                    })
+            {
                 return found;
             }
         }

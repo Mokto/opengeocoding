@@ -10,6 +10,33 @@ pub(crate) fn undotted_cep(pc: String) -> String {
     if shaped { pc.replacen('.', "", 1) } else { pc }
 }
 
+/// "Avenida Augusto de Lima, 1.715": a house number from 1000 on is written with a thousands
+/// dot, which the index does not store. None when no word is such a number.
+pub(crate) fn undotted_number(text: &str) -> Option<String> {
+    let mut changed = false;
+    let words: Vec<String> = text
+        .split(' ')
+        .map(|word| {
+            let (number, tail) = match word.strip_suffix(',') {
+                Some(n) => (n, ","),
+                None => (word, ""),
+            };
+            match number.split_once('.') {
+                Some((a, b))
+                    if (1..=3).contains(&a.len())
+                        && b.len() == 3
+                        && a.bytes().chain(b.bytes()).all(|c| c.is_ascii_digit()) =>
+                {
+                    changed = true;
+                    format!("{a}{b}{tail}")
+                }
+                _ => word.to_owned(),
+            }
+        })
+        .collect();
+    changed.then(|| words.join(" "))
+}
+
 /// The 27 federative units, as a municipality's "Itupiranga - PA" ends.
 const UF: [&str; 27] = [
     "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB", "PE",
@@ -38,6 +65,25 @@ pub(crate) fn municipality(part: String) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_thousands_dot_leaves_a_house_number() {
+        for (typed, written) in [
+            (
+                "Avenida Augusto de Lima, 1.715",
+                Some("Avenida Augusto de Lima, 1715"),
+            ),
+            (
+                "Rua A, 1.715, Belo Horizonte",
+                Some("Rua A, 1715, Belo Horizonte"),
+            ),
+            ("Rua A, 715", None),
+            ("Rua A, 45.160-000", None),
+            ("Rua A, 1.7", None),
+        ] {
+            assert_eq!(undotted_number(typed).as_deref(), written, "{typed}");
+        }
+    }
 
     #[test]
     fn ceps_lose_their_old_dot_only() {
