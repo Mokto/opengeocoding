@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.14.0](https://github.com/Mokto/opengeocoding/compare/v1.13.0...v1.14.0) (2026-11-16)
+
+
+### Features
+
+* place a US house the index lacks along its street's Census address range ([#581](https://github.com/Mokto/opengeocoding/issues/581)) ([3447f51](https://github.com/Mokto/opengeocoding/commit/3447f512288ef1c19457aa839ffb5129cb78ac36))
+
+
+### Bug Fixes
+
+* find US houses with a stray unit letter or a wrong street type ([#578](https://github.com/Mokto/opengeocoding/issues/578)) ([592185b](https://github.com/Mokto/opengeocoding/commit/592185ba84fba6c6f66393e2e48d9962a8c8296c))
+* improve address suggestions for street types, PT/BR missing numbers and BR thousands dots ([#585](https://github.com/Mokto/opengeocoding/issues/585)) ([5b79023](https://github.com/Mokto/opengeocoding/commit/5b790239babeda780cba5b13726ab33d950100bc))
+
 ## [1.13.0](https://github.com/Mokto/opengeocoding/compare/v1.12.0...v1.13.0) (2026-11-15)
 
 
