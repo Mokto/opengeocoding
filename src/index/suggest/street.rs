@@ -393,6 +393,7 @@ impl Index {
         let plated = plate.is_some();
         tries.extend(plate.map(|(road, plate)| (Some(plate), true, road)));
         let mut out = vec![];
+        let mut street_fallback = vec![];
         let mut streets = vec![];
         let last = tries.len() - 1;
         let scoped = std::cell::OnceCell::new();
@@ -444,6 +445,13 @@ impl Index {
                 while split > 1 && road_words.len() - split < 3 && found.len() < want {
                     split -= 1;
                     let town = [road_words[split..].join(" ")];
+                    // "55 Norfolk Street": the street's type is not a town ("Street" is one)
+                    if canon::VARIANTS.iter().any(|(full, short)| {
+                        (town[0] == *full || town[0] == *short)
+                            && !matches!(*full, "saint" | "sankt" | "sint" | "sainte")
+                    }) {
+                        continue;
+                    }
                     let ids = self.scope(&town, road_open, cc, focus, false);
                     if ids.is_empty() {
                         continue;
@@ -857,6 +865,15 @@ impl Index {
             if found.iter().any(|s| s.kind == "address") {
                 return found;
             }
+            // the street, when no house of that number exists in the data: where "Rua X, 27" is
+            // the house form (elsewhere the part after the comma may be a floor). Only for the
+            // two parts: a longer address has its town and country fallbacks to try first.
+            if out.is_empty()
+                && typed.parts.len() == 2
+                && cc.is_some_and(|c| c.eq_ignore_ascii_case("pt") || c.eq_ignore_ascii_case("br"))
+            {
+                street_fallback = found;
+            }
         }
         // "Avenida Calle 43 S # 86B-18": Bogotá's register names it "AC 43 S"
         if !out.iter().any(|s| s.kind == "address")
@@ -909,6 +926,9 @@ impl Index {
             if !truncated && found.len() == 1 {
                 return found;
             }
+        }
+        if out.is_empty() {
+            out = street_fallback;
         }
         out.truncate(want);
         out

@@ -147,7 +147,7 @@ pub const STREETS: &[Street] = &[
         cc: "BR",
         lon: -49.301,
         lat: -5.1,
-        numbers: &["127"],
+        numbers: &["127", "1715"],
     },
     Street {
         class: "residential",
@@ -189,4 +189,19 @@ fn brazilian_houses_are_suggested_past_the_bairro_and_the_state_and_after_a_numb
             "{typed}"
         );
     }
+}
+
+#[test]
+fn a_thousands_dot_is_read_and_a_missing_number_leaves_the_street() {
+    let found = index().suggest("Rua Alagoas, 1.715", 5, Some("br"), None, false);
+    assert_eq!(found[0].kind, "address");
+    assert!(
+        metres(
+            (found[0].x, found[0].y),
+            house(street("Rua Alagoas"), "1715")
+        ) < 5.0
+    );
+    let found = index().suggest("Rua Alagoas, 999", 5, Some("br"), None, false);
+    assert_eq!(found[0].kind, "street");
+    assert!(found[0].display_name.starts_with("Rua Alagoas"));
 }

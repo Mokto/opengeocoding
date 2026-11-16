@@ -6,7 +6,7 @@ mod place;
 mod postcode;
 mod street;
 
-use super::country::{ca, cz_sk, dk, ee, eg, hk_mo, id, it, jp, lt, pl, ps, pt, ru, th, tw};
+use super::country::{br, ca, cz_sk, dk, ee, eg, hk_mo, id, it, jp, lt, pl, ps, pt, ru, th, tw};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 pub(super) use place::place_names;
@@ -570,6 +570,11 @@ impl Index {
             if cc.is_some() || found.iter().any(|s| s.kind == "address") {
                 return found;
             }
+        }
+        if cc.is_some_and(|c| c.eq_ignore_ascii_case("br"))
+            && let Some(written) = br::undotted_number(text)
+        {
+            return self.retry_suggest(&written, limit, cc, focus, landmarks, chain);
         }
         if cc.is_none_or(|c| c.eq_ignore_ascii_case("lt"))
             && let Some(written) = lt::suggest_text(text)
