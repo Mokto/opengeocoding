@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.14.1](https://github.com/Mokto/opengeocoding/compare/v1.14.0...v1.14.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* place a US house by its street's range when the ZIP code is not the Census one ([#591](https://github.com/Mokto/opengeocoding/issues/591)) ([e05eb3a](https://github.com/Mokto/opengeocoding/commit/e05eb3a590fbb2a2af9b758291650ab1491bffec))
+* read Spanish street abbreviations, nº numbers, number ranges and s/n ([#592](https://github.com/Mokto/opengeocoding/issues/592)) ([ef19be3](https://github.com/Mokto/opengeocoding/commit/ef19be3553ff5dc64641656a61b6f59d70c22050))
+* resolve addresses that contain a U+FFFD replacement character ([#595](https://github.com/Mokto/opengeocoding/issues/595)) ([476dbb7](https://github.com/Mokto/opengeocoding/commit/476dbb735dba4f5681b0c433efc2d7b28e4e1bcf))
+* suggest a Brazilian or Portuguese address typed with the wrong street type ([#596](https://github.com/Mokto/opengeocoding/issues/596)) ([56b78d1](https://github.com/Mokto/opengeocoding/commit/56b78d14e4f2052aa8a85faec58d89324f509b36))
+
 ## [1.14.0](https://github.com/Mokto/opengeocoding/compare/v1.13.0...v1.14.0) (2026-11-16)
 
 
