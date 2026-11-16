@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.2](https://github.com/Mokto/opengeocoding/compare/v1.14.1...v1.14.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* find Russian streets typed with е when the register writes ё ([#597](https://github.com/Mokto/opengeocoding/issues/597)) ([a70a1b9](https://github.com/Mokto/opengeocoding/commit/a70a1b9b2014f528952a5b66519de3c92fea736e))
+
 ## [1.14.1](https://github.com/Mokto/opengeocoding/compare/v1.14.0...v1.14.1) (2026-11-16)
 
 
