@@ -2493,3 +2493,21 @@ fn a_wrong_street_type_is_dropped_only_with_number_and_zip() {
         assert_eq!(without_street_type(none), None, "{none}");
     }
 }
+
+#[test]
+fn a_street_filed_under_a_neighbouring_zip_is_found_nearest_the_answer() {
+    let blocks = |z: &str| match z {
+        "75901" => Some((31.34, -94.72)),
+        "75988" => Some((31.60, -94.72)),
+        "76001" => Some((31.34, -94.72)),
+        _ => None,
+    };
+    let near = (31.341, -94.721);
+    assert_eq!(
+        nearest_in_zip_area("75904", near, blocks),
+        Some((31.34, -94.72))
+    );
+    assert_eq!(nearest_in_zip_area("75901", near, blocks), None);
+    assert_eq!(nearest_in_zip_area("75904", (32.5, -94.72), blocks), None);
+    assert_eq!(nearest_in_zip_area("75904", near, |_| None), None);
+}

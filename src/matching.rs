@@ -2399,3 +2399,28 @@ pub fn region_words(name: &str) -> Vec<String> {
     out.dedup();
     out
 }
+
+/// How far from the answer a street in a neighbouring ZIP code may be put.
+const NEAR_ZIP_M: f64 = 25_000.0;
+
+/// For a ZIP code that does not hold a street (a unique or PO ZIP, or a block filed under its
+/// neighbour: 75904 for Platt Rd in Lufkin, filed under 75901): the point `locate` gives in the
+/// other ZIP codes of its three-digit area that lies nearest `near`, within `NEAR_ZIP_M`.
+pub fn nearest_in_zip_area(
+    zip: &str,
+    near: (f64, f64),
+    locate: impl Fn(&str) -> Option<(f64, f64)>,
+) -> Option<(f64, f64)> {
+    let area = zip.get(..3)?;
+    let scale = near.0.to_radians().cos();
+    let metres =
+        |p: &(f64, f64)| ((p.0 - near.0) * 111_320.0).hypot((p.1 - near.1) * 111_320.0 * scale);
+    (0..100)
+        .map(|n| format!("{area}{n:02}"))
+        .filter(|z| z != zip)
+        .filter_map(|z| locate(&z))
+        .map(|p| (metres(&p), p))
+        .filter(|(m, _)| *m <= NEAR_ZIP_M)
+        .min_by(|a, b| a.0.total_cmp(&b.0))
+        .map(|(_, p)| p)
+}
