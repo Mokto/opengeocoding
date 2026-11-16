@@ -5,6 +5,7 @@ pub mod canon;
 mod history;
 pub mod landmark;
 mod locality;
+pub mod ranges;
 pub mod reverse;
 pub mod schema;
 
@@ -106,6 +107,8 @@ pub struct Index {
     danish_localities: Option<area::Areas>,
     us_municipalities: Option<country::us::Boundaries>,
     us_cdps: Option<country::us::Boundaries>,
+    /// Address ranges of US streets (`ranges`); absent from older indexes.
+    us_ranges: Option<ranges::Ranges>,
     polish_localities: Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
     /// Streets' lines, for a point with no house in range; absent like `reverse`.
     streets: Option<reverse::Streets>,
@@ -729,6 +732,14 @@ impl Index {
         } else {
             None
         };
+        let us_ranges = if dir.join(ranges::FST_FILE).exists() {
+            use tantivy::directory::Directory;
+            let fst = mmap.open_read(Path::new(ranges::FST_FILE))?;
+            let blob = mmap.open_read(Path::new(ranges::BLOB_FILE))?;
+            Some(ranges::Ranges::new(fst.read_bytes()?, blob.read_bytes()?)?)
+        } else {
+            None
+        };
         let streets = if dir.join(reverse::STREETS).exists() {
             use tantivy::directory::Directory;
             let file = mmap.open_read(Path::new(reverse::STREETS))?;
@@ -899,6 +910,7 @@ impl Index {
             danish_localities,
             us_municipalities,
             us_cdps,
+            us_ranges,
             polish_localities,
             streets,
             places,

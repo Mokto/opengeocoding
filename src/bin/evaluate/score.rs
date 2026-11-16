@@ -8,8 +8,9 @@ pub const LEVELS: [&str; 8] = [
     "none", "country", "region", "locality", "postcode", "street", "building", "house",
 ];
 /// Ordered from best to worst; a case's class is the least severe over its documented alternatives.
-pub const CLASSES: [&str; 12] = [
+pub const CLASSES: [&str; 13] = [
     "pass",
+    "interpolated",
     "confidence_mismatch",
     "too_coarse",
     "abstain",
@@ -703,7 +704,17 @@ fn score_one(expect: &Expect, response: &Value, confidence: bool) -> Score {
     if let Some(good) = expect.good_match.filter(|_| confidence)
         && response["goodMatch"].as_bool().unwrap_or(false) != good
     {
-        return done(result, "confidence_mismatch");
+        // a house placed along its street's address range is right where it is placed, and never
+        // confident
+        let placed = good && response["interpolated"].as_bool().unwrap_or(false);
+        return done(
+            result,
+            if placed {
+                "interpolated"
+            } else {
+                "confidence_mismatch"
+            },
+        );
     }
     done(result, "pass")
 }
@@ -994,6 +1005,9 @@ mod tests {
             ),
             "confidence_mismatch"
         );
+        let mut placed = full("jp", 35.0, 135.76, false, json!({"city": "Kyoto"}));
+        placed["interpolated"] = json!(true);
+        assert_eq!(class(&kyoto, &placed), "interpolated");
         assert_eq!(
             score(
                 Some(&kyoto),

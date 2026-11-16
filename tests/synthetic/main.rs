@@ -37,6 +37,7 @@ fn dir() -> &'static PathBuf {
         world::us::write_municipalities(&municipalities);
         let cdps = root.join("us-cdps.json.gz");
         world::us::write_cdps(&cdps);
+        world::us::write_ranges(&root.join("us-ranges"));
         let hierarchy = root.join("id-hierarchy.json.gz");
         world::id::write_hierarchy(&hierarchy);
         let geosadak = root.join("geosadak.parquet");
@@ -70,6 +71,8 @@ fn dir() -> &'static PathBuf {
             .arg(&municipalities)
             .arg("--us-cdps")
             .arg(&cdps)
+            .arg("--us-ranges")
+            .arg(root.join("us-ranges"))
             .arg("--korea-lots")
             .arg(&licensing)
             .output()
@@ -1505,10 +1508,59 @@ fn a_houses_postal_town_is_scoped_and_keeps_its_settlement_and_county() {
     }
 }
 
+#[test]
+fn an_address_range_places_a_number_on_its_block_and_side() {
+    let (zip, street) = (world::us::RANGE_ZIP, world::us::RANGE_STREET);
+    let (lon0, lat0) = world::us::RANGE_START;
+    let (lat, lon) = index().us_range_point(zip, street, 51).unwrap();
+    assert!(
+        metres((lon, lat), (lon0 + 0.005, lat0)) < 20.0 && lat < lat0,
+        "odd numbers are south of an eastbound block: {lat} {lon}"
+    );
+    assert!(index().us_range_point(zip, street, 50).unwrap().0 > lat0);
+    assert!(index().us_range_point(zip, street, 101).is_none());
+    assert!(index().us_range_point("75499", street, 51).is_none());
+}
+
+/// The native parser is loaded once per process, so this runs inside the one resolving test.
+async fn an_address_range_answers_a_number_the_index_lacks_but_never_a_good_match(
+    resolver: &Resolver,
+) {
+    let (lon0, lat0) = world::us::RANGE_START;
+    let got = resolver
+        .resolve("51 Ranking Lane, Paris, TX 75498")
+        .await
+        .unwrap();
+    let details = got.address_details.as_option().unwrap();
+    assert!(got.interpolated && !got.good_match, "{got:?}");
+    assert_eq!(
+        (details.house_number.as_str(), details.postcode.as_str()),
+        ("51", "75498")
+    );
+    assert!(got.display_name.starts_with("51, Ranking Lane"), "{got:?}");
+    let at = got.geo_coordinates.as_option().unwrap();
+    assert!(
+        metres((at.lon as f64, at.lat as f64), (lon0 + 0.005, lat0)) < 20.0,
+        "{got:?}"
+    );
+    // a house the index has stays the index's, a number no range holds stays a street
+    let got = resolver
+        .resolve("7 Ranking Lane, Paris, TX 75498")
+        .await
+        .unwrap();
+    assert!(got.good_match && !got.interpolated, "{got:?}");
+    let got = resolver
+        .resolve("500 Ranking Lane, Paris, TX 75498")
+        .await
+        .unwrap();
+    assert!(!got.interpolated && !got.good_match, "{got:?}");
+}
+
 #[tokio::test]
 #[ignore = "needs the libpostal models; run with --ignored"]
 async fn resolve_follows_the_authored_facts() {
     let resolver = Resolver::open(dir()).unwrap();
+    an_address_range_answers_a_number_the_index_lacks_but_never_a_good_match(&resolver).await;
     world::lv::check_search(&resolver).await;
     world::gl::check_search(&resolver).await;
     world::kr::check_short_provinces(&resolver).await;

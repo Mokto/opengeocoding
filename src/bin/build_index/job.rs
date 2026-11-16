@@ -131,6 +131,9 @@ pub fn job(args: Vec<String>) -> Result<()> {
             crate::geosadak::SHA256.into(),
         ]);
     }
+    if let Some(d) = &got.us_ranges {
+        build.extend(["--us-ranges".into(), d.to_string_lossy().into_owned()]);
+    }
     if let Some(b) = sources.bbox() {
         build.extend([
             "--bbox".into(),

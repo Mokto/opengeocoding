@@ -1562,3 +1562,105 @@ fn us_addresses_are_suggested_with_a_state_zip_unit_or_out_of_order() {
         "Paris, TX 75460"
     );
 }
+
+/// ZIP code and street of the authored address range: east along 33.66 N from `RANGE_START`, 0.01
+/// degree long, odd numbers 1-99 on the right and even 2-100 on the left.
+pub const RANGE_ZIP: &str = "75498";
+pub const RANGE_STREET: &str = "Ranking Lane";
+pub const RANGE_START: (f64, f64) = (-95.58, 33.66);
+
+/// A directory holding one county's Census address features, as `tl_2024_<county>_addrfeat.zip`.
+pub fn write_ranges(dir: &std::path::Path) {
+    let columns = [
+        ("FULLNAME", 30),
+        ("LFROMHN", 12),
+        ("LTOHN", 12),
+        ("ZIPL", 5),
+        ("PARITYL", 1),
+        ("RFROMHN", 12),
+        ("RTOHN", 12),
+        ("ZIPR", 5),
+        ("PARITYR", 1),
+    ];
+    let row = [
+        RANGE_STREET,
+        "2",
+        "100",
+        RANGE_ZIP,
+        "E",
+        "1",
+        "99",
+        RANGE_ZIP,
+        "O",
+    ];
+    let width = 1 + columns.iter().map(|c| c.1).sum::<usize>();
+    let header = 32 + 32 * columns.len() + 1;
+    let mut dbf = vec![3, 0, 0, 0, 1, 0, 0, 0];
+    dbf.extend((header as u16).to_le_bytes());
+    dbf.extend((width as u16).to_le_bytes());
+    dbf.resize(32, 0);
+    for (name, len) in columns {
+        let mut field = [0u8; 32];
+        field[..name.len()].copy_from_slice(name.as_bytes());
+        (field[11], field[16]) = (b'C', len as u8);
+        dbf.extend(field);
+    }
+    dbf.push(0x0d);
+    dbf.push(b' ');
+    for (value, (_, len)) in row.iter().zip(columns) {
+        let mut cell = vec![b' '; len];
+        cell[..value.len()].copy_from_slice(value.as_bytes());
+        dbf.extend(cell);
+    }
+    let points = [RANGE_START, (RANGE_START.0 + 0.01, RANGE_START.1)];
+    let mut shp = vec![0, 0, 0x27, 0x0a];
+    shp.resize(100, 0);
+    shp.extend(1u32.to_be_bytes());
+    shp.extend(((44 + 4 + points.len() * 16) as u32 / 2).to_be_bytes());
+    shp.extend(3u32.to_le_bytes());
+    shp.extend([0u8; 32]);
+    shp.extend(1u32.to_le_bytes());
+    shp.extend((points.len() as u32).to_le_bytes());
+    shp.extend(0u32.to_le_bytes());
+    for (x, y) in points {
+        shp.extend(x.to_le_bytes());
+        shp.extend(y.to_le_bytes());
+    }
+    // stored entries only; the reader checks no CRC
+    let (mut zip, mut directory) = (vec![], vec![]);
+    for (name, data) in [
+        ("tl_2024_48277_addrfeat.dbf", &dbf),
+        ("tl_2024_48277_addrfeat.shp", &shp),
+    ] {
+        let (size, nlen) = (
+            (data.len() as u32).to_le_bytes(),
+            (name.len() as u16).to_le_bytes(),
+        );
+        let head = [20u8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let offset = zip.len() as u32;
+        zip.extend([0x50, 0x4b, 3, 4]);
+        zip.extend(head);
+        zip.extend(size);
+        zip.extend(size);
+        zip.extend(nlen);
+        zip.extend([0, 0]);
+        zip.extend(name.as_bytes());
+        zip.extend(data);
+        directory.extend([0x50, 0x4b, 1, 2, 20, 0]);
+        directory.extend(head);
+        directory.extend(size);
+        directory.extend(size);
+        directory.extend(nlen);
+        directory.extend([0u8; 12]);
+        directory.extend(offset.to_le_bytes());
+        directory.extend(name.as_bytes());
+    }
+    let at = zip.len() as u32;
+    zip.extend(&directory);
+    zip.extend([0x50, 0x4b, 5, 6, 0, 0, 0, 0, 2, 0, 2, 0]);
+    zip.extend((directory.len() as u32).to_le_bytes());
+    zip.extend(at.to_le_bytes());
+    zip.extend([0, 0]);
+    std::fs::create_dir_all(dir).unwrap();
+    std::fs::write(dir.join("tl_2024_48277_addrfeat.zip"), zip).unwrap();
+}

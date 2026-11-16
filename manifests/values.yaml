@@ -38,7 +38,7 @@ index:
   # test` fails when the code and this disagree. Changing it, or anything under sources or
   # modelsVersion, names a new index: the leader builds it while the running pods keep
   # serving the old one.
-  builderHash: "3ad842105ffa616a"
+  builderHash: "fb1b637c0b8ec843"
   modelsVersion: v1
   sources:
     overtureRelease: "2026-10-21.0"
@@ -71,6 +71,11 @@ index:
     # OpenAddresses' Uruguay layers publish without it; fetched under `snapshot`.
     dgu: true
     geosadakHabitations: true
+    # Census TIGER/Line address features of one vintage: the house-number ranges that place a US
+    # house the index lacks along its street. A county whose file is broken that year is taken
+    # from the year before.
+    usRanges:
+      year: "2024"
     # GeoNames postal-code exports; earlier entries win for a postcode several define.
     geonamesPostal:
       - GB_full.csv
