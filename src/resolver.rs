@@ -1718,9 +1718,14 @@ impl Core {
                 .max_by_key(|w| w.chars().count())
                 .unwrap_or_default()
                 .to_owned();
+            let country = found
+                .address_details
+                .as_option()
+                .map_or("", |d| d.country_code.as_str());
             if alt.address_details.as_option().is_some_and(|d| {
-                crate::index::schema::pc_norm(&d.postcode)
-                    == crate::index::schema::pc_norm(postcode)
+                (country.is_empty() || d.country_code == country)
+                    && crate::index::schema::pc_norm(&d.postcode)
+                        == crate::index::schema::pc_norm(postcode)
                     && !name.is_empty()
                     && crate::index::schema::fold(&d.road).contains(&name)
             }) && (number.is_empty()
