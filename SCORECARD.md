@@ -2,56 +2,72 @@
 
 **Diagnostic measurements, not an unbiased production-accuracy estimate.** This is a vendor-run evaluation on this repository's gold corpus. Cases overlap the local index's source data; variants of one location are not independent samples. Do not read these tables as a general accuracy ranking.
 
-The newest measurement is the OpenGeocoding 1.7.0 comparison below. The 4,183-query tables after it are an earlier, separate measurement; do not compare percentages across tables. Earlier comparisons, of OpenGeocoding 1.5.0 on 24,350 queries, 1.0.1 on 18,129 and 0.18.0 on 11,671 matched queries, are in this file's history ([1.5.0](https://github.com/Mokto/opengeocoding/blob/e1fb39ac6c13e22be80bc0749b88270c9641425c/SCORECARD.md), [1.0.1](https://github.com/Mokto/opengeocoding/blob/4b49315f1bf21fcd4b72275ed34639ae3fa7280b/SCORECARD.md), [0.18.0](https://github.com/Mokto/opengeocoding/blob/290f5226acb14a990d1094771c504399b530f8e9/SCORECARD.md)).
+The newest measurement is the OpenGeocoding 1.13.0 comparison below. The 4,183-query tables after it are an earlier, separate measurement; do not compare percentages across tables. Earlier comparisons, of OpenGeocoding 1.7.0 on 29,013 queries, 1.5.0 on 24,350, 1.0.1 on 18,129 and 0.18.0 on 11,671 matched queries, are in this file's history ([1.7.0](https://github.com/Mokto/opengeocoding/blob/fb6517a401820182ea879548dc0c39231326de90/SCORECARD.md), [1.5.0](https://github.com/Mokto/opengeocoding/blob/e1fb39ac6c13e22be80bc0749b88270c9641425c/SCORECARD.md), [1.0.1](https://github.com/Mokto/opengeocoding/blob/4b49315f1bf21fcd4b72275ed34639ae3fa7280b/SCORECARD.md), [0.18.0](https://github.com/Mokto/opengeocoding/blob/290f5226acb14a990d1094771c504399b530f8e9/SCORECARD.md)).
 
-## OpenGeocoding 1.7.0 against cached provider responses (5 November 2026)
+## OpenGeocoding 1.13.0 against cached provider responses (15 November 2026)
 
-Google was not measured in this round. Provider responses were collected 17 October to 5 November 2026 and re-scored offline; OpenGeocoding 1.7.0, released on 4 November 2026, ran locally on 4 November. 1.7.0 is the release the hosted API runs, as of 5 November 2026. Every provider listed answered every case. Rates use all selected cases, including known failures, abstentions, API rejections and normalization failures. Mapbox, LocationIQ and TomTom collections are not published; see [Providers not measured](#providers-not-measured).
+Google was not measured in this round. Provider responses were collected 17 October to 15 November 2026 and re-scored offline; OpenGeocoding 1.13.0, released on 15 November 2026, ran locally on 15 November. This round did not check which release the hosted API runs. Every provider listed answered every case it was asked. Rates use all selected cases, including known failures, abstentions, API rejections and normalization failures. Mapbox, LocationIQ and TomTom collections are not published; see [Providers not measured](#providers-not-measured).
 
-### Full forward selection: identical 29,013 queries
+**The 2,794 Korean school cases are left out of every total below.** Since 1.8.0 the index reads three Korean government registers (collective-meal facilities, civil-defence shelters and children's protection-zone facilities) that list schools with their own coordinates. For 191 of the 207 school locations the index data holds an address row at the expected point, and 1,011 of the 1,015 Korean cases that 1.13.0 passes and 1.7.0 did not are at such locations. A pass there measures fidelity to that register, not geocoding. On the 642 Korean queries with no such row, 1.7.0 passes 142 and 1.13.0 passes 146. The cases stay in the corpus and in the per-registry table, marked, and the Korean row of the 1.7.0 scorecard (795 of 2,794) stands for the index without those registers. Without the Korean cases OpenGeocoding 1.13.0 and 1.7.0 are level on the frozen selection (24,038 and 24,035 of 26,219).
 
-| Service | Passed / 29,013 | Pass rate | Held-out pass rate (5,804) | Only OpenGeocoding 1.7.0 passed | Only this provider passed |
+### Frozen 1.7.0 selection without the Korean school cases: identical 26,219 queries
+
+| Service | Passed / 26,219 | Pass rate | Held-out pass rate (5,212) | Only OpenGeocoding 1.13.0 passed | Only this provider passed |
 |---|---:|---:|---:|---:|---:|
-| **OpenGeocoding 1.7.0** | 24,830 | 85.6% | 86.4% | — | — |
-| Geoapify | 20,447 | 70.5% | 71.2% | 5,554 | 1,171 |
-| OpenCage | 14,894 | 51.3% | 52.6% | 10,768 | 832 |
-| geocode.maps.co | 12,411 | 42.8% | 43.4% | 12,891 | 472 |
+| **OpenGeocoding 1.13.0** | 24,038 | 91.7% | 92.7% | — | — |
+| OpenGeocoding 1.7.0 | 24,035 | 91.7% | 92.7% | — | — |
+| Geoapify | 19,770 | 75.4% | 76.1% | 5,115 | 847 |
+| OpenCage | 14,600 | 55.7% | 57.1% | 10,221 | 783 |
+| geocode.maps.co | 12,143 | 46.3% | 47.1% | 12,330 | 435 |
 
 ### US/Canada: identical 1,947 queries
 
-| Service | Passed / 1,947 | Pass rate | Held-out pass rate (414) | Only OpenGeocoding 1.7.0 passed | Only this provider passed |
+| Service | Passed / 1,947 | Pass rate | Held-out pass rate (414) | Only OpenGeocoding 1.13.0 passed | Only this provider passed |
 |---|---:|---:|---:|---:|---:|
-| **OpenGeocoding 1.7.0** | 1,903 | 97.7% | 97.8% | — | — |
-| Geocodio | 1,738 | 89.3% | 87.2% | 194 | 29 |
-| Geoapify | 1,577 | 81.0% | 78.7% | 349 | 23 |
-| OpenCage | 989 | 50.8% | 51.4% | 927 | 13 |
-| geocode.maps.co | 754 | 38.7% | 34.5% | 1,158 | 9 |
+| **OpenGeocoding 1.13.0** | 1,905 | 97.8% | 97.8% | — | — |
+| OpenGeocoding 1.7.0 | 1,903 | 97.7% | 97.8% | — | — |
+| Geocodio | 1,738 | 89.3% | 87.2% | 194 | 27 |
+| Geoapify | 1,577 | 81.0% | 78.7% | 349 | 21 |
+| OpenCage | 989 | 50.8% | 51.4% | 929 | 13 |
+| geocode.maps.co | 754 | 38.7% | 34.5% | 1,160 | 9 |
+
+On all 27,710 queries Geoapify and OpenCage answered (the frozen selection without Korean schools, plus the added cases below), OpenGeocoding 1.13.0 passes 25,153 (90.8%; held-out 91.7%), Geoapify 20,291 (73.2%) and OpenCage 14,998 (54.1%).
+
+### Cases added in this round
+
+1,491 cases from the gold corpus that the frozen selection lacked: Indonesian villages and districts (Wikidata) and Canadian address-register houses. Geoapify, OpenCage and (Canada) Geocodio answered them; geocode.maps.co was not asked, since its free tier is used up. Held-out counts are the cases kept out of tuning by the location hash; the Indonesian cases were the target of several fixes in 1.8 to 1.13, so read their all-case rows as development results.
+
+| Cohort | Cases | OpenGeocoding 1.13.0 | Geoapify | OpenCage | Geocodio | Held-out cases | OpenGeocoding held-out | Geoapify held-out | OpenCage held-out |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Indonesian villages | 787 | 590 | 169 | 176 | — | 180 | 132 | 39 | 40 |
+| Indonesian districts | 600 | 421 | 254 | 212 | — | 106 | 78 | 45 | 40 |
+| Canadian address-register houses | 104 | 104 | 98 | 10 | 101 | 18 | 18 | 16 | 2 |
 
 ### By cohort
 
-The cohorts differ in difficulty and in level (house, street or town), so the full-corpus rate depends on their mix. The first row is the selection of the 1.0.1 comparison.
+The cohorts differ in difficulty and in level (house, street or town), so the full-corpus rate depends on their mix. The first row is the selection of the 1.0.1 comparison. Korean school cases are excluded (see above), so the first row has 414 fewer cases and the November row 2,380 fewer than in the 1.7.0 scorecard.
 
-| Cohort | Cases | OpenGeocoding 1.7.0 | Geoapify | OpenCage | geocode.maps.co |
-|---|---:|---:|---:|---:|---:|
-| Curated gold and the first 22 registry samples | 18,129 | 95.8% | 82.1% | 59.2% | 49.9% |
-| Registries added in October 2026 | 1,961 | 87.8% | 57.1% | 25.7% | 24.9% |
-| Registries added in November 2026 | 4,660 | 62.1% | 31.3% | 16.5% | 14.7% |
-| GLEIF company addresses, town level | 976 | 92.4% | 75.7% | 74.4% | 31.5% |
-| Towns in countries without a registry (Wikidata) | 3,240 | 58.4% | 68.4% | 66.4% | 57.3% |
-| Place strings as people profiles write them | 44 | 100.0% | 56.8% | 45.5% | 38.6% |
-| Curated gold cases added in November 2026 | 3 | 100.0% | 0.0% | 0.0% | 33.3% |
+| Cohort | Cases | OpenGeocoding 1.7.0 | OpenGeocoding 1.13.0 | Geoapify | OpenCage | geocode.maps.co |
+|---|---:|---:|---:|---:|---:|---:|
+| Curated gold and the first 22 registry samples | 17,715 | 97.4% | 97.4% | 83.4% | 60.3% | 51.1% |
+| Registries added in October 2026 | 1,961 | 87.8% | 87.8% | 57.1% | 25.7% | 24.9% |
+| Registries added in November 2026 | 2,280 | 97.4% | 97.4% | 39.2% | 22.5% | 18.6% |
+| GLEIF company addresses, town level | 976 | 92.4% | 92.4% | 75.7% | 74.4% | 31.5% |
+| Towns in countries without a registry (Wikidata) | 3,240 | 58.4% | 58.4% | 68.4% | 66.4% | 57.3% |
+| Place strings as people profiles write them | 44 | 100.0% | 100.0% | 56.8% | 45.5% | 38.6% |
+| Curated gold cases added in November 2026 | 3 | 100.0% | 100.0% | 0.0% | 0.0% | 33.3% |
 
 ### By registry
 
-Each address-registry sample in the selection, in country-code order: cases passed out of the cases asked. [registry-comparison-1.7.0.tsv](docs/evaluation/registry-comparison-1.7.0.tsv) adds held-out counts and, for each provider, the cases only one side passed with the exact two-sided sign-test p-value on them. Geocodio answered only the United States and Canada. Against every provider it answered, OpenGeocoding 1.7.0 passed significantly more cases (p < 0.05) in 35 of the 40 registries. In Austria, Berlin and Liechtenstein it is ahead of OpenCage and geocode.maps.co but level with Geoapify. In Serbia it is ahead of Geoapify but level with OpenCage and geocode.maps.co. In the Faroe Islands every provider is significantly ahead: OpenGeocoding passed 116 of 136, against 131 to 134.
+Each address-registry sample in the frozen selection, in country-code order: cases passed out of the cases asked. [registry-comparison-1.13.0.tsv](docs/evaluation/registry-comparison-1.13.0.tsv) adds held-out counts and, for each provider, the cases only one side passed with the exact two-sided sign-test p-value on them. Geocodio answered only the United States and Canada. Against every provider it answered, OpenGeocoding 1.13.0 passed significantly more cases (p < 0.05) in 34 of the 39 registries other than the Korean one. In Austria, Berlin and Liechtenstein it is ahead of OpenCage and geocode.maps.co but level with Geoapify. In Serbia it is ahead of Geoapify but level with OpenCage and geocode.maps.co. In the Faroe Islands every provider is significantly ahead: OpenGeocoding passed 116 of 136, against 131 to 134. The Canadian row counts the 550 cases of the frozen selection; the 104 cases added in this round are in the table above. † The Korean school row is not scored: the 1.13.0 index holds government registers that list these schools with their own coordinates (see the first limit below), so 1,810 measures fidelity to those registers, not geocoding. The 1.7.0 index did not hold them and passed 795; the other providers' counts are unchanged.
 
-| Country | Registry | Scope | Cases | OpenGeocoding 1.7.0 | Geoapify | OpenCage | geocode.maps.co | Geocodio |
+| Country | Registry | Scope | Cases | OpenGeocoding 1.13.0 | Geoapify | OpenCage | geocode.maps.co | Geocodio |
 |---|---|---|---:|---:|---:|---:|---:|---:|
 | Austria | bev | national | 156 | 156 | 153 | 132 | 121 | — |
 | Australia | gnaf-atlas-json | national | 522 | 519 | 486 | 298 | 91 | — |
 | Belgium | best-csv | national | 384 | 381 | 365 | 294 | 258 | — |
 | Brazil | cnefe | national | 316 | 310 | 251 | 5 | 2 | — |
-| Canada | nar-json | national | 550 | 532 | 376 | 28 | 25 | 503 |
+| Canada | nar-json | national | 550 | 534 | 376 | 28 | 25 | 503 |
 | Switzerland | swisstopo-csv | national | 780 | 778 | 732 | 615 | 559 | — |
 | Colombia | bogota-plates | Bogotá | 567 | 564 | 273 | 9 | 12 | — |
 | Czechia | ruian-csv | national | 567 | 556 | 480 | 344 | 329 | — |
@@ -68,7 +84,7 @@ Each address-registry sample in the selection, in country-code order: cases pass
 | Italy | anncsu | national | 320 | 311 | 177 | 54 | 49 | — |
 | Japan | abr-residences | national | 512 | 506 | 0 | 0 | 0 | — |
 | Japan | mlit-blocks | national | 368 | 362 | 1 | 0 | 0 | — |
-| South Korea | korean-schools | national | 2,794 | 795 | 677 | 294 | 268 | — |
+| South Korea | korean-schools† | national | 2,794 | 1,810† | 677 | 294 | 268 | — |
 | Liechtenstein | llv | national | 132 | 131 | 129 | 120 | 116 | — |
 | Lithuania | adr | national | 200 | 200 | 52 | 0 | 0 | — |
 | Luxembourg | act-csv | national | 240 | 239 | 213 | 186 | 186 | — |
@@ -88,26 +104,29 @@ Each address-registry sample in the selection, in country-code order: cases pass
 | United States | nad | national | 850 | 835 | 709 | 527 | 347 | 776 |
 | Uruguay | dgu | national | 206 | 205 | 138 | 100 | 102 | — |
 
-
 ### Read with these limits
 
-- **The selection is frozen at corpus revision `bce81e3`,** the cases providers were asked: the curated gold cases, 40 address-registry samples, and the towns, GLEIF and people cohorts. It leaves out the OpenStreetMap global-address panel (OpenStreetMap is an input to this index and the data behind some providers), landmark and suggestion-only cases, and RPC error contracts.
-- **Most of these cases were available during development.** Releases include fixes aimed at these registries, many of them shipped in the weeks each registry was added. The held-out column scores the fifth of locations kept out of tuning by a stable hash; it is closer to, but not, an independent sample, since the registries are also index inputs. Many Wikidata settlements were imported from GeoNames, which the index also reads.
-- **The local index is close to production, not identical.** It was built with the 1.7.0 builder (`24e45dcd8295f18b`) from Overture 2026-10-21.0, the OSM extracts the chart lists, OpenAddresses, Korea's commercial-building addresses, Ryhti's Swedish-only addresses, DENUE establishments registered before 2025, Uruguay's lettered doors, Iceland's address register, Asiaq's Greenland building references and GeoNames, including its full populated-places list, from local snapshots of the sources that publish only "latest". The Mexico cases sample establishments registered from 2025, so they are not index inputs. Two complete runs returned identical responses for all 29,013 cases.
+- **Some of these registries are index inputs, and the Korean one measures the register itself.** The Korean registers above are a direct case; the scorecard leaves those cases out rather than score a lookup of the index's own rows. Other registries are inputs in the same way, so a pass there measures fidelity to the register more than independent accuracy; see the per-registry limit below.
+- **The selection is frozen at corpus revision `bce81e3`,** the cases providers were asked in the 1.7.0 round: the curated gold cases, 40 address-registry samples, and the towns, GLEIF and people cohorts. This round adds 1,491 cases from the gold corpus at revision `9d3655c` (Indonesian villages and districts, Canadian register houses) without changing any frozen case. Since then, 13,011 frozen cases have gained `places` or `any_of` fields in the current corpus, and 1,578 frozen queries have been rewritten or removed; the frozen expectations are scored here, so 1.7.0 and 1.13.0 are scored identically. The OpenStreetMap global-address panel (an input to this index and the data behind some providers), landmark and suggestion-only cases and RPC error contracts stay out.
+- **Most of these cases were available during development.** Releases include fixes aimed at these registries, many of them shipped in the weeks each registry was added, and several fixes between 1.8 and 1.13 target the Indonesian cases. The held-out column scores the fifth of locations kept out of tuning by a stable hash; it is closer to, but not, an independent sample, since the registries are also index inputs. Many Wikidata settlements were imported from GeoNames, which the index also reads.
+- **The local index is close to production, not identical.** It was built with the 1.13.0 builder (`3ad842105ffa616a`) from Overture 2026-10-21.0, the OSM extracts the chart lists (New Caledonia now read for addresses), OpenAddresses, Korea's commercial-building addresses and registers, Ryhti's Swedish-only addresses, DENUE establishments registered before 2025, Uruguay's lettered doors, Iceland's address register, Asiaq's Greenland building references, the pinned GeoSadak habitations capture and GeoNames, including its full populated-places list, from local snapshots of the sources that publish only "latest". The Mexico cases sample establishments registered from 2025, so they are not index inputs. Two complete runs returned identical responses for all 30,504 cases.
 - **Per-registry results need the same care.** Many of these registries, or datasets built from them, are also index inputs for OpenGeocoding, so a pass there measures fidelity to the register more than independent accuracy. That holds most strongly for Greenland: the builder reads the same Asiaq building references the cases are drawn from, which providers do not carry, so 144 against 0 to 4 shows that, not geocoding skill. Japan's and Iceland's registers reach the index through OpenAddresses and Overture, and providers rarely answer Japanese residence-level addresses at house precision. The samples are not nationally representative: each registry's guide describes its draw, and some are targeted (Korean school sites, Mexican business establishments, one Luxembourg building per commune and number class). The Berlin, Taipei, Tainan and Bogotá rows cover one city each and do not speak for their countries. Samples of 130 to 2,800 cases are small, so read a difference as a real gap only when its sign-test p-value is low. Most registries ask two or more query forms of each location, and the test counts cases, not locations; those variants are not independent, which makes the p-values optimistic, and with up to four providers per registry some p-values below 0.05 are expected by chance.
-- **Weak areas remain.** Towns in the 78 countries and territories without a registry sample pass 58.4%, behind Geoapify (68.4%) and OpenCage (66.4%); most failures answer only the country, because the settlement is missing from the index or nothing nearby corroborates GeoNames' entry. Of 2,794 Korean school addresses, 795 pass (Geoapify 677). The Faroe Islands pass 116 of 136, behind every provider. Of 151 street and house cases in Asian countries without a registry sample, 43 pass, against 61 for Geoapify. House-number coverage in most of Asia and Africa is still thin; see the [1.7.0 coverage table](docs/evaluation/house-number-coverage-1.7.0.tsv).
+- **Weak areas remain.** Towns in the 78 countries and territories without a registry sample pass 58.4%, behind Geoapify (68.4%) and OpenCage (66.4%); most failures answer only the country, because the settlement is missing from the index or nothing nearby corroborates GeoNames' entry. The Faroe Islands pass 116 of 136, behind every provider. Of 151 street and house cases in Asian countries without a registry sample, 43 pass, against 61 for Geoapify. Indonesian villages pass 75.0% and districts 70.2%, on cases the releases were tuned against. House-number coverage in most of Asia and Africa is still thin; the [1.7.0 coverage table](docs/evaluation/house-number-coverage-1.7.0.tsv) was not re-measured for 1.13.0.
 
 | Artifact | Value |
 |---|---|
-| Corpus revision | `bce81e3dc06df1feba3174711be1701c7523d4a9` |
-| Full 29,013-case forward selection / held-out, JSONL SHA-256 | `30d7a386d4df4b1f99fa5603aab37904842dd62599af97c6cb30b91029a28379` / `d8a4b4b282b7539a15cd6a118d015acb6afc9ba875eb28815de78318b1017226` |
-| US/Canada subset / held-out, JSONL SHA-256 | `2a6eb60eca782589e128d3c7943758344a52b8e175ccd3958c24ac34255568c2` / `3d6cf1a7131811a41a05abf7f52c3eaf48ac7c83f7963532c3296c10da05603f` |
-| Evaluator and provider adapters | release 1.7.0, binary SHA-256 `c457e9a6fa9cde67fea3812a1ab9993b0abe8d3ff8cfd9157869485e0907d277` |
-| OpenGeocoding 1.7.0 service binary | release commit `7ce6dae`, SHA-256 `fa0be44291c7a85c2da59ff4dc257d2bc19a829ad95284fbab325666d6772fc9` |
-| 1.7.0 index | builder `24e45dcd8295f18b`, `meta.json` SHA-256 `870fb053417afd6e800d76770246e89c2576c722b10ebbba662f082d847ac84e` |
+| Corpus revisions | frozen selection `bce81e3dc06df1feba3174711be1701c7523d4a9`; added cases from `9d3655c5a99cddea69e247f33bb6707c986e9962` |
+| Frozen 29,013-case forward selection, JSONL SHA-256 | `30d7a386d4df4b1f99fa5603aab37904842dd62599af97c6cb30b91029a28379` |
+| Frozen US/Canada subset (1,947), JSONL SHA-256 | `2a6eb60eca782589e128d3c7943758344a52b8e175ccd3958c24ac34255568c2` |
+| Added 1,491 cases, JSONL SHA-256 | `3320266a985d4a03820112a59e5a93b675bf1416571dd01292c6d5daf5050bc5` |
+| Full 30,504-case selection / held-out, JSONL SHA-256 | `f12c508ea47b9ca916f0088142721b382af2e11d681b48351c5aa2ff0429f703` / `160f4937e29fcc3b1cf3e1a3537480ea11d65577bf2771a15d8964abafd8a00a` |
+| US/Canada 2,051-case selection / held-out, JSONL SHA-256 | `2e58b692edb70036e2a9ea8472d46df65b7935342ec19b809be39e92487436dc` / `fb4e4ba9275da5d1500f85665cc8ae282bac27e2ba7a9da1b9a5ca290253121f` |
+| Evaluator and provider adapters | release 1.7.0, binary SHA-256 `c457e9a6fa9cde67fea3812a1ab9993b0abe8d3ff8cfd9157869485e0907d277`, used for both OpenGeocoding releases |
+| OpenGeocoding 1.13.0 service binary | built from the `v1.13.0` tag (`9d3655c`) with `cargo build --release --locked`, SHA-256 `1aabad442fc0e5ee96088f85adf94a320d750cbc59c8047d0e4cb2063d19710e` |
+| 1.13.0 index | builder `3ad842105ffa616a`, `meta.json` SHA-256 `ff1bdcbd4439c7cda18009c46d1bfa411c937a02d54bc25e5cc3d404a44dae7d` |
 | libpostal models | `65627ea2114bb908b63d38a959853438fa097f39bb00a45a2139897bf713a4c7` |
 
-The forward selection keeps cases with a forward expectation, as described above. Request settings are those listed under Corpus and reproducibility; scoring uses the 1.7.0 evaluator, whose pass decisions on these responses match the 1.0.1, 1.4.0 and 1.5.0 evaluators'.
+The forward selection keeps cases with a forward expectation, as described above. Request settings are those listed under Corpus and reproducibility; scoring uses the 1.7.0 evaluator for both OpenGeocoding releases, so their comparison is like for like. The evaluator's run manifest names its own source checkout (1.7.0) in its `git` field, not the service binary's.
 
 **Google (earlier measurement only) remains provisional.** The corrected-adapter pass is complete: normalization failures fell from 54 to 36 worldwide, with none in the US/Canada subset. Remaining failures include insufficient metadata and unsupported native types; they are not proof of incorrect Google locations. No Google response data remains for retrospective inspection. The tables show the completed rerun, not guessed corrections to the initial measurement.
 
