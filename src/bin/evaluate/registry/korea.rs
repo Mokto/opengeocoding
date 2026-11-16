@@ -173,13 +173,90 @@ fn queries(address: &str, lot: bool) -> Vec<(&'static str, String)> {
     found
 }
 
+/// The index reads these Korean registers (`data/kr-localdata-lots.tsv.gz`), which list most
+/// schools with their own coordinates, so a school they hold measures the register, not the geocoder.
+static REGISTER: LazyLock<BTreeMap<String, Vec<[f64; 2]>>> = LazyLock::new(|| {
+    use std::io::Read;
+    let mut text = String::new();
+    flate2::read::GzDecoder::new(&include_bytes!("../../../../data/kr-localdata-lots.tsv.gz")[..])
+        .read_to_string(&mut text)
+        .expect("Korean register data");
+    let mut found: BTreeMap<String, Vec<[f64; 2]>> = BTreeMap::new();
+    for line in text.lines().skip(1) {
+        let mut cells = line.split('\t');
+        let (Some(address), Some(lon), Some(lat)) = (cells.next(), cells.next(), cells.next())
+        else {
+            continue;
+        };
+        if let (Ok(lon), Ok(lat)) = (lon.parse(), lat.parse()) {
+            found.entry(tail(address)).or_default().push([lat, lon]);
+        }
+    }
+    found
+});
+
+/// The last two words: the road or lot name and its number.
+fn tail(address: &str) -> String {
+    let words: Vec<_> = address.split_whitespace().collect();
+    words[words.len().saturating_sub(2)..].join(" ")
+}
+
+impl Address {
+    /// A register row with the same road or lot and number within about 300 m of the school's point.
+    /// ponytail: a coarse box (0.003 degrees) and the last two words; it can miss a register row
+    /// that writes the address differently, and an unlisted school may still be an input elsewhere
+    /// (Overture places, the shop register).
+    fn in_register(&self) -> bool {
+        let Some([lat, lon]) = self.point() else {
+            return false;
+        };
+        [&self.road, &self.lot].iter().any(|address| {
+            REGISTER.get(&tail(address)).is_some_and(|points| {
+                points
+                    .iter()
+                    .any(|p| (p[0] - lat).abs() < 0.003 && (p[1] - lon).abs() < 0.003)
+            })
+        })
+    }
+}
+
 pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
+    draw(path, seed, REGISTRY.source, |_| true)
+}
+
+/// The same draw over the schools the Korean registers do not list, leaving out those whose
+/// address `tests/registry/kr.seeds.jsonl` already asks, so the two corpora share no query.
+pub fn sample_unlisted(path: &Path, seed: &str) -> Result<Vec<Value>> {
+    let asked: BTreeSet<String> = include_str!("../../../../tests/registry/kr.seeds.jsonl")
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .flat_map(|seed| seed["queries"].as_array().cloned().unwrap_or_default())
+        .filter_map(|query| query.as_str().map(String::from))
+        .collect();
+    draw(path, seed, UNLISTED_REGISTRY.source, |a| {
+        !a.in_register()
+            && ![(&a.road, false), (&a.lot, true)]
+                .iter()
+                .any(|(address, lot)| {
+                    queries(address, *lot)
+                        .iter()
+                        .any(|(_, q)| asked.contains(q))
+                })
+    })
+}
+
+fn draw(
+    path: &Path,
+    seed: &str,
+    source: &str,
+    keep: impl Fn(&Address) -> bool,
+) -> Result<Vec<Value>> {
     let release = path
         .file_name()
         .and_then(|s| s.to_str())
         .context("school snapshot file name")?;
     let mut pools: BTreeMap<(u32, &'static str), BTreeMap<String, Address>> = BTreeMap::new();
-    for a in load(path)? {
+    for a in load(path)?.into_iter().filter(|a| keep(a)) {
         let pool = pools.entry((a.authority, a.category())).or_default();
         let hash = key(seed, &a.id);
         // ponytail: street diversity is limited to 200 candidates per authority and number class; enlarge the pool if it cannot supply five streets.
@@ -219,7 +296,7 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
         for a in selected {
             for (form, address) in [("road", &a.road), ("lot", &a.lot)] {
                 for (suffix, query) in queries(address, form == "lot") {
-                    lines.push(json!({"kind":"address", "source":"korean-schools", "ref":a.id, "cohort":format!("kr_{form}{suffix}"), "radius_km":0.25, "queries":[query], "label":a.road, "tags":["registry-sample", "school-sample", "kr", release, category, form, format!("education-authority:{authority}")]}));
+                    lines.push(json!({"kind":"address", "source":source, "ref":a.id, "cohort":format!("kr_{form}{suffix}"), "radius_km":0.25, "queries":[query], "label":a.road, "tags":["registry-sample", "school-sample", "kr", release, category, form, format!("education-authority:{authority}")]}));
                 }
             }
         }
@@ -227,6 +304,14 @@ pub fn sample(path: &Path, seed: &str) -> Result<Vec<Value>> {
     ensure!(!lines.is_empty(), "no eligible Korean schools");
     Ok(lines)
 }
+
+pub const UNLISTED_REGISTRY: Registry = Registry {
+    source: "korean-schools-unlisted",
+    command: "sample-kr-unlisted",
+    input: "schools-unlisted",
+    sample: sample_unlisted,
+    ..REGISTRY
+};
 
 pub const REGISTRY: Registry = Registry {
     source: "korean-schools",
@@ -358,5 +443,25 @@ mod tests {
         write(&[b]);
         assert!(sample(&path, "test").is_err());
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn unlisted_sample_skips_schools_the_register_holds() {
+        let (first, lon, lat) = {
+            let (address, points) = REGISTER.iter().next().unwrap();
+            (address.clone(), points[0][1], points[0][0])
+        };
+        let listed = json!({"SCHOOL_ID":"B000000001", "RDNMADR":format!("서울특별시 종로구 {first}"), "LNMADR":"서울특별시 종로구 옛동 산 45-6", "LATITUDE":lat.to_string(), "LONGITUDE":lon.to_string(), "CDDC_CODE":7010000, "REFERENCE_DATE":"2026-10-01", "OPER_STTUS":"운영"});
+        let mut unlisted = listed.clone();
+        unlisted["SCHOOL_ID"] = json!("B000000002");
+        unlisted["RDNMADR"] = json!("서울특별시 종로구 새길 12-3");
+        unlisted["LATITUDE"] = json!("37.57");
+        unlisted["LONGITUDE"] = json!("126.98");
+        let rows: Vec<Address> = [listed, unlisted]
+            .into_iter()
+            .map(|v| serde_json::from_value(v).unwrap())
+            .collect();
+        assert!(rows[0].in_register());
+        assert!(!rows[1].in_register());
     }
 }

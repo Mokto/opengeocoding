@@ -1,4 +1,4 @@
-The school-sampled corpus tests/registry/kr.jsonl reuses the official national school-location
+The school-sampled corpora tests/registry/kr.jsonl and tests/registry/kr-unlisted.jsonl reuse the official national school-location
 dataset (전국초중등학교위치표준데이터), provided by 한국교육시설안전원 through data.go.kr,
 reference date 2026-10-01, captured 2026-10-17.
 Source: https://www.data.go.kr/data/15021148/standard.do.
