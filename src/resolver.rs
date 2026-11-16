@@ -1828,8 +1828,33 @@ impl Core {
                 .address_details
                 .as_option()
                 .map_or("", |d| d.country_code.as_str());
+            // the answer stays in the place the first one named: a same-named street of another
+            // town sharing the postcode ("Domovinskog rata" in Kovačić for Knin) is not the one
+            let place = |d: &AddressDetails| {
+                [&d.city, &d.town, &d.village, &d.municipality]
+                    .into_iter()
+                    .find(|p| !p.is_empty())
+                    .map_or_else(String::new, |p| crate::index::schema::fold(p))
+            };
+            let town = found
+                .address_details
+                .as_option()
+                .map(place)
+                .unwrap_or_default();
+            // a second number ("Rynkevangen 8, st. 16") leaves the house number ambiguous
+            let postcode_words: Vec<String> =
+                postcode.split_whitespace().map(str::to_owned).collect();
+            let other_number = crate::index::schema::fold(query)
+                .split_whitespace()
+                .any(|w| {
+                    w.bytes().all(|b| b.is_ascii_digit())
+                        && w != crate::index::schema::fold(number)
+                        && !postcode_words.iter().any(|p| p == w)
+                });
             if alt.address_details.as_option().is_some_and(|d| {
                 (country.is_empty() || d.country_code == country)
+                    && !other_number
+                    && (town.is_empty() || place(d) == town)
                     && crate::index::schema::pc_norm(&d.postcode)
                         == crate::index::schema::pc_norm(postcode)
                     && !names.is_empty()
