@@ -1662,6 +1662,53 @@ impl Core {
                 return Ok(alt);
             }
         }
+        if let Some((bare, number, zip)) = without_stray_unit(query) {
+            let alt = self.resolve_written(&bare)?;
+            if alt.good_match
+                && same_house_number(&alt, &number)
+                && alt
+                    .address_details
+                    .as_option()
+                    .is_some_and(|d| d.country_code == "us" && d.postcode == zip)
+            {
+                return Ok(alt);
+            }
+        }
+        if let Some((variants, number, zip)) = without_street_type(query) {
+            let road_words = |road: &str| -> Vec<String> {
+                road.split_whitespace()
+                    .map(|w| {
+                        w.chars()
+                            .filter(|c| c.is_alphanumeric())
+                            .collect::<String>()
+                            .to_lowercase()
+                    })
+                    .collect()
+            };
+            let first = found
+                .address_details
+                .as_option()
+                .map_or_else(Vec::new, |d| road_words(&d.road));
+            for (variant, name) in variants {
+                // a street already found under that name stays: the type was not the problem
+                if name.iter().all(|w| first.contains(w)) {
+                    continue;
+                }
+                let alt = self.resolve_written(&variant)?;
+                // the number and the ZIP, not the street type, confirm the street
+                if alt.good_match
+                    && same_house_number(&alt, &number)
+                    && alt.address_details.as_option().is_some_and(|d| {
+                        let road = road_words(&d.road);
+                        d.country_code == "us"
+                            && d.postcode == zip
+                            && name.iter().all(|w| road.contains(w))
+                    })
+                {
+                    return Ok(alt);
+                }
+            }
+        }
         for (form, number, postcode) in ca::street_name_forms(query) {
             let alt = self.resolve_written(&form)?;
             if alt.good_match

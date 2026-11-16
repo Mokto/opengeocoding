@@ -1185,6 +1185,142 @@ pub fn restored_postcode(query: &str) -> Option<(String, String)> {
     ))
 }
 
+/// Whether a word is an English street type ("Blvd.", "Street,").
+fn street_type(word: &str) -> bool {
+    const TYPES: &[&str] = &[
+        "street",
+        "st",
+        "avenue",
+        "ave",
+        "boulevard",
+        "blvd",
+        "road",
+        "rd",
+        "drive",
+        "dr",
+        "lane",
+        "ln",
+        "court",
+        "ct",
+        "place",
+        "pl",
+        "way",
+        "parkway",
+        "pkwy",
+        "highway",
+        "hwy",
+        "circle",
+        "cir",
+        "terrace",
+        "ter",
+        "trail",
+        "trl",
+        "square",
+        "sq",
+    ];
+    let w: String = word.chars().filter(|c| c.is_alphanumeric()).collect();
+    TYPES.contains(&w.to_lowercase().as_str())
+}
+
+/// The query variants, each with the words naming its street, then the house number and ZIP.
+pub type StreetTypeRetries = (Vec<(String, Vec<String>)>, String, String);
+
+/// A US query whose street type may be wrong ("1276 North Clybourn Street" for the Avenue): the
+/// query without each of its first two street-type words and the words that name the street
+/// before it (directions aside), with its house number and five-digit ZIP. The number and ZIP
+/// confirm the street found, and its name must still hold those words.
+pub fn without_street_type(query: &str) -> Option<StreetTypeRetries> {
+    static ZIP: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:^|[\s,])([0-9]{5})(?:-?[0-9]{4})?(?:[\s,]|$)").unwrap());
+    const DIRECTIONS: &[&str] = &[
+        "n",
+        "s",
+        "e",
+        "w",
+        "ne",
+        "nw",
+        "se",
+        "sw",
+        "north",
+        "south",
+        "east",
+        "west",
+        "northeast",
+        "northwest",
+        "southeast",
+        "southwest",
+    ];
+    if query.chars().count() > 256 {
+        return None;
+    }
+    let zip = ZIP.captures_iter(query).last()?.get(1)?.as_str().to_owned();
+    let words: Vec<&str> = query.split_whitespace().collect();
+    let number = *words.first()?;
+    if !number.bytes().all(|b| b.is_ascii_digit()) || number.len() > 6 {
+        return None;
+    }
+    let fold = |w: &str| {
+        w.chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect::<String>()
+            .to_lowercase()
+    };
+    let variants: Vec<(String, Vec<String>)> = (2..words.len() - 1)
+        .filter(|&i| street_type(words[i]))
+        .take(2)
+        .filter_map(|i| {
+            let name: Vec<String> = words[1..i]
+                .iter()
+                .map(|w| fold(w))
+                .filter(|w| !w.is_empty() && !DIRECTIONS.contains(&w.as_str()))
+                .collect();
+            if name.is_empty() {
+                return None;
+            }
+            let mut kept: Vec<String> = words.iter().map(|w| (*w).to_owned()).collect();
+            let comma = kept[i].ends_with(',');
+            kept.remove(i);
+            if comma {
+                kept[i - 1].push(',');
+            }
+            Some((kept.join(" "), name))
+        })
+        .collect();
+    (!variants.is_empty()).then(|| (variants, number.to_owned(), zip))
+}
+
+/// A US query with a bare unit letter between its street type and its town ("9123 KIEFER BLVD A
+/// SACRAMENTO CA 95826"), which the parser reads into the town: the query without it, with its
+/// house number and five-digit ZIP, which together confirm the house found.
+pub fn without_stray_unit(query: &str) -> Option<(String, String, String)> {
+    static ZIP: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:^|[\s,])([0-9]{5})(?:-?[0-9]{4})?(?:[\s,]|$)").unwrap());
+    if query.chars().count() > 256 {
+        return None;
+    }
+    let zip = ZIP.captures_iter(query).last()?.get(1)?.as_str().to_owned();
+    let words: Vec<&str> = query.split_whitespace().collect();
+    let number = *words.first()?;
+    if !number.bytes().all(|b| b.is_ascii_digit()) || number.len() > 6 {
+        return None;
+    }
+    let letter = |w: &str| {
+        let w = w.strip_suffix(',').unwrap_or(w);
+        w.len() == 1 && w.bytes().all(|b| b.is_ascii_alphabetic())
+    };
+    let at = (3..words.len().saturating_sub(1))
+        .find(|&i| letter(words[i]) && street_type(words[i - 1]))?;
+    let comma = words[at].ends_with(',');
+    let kept: Vec<String> = (words.iter().enumerate())
+        .filter(|(i, _)| *i != at)
+        .map(|(i, w)| match (comma && i + 1 == at, w.ends_with(',')) {
+            (true, false) => format!("{w},"),
+            _ => (*w).to_owned(),
+        })
+        .collect();
+    Some((kept.join(" "), number.to_owned(), zip))
+}
+
 /// "308 - 310 Fernhill Road, …" or "Fernhill Road 308 - 310, …" as "308-310", and that number:
 /// the parser reads a spaced range as one number "308 310", which no house has.
 pub fn joined_house_range(query: &str) -> Option<(String, String)> {
