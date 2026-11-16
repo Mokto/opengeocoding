@@ -57,6 +57,7 @@ pub const ALL: &[Registry] = &[
     gnaf::REGISTRY,
     kartverket::REGISTRY,
     korea::REGISTRY,
+    korea::UNLISTED_REGISTRY,
     ruian::REGISTRY,
     bag::REGISTRY,
     swisstopo::REGISTRY,
