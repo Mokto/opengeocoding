@@ -1546,6 +1546,11 @@ impl Core {
     }
 
     fn resolve_address(&self, query: &str) -> Result<FullAddress> {
+        // a broken encoding leaves U+FFFD where a letter was ("Beaus\u{FFFD}jour"); it matches
+        // nothing, while the word without it is a near match
+        if query.contains('\u{FFFD}') {
+            return self.resolve_address(&query.replace('\u{FFFD}', ""));
+        }
         let found = self.resolve_written(query)?;
         let has_house = |found: &FullAddress| {
             found
