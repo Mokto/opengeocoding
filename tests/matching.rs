@@ -2511,3 +2511,48 @@ fn a_street_filed_under_a_neighbouring_zip_is_found_nearest_the_answer() {
     assert_eq!(nearest_in_zip_area("75904", (32.5, -94.72), blocks), None);
     assert_eq!(nearest_in_zip_area("75904", near, |_| None), None);
 }
+
+#[test]
+fn spanish_street_forms_are_rewritten_for_the_parser() {
+    let cases = [
+        (
+            "Avd. Albufera, 279 Puente de Vallecas Madrid 28038 ES",
+            "Avenida Albufera, 279 Puente de Vallecas Madrid 28038 ES",
+            Some("279"),
+        ),
+        (
+            "Felipe II nº8 Bajo Palencia Palencia 34004 España (País)",
+            "Felipe II 8 Palencia Palencia 34004 España (País)",
+            Some("8"),
+        ),
+        (
+            "La Rambla, 51-59 Barcelona  08002 Spain",
+            "La Rambla, 51 Barcelona 08002 Spain",
+            Some("51"),
+        ),
+        (
+            "C/ Miguel Fleta, s/n Huesca Huesca 22006 ES",
+            "Calle Miguel Fleta, Huesca Huesca 22006 ES",
+            None,
+        ),
+        (
+            "AVENIDA PASAJE, S/N Coruña (A) Coruña (a) 15006 España",
+            "AVENIDA PASAJE, Coruña (A) Coruña (a) 15006 España",
+            None,
+        ),
+    ];
+    for (query, want, number) in cases {
+        let (got, n, zip) = spanish_forms(query).unwrap_or_else(|| panic!("{query}"));
+        assert_eq!(got, want);
+        assert_eq!(n.as_deref(), number, "{query}");
+        assert_eq!(zip.len(), 5);
+    }
+    for none in [
+        "Avenida Albufera 279 Madrid 28038 ES",
+        "Avd. Albufera, 279 Madrid 28038",
+        "Avd. Albufera, 279 Madrid ES",
+        "Rue de Rivoli 12 Paris 75004 FR",
+    ] {
+        assert_eq!(spanish_forms(none), None, "{none}");
+    }
+}

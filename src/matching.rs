@@ -2424,3 +2424,99 @@ pub fn nearest_in_zip_area(
         .min_by(|a, b| a.0.total_cmp(&b.0))
         .map(|(_, p)| p)
 }
+
+/// A Spanish query as people write it, in the forms the parser reads: "Avd. Albufera, 279",
+/// "Felipe II nº8 Bajo", "La Rambla, 51-59", "C/ Miguel Fleta, s/n". Returns the rewritten query,
+/// its house number (none for "s/n") and its five-digit postcode, which together confirm the
+/// street found. Only a query that names Spain.
+pub fn spanish_forms(query: &str) -> Option<(String, Option<String>, String)> {
+    static MARK: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)(?:^|[\s,])(?:es|españa|espana|spain)(?:[\s,.)]|$)").unwrap()
+    });
+    static NUMERO: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i)^n[º°o]\.?(\d[\w-]*)(,?)$").unwrap());
+    static RANGE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(\d{1,4})\s*[-–]\s*\d{1,4}(,?)$").unwrap());
+    static ZIP: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[\s,])((?:0[1-9]|[1-4]\d|5[0-2])\d{3})(?:[\s,]|$)").unwrap()
+    });
+    if query.chars().count() > 256 || !MARK.is_match(query) {
+        return None;
+    }
+    let zip = ZIP.captures_iter(query).last()?.get(1)?.as_str().to_owned();
+    let words: Vec<&str> = query.split_whitespace().collect();
+    let mut out: Vec<String> = vec![];
+    let mut at = 0;
+    while at < words.len() {
+        let word = words[at];
+        let bare = word.trim_end_matches(',');
+        let comma = word.ends_with(',');
+        let lower = bare.to_lowercase();
+        let next = |i: usize| {
+            words
+                .get(at + i)
+                .map(|w| w.trim_end_matches(',').to_lowercase())
+        };
+        if at == 0 {
+            let full = match lower.as_str() {
+                "avd" | "avd." | "avda" | "avda." => Some("Avenida"),
+                "ctra" | "ctra." => Some("Carretera"),
+                "pza" | "pza." | "pz" | "pz." => Some("Plaza"),
+                "c/" => Some("Calle"),
+                _ => None,
+            };
+            if let Some(full) = full {
+                out.push(full.into());
+                at += 1;
+                continue;
+            }
+        }
+        // "s/n", "s / n" and "S/N": no number
+        if lower == "s/n"
+            || (lower == "s" && next(1).as_deref() == Some("/") && next(2).as_deref() == Some("n"))
+        {
+            let spanned = if lower == "s/n" { 1 } else { 3 };
+            if words[at + spanned - 1].ends_with(',')
+                && let Some(last) = out.last_mut()
+                && !last.ends_with(',')
+            {
+                last.push(',');
+            }
+            at += spanned;
+            continue;
+        }
+        if let Some(c) = NUMERO.captures(word) {
+            out.push(format!("{}{}", &c[1], &c[2]));
+        } else if let Some(c) = RANGE.captures(word) {
+            out.push(format!("{}{}", &c[1], &c[2]));
+        } else if matches!(lower.as_str(), "nº" | "n°" | "nº." | "n°.") {
+            // the mark alone: the number is the next word
+        } else if matches!(
+            lower.as_str(),
+            "bajo" | "bj" | "entlo" | "entrpl" | "ático" | "atico"
+        ) && at > 0
+            && out
+                .iter()
+                .any(|w| w.bytes().next().is_some_and(|b| b.is_ascii_digit()))
+        {
+            if comma && let Some(last) = out.last_mut() {
+                last.push(',');
+            }
+        } else {
+            out.push(word.to_owned());
+        }
+        at += 1;
+    }
+    let rewritten = out.join(" ");
+    if rewritten == query {
+        return None;
+    }
+    let number = out
+        .iter()
+        .map(|w| w.trim_end_matches(','))
+        .find(|w| {
+            w.len() <= 4 && !w.is_empty() && w.bytes().all(|b| b.is_ascii_digit()) && *w != zip
+        })
+        .map(str::to_owned);
+    Some((rewritten, number, zip))
+}
