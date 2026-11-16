@@ -393,6 +393,7 @@ impl Index {
         let plated = plate.is_some();
         tries.extend(plate.map(|(road, plate)| (Some(plate), true, road)));
         let mut out = vec![];
+        let mut street_fallback = vec![];
         let mut streets = vec![];
         let last = tries.len() - 1;
         let scoped = std::cell::OnceCell::new();
@@ -861,15 +862,17 @@ impl Index {
             chain.comma_number = true;
             let found = self.retry_streets(parts, typed.open, cc, focus, want, chain);
             chain.comma_number = false;
-            // the street, when no house of that number exists in the data: where "Rua X, 27" is
-            // the house form (elsewhere the part after the comma may be a floor)
-            if found.iter().any(|s| s.kind == "address")
-                || out.is_empty()
-                    && cc.is_some_and(|c| {
-                        c.eq_ignore_ascii_case("pt") || c.eq_ignore_ascii_case("br")
-                    })
-            {
+            if found.iter().any(|s| s.kind == "address") {
                 return found;
+            }
+            // the street, when no house of that number exists in the data: where "Rua X, 27" is
+            // the house form (elsewhere the part after the comma may be a floor). Only for the
+            // two parts: a longer address has its town and country fallbacks to try first.
+            if out.is_empty()
+                && typed.parts.len() == 2
+                && cc.is_some_and(|c| c.eq_ignore_ascii_case("pt") || c.eq_ignore_ascii_case("br"))
+            {
+                street_fallback = found;
             }
         }
         // "Avenida Calle 43 S # 86B-18": Bogotá's register names it "AC 43 S"
@@ -923,6 +926,9 @@ impl Index {
             if !truncated && found.len() == 1 {
                 return found;
             }
+        }
+        if out.is_empty() {
+            out = street_fallback;
         }
         out.truncate(want);
         out
