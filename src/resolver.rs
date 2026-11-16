@@ -1674,6 +1674,21 @@ impl Core {
                 return Ok(alt);
             }
         }
+        if let Some((written, number, zip)) = spanish_forms(query)
+            && found.address_details.as_option().is_none_or(|d| {
+                d.house_number.is_empty() && (number.is_some() || d.road.is_empty())
+            })
+        {
+            let alt = self.resolve_written(&written)?;
+            if alt
+                .address_details
+                .as_option()
+                .is_some_and(|d| d.country_code == "es" && d.postcode == zip && !d.road.is_empty())
+                && number.as_deref().is_none_or(|n| same_house_number(&alt, n))
+            {
+                return Ok(alt);
+            }
+        }
         if let Some((variants, number, zip)) = without_street_type(query) {
             let road_words = |road: &str| -> Vec<String> {
                 road.split_whitespace()
