@@ -26,6 +26,18 @@ pub const PLACES: &[Place] = &[
         "Pinhal",
         &[("en", "Pinhal")]
     ),
+    place!(
+        "pt-marinha-grande",
+        "locality",
+        "town",
+        "PT",
+        "",
+        40_000,
+        (-8.9, 39.7),
+        "pt",
+        "Marinha Grande",
+        &[("en", "Marinha Grande")]
+    ),
 ];
 
 pub const STREETS: &[Street] = &[
@@ -62,6 +74,28 @@ pub const STREETS: &[Street] = &[
         lon: -8.005,
         lat: 39.5,
         numbers: &["6"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "R CAMPO FUTEBOL",
+        postcode: "2430-001",
+        city: "Marinha Grande",
+        cc: "PT",
+        lon: -8.9,
+        lat: 39.7,
+        numbers: &["1"],
+    },
+    Street {
+        class: "residential",
+        length: 0.002,
+        name: "Campo Grande",
+        postcode: "",
+        city: "Pinhal",
+        cc: "PT",
+        lon: -8.02,
+        lat: 39.5,
+        numbers: &[],
     },
 ];
 
@@ -121,4 +155,15 @@ fn portuguese_houses_are_suggested_on_the_registers_abbreviated_street() {
             "{typed}"
         );
     }
+}
+
+#[test]
+fn a_street_named_as_typed_comes_before_the_streets_of_a_town_the_last_word_names() {
+    let found = index().suggest("Campo Grande, 83", 5, Some("PT"), None, false);
+    assert_eq!(found[0].kind, "street");
+    assert!(
+        found[0].display_name.starts_with("Campo Grande"),
+        "{}",
+        found[0].display_name
+    );
 }

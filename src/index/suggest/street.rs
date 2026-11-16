@@ -468,7 +468,7 @@ impl Index {
                         want - found.len(),
                     ));
                 }
-                found.extend(self.streets_typed(
+                let whole = self.streets_typed(
                     &road_words,
                     road_open,
                     None,
@@ -478,7 +478,19 @@ impl Index {
                     postcode,
                     None,
                     want,
-                ));
+                );
+                // "Campo Grande, 83": with no house in either reading, the street named as typed
+                // comes before the "Campo" streets of a town whose name ends in "Grande"
+                let typed_name = road_words.join(" ");
+                let named_so = whole.iter().any(|s| {
+                    fold(s.display_name.split(',').next().unwrap_or_default()) == typed_name
+                });
+                let house = |v: &[Suggestion]| v.iter().any(|s| s.kind == "address");
+                if named_so && !house(&found) && !house(&whole) {
+                    found.splice(0..0, whole);
+                } else {
+                    found.extend(whole);
+                }
                 // a house on a street of that name anywhere before a street in the town the
                 // end of the text may name ("Rua do Bispo 21": Bispo is also a town)
                 if number_word.is_some() {
