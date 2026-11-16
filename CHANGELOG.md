@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.14.3](https://github.com/Mokto/opengeocoding/compare/v1.14.2...v1.14.3) (2026-11-16)
+
+
+### Bug Fixes
+
+* find a street when the query names a town the postcode does not file it under ([#594](https://github.com/Mokto/opengeocoding/issues/594)) ([05b7978](https://github.com/Mokto/opengeocoding/commit/05b79783632093ad07ed41a9f31093d88aa1e743))
+* suggest the street named as typed before streets of a town the last word names ([#601](https://github.com/Mokto/opengeocoding/issues/601)) ([db50422](https://github.com/Mokto/opengeocoding/commit/db50422dbae75278ff315c26180978c18a505938))
+
 ## [1.14.2](https://github.com/Mokto/opengeocoding/compare/v1.14.1...v1.14.2) (2026-11-16)
 
 
