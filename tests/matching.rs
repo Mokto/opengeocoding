@@ -2556,3 +2556,51 @@ fn spanish_street_forms_are_rewritten_for_the_parser() {
         assert_eq!(spanish_forms(none), None, "{none}");
     }
 }
+
+#[test]
+fn a_street_and_number_followed_by_clutter_is_cut_to_the_postcode() {
+    let cases = [
+        (
+            "6730 Niagara Falls Boulevard, Route 62 Niagara Falls New York 14304 US",
+            "6730 Niagara Falls Boulevard 14304",
+            "6730",
+            "Niagara Falls Boulevard",
+            "14304",
+        ),
+        (
+            "Molín del Sutu, 44 Langreo Asturias 33206 ES",
+            "Molín del Sutu 44 33206",
+            "44",
+            "Molín del Sutu",
+            "33206",
+        ),
+        (
+            "Lindholm Havnevej 31, 2. Nyborg  5800 Danmark",
+            "Lindholm Havnevej 31 5800",
+            "31",
+            "Lindholm Havnevej",
+            "5800",
+        ),
+    ];
+    for (query, bare, number, road, postcode) in cases {
+        let got = street_and_postcode(query).unwrap_or_else(|| panic!("{query}"));
+        assert_eq!(
+            (
+                got.0.as_str(),
+                got.2.as_str(),
+                got.3.as_str(),
+                got.4.as_str()
+            ),
+            (bare, number, road, postcode),
+            "{query}"
+        );
+    }
+    for none in [
+        "6730 Niagara Falls Boulevard 14304",
+        "Niagara Falls, New York 14304",
+        "Rynkevangen 8 st. 16, 4400 Kalundborg",
+        "Calle Cerezos, Col. San Juan Atizapán",
+    ] {
+        assert_eq!(street_and_postcode(none), None, "{none}");
+    }
+}
