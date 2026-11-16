@@ -6,7 +6,9 @@ mod place;
 mod postcode;
 mod street;
 
-use super::country::{br, ca, cz_sk, dk, ee, eg, hk_mo, id, it, jp, lt, pl, ps, pt, ru, th, tw};
+use super::country::{
+    br, br_pt, ca, cz_sk, dk, ee, eg, hk_mo, id, it, jp, lt, pl, ps, pt, ru, th, tw,
+};
 use super::*;
 use levenshtein_automata::{DFA, Distance, LevenshteinAutomatonBuilder, SINK_STATE};
 pub(super) use place::place_names;
@@ -349,6 +351,12 @@ impl Index {
     ) -> Vec<Suggestion> {
         let mut chain = vec![(text.trim_start().to_string(), cc.map(str::to_lowercase))];
         let mut out = self.suggest_from(text, limit, cc, focus, landmarks, &mut chain);
+        if out.is_empty()
+            && cc.is_some_and(|c| c.eq_ignore_ascii_case("br") || c.eq_ignore_ascii_case("pt"))
+            && let Some(named) = br_pt::without_street_type(text)
+        {
+            out = self.retry_suggest(&named, limit, cc, focus, landmarks, &mut chain);
+        }
         let mut extra = vec![];
         if out.len() < limit
             && text.chars().count() <= MAX_TEXT

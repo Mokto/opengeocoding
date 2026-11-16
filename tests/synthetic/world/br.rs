@@ -205,3 +205,15 @@ fn a_thousands_dot_is_read_and_a_missing_number_leaves_the_street() {
     assert_eq!(found[0].kind, "street");
     assert!(found[0].display_name.starts_with("Rua Alagoas"));
 }
+
+#[test]
+fn a_wrong_street_type_still_finds_the_house() {
+    let found = index().suggest("Av. Alagoas, 127", 5, Some("br"), None, false);
+    assert_eq!(found[0].kind, "address");
+    assert!(
+        metres(
+            (found[0].x, found[0].y),
+            house(street("Rua Alagoas"), "127")
+        ) < 5.0
+    );
+}
