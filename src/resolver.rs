@@ -1809,12 +1809,24 @@ impl Core {
             return Ok(None);
         };
         let road = part(&address, "road");
-        let Some(point) = [road, answered.road.as_str()]
-            .into_iter()
-            .filter(|r| !r.is_empty())
-            .find_map(|r| {
-                self.index
-                    .us_range_point(&zip, r, number[..digits].parse().ok()?)
+        let Ok(n) = number[..digits].parse::<u32>() else {
+            return Ok(None);
+        };
+        let roads = || {
+            [road, answered.road.as_str()]
+                .into_iter()
+                .filter(|r| !r.is_empty())
+        };
+        let near = found
+            .geo_coordinates
+            .as_option()
+            .map(|g| (f64::from(g.lat), f64::from(g.lon)));
+        let Some(point) = roads()
+            .find_map(|r| self.index.us_range_point(&zip, r, n))
+            .or_else(|| {
+                let near = near.filter(|_| !road.is_empty())?;
+                // the street as written: the answer's own road may be a fuzzy neighbour of it
+                nearest_in_zip_area(&zip, near, |z| self.index.us_range_point(z, road, n))
             })
         else {
             return Ok(None);
