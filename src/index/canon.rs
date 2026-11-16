@@ -344,7 +344,7 @@ mod tests {
 
 /// `SimpleTokenizer` on text without combining diacritics, at which it would split a word
 /// ("Wa̱a̱t" is "wa", "a", "t"; Vietnamese written decomposed, "Tân Phước", worse). Precomposed
-/// letters are left to ASCII folding.
+/// letters are left to ASCII folding, but ё is folded to е: Russian writes it either way.
 #[derive(Clone, Default)]
 pub struct Unmarked {
     text: String,
@@ -359,7 +359,12 @@ impl Tokenizer for Unmarked {
         buf.clear();
         buf.extend(
             text.chars()
-                .filter(|c| !('\u{300}'..='\u{36f}').contains(c)),
+                .filter(|c| !('\u{300}'..='\u{36f}').contains(c))
+                .map(|c| match c {
+                    'ё' => 'е',
+                    'Ё' => 'Е',
+                    c => c,
+                }),
         );
         inner.token_stream(buf)
     }

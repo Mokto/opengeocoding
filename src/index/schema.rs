@@ -683,6 +683,8 @@ mod tests {
             ("Cra 7", "Carrera 7"),
             ("Atatürk Cad.", "Atatürk Caddesi"),
             ("ул. Ленина", "улица Ленина"),
+            ("Кремлевская улица", "Кремлёвская улица"),
+            ("Королев", "КОРОЛЁВ"),
             ("St Mary's Rd", "Saint Mary's Road"),
             ("Drottninggatan 5", "Drottningg. 5"),
             ("Storgata 12", "Storgt. 12"),
