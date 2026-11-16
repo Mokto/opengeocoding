@@ -314,4 +314,14 @@ target/release/evaluate build-gold --seeds tests/registry/kr-unlisted.seeds.json
 
 The draw gives 128 locations and 748 queries (road and land-lot forms, country-first and shortened-province variants), 16 locations held out. On the 1.13.0 benchmark index (builder `3ad842105ffa616a`) SearchAddress passes 168 of the 748, close to the 146 of 642 the unlisted queries of the first sample passed, and ReverseGeocode at the school points passes 114 of 128.
 
+Providers answered the same 748 queries on 16 November 2026 (Geoapify and OpenCage, one request per query, no country or proximity hints, scored with the same geographic-only rule against the same expectations; failures and abstentions count as misses):
+
+| Service | Passed (of 748) | Rate | Held out (of 94) | Only OpenGeocoding | Only the provider | Sign test p |
+|---|---:|---:|---:|---:|---:|---:|
+| OpenGeocoding 1.13.0 | 168 | 22.5% | 36 | | | |
+| Geoapify | 192 | 25.7% | 30 | 77 | 101 | 0.084 |
+| OpenCage | 77 | 10.3% | 15 | 94 | 3 | 2e-24 |
+
+OpenGeocoding is not ahead of Geoapify here: the difference is not significant, and the two split by form. Geoapify passes only road forms (192 of 374 against OpenGeocoding's 127) and none of the 374 land-lot forms, where OpenGeocoding passes 41. Most of OpenGeocoding's misses on this sample are `too_coarse` answers (530 of 748), so a house-level answer for a school the registers do not list is the weak case. Two repeated local runs gave identical classes.
+
 Limits: the unlisted schools are not a random sample of schools, since a register may omit a school because of its address form, a closed or unlicensed kitchen or a quarantined key, and those schools may be harder than the rest. The 0.003° box and the two-word tail can miss a register row written differently, and Overture places and the shop register are further index inputs that may list a school. A result here is not national accuracy, and it does not say how well the registers help the schools they list.
