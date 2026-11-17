@@ -2520,3 +2520,60 @@ pub fn spanish_forms(query: &str) -> Option<(String, Option<String>, String)> {
         .map(str::to_owned);
     Some((rewritten, number, zip))
 }
+
+/// The street and number a query opens with, and its postcode, when the rest of the query is
+/// clutter: "Calle Cerezos, Col. San Juan Ixtacala, Atizapán 52928 México", "Molín del Sutu, 44
+/// Langreo 33206". Returns the shortened query ("street number postcode"), the words of the
+/// street and its number, the street alone, the number and the postcode. None unless the first
+/// part holds one number and a street and the rest holds a postcode.
+pub fn street_and_postcode(query: &str) -> Option<(String, String, String, String, String)> {
+    static POSTCODE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"(?:^|[\s,])(\d{4,5}(?:-\d{3,4})?|[A-Z]\d[A-Z] ?\d[A-Z]\d|[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2})(?:[\s,]|$)",
+        )
+        .unwrap()
+    });
+    static NUMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{1,5}[A-Za-z]?$").unwrap());
+    if query.chars().count() > 256 {
+        return None;
+    }
+    let flat = query.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut parts = flat.split(',').map(str::trim);
+    let first = parts.next().filter(|p| !p.is_empty())?;
+    let rest = parts.collect::<Vec<_>>();
+    let postcode = rest
+        .iter()
+        .rev()
+        .find_map(|p| POSTCODE.captures(p))?
+        .get(1)?
+        .as_str()
+        .to_owned();
+    let is_number = |w: &&str| NUMBER.is_match(w) && *w != postcode;
+    let mut written = first.to_owned();
+    // "Calle Cerezos, 12 Atizapán": the number opens the next part
+    if !first.split_whitespace().any(|w| is_number(&w))
+        && let Some(n) = rest.first().and_then(|p| p.split_whitespace().next())
+        && is_number(&n)
+    {
+        written = format!("{first} {n}");
+    }
+    let words: Vec<&str> = written.split_whitespace().collect();
+    let numbers: Vec<&&str> = words.iter().filter(|w| is_number(w)).collect();
+    let [number] = numbers.as_slice() else {
+        return None;
+    };
+    let road = words
+        .iter()
+        .filter(|w| w != number)
+        .copied()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if road.chars().filter(|c| c.is_alphabetic()).count() < 5 {
+        return None;
+    }
+    let bare = format!("{written} {postcode}");
+    if bare == flat {
+        return None;
+    }
+    Some((bare, written.clone(), (**number).to_owned(), road, postcode))
+}

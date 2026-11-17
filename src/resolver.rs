@@ -1804,82 +1804,106 @@ impl Core {
             .address_details
             .as_option()
             .is_none_or(|d| d.road.is_empty() && d.house_number.is_empty())
-            && let Some(address) = self.parse(query)?
-            && !part(&address, "road").is_empty()
-            && !part(&address, "postcode").is_empty()
         {
-            // the town written is not the one the street is filed under (a postcode spanning two
-            // towns); the postcode and the street confirm each other
-            let (number, road, postcode) = (
-                part(&address, "house_number").trim(),
-                part(&address, "road").trim(),
-                part(&address, "postcode").trim(),
-            );
-            let bare = format!("{number} {road}, {postcode}").trim().to_owned();
-            let alt = self.resolve_written(&bare)?;
-            // the street found and the street written share every long word ("Panoramas"): a different
-            // street in the postcode, or the district parsed as a road, shares only some
-            let names: Vec<String> = crate::index::schema::fold(road)
-                .split_whitespace()
-                .filter(|w| w.chars().count() >= 5)
-                .map(str::to_owned)
-                .collect();
-            let country = found
-                .address_details
-                .as_option()
-                .map_or("", |d| d.country_code.as_str());
-            // the answer stays in the place the first one named: a same-named street of another
-            // town sharing the postcode ("Domovinskog rata" in Kovačić for Knin) is not the one
-            let place = |d: &AddressDetails| {
-                [&d.city, &d.town, &d.village, &d.municipality]
-                    .into_iter()
-                    .find(|p| !p.is_empty())
-                    .map_or_else(String::new, |p| crate::index::schema::fold(p))
-            };
-            let town = found
-                .address_details
-                .as_option()
-                .map(place)
-                .unwrap_or_default();
-            // a second number ("Rynkevangen 8, st. 16") leaves the house number ambiguous
-            let postcode_words: Vec<String> =
-                postcode.split_whitespace().map(str::to_owned).collect();
-            let other_number = crate::index::schema::fold(query)
-                .split_whitespace()
-                .any(|w| {
-                    w.bytes().all(|b| b.is_ascii_digit())
-                        && w != crate::index::schema::fold(number)
-                        && !postcode_words.iter().any(|p| p == w)
-                });
-            if alt.address_details.as_option().is_some_and(|d| {
-                (country.is_empty() || d.country_code == country)
-                    && !other_number
-                    && (town.is_empty() || place(d) == town)
-                    && crate::index::schema::pc_norm(&d.postcode)
-                        == crate::index::schema::pc_norm(postcode)
-                    && !names.is_empty()
-                    && {
-                        let road = crate::index::schema::fold(&d.road);
-                        let words: Vec<&str> = road.split_whitespace().collect();
-                        let written = crate::index::schema::fold(query);
-                        let written: Vec<&str> = written.split_whitespace().collect();
-                        names.iter().all(|n| words.contains(&n.as_str()))
-                            && words
-                                .iter()
-                                .filter(|w| w.chars().count() >= 5)
-                                .all(|w| written.contains(w))
-                    }
-            }) && (number.is_empty()
-                || alt
-                    .address_details
-                    .as_option()
-                    .is_some_and(|d| d.house_number.is_empty())
-                || same_house_number(&alt, number))
+            if let Some(address) = self.parse(query)?
+                && !part(&address, "road").is_empty()
+                && !part(&address, "postcode").is_empty()
+            {
+                // the town written is not the one the street is filed under (a postcode spanning
+                // two towns); the postcode and the street confirm each other
+                let (number, road, postcode) = (
+                    part(&address, "house_number").trim(),
+                    part(&address, "road").trim(),
+                    part(&address, "postcode").trim(),
+                );
+                let postcode_words: Vec<&str> = postcode.split_whitespace().collect();
+                // a second number ("Rynkevangen 8, st. 16") leaves the house number ambiguous
+                let other_number = crate::index::schema::fold(query)
+                    .split_whitespace()
+                    .any(|w| {
+                        w.bytes().all(|b| b.is_ascii_digit())
+                            && w != crate::index::schema::fold(number)
+                            && !postcode_words.contains(&w)
+                    });
+                let bare = format!("{number} {road}, {postcode}").trim().to_owned();
+                if !other_number
+                    && let Some(alt) =
+                        self.confirmed_retry(&found, &bare, query, number, road, postcode)?
+                {
+                    return Ok(alt);
+                }
+            }
+            // "Calle Cerezos, Col. San Juan Ixtacala, Atizapán 52928": what follows the street and
+            // its number says nothing the street does not
+            if let Some((bare, written, number, road, postcode)) = street_and_postcode(query)
+                && let Some(alt) =
+                    self.confirmed_retry(&found, &bare, &written, &number, &road, &postcode)?
             {
                 return Ok(alt);
             }
         }
         Ok(self.range_house(query, &found)?.unwrap_or(found))
+    }
+
+    /// The answer to `bare`, a shorter form of a query whose first answer was only an area, when
+    /// it is the same street: in the first answer's country and place, in the postcode written,
+    /// sharing every word of five letters or more with the street written in `written`, and
+    /// with the house number written (or none).
+    fn confirmed_retry(
+        &self,
+        found: &FullAddress,
+        bare: &str,
+        written: &str,
+        number: &str,
+        road: &str,
+        postcode: &str,
+    ) -> Result<Option<FullAddress>> {
+        use crate::index::schema::{fold, pc_norm};
+        let long_words = |s: &str| -> Vec<String> {
+            fold(s)
+                .split_whitespace()
+                .filter(|w| w.chars().count() >= 5)
+                .map(str::to_owned)
+                .collect()
+        };
+        let (names, written) = (long_words(road), long_words(written));
+        if names.is_empty() {
+            return Ok(None);
+        }
+        let alt = self.resolve_written(bare)?;
+        let first = found.address_details.as_option();
+        let country = first.map_or("", |d| d.country_code.as_str());
+        // a same-named street of another town sharing the postcode ("Domovinskog rata" in Kovačić
+        // for Knin) is not the one: the most local place the first answer named must be one of
+        // the places of this answer
+        let places = |d: &AddressDetails| -> Vec<String> {
+            [
+                &d.hamlet,
+                &d.suburb,
+                &d.neighbourhood,
+                &d.village,
+                &d.town,
+                &d.city,
+                &d.municipality,
+            ]
+            .into_iter()
+            .filter(|p| !p.is_empty())
+            .map(|p| fold(p))
+            .collect()
+        };
+        let town = first.map(places).and_then(|p| p.into_iter().next());
+        let Some(d) = alt.address_details.as_option() else {
+            return Ok(None);
+        };
+        let found_road = long_words(&d.road);
+        let same_street = (country.is_empty() || d.country_code == country)
+            && town.as_ref().is_none_or(|t| places(d).contains(t))
+            && pc_norm(&d.postcode) == pc_norm(postcode)
+            && names.iter().all(|n| found_road.contains(n))
+            && found_road.iter().all(|w| written.contains(w));
+        let same_house =
+            number.is_empty() || d.house_number.is_empty() || same_house_number(&alt, number);
+        Ok((same_street && same_house).then_some(alt))
     }
 
     /// A US house the index lacks, placed along its street's address range (see
