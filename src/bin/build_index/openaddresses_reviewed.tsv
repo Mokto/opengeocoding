@@ -12,6 +12,7 @@
 #   King County WA  "no one is permitted to sell this information" without a written agreement
 #   Oregon Metro (RLIS), Spokane County WA, Bucks County PA, CAPCOG TX  limited, non-commercial or share-alike
 #   Omaha NE  every distribution must carry the End User Agreement unaltered
+#   Clark County NV (GISMO Address)  the publisher allows private and commercial use of its REST endpoints but not redistribution or download of the data (reply of November 2026)
 #   Howard County MD  "public domain" is only the contributor's note; the county's terms were not found
 #   WY statewide  a parcel viewer whose county sources state nothing
 #   FL statewide (three files)  commercial vendors (Mapwise, Loveland) or no terms (Revenue); NH parcel points (vendor data)
@@ -44,7 +45,6 @@ us_mi_semcog-county	licence to use, reproduce, modify, distribute and make deriv
 us_mi_semcog-condos	licence to use, reproduce, modify, distribute and make derivative works with the copyright notice	Copyright (c) 2024 SEMCOG	https://maps-semcog.opendata.arcgis.com/pages/copyright-license-agreement
 us_md_montgomery-county	open data portal terms; warranty disclaimer only	Montgomery County, Maryland	https://data.montgomerycountymd.gov/terms-of-use
 us_mo_city_of_kansas_city-city	open data portal terms; warranty disclaimer only	City of Kansas City, Missouri	https://data.kcmo.org/terms
-us_nv_clark-county	warranty disclaimer only	Clark County, Nevada, GIS Management Office	https://www.clarkcountynv.gov/government/departments/geographic_info_systems/services/free-gis-data1
 us_pa_montgomery-county	free and open resource; warranty disclaimer only	Montgomery County, Pennsylvania, Data & Mapping Services	https://gis.montcopa.org/opendata/
 ca_ns_province-state	Open Government Licence - Nova Scotia (commercial use, attribution)	Contains information licensed under the Open Government Licence - Nova Scotia	https://novascotia.ca/opendata/licence.asp
 ca_nb_province-state-french	GeoNB Open Data Licence (commercial use, attribution)	Contains information licenced under the GeoNB Open Data Licence, Service New Brunswick	https://geonb.snb.ca/documents/license/geonb-odl_en.pdf
