@@ -2540,18 +2540,35 @@ fn spanish_street_forms_are_rewritten_for_the_parser() {
             "AVENIDA PASAJE, Coruña (A) Coruña (a) 15006 España",
             None,
         ),
+        (
+            "Calle Mayor 5 2º A, Lupiana, Guadalajara, Spain",
+            "Calle Mayor 5, Lupiana, Guadalajara, Spain",
+            Some("5"),
+        ),
+        (
+            "Calle Mayor 5, 1º izq., Lupiana, Guadalajara, Spain",
+            "Calle Mayor 5, Lupiana, Guadalajara, Spain",
+            Some("5"),
+        ),
+        (
+            "Calle Mayor 5 3ºC Lupiana Spain",
+            "Calle Mayor 5 Lupiana Spain",
+            Some("5"),
+        ),
     ];
     for (query, want, number) in cases {
+        let has_postcode = query.bytes().filter(u8::is_ascii_digit).count() >= 5;
         let (got, n, zip) = spanish_forms(query).unwrap_or_else(|| panic!("{query}"));
         assert_eq!(got, want);
         assert_eq!(n.as_deref(), number, "{query}");
-        assert_eq!(zip.len(), 5);
+        assert_eq!(zip.is_some(), has_postcode, "{query}");
     }
     for none in [
         "Avenida Albufera 279 Madrid 28038 ES",
         "Avd. Albufera, 279 Madrid 28038",
-        "Avd. Albufera, 279 Madrid ES",
         "Rue de Rivoli 12 Paris 75004 FR",
+        "Calle Mayor 5 2º A, Lupiana, Guadalajara",
+        "Calle Mayor 2º A, Lupiana, Spain",
     ] {
         assert_eq!(spanish_forms(none), None, "{none}");
     }

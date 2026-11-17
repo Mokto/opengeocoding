@@ -1680,16 +1680,28 @@ impl Core {
             }
         }
         if let Some((written, number, zip)) = spanish_forms(query)
+            && (zip.is_some() || number.is_some())
             && found.address_details.as_option().is_none_or(|d| {
                 d.house_number.is_empty() && (number.is_some() || d.road.is_empty())
             })
         {
             let alt = self.resolve_written(&written)?;
-            if alt
-                .address_details
-                .as_option()
-                .is_some_and(|d| d.country_code == "es" && d.postcode == zip && !d.road.is_empty())
-                && number.as_deref().is_none_or(|n| same_house_number(&alt, n))
+            // with no postcode to confirm it, the street must lie near the place first answered
+            // ("Calle Maria Blanchard", Las Rozas: the same name 21 km away in Madrid is not it)
+            let near = |alt: &FullAddress| match (
+                found.geo_coordinates.as_option(),
+                alt.geo_coordinates.as_option(),
+            ) {
+                (Some(a), Some(b)) => km_between(a.lat, a.lon, b.lat, b.lon) <= 10.,
+                _ => true,
+            };
+            if alt.address_details.as_option().is_some_and(|d| {
+                d.country_code == "es"
+                    && !d.road.is_empty()
+                    && zip
+                        .as_deref()
+                        .map_or_else(|| near(&alt), |z| d.postcode == z)
+            }) && number.as_deref().is_none_or(|n| same_house_number(&alt, n))
             {
                 return Ok(alt);
             }
@@ -1876,28 +1888,13 @@ impl Core {
         // a same-named street of another town sharing the postcode ("Domovinskog rata" in Kovačić
         // for Knin) is not the one: the most local place the first answer named must be one of
         // the places of this answer
-        let places = |d: &AddressDetails| -> Vec<String> {
-            [
-                &d.hamlet,
-                &d.suburb,
-                &d.neighbourhood,
-                &d.village,
-                &d.town,
-                &d.city,
-                &d.municipality,
-            ]
-            .into_iter()
-            .filter(|p| !p.is_empty())
-            .map(|p| fold(p))
-            .collect()
-        };
-        let town = first.map(places).and_then(|p| p.into_iter().next());
+        let town = first.map(local_places).and_then(|p| p.into_iter().next());
         let Some(d) = alt.address_details.as_option() else {
             return Ok(None);
         };
         let found_road = long_words(&d.road);
         let same_street = (country.is_empty() || d.country_code == country)
-            && town.as_ref().is_none_or(|t| places(d).contains(t))
+            && town.as_ref().is_none_or(|t| local_places(d).contains(t))
             && pc_norm(&d.postcode) == pc_norm(postcode)
             && names.iter().all(|n| found_road.contains(n))
             && found_road.iter().all(|w| written.contains(w));
@@ -3824,6 +3821,23 @@ fn own_regions(found: &mut FullAddress) {
         d.region_codes
             .retain(|r| r.code.to_uppercase().starts_with(&prefix));
     }
+}
+
+/// The places an answer names, most local first, folded.
+fn local_places(d: &AddressDetails) -> Vec<String> {
+    [
+        &d.hamlet,
+        &d.suburb,
+        &d.neighbourhood,
+        &d.village,
+        &d.town,
+        &d.city,
+        &d.municipality,
+    ]
+    .into_iter()
+    .filter(|p| !p.is_empty())
+    .map(|p| crate::index::schema::fold(p))
+    .collect()
 }
 
 fn same_house_number(found: &FullAddress, number: &str) -> bool {

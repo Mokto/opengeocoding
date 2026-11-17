@@ -91,3 +91,16 @@ Complete civic numbers and all qualifiers remain unchanged. Literal house matche
 libpostal can read a leading civic number into the road (`40 Avenida de Galicia`). With Spain stated, the parser separates a plain integer from `Avenida` only when no house number was already parsed, there is exactly one road, and that road is the complete first comma-separated part. The street name and every locality, postcode and country qualifier stay unchanged. Existing house numbers, suffixes, ranges, fractions and numeric street names are not rewritten by this repair.
 
 This fixes number extraction, not house coverage or source conflicts. An avenue whose indexed houses have a different street name can still return a street fallback with `goodMatch=false`.
+
+## Messy inputs
+
+`es-messy.seeds.jsonl` and `es-messy.jsonl` (400 cases, 267 locations) write `es_plain` and `es_other_road` locations (street without a digit) the way Spanish postal addresses are written; `tests/registry/es-messy.py` turns the seeds into queries and `evaluate build-gold` takes the expectation from CartoCiudad as for `es.jsonl`. CartoCiudad has no postcode, so these queries have none.
+
+- `es_messy_abbrev` (100): "Avda.", "Avd.", "Pza.", "Plza.", "Ctra.", "Cno." and "C." for the road type.
+- `es_messy_number` (100): "Calle Ermita nº 34".
+- `es_messy_floor` (100): a floor or door after the number ("Calle Mayor 5 2º A", "7 Entlo.", "26 Bajo", "17 Ático").
+- `es_messy_comma` (100): a comma between the street and the number ("Calle Sol, 31").
+
+The 5-hour province capture was not repeated. `tests/registry/es-messy-capture.py` re-fetches each location's features by a 30 m bounding box around its point in `es.jsonl` and keeps the one with the seed's location hash (province, municipality, area, street, number); 19 of the 271 first-drawn locations had changed upstream since the October capture (a street renamed, a number moved) and were replaced by the next in each cohort's hash order. The snapshot's `capture.retrieval` says so. The shapes are copied from MESSY STREETS inputs, so this is not a hold-out.
+
+On the production index of 2026-10-21 (SearchAddress `pass` only), before and after reading ordinal floors (`2º A`, `1º B`, `3ºC`) and, without a postcode, accepting the retry of the Spanish forms when it keeps the number and lies within 10 km of the first answer: abbreviations 98 → 100, number sign 92 → 98, floor 56 → 96 (every ordinal floor failed, `Bajo`, `Entlo.` and `Ático` already passed), comma 98 → 98. The rest are streets the index lacks or names differently (`Plaza Alameda` in Verín).
