@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.15.0](https://github.com/Mokto/opengeocoding/compare/v1.14.3...v1.15.0) (2026-11-17)
+
+
+### Features
+
+* retry an area-only answer with the street, number and postcode a cluttered query opens with ([#600](https://github.com/Mokto/opengeocoding/issues/600)) ([e0f8263](https://github.com/Mokto/opengeocoding/commit/e0f8263710ed56d1b842d76b70db837324b479ba))
+
+
+### Bug Fixes
+
+* read Spanish ordinal floors and doors, and retry without a postcode ([#604](https://github.com/Mokto/opengeocoding/issues/604)) ([1f3d169](https://github.com/Mokto/opengeocoding/commit/1f3d1695544ee0d30b8b11a6cbc814779d33ba92))
+* stop reading Clark County NV addresses, whose publisher disallows downloading ([#603](https://github.com/Mokto/opengeocoding/issues/603)) ([dd1ce9e](https://github.com/Mokto/opengeocoding/commit/dd1ce9e6f7ac0dd911f71fc8d85dae17690ab5f1))
+
 ## [1.14.3](https://github.com/Mokto/opengeocoding/compare/v1.14.2...v1.14.3) (2026-11-16)
 
 
