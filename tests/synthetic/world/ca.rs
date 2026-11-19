@@ -694,9 +694,14 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
             .map_or("", |d| d.house_number.as_str());
         assert!(!got.good_match && house.is_empty(), "{query}: {got:?}");
     }
-    let wrong_postcode = "7 Pine Ridge Rd, Unit 27, Delhi, ON, N4B 1A7";
-    let got = resolver.resolve(wrong_postcode).await.unwrap();
-    assert!(!got.good_match, "{wrong_postcode}: {got:?}");
+    let got = resolver
+        .resolve("7 Pine Ridge Rd, Unit 27, Delhi, ON, N4B 1A7")
+        .await
+        .unwrap();
+    assert!(
+        !got.good_match,
+        "a conflicting postcode is not a good match"
+    );
     // a province's code and postcode with no town: libpostal ran them into the road
     for query in [
         "18 Sydney WAY, PE C1B 4M4, Canada",
