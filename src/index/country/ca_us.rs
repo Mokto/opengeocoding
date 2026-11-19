@@ -1,5 +1,21 @@
-use super::{ca, us};
+use super::ca;
 use crate::matching::{country_named, normalize_postcode};
+use regex::Regex;
+use std::sync::LazyLock;
+
+fn zip_code(text: &str) -> Option<&str> {
+    let (zip, extension) = text.split_once('-').unwrap_or((text, ""));
+    let digits = |s: &str, len| s.len() == len && s.bytes().all(|b| b.is_ascii_digit());
+    (digits(zip, 5) && (text == zip || digits(extension, 4))).then_some(zip)
+}
+
+fn before_unit(text: &str) -> Option<&str> {
+    static UNIT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i-u)(?:^| )(?:(?:apt|apartment|unit|ste|suite|lot|rm|room|bldg|trlr|spc|#)\.? |#)[a-z0-9-]{1,6}$")
+            .unwrap()
+    });
+    UNIT.find(text).map(|unit| text[..unit.start()].trim_end())
+}
 
 pub(crate) struct Building<'a> {
     pub query: String,
@@ -54,20 +70,18 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
             format!("{} {}", &compact[..3], &compact[3..]),
         )
     } else {
-        ("us", "United States", us::zip_code(postcode)?.to_owned())
+        ("us", "United States", zip_code(postcode)?.to_owned())
     };
     if explicit.as_deref().is_some_and(|stated| stated != country) {
         return None;
     }
-    let building = us::unit_suffix(street);
+    let building = before_unit(street);
     if joined && rest.len() == 1 && building.is_none() && !last.contains('-') {
         return None;
     }
     let street = match rest {
-        [_] => building
-            .as_ref()
-            .map_or(*street, |(street, _)| street.as_str()),
-        [unit, _] if building.is_none() && us::unit_part(unit) => street,
+        [_] => building.unwrap_or(street),
+        [unit, _] if building.is_none() && before_unit(unit) == Some("") => street,
         _ => return None,
     };
     let town = rest.last()?.trim();
