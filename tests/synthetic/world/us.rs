@@ -1506,6 +1506,14 @@ pub fn cases() -> Vec<Case> {
             "102 Main Street, Paris, Texas",
             at_house("Main Street", "102"),
         ),
+        case(
+            "14 Meadow Rd, Suite 27, Bayport, IL, 60001-4321",
+            at_house("Meadow Road", "14"),
+        ),
+        case(
+            "14 Meadow Rd #27, Bayport, IL, 60001-4321, USA",
+            at_house("Meadow Road", "14"),
+        ),
         // France has this street, Texas has not: the town in Texas, never the French street
         case("Rue de Rivoli, Paris, Texas", town("us-tx-paris", false)),
         // the street in the town it is named for, not Wyoming: no town stated, never a good match

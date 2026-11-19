@@ -361,6 +361,13 @@ pub(in crate::index) fn zip5(text: &str) -> std::borrow::Cow<'_, str> {
     ZIP4.replace_all(text, "$1")
 }
 
+/// A standalone ZIP or ZIP+4, as the five digits used in the index.
+pub(super) fn zip_code(text: &str) -> Option<&str> {
+    let (zip, extension) = text.split_once('-').unwrap_or((text, ""));
+    let digits = |s: &str, len| s.len() == len && s.bytes().all(|b| b.is_ascii_digit());
+    (digits(zip, 5) && (text == zip || digits(extension, 4))).then_some(zip)
+}
+
 /// A municipality's name without the kind its register writes after it ("Irvington Township",
 /// "Leonia Borough"), which the index's town names leave out.
 pub(in crate::index) fn municipality(town: &str) -> Option<&str> {
@@ -415,7 +422,7 @@ fn unit_words(words: &[&str]) -> usize {
 
 /// A road part's house and road before its unit ("4862 Rural Road Southwest Apt 106"), and the
 /// unit. None without a unit after a house number and road.
-pub(in crate::index) fn unit_suffix(part: &str) -> Option<(String, String)> {
+pub(super) fn unit_suffix(part: &str) -> Option<(String, String)> {
     let words: Vec<&str> = part.split(' ').collect();
     let at = words.len() - unit_words(&words);
     // "Calle 21 # 102-80" is Colombian and "4ta Calle Casa #101" Nicaraguan: a US address starts
@@ -426,7 +433,7 @@ pub(in crate::index) fn unit_suffix(part: &str) -> Option<(String, String)> {
 }
 
 /// A part that is a unit alone ("Apt 4").
-fn unit_part(part: &str) -> bool {
+pub(super) fn unit_part(part: &str) -> bool {
     let words: Vec<&str> = part.split(' ').collect();
     unit_words(&words) == words.len()
 }
