@@ -653,6 +653,16 @@ fn canadian_unit_suggestions_identify_buildings_not_apartments_or_range_endpoint
 pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
     for (query, road, number) in [
         (
+            "7 Pine Ridge Rd, Unit 27, Delhi, ON, N0B1A0",
+            "Pine Ridge Road",
+            "7",
+        ),
+        (
+            "7 Pine Ridge Rd #27, Delhi, ON, N0B 1A0, Canada",
+            "Pine Ridge Road",
+            "7",
+        ),
+        (
             "35 CLARKES HILLVIEW ST, DELHI, ON N4B 1A7, Canada",
             "Clarke's Hillview",
             "35",
@@ -675,6 +685,7 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
         "37 CLARKES HILLVIEW ST, DELHI, ON N4B 1A7, Canada",
         "35 CLARKES HILLVIEW ST, DELHI, ON N4B 1A1, Canada",
         "8 Pine Ridge Road, Delhi, ON NOB 1AO, Canada",
+        "8 Pine Ridge Rd, Unit 27, Delhi, ON, N0B1A0",
     ] {
         let got = resolver.resolve(query).await.unwrap();
         let house = got
@@ -683,6 +694,14 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
             .map_or("", |d| d.house_number.as_str());
         assert!(!got.good_match && house.is_empty(), "{query}: {got:?}");
     }
+    let got = resolver
+        .resolve("7 Pine Ridge Rd, Unit 27, Delhi, ON, N4B 1A7")
+        .await
+        .unwrap();
+    assert!(
+        !got.good_match,
+        "a conflicting postcode is not a good match"
+    );
     // a province's code and postcode with no town: libpostal ran them into the road
     for query in [
         "18 Sydney WAY, PE C1B 4M4, Canada",

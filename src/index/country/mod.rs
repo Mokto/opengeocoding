@@ -4,6 +4,7 @@ pub mod be;
 pub mod br;
 pub mod br_pt;
 pub mod ca;
+pub mod ca_us;
 pub mod cn_tw;
 pub mod co;
 pub mod cz_sk;
