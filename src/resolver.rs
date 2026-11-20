@@ -1564,21 +1564,68 @@ impl Core {
         if !found.good_match
             && let Some(building) = ca_us::building(query)
         {
-            for (query, road) in std::iter::once((building.query.clone(), building.road.clone()))
-                .chain(building.road_aliases())
-            {
-                let alt = self.resolve_written(&query)?;
+            let aliases = building.road_aliases();
+            for road in std::iter::once(&building.road).chain(
+                aliases
+                    .iter()
+                    .filter(|road| !road.eq_ignore_ascii_case(&building.road)),
+            ) {
+                let alt = self.resolve_written(&building.rewrite(road))?;
                 if alt.good_match
+                    && !alt.interpolated
                     && same_house_number(&alt, building.number)
                     && alt.address_details.as_option().is_some_and(|d| {
                         d.country_code == building.country
                             && d.region_codes.iter().any(|c| c.code == building.region)
                             && postcode_agrees(&building.postcode, Some(d))
-                            && roads_agree(&road, &d.road)
+                            && roads_agree(road, &d.road)
                     })
                 {
                     return Ok(alt);
                 }
+            }
+            // A run-together street can be absent from the term dictionary. Only a unique
+            // indexed building confirmed by the complete postcode and locality can replace it.
+            let pc = normalize_postcode(&building.postcode);
+            let town = normalize_place(building.town);
+            let number = crate::index::schema::number_key(building.number);
+            let names_road = |road: &str| ca_us::same_road_in_postcode(&building.road, road);
+            let mut house: Option<FullAddress> = None;
+            for hit in self.index.houses_numbered(
+                &[number],
+                &pc,
+                "",
+                false,
+                Some(building.country),
+                (0., 0.),
+                names_road,
+            ) {
+                let alt = format_response(&hit)?;
+                if !same_house_number(&alt, building.number)
+                    || alt.address_details.as_option().is_none_or(|d| {
+                        d.country_code != building.country
+                            || !d.region_codes.iter().any(|r| r.code == building.region)
+                            || normalize_postcode(&d.postcode) != pc
+                            || !names_road(&d.road)
+                            || ![&d.city, &d.town, &d.village, &d.county, &d.suburb]
+                                .into_iter()
+                                .any(|place| normalize_place(place) == town)
+                    })
+                {
+                    continue;
+                }
+                if let Some(first) = &house {
+                    if first.geo_coordinates != alt.geo_coordinates {
+                        house = None;
+                        break;
+                    }
+                } else {
+                    house = Some(alt);
+                }
+            }
+            if let Some(mut house) = house {
+                house.good_match = true;
+                return Ok(house);
             }
         }
         if let Some((turned, number)) = crate::index::number_last(query) {
