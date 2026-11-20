@@ -1,5 +1,5 @@
 use super::ca;
-use crate::matching::{country_named, normalize_postcode};
+use crate::matching::{country_named, normalize_place, normalize_postcode};
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -11,7 +11,7 @@ fn zip_code(text: &str) -> Option<&str> {
 
 fn before_unit(text: &str) -> Option<&str> {
     static UNIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?i-u)(?:^|[ -])(?:(?:apt|apartment|unit|ste|suite|studio|lot|rm|room|bldg|trlr|spc)\.?[ -]+|#\s*)[a-z0-9-]{1,6}(?:(?: and | & )[a-z0-9-]{1,6})?$")
+        Regex::new(r"(?i-u)(?:^|[ -])(?:(?:apt|apartment|unit|ste|suite|studio|lot|rm|room|bldg|build|trlr|spc)\.?[ -]+|#\s*)[a-z0-9-]{1,6}(?:(?: and | & )[a-z0-9-]{1,6})?$")
             .unwrap()
     });
     UNIT.find(text)
@@ -39,35 +39,55 @@ pub(crate) struct Building<'a> {
     pub region: String,
     pub postcode: String,
     pub country: &'static str,
+    pub town: &'a str,
 }
 
 impl Building<'_> {
-    pub(crate) fn road_aliases(&self) -> impl Iterator<Item = (String, String)> + '_ {
+    pub(crate) fn road_aliases(&self) -> Vec<String> {
         let region = self.region.split_once('-').map_or("", |(_, code)| code);
-        let names = road_aliases(&self.road, self.country, region);
-        names.into_iter().filter_map(|road| {
-            let (_, tail) = self.query.split_once(", ")?;
-            Some((format!("{} {road}, {tail}", self.number), road))
-        })
+        road_aliases(&self.road, self.country, region)
+    }
+
+    pub(crate) fn rewrite(&self, road: &str) -> String {
+        let (_, tail) = self.query.split_once(", ").expect("structured address");
+        format!("{} {road}, {tail}", self.number)
     }
 }
 
+pub(crate) fn same_road_in_postcode(written: &str, indexed: &str) -> bool {
+    use crate::index::canon::canon;
+    let written = normalize_place(written);
+    let indexed = normalize_place(indexed);
+    let key = |road: &str| {
+        road.split_whitespace()
+            .map(|w| canon(w).unwrap_or(w))
+            .collect::<String>()
+    };
+    key(&written) == key(&indexed)
+}
+
 fn road_aliases(road: &str, country: &str, region: &str) -> Vec<String> {
-    if country == "us" {
-        let Some((prefix, route)) = road.split_once([' ', '-']) else {
-            return vec![];
-        };
-        let route = route.trim();
-        if prefix.eq_ignore_ascii_case(region)
-            && (1..=4).contains(&route.len())
-            && route.bytes().all(|b| b.is_ascii_digit())
-        {
-            return vec![
-                format!("State Route {route}"),
-                format!("State Highway {route}"),
-            ];
+    let words = road.to_ascii_lowercase().replace('-', " ");
+    if let Some((prefix, route)) = words.rsplit_once(' ')
+        && (1..=4).contains(&route.len())
+        && route.bytes().all(|b| b.is_ascii_digit())
+    {
+        if country == "us" {
+            if prefix.eq_ignore_ascii_case(region) {
+                return vec![
+                    format!("State Route {route}"),
+                    format!("State Highway {route}"),
+                ];
+            }
+            if matches!(prefix, "co rd" | "county rd" | "county road" | "cr") {
+                return vec![format!("CR {route}"), format!("County Road {route}")];
+            }
+        } else if matches!(prefix, "sideroad" | "side road" | "side rd") {
+            return vec![format!("{route} Siderd"), format!("{route} Sideroad")];
         }
-    } else if let Some((prefix, name)) = road.split_once(' ')
+    }
+    if country == "ca"
+        && let Some((prefix, name)) = road.split_once(' ')
         && prefix.eq_ignore_ascii_case("chem.")
     {
         return vec![format!("Chemin {name}")];
@@ -81,7 +101,10 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
     if !query.trim_start().starts_with(|c: char| c.is_ascii_digit()) {
         return None;
     }
-    let parts: Vec<_> = query.split(',').take(7).map(str::trim).collect();
+    let parts: Vec<_> = query.split(',').take(10).map(str::trim).collect();
+    if parts.len() == 10 {
+        return None;
+    }
     let [street, tail @ ..] = parts.as_slice() else {
         return None;
     };
@@ -111,6 +134,10 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
     if region.len() != 2 || !region.bytes().all(|b| b.is_ascii_alphabetic()) {
         return None;
     }
+    let postcode = postcode
+        .split_once(char::is_whitespace)
+        .filter(|(part, _)| part.eq_ignore_ascii_case(region))
+        .map_or(postcode, |(_, code)| code.trim());
     let (country, label, postcode) = if ca::province_and_postcode(&format!("{region} {postcode}")) {
         let compact = normalize_postcode(postcode).to_ascii_uppercase();
         (
@@ -128,13 +155,25 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
     if joined && rest.len() == 1 && building.is_none() && !last.contains('-') {
         return None;
     }
+    let rest = if joined && rest.last().is_some_and(|p| p.eq_ignore_ascii_case(region)) {
+        &rest[..rest.len() - 1]
+    } else {
+        rest
+    };
+    let town = *rest.last()?;
     let street = match rest {
         [_] => building.unwrap_or(street),
         [unit, _] if before_unit(unit) == Some("") => building.unwrap_or(street),
         [unit, _] if building.is_none() && bare_unit(unit) => street,
+        [repeated_town, repeated_region, unit, _]
+            if normalize_place(repeated_town) == normalize_place(town)
+                && repeated_region.eq_ignore_ascii_case(region)
+                && before_unit(unit) == Some("") =>
+        {
+            building.unwrap_or(street)
+        }
         _ => return None,
     };
-    let town = rest.last()?.trim();
     let (_, road) = street.split_once(char::is_whitespace)?;
     if !town.chars().any(char::is_alphabetic) || !road.chars().any(char::is_alphabetic) {
         return None;
@@ -148,6 +187,7 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
         region: format!("{}-{region}", country.to_ascii_uppercase()),
         postcode,
         country,
+        town,
     })
 }
 
