@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.2](https://github.com/Mokto/opengeocoding/compare/v1.15.1...v1.15.2) (2026-11-20)
+
+
+### Bug Fixes
+
+* index Overture release 2026-11-18.0 ([#605](https://github.com/Mokto/opengeocoding/issues/605)) ([0fbd801](https://github.com/Mokto/opengeocoding/commit/0fbd801ebbf28304d4f39ca5094659950cae2d03))
+
 ## [1.15.1](https://github.com/Mokto/opengeocoding/compare/v1.15.0...v1.15.1) (2026-11-20)
 
 
