@@ -1,0 +1,61 @@
+name: Publish Renovate notices
+
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] runs default-branch code; the artifact is committed as data only
+    workflows: [Generate Renovate notices]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+jobs:
+  publish:
+    if: >
+      github.repository == 'Mokto/opengeocoding'
+      && github.event.workflow_run.event == 'pull_request'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_repository.id == github.event.repository.id
+      && startsWith(github.event.workflow_run.head_branch, 'renovate/')
+    runs-on: ubuntu-24.04
+    env:
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      ARTIFACT: notices-${{ github.event.workflow_run.run_attempt }}
+    steps:
+      - name: Verify current Renovate PR and find notices
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prs=$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+            -f state=open -f base=main -f head="${GITHUB_REPOSITORY_OWNER}:$BRANCH")
+          if ! jq -e --arg sha "$HEAD_SHA" --arg repo "$GITHUB_REPOSITORY" \
+            'any(.[]; .user.id == 29139614 and .head.sha == $sha and .head.repo.full_name == $repo)' \
+            <<< "$prs" > /dev/null; then
+            exit 0
+          fi
+          artifact=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" \
+            -f name="$ARTIFACT" --jq '.artifacts[] | select(.expired == false) | .id')
+          if [[ -n $artifact ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.find.outputs.ready == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: steps.find.outputs.ready == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.ARTIFACT }}
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/renovate-notices
+      - if: steps.find.outputs.ready == 'true'
+        name: Commit notices
+        env:
+          # Pushes with GITHUB_TOKEN would not rerun the other PR checks.
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: bash .github/scripts/publish-renovate-notices.sh "$BRANCH" "$HEAD_SHA" "$RUNNER_TEMP/renovate-notices/THIRD_PARTY_NOTICES.txt"
