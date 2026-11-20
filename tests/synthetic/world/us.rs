@@ -1405,6 +1405,17 @@ pub const STREETS: &[Street] = &[
         lat: 33.7,
         numbers: &["1", "3"],
     },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "State Route 84",
+        postcode: "60001",
+        city: "Bayport",
+        cc: "US",
+        lon: -89.601,
+        lat: 40.301,
+        numbers: &["23-17"],
+    },
     // One segment of Levee Road holds 75465 (number 172) and 75466 (number 170); most of 75465 is
     // Gin Road's, so its centre is 6.7 km from them, like a town-wide Brazilian CEP.
     Street {
@@ -1512,6 +1523,14 @@ pub fn cases() -> Vec<Case> {
         ),
         case(
             "14 Meadow Rd #27, Bayport, IL, 60001-4321, USA",
+            at_house("Meadow Road", "14"),
+        ),
+        case(
+            "23-17 IL-84, 2B, Bayport, IL, 60001-4321",
+            at_house("State Route 84", "23-17"),
+        ),
+        case(
+            "14 Meadow Rd, Suite 27 and 28, Bayport, IL, 60001-4321",
             at_house("Meadow Road", "14"),
         ),
         // France has this street, Texas has not: the town in Texas, never the French street

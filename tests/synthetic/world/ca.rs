@@ -658,6 +658,11 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
             "7",
         ),
         (
+            "7 Pine Ridge Rd, Studio 27, Delhi, ON, N0B1A0",
+            "Pine Ridge Road",
+            "7",
+        ),
+        (
             "7 Pine Ridge Rd #27, Delhi, ON, N0B 1A0, Canada",
             "Pine Ridge Road",
             "7",

@@ -1564,17 +1564,21 @@ impl Core {
         if !found.good_match
             && let Some(building) = ca_us::building(query)
         {
-            let alt = self.resolve_written(&building.query)?;
-            if alt.good_match
-                && same_house_number(&alt, building.number)
-                && alt.address_details.as_option().is_some_and(|d| {
-                    d.country_code == building.country
-                        && d.region_codes.iter().any(|c| c.code == building.region)
-                        && postcode_agrees(&building.postcode, Some(d))
-                        && roads_agree(&building.road, &d.road)
-                })
+            for (query, road) in std::iter::once((building.query.clone(), building.road.clone()))
+                .chain(building.road_aliases())
             {
-                return Ok(alt);
+                let alt = self.resolve_written(&query)?;
+                if alt.good_match
+                    && same_house_number(&alt, building.number)
+                    && alt.address_details.as_option().is_some_and(|d| {
+                        d.country_code == building.country
+                            && d.region_codes.iter().any(|c| c.code == building.region)
+                            && postcode_agrees(&building.postcode, Some(d))
+                            && roads_agree(&road, &d.road)
+                    })
+                {
+                    return Ok(alt);
+                }
             }
         }
         if let Some((turned, number)) = crate::index::number_last(query) {

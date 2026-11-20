@@ -11,10 +11,25 @@ fn zip_code(text: &str) -> Option<&str> {
 
 fn before_unit(text: &str) -> Option<&str> {
     static UNIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?i-u)(?:^| )(?:(?:apt|apartment|unit|ste|suite|lot|rm|room|bldg|trlr|spc|#)\.? |#)[a-z0-9-]{1,6}$")
+        Regex::new(r"(?i-u)(?:^|[ -])(?:(?:apt|apartment|unit|ste|suite|studio|lot|rm|room|bldg|trlr|spc)\.?[ -]+|#\s*)[a-z0-9-]{1,6}(?:(?: and | & )[a-z0-9-]{1,6})?$")
             .unwrap()
     });
-    UNIT.find(text).map(|unit| text[..unit.start()].trim_end())
+    UNIT.find(text)
+        .map(|unit| text[..unit.start()].trim_end_matches([' ', '-']))
+}
+
+fn bare_unit(text: &str) -> bool {
+    static UNIT: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i-u)^(?:[0-9]{1,4}[a-z]?|[a-z])$").unwrap());
+    UNIT.is_match(text)
+}
+
+fn civic_number(text: &str) -> bool {
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    digits(text)
+        || text
+            .split_once('-')
+            .is_some_and(|(a, b)| digits(a) && digits(b))
 }
 
 pub(crate) struct Building<'a> {
@@ -24,6 +39,40 @@ pub(crate) struct Building<'a> {
     pub region: String,
     pub postcode: String,
     pub country: &'static str,
+}
+
+impl Building<'_> {
+    pub(crate) fn road_aliases(&self) -> impl Iterator<Item = (String, String)> + '_ {
+        let region = self.region.split_once('-').map_or("", |(_, code)| code);
+        let names = road_aliases(&self.road, self.country, region);
+        names.into_iter().filter_map(|road| {
+            let (_, tail) = self.query.split_once(", ")?;
+            Some((format!("{} {road}, {tail}", self.number), road))
+        })
+    }
+}
+
+fn road_aliases(road: &str, country: &str, region: &str) -> Vec<String> {
+    if country == "us" {
+        let Some((prefix, route)) = road.split_once([' ', '-']) else {
+            return vec![];
+        };
+        let route = route.trim();
+        if prefix.eq_ignore_ascii_case(region)
+            && (1..=4).contains(&route.len())
+            && route.bytes().all(|b| b.is_ascii_digit())
+        {
+            return vec![
+                format!("State Route {route}"),
+                format!("State Highway {route}"),
+            ];
+        }
+    } else if let Some((prefix, name)) = road.split_once(' ')
+        && prefix.eq_ignore_ascii_case("chem.")
+    {
+        return vec![format!("Chemin {name}")];
+    }
+    vec![]
 }
 
 /// A street and town followed by a North American region code and postal code. Keep both
@@ -37,7 +86,7 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
         return None;
     };
     let (number, _) = street.split_once(char::is_whitespace)?;
-    if !number.bytes().all(|b| b.is_ascii_digit()) {
+    if !civic_number(number) {
         return None;
     }
     let (last, rest) = tail.split_last()?;
@@ -81,7 +130,8 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
     }
     let street = match rest {
         [_] => building.unwrap_or(street),
-        [unit, _] if building.is_none() && before_unit(unit) == Some("") => street,
+        [unit, _] if before_unit(unit) == Some("") => building.unwrap_or(street),
+        [unit, _] if building.is_none() && bare_unit(unit) => street,
         _ => return None,
     };
     let town = rest.last()?.trim();
