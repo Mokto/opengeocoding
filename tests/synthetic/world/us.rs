@@ -1024,6 +1024,42 @@ fn us_cdp_membership_follows_the_selected_house_not_the_offset_query() {
 
 pub const PLACES: &[Place] = &[
     place!(
+        "us-ny",
+        "region",
+        "",
+        "US",
+        "US-NY",
+        20_000_000,
+        (-75.0, 43.0),
+        "us",
+        "New York",
+        &[("en", "New York")],
+    ),
+    place!(
+        "us-ny-queens",
+        "locality",
+        "city",
+        "US",
+        "US-NY",
+        100_000,
+        (-73.8, 40.7),
+        "us-ny",
+        "Queens",
+        &[("en", "Queens")],
+    ),
+    place!(
+        "us-ny-queens-bracken",
+        "neighborhood",
+        "",
+        "US",
+        "US-NY",
+        0,
+        (-73.801, 40.701),
+        "us-ny-queens",
+        "Bracken Grove",
+        &[("en", "Bracken Grove")],
+    ),
+    place!(
         "us-tx-alderhaven",
         "locality",
         "town",
@@ -1273,6 +1309,17 @@ pub const STREETS: &[Street] = &[
     Street {
         class: "residential",
         length: 0.0,
+        name: "Blue Cedar Lane",
+        postcode: "11301",
+        city: "Queens",
+        cc: "US",
+        lon: -73.801,
+        lat: 40.701,
+        numbers: &["43-28"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
         name: "Ranking Lane",
         postcode: "75498",
         city: "Paris",
@@ -1476,6 +1523,18 @@ pub const STREETS: &[Street] = &[
     },
 ];
 
+pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
+    for query in [
+        "4328 BlueCedar Lane, Buffalo, NY, 11301",
+        "4328 BlueCedar Lane, Bracken Grove, NY, 11302",
+        "4329 BlueCedar Lane, Bracken Grove, NY, 11301",
+        "4328 BlueCedar Court, Bracken Grove, NY, 11301",
+    ] {
+        let got = resolver.resolve(query).await.unwrap();
+        assert!(!got.good_match);
+    }
+}
+
 pub fn cases() -> Vec<Case> {
     vec![
         case("United States-Texas-Paris", town("us-tx-paris", true)),
@@ -1507,6 +1566,14 @@ pub fn cases() -> Vec<Case> {
         case(
             "North Ashford, Georgia, United States",
             town("us-ga-north-alderhaven", true),
+        ),
+        case(
+            "4328 BlueCedar Lane, Bracken Grove, NY, 11301",
+            at_house("Blue Cedar Lane", "43-28"),
+        ),
+        case(
+            "4328 Blue Cedar Lane, Queens, NY 11301, United States",
+            at_house("Blue Cedar Lane", "43-28"),
         ),
         named("Jackson County, Missouri", "us", "", &["US-MO"], true),
         // a metro label the caller does not drop reaches its first town, never confidently

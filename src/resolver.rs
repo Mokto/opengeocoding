@@ -1570,7 +1570,11 @@ impl Core {
                     .iter()
                     .filter(|road| !road.eq_ignore_ascii_case(&building.road)),
             ) {
-                let alt = self.resolve_written(&building.rewrite(road))?;
+                let rewritten = building.rewrite(road);
+                if rewritten == query {
+                    continue;
+                }
+                let alt = self.resolve_written(&rewritten)?;
                 if alt.good_match
                     && !alt.interpolated
                     && same_house_number(&alt, building.number)
@@ -1588,11 +1592,13 @@ impl Core {
             // indexed building confirmed by the complete postcode and locality can replace it.
             let pc = normalize_postcode(&building.postcode);
             let town = normalize_place(building.town);
-            let number = crate::index::schema::number_key(building.number);
+            let hyphenated = building.queens_number();
+            let mut numbers = vec![crate::index::schema::number_key(building.number)];
+            numbers.extend(hyphenated.iter().cloned());
             let names_road = |road: &str| ca_us::same_road_in_postcode(&building.road, road);
             let mut house: Option<FullAddress> = None;
             for hit in self.index.houses_numbered(
-                &[number],
+                &numbers,
                 &pc,
                 "",
                 false,
@@ -1601,17 +1607,27 @@ impl Core {
                 names_road,
             ) {
                 let alt = format_response(&hit)?;
-                if !same_house_number(&alt, building.number)
-                    || alt.address_details.as_option().is_none_or(|d| {
-                        d.country_code != building.country
-                            || !d.region_codes.iter().any(|r| r.code == building.region)
-                            || normalize_postcode(&d.postcode) != pc
-                            || !names_road(&d.road)
-                            || ![&d.city, &d.town, &d.village, &d.county, &d.suburb]
+                if !alt.address_details.as_option().is_some_and(|d| {
+                    d.country_code == building.country
+                        && d.region_codes.iter().any(|r| r.code == building.region)
+                        && normalize_postcode(&d.postcode) == pc
+                        && names_road(&d.road)
+                        && if same_house_number(&alt, building.number) {
+                            [&d.city, &d.town, &d.village, &d.county, &d.suburb]
                                 .into_iter()
                                 .any(|place| normalize_place(place) == town)
-                    })
-                {
+                        } else {
+                            hyphenated
+                                .as_deref()
+                                .is_some_and(|n| same_house_number(&alt, n))
+                                && [&d.city, &d.city_district, &d.borough]
+                                    .into_iter()
+                                    .any(|place| normalize_place(place) == "queens")
+                                && alt.geo_coordinates.as_option().is_some_and(|g| {
+                                    ca_us::queens_locality(&self.index, building.town, g.lat, g.lon)
+                                })
+                        }
+                }) {
                     continue;
                 }
                 if let Some(first) = &house {

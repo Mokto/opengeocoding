@@ -1568,6 +1568,7 @@ async fn resolve_follows_the_authored_facts() {
     world::pf::check_search(&resolver).await;
     world::nc::check_search(&resolver).await;
     world::ca::check_search(&resolver).await;
+    world::us::check_search(&resolver).await;
     world::id::check_admin_search(&resolver).await;
     // a Japanese town, district or road and its number, in either order
     for (road, number, query) in [
