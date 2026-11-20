@@ -469,6 +469,28 @@ pub const STREETS: &[Street] = &[
         lat: 42.858,
         numbers: &["7"],
     },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Hemlock Road East",
+        postcode: "N4B 1A8",
+        city: "Delhi",
+        cc: "CA",
+        lon: -80.477,
+        lat: 42.858,
+        numbers: &["18", "20"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
+        name: "Hemlock Road West",
+        postcode: "N4B 1A8",
+        city: "Delhi",
+        cc: "CA",
+        lon: -80.476,
+        lat: 42.858,
+        numbers: &["20"],
+    },
     // a possessive the source keeps and Canada Post's mailing form drops, and the other way
     Street {
         class: "residential",
@@ -678,6 +700,11 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
             "7",
         ),
         (
+            "18 Hemlock Road- Unit-C, Unit-C, Delhi, ON, N4B 1A8",
+            "Hemlock Road East",
+            "18",
+        ),
+        (
             "35 CLARKES HILLVIEW ST, DELHI, ON N4B 1A7, Canada",
             "Clarke's Hillview",
             "35",
@@ -717,6 +744,14 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
         !got.good_match,
         "a conflicting postcode is not a good match"
     );
+    for query in [
+        "20 Hemlock Road- Unit-C, Unit-C, Delhi, ON, N4B 1A8",
+        "18 Hemlock Road West- Unit-C, Unit-C, Delhi, ON, N4B 1A8",
+        "18 Hemlock Road- Unit-C, Unit-C, Delhi, ON, N4B 1A1",
+        "18 Hemlock Road- Unit-C, Unit-C, Toronto, ON, N4B 1A8",
+    ] {
+        assert!(!resolver.resolve(query).await.unwrap().good_match);
+    }
     // a province's code and postcode with no town: libpostal ran them into the road
     for query in [
         "18 Sydney WAY, PE C1B 4M4, Canada",

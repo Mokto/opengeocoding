@@ -140,6 +140,66 @@ impl Index {
             .collect()
     }
 
+    pub(crate) fn unique_canadian_house_in_postcode(
+        &self,
+        number: &str,
+        road: &str,
+        postcode: &str,
+        point: (f32, f32),
+    ) -> bool {
+        use tantivy::schema::Value as _;
+        let pc = pc_norm(postcode);
+        let mut clauses = self.musts(self.f.names, road);
+        if clauses.is_empty() {
+            return false;
+        }
+        clauses.push(must(term(self.f.pcode, &pc)));
+        let streets = self.top_of(Kind::Street, Some("ca"), clauses, 200);
+        if streets.len() == 200 {
+            return false;
+        }
+        let mut corroborated = false;
+        for a in streets {
+            let Ok(doc) = self.document(a) else {
+                return false;
+            };
+            if !doc
+                .get_all(self.f.name)
+                .filter_map(|v| v.as_str())
+                .any(|name| {
+                    country::ca_us::same_road_in_postcode(road, name)
+                        || country::ca_us::adds_direction(road, name)
+                })
+            {
+                continue;
+            }
+            let sid = self.fast(a, "id") as u32;
+            let mut key = sid.to_be_bytes().to_vec();
+            key.extend_from_slice(number.as_bytes());
+            let shard = sid as usize % self.numbers.len();
+            let codes: Vec<_> = doc
+                .get_all(self.f.pcode)
+                .filter_map(|v| v.as_str())
+                .collect();
+            for value in self.numbers[shard]
+                .get(&key)
+                .into_iter()
+                .chain(self.far[shard].as_ref().and_then(|map| map.get(&key)))
+            {
+                let (x, y, slot) = schema::unpack(value);
+                if slot > 0 && codes.get(usize::from(slot) - 1) != Some(&pc.as_str()) {
+                    continue;
+                }
+                if (x as f32, y as f32) != point {
+                    return false;
+                }
+                // A number without its own postcode is corroborated only on a single-code street.
+                corroborated |= slot > 0 || codes.as_slice() == [pc.as_str()];
+            }
+        }
+        corroborated
+    }
+
     /// The stored number and its record, under another [`letter_forms`] spelling when the
     /// written one is absent ("11d" for OSM's "11 d", "35a" for the register's "35/a").
     pub(super) fn house_record(&self, sid: u32, n: &str) -> Option<(String, u64)> {

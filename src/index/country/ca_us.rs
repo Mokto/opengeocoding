@@ -40,6 +40,7 @@ pub(crate) struct Building<'a> {
     pub postcode: String,
     pub country: &'static str,
     pub town: &'a str,
+    pub(crate) removed_unit: bool,
 }
 
 impl Building<'_> {
@@ -104,6 +105,30 @@ pub(crate) fn same_road_in_postcode(written: &str, indexed: &str) -> bool {
             .collect::<String>()
     };
     key(&written) == key(&indexed)
+}
+
+pub(crate) fn adds_direction(written: &str, indexed: &str) -> bool {
+    use crate::index::canon::canon;
+    let direction = |word: &str| {
+        matches!(
+            canon(word).unwrap_or(word),
+            "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw" | "o"
+        )
+    };
+    let written = normalize_place(written);
+    let indexed = normalize_place(indexed);
+    let words = |text: &str| {
+        text.split_whitespace()
+            .map(|w| canon(w).unwrap_or(w))
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    let mut typed = written.split_whitespace();
+    typed.next().is_some_and(|first| !direction(first))
+        && typed.next_back().is_some_and(|last| !direction(last))
+        && indexed
+            .rsplit_once(' ')
+            .is_some_and(|(stem, end)| direction(end) && words(stem) == words(&written))
 }
 
 fn road_aliases(road: &str, country: &str, region: &str) -> Vec<String> {
@@ -208,6 +233,7 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
         rest
     };
     let town = *rest.last()?;
+    let removed_unit = building.is_some() || rest.len() > 1;
     let street = match rest {
         [_] => building.unwrap_or(street),
         [unit, _] if before_unit(unit) == Some("") => building.unwrap_or(street),
@@ -234,6 +260,7 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
         postcode,
         country,
         town,
+        removed_unit,
     })
 }
 
