@@ -10,6 +10,8 @@ ignore = [
     { id = "RUSTSEC-2026-0391", reason = "affects stream::raw with_context only; connectrpc uses Decoder::new and bulk::Compressor::new" },
     { id = "RUSTSEC-2026-0398", reason = "affects Seekable::decompress; the seekable feature is not enabled" },
     { id = "RUSTSEC-2026-0403", reason = "affects stream::write::Decoder; connectrpc uses stream::read::Decoder, which the advisory lists as unaffected" },
+    { id = "RUSTSEC-2026-0542", reason = "maintenance-only advisory; remove when object_store drops humantime" },
+    { id = "RUSTSEC-2026-0543", reason = "maintenance-only advisory; remove when Arrow, Parquet and object_store drop chrono" },
 ]
 
 [licenses]
