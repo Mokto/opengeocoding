@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.15.1](https://github.com/Mokto/opengeocoding/compare/v1.15.0...v1.15.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* ignore the humantime and chrono maintenance advisories in cargo-deny ([#609](https://github.com/Mokto/opengeocoding/issues/609)) ([63fad78](https://github.com/Mokto/opengeocoding/commit/63fad78cfcf1089f26e8bc0040d2cff586a54343))
+* read hyphenated civic numbers, studio and compound suites, and US/CA road name variants ([#608](https://github.com/Mokto/opengeocoding/issues/608)) ([c44f69a](https://github.com/Mokto/opengeocoding/commit/c44f69a247c07a7da7b86b35bfb3c26b6fc64f49))
+* read repeated town and region around a unit, county roads, sideroads and run-together streets in US and Canadian addresses ([#610](https://github.com/Mokto/opengeocoding/issues/610)) ([ae8dcba](https://github.com/Mokto/opengeocoding/commit/ae8dcba84004034e158a88ef303fee816270f32f))
+* retry US and Canadian addresses with unit text, split region and postcode, or ZIP+4 ([#606](https://github.com/Mokto/opengeocoding/issues/606)) ([17c5d61](https://github.com/Mokto/opengeocoding/commit/17c5d613b88ebc02f5981e8aa058722dd00fa3b9))
+
 ## [1.15.0](https://github.com/Mokto/opengeocoding/compare/v1.14.3...v1.15.0) (2026-11-17)
 
 
