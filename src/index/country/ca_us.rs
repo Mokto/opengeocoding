@@ -43,6 +43,10 @@ pub(crate) struct Building<'a> {
 }
 
 impl Building<'_> {
+    pub(crate) fn queens_number(&self) -> Option<String> {
+        queens_number(self.number, &self.region)
+    }
+
     pub(crate) fn road_aliases(&self) -> Vec<String> {
         let region = self.region.split_once('-').map_or("", |(_, code)| code);
         road_aliases(&self.road, self.country, region)
@@ -52,6 +56,42 @@ impl Building<'_> {
         let (_, tail) = self.query.split_once(", ").expect("structured address");
         format!("{} {road}, {tail}", self.number)
     }
+}
+
+fn queens_number(number: &str, region: &str) -> Option<String> {
+    // Queens grid numbers have a two-digit building suffix: USPS Publication 28, Appendix D1.
+    if !region.eq_ignore_ascii_case("US-NY")
+        || !(4..=5).contains(&number.len())
+        || !number.bytes().all(|b| b.is_ascii_digit())
+    {
+        return None;
+    }
+    let (grid, house) = number.split_at(number.len() - 2);
+    Some(format!("{grid}-{house}"))
+}
+
+pub(crate) fn queens_locality(index: &super::super::Index, name: &str, lat: f32, lon: f32) -> bool {
+    use super::super::{Hit, name_key};
+    let key = name_key(name);
+    let queens = name_key("Queens");
+    if key == queens || key == name_key("New York") {
+        return true;
+    }
+    index
+        .places(name, Some("us"), None, &|p| {
+            p.region.as_ref() == "US-NY" && p.named(key)
+        })
+        .into_iter()
+        .any(|hit| {
+            let Hit::Place(id) = hit else { return false };
+            let p = &index.places[id as usize];
+            let km = ((p.x - lon) * lat.to_radians().cos()).hypot(p.y - lat) * 111.195;
+            km <= 3.
+                && index
+                    .chain(id)
+                    .into_iter()
+                    .any(|id| index.places[id as usize].named(queens))
+        })
 }
 
 pub(crate) fn same_road_in_postcode(written: &str, indexed: &str) -> bool {
@@ -152,10 +192,17 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
         return None;
     }
     let building = before_unit(street);
-    if joined && rest.len() == 1 && building.is_none() && !last.contains('-') {
+    let region = format!(
+        "{}-{}",
+        country.to_ascii_uppercase(),
+        region.to_ascii_uppercase()
+    );
+    let queens = queens_number(number, &region).is_some();
+    if joined && rest.len() == 1 && building.is_none() && !last.contains('-') && !queens {
         return None;
     }
-    let rest = if joined && rest.last().is_some_and(|p| p.eq_ignore_ascii_case(region)) {
+    let state = &region[3..];
+    let rest = if joined && rest.last().is_some_and(|p| p.eq_ignore_ascii_case(state)) {
         &rest[..rest.len() - 1]
     } else {
         rest
@@ -167,7 +214,7 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
         [unit, _] if building.is_none() && bare_unit(unit) => street,
         [repeated_town, repeated_region, unit, _]
             if normalize_place(repeated_town) == normalize_place(town)
-                && repeated_region.eq_ignore_ascii_case(region)
+                && repeated_region.eq_ignore_ascii_case(state)
                 && before_unit(unit) == Some("") =>
         {
             building.unwrap_or(street)
@@ -178,13 +225,12 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
     if !town.chars().any(char::is_alphabetic) || !road.chars().any(char::is_alphabetic) {
         return None;
     }
-    let region = region.to_ascii_uppercase();
-    let rewritten = format!("{street}, {town}, {region} {postcode}, {label}");
-    (rewritten != query).then(|| Building {
+    let rewritten = format!("{street}, {town}, {state} {postcode}, {label}");
+    (rewritten != query || queens).then(|| Building {
         query: rewritten,
         number,
         road: road.trim().to_owned(),
-        region: format!("{}-{region}", country.to_ascii_uppercase()),
+        region,
         postcode,
         country,
         town,
