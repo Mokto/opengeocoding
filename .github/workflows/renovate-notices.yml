@@ -1,0 +1,54 @@
+name: Generate Renovate notices
+
+on:
+  pull_request:
+    branches: [main]
+    paths: [Cargo.toml, Cargo.lock]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate-notices-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    if: >
+      github.repository == 'Mokto/opengeocoding'
+      && github.event.pull_request.user.id == 29139614
+      && github.event.pull_request.head.repo.id == github.event.repository.id
+      && startsWith(github.head_ref, 'renovate/')
+    runs-on: ubuntu-24.04
+    env:
+      LIBPOSTAL_COMMIT: 25099c506612b34b23b1bfe286ca6321fcf06f35
+      LIBPOSTAL_PREFIX: /home/runner/libpostal
+      LIBPOSTAL_MODELS: /home/runner/models
+      RUSTFLAGS: -L native=/home/runner/libpostal/lib
+      LD_LIBRARY_PATH: /home/runner/libpostal/lib
+      CARGO_PROFILE_DEV_DEBUG: 0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: $/.github/actions/libpostal-env
+      - name: Install Rust and Buf
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal
+          curl -fsSL --retry 3 https://github.com/bufbuild/buf/releases/download/v1.68.1/buf-Linux-x86_64 -o "$HOME/.cargo/bin/buf"
+          chmod +x "$HOME/.cargo/bin/buf"
+      - name: Generate notices
+        id: notices
+        run: |
+          cargo +1.99.1 run --locked --bin notices
+          if [[ -n $(git diff --name-only -- THIRD_PARTY_NOTICES.txt) ]]; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.notices.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: notices-${{ github.run_attempt }}
+          path: THIRD_PARTY_NOTICES.txt
+          if-no-files-found: error
+          retention-days: 1

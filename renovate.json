@@ -4,6 +4,7 @@
   "timezone": "Europe/Copenhagen",
   "schedule": ["before 6am on monday"],
   "minimumReleaseAge": "7 days",
+  "gitIgnoredAuthors": ["opengeocoding-notices-bot@users.noreply.github.com"],
   "vulnerabilityAlerts": { "schedule": ["at any time"], "minimumReleaseAge": null },
   "packageRules": [
     {
