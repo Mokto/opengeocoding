@@ -109,6 +109,7 @@ pub struct Index {
     us_cdps: Option<country::us::Boundaries>,
     /// Address ranges of US streets (`ranges`); absent from older indexes.
     us_ranges: Option<ranges::Ranges>,
+    us_listed_houses: Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
     polish_localities: Option<tantivy_fst::Map<tantivy::directory::OwnedBytes>>,
     /// Streets' lines, for a point with no house in range; absent like `reverse`.
     streets: Option<reverse::Streets>,
@@ -658,6 +659,15 @@ impl Index {
                 )?)))
             })
             .collect::<Result<_>>()?;
+        let us_listed_houses = if dir.join(country::us::LISTED_HOUSES).exists() {
+            use tantivy::directory::Directory;
+            let file = mmap.open_read(Path::new(country::us::LISTED_HOUSES))?;
+            Some(tantivy_fst::Map::from(tantivy_fst::raw::Fst::new(
+                file.read_bytes()?,
+            )?))
+        } else {
+            None
+        };
         let suburbs = if dir.join(country::au::SUBURBS_FILE).exists() {
             use tantivy::directory::Directory;
             let file = mmap.open_read(Path::new(country::au::SUBURBS_FILE))?;
@@ -911,6 +921,7 @@ impl Index {
             us_municipalities,
             us_cdps,
             us_ranges,
+            us_listed_houses,
             polish_localities,
             streets,
             places,

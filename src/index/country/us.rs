@@ -7,6 +7,55 @@ pub const MUNICIPALITIES_FILE: &str = "us-municipalities.bin";
 pub const MUNICIPALITIES_LABELS: &str = "us-municipalities.json";
 pub const CDPS_FILE: &str = "us-cdps.bin";
 pub const CDPS_LABELS: &str = "us-cdps.json";
+pub const LISTED_HOUSES: &str = "us-listed-houses.fst";
+
+pub fn listed_civic(text: &str) -> Option<(&str, &str)> {
+    let text = text.trim();
+    let civic = super::ca_us::before_unit(text)
+        .map(|s| s.trim_end_matches(',').trim_end())
+        .unwrap_or(text);
+    let (number, road) = civic.split_once(char::is_whitespace)?;
+    let road = road.trim();
+    (!road.contains(',') && road.chars().next().is_some_and(char::is_alphabetic))
+        .then_some((number, road))
+}
+
+pub fn listed_house_key<'a>(
+    number: &str,
+    road: &str,
+    locality: &str,
+    region: &str,
+    postcode: &'a str,
+) -> Option<(String, &'a str)> {
+    let zip = super::ca_us::zip_code(postcode)?;
+    let extension = postcode.strip_prefix(zip)?.trim_start_matches('-');
+    let region = region.strip_prefix("US-").unwrap_or(region);
+    if region.len() != 2
+        || !region.bytes().all(|b| b.is_ascii_alphabetic())
+        || !(1..=6).contains(&number.len())
+        || number.starts_with('0')
+        || !number.bytes().all(|b| b.is_ascii_digit())
+        || !(1..=96).contains(&road.len())
+        || !(1..=96).contains(&locality.len())
+        || [road, locality]
+            .iter()
+            .any(|s| s.chars().any(char::is_control))
+    {
+        return None;
+    }
+    let city = crate::matching::normalize_place(locality);
+    let road = schema::fold(road);
+    if city.is_empty() || !road.contains(' ') {
+        return None;
+    }
+    Some((
+        format!(
+            "{}\t{zip}\t{city}\t{road}\t{number}",
+            region.to_ascii_uppercase()
+        ),
+        extension,
+    ))
+}
 
 pub(in crate::index) struct Boundaries {
     areas: area::Areas,

@@ -19,6 +19,7 @@ mod poland;
 mod progress;
 mod sources;
 mod store;
+mod us_listings;
 mod us_municipalities;
 mod us_ranges;
 
@@ -2473,6 +2474,13 @@ fn build(args: &[String]) {
             us_ranges::write(Path::new(out), Path::new(dir)).expect("US Census address ranges");
         lap(&format!(
             "US address ranges ({segments} segments, {counties} counties)"
+        ));
+    }
+    if dir.join("place").is_dir() {
+        let listed = us_listings::write(&dir.join("place"), Path::new(out), &assigner, &places)
+            .expect("US corroborated place addresses");
+        lap(&format!(
+            "US corroborated place addresses ({listed} buildings)"
         ));
     }
     let street_spill = StreetSpill::new(&Path::new(out).join(reverse::STREETS_SPILL));
