@@ -705,6 +705,11 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
             "18",
         ),
         (
+            "P.O. Box 526, 7 Pine Ridge Road, Delhi, ON N0B 1A0, Canada",
+            "Pine Ridge Road",
+            "7",
+        ),
+        (
             "35 CLARKES HILLVIEW ST, DELHI, ON N4B 1A7, Canada",
             "Clarke's Hillview",
             "35",
@@ -749,6 +754,10 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
         "18 Hemlock Road West- Unit-C, Unit-C, Delhi, ON, N4B 1A8",
         "18 Hemlock Road- Unit-C, Unit-C, Delhi, ON, N4B 1A1",
         "18 Hemlock Road- Unit-C, Unit-C, Toronto, ON, N4B 1A8",
+        "PO Box 7, Pine Ridge Road, Delhi, ON N0B 1A0, Canada",
+        "PO Box 526, 8 Pine Ridge Road, Delhi, ON N0B 1A0, Canada",
+        "PO Box 526, 7 Pine Ridge Road, Delhi, ON N0B 1A2, Canada",
+        "PO Box 526, 7 Pine Ridge Road, Toronto, ON N0B 1A0, Canada",
     ] {
         assert!(!resolver.resolve(query).await.unwrap().good_match);
     }

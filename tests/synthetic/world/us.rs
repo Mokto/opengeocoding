@@ -1604,6 +1604,10 @@ pub fn cases() -> Vec<Case> {
             at_house("Meadow Road", "14"),
         ),
         case(
+            "PO Box 526, 14 Meadow Rd #27, Bayport, IL, 60001-4321, USA",
+            at_house("Meadow Road", "14"),
+        ),
+        case(
             "23-17 IL-84, 2B, Bayport, IL, 60001-4321",
             at_house("State Route 84", "23-17"),
         ),

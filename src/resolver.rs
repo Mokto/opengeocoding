@@ -1558,6 +1558,27 @@ impl Core {
                 .as_option()
                 .is_some_and(|d| !d.house_number.is_empty())
         };
+        if !found.good_match
+            && let Some(building) = ca_us::building_after_box(query)
+        {
+            let alt = self.resolve_written(&building.query)?;
+            if alt.good_match
+                && !alt.interpolated
+                && (!has_house(&found) || found.geo_coordinates == alt.geo_coordinates)
+                && same_house_number(&alt, building.number)
+                && alt.address_details.as_option().is_some_and(|d| {
+                    d.country_code == building.country
+                        && d.region_codes.iter().any(|r| r.code == building.region)
+                        && normalize_postcode(&d.postcode) == normalize_postcode(&building.postcode)
+                        && ca_us::same_road_in_postcode(&building.road, &d.road)
+                        && [&d.city, &d.town, &d.village, &d.municipality, &d.suburb]
+                            .into_iter()
+                            .any(|place| normalize_place(place) == normalize_place(building.town))
+                })
+            {
+                return Ok(alt);
+            }
+        }
         if has_house(&found) {
             return Ok(found);
         }
