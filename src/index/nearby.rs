@@ -103,11 +103,45 @@ impl Index {
         use super::country::{ca_us, us};
         let houses = self.us_listed_houses.as_ref()?;
         let b = ca_us::complete_building(query)?;
-        let extension = b.zip4?;
-        let (mut key, _) = us::listed_house_key(b.number, &b.road, b.town, &b.region, &b.postcode)?;
-        key.push('\t');
-        key.push_str(extension);
-        let hit = houses.get(&key)?;
+        if b.country != "us" || (b.zip4.is_none() && !b.removed_unit) {
+            return None;
+        }
+        let lookup = |road: &str| {
+            let (mut key, _) =
+                us::listed_house_key(b.number, road, b.town, &b.region, &b.postcode)?;
+            if let Some(extension) = b.zip4 {
+                key.push('\t');
+                key.push_str(extension);
+            }
+            houses.get(&key)
+        };
+        let number = b.number.parse().ok()?;
+        let range = |road: &str| self.us_range_point(&b.postcode, road, number);
+        let route;
+        let (written_road, hit) = if let Some(hit) = lookup(&b.road) {
+            (b.road.as_str(), hit)
+        } else {
+            if b.zip4.is_some() {
+                return None;
+            }
+            route = us::listed_state_route(&b.road, &b.region)?;
+            let hit = lookup(&route)?;
+            let (_, n) = route.rsplit_once(' ')?;
+            if [
+                "US Highway",
+                "US Route",
+                "County Road",
+                "County Route",
+                "CR",
+            ]
+            .into_iter()
+            .map(|prefix| format!("{prefix} {n}"))
+            .any(|other| lookup(&other).is_some() || range(&other).is_some())
+            {
+                return None;
+            }
+            (route.as_str(), hit)
+        };
         let (lon, lat) = (
             f32::from_bits((hit >> 32) as u32),
             f32::from_bits(hit as u32),
@@ -122,7 +156,15 @@ impl Index {
         if d["ISO3166-2-lvl4"] != b.region {
             return None;
         }
-        let road = super::schema::fold(&b.road);
+        let agrees_with_range = || {
+            let (range_y, range_x) = range(written_road)?;
+            let metres = 111_195.0 * ((x - range_x) * y.to_radians().cos()).hypot(y - range_y);
+            (metres <= 150.0).then_some(())
+        };
+        if b.zip4.is_none() {
+            agrees_with_range()?;
+        }
+        let road = super::schema::fold(written_road);
         let named = self
             .reverse_streets(y, x, 150.0, 12)
             .into_iter()
@@ -133,23 +175,25 @@ impl Index {
         let road = if let Some(name) = &named {
             name
         } else {
-            let (range_y, range_x) =
-                self.us_range_point(&b.postcode[..5], &b.road, b.number.parse().ok()?)?;
-            if 111_195.0 * ((x - range_x) * y.to_radians().cos()).hypot(y - range_y) > 150.0 {
-                return None;
+            if b.zip4.is_some() {
+                agrees_with_range()?;
             }
-            &b.road
+            written_road
         };
+        let postcode = b.zip4.map_or_else(
+            || b.postcode.clone(),
+            |zip4| format!("{}-{zip4}", b.postcode),
+        );
         let (state, country) = (d["state"].as_str()?, d["country"].as_str()?);
         Some(json!({
             "lat": lat,
             "lon": lon,
-            "display_name": format!("{} {road}, {}, {state} {}-{extension}, {country}", b.number, b.town, b.postcode),
+            "display_name": format!("{} {road}, {}, {state} {postcode}, {country}", b.number, b.town),
             "address": {
                 "house_number": b.number,
                 "road": road,
                 "city": b.town,
-                "postcode": format!("{}-{extension}", b.postcode),
+                "postcode": postcode,
                 "state": state,
                 "county": d["county"].as_str().unwrap_or_default(),
                 "country": country,
