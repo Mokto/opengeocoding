@@ -3,13 +3,13 @@ use crate::matching::{country_named, normalize_place, normalize_postcode};
 use regex::Regex;
 use std::sync::LazyLock;
 
-fn zip_code(text: &str) -> Option<&str> {
+pub(super) fn zip_code(text: &str) -> Option<&str> {
     let (zip, extension) = text.split_once('-').unwrap_or((text, ""));
     let digits = |s: &str, len| s.len() == len && s.bytes().all(|b| b.is_ascii_digit());
     (digits(zip, 5) && (text == zip || digits(extension, 4))).then_some(zip)
 }
 
-fn before_unit(text: &str) -> Option<&str> {
+pub(super) fn before_unit(text: &str) -> Option<&str> {
     static UNIT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?i-u)(?:^|[ -])(?:(?:apt|apartment|unit|ste|suite|studio|lot|rm|room|bldg|build|trlr|spc)\.?[ -]+|#\s*)[a-z0-9-]{1,6}(?:(?: and | & )[a-z0-9-]{1,6})?$")
             .unwrap()
@@ -38,6 +38,7 @@ pub(crate) struct Building<'a> {
     pub road: String,
     pub region: String,
     pub postcode: String,
+    pub zip4: Option<&'a str>,
     pub country: &'static str,
     pub town: &'a str,
     pub(crate) removed_unit: bool,
@@ -180,7 +181,11 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
     parse_building(query, false)
 }
 
-fn parse_building(query: &str, after_box: bool) -> Option<Building<'_>> {
+pub(crate) fn complete_building(query: &str) -> Option<Building<'_>> {
+    parse_building(query, true)
+}
+
+fn parse_building(query: &str, complete: bool) -> Option<Building<'_>> {
     if !query.trim_start().starts_with(|c: char| c.is_ascii_digit()) {
         return None;
     }
@@ -221,6 +226,7 @@ fn parse_building(query: &str, after_box: bool) -> Option<Building<'_>> {
         .split_once(char::is_whitespace)
         .filter(|(part, _)| part.eq_ignore_ascii_case(region))
         .map_or(postcode, |(_, code)| code.trim());
+    let zip4 = postcode.split_once('-').map(|(_, z)| z);
     let (country, label, postcode) = if ca::province_and_postcode(&format!("{region} {postcode}")) {
         let compact = normalize_postcode(postcode).to_ascii_uppercase();
         (
@@ -246,7 +252,7 @@ fn parse_building(query: &str, after_box: bool) -> Option<Building<'_>> {
         && building.is_none()
         && !last.contains('-')
         && !queens
-        && !after_box
+        && !complete
     {
         return None;
     }
@@ -276,12 +282,13 @@ fn parse_building(query: &str, after_box: bool) -> Option<Building<'_>> {
         return None;
     }
     let rewritten = format!("{street}, {town}, {state} {postcode}, {label}");
-    (rewritten != query || queens || after_box).then(|| Building {
+    (rewritten != query || queens || complete).then(|| Building {
         query: rewritten,
         number,
         road: road.trim().to_owned(),
         region,
         postcode,
+        zip4: zip4.filter(|_| country == "us"),
         country,
         town,
         removed_unit,
@@ -290,7 +297,23 @@ fn parse_building(query: &str, after_box: bool) -> Option<Building<'_>> {
 
 #[cfg(test)]
 mod tests {
-    use super::building;
+    use super::{building, complete_building};
+
+    #[test]
+    fn keeps_the_delivery_extension_separate_from_the_civic_search_zip() {
+        let b = complete_building("14 Meadow Rd, Suite 27, Bayport, IL, 60001-4321").unwrap();
+        assert_eq!(
+            (
+                b.number,
+                b.road.as_str(),
+                b.town,
+                b.postcode.as_str(),
+                b.zip4
+            ),
+            ("14", "Meadow Rd", "Bayport", "60001", Some("4321"))
+        );
+        assert!(complete_building("14 Meadow Rd, Bayport, IL 60001-4321, Canada").is_none());
+    }
 
     #[test]
     fn normalizes_only_addresses_with_a_compatible_country() {

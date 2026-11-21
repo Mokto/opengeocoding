@@ -99,8 +99,68 @@ impl Index {
             .collect()
     }
 
-    /// The streets within `radius_m` of a point, nearest first, each at its point nearest it,
-    /// with the distance in metres and the postcode of the street's house nearest that point.
+    pub(crate) fn us_listed_house(&self, query: &str) -> Option<Value> {
+        use super::country::{ca_us, us};
+        let houses = self.us_listed_houses.as_ref()?;
+        let b = ca_us::complete_building(query)?;
+        let extension = b.zip4?;
+        let (mut key, _) = us::listed_house_key(b.number, &b.road, b.town, &b.region, &b.postcode)?;
+        key.push('\t');
+        key.push_str(extension);
+        let hit = houses.get(&key)?;
+        let (lon, lat) = (
+            f32::from_bits((hit >> 32) as u32),
+            f32::from_bits(hit as u32),
+        );
+        if !(-180.0..=180.0).contains(&lon) || !(-90.0..=90.0).contains(&lat) {
+            return None;
+        }
+        let (y, x) = (f64::from(lat), f64::from(lon));
+        let (area, _) = self.area_at(y, x);
+        let region = self.render(&Hit::Place(area?), true);
+        let d = &region["address"];
+        if d["ISO3166-2-lvl4"] != b.region {
+            return None;
+        }
+        let road = super::schema::fold(&b.road);
+        let named = self
+            .reverse_streets(y, x, 150.0, 12)
+            .into_iter()
+            .find_map(|(v, _)| {
+                let name = v["address"]["road"].as_str()?;
+                (super::schema::fold(name) == road).then(|| name.to_owned())
+            });
+        let road = if let Some(name) = &named {
+            name
+        } else {
+            let (range_y, range_x) =
+                self.us_range_point(&b.postcode[..5], &b.road, b.number.parse().ok()?)?;
+            if 111_195.0 * ((x - range_x) * y.to_radians().cos()).hypot(y - range_y) > 150.0 {
+                return None;
+            }
+            &b.road
+        };
+        let (state, country) = (d["state"].as_str()?, d["country"].as_str()?);
+        Some(json!({
+            "lat": lat,
+            "lon": lon,
+            "display_name": format!("{} {road}, {}, {state} {}-{extension}, {country}", b.number, b.town, b.postcode),
+            "address": {
+                "house_number": b.number,
+                "road": road,
+                "city": b.town,
+                "postcode": format!("{}-{extension}", b.postcode),
+                "state": state,
+                "county": d["county"].as_str().unwrap_or_default(),
+                "country": country,
+                "country_code": "us",
+                "ISO3166-2-lvl4": b.region,
+            },
+        }))
+    }
+
+    /// The named street lines nearest a point, with the distance in metres and the postcode
+    /// of the street's house nearest that point.
     // ponytail: rings grow by the smaller side of a street cell, as in `reverse_houses`.
     fn reverse_streets(&self, lat: f64, lon: f64, radius_m: f64, size: usize) -> Vec<(Value, f64)> {
         use tantivy::schema::Value as _;

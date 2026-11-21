@@ -255,6 +255,13 @@ impl Resolver {
                 {
                     found = FullAddress::default();
                 }
+                if found.geo_coordinates.as_option().is_none()
+                    && let Some(hit) = core.index.us_listed_house(&query)
+                {
+                    found = format_response(&hit)?;
+                    found.good_match = true;
+                    METRICS.tiers.with_label_values(&["us_listed_house"]).inc();
+                }
                 name_district_city(&core.index, &mut found);
                 Ok(found)
             })
