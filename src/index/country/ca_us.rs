@@ -42,6 +42,7 @@ pub(crate) struct Building<'a> {
     pub country: &'static str,
     pub town: &'a str,
     pub(crate) removed_unit: bool,
+    repeated_locality: bool,
 }
 
 impl Building<'_> {
@@ -52,6 +53,35 @@ impl Building<'_> {
     pub(crate) fn road_aliases(&self) -> Vec<String> {
         let region = self.region.split_once('-').map_or("", |(_, code)| code);
         road_aliases(&self.road, self.country, region)
+    }
+
+    pub(crate) fn trailing_us_direction(&self) -> Option<String> {
+        use crate::index::canon::canon;
+        if self.country != "us" || !self.repeated_locality {
+            return None;
+        }
+        let (dir, road) = self.road.split_once(char::is_whitespace)?;
+        let dir = dir.to_ascii_lowercase();
+        let dir = canon(&dir).unwrap_or(&dir);
+        let (name, suffix) = road.trim().rsplit_once(char::is_whitespace)?;
+        let suffix = suffix.to_ascii_lowercase();
+        (matches!(dir, "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw")
+            && !name.trim().is_empty()
+            && matches!(
+                canon(&suffix).unwrap_or(&suffix),
+                "st" | "ave"
+                    | "rd"
+                    | "blvd"
+                    | "dr"
+                    | "ln"
+                    | "ct"
+                    | "pl"
+                    | "pkwy"
+                    | "cir"
+                    | "way"
+                    | "ter"
+            ))
+        .then(|| format!("{} {dir}", road.trim()))
     }
 
     pub(crate) fn rewrite(&self, road: &str) -> String {
@@ -292,6 +322,7 @@ fn parse_building(query: &str, complete: bool) -> Option<Building<'_>> {
         country,
         town,
         removed_unit,
+        repeated_locality: rest.len() == 4,
     })
 }
 

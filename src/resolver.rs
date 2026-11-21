@@ -1620,11 +1620,16 @@ impl Core {
                                             normalize_place(place) == normalize_place(building.town)
                                         })
                                     && alt.geo_coordinates.as_option().is_some_and(|g| {
-                                        self.index.unique_canadian_house_in_postcode(
+                                        self.index.unique_house_in_postcode(
                                             &crate::index::schema::number_key(building.number),
                                             road,
                                             &building.postcode,
+                                            building.country,
                                             (g.lon, g.lat),
+                                            |name| {
+                                                ca_us::same_road_in_postcode(road, name)
+                                                    || ca_us::adds_direction(road, name)
+                                            },
                                         )
                                     }))
                     })
@@ -1686,6 +1691,35 @@ impl Core {
             if let Some(mut house) = house {
                 house.good_match = true;
                 return Ok(house);
+            }
+            if let Some(road) = building.trailing_us_direction() {
+                let alt = self.resolve_written(&building.rewrite(&road))?;
+                let names_trailing = |name: &str| ca_us::same_road_in_postcode(&road, name);
+                if alt.good_match
+                    && !alt.interpolated
+                    && same_house_number(&alt, building.number)
+                    && alt.address_details.as_option().is_some_and(|d| {
+                        d.country_code == building.country
+                            && d.region_codes.iter().any(|r| r.code == building.region)
+                            && normalize_postcode(&d.postcode) == pc
+                            && names_trailing(&d.road)
+                            && [&d.city, &d.town, &d.village, &d.municipality, &d.suburb]
+                                .into_iter()
+                                .any(|place| normalize_place(place) == town)
+                    })
+                    && alt.geo_coordinates.as_option().is_some_and(|g| {
+                        self.index.unique_house_in_postcode(
+                            &numbers[0],
+                            &road,
+                            &pc,
+                            building.country,
+                            (g.lon, g.lat),
+                            |name| names_road(name) || names_trailing(name),
+                        )
+                    })
+                {
+                    return Ok(alt);
+                }
             }
         }
         if let Some((turned, number)) = crate::index::number_last(query) {

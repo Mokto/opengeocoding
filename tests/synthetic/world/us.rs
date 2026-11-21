@@ -1399,6 +1399,17 @@ pub const STREETS: &[Street] = &[
     Street {
         class: "residential",
         length: 0.0,
+        name: "Hemlock Street North",
+        postcode: "60001",
+        city: "Bayport",
+        cc: "US",
+        lon: -89.603,
+        lat: 40.302,
+        numbers: &["31"],
+    },
+    Street {
+        class: "residential",
+        length: 0.0,
         name: "Meadow Road",
         postcode: "60001",
         city: "Bayport",
@@ -1529,6 +1540,11 @@ pub async fn check_search(resolver: &opengeocoding::resolver::Resolver) {
         "4328 BlueCedar Lane, Bracken Grove, NY, 11302",
         "4329 BlueCedar Lane, Bracken Grove, NY, 11301",
         "4328 BlueCedar Court, Bracken Grove, NY, 11301",
+        "31 South Hemlock St, Bayport, IL, Suite 7, Bayport, IL, 60001-2110",
+        "31 North Hemlock St, Paris, IL, Suite 7, Bayport, IL, 60001-2110",
+        "31 North Hemlock St, Bayport, IN, Suite 7, Bayport, IL, 60001-2110",
+        "31 North Hemlock St, Bayport, IL, Suite 7, Bayport, IL, 60002-2110",
+        "32 North Hemlock St, Bayport, IL, Suite 7, Bayport, IL, 60001-2110",
     ] {
         let got = resolver.resolve(query).await.unwrap();
         assert!(!got.good_match);
@@ -1594,6 +1610,10 @@ pub fn cases() -> Vec<Case> {
         case(
             "102 Main Street, Paris, Texas",
             at_house("Main Street", "102"),
+        ),
+        case(
+            "31 North Hemlock St, Bayport, IL, Suite 7, Bayport, IL, 60001-2110",
+            at_house("Hemlock Street North", "31"),
         ),
         case(
             "14 Meadow Rd, Suite 27, Bayport, IL, 60001-4321",
