@@ -1582,7 +1582,23 @@ impl Core {
                         d.country_code == building.country
                             && d.region_codes.iter().any(|c| c.code == building.region)
                             && postcode_agrees(&building.postcode, Some(d))
-                            && roads_agree(road, &d.road)
+                            && (roads_agree(road, &d.road)
+                                || building.country == "ca"
+                                    && building.removed_unit
+                                    && ca_us::adds_direction(road, &d.road)
+                                    && [&d.city, &d.town, &d.village, &d.municipality]
+                                        .into_iter()
+                                        .any(|place| {
+                                            normalize_place(place) == normalize_place(building.town)
+                                        })
+                                    && alt.geo_coordinates.as_option().is_some_and(|g| {
+                                        self.index.unique_canadian_house_in_postcode(
+                                            &crate::index::schema::number_key(building.number),
+                                            road,
+                                            &building.postcode,
+                                            (g.lon, g.lat),
+                                        )
+                                    }))
                     })
                 {
                     return Ok(alt);
