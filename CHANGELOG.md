@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.15.3](https://github.com/Mokto/opengeocoding/compare/v1.15.2...v1.15.3) (2026-11-21)
+
+
+### Bug Fixes
+
+* find Canadian addresses whose street lost its trailing direction when a unit was removed ([#616](https://github.com/Mokto/opengeocoding/issues/616)) ([df47dac](https://github.com/Mokto/opengeocoding/commit/df47dac7233c96cf37a017acfa1d5b03280e03ca))
+* find Queens addresses whose civic number is written without its hyphen ([#613](https://github.com/Mokto/opengeocoding/issues/613)) ([69cef8c](https://github.com/Mokto/opengeocoding/commit/69cef8c4dd1b6006b8be4a573c54978e8fcde25b))
+* find US and Canadian addresses written after a separate P.O. Box component ([#617](https://github.com/Mokto/opengeocoding/issues/617)) ([93c199b](https://github.com/Mokto/opengeocoding/commit/93c199b6e031582dea48b6075388388182542355))
+* find US buildings by ZIP+4 from corroborated Overture Places listings ([#618](https://github.com/Mokto/opengeocoding/issues/618)) ([aeac349](https://github.com/Mokto/opengeocoding/commit/aeac34908f4473d9626866a1b7e15ea1a5355d33))
+* find US buildings with a unit and a ZIP5 from corroborated Overture Places listings ([#619](https://github.com/Mokto/opengeocoding/issues/619)) ([80e20be](https://github.com/Mokto/opengeocoding/commit/80e20be9b423168b74ce753b06aead7ae7698f34))
+* find US buildings written with a repeated town and region and a direction before the street ([#620](https://github.com/Mokto/opengeocoding/issues/620)) ([c672582](https://github.com/Mokto/opengeocoding/commit/c672582e06effea34d7d1ded5575b78784896119))
+
 ## [1.15.2](https://github.com/Mokto/opengeocoding/compare/v1.15.1...v1.15.2) (2026-11-20)
 
 
