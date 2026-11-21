@@ -8,6 +8,7 @@ pub const MUNICIPALITIES_LABELS: &str = "us-municipalities.json";
 pub const CDPS_FILE: &str = "us-cdps.bin";
 pub const CDPS_LABELS: &str = "us-cdps.json";
 pub const LISTED_HOUSES: &str = "us-listed-houses.fst";
+pub const LISTED_FOOTPRINT_SUFFIX: &str = "\tbuilding";
 
 pub fn listed_civic(text: &str) -> Option<(&str, &str)> {
     let text = text.trim();

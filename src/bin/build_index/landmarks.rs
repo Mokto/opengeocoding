@@ -6,7 +6,8 @@ use super::{
     NAME_SEP, cell,
     geo::Assigner,
     progress::Progress,
-    sources::{Counted, files, for_blobs, layout, pack, unpack},
+    sources::{Collect, Counted, files, for_blobs, layout, pack, unpack},
+    us_listings::{Footprints, addressed_ways},
 };
 use osmpbf::{PrimitiveBlock, RelMemberType};
 use rayon::prelude::*;
@@ -382,15 +383,37 @@ impl Scan {
 }
 
 /// The landmarks of an extract read for them alone (`--osm-landmarks`).
-fn read_file(path: &Path, file: u32) -> Vec<Landmark> {
+fn read_file(path: &Path, file: u32, footprints: bool) -> (Vec<Landmark>, Footprints) {
     let (offsets, first_way, first_relation) = layout(path);
     let mut scan = Scan::default();
     let all = first_relation..offsets.len();
     for_blobs(path, &offsets, all, || (), |_, b| scan.relations(&b));
     scan.relations_read();
     let ways = first_way..first_relation;
-    for_blobs(path, &offsets, ways, || (), |_, b| scan.ways(&b));
-    let needed = scan.ways_read();
+    let addressed = Mutex::new(Vec::new());
+    for_blobs(
+        path,
+        &offsets,
+        ways,
+        || Collect(Vec::new(), &addressed),
+        |out, b| {
+            scan.ways(&b);
+            if footprints
+                && path
+                    .file_name()
+                    .is_some_and(|name| name == "us-latest.osm.pbf")
+            {
+                out.0.extend(addressed_ways(&b));
+            }
+        },
+    );
+    let addressed = addressed.into_inner().unwrap();
+    let mut needed = scan.ways_read();
+    if !addressed.is_empty() {
+        needed.extend(addressed.iter().flat_map(|(_, refs)| refs));
+        needed.sort_unstable();
+        needed.dedup();
+    }
     let coords: Vec<AtomicU64> = (0..needed.len())
         .map(|_| AtomicU64::new(u64::MAX))
         .collect();
@@ -433,22 +456,38 @@ fn read_file(path: &Path, file: u32) -> Vec<Landmark> {
         let v = coords[needed.binary_search(&node).ok()?].load(Relaxed);
         (v != u64::MAX).then(|| unpack(v))
     };
-    scan.finish(at, file)
+    let buildings = addressed
+        .into_iter()
+        .map(|(key, refs)| {
+            let ring = (!refs.is_empty())
+                .then(|| refs.into_iter().map(at).collect())
+                .flatten();
+            (key, ring)
+        })
+        .collect();
+    (scan.finish(at, file), buildings)
 }
 
 /// The landmarks of every extract in `dirs`, the first `first` in the reading order.
-pub fn read(dirs: &[PathBuf], first: u32) -> Vec<Landmark> {
+pub(super) fn read(dirs: &[PathBuf], first: u32, footprints: bool) -> (Vec<Landmark>, Footprints) {
     let files: Vec<PathBuf> = dirs.iter().flat_map(|d| files(d, ".osm.pbf")).collect();
     let size = |p: &Path| std::fs::metadata(p).map_or(0, |m| m.len());
     let done = Progress::new("landmarks".into(), files.iter().map(|f| size(f)).sum());
     files
         .par_iter()
         .enumerate()
-        .flat_map_iter(|(i, path)| {
+        .map(|(i, path)| {
             let _counted = Counted(&done, size(path));
-            read_file(path, first + i as u32)
+            read_file(path, first + i as u32, footprints)
         })
-        .collect()
+        .reduce(
+            || (vec![], vec![]),
+            |(mut landmarks, mut rings), (mut more, mut other)| {
+                landmarks.append(&mut more);
+                rings.append(&mut other);
+                (landmarks, rings)
+            },
+        )
 }
 
 /// One landmark per Wikidata item: the copy with the most names, then a node before a way before
