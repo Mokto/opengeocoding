@@ -140,12 +140,14 @@ impl Index {
             .collect()
     }
 
-    pub(crate) fn unique_canadian_house_in_postcode(
+    pub(crate) fn unique_house_in_postcode(
         &self,
         number: &str,
         road: &str,
         postcode: &str,
+        country: &str,
         point: (f32, f32),
+        named: impl Fn(&str) -> bool,
     ) -> bool {
         use tantivy::schema::Value as _;
         let pc = pc_norm(postcode);
@@ -154,7 +156,7 @@ impl Index {
             return false;
         }
         clauses.push(must(term(self.f.pcode, &pc)));
-        let streets = self.top_of(Kind::Street, Some("ca"), clauses, 200);
+        let streets = self.top_of(Kind::Street, Some(country), clauses, 200);
         if streets.len() == 200 {
             return false;
         }
@@ -166,10 +168,7 @@ impl Index {
             if !doc
                 .get_all(self.f.name)
                 .filter_map(|v| v.as_str())
-                .any(|name| {
-                    country::ca_us::same_road_in_postcode(road, name)
-                        || country::ca_us::adds_direction(road, name)
-                })
+                .any(&named)
             {
                 continue;
             }
