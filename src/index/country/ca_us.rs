@@ -160,9 +160,27 @@ fn road_aliases(road: &str, country: &str, region: &str) -> Vec<String> {
     vec![]
 }
 
+pub(crate) fn building_after_box(query: &str) -> Option<Building<'_>> {
+    let query = query.trim_start();
+    if !query.starts_with(['P', 'p']) {
+        return None;
+    }
+    let (prefix, civic) = query.split_once(',')?;
+    static BOX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i-u)^p\.?[ ]*o\.? +box +[0-9]{1,10}$").unwrap());
+    if !BOX.is_match(prefix.trim_end()) {
+        return None;
+    }
+    parse_building(civic.trim_start(), true)
+}
+
 /// A street and town followed by a North American region code and postal code. Keep both
 /// constraints: a bare state code can look like a country, and a detached ZIP+4 like a house.
 pub(crate) fn building(query: &str) -> Option<Building<'_>> {
+    parse_building(query, false)
+}
+
+fn parse_building(query: &str, after_box: bool) -> Option<Building<'_>> {
     if !query.trim_start().starts_with(|c: char| c.is_ascii_digit()) {
         return None;
     }
@@ -223,7 +241,13 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
         region.to_ascii_uppercase()
     );
     let queens = queens_number(number, &region).is_some();
-    if joined && rest.len() == 1 && building.is_none() && !last.contains('-') && !queens {
+    if joined
+        && rest.len() == 1
+        && building.is_none()
+        && !last.contains('-')
+        && !queens
+        && !after_box
+    {
         return None;
     }
     let state = &region[3..];
@@ -252,7 +276,7 @@ pub(crate) fn building(query: &str) -> Option<Building<'_>> {
         return None;
     }
     let rewritten = format!("{street}, {town}, {state} {postcode}, {label}");
-    (rewritten != query || queens).then(|| Building {
+    (rewritten != query || queens || after_box).then(|| Building {
         query: rewritten,
         number,
         road: road.trim().to_owned(),
