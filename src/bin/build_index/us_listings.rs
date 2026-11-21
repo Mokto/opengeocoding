@@ -12,6 +12,39 @@ struct Point<'a> {
     extension: &'a str,
 }
 
+fn zip5_building(points: &[Point<'_>]) -> Option<u64> {
+    if points
+        .iter()
+        .fold(0u8, |seen, p| seen | (1 << p.provider))
+        .count_ones()
+        < 3
+    {
+        return None;
+    }
+    points
+        .iter()
+        .filter_map(|p| {
+            let cos = p.y.to_radians().cos();
+            let mut spread = 0.0f64;
+            let mut nearby_provider = false;
+            for q in points {
+                let metres = 111_195.0 * ((p.x - q.x) * cos).hypot(p.y - q.y);
+                if metres > 45.0 {
+                    return None;
+                }
+                spread = spread.max(metres);
+                nearby_provider |= p.provider != q.provider && metres <= 20.0;
+            }
+            nearby_provider.then_some((spread, p))
+        })
+        .min_by(|a, b| a.0.total_cmp(&b.0))
+        .map(|(_, p)| packed_point(p))
+}
+
+fn packed_point(p: &Point<'_>) -> u64 {
+    (u64::from((p.x as f32).to_bits()) << 32) | u64::from((p.y as f32).to_bits())
+}
+
 fn confirmed<'a>(points: &[Point<'a>]) -> std::collections::BTreeMap<&'a str, u64> {
     let mut out = std::collections::BTreeMap::new();
     for p in points.iter().filter(|p| !p.extension.is_empty()) {
@@ -31,9 +64,7 @@ fn confirmed<'a>(points: &[Point<'a>]) -> std::collections::BTreeMap<&'a str, u6
                     }
             })
         {
-            out.entry(p.extension).or_insert_with(|| {
-                (u64::from((p.x as f32).to_bits()) << 32) | u64::from((p.y as f32).to_bits())
-            });
+            out.entry(p.extension).or_insert_with(|| packed_point(p));
         }
     }
     out
@@ -215,7 +246,11 @@ pub(super) fn write(
                 .then(a.extension.cmp(b.extension))
         });
         let choices = confirmed(&points);
-        n += usize::from(!choices.is_empty());
+        let zip5 = zip5_building(&points);
+        if let Some(point) = zip5 {
+            fst.insert(&key, point)?;
+        }
+        n += usize::from(zip5.is_some() || !choices.is_empty());
         for (extension, point) in choices {
             fst.insert(format!("{key}\t{extension}"), point)?;
         }
@@ -227,6 +262,29 @@ pub(super) fn write(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn zip5_needs_three_providers_and_keeps_an_observed_point() {
+        let a = Point {
+            x: -90.0,
+            y: 40.0,
+            provider: 0,
+            extension: "",
+        };
+        let b = Point {
+            x: -90.0001,
+            provider: 1,
+            ..a
+        };
+        let c = Point {
+            x: -90.0002,
+            provider: 2,
+            ..a
+        };
+        assert!(zip5_building(&[a, b, b]).is_none());
+        assert_eq!(zip5_building(&[a, b, c]), Some(packed_point(&b)));
+        assert!(zip5_building(&[a, b, c, Point { x: -90.001, ..a }]).is_none());
+    }
 
     #[test]
     fn rejects_single_provider_and_conflicting_points() {

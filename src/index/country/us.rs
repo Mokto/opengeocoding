@@ -20,6 +20,16 @@ pub fn listed_civic(text: &str) -> Option<(&str, &str)> {
         .then_some((number, road))
 }
 
+pub(in crate::index) fn listed_state_route(road: &str, region: &str) -> Option<String> {
+    let (prefix, number) = road.trim().split_once(' ')?;
+    let number = number.trim();
+    (region == "US-NJ"
+        && prefix.eq_ignore_ascii_case("rt")
+        && (1..=3).contains(&number.len())
+        && number.as_bytes().iter().all(u8::is_ascii_digit))
+    .then(|| format!("State Route {number}"))
+}
+
 pub fn listed_house_key<'a>(
     number: &str,
     road: &str,
