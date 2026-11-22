@@ -101,6 +101,7 @@ impl Index {
 
     pub(crate) fn us_listed_house(&self, query: &str) -> Option<Value> {
         use super::country::{ca_us, us};
+        use tantivy_fst::{IntoStreamer, Streamer};
         let houses = self.us_listed_houses.as_ref()?;
         let b = ca_us::complete_building(query)?;
         if b.country != "us" || (b.zip4.is_none() && !b.removed_unit) {
@@ -117,7 +118,7 @@ impl Index {
         };
         let number = b.number.parse().ok()?;
         let range = |road: &str| self.us_range_point(&b.postcode, road, number);
-        let render = |written_road: &str, hit: u64, footprint: bool| {
+        let render = |written_road: &str, hit: u64, footprint: bool, municipality: Option<&str>| {
             let (lon, lat) = (
                 f32::from_bits((hit >> 32) as u32),
                 f32::from_bits(hit as u32),
@@ -164,14 +165,21 @@ impl Index {
                 |zip4| format!("{}-{zip4}", b.postcode),
             );
             let (state, country) = (d["state"].as_str()?, d["country"].as_str()?);
+            let town = match municipality {
+                Some(name) => self
+                    .us_municipalities
+                    .as_ref()?
+                    .listing_city(x, y, &b.region, name, b.town)?,
+                None => b.town,
+            };
             Some(json!({
                 "lat": lat,
                 "lon": lon,
-                "display_name": format!("{} {road}, {}, {state} {postcode}, {country}", b.number, b.town),
+                "display_name": format!("{} {road}, {town}, {state} {postcode}, {country}", b.number),
                 "address": {
                     "house_number": b.number,
                     "road": road,
-                    "city": b.town,
+                    "city": town,
                     "postcode": postcode,
                     "state": state,
                     "county": d["county"].as_str().unwrap_or_default(),
@@ -183,7 +191,7 @@ impl Index {
         };
         let listed = || {
             if let Some(hit) = lookup(&b.road) {
-                return render(&b.road, hit, false);
+                return render(&b.road, hit, false, None);
             }
             if b.zip4.is_some() {
                 return None;
@@ -204,7 +212,7 @@ impl Index {
             {
                 return None;
             }
-            render(&route, hit, false)
+            render(&route, hit, false, None)
         };
         listed().or_else(|| {
             if b.zip4.is_some() {
@@ -212,8 +220,28 @@ impl Index {
             }
             let (mut key, _) =
                 us::listed_house_key(b.number, &b.road, b.town, &b.region, &b.postcode)?;
+            let (prefix, _) = us::municipal_listing_key(&key)?;
             key.push_str(us::LISTED_FOOTPRINT_SUFFIX);
-            render(&b.road, houses.get(&key)?, true)
+            if let Some(hit) = houses
+                .get(&key)
+                .and_then(|hit| render(&b.road, hit, true, None))
+            {
+                return Some(hit);
+            }
+            self.us_municipalities.as_ref()?;
+            let mut choices = houses.range().ge(&prefix).into_stream();
+            let (key, hit) = choices.next()?;
+            let city = std::str::from_utf8(key)
+                .ok()?
+                .strip_prefix(&prefix)?
+                .to_owned();
+            if choices
+                .next()
+                .is_some_and(|(key, _)| key.starts_with(prefix.as_bytes()))
+            {
+                return None;
+            }
+            render(&b.road, hit, true, Some(&city))
         })
     }
 

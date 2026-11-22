@@ -68,6 +68,18 @@ pub fn listed_house_key<'a>(
     ))
 }
 
+pub fn municipal_listing_key(key: &str) -> Option<(String, &str)> {
+    let mut fields = key.split('\t');
+    let (state, zip, city, road, number) = (
+        fields.next()?,
+        fields.next()?,
+        fields.next()?,
+        fields.next()?,
+        fields.next()?,
+    );
+    (fields.next().is_none()).then(|| (format!("~{state}\t{zip}\t{road}\t{number}\t"), city))
+}
+
 pub(in crate::index) struct Boundaries {
     areas: area::Areas,
     labels: Vec<(String, String, String)>,
@@ -152,10 +164,73 @@ impl Boundaries {
         .then_some(label)
     }
 
+    pub(in crate::index) fn listing_city(
+        &self,
+        x: f64,
+        y: f64,
+        region: &str,
+        stored: &str,
+        written: &str,
+    ) -> Option<&str> {
+        let (id, _, name) = self.containing(x, y, region)?;
+        let (name, _) = incorporated(name)?;
+        let name_key = crate::matching::normalize_place(name);
+        if !id.starts_with("place/") || name_key != stored {
+            return None;
+        }
+        let written = crate::matching::normalize_place(written);
+        if written == name_key {
+            return Some(name);
+        }
+        if self.places.contains(&(region.to_owned(), fold(&written))) {
+            return None;
+        }
+        let mut typed = written.split_whitespace();
+        let mut indexed = name_key.split_whitespace();
+        let mut changed = false;
+        loop {
+            match (typed.next(), indexed.next()) {
+                (None, None) => return changed.then_some(name),
+                (Some(a), Some(b)) if a == b => (),
+                (Some(a), Some(b))
+                    if !changed
+                        && a.len() >= 6
+                        && b.len() == a.len() + 1
+                        && a.bytes().all(|c| c.is_ascii_lowercase())
+                        && b.bytes().all(|c| c.is_ascii_lowercase())
+                        && missing_double_letter(a, b) =>
+                {
+                    changed = true
+                }
+                _ => return None,
+            }
+        }
+    }
+
     fn containing_name(&self, x: f64, y: f64, region: &str) -> Option<&str> {
         self.containing(x, y, region)
             .map(|(_, _, name)| name.as_str())
     }
+}
+
+fn missing_double_letter(typed: &str, full: &str) -> bool {
+    let n = typed
+        .bytes()
+        .zip(full.bytes())
+        .take_while(|(a, b)| a == b)
+        .count();
+    n > 0
+        && full.as_bytes().get(n) == full.as_bytes().get(n - 1)
+        && typed.as_bytes()[n..] == full.as_bytes()[n + 1..]
+}
+
+#[test]
+fn municipal_listing_spelling_only_allows_a_missing_doubled_letter() {
+    assert!(missing_double_letter("cedarglen", "cedarglenn"));
+    assert!(missing_double_letter("cedarglen", "cedarrglen"));
+    assert!(!missing_double_letter("cedarglen", "cedarglen"));
+    assert!(!missing_double_letter("cedarglen", "cedarbglen"));
+    assert!(!missing_double_letter("cedarglen", "cedarrgland"));
 }
 
 pub(in crate::index) fn reverse_municipality(
