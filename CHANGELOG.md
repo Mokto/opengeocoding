@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.15.4](https://github.com/Mokto/opengeocoding/compare/v1.15.3...v1.15.4) (2026-11-22)
+
+
+### Bug Fixes
+
+* find US buildings on numbered and ordinal streets from Overture Places listings ([#624](https://github.com/Mokto/opengeocoding/issues/624)) ([9878931](https://github.com/Mokto/opengeocoding/commit/98789319e2a212e35e97061c7425e28f77f74c29))
+* find US buildings with a unit and ZIP5 by their corroborated municipality ([#622](https://github.com/Mokto/opengeocoding/issues/622)) ([7ca2e76](https://github.com/Mokto/opengeocoding/commit/7ca2e76c3cf8397ba4c6968ae989b645d521abba))
+* patch url to 2.5.9 for RUSTSEC-2026-0592 ([#625](https://github.com/Mokto/opengeocoding/issues/625)) ([9a3bda8](https://github.com/Mokto/opengeocoding/commit/9a3bda88719ba429969a43715c8344cd03f14269))
+
 ## [1.15.3](https://github.com/Mokto/opengeocoding/compare/v1.15.2...v1.15.3) (2026-11-22)
 
 
