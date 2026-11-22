@@ -38,7 +38,7 @@ index:
   # test` fails when the code and this disagree. Changing it, or anything under sources or
   # modelsVersion, names a new index: the leader builds it while the running pods keep
   # serving the old one.
-  builderHash: "a98a4fcc8c9459ee"
+  builderHash: "3ca8f84d694ec509"
   modelsVersion: v1
   sources:
     overtureRelease: "2026-11-18.0"
@@ -261,9 +261,8 @@ index:
       - yemen
       - zambia
       - zimbabwe
-    # Read for SuggestAddress landmarks only (airports, stations and the like that OSM links to
-    # Wikidata), not for addresses: the countries the extracts above leave out, whose addresses
-    # come from Overture. About 42 GB in October 2026. Empty: landmarks only where `osm` reads.
+    # Read for SuggestAddress landmarks; the US extract also corroborates the separate listings
+    # fallback, without writing to the primary address index. About 42 GB in October 2026.
     osmLandmarks:
       - australia
       - austria

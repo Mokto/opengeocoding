@@ -382,12 +382,23 @@ impl Scan {
     }
 }
 
+fn us_extract(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some("us.osm.pbf" | "us-latest.osm.pbf")
+    )
+}
+
+#[test]
+fn us_building_scan_accepts_the_mirrored_and_upstream_extract_names() {
+    assert!(us_extract(Path::new("osm-landmarks/us.osm.pbf")));
+    assert!(us_extract(Path::new("osm-landmarks/us-latest.osm.pbf")));
+    assert!(!us_extract(Path::new("osm-landmarks/canada.osm.pbf")));
+}
+
 /// The landmarks of an extract read for them alone (`--osm-landmarks`).
 fn read_file(path: &Path, file: u32, footprints: bool) -> (Vec<Landmark>, Footprints, CivicNodes) {
-    let footprints = footprints
-        && path
-            .file_name()
-            .is_some_and(|name| name == "us-latest.osm.pbf");
+    let footprints = footprints && us_extract(path);
     let (offsets, first_way, first_relation) = layout(path);
     let mut scan = Scan::default();
     let all = first_relation..offsets.len();
