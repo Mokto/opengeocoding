@@ -1,7 +1,7 @@
 use super::{Assigner, Place, col, read, tasks, text, wkb_point};
 use arrow_array::{Array, cast::AsArray};
 use opengeocoding::index::country::us::{
-    LISTED_FOOTPRINT_SUFFIX, LISTED_HOUSES, listed_civic, listed_house_key,
+    LISTED_FOOTPRINT_SUFFIX, LISTED_HOUSES, listed_civic, listed_house_key, municipal_listing_key,
 };
 use osmpbf::{PrimitiveBlock, Way};
 use rayon::prelude::*;
@@ -75,6 +75,173 @@ pub(super) fn addressed_ways(
 
 type Ring = Vec<(f64, f64)>;
 pub(super) type Footprints = Vec<(String, Option<Ring>)>;
+
+pub(super) struct CivicNode {
+    number: String,
+    road: String,
+    city: String,
+    zip: String,
+    state: Option<String>,
+    x: f64,
+    y: f64,
+}
+
+pub(super) type CivicNodes = Vec<CivicNode>;
+
+pub(super) fn civic_node<'a>(
+    tags: impl Iterator<Item = (&'a str, &'a str)>,
+    x: f64,
+    y: f64,
+) -> Option<CivicNode> {
+    let (mut number, mut road, mut city, mut zip, mut state) = (None, None, None, None, None);
+    for (k, v) in tags {
+        let v = v.trim();
+        match k {
+            "addr:housenumber" => number = Some(v),
+            "addr:street" => road = Some(v),
+            "addr:city" => city = Some(v),
+            "addr:postcode" => zip = Some(v),
+            "addr:state" => state = Some(v),
+            "addr:interpolation" => return None,
+            "addr:country" if !v.eq_ignore_ascii_case("US") => return None,
+            _ => (),
+        }
+    }
+    let (number, road, city, zip) = (number?, road?, city?, zip?);
+    if zip.len() != 5
+        || !zip.bytes().all(|b| b.is_ascii_digit())
+        || number.is_empty()
+        || !number.bytes().all(|b| b.is_ascii_digit())
+    {
+        return None;
+    }
+    Some(CivicNode {
+        number: number.into(),
+        road: road.into(),
+        city: city.into(),
+        zip: zip.into(),
+        state: state.map(str::to_ascii_uppercase),
+        x,
+        y,
+    })
+}
+
+fn municipal_listings(
+    all: &Listings,
+    nodes: CivicNodes,
+    assigner: &Assigner,
+    places: &[Place],
+) -> std::collections::BTreeMap<String, u64> {
+    let mut candidates = HashMap::new();
+    for n in nodes {
+        if !assigner.within(n.x, n.y) {
+            continue;
+        }
+        let Some(region) = assigner
+            .region(n.x, n.y, *b"US")
+            .map(|p| places[p as usize].region.as_ref())
+        else {
+            continue;
+        };
+        if n.state
+            .as_deref()
+            .is_some_and(|state| region.strip_prefix("US-") != Some(state))
+        {
+            continue;
+        }
+        let Some((key, _)) = listed_house_key(&n.number, &n.road, &n.city, region, &n.zip) else {
+            continue;
+        };
+        let Some((prefix, city)) = municipal_listing_key(&key) else {
+            continue;
+        };
+        candidates
+            .entry(prefix)
+            .and_modify(|a| *a = None)
+            .or_insert(Some((n.x, n.y, city.to_owned())));
+    }
+    let mut groups: HashMap<_, Vec<_>> = HashMap::new();
+    for (key, rows) in all {
+        let Some((prefix, city)) = municipal_listing_key(key) else {
+            continue;
+        };
+        if let Some(Some(anchor)) = candidates.get(&prefix) {
+            groups
+                .entry(prefix)
+                .or_default()
+                .push((city, rows.as_slice(), anchor));
+        }
+    }
+    let mut extra = std::collections::BTreeMap::new();
+    for (key, groups) in groups {
+        let (_, _, (x, y, _)) = groups[0];
+        let postal = &groups[0].2.2;
+        if let Some(city) = municipality_from_listings(
+            *x,
+            *y,
+            postal,
+            groups.iter().map(|(city, rows, _)| (*city, *rows)),
+        ) {
+            extra.insert(
+                format!("{key}{city}"),
+                packed_point(&Point {
+                    x: *x,
+                    y: *y,
+                    provider: 0,
+                    extension: "",
+                }),
+            );
+        }
+    }
+    extra
+}
+
+type Listing = (f64, f64, u8, String);
+
+fn municipality_from_listings<'a>(
+    x: f64,
+    y: f64,
+    postal: &str,
+    groups: impl Iterator<Item = (&'a str, &'a [Listing])>,
+) -> Option<&'a str> {
+    let cos = y.to_radians().cos();
+    let distance =
+        |x1: f64, y1: f64, x2: f64, y2: f64| 111_195.0 * ((x1 - x2) * cos).hypot(y1 - y2);
+    let mut nearby = Vec::new();
+    let mut distant = HashMap::<&str, u8>::new();
+    for (city, rows) in groups {
+        if rows.len() > MAX_ROWS {
+            return None;
+        }
+        for &(px, py, provider, _) in rows {
+            let d = distance(x, y, px, py);
+            if d > 100. {
+                let mask = distant.entry(city).or_default();
+                *mask |= 1 << provider;
+                if city == postal || mask.count_ones() > 1 {
+                    return None;
+                }
+            } else if d <= 20. {
+                nearby.push((city, px, py, provider));
+            }
+        }
+    }
+    let mut best = None;
+    for &(city, x, y, provider) in &nearby {
+        if city == postal
+            || !nearby.iter().any(|&(other, px, py, p)| {
+                other == postal && provider != p && distance(x, y, px, py) <= 20.
+            })
+        {
+            continue;
+        }
+        if distant.contains_key(city) || best.is_some_and(|prev| prev != city) {
+            return None;
+        }
+        best = Some(city);
+    }
+    best
+}
 
 fn valid_ring(ring: &[(f64, f64)]) -> bool {
     if !(4..=64).contains(&ring.len()) || ring.first() != ring.last() {
@@ -231,7 +398,7 @@ const PROVIDERS: &[(&str, &str)] = &[
 
 const MAX_ROWS: usize = 64;
 
-type Listings = HashMap<String, Vec<(f64, f64, u8, String)>>;
+type Listings = HashMap<String, Vec<Listing>>;
 
 pub(super) fn write(
     dir: &Path,
@@ -239,9 +406,10 @@ pub(super) fn write(
     assigner: &Assigner,
     places: &[Place],
     footprints: Footprints,
-) -> anyhow::Result<(usize, usize)> {
+    nodes: CivicNodes,
+) -> anyhow::Result<(usize, usize, usize)> {
     if !places.iter().any(|p| p.country == *b"US") {
-        return Ok((0, 0));
+        return Ok((0, 0, 0));
     }
     let tasks = tasks(dir);
     let done = super::progress::Progress::items(
@@ -372,9 +540,9 @@ pub(super) fn write(
         }
         done.add(1);
     });
+    let all = all.into_inner().unwrap();
+    let municipal = municipal_listings(&all, nodes, assigner, places);
     let mut keys: Vec<_> = all
-        .into_inner()
-        .unwrap()
         .into_iter()
         .filter(|(_, rows)| (2..=MAX_ROWS).contains(&rows.len()))
         .collect();
@@ -422,8 +590,10 @@ pub(super) fn write(
             buildings += 1;
         }
     }
+    let municipal_count = municipal.len();
+    fst.extend_iter(municipal)?;
     fst.finish()?;
-    Ok((n, buildings))
+    Ok((n, buildings, municipal_count))
 }
 
 #[cfg(test)]
@@ -451,6 +621,35 @@ mod tests {
         assert!(zip5_building(&[a, b, b]).is_none());
         assert_eq!(zip5_building(&[a, b, c]), Some(packed_point(&b)));
         assert!(zip5_building(&[a, b, c, Point { x: -90.001, ..a }]).is_none());
+    }
+
+    #[test]
+    fn municipal_listings_require_independent_localities_and_reject_conflicts() {
+        let postal = [(0., 40., 0, String::new())];
+        let city = [(0.0001, 40., 1, String::new())];
+        let distant = [(0.01, 40., 2, String::new())];
+        let same_provider = [(0.0001, 40., 0, String::new())];
+        let distant_conflict = [(0.01, 40., 1, String::new()), distant[0].clone()];
+        let check = |other: &[Listing], alternate: &[Listing]| {
+            municipality_from_listings(
+                0.,
+                40.,
+                "oakville",
+                [
+                    ("oakville", &postal[..]),
+                    ("cedar hills", other),
+                    ("willow hill", alternate),
+                ]
+                .into_iter(),
+            )
+            .map(str::to_owned)
+        };
+        assert_eq!(check(&city, &[]).as_deref(), Some("cedar hills"));
+        assert_eq!(check(&city, &distant).as_deref(), Some("cedar hills"));
+        assert_eq!(check(&distant, &[]), None);
+        assert_eq!(check(&same_provider, &[]), None);
+        assert_eq!(check(&city, &city), None);
+        assert_eq!(check(&city, &distant_conflict), None);
     }
 
     #[test]

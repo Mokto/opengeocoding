@@ -7,7 +7,7 @@ use super::{
     geo::Assigner,
     progress::Progress,
     sources::{Collect, Counted, files, for_blobs, layout, pack, unpack},
-    us_listings::{Footprints, addressed_ways},
+    us_listings::{CivicNodes, Footprints, addressed_ways, civic_node},
 };
 use osmpbf::{PrimitiveBlock, RelMemberType};
 use rayon::prelude::*;
@@ -382,8 +382,23 @@ impl Scan {
     }
 }
 
+fn us_extract(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some("us.osm.pbf" | "us-latest.osm.pbf")
+    )
+}
+
+#[test]
+fn us_building_scan_accepts_the_mirrored_and_upstream_extract_names() {
+    assert!(us_extract(Path::new("osm-landmarks/us.osm.pbf")));
+    assert!(us_extract(Path::new("osm-landmarks/us-latest.osm.pbf")));
+    assert!(!us_extract(Path::new("osm-landmarks/canada.osm.pbf")));
+}
+
 /// The landmarks of an extract read for them alone (`--osm-landmarks`).
-fn read_file(path: &Path, file: u32, footprints: bool) -> (Vec<Landmark>, Footprints) {
+fn read_file(path: &Path, file: u32, footprints: bool) -> (Vec<Landmark>, Footprints, CivicNodes) {
+    let footprints = footprints && us_extract(path);
     let (offsets, first_way, first_relation) = layout(path);
     let mut scan = Scan::default();
     let all = first_relation..offsets.len();
@@ -391,23 +406,40 @@ fn read_file(path: &Path, file: u32, footprints: bool) -> (Vec<Landmark>, Footpr
     scan.relations_read();
     let ways = first_way..first_relation;
     let addressed = Mutex::new(Vec::new());
+    let interpolation = Mutex::new(Vec::new());
     for_blobs(
         path,
         &offsets,
         ways,
-        || Collect(Vec::new(), &addressed),
-        |out, b| {
+        || {
+            (
+                Collect(Vec::new(), &addressed),
+                Collect(Vec::new(), &interpolation),
+            )
+        },
+        |(out, ends), b| {
             scan.ways(&b);
-            if footprints
-                && path
-                    .file_name()
-                    .is_some_and(|name| name == "us-latest.osm.pbf")
-            {
+            if footprints {
                 out.0.extend(addressed_ways(&b));
+                if let Some(tag) = b
+                    .raw_stringtable()
+                    .iter()
+                    .position(|s| s == b"addr:interpolation")
+                {
+                    ends.0.extend(
+                        b.groups()
+                            .flat_map(|g| g.ways())
+                            .filter(|w| w.raw_tags().any(|(k, _)| k as usize == tag))
+                            .flat_map(|w| w.refs().collect::<Vec<_>>()),
+                    );
+                }
             }
         },
     );
     let addressed = addressed.into_inner().unwrap();
+    let mut interpolation = interpolation.into_inner().unwrap();
+    interpolation.sort_unstable();
+    let civic = Mutex::new(Vec::new());
     let mut needed = scan.ways_read();
     if !addressed.is_empty() {
         needed.extend(addressed.iter().flat_map(|(_, refs)| refs));
@@ -421,10 +453,19 @@ fn read_file(path: &Path, file: u32, footprints: bool) -> (Vec<Landmark>, Footpr
         path,
         &offsets,
         1..first_way,
-        || (),
-        |_, block| {
+        || Collect(Vec::new(), &civic),
+        |out, block| {
             let table = block.raw_stringtable();
             let mut keys = Keys::new(table);
+            let address = footprints
+                && [
+                    b"addr:street".as_slice(),
+                    b"addr:housenumber",
+                    b"addr:city",
+                    b"addr:postcode",
+                ]
+                .iter()
+                .all(|k| table.iter().any(|s| s == k));
             for g in block.groups() {
                 // Ids ascend (checked in `layout`), so `needed` is walked once per group, not
                 // searched for each of a file's hundreds of millions of nodes.
@@ -440,6 +481,9 @@ fn read_file(path: &Path, file: u32, footprints: bool) -> (Vec<Landmark>, Footpr
                     if needed.get(p) == Some(&id) {
                         coords[p].store(pack(n.lon(), n.lat()), Relaxed);
                     }
+                    if address && interpolation.binary_search(&id).is_err() {
+                        out.0.extend(civic_node(n.tags(), n.lon(), n.lat()));
+                    }
                     scan.node(&mut keys, table, (id, n.lon(), n.lat()), || n.raw_tags());
                 }
                 for n in g.nodes() {
@@ -447,6 +491,9 @@ fn read_file(path: &Path, file: u32, footprints: bool) -> (Vec<Landmark>, Footpr
                         coords[k].store(pack(n.lon(), n.lat()), Relaxed);
                     }
                     let at = (n.id(), n.lon(), n.lat());
+                    if address && interpolation.binary_search(&at.0).is_err() {
+                        out.0.extend(civic_node(n.tags(), at.1, at.2));
+                    }
                     scan.node(&mut keys, table, at, || n.raw_tags());
                 }
             }
@@ -465,11 +512,19 @@ fn read_file(path: &Path, file: u32, footprints: bool) -> (Vec<Landmark>, Footpr
             (key, ring)
         })
         .collect();
-    (scan.finish(at, file), buildings)
+    (
+        scan.finish(at, file),
+        buildings,
+        civic.into_inner().unwrap(),
+    )
 }
 
 /// The landmarks of every extract in `dirs`, the first `first` in the reading order.
-pub(super) fn read(dirs: &[PathBuf], first: u32, footprints: bool) -> (Vec<Landmark>, Footprints) {
+pub(super) fn read(
+    dirs: &[PathBuf],
+    first: u32,
+    footprints: bool,
+) -> (Vec<Landmark>, Footprints, CivicNodes) {
     let files: Vec<PathBuf> = dirs.iter().flat_map(|d| files(d, ".osm.pbf")).collect();
     let size = |p: &Path| std::fs::metadata(p).map_or(0, |m| m.len());
     let done = Progress::new("landmarks".into(), files.iter().map(|f| size(f)).sum());
@@ -481,11 +536,12 @@ pub(super) fn read(dirs: &[PathBuf], first: u32, footprints: bool) -> (Vec<Landm
             read_file(path, first + i as u32, footprints)
         })
         .reduce(
-            || (vec![], vec![]),
-            |(mut landmarks, mut rings), (mut more, mut other)| {
+            || (vec![], vec![], vec![]),
+            |(mut landmarks, mut rings, mut nodes), (mut more, mut other, mut added)| {
                 landmarks.append(&mut more);
                 rings.append(&mut other);
-                (landmarks, rings)
+                nodes.append(&mut added);
+                (landmarks, rings, nodes)
             },
         )
 }

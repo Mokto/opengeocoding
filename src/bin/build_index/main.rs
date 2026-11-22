@@ -2559,8 +2559,8 @@ fn build(args: &[String]) {
     let lots = korea_lots::add(&shared, &places, &segs, Path::new(out), lot_metadata)
         .expect("Korean licensing lots");
     lap(&format!("Korean licensing lots ({lots} corroborated rows)"));
-    let footprints = if let Some(reading) = landmarks {
-        let (mut found, footprints) = reading.join().unwrap();
+    let (footprints, civic_nodes) = if let Some(reading) = landmarks {
+        let (mut found, footprints, civic_nodes) = reading.join().unwrap();
         found.append(&mut osm_landmarks);
         let found = landmarks::best(found);
         let (counts, placeless) = landmarks::write(Path::new(out), &found, &assigner);
@@ -2574,21 +2574,22 @@ fn build(args: &[String]) {
             "landmarks ({}; {placeless} in no place)",
             counts.join(", ")
         ));
-        footprints
+        (footprints, civic_nodes)
     } else {
-        vec![]
+        (vec![], vec![])
     };
     if has_places {
-        let (listed, buildings) = us_listings::write(
+        let (listed, buildings, municipal) = us_listings::write(
             &dir.join("place"),
             Path::new(out),
             &assigner,
             &places,
             footprints,
+            civic_nodes,
         )
         .expect("US corroborated place addresses");
         lap(&format!(
-            "US corroborated place addresses ({listed} listing-only, {buildings} with OSM footprints)"
+            "US corroborated place addresses ({listed} listing-only, {buildings} with OSM footprints, {municipal} municipal candidates)"
         ));
     }
     let asiaq = opt("--asiaq-buildings");
