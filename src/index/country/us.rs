@@ -17,8 +17,43 @@ pub fn listed_civic(text: &str) -> Option<(&str, &str)> {
         .unwrap_or(text);
     let (number, road) = civic.split_once(char::is_whitespace)?;
     let road = road.trim();
-    (!road.contains(',') && road.chars().next().is_some_and(char::is_alphabetic))
-        .then_some((number, road))
+    (!road.contains(',')
+        && (road.chars().next().is_some_and(char::is_alphabetic) || numbered_listing_road(road)))
+    .then_some((number, road))
+}
+
+fn numbered_listing_road(road: &str) -> bool {
+    let Some((first, rest)) = road.split_once(char::is_whitespace) else {
+        return false;
+    };
+    let digits = first.trim_end_matches(|c: char| c.is_ascii_alphabetic());
+    !digits.is_empty()
+        && digits.bytes().all(|b| b.is_ascii_digit())
+        && matches!(
+            first[digits.len()..].to_ascii_lowercase().as_str(),
+            "" | "st" | "nd" | "rd" | "th"
+        )
+        && rest.chars().any(char::is_alphabetic)
+}
+
+#[test]
+fn numbered_listing_roads_keep_the_civic_number_separate() {
+    for (input, expected) in [
+        ("123 14th Avenue Suite 3", "14th Avenue"),
+        ("123 600 East #15", "600 East"),
+        ("123 7 Mile Road", "7 Mile Road"),
+    ] {
+        assert_eq!(listed_civic(input), Some(("123", expected)));
+    }
+    for input in [
+        "123 456",
+        "123 456 789",
+        "123 1/2 Main Street",
+        "123 7B Main Street",
+        "123 14th Avenue, Bayport",
+    ] {
+        assert_eq!(listed_civic(input), None);
+    }
 }
 
 pub(in crate::index) fn listed_state_route(road: &str, region: &str) -> Option<String> {
