@@ -19980,7 +19980,7 @@ the following restrictions:
 
 ========================================================================
 
-form_urlencoded 1.2.2
+form_urlencoded 1.2.3
 License: MIT OR Apache-2.0
 Repository: https://github.com/servo/rust-url
                               Apache License
@@ -63705,7 +63705,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ========================================================================
 
-url 2.5.8
+url 2.5.9
 License: MIT OR Apache-2.0
 Repository: https://github.com/servo/rust-url
                               Apache License
