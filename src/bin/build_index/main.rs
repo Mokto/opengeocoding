@@ -2336,20 +2336,22 @@ fn build(args: &[String]) {
         t = Instant::now();
     };
 
-    // `--osm-landmarks` extracts are read for landmarks only: their addresses would change answers
-    // in countries whose addresses come from Overture. On a network volume the passes wait on the
+    // `--osm-landmarks` extracts never add addresses to the primary index. On a network volume the passes wait on the
     // disk with cores idle, so the extracts are read beside them until `write` needs them, in a
     // pool of their own: in the shared one, each extract holds a worker for its whole file and
     // the passes starve. Where the passes keep every core busy, the two pools share them. The
     // `--osm` extracts' landmarks are read in their address passes.
     let landmark_dirs: Vec<PathBuf> = opt("--osm-landmarks").iter().map(PathBuf::from).collect();
+    let has_places = dir.join("place").is_dir();
     let osm_files: usize = (osm_dirs.iter())
         .map(|d| sources::files(Path::new(d), ".osm.pbf").len())
         .sum();
     let landmarks = (!landmark_dirs.is_empty() || !osm_dirs.is_empty()).then(|| {
         let pool = rayon::ThreadPoolBuilder::new().build().unwrap();
         let first = osm_files as u32;
-        std::thread::spawn(move || pool.install(|| landmarks::read(&landmark_dirs, first)))
+        std::thread::spawn(move || {
+            pool.install(|| landmarks::read(&landmark_dirs, first, has_places))
+        })
     });
 
     progress::phase("Parse places and boundaries");
@@ -2476,13 +2478,6 @@ fn build(args: &[String]) {
             "US address ranges ({segments} segments, {counties} counties)"
         ));
     }
-    if dir.join("place").is_dir() {
-        let listed = us_listings::write(&dir.join("place"), Path::new(out), &assigner, &places)
-            .expect("US corroborated place addresses");
-        lap(&format!(
-            "US corroborated place addresses ({listed} buildings)"
-        ));
-    }
     let street_spill = StreetSpill::new(&Path::new(out).join(reverse::STREETS_SPILL));
     let segs = pass_segments(&dir.join("segment"), &assigner, &street_spill);
     street_spill.finish();
@@ -2564,8 +2559,8 @@ fn build(args: &[String]) {
     let lots = korea_lots::add(&shared, &places, &segs, Path::new(out), lot_metadata)
         .expect("Korean licensing lots");
     lap(&format!("Korean licensing lots ({lots} corroborated rows)"));
-    if let Some(reading) = landmarks {
-        let mut found = reading.join().unwrap();
+    let footprints = if let Some(reading) = landmarks {
+        let (mut found, footprints) = reading.join().unwrap();
         found.append(&mut osm_landmarks);
         let found = landmarks::best(found);
         let (counts, placeless) = landmarks::write(Path::new(out), &found, &assigner);
@@ -2578,6 +2573,22 @@ fn build(args: &[String]) {
         lap(&format!(
             "landmarks ({}; {placeless} in no place)",
             counts.join(", ")
+        ));
+        footprints
+    } else {
+        vec![]
+    };
+    if has_places {
+        let (listed, buildings) = us_listings::write(
+            &dir.join("place"),
+            Path::new(out),
+            &assigner,
+            &places,
+            footprints,
+        )
+        .expect("US corroborated place addresses");
+        lap(&format!(
+            "US corroborated place addresses ({listed} listing-only, {buildings} with OSM footprints)"
         ));
     }
     let asiaq = opt("--asiaq-buildings");
