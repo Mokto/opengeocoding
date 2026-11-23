@@ -19462,7 +19462,7 @@ Repository: https://github.com/google/flatbuffers
 
 ========================================================================
 
-flate2 1.1.10
+flate2 1.1.11
 License: MIT OR Apache-2.0
 Repository: https://github.com/rust-lang/flate2-rs
                               Apache License
@@ -31265,21 +31265,21 @@ Repository: https://github.com/Arnavion/k8s-openapi
 
 ========================================================================
 
-kube 5.0.0
+kube 5.1.0
 License: Apache-2.0
 Repository: https://github.com/kube-rs/kube
 
 
 ========================================================================
 
-kube-client 5.0.0
+kube-client 5.1.0
 License: Apache-2.0
 Repository: https://github.com/kube-rs/kube
 
 
 ========================================================================
 
-kube-core 5.0.0
+kube-core 5.1.0
 License: Apache-2.0
 Repository: https://github.com/kube-rs/kube
 
