@@ -19,7 +19,7 @@ jobs:
       && github.event.pull_request.user.id == 29139614
       && github.event.pull_request.head.repo.id == github.event.repository.id
       && startsWith(github.head_ref, 'renovate/')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       LIBPOSTAL_COMMIT: 25099c506612b34b23b1bfe286ca6321fcf06f35
       LIBPOSTAL_PREFIX: /home/runner/libpostal

@@ -18,7 +18,7 @@ jobs:
       && github.event.workflow_run.conclusion == 'success'
       && github.event.workflow_run.head_repository.id == github.event.repository.id
       && startsWith(github.event.workflow_run.head_branch, 'renovate/')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       BRANCH: ${{ github.event.workflow_run.head_branch }}
       HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
